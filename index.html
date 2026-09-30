@@ -4209,7 +4209,7 @@ function newReservation(el,pre,walkin){
     ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
     ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Remark',`<input id="nRem">`,'span2')}</div></div>
    <div class="pn"><div class="pnh orange">Billing address</div><div class="pnb g4">
-    ${fld('Bill to',`<select id="nBill">${opt('company','Company / agency',walkin?'guest':'company')}${opt('guest','Guest profile',walkin?'guest':'company')}${opt('other','Another address')}</select>`)}
+    ${fld('Bill to',`<select id="nBill">${opt('company','Company / agency')}${opt('guest','Guest profile')}${opt('other','Another address')}</select>`)}
     ${fld('Bill name',`<input id="nBn" placeholder="Another address">`)}${fld('Tax ID',`<input id="nBtx">`)}${fld('Branch',`<input id="nBbr">`)}
     ${fld('Address',`<input id="nBa" placeholder="Street, city">`,'span2')}</div>
     <p class="sub">A company or agency is the bill-to when its code is not WIN or DIR. WIN and DIR, and a walk-in, use the guest. Another address is stored on this reservation and printed on the invoice.</p></div>
@@ -4228,7 +4228,10 @@ function newReservation(el,pre,walkin){
     q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${H.set.cur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
   ['nA','nD','nRt','nRc'].forEach(id=>q('#'+id).addEventListener('change',()=>{if(id!=='nA'&&id!=='nD')delete q('#nRate').dataset.touched;if(id==='nA'&&q('#nD').value<=q('#nA').value)q('#nD').value=addD(q('#nA').value,1);upd()}));
   q('#nRate').oninput=()=>{q('#nRate').dataset.touched=1;upd()};
+  const syncBill=()=>{if(q('#nBill').dataset.touched)return;const co=CO(q('#nCo').value);q('#nBill').value=co&&co.code!=='WIN'&&co.code!=='DIR'?'company':'guest'};
+  q('#nCo').addEventListener('change',syncBill);q('#nBill').addEventListener('change',()=>{q('#nBill').dataset.touched='1'});
   q('#nG').onchange=()=>{const m=q('#nG').value.match(/#(\d+)$/);const g=m&&H.guests.find(x=>String(x.profileId)===m[1]);if(g){q('#nT').value=g.title;q('#nL').value=g.last;q('#nF').value=g.first;q('#nN').value=g.nationality;q('#nP').value=g.phone;q('#nE').value=g.email;q('#nG').dataset.gid=g.id}};
+  syncBill();
   upd();q('#nX').onclick=()=>go('fo.status');
   q('#nSave').onclick=()=>{const err=q('#nErr');if(!need('res.create'))return;
     const last=q('#nL').value.trim(),a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value,room=q('#nRm').value||null,rt=+q('#nRate').value,rcd=q('#nRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
@@ -4876,7 +4879,7 @@ VIEWS['cd.close']=el=>{
    ${onNightShift()?'':`<div class="lockbar">Close Day can only be run on the <b>Night</b> shift. You are signed in on the <b>${esc(curShift()?curShift().name:'')}</b> shift, so Post room and Close Day are locked. You can still view the checks and fix problems.</div>`}<div class="cdchk">${R.checks.map(c=>`<span class="${c[1]?'ok':'no'}">${c[1]?'✓':'✗'} ${c[0]}</span>`).join('')}</div>
    <div class="ctabs">${[['guest','Guest post today'],['conflict',`Data conflict (${errs.length}/${warns.length})`],['room',`Room discrepancy (${R.disc.length})`],['logs','Posted LOGs']].map(t=>`<button class="${cdTab===t[0]?'on':''}" data-ct="${t[0]}">${t[1]}</button>`).join('')}</div>
    <div class="panel scroll">${tabs[cdTab]}</div>
-   <div class="cdnote"><div>If there is a Data conflict, fix it first.</div><div>If there is a Room discrepancy, check with housekeeping, then close it (reopen if needed).</div><div>Post room adds tonight's room charge (code 100) to Folio 1. On an RB rate, breakfast for each adult goes to Folio 2, and room D999 clears to zero.</div><div>When every check is done, Close Day locks ${fd(bd)}, moves the hotel to ${fd(addD(bd,1))} and signs you out. Sign in again with the new shift and run the reports.</div></div>`;
+   <div class="cdnote"><div>If there is a Data conflict, fix it first.</div><div>If there is a Room discrepancy, check with housekeeping, then close it (reopen if needed).</div><div>Post room adds tonight's room charge (code 100) to Folio 1. On an RB rate, adult breakfast is deducted from that room charge, shown on Folio 2, and posted once as F&amp;B revenue on dummy room D999.</div><div>When every check is done, Close Day locks ${fd(bd)}, moves the hotel to ${fd(addD(bd,1))} and signs you out. Sign in again with the new shift and run the reports.</div></div>`;
   saveDB();
   $$('[data-ct]',el).forEach(b=>b.onclick=()=>{cdTab=b.dataset.ct;render()});$$('[data-ores]',el).forEach(b=>b.onclick=()=>go('res.open',b.dataset.ores));
   $$('[data-cdci]',el).forEach(b=>b.onclick=()=>{if(checkIn(bookingById(b.dataset.cdci),false))render()});
