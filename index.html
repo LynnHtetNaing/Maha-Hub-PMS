@@ -1222,12 +1222,12 @@ function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.s
   const boxes=functionGroups().map(g=>`<h3 class="featsec">${esc(g.t)}</h3><div class="featgrid">${g.items.map(([k,l])=>`<label class="chk"><input type="checkbox" data-fn="${k}" ${feat(k)?'checked':''} ${editable?'':'disabled'}> ${esc(l)}</label>`).join('')}</div>`).join('');
   const head=editable?`<div class="planrow">${plans.map(([id,name])=>`<button type="button" class="btn ${plan===id?'gold':''}" data-plan="${id}">${name}</button>`).join('')}</div><p class="sub" id="planNote">${esc((HOTEL_PLANS[plan]||HOTEL_PLANS.full).note)}</p><p class="sub">Setup → Functions stays visible so the hotel can read this list. Staff cannot turn a hidden title back on.</p>`:`<p>Plan: <b>${esc(planName(H))}</b>. The provider opens or hides these titles for this hotel, from the plan they bought or from their preferences.</p>`;
   return head+boxes}
-function bindPlanEditor(root){if(!root)return;root.dataset.plan=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);
-  const mark=id=>{$$('[data-plan]',root).forEach(b=>b.classList.toggle('gold',b.dataset.plan===id));const n=$('#planNote',root);if(n)n.textContent=(HOTEL_PLANS[id]||HOTEL_PLANS.custom).note;root.dataset.plan=id};
+function bindPlanEditor(root){if(!root)return;root.dataset.chosen=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);
+  const mark=id=>{$$('[data-plan]',root).forEach(b=>b.classList.toggle('gold',b.dataset.plan===id));const n=$('#planNote',root);if(n)n.textContent=(HOTEL_PLANS[id]||HOTEL_PLANS.custom).note;root.dataset.chosen=id};
   $$('[data-plan]',root).forEach(b=>b.onclick=()=>{mark(b.dataset.plan);if(b.dataset.plan==='custom')return;const flags=flagsForPlan(b.dataset.plan);$$('[data-fn]',root).forEach(c=>{c.checked=!!flags[c.dataset.fn]})});
   $$('[data-fn]',root).forEach(c=>c.addEventListener('change',()=>mark('custom')));
   const btn=$('#fnSave',root);if(!btn)return;
-  btn.onclick=()=>{if(!provOnly())return;const picked=root.dataset.plan||'custom';const flags={};$$('[data-fn]',root).forEach(c=>{flags[c.dataset.fn]=c.checked});
+  btn.onclick=()=>{if(!provOnly())return;const picked=root.dataset.chosen||'custom';const flags={};$$('[data-fn]',root).forEach(c=>{flags[c.dataset.fn]=c.checked});
     const use=(picked!=='custom'&&PLAN_OFF[picked])?flagsForPlan(picked):flags;const plan=detectPlan(use);
     H.set.features=Object.assign({},H.set.features||{},use);syncLegacyFeatures(H.set.features);H.set.plan=plan;
     if($('#ftSig',root)){H.set.signature=$('#ftSig',root).value.trim();H.set.confirmTpl=$('#ftTpl',root).value}
