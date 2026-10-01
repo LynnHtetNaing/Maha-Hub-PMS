@@ -38,7 +38,7 @@ The hospitality edge is the offer, the approval, the languages, and LINE. It is 
 | --- | --- |
 | Home | What is waiting for approval, what is scheduled, what failed |
 | Offers | The public fact: room or dish, price, dates, link, languages |
-| Studio | Drafts, captions, pictures, short scripts, brand voice |
+| Studio | Drafts, captions, pictures, short videos, brand voice |
 | Calendar | Draft, approved, scheduled, posted, failed |
 | Accounts | Connected pages and the status of each connection |
 | Brand | Logo, colors, voice, languages, do-not-say rules |
@@ -102,7 +102,7 @@ Use official platform APIs, after approval, for publishing and for reading resul
 
 Buy or rent, and keep the choice replaceable:
 
-- The model that writes and draws. Maha Reach calls an internal gateway. The hotel never sees the provider key. The provider can change without rewriting the product.
+- The model that writes, draws, and makes the short video. One paid Google Gemini account covers all three. Maha Reach calls an internal gateway. The hotel never sees the provider key. The model name can change without rewriting the product.
 - File storage for images and video.
 - Email delivery, when that phase starts.
 - A multi-network posting service is optional later, and only if its cost per hotel stays understandable. It is not the core. If Maha Reach is only a skin on someone else’s scheduler, the hospitality difference disappears and the exit becomes hard.
@@ -131,24 +131,58 @@ Checked 1 October 2026.
 
 Text is cheap. Pictures are not. Buffer includes unlimited caption help on every plan, including the free plan, and charges per connected channel instead (Essentials about $6 per channel per month on its pricing page). Canva puts text and pictures in one monthly allowance, and a picture uses more of it: the Canva help page says Pro is about 200 premium picture-level uses a month, or about 2,000 ordinary text-level uses, from the same pool. Later sells credits and spends one credit on a caption.
 
-OpenAI’s own price page lists GPT-4.1 mini at $0.40 per million input tokens and $1.60 per million output tokens. A hotel caption is a fraction of one US cent. The same page lists image output at $30 per million tokens. A normal square picture is on the order of 1 to 5 US cents depending on quality. One picture therefore costs about ten to forty captions. Video is a different product and is not sold yet.
+OpenAI’s own price page lists GPT-4.1 mini at $0.40 per million input tokens and $1.60 per million output tokens. A hotel caption is a fraction of one US cent. Google’s picture and video prices, checked 1 October 2026, are the ones this plan uses, because the caption, the picture, and the short video come from the same paid account. A default picture is about 3.4 US cents. A sharper picture is about 6.7 US cents. Eight seconds of video is about 80 US cents, roughly twenty-four default pictures.
 
 Starter weights, which the provider can change later without rewriting the product:
 
 | Action | Credits |
 | --- | --- |
 | One caption, one hashtag set, or one translation | 1 |
-| One picture | 10 |
+| One default picture | 10 |
+| One sharper picture | 20 |
+| One 4-second vertical video | 120 |
+| One 8-second vertical video | 240 |
 | Save, approve, copy, schedule, or mark as posted | 0 |
-| Video | Not offered |
 
-Each hotel receives **300 credits on the first day of the month**. Unused monthly credits expire. That is enough for about twelve posts, each with a Thai caption, an English caption, and one picture, plus a few regenerations. Doing the picture again costs another 10. Doing the caption again costs another 1.
+Each hotel receives **300 credits on the first day of the month**. Unused monthly credits expire. That is enough for about twelve posts, each with a Thai caption, an English caption, and one default picture, plus a few regenerations. Doing the picture again costs another 10. Doing the caption again costs another 1. One eight-second video is 240 of those credits, so the screen asks for a clear confirmation and shows what will be left.
 
 An extra pack is another 300 credits, bought when the month runs out. Those last 90 days. Do not set the baht price of the pack until one real month of provider bills exists. The rule then is: the baht charged for 300 credits is at least four times what those credits cost in model fees the month before. The monthly subscription is a separate decision. It pays for the software. The credits pay for the model.
 
-The screen says the cost before the button runs: “This picture uses 10 credits. 240 remain.” If the balance is too low, the button does not run and nothing is consumed. A failed call is refunded.
+The screen says the cost before the button runs: “This picture uses 10 credits. 240 remain.” A video says the same with its own number. If the balance is too low, the button does not run and nothing is consumed. A failed call is refunded.
 
-Sources: [Buffer pricing](https://buffer.com/pricing), [Canva AI allowance](https://www.canva.com/help/ai-access/), [OpenAI API pricing](https://developers.openai.com/api/docs/pricing).
+Sources: [Buffer pricing](https://buffer.com/pricing), [Canva AI allowance](https://www.canva.com/help/ai-access/), [OpenAI API pricing](https://developers.openai.com/api/docs/pricing), [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing).
+
+### Pictures and short video
+
+Checked 1 October 2026.
+
+The integration is the paid Google Gemini API. One key and one bill cover the caption, the picture, and the short video. The key stays on Maha Reach’s server. The paid tier is required. On that tier Google does not use the prompts or the results to improve its products. The free tier does, so Maha Reach does not call it.
+
+The hotel sees “picture” and “short video,” plus the credit cost. The model name sits in the gateway. If Google retires a model, the gateway and the dated credit row change. The hotel screens stay the same.
+
+| Job | Model | Provider cost behind the credits |
+| --- | --- | --- |
+| Default picture, about 1024px | `gemini-3.1-flash-lite-image` | $0.0336, charged as 10 credits |
+| Sharper picture, about 1024px | `gemini-3.1-flash-image` | $0.067, charged as 20 credits |
+| 4-second vertical video, 720p | `gemini-omni-1.1-flash` | about $0.40, charged as 120 credits |
+| 8-second vertical video, 720p | `gemini-omni-1.1-flash` | about $0.80, charged as 240 credits |
+
+Google states the video rate as about $0.10 per second at 720p (5,792 output tokens per second at $17.50 per million video tokens). The first video shape stays at 720p so that rate remains the one on the screen. A higher resolution waits until Google publishes a rate for it and the credit row is updated.
+
+The picture starts from a photo the hotel uploaded, when one exists. A picture made with no hotel photo is allowed, and the preview says it was made by AI. The short video starts from the hotel’s photo, or from a picture the hotel has already approved. The shape is vertical 9:16, four or eight seconds, because that is what a phone feed uses. Landscape 16:9 can be added later for a website or YouTube export.
+
+Rules that stay with the product:
+
+- The offer’s price, dates, and Thai or English sentence are drawn on top by Maha Reach. They are kept out of the generated pixels, so a wrong discount is a text change and does not spend another picture.
+- A guest’s face, or any real person’s likeness, is used only when the hotel already has the right to use that photo.
+- The prompt follows the offer. It does not invent a room, a view, or a dish the hotel did not describe.
+- The screen states the credits and how many remain, and the hotel confirms, before a picture or a video starts.
+- A failed call refunds once.
+- Generated video carries Google’s invisible SynthID mark.
+
+Imagen 4 ended on 17 August 2026. Google’s replacement for it is Gemini 3.1 Flash Image. The current Veo 3.1 preview models, including the cheaper Lite tier, are scheduled to end as early as 22 October 2026. Google’s own video guide names Gemini Omni Flash as the default video model, and that model has no shutdown date announced. OpenAI’s Videos API and Sora 2 ended on 24 September 2026, and the deprecation table lists no replacement. OpenAI still sells pictures. Maha Reach uses one vendor so the hotel has one bill for the picture and the video.
+
+Sources: [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing), [Deprecations](https://ai.google.dev/gemini-api/docs/deprecations), [Video guide](https://ai.google.dev/gemini-api/docs/video), [Gemini Omni Flash](https://ai.google.dev/gemini-api/docs/omni), [Gemini API terms](https://ai.google.dev/gemini-api/terms), [OpenAI deprecations](https://developers.openai.com/api/docs/deprecations).
 
 Advertising spend, if it is ever imported, lives in its own table. No function may move it into the wallet.
 
@@ -156,7 +190,7 @@ Advertising spend, if it is ever imported, lives in its own table. No function m
 
 ### First version
 
-The hotel can sign in, set the brand, enter one offer, and receive Thai and English drafts. Approval works the same way Maha Hub allows a person: the provider turns that permission on for the people who may approve. Anyone without it can draft only. The provider can approve. The screen shows a Facebook version, an Instagram version, and a LINE version. Credits follow the starter table in section 8. Publishing is “copy or mark as posted” until Meta approval exists. If approval arrives during this version, Facebook Page publishing switches on behind the same approval step.
+The hotel can sign in, set the brand, enter one offer, and receive Thai and English drafts, a picture, and a short video. Approval works the same way Maha Hub allows a person: the provider turns that permission on for the people who may approve. Anyone without it can draft only. The provider can approve. The screen shows a Facebook version, an Instagram version, and a LINE version, including the picture and the video in the preview. Credits follow the starter table in section 8. Publishing is “copy or mark as posted” until Meta approval exists. If approval arrives during this version, Facebook Page publishing switches on behind the same approval step. Making the video file is part of this version. Public upload to YouTube or TikTok is not.
 
 ### Second version
 
@@ -178,6 +212,8 @@ YouTube after audit. TikTok after audit. Read-only ad performance from accounts 
 | Credit prices are guessed in code | Prices exist only as dated rows the owner can change |
 | Thai privacy law | Marketing uses public property facts and the hotel’s own subscribers. No guest list leaves the property system. Consent for LINE and email stays with the account the hotel already runs |
 | Building a scheduler nobody asked to differentiate | Do not start with ten networks. Start with the offer |
+| A generated picture invents a room or uses a guest’s face | Start from the hotel’s own photo. The prompt follows the offer. A likeness needs a right the hotel already holds. A fully generated picture is labeled as made by AI |
+| One video spends most of the month’s credits | The screen shows 120 or 240 credits and the balance that will remain, and waits for confirmation |
 
 ## 11. What to open with the platforms when building starts
 
@@ -186,7 +222,7 @@ These reviews take weeks. They are not part of this plan, and they should start 
 1. Meta business verification and App Review for Page posting and Instagram publishing
 2. LINE Messaging API channel for a test Official Account
 3. Google Business Profile API access request
-4. YouTube API audit, only when video is actually in scope
+4. YouTube API audit, only when public YouTube upload is in scope. Making the video file does not require it
 5. Google Ads developer token, only when ads are in scope
 6. TikTok audit, only when public TikTok posting is in scope
 
@@ -197,18 +233,19 @@ Decided on 1 October 2026:
 1. Thailand first.
 2. Thai and English. Myanmar stays out until the owner asks.
 3. Approval is a permission the provider gives to a person, the same way the provider allows a user in Maha Hub. People without that permission draft only. The provider can approve.
+4. Pictures and short video use one paid Google Gemini account. The default picture is Gemini 3.1 Flash Lite Image (10 credits). The sharper picture is Gemini 3.1 Flash Image (20 credits). The short video is Gemini Omni Flash, from the hotel’s photo, vertical, 720p, at 120 credits for 4 seconds and 240 credits for 8 seconds.
 
 Still open:
 
 1. Does the first version include a LINE preview, or only Facebook and Instagram?
 2. Does the hotel’s own staff draft, or do Maha staff draft for them?
-3. The baht price of the monthly subscription, and the baht price of an extra credit pack. The credit weights below are the proposal. The baht amounts wait for the owner.
+3. The baht price of the monthly subscription, and the baht price of an extra credit pack. The credit weights above are the starter. The baht amounts wait for the owner.
 
 ## 13. Order of work, after this plan is approved
 
 1. Sign-in, one hotel, roles, audit
-2. Brand, offer, draft, approval
-3. Credit wallet and ledger with zero prices
+2. Brand, offer, draft, picture, short video, approval
+3. Credit wallet and ledger using the starter weights. Baht prices stay unset
 4. Platform previews and “mark as posted”
 5. Submit the Meta review using that working preview
 6. Turn on real Facebook posting for hotels that pass
