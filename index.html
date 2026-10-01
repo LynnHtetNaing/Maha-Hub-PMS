@@ -3921,6 +3921,7 @@ const departuresDue=()=>allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b
 /* status icons for the left list (11.x): B/IH, channel-manager globe, message, deposit, room ready */
 const isCM=B=>B.cm!==undefined?!!B.cm:B.source==='OTA';
 const depAmt=B=>r2(sum(paymentsIn(B.lines),x=>x.amt));
+function depositReceived(B){const lines=(B.lines||[]).filter(l=>l.deposit&&(l.kind==='pay'||l.kind==='payrec'));const rec=new Set();lines.forEach(l=>{if(l.kind==='payrec'&&l.group)rec.add(l.group)});return r2(sum(lines.filter(l=>l.kind==='payrec'||(l.kind==='pay'&&!(l.group&&rec.has(l.group)))),l=>-l.amt))}
 const openMsgs=B=>{const r=resOf(B);return r&&r.notifs?r.notifs.filter(n=>!n.done).length:0};
 function roomReady(B){const rm=B.room&&RM(B.room);return !!(rm&&roomIsVC(rm,B.id))}
 function stIcons(B,mode){const m=stayMark(B);const a=[];
@@ -6310,7 +6311,7 @@ function chargeTarget(B,code){const r=resOf(B);if(!r||!r.groupId)return B;const 
   const tc=TCODES.find(c=>c.code===code)||{};const hit=(g.routing||[]).find(x=>x.on!==false&&(x.match==='ALL'||x.match===code||x.match===(tc.dept||'')||x.match===(tc.tab||'')));
   if(!hit||hit.to!=='master')return B;return bookingById(g.masterId)||B}
 function fillTpl(tpl,map){return String(tpl||'').replace(/\{\{(\w+)\}\}/g,(_,k)=>map[k]==null?'':String(map[k]))}
-function confirmationPack(B){const r=resOf(B),g=G(B.guestId),co=CO(r.companyId);const dep=depAmt(B);const map={guest:gName(g),hotel:H.set.name,rsvn:r.no,arr:fd(B.arr),dep:fd(B.dep),room:B.room||'to be assigned',type:RT(B.type).name||B.type,nights:nights(B),adults:B.adults,children:B.children,signature:H.set.signature||H.set.name,deposit:dep>0.004?m2(dep)+' '+H.set.cur:'none'};
+function confirmationPack(B){const r=resOf(B),g=G(B.guestId),co=CO(r.companyId);const dep=depositReceived(B);const map={guest:gName(g),hotel:H.set.name,rsvn:r.no,arr:fd(B.arr),dep:fd(B.dep),room:B.room||'to be assigned',type:RT(B.type).name||B.type,nights:nights(B),adults:B.adults,children:B.children,signature:H.set.signature||H.set.name,deposit:dep>0.004?m2(dep)+' '+H.set.cur:'none'};
   let letter=fillTpl(H.set.confirmTpl,map);if(dep>0.004&&!/\{\{deposit\}\}/.test(H.set.confirmTpl||'')&&letter.indexOf(m2(dep))<0)letter+='\n\nReservation deposit received: '+m2(dep)+' '+H.set.cur+'.';
   const rows=[['Reservation no.',r.no],['Guest',gName(g)],['Arrival',fd(B.arr)],['Departure',fd(B.dep)],['Nights',nights(B)],['Room type',RT(B.type).name||B.type],['Room',B.room||'To be assigned'],['Guests',B.adults+' adult(s), '+B.children+' child(ren)'],['Company',co&&co.code!=='WIN'&&co.code!=='DIR'?co.name:'—'],['Deposit',dep>0.004?m2(dep)+' '+H.set.cur:'None']];
   const html=`<div class="ppage port cf"><div class="a4in">${hotelHead()}<div class="ivtitle">RESERVATION CONFIRMATION</div>
