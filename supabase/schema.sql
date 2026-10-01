@@ -4,7 +4,8 @@
 -- The first Connect chooses the passphrase. Type the same passphrase on every other computer.
 -- Full card numbers are rejected here. They stay in the browser that took the payment.
 
-create extension if not exists pgcrypto;
+-- Supabase keeps pgcrypto in the extensions schema. These functions must see it.
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists maha_secret (
   id int primary key default 1 check (id = 1),
@@ -27,7 +28,7 @@ create or replace function maha_check(pass text)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare h text;
 begin
@@ -45,7 +46,7 @@ create or replace function maha_init(pass text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 begin
   if pass is null or length(pass) < 8 then
@@ -63,7 +64,7 @@ create or replace function maha_pull(pass text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare row maha_cloud%rowtype;
 begin
@@ -80,7 +81,7 @@ create or replace function maha_push(pass text, payload jsonb, client_updated ti
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare cur timestamptz;
 begin
