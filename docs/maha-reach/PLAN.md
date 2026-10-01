@@ -1,7 +1,9 @@
 # Maha Reach — concept plan
 
-Status: plan only. Nothing in this paper is built.
+Status: the screens can be reviewed in `reach/index.html`. The server in this plan is not built yet.
 Checked: 1 October 2026.
+
+The review build is a browser walkthrough of the first version. Each hotel’s records stay in that browser. The paid Gemini call is not connected there. A picture and a short video are composed from the hotel’s photo, and the price and dates are drawn on top. Sign in as a drafter, then as the person the provider has allowed to approve, and the two hotels cannot see each other.
 Maha Reach is its own software. It is not a screen, menu, or add-on inside Maha Hub.
 
 ## 1. What it is

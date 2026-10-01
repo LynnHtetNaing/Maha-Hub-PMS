@@ -1,7 +1,7 @@
 # Prompt — build Maha Reach later
 
-Use this only after the owner has approved `docs/maha-reach/PLAN.md`.
-Until then, do not create an app, a database, or a screen.
+Use the server build only after the owner has approved `docs/maha-reach/PLAN.md` and has said where the new system should live.
+`reach/index.html` is the review walkthrough. Leave it in place. It is not the server, and it is not a screen inside Maha Hub.
 
 ## Product
 
