@@ -17,10 +17,10 @@ The first build is the first version in the plan:
 
 - Its own sign-in. The server is the source of truth. A new browser shows the hotel after sign-in.
 - One hotel cannot read another hotel.
-- A drafter writes. A manager approves and connects accounts. A Maha operator needs a second step, and the reason is stored.
+- A drafter writes. Approval is a permission the provider turns on for a person. People without it cannot approve. The provider can approve. Connecting an account is the same kind of permission. A Maha operator needs a second step, and the reason is stored.
 - Brand kit: name, voice, languages, logo, colors, words the hotel does not want used.
 - An offer: title, what is being sold, public price or discount, dates, link, languages. No guest, reservation, folio, payment, or card fields exist.
-- Studio: Thai and English drafts from that offer. Each generation shows the credit cost before it runs. Prices in the price list may be zero and must be labeled as the owner’s placeholder.
+- Studio: Thai and English drafts from that offer. No Myanmar. Each generation shows the credit cost before it runs, using the starter weights in the plan: 1 credit for a caption, a hashtag set, or a translation; 10 credits for one image; 0 credits for saving, approving, copying, or marking as posted. The hotel starts each month with 300 credits. Unused monthly credits expire. A failed generation refunds. Baht prices for a top-up stay unset until the owner sets them.
 - Approval: an unapproved draft cannot be scheduled or marked ready.
 - Previews for a Facebook Page, an Instagram professional account, and a LINE Official Account message.
 - Until Meta App Review is approved, publishing means copy and “mark as posted.” Do not fake a published post.

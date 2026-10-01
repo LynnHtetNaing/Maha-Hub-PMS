@@ -8,7 +8,7 @@ Maha Reach is its own software. It is not a screen, menu, or add-on inside Maha 
 
 Maha Reach is a cloud marketing system for hotels, resorts, hostels, restaurants, and other hospitality businesses.
 
-A hotel signs in from any computer, keeps its own brand, and turns a public offer into approved posts for the places its guests actually look. The first markets are Thailand and, when the owner asks, Myanmar.
+A hotel signs in from any computer, keeps its own brand, and turns a public offer into approved posts for the places its guests actually look. The first country is Thailand. Languages in the product now are Thai and English. Myanmar is outside this plan until the owner opens it.
 
 The sentence for the product:
 
@@ -123,15 +123,32 @@ Tokens for Facebook, Instagram, LINE, and later networks are encrypted on the se
 
 A scheduled post is a job. A worker claims one job at a time. If the platform is not approved yet, the job stops in “ready to copy” instead of pretending it was published.
 
-Credits:
+Credits use the starter setting below. The ledger still has a dated price list, a wallet per hotel, and rows that are only added: grant, consume, refund, expire, adjust. The same request key cannot charge twice. A failed job refunds once, and never more than it consumed. Each AI call stores the provider cost so the margin can be checked later.
 
-- A price list with a start date, so a later price does not rewrite history
-- A wallet per hotel
-- A ledger that only adds rows: grant, consume, refund, expire, adjust
-- The same request key cannot charge twice
-- A failed job refunds once, and never more than it consumed
-- Each AI call also stores the provider cost, so margin can be calculated later
-- No prices are decided in this plan. Seed costs are zero until the owner sets them
+### How to set credits
+
+Checked 1 October 2026.
+
+Text is cheap. Pictures are not. Buffer includes unlimited caption help on every plan, including the free plan, and charges per connected channel instead (Essentials about $6 per channel per month on its pricing page). Canva puts text and pictures in one monthly allowance, and a picture uses more of it: the Canva help page says Pro is about 200 premium picture-level uses a month, or about 2,000 ordinary text-level uses, from the same pool. Later sells credits and spends one credit on a caption.
+
+OpenAI’s own price page lists GPT-4.1 mini at $0.40 per million input tokens and $1.60 per million output tokens. A hotel caption is a fraction of one US cent. The same page lists image output at $30 per million tokens. A normal square picture is on the order of 1 to 5 US cents depending on quality. One picture therefore costs about ten to forty captions. Video is a different product and is not sold yet.
+
+Starter weights, which the provider can change later without rewriting the product:
+
+| Action | Credits |
+| --- | --- |
+| One caption, one hashtag set, or one translation | 1 |
+| One picture | 10 |
+| Save, approve, copy, schedule, or mark as posted | 0 |
+| Video | Not offered |
+
+Each hotel receives **300 credits on the first day of the month**. Unused monthly credits expire. That is enough for about twelve posts, each with a Thai caption, an English caption, and one picture, plus a few regenerations. Doing the picture again costs another 10. Doing the caption again costs another 1.
+
+An extra pack is another 300 credits, bought when the month runs out. Those last 90 days. Do not set the baht price of the pack until one real month of provider bills exists. The rule then is: the baht charged for 300 credits is at least four times what those credits cost in model fees the month before. The monthly subscription is a separate decision. It pays for the software. The credits pay for the model.
+
+The screen says the cost before the button runs: “This picture uses 10 credits. 240 remain.” If the balance is too low, the button does not run and nothing is consumed. A failed call is refunded.
+
+Sources: [Buffer pricing](https://buffer.com/pricing), [Canva AI allowance](https://www.canva.com/help/ai-access/), [OpenAI API pricing](https://developers.openai.com/api/docs/pricing).
 
 Advertising spend, if it is ever imported, lives in its own table. No function may move it into the wallet.
 
@@ -139,7 +156,7 @@ Advertising spend, if it is ever imported, lives in its own table. No function m
 
 ### First version
 
-The hotel can sign in, set the brand, enter one offer, and receive Thai and English drafts. A manager approves. The screen shows a Facebook version, an Instagram version, and a LINE version. Credits are counted with placeholder costs. Publishing is “copy or mark as posted” until Meta approval exists. If approval arrives during this version, Facebook Page publishing switches on behind the same approval step.
+The hotel can sign in, set the brand, enter one offer, and receive Thai and English drafts. Approval works the same way Maha Hub allows a person: the provider turns that permission on for the people who may approve. Anyone without it can draft only. The provider can approve. The screen shows a Facebook version, an Instagram version, and a LINE version. Credits follow the starter table in section 8. Publishing is “copy or mark as posted” until Meta approval exists. If approval arrives during this version, Facebook Page publishing switches on behind the same approval step.
 
 ### Second version
 
@@ -147,7 +164,7 @@ Instagram publishing after Meta approval. LINE send, with the hotel’s LINE fee
 
 ### Third version
 
-YouTube after audit. TikTok after audit. Read-only ad performance from accounts the hotel already runs. Only then, and only if the approvals exist, creating a simple ad. Email. Myanmar language if the owner wants that market in the product. A narrow public-data link from Maha Hub, still a separate product.
+YouTube after audit. TikTok after audit. Read-only ad performance from accounts the hotel already runs. Only then, and only if the approvals exist, creating a simple ad. Email. A narrow public-data link from Maha Hub, still a separate product. Myanmar is not part of this version.
 
 ## 10. Risks
 
@@ -173,14 +190,19 @@ These reviews take weeks. They are not part of this plan, and they should start 
 5. Google Ads developer token, only when ads are in scope
 6. TikTok audit, only when public TikTok posting is in scope
 
-## 12. Decisions only the owner can make
+## 12. Owner decisions
 
-1. Is the first country Thailand only?
-2. Does the first version include LINE copy, or only Facebook and Instagram copy?
-3. Who may approve: the hotel manager, or also a Maha operator acting for the hotel?
-4. Is Maha Reach self-serve, or do Maha staff prepare the drafts?
-5. Thai and English first. Is Myanmar in the first version or the third?
-6. When credits stop being zero, what is one credit worth? This plan does not set that.
+Decided on 1 October 2026:
+
+1. Thailand first.
+2. Thai and English. Myanmar stays out until the owner asks.
+3. Approval is a permission the provider gives to a person, the same way the provider allows a user in Maha Hub. People without that permission draft only. The provider can approve.
+
+Still open:
+
+1. Does the first version include a LINE preview, or only Facebook and Instagram?
+2. Does the hotel’s own staff draft, or do Maha staff draft for them?
+3. The baht price of the monthly subscription, and the baht price of an extra credit pack. The credit weights below are the proposal. The baht amounts wait for the owner.
 
 ## 13. Order of work, after this plan is approved
 
