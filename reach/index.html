@@ -206,6 +206,7 @@ function render(){
   if(!me()){app.innerHTML=loginHtml();return}
   ensureMonth();
   app.innerHTML=shellHtml();
+  refreshBuffer();
 }
 function loginHtml(){
   return `<div class="login"><section class="lart"><div class="mark">MAHA<br>REACH</div><p class="ltag">One place for the hotel’s public message.</p><p class="mut" style="color:#e7dcc4">Thailand · Thai and English</p></section>
@@ -241,7 +242,8 @@ function homeHtml(){
   const waiting=list.filter(o=>o.status==='draft');
   return `<div class="stack"><div class="card"><h2>What is waiting</h2><p class="stat" id="waitCount">${waiting.length}</p><p class="mut">Drafts still need approval before anyone can mark them posted.</p></div>
   <div class="grid2">${list.map(o=>`<article class="card stack"><div class="row"><h3>${esc(o.title)}</h3><span class="pill ${o.status==='approved'?'ok':'wait'}">${esc(o.status)}</span></div><p>${esc(o.sold)} · ${esc(o.price)}</p><p class="mut">${esc(fmtRange(o.from,o.to,'en'))}</p><div class="row"><button class="btn sm" type="button" data-act="open" data-id="${esc(o.id)}">Open in studio</button></div></article>`).join('')}</div>
-  <div class="card"><h3>Accounts</h3><p>Facebook, Instagram, and LINE are ready to copy. A real send waits until each platform approves Maha Reach. LINE’s own fee, when a send exists, is the hotel’s bill.</p><p class="mut" id="homeHotel">${esc(h.name)} only. Another hotel’s offers are not on this screen.</p></div></div>`;
+  <div class="card"><h3>Accounts</h3><p>Facebook, Instagram, and LINE stay ready to copy. An approved post can also join a Buffer queue when a channel is connected. LINE is not a Buffer channel, and a LINE send stays the hotel’s own bill.</p><p class="mut" id="homeHotel">${esc(h.name)} only. Another hotel’s offers are not on this screen.</p></div>
+  ${bufferCard()}</div>`;
 }
 function offersHtml(){
   const o=currentOffer();
@@ -280,6 +282,7 @@ function studioHtml(){
   <div class="row"><button class="btn sm" type="button" data-act="gen" data-kind="v4">4-second video · 120</button><button class="btn sm gold" type="button" data-act="gen" data-kind="v8">8-second video · 240</button><button class="btn ghost sm" type="button" data-act="play" ${o.video?'':'disabled'}>Play preview</button></div>
   <p class="mut">An 8-second video is 240 of the 300 monthly credits. The screen asks before it runs.</p></div>
   ${previewHtml(o)}
+  ${bufferCard()}
   <div class="card row"><div><b>Approval</b><div class="mut">${u.canApprove?'The provider has allowed you to approve.':'The provider has not allowed this sign-in to approve.'}</div>${o.approvedBy?`<div class="mut">Approved by ${esc(o.approvedBy)}</div>`:''}</div><span class="sp"></span>
   <button class="btn" type="button" id="approveBtn" data-act="approve" ${u.canApprove&&o.status!=='approved'?'':'disabled'}>Approve</button></div></div>`;
 }
@@ -294,6 +297,78 @@ function previewHtml(o){
     <button class="btn sm" type="button" data-act="posted" data-net="${id}" ${body&&!blocked?'':'disabled'}>${o.posted[id]?'Posted':'Mark as posted'}</button></div>
     ${blocked?'<p class="mut">Approve the draft first. Mark as posted stays off.</p>':''}</div></article>`;
   }).join('')}</div>`;
+}
+function bufferCard(){
+  return `<div class="card stack" id="bufferCard"><h3>Buffer</h3><p id="bufferStatus" class="mut">Checking the Buffer account…</p><div id="bufferChannels" class="stack"></div></div>`;
+}
+function bufferText(o, service){
+  const s=String(service||'').toLowerCase();
+  if(s.indexOf('instagram')>=0)return netText(o,'ig');
+  if(s.indexOf('facebook')>=0)return netText(o,'fb');
+  return netText(o,'fb');
+}
+let bufferCheck=0;
+async function refreshBuffer(){
+  const el=document.getElementById('bufferStatus');
+  if(!el)return;
+  const n=++bufferCheck;
+  let data;
+  try{
+    const res=await fetch('/api/buffer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'status'})});
+    data=await res.json();
+  }catch(e){
+    if(n!==bufferCheck)return;
+    el.textContent='This link is the public preview. The Buffer key stays on the Maha Reach server, so this page cannot add a post to the queue.';
+    return;
+  }
+  if(n!==bufferCheck)return;
+  if(!data.connected){el.textContent=data.message||'Buffer is not connected on this server.';return}
+  const channels=data.channels||[];
+  const org=data.organization||'your Buffer account';
+  if(!channels.length){
+    el.textContent='Buffer is connected to “'+org+'”. No channel is connected yet. In Buffer, connect Facebook or Instagram, then open Maha Reach again. LINE is not a Buffer channel.';
+    return;
+  }
+  el.textContent='Buffer is connected to “'+org+'”. An approved post can join a channel queue. That uses 0 Maha Reach credits. Buffer publishes it on the channel’s next open time.';
+  const box=document.getElementById('bufferChannels');
+  const o=ui.view==='studio'?currentOffer():null;
+  if(!box||!o)return;
+  box.innerHTML=channels.map(c=>{
+    const done=o.buffer&&o.buffer[c.id];
+    const ready=o.status==='approved'&&bufferText(o,c.service);
+    return `<div class="row"><b>${esc(c.displayName||c.name)}</b><span class="pill">${esc(c.service)}</span>${c.paused?'<span class="pill wait">Queue paused</span>':''}<span class="sp"></span><button class="btn sm" type="button" data-act="buffer-queue" data-id="${esc(c.id)}" data-service="${esc(c.service)}" data-name="${esc(c.displayName||c.name)}" ${ready?'':'disabled'}>${done?'In the Buffer queue':'Add to Buffer queue'}</button></div>`;
+  }).join('');
+}
+function askBuffer(channelId,name,service){
+  const o=currentOffer();
+  const text=bufferText(o,service);
+  const box=document.getElementById('modal');
+  box.hidden=false;
+  box.innerHTML=`<div class="dialog" role="dialog" aria-modal="true"><h2>Add to Buffer</h2><p id="confirmText">Add this approved post to ${esc(name)}. Maha Reach credits used: 0. Leave the time empty and Buffer uses the next open slot.</p>
+  <label class="f">Publish at, optional<input id="bufferWhen" type="datetime-local"></label>
+  <div class="row"><button class="btn" type="button" id="bufferGo">Add to queue</button><button class="btn ghost" type="button" data-act="close">Cancel</button></div></div>`;
+  document.getElementById('bufferGo').onclick=async()=>{
+    const btn=document.getElementById('bufferGo');
+    btn.disabled=true;
+    const raw=document.getElementById('bufferWhen').value;
+    let dueAt='';
+    if(raw){
+      const when=new Date(raw);
+      if(Number.isNaN(when.getTime())||when.getTime()<Date.now()+60000){btn.disabled=false;toast('Choose a time at least a minute from now, or leave it empty.');return}
+      dueAt=when.toISOString();
+    }
+    try{
+      const res=await fetch('/api/buffer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'queue',channelId,text,dueAt})});
+      const data=await res.json();
+      if(!data.ok){closeModal();toast(data.message||'Buffer did not take the post.');return}
+      o.buffer=o.buffer||{};
+      o.buffer[channelId]={id:data.id||'',dueAt:data.dueAt||dueAt,at:Date.now()};
+      const s=String(service||'').toLowerCase();
+      if(s.indexOf('facebook')>=0)o.posted.fb=true;
+      if(s.indexOf('instagram')>=0)o.posted.ig=true;
+      save();closeModal();toast('Added to the Buffer queue. 0 credits used.');render();
+    }catch(err){closeModal();toast('Buffer could not be reached.');}
+  };
 }
 function netText(o,net){
   const cap=[o.captions.en,o.captions.th,o.hashtags.en,o.hashtags.th].filter(Boolean).join('\n\n');
@@ -501,6 +576,13 @@ document.addEventListener('click',e=>{
     const done=()=>toast('Copied. No credits used.');
     if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done).catch(()=>{fallbackCopy(text);done()});
     else {fallbackCopy(text);done()}
+    return;
+  }
+  if(act==='buffer-queue'){
+    const o=currentOffer();
+    if(!o||o.status!=='approved'){toast('Approve the draft first.');return}
+    if(!bufferText(o,b.dataset.service)){toast('Write the captions first.');return}
+    askBuffer(b.dataset.id,b.dataset.name||'that channel',b.dataset.service||'');
     return;
   }
   if(act==='posted'){

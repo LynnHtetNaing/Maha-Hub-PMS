@@ -1,7 +1,7 @@
 # Prompt — build Maha Reach later
 
 Use the server build only after the owner has approved `docs/maha-reach/PLAN.md` and has said where the new system should live.
-`reach/index.html` is the review walkthrough. Leave it in place. It is not the server, and it is not a screen inside Maha Hub.
+`reach/index.html` is the review walkthrough. `reach/server.mjs` is the local review server that can queue an approved post through Buffer. The Buffer key is an environment variable. Leave both in place. Neither one is a screen inside Maha Hub, and neither one is the production server.
 
 ## Product
 
@@ -23,7 +23,7 @@ The first build is the first version in the plan:
 - Studio: Thai and English drafts from that offer. No Myanmar. A default picture (10 credits), a sharper picture (20 credits), and a short vertical video from the hotel’s photo (120 credits for 4 seconds, 240 credits for 8 seconds). The gateway calls the paid Google Gemini API only: `gemini-3.1-flash-lite-image`, `gemini-3.1-flash-image`, and `gemini-omni-1.1-flash`, as named in the plan. The provider key stays on the server. Each generation shows the credit cost and the balance that will remain, and waits for confirmation, before it runs. The hotel starts each month with 300 credits. Unused monthly credits expire. A failed generation refunds. Baht prices for a top-up stay unset until the owner sets them. Price, dates, and the Thai or English sentence are overlaid by Maha Reach and are kept out of the generated pixels. A fully generated picture is labeled as made by AI. A guest face or other likeness is used only from a photo the hotel already has the right to use. The prompt follows the offer.
 - Approval: an unapproved draft cannot be scheduled or marked ready.
 - Previews for a Facebook Page, an Instagram professional account, and a LINE Official Account message.
-- Until Meta App Review is approved, publishing means copy and “mark as posted.” Do not fake a published post.
+- Until Meta App Review is approved, copy and “mark as posted” stay available. An approved Facebook or Instagram caption may also join a Buffer queue through the review server. That queue uses 0 credits. Do not fake a published post. LINE is not a Buffer channel. The Buffer key stays in the server environment.
 - Credit wallet and an append-only ledger: grant, consume, refund. The same request key charges once. A refund cannot exceed the charge and cannot happen twice. Changing a price later does not rewrite old rows.
 - Record the model provider’s cost on each generation so margin can be calculated when a real price exists. Do not invent a baht price for a credit.
 - Advertising budget does not exist in this build. Do not create ad accounts, ad campaigns, or a path from spend into the wallet.
