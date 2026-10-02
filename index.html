@@ -139,11 +139,11 @@ tr.lchg td{background:#f7f7f7}tr.lpay td{background:var(--pay);color:var(--payt)
 /* ---- Login: two-column hero + cream login panel (real layout, not screenshot bg) ---- */
 .eco-shell{min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,68fr) minmax(300px,32fr);background:var(--ivory);overflow-x:hidden}
 .eco-shell.eco-only{grid-template-columns:1fr}
-.eco-hero{position:relative;overflow:auto;padding:28px clamp(18px,3vw,48px) 24px;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;color:#f4efe6;
-  background:
-    radial-gradient(ellipse at 12% 0%,rgba(226,180,90,.14),transparent 42%),
-    radial-gradient(ellipse at 88% 100%,rgba(200,148,45,.1),transparent 46%),
-    linear-gradient(165deg,#123d2d 0%,#0f3627 42%,#071a14 100%)}
+.eco-hero{position:relative;overflow:auto;padding:28px clamp(18px,3vw,48px) 24px;display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;color:#f4efe6;isolation:isolate;background:#0f3627}
+.eco-hero-bg{position:absolute;inset:-4%;z-index:0;background:var(--eco-photo) center/cover no-repeat;transform:scale(1.06);animation:ecoCloudDrift 48s ease-in-out infinite alternate;pointer-events:none;will-change:transform}
+.eco-hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:
+  linear-gradient(120deg,rgba(7,26,20,.58) 0%,rgba(7,26,20,.28) 46%,rgba(7,26,20,.62) 100%),
+  radial-gradient(ellipse at 80% 20%,rgba(226,180,90,.1),transparent 42%)}
 .eco-inner{position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-height:0;width:min(920px,100%);max-width:100%}
 .eco-lockup{width:min(150px,42vw);height:auto;margin:0 0 16px;display:block;animation:ecoFade .7s ease both}
 .eco-login .eco-lockup{width:min(132px,56%);margin:0 auto 18px;filter:none}
@@ -218,7 +218,8 @@ tr.lchg td{background:#f7f7f7}tr.lpay td{background:var(--pay);color:var(--payt)
 .eco-lang select{border:1px solid #c5d0d8;border-radius:6px;padding:5px 8px;background:#fff;margin-left:6px}
 .eco-target{font-size:12px;color:var(--mut);text-align:center;min-height:1.2em}
 @keyframes ecoFade{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
-@media (prefers-reduced-motion:reduce){.eco-card,.eco-lockup,.eco-title,.eco-lede,.eco-kicker,.eco-foot,.eco-mini{animation:none!important}.eco-card.is-selected{transform:scale(1.02)}}
+@keyframes ecoCloudDrift{from{transform:scale(1.06) translate3d(0,0,0)}to{transform:scale(1.14) translate3d(-2.8%,-1.4%,0)}}
+@media (prefers-reduced-motion:reduce){.eco-hero-bg,.eco-card,.eco-lockup,.eco-title,.eco-lede,.eco-kicker,.eco-foot,.eco-mini{animation:none!important}.eco-card.is-selected{transform:scale(1.02)}}
 @media (max-width:1100px){
   .eco-shell{grid-template-columns:minmax(0,62fr) minmax(280px,38fr)}
   .eco-soon{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -650,9 +651,10 @@ tr.co-row td{background:#fff5f5}
 </style></head><body><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="icons/maha-mark-sq.png";
 const LOGO_LOCKUP="icons/maha-hub-logo.png";
+const ECO_HERO="brand/login-hero-bg.jpg";
 "use strict";
 /* ================= Maha Hub PMS v4 — core ================= */
-const VERSION='MH5_PMS_20261002F';
+const VERSION='MH5_PMS_20261002G';
 const DBKEY='mahahub.v5';
 const DBKEY4='mahahub.v4';
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -3812,7 +3814,8 @@ function showLogin(msg){
   const preview=ecoPreviewHotel();shapeHotel(preview);
   if(lgTargetSys&&!hotelSystems(preview).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
   document.getElementById('app').innerHTML=`<div class="eco-shell">
-  <section class="eco-hero" aria-label="Maha Hub ecosystem">
+  <section class="eco-hero" style="--eco-photo:url('${ECO_HERO}')" aria-label="Maha Hub ecosystem">
+    <div class="eco-hero-bg" aria-hidden="true"></div>
     <div class="eco-inner">
       ${LOGO_FULL()}
       <p class="eco-kicker">Smarter hospitality / Better tomorrow</p>
@@ -3915,7 +3918,8 @@ function showEcosystemPick(){
   shapeHotel(H);
   let pick=lgTargetSys&&hotelSystems(H).some(s=>s.kind===lgTargetSys&&s.open)?lgTargetSys:null;
   document.getElementById('app').innerHTML=`<div class="eco-shell eco-only">
-  <section class="eco-hero" aria-label="Choose a Maha system">
+  <section class="eco-hero" style="--eco-photo:url('${ECO_HERO}')" aria-label="Choose a Maha system">
+    <div class="eco-hero-bg" aria-hidden="true"></div>
     <div class="eco-inner">
       ${LOGO_FULL()}
       <div class="eco-actions">
