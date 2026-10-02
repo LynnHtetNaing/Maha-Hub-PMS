@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maha Connect</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#184D3A;--green2:#0F3627;--gold:#C8942D;--gold2:#E2B45A;--ivory:#F8F4EC;
+  --ink:#1d2a33;--mut:#5d6b75;--line:#cfd9e0;--bg:#e9eff3;--card:#fff;--r:6px;
+  --ok:#17603a;--warn:#8b5e3c;--bad:#b3261e;
+}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%}
+body{font-family:"Source Sans 3",system-ui,sans-serif;color:var(--ink);background:
+  linear-gradient(180deg,#eef3f1 0%,var(--bg) 40%,#e3e9ed 100%);}
+a{color:var(--green)}button,input,select{font:inherit}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--green2);color:#fff;border-bottom:2px solid var(--gold)}
+.brand{font-family:Cinzel,Georgia,serif;letter-spacing:.14em;font-weight:700;font-size:18px;color:var(--gold2)}
+.brand small{display:block;font-family:"Source Sans 3",sans-serif;letter-spacing:.04em;font-size:11px;color:#c5d4cc;margin-top:2px}
+.tb-links{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:var(--green);color:#fff;border:1px solid var(--green);border-radius:4px;padding:6px 12px;cursor:pointer;font-weight:600}
+.btn:hover{background:#12402f}.btn.gold{background:var(--gold);border-color:#b07e20;color:#1e1606}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.35);color:#fff}
+.btn.sm{padding:4px 9px;font-size:13px}
+.banner{background:#fff8e8;border-bottom:1px solid #e6d3a8;color:var(--warn);font-size:13px;padding:8px 16px}
+.wrap{width:min(1100px,94vw);margin:0 auto;padding:18px 0 40px}
+.h1{font-family:Cinzel,Georgia,serif;font-size:22px;margin:0 0 6px;color:var(--green2)}
+.sub{color:var(--mut);margin:0 0 14px;line-height:1.45}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.kpi b{display:block;font-size:22px;color:var(--green)}.kpi span{font-size:12px;color:var(--mut)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px}
+.ph{background:#f1f5f8;border-bottom:1px solid var(--line);padding:8px 12px;font-weight:700}
+.pad{padding:12px}
+table.gridtbl{width:100%;border-collapse:collapse;font-size:14px}
+table.gridtbl th,table.gridtbl td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+table.gridtbl th{background:#f7fafc;font-size:12px;color:var(--mut);font-weight:700}
+.pst{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.pst.on{background:#d8f1df;color:var(--ok)}.pst.off{background:#f6e3c2;color:var(--warn)}.pst.bad{background:#fde3e1;color:var(--bad)}
+.rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.muted{color:var(--mut);font-size:13px}
+@media (max-width:800px){.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">MAHA CONNECT<small>Channel manager foundation</small></div>
+  <div class="tb-links">
+    <a class="btn ghost sm" href="../index.html#systems">Maha systems</a>
+    <a class="btn ghost sm" href="../index.html">Maha Hub</a>
+  </div>
+</header>
+<div class="banner"><b>Foundation only.</b> Not live on OTAs. Middle provider not configured. Use Mock channel for local tests.</div>
+<main class="wrap">
+  <h1 class="h1">Distribution foundation</h1>
+  <p class="sub">Import a hotel snapshot from Maha Hub, inspect room types / rate plans / inventory, and connect the <b>Mock</b> channel. Real OTAs require a certified middle provider (see provider criteria in the repo docs).</p>
+
+  <div class="grid" id="kpis">
+    <div class="kpi"><b id="kProp">—</b><span>Properties</span></div>
+    <div class="kpi"><b id="kRt">—</b><span>Room types</span></div>
+    <div class="kpi"><b id="kRp">—</b><span>Rate plans</span></div>
+    <div class="kpi"><b id="kInv">—</b><span>Inventory days</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph">Status</div>
+    <div class="pad" id="statusBox"><span class="muted">Loading…</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph">Channel registry</div>
+    <div class="pad" style="overflow:auto">
+      <table class="gridtbl" id="chTable"><tr><th>Code</th><th>Name</th><th>Type</th><th>Status</th><th>Note</th></tr></table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph">Properties</div>
+    <div class="pad">
+      <div class="rowbtns">
+        <button class="btn gold sm" id="btnRefresh">Refresh</button>
+        <button class="btn sm" id="btnMock" disabled>Connect Mock to selected</button>
+        <button class="btn sm" id="btnTest" disabled>Test Mock connection</button>
+      </div>
+      <p class="muted" id="selLabel">No property selected. Publish from Hub (Provider → Systems) or POST /api/hub/publish.</p>
+      <div style="overflow:auto;margin-top:8px">
+        <table class="gridtbl" id="propTable"><tr><th></th><th>Hub code</th><th>Name</th><th>Currency</th><th>Rooms</th><th>Rates</th></tr></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph">Inventory sample (selected property)</div>
+    <div class="pad" style="overflow:auto">
+      <table class="gridtbl" id="invTable"><tr><th>Date</th><th>Room</th><th>Total</th><th>Sold</th><th>OOO</th><th>Sellable</th><th>Stop</th></tr></table>
+    </div>
+  </div>
+</main>
+<script>
+const state = { status: null, properties: [], selected: null, detail: null, connections: [] };
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.message || j.error || r.statusText);
+  return j;
+}
+
+function pst(label, kind) {
+  return `<span class="pst ${kind}">${label}</span>`;
+}
+
+async function loadStatus() {
+  state.status = await api('/api/status');
+  const s = state.status;
+  document.getElementById('statusBox').innerHTML = `
+    <div><b>Version</b> ${s.version} · Live OTA: <b>no</b> · Certified: <b>no</b></div>
+    <div class="muted" style="margin-top:6px">${(s.notes || []).join(' ')}</div>`;
+  document.getElementById('kProp').textContent = s.properties;
+  document.getElementById('kRt').textContent = s.roomTypes;
+  document.getElementById('kRp').textContent = s.ratePlans;
+  document.getElementById('kInv').textContent = s.inventoryDays;
+}
+
+async function loadChannels() {
+  const { channels } = await api('/api/channels');
+  const tb = document.getElementById('chTable');
+  tb.innerHTML = `<tr><th>Code</th><th>Name</th><th>Type</th><th>Status</th><th>Note</th></tr>` +
+    channels.map(c => `<tr><td><b>${c.code}</b></td><td>${c.name}</td><td>${c.type}</td><td>${pst(c.status, c.status === 'available' ? 'on' : 'off')}</td><td class="muted">${c.note || ''}</td></tr>`).join('');
+}
+
+async function loadProperties() {
+  const { properties } = await api('/api/properties');
+  state.properties = properties;
+  const tb = document.getElementById('propTable');
+  if (!properties.length) {
+    tb.innerHTML = `<tr><th></th><th>Hub code</th><th>Name</th><th>Currency</th><th>Rooms</th><th>Rates</th></tr>
+      <tr><td colspan="6" class="muted">No properties yet. Open Connect for a hotel in Hub and publish the snapshot.</td></tr>`;
+    return;
+  }
+  tb.innerHTML = `<tr><th></th><th>Hub code</th><th>Name</th><th>Currency</th><th>Status</th><th></th></tr>` +
+    properties.map(p => `<tr>
+      <td><input type="radio" name="prop" value="${p.id}" ${state.selected === p.id ? 'checked' : ''}></td>
+      <td><b>${p.hubCode || '—'}</b></td><td>${p.name}</td><td>${p.currency || '—'}</td>
+      <td>${pst(p.status || 'active', 'on')}</td>
+      <td><button class="btn sm ghost" style="color:var(--green);border-color:var(--line)" data-open="${p.id}">Open</button></td>
+    </tr>`).join('');
+  tb.querySelectorAll('input[name=prop]').forEach(r => r.onchange = () => selectProp(r.value));
+  tb.querySelectorAll('[data-open]').forEach(b => b.onclick = () => selectProp(b.dataset.open));
+}
+
+async function selectProp(id) {
+  state.selected = id;
+  document.getElementById('btnMock').disabled = false;
+  document.getElementById('btnTest').disabled = false;
+  state.detail = await api('/api/properties/' + encodeURIComponent(id));
+  document.getElementById('selLabel').textContent =
+    `Selected: ${state.detail.property.name} (${state.detail.property.hubCode || state.detail.property.id}) · ${state.detail.roomTypes.length} room types · ${state.detail.ratePlans.length} rate plans`;
+  const { inventory } = await api('/api/inventory?propertyId=' + encodeURIComponent(id));
+  const sample = inventory.slice(0, 42);
+  const tb = document.getElementById('invTable');
+  tb.innerHTML = `<tr><th>Date</th><th>Room</th><th>Total</th><th>Sold</th><th>OOO</th><th>Sellable</th><th>Stop</th></tr>` +
+    (sample.map(i => `<tr><td>${i.stayDate}</td><td>${i.roomTypeCode}</td><td>${i.total}</td><td>${i.sold}</td><td>${i.ooo}</td><td><b>${i.sellable}</b></td><td>${i.stopSell ? 'Yes' : '—'}</td></tr>`).join('') ||
+      `<tr><td colspan="7" class="muted">No inventory rows.</td></tr>`);
+  await loadProperties();
+}
+
+async function connectMock() {
+  if (!state.selected) return;
+  const r = await api('/api/connections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ propertyId: state.selected, channelCode: 'MOCK' })
+  });
+  alert('Mock connected: ' + r.connection.status);
+}
+
+async function testMock() {
+  const { connections } = await api('/api/connections?propertyId=' + encodeURIComponent(state.selected));
+  const mock = connections.find(c => c.channelCode === 'MOCK');
+  if (!mock) { alert('Connect Mock first.'); return; }
+  const r = await api('/api/connections/' + mock.id + '/test', { method: 'POST' });
+  alert(r.ok ? 'Mock test OK' : ('Test failed: ' + (r.error || 'error')));
+}
+
+async function refresh() {
+  await loadStatus();
+  await loadChannels();
+  await loadProperties();
+  if (state.selected) await selectProp(state.selected);
+}
+
+document.getElementById('btnRefresh').onclick = () => refresh().catch(e => alert(e.message));
+document.getElementById('btnMock').onclick = () => connectMock().catch(e => alert(e.message));
+document.getElementById('btnTest').onclick = () => testMock().catch(e => alert(e.message));
+
+const params = new URLSearchParams(location.search);
+refresh().then(() => {
+  if (params.get('hotel') && state.properties.length) {
+    const hit = state.properties.find(p => p.hubCode === params.get('hotel'));
+    if (hit) return selectProp(hit.id);
+  }
+}).catch(e => {
+  document.getElementById('statusBox').innerHTML = `<span class="pst bad">Error</span> ${e.message}. Is the Connect server running on port 8782?`;
+});
+</script>
+</body>
+</html>
