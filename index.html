@@ -687,7 +687,7 @@ const LOGO_LOCKUP="icons/maha-hub-logo.png";
 const ECO_HERO="brand/login-hero-bg.jpg";
 "use strict";
 /* ================= Maha Hub PMS v4 — core ================= */
-const VERSION='MH5_PMS_20261002P';
+const VERSION='MH5_PMS_20261002Q';
 const DBKEY='mahahub.v5';
 const DBKEY4='mahahub.v4';
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -3762,16 +3762,27 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
-const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach & Connect)','prov.systems'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account'],['Backup & restore','set.backup']]}];
+const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account'],['Backup & restore','set.backup']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
 function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.connect)}
 function bookOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.google&&h.set.google.enabled)}
-function reachUrl(){const base=location.href.split('#')[0].replace(/index\.html?$/i,'');return base.replace(/\/?$/,'/')+'reach/'}
+function hubBaseUrl(){const base=location.href.split('#')[0].replace(/index\.html?$/i,'');return base.replace(/\/?$/,'/')}
+function reachUrl(h){const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return hubBaseUrl()+'reach/'+q}
 function connectHost(){return (localStorage.getItem('maha.connectHost')||'http://127.0.0.1:8782').replace(/\/+$/,'')}
-function connectUrlFor(h){const base=connectHost();return base+'/?hotel='+encodeURIComponent(h&&h.code||'')}
-function bookUrlFor(h){const g=(h&&h.set&&h.set.google)||{};const base=(g.bookBaseUrl||'./book').replace(/\/+$/,'');return base+'/?hotel='+encodeURIComponent(h.code)}
+function bookHost(){return (localStorage.getItem('maha.bookHost')||'http://127.0.0.1:8781').replace(/\/+$/,'')}
+function connectUrlFor(h){return connectHost()+'/?hotel='+encodeURIComponent(h&&h.code||'')}
+function connectStaticUrl(h){return hubBaseUrl()+'connect/'+(h&&h.code?('?hotel='+encodeURIComponent(h.code)):'')}
+function bookUrlFor(h){
+  const g=(h&&h.set&&h.set.google)||{};
+  let base=(g.bookBaseUrl||'').trim()||(bookHost()+'/book');
+  if(/^\.\//.test(base)||base==='book'||base==='./book')base=hubBaseUrl()+'book';
+  try{if(!/^https?:\/\//i.test(base))base=new URL(base,hubBaseUrl()).href}catch(e){base=hubBaseUrl()+'book'}
+  return base.replace(/\/+$/,'')+'/?hotel='+encodeURIComponent(h&&h.code||'');
+}
+function openApp(url,label){try{const w=window.open(url,'_blank','noopener');if(!w){toast('Allow pop-ups to open '+(label||'the app')+', or use the link.');return false}return true}catch(e){toast('Could not open '+(label||'the app'));return false}}
+function isProviderConsole(){return !!(DB.session&&DB.session.provider&&!DB.session.inHotel)}
 function connectSnapshot(h){
   shapeHotel(h);const s=h.set||{};
   return {
@@ -3794,10 +3805,11 @@ function hotelSystems(h){
 }
 function openSystem(kind,h){
   h=h||H;
+  const asProv=!!(DB.session&&DB.session.provider);
   if(kind==='hub'){if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
-  if(kind==='reach'){if(!reachOn(h)){toast('Maha Reach is closed for this hotel. The provider opens it under Systems.');return}location.href=reachUrl();return}
-  if(kind==='connect'){if(!connectOn(h)){toast('Maha Connect is closed for this hotel. The provider opens it under Systems.');return}window.open(connectUrlFor(h),'_blank');return}
-  if(kind==='book'){if(!bookOn(h)){toast('Direct booking is not enabled for this hotel.');return}window.open(bookUrlFor(h),'_blank');return}
+  if(kind==='reach'){if(!reachOn(h)&&!asProv){toast('Maha Reach is closed for this hotel. The provider opens it under Systems.');return}openApp(reachUrl(h),'Maha Reach');return}
+  if(kind==='connect'){if(!connectOn(h)&&!asProv){toast('Maha Connect is closed for this hotel. The provider opens it under Systems.');return}openApp(connectUrlFor(h),'Maha Connect');return}
+  if(kind==='book'){if(!bookOn(h)&&!asProv){toast('Direct booking is not enabled for this hotel.');return}openApp(bookUrlFor(h),'Maha Booking');return}
 }
 function ecoAvailableCards(h, interactive, selected){
   return hotelSystems(h).map((s,i)=>{
@@ -5752,37 +5764,77 @@ function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes
 VIEWS['sys.pick']=el=>{el.innerHTML='';go(firstHotelView());setTimeout(openSystemsSwitcher,0)};
 VIEWS['prov.systems']=el=>{
   if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
-  Object.values(DB.hotels).forEach(shapeHotel);
-  const cHost=connectHost();
-  el.innerHTML=pageHead('Systems (Reach & Connect)')+`<div class="panel pad">
-    <p class="sub">Open or close ecosystem products per hotel. <b>Maha PMS</b> is always on. <b>Maha Reach</b> uses monthly credits. <b>Maha Connect</b> is the channel-manager foundation (not live on OTAs until a certified middle provider is wired). Direct booking / Google is under Distribution.</p>
-    <p class="sub">Reach URL: <a href="${esc(reachUrl())}" target="_blank" rel="noopener">${esc(reachUrl())}</a> · Connect server: <input id="cxHost" value="${esc(cHost)}" style="min-width:220px"> <button class="btn sm ghost" id="cxSaveHost">Save</button>
-      · <button class="btn sm ghost" id="cxRules">System rules →</button></p></div>
-   <div class="cols2 mt">${Object.values(DB.hotels).map(h=>`<div class="panel pad">
+  const hotels=Object.values(DB.hotels);hotels.forEach(shapeHotel);
+  const cHost=connectHost(),bHost=bookHost(),first=hotels[0];
+  const reachPreview=reachUrl(first),connectPreview=connectUrlFor(first),bookPreview=bookUrlFor(first);
+  el.innerHTML=pageHead('Systems (Reach · Connect · Booking)')+`
+   <div class="panel pad">
+     <h3 style="margin:0 0 6px">Open apps for setup</h3>
+     <p class="sub">Provider can open these <b>anytime</b> to build and review — before linking a hotel or publishing. Hotel Open/Close only controls whether hotel staff may use that product.</p>
+     <div class="cols3 mt" style="gap:10px">
+       <div class="panel pad" style="background:#f7faf8">
+         <b>Maha Reach</b><div class="sub">Guest engagement · works from this Hub host</div>
+         <div class="btns mt"><a class="btn gold" href="${esc(reachPreview)}" target="_blank" rel="noopener">Open Reach</a></div>
+         <p class="sub mt" style="word-break:break-all">${esc(reachUrl())}</p>
+       </div>
+       <div class="panel pad" style="background:#f5f8fb">
+         <b>Maha Connect</b><div class="sub">Channel manager foundation · needs Connect server</div>
+         <div class="btns mt">
+           <a class="btn gold" href="${esc(connectPreview)}" target="_blank" rel="noopener">Open Connect</a>
+           <a class="btn ghost" href="${esc(connectStaticUrl(first))}" target="_blank" rel="noopener">Static UI</a>
+         </div>
+         <p class="sub mt">Server: <input id="cxHost" value="${esc(cHost)}" style="min-width:180px"> <button class="btn sm ghost" id="cxSaveHost" type="button">Save</button></p>
+         <p class="sub">Run <code>node connect/server.mjs</code> on port 8782 for live data / publish.</p>
+       </div>
+       <div class="panel pad" style="background:#faf7f0">
+         <b>Maha Booking</b><div class="sub">Direct booking engine · needs Booking server</div>
+         <div class="btns mt">
+           <a class="btn gold" href="${esc(bookPreview)}" target="_blank" rel="noopener">Open Booking</a>
+           <a class="btn ghost" href="${esc(hubBaseUrl()+'book/'+(first?'?hotel='+encodeURIComponent(first.code):''))}" target="_blank" rel="noopener">Static UI</a>
+         </div>
+         <p class="sub mt">Server: <input id="bkHost" value="${esc(bHost)}" style="min-width:180px"> <button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></p>
+         <p class="sub">Run <code>node book/server.mjs</code> on port 8781 for catalog / rates.</p>
+       </div>
+     </div>
+     <p class="sub mt"><button class="btn sm ghost" id="cxRules" type="button">System rules →</button>
+       · <button class="btn sm ghost" id="cxDist" type="button">Distribution / Google →</button></p>
+   </div>
+   <h3 class="mt">Per hotel — availability &amp; open</h3>
+   <p class="sub">Use <b>Open app</b> to preview that hotel in each product. Toggle Open/Close when the hotel may use it in production.</p>
+   <div class="cols2 mt">${hotels.map(h=>`<div class="panel pad">
       <div class="row gap" style="justify-content:space-between;align-items:flex-start"><div><b style="font-size:15px">${esc(h.code)}</b><div class="sub">${esc(h.set.name)}</div></div>
-        <button class="btn sm ghost" data-enter="${h.code}">Enter PMS</button></div>
+        <button class="btn sm ghost" data-enter="${h.code}" type="button">Enter PMS</button></div>
       <div class="featgrid mt" style="grid-template-columns:1fr">
-        <div class="row gap" style="justify-content:space-between"><span><b>Maha PMS</b><div class="sub">Property operations</div></span><span class="pst on">Always on</span></div>
-        <div class="row gap" style="justify-content:space-between"><span><b>Maha Connect</b><div class="sub">Channel distribution</div></span>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha PMS</b><div class="sub">Property operations</div></span>
+          <span class="row gap"><span class="pst on">Always on</span><button class="btn sm ghost" data-enter="${h.code}" type="button">Open PMS</button></span></div>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Connect</b><div class="sub">Channel distribution</div></span>
           <span class="row gap"><span class="pst ${connectOn(h)?'on':'off'}">${connectOn(h)?'Open':'Closed'}</span>
-          <button class="btn sm ${connectOn(h)?'ghost':'gold'}" data-connect="${h.code}">${connectOn(h)?'Close':'Open'}</button>
-          <button class="btn sm ghost" data-pub="${h.code}" ${connectOn(h)?'':'disabled title="Open Connect first"'}>Publish</button></span></div>
-        <div class="row gap" style="justify-content:space-between"><span><b>Maha Reach</b><div class="sub">Marketing & engagement</div></span>
+          <button class="btn sm ${connectOn(h)?'ghost':'gold'}" data-connect="${h.code}" type="button">${connectOn(h)?'Close':'Open for hotel'}</button>
+          <a class="btn sm gold" href="${esc(connectUrlFor(h))}" target="_blank" rel="noopener">Open app</a>
+          <button class="btn sm ghost" data-pub="${h.code}" type="button" title="Publish hotel snapshot into Connect">Publish</button></span></div>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Reach</b><div class="sub">Marketing &amp; engagement</div></span>
           <span class="row gap"><span class="pst ${reachOn(h)?'on':'off'}">${reachOn(h)?'Open':'Closed'}</span>
-          <button class="btn sm ${reachOn(h)?'ghost':'gold'}" data-reach="${h.code}">${reachOn(h)?'Close':'Open'}</button>
-          <a class="btn sm ghost" href="${esc(reachUrl())}" target="_blank" rel="noopener" ${reachOn(h)?'':'aria-disabled="true" style="pointer-events:none;opacity:.45"'}>Open app</a></span></div>
-        <div class="row gap" style="justify-content:space-between"><span><b>Maha Booking</b><div class="sub">Direct / Google feeds</div></span>
+          <button class="btn sm ${reachOn(h)?'ghost':'gold'}" data-reach="${h.code}" type="button">${reachOn(h)?'Close':'Open for hotel'}</button>
+          <a class="btn sm gold" href="${esc(reachUrl(h))}" target="_blank" rel="noopener">Open app</a></span></div>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Booking</b><div class="sub">Direct booking engine</div></span>
           <span class="row gap"><span class="pst ${bookOn(h)?'on':'off'}">${bookOn(h)?'Enabled':'Off'}</span>
-          <button class="btn sm ghost" data-booksetup="${h.code}">Setup</button></span></div>
+          <button class="btn sm ${bookOn(h)?'ghost':'gold'}" data-book="${h.code}" type="button">${bookOn(h)?'Disable':'Enable for hotel'}</button>
+          <a class="btn sm gold" href="${esc(bookUrlFor(h))}" target="_blank" rel="noopener">Open app</a>
+          <button class="btn sm ghost" data-booksetup="${h.code}" type="button">Setup</button></span></div>
       </div></div>`).join('')}</div>`;
   $('#cxSaveHost',el).onclick=()=>{const v=($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782';localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
+  $('#bkSaveHost',el).onclick=()=>{const v=($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781';localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
   if($('#cxRules',el))$('#cxRules',el).onclick=()=>go('prov.rules');
+  if($('#cxDist',el))$('#cxDist',el).onclick=()=>go('prov.distribution');
   $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);h.set.systems.reach=!reachOn(h);
     provLog(`${h.set.systems.reach?'Opened':'Closed'} Maha Reach for ${h.code}`);saveDB();render();toast(h.set.systems.reach?`Maha Reach is open for ${h.code}. Credits apply inside Reach.`:`Maha Reach is closed for ${h.code}.`)});
   $$('[data-connect]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.connect];if(!h)return;shapeHotel(h);h.set.systems.connect=!connectOn(h);
     provLog(`${h.set.systems.connect?'Opened':'Closed'} Maha Connect for ${h.code}`);saveDB();render();toast(h.set.systems.connect?`Maha Connect is open for ${h.code}. Foundation only — not live on OTAs.`:`Maha Connect is closed for ${h.code}.`)});
+  $$('[data-book]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.book];if(!h)return;shapeHotel(h);h.set.google.enabled=!bookOn(h);
+    provLog(`${h.set.google.enabled?'Enabled':'Disabled'} Maha Booking for ${h.code}`);saveDB();render();toast(h.set.google.enabled?`Maha Booking enabled for ${h.code}.`:`Maha Booking disabled for ${h.code}.`)});
   $$('[data-pub]',el).forEach(b=>b.onclick=async()=>{
-    const h=DB.hotels[b.dataset.pub];if(!h||!connectOn(h))return;
+    const h=DB.hotels[b.dataset.pub];if(!h)return;
+    if(!connectOn(h)){if(!confirm('Connect is Closed for '+h.code+'. Publish anyway for setup?'))return;shapeHotel(h);h.set.systems.connect=true;saveDB()}
     const host=(($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||connectHost());
     localStorage.setItem('maha.connectHost',host);
     b.disabled=true;toast('Publishing snapshot to Maha Connect…');
@@ -5792,7 +5844,8 @@ VIEWS['prov.systems']=el=>{
       if(!r.ok)throw new Error(j.message||j.error||r.statusText);
       provLog(`Published ${h.code} to Maha Connect (${j.roomTypes||0} room types)`);
       toast(`Published ${h.code} to Connect · ${j.roomTypes||0} room types · ${j.inventoryDays||0} inventory days.`);
-    }catch(e){toast('Publish failed: '+(e.message||e)+'. Is Connect running on '+host+'?')}
+      render();
+    }catch(e){toast('Publish failed: '+(e.message||e)+'. Start Connect with: node connect/server.mjs')}
     finally{b.disabled=false}
   });
   $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
