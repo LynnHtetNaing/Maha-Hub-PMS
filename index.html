@@ -687,7 +687,7 @@ const LOGO_LOCKUP="icons/maha-hub-logo.png";
 const ECO_HERO="brand/login-hero-bg.jpg";
 "use strict";
 /* ================= Maha Hub PMS v4 — core ================= */
-const VERSION='MH5_PMS_20261006D';
+const VERSION='MH5_PMS_20261006E';
 const DBKEY='mahahub.v5';
 const DBKEY4='mahahub.v4';
 const SESSKEY='mahahub.sess';
@@ -3837,9 +3837,16 @@ function edcLinkUrl(link){
   const u=new URL(base,location.href);
   u.searchParams.set('id',link.id);
   if(link.hotel)u.searchParams.set('h',link.hotel);
+  /* Plain params so any phone can open the form without shared storage / cloud. */
+  u.searchParams.set('a',String(+link.amount||0));
+  u.searchParams.set('c',link.cur||(H&&H.set&&H.set.cur)||'THB');
+  if(link.guest)u.searchParams.set('g',link.guest);
+  if(link.ref)u.searchParams.set('r',link.ref);
+  if(link.note)u.searchParams.set('n',link.note);
+  if(link.expiresAt)u.searchParams.set('x',String(link.expiresAt));
   const packed=edcPack(link);if(packed)u.searchParams.set('p',packed);
-  const c=cloudCfg();
-  if(c&&c.url)u.searchParams.set('cloud',c.url.replace(/\/+$/,''));
+  const cfg=cloudCfg();
+  if(cfg&&cfg.url)u.searchParams.set('cloud',cfg.url.replace(/\/+$/,''));
   return u.toString();
 }
 function openEdcLink(link){const url=edcLinkUrl(link);if(openApp(url,link?'Guest EDC link':'EDC Card Link'))toast('Opened EDC Card Link in a new tab')}
