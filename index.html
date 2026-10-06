@@ -687,9 +687,13 @@ const LOGO_LOCKUP="icons/maha-hub-logo.png";
 const ECO_HERO="brand/login-hero-bg.jpg";
 "use strict";
 /* ================= Maha Hub PMS v4 — core ================= */
-const VERSION='MH5_PMS_20261002S';
+const VERSION='MH5_PMS_20261006A';
 const DBKEY='mahahub.v5';
 const DBKEY4='mahahub.v4';
+const SESSKEY='mahahub.sess';
+/* Live sign-in lives in sessionStorage only (clears when the browser/tab session ends).
+   Absolute max age also forces re-login after a long period — including provider. */
+const SESSION_MAX_MS=12*60*60*1000;
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
@@ -917,12 +921,44 @@ function migrateDB(db){
   return db;
 }
 function bindHotel(){H=(DB.session&&DB.session.hotel&&DB.hotels[DB.session.hotel])?DB.hotels[DB.session.hotel]:null}
+function readLiveSession(){
+  try{
+    const raw=sessionStorage.getItem(SESSKEY);
+    if(!raw)return null;
+    const se=JSON.parse(raw);
+    return se&&typeof se==='object'?se:null;
+  }catch(e){return null}
+}
+function writeLiveSession(se){
+  try{
+    if(!se){sessionStorage.removeItem(SESSKEY);return}
+    sessionStorage.setItem(SESSKEY,JSON.stringify(se));
+  }catch(e){}
+}
+function clearLiveSession(){try{sessionStorage.removeItem(SESSKEY)}catch(e){}}
+function stampSession(se){
+  if(!se)return null;
+  const now=Date.now();
+  if(!se.at)se.at=now;
+  se.last=now;
+  return se;
+}
+function applyLiveSession(){
+  if(!DB)return;
+  /* Never trust a persisted DB.session — only this browser tab session. */
+  const live=readLiveSession();
+  if(live&&sessionValid(live)){DB.session=live;writeLiveSession(live)}
+  else{DB.session=null;clearLiveSession()}
+  bindHotel();
+}
 function loadDB(){
   let raw=null;
   try{raw=localStorage.getItem(DBKEY)||localStorage.getItem(DBKEY4)}catch(e){raw=null}
   let parsed=null;if(raw){try{parsed=JSON.parse(raw)}catch(e){parsed=null}}
   DB=parsed?migrateDB(parsed):seedDB();
-  bindHotel();
+  /* Drop any leftover session that was saved into the hotel file before this change. */
+  DB.session=null;
+  applyLiveSession();
 }
 function idbOpen(){return new Promise((res,rej)=>{
   if(!window.indexedDB){rej(new Error('no idb'));return}
@@ -935,7 +971,7 @@ async function idbGet(store,key){const d=await idbOpen();return idbReq(d.transac
 async function idbSet(store,key,val){const d=await idbOpen();return idbReq(d.transaction(store,'readwrite').objectStore(store).put(val,key))}
 async function hydrateFromIDB(){
   try{const saved=await idbGet('kv','main');
-    if(saved&&saved.hotels&&(saved.savedAt||0)>((DB&&DB.savedAt)||0)){DB=migrateDB(saved);bindHotel()}}catch(e){}
+    if(saved&&saved.hotels&&(saved.savedAt||0)>((DB&&DB.savedAt)||0)){DB=migrateDB(saved);DB.session=null;applyLiveSession()}}catch(e){}
 }
 async function listSnaps(){try{const d=await idbOpen();const all=await idbReq(d.transaction('snaps','readonly').objectStore('snaps').getAll());return (all||[]).filter(x=>x&&x.db).sort((a,b)=>b.at-a.at)}catch(e){return []}}
 async function trimSnaps(){
@@ -948,9 +984,17 @@ function saveDB(opt){
   if(!DB)return;
   DB.version=5;
   if(!(opt&&opt.keepTime)) DB.savedAt=Date.now();
-  try{localStorage.setItem(DBKEY,JSON.stringify(DB))}catch(e){toast('This browser storage is full. Download a backup, then remove large guest photos.')}
-  const n=++_saveQ,stamp=DB.savedAt,day=iso(new Date()),copy=DB;
-  idbSet('kv','main',copy).then(()=>{if(n!==_saveQ)return;return idbGet('kv','snapDay')}).then(prev=>{
+  if(DB.session)stampSession(DB.session);
+  /* Persist hotel data without the signed-in session so a closed browser cannot reopen logged-in. */
+  const keep=DB.session;DB.session=null;
+  let raw='';
+  try{raw=JSON.stringify(DB)}catch(e){DB.session=keep;toast('This browser storage is full. Download a backup, then remove large guest photos.');return}
+  DB.session=keep;
+  if(keep)writeLiveSession(keep);else clearLiveSession();
+  try{localStorage.setItem(DBKEY,raw)}catch(e){toast('This browser storage is full. Download a backup, then remove large guest photos.')}
+  let copy=null;try{copy=JSON.parse(raw)}catch(e){copy=null}
+  const n=++_saveQ,stamp=DB.savedAt,day=iso(new Date());
+  if(copy)idbSet('kv','main',copy).then(()=>{if(n!==_saveQ)return;return idbGet('kv','snapDay')}).then(prev=>{
     if(n!==_saveQ||prev===day)return;
     return idbSet('snaps','s'+stamp,{at:stamp,day,db:copy}).then(()=>idbSet('kv','snapDay',day)).then(trimSnaps);
   }).catch(()=>{});
@@ -970,6 +1014,11 @@ function cloudStrip(db){
 }
 function sessionValid(se){
   if(!se||!DB)return false;
+  const now=Date.now();
+  const started=+se.at||0;
+  const last=+se.last||started||0;
+  if(!started||(now-started)>SESSION_MAX_MS)return false;
+  if(last&&(now-last)>SESSION_MAX_MS)return false;
   if(se.provider)return (DB.providers||[]).some(p=>p.id===se.userId&&p.active!==false);
   const h=DB.hotels&&DB.hotels[se.hotel];if(!h)return false;
   const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false)return false;
@@ -995,6 +1044,7 @@ function adoptCloud(payload,remoteAt,opt){
     if(logos)DB.payLogos=logos;
     DB.savedAt=remoteAt||Date.now();
     DB.session=session&&sessionValid(session)?session:null;
+    if(DB.session)writeLiveSession(DB.session);else clearLiveSession();
     bindHotel();
     saveDB({keepTime:true,nocloud:true});
     markCloudCursor(DB.savedAt);
@@ -4026,8 +4076,8 @@ function doLogin(){
     openSystem(sys,h);toast(`Welcome ${who}. Opening ${ecoSysLabel(sys)}.`);
   };
   const pv=DB.providers.find(x=>x.username===un);if(pv){if(pv.hash!==pwHash(pv.salt,pw))return fail();fails=0;
-    const finish=(how)=>{const first=Object.keys(DB.hotels)[0];DB.session={provider:true,userId:pv.id,hotel:first};H=DB.hotels[first];
-      DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in'+(how?' ('+how+')':'')+(pv.email&&pv.emailAlerts!==false?' – alert emailed to '+pv.email:'')});saveDB();renderShell();go(pv.mfa&&pv.mfa.enabled?'prov.home':'prov.account')};
+    const finish=(how)=>{const first=Object.keys(DB.hotels)[0];DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=DB.hotels[first];
+      DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in'+(how?' ('+how+')':'')+(pv.email&&pv.emailAlerts!==false?' – alert emailed to '+pv.email:'')});writeLiveSession(DB.session);saveDB();renderShell();go(pv.mfa&&pv.mfa.enabled?'prov.home':'prov.account')};
     if(pv.mfa&&pv.mfa.enabled){providerSecondStep(pv,()=>finish('with Google Authenticator'));return}finish('');return}
   const f=findStaff(un);if(!f)return fail();const {h,u}=f;if(u.active===false||u.hash!==pwHash(u.salt,pw))return fail();const hc=h.code;
   if(h.active===false){err.textContent='This hotel is not active yet. Please contact Padauk support.';return}
@@ -4035,13 +4085,13 @@ function doLogin(){
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
   if(!s){const closed=h.shifts.find(x=>x.userId===u.id&&x.name===lgShift&&x.bd===h.set.bd&&x.status==='closed'&&!x.reopenOk);
     if(closed&&ruleOn(h,'blockClosedShiftReopen')){err.textContent=`The ${lgShift} shift for ${fd(h.set.bd)} is already closed. The provider must allow it to be opened again.`;return}
-    s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:Math.max(0,+$('#lgCash').value||0),status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session={hotel:hc,userId:u.id,shiftId:s.id};log(`Opened ${s.name} shift`)}
-  else{DB.session={hotel:hc,userId:u.id,shiftId:s.id};log(`Signed in, continued ${s.name} shift`)}
-  saveDB();enterStaffSystem(h)}
+    s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:Math.max(0,+$('#lgCash').value||0),status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Opened ${s.name} shift`)}
+  else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
+  writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}
 function signOut(silent){
   if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!confirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   if(DB.session){if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});else log('Signed out')}
-  DB.session=null;H=null;lgTargetSys=null;saveDB();closeAllModals();showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
+  DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
 
 /* ---------- reports open in their own tab (4.6) ---------- */
 function openReportsTab(){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
@@ -6744,7 +6794,7 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
   const pr=()=>{const p=$('#print');p.innerHTML=$('#rpview',root).innerHTML;document.body.classList.add('printing','printrep');window.print();setTimeout(()=>document.body.classList.remove('printing','printrep'),500)};
   $('#rpPr',root).onclick=pr;$('#rpPdf',root).onclick=()=>{toast('In the print window choose "Save as PDF".');setTimeout(pr,300)};
 }
-function loadFresh(){const code=H&&H.code;try{const raw=localStorage.getItem(DBKEY)||localStorage.getItem(DBKEY4);const d=raw?JSON.parse(raw):null;if(d&&d.hotels){DB=migrateDB(d);H=DB.hotels[code]||H}}catch(e){}}
+function loadFresh(){const code=H&&H.code;try{const raw=localStorage.getItem(DBKEY)||localStorage.getItem(DBKEY4);const d=raw?JSON.parse(raw):null;if(d&&d.hotels){const live=DB&&DB.session;DB=migrateDB(d);DB.session=live&&sessionValid(live)?live:null;if(DB.session)writeLiveSession(DB.session);else clearLiveSession();H=(code&&DB.hotels[code])||(DB.session&&DB.hotels[DB.session.hotel])||H}}catch(e){}}
 function runReport(root){loadFresh();const d=REPORTS.find(r=>r.code===RP.code);const v=$('#rpview',root);
   try{const res=reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName});v.innerHTML=`<div class="rpages">${res.html}</div>`;v.style.setProperty('--z',RP.zoom);$('#rpPg',root).textContent='1 / '+res.n;
     v.onscroll=()=>{const pgs=$$('.rpage',v);let n=1;pgs.forEach((p,i)=>{if(p.getBoundingClientRect().top<v.getBoundingClientRect().top+120)n=i+1});RP.page=n;$('#rpPg',root).textContent=n+' / '+pgs.length}}
@@ -6831,9 +6881,9 @@ VIEWS['ac.buy']=el=>{
       p.pays=p.pays||[];p.pays.push({at:Date.now(),bd:H.set.bd,amt:a,method:$('#ym',m).value,ref:$('#yr',m).value.trim(),user:user().name});
       if(buyOpen(p)<=0.004)p.status='paid';log('Supplier payment '+m2(a)+' '+p.desc);closeModal(m);refresh();toast('Payment recorded')}});
 };
-function downloadBackup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(DB)],{type:'application/json'}));a.download=`mahahub-backup-${iso(new Date())}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400)}
+function downloadBackup(){const keep=DB.session;DB.session=null;const raw=JSON.stringify(DB);DB.session=keep;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([raw],{type:'application/json'}));a.download=`mahahub-backup-${iso(new Date())}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400)}
 function applyRestore(obj){if(!obj||!obj.hotels){toast('This file is not a Maha Hub backup.');return}
-  DB=migrateDB(obj);DB.session=null;H=null;saveDB();showLogin();toast('Backup restored. Sign in again.')}
+  DB=migrateDB(obj);DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Backup restored. Sign in again.')}
 VIEWS['set.backup']=el=>{
   if(!can('setup')&&!user().provider){el.innerHTML='<div class="empty">Backup is for the manager or the provider.</div>';return}
   const when=DB.savedAt?fdt(DB.savedAt):'not yet';
@@ -6848,7 +6898,7 @@ VIEWS['set.backup']=el=>{
   $('#bkUp',el).onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{let obj;try{obj=JSON.parse(rd.result)}catch(err){toast('That file could not be read.');return}
     if(obj&&obj.k==='AES-GCM'){const pass=prompt('Passphrase for this encrypted backup:');if(!pass)return;try{obj=await decryptBackup(obj,pass)}catch(err){toast('The passphrase did not open this backup.');return}}
     if(!confirm('Replace all hotels on this device with this backup?'))return;applyRestore(obj)};rd.readAsText(f)};
-  if($('#bkReset',el))$('#bkReset',el).onclick=()=>{if(!confirm('Replace every hotel with the original demo data? Download a backup first if you need the current file.'))return;DB=seedDB();DB.session=null;H=null;saveDB();showLogin();toast('Demo hotels restored')};
+  if($('#bkReset',el))$('#bkReset',el).onclick=()=>{if(!confirm('Replace every hotel with the original demo data? Download a backup first if you need the current file.'))return;DB=seedDB();DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Demo hotels restored')};
   listSnaps().then(sn=>{const box=$('#bkSn');if(!box)return;if(!sn.length){box.textContent='No recovery point yet. One is kept the first time you save on a new day.';return}
     box.innerHTML=`<table class="grid"><tr><th>When</th><th>Business day key</th><th></th></tr>${sn.map(s=>`<tr><td>${esc(fdt(s.at))}</td><td>${esc(s.day||'')}</td><td><button class="btn sm ghost" data-snap="${s.at}">Restore</button></td></tr>`).join('')}</table>`;
     $$('[data-snap]',box).forEach(b=>b.onclick=()=>{const s=sn.find(x=>String(x.at)===b.dataset.snap);if(!s)return;if(!confirm('Restore this recovery point? Current data on this device will be replaced.'))return;applyRestore(s.db)})}).catch(()=>{const box=$('#bkSn');if(box)box.textContent='Recovery points need IndexedDB, which this browser blocked. Download a file backup instead.'});
@@ -7105,8 +7155,17 @@ VIEWS['prov.security']=el=>{
   };
   bindPicker(el);const sel=$('#pvH',el);if(sel)sel.addEventListener('change',()=>setTimeout(paint,0));paint();
 };
-let _idle;
-function armIdle(){clearTimeout(_idle);if(document.getElementById('idleLock'))return;if(!DB||!DB.session||!H)return;const mins=+(H.set&&H.set.idleMin)||0;if(mins<=0)return;if(DB.session.provider&&!DB.session.inHotel)return;_idle=setTimeout(showIdleLock,mins*60000)}
+let _idle,_sessTouch=0;
+function touchLiveSession(){
+  if(!DB||!DB.session)return;
+  if(!sessionValid(DB.session)){DB.session=null;H=null;clearLiveSession();saveDB();showLogin('Your session ended. Sign in again.');return}
+  const now=Date.now();
+  if(now-_sessTouch<30000)return;
+  _sessTouch=now;
+  stampSession(DB.session);
+  writeLiveSession(DB.session);
+}
+function armIdle(){clearTimeout(_idle);touchLiveSession();if(document.getElementById('idleLock'))return;if(!DB||!DB.session||!H)return;const mins=+(H.set&&H.set.idleMin)||0;if(mins<=0)return;if(DB.session.provider&&!DB.session.inHotel)return;_idle=setTimeout(showIdleLock,mins*60000)}
 function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   d.innerHTML=`<div class="panel pad"><h2>Screen locked</h2><p>Your shift stays open. Type your password to continue as <b>${esc(user().name)}</b>.</p><label class="f"><span>Password</span><input id="idlePw" type="password"></label><div class="err" id="idleE"></div><div class="btns"><button class="btn gold" id="idleGo">Unlock</button></div></div>`;
   document.body.appendChild(d);const go=()=>{const pw=$('#idlePw').value;let ok=false;if(DB.session.provider){const p=DB.providers.find(x=>x.id===DB.session.userId);ok=!!(p&&p.hash===pwHash(p.salt,pw))}else{const u=H&&H.users.find(x=>x.id===DB.session.userId);ok=!!(u&&u.hash===pwHash(u.salt,pw))}
@@ -7121,15 +7180,20 @@ window.addEventListener('DOMContentLoaded',()=>{
   const startApp=()=>{if(booted)return;booted=true;ensureMasterProvider();
     if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
     window.addEventListener('storage',e=>{if((e.key!==DBKEY&&e.key!==DBKEY4)||!e.newValue||location.hash==='#reports')return;
-      try{const d=JSON.parse(e.newValue);if(!d||!d.savedAt||d.savedAt<=(DB.savedAt||0))return;DB=migrateDB(d);bindHotel();
+      try{const d=JSON.parse(e.newValue);if(!d||!d.savedAt||d.savedAt<=(DB.savedAt||0))return;
+        const live=DB.session;DB=migrateDB(d);DB.session=live&&sessionValid(live)?live:null;
+        if(DB.session)writeLiveSession(DB.session);else clearLiveSession();
+        bindHotel();
         if(!DB.session){showLogin();return}renderShell();render()}catch(err){}});
     if(location.hash==='#reports'){document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
       window.addEventListener('storage',e=>{if(e.key===DBKEY||e.key===DBKEY4)loadFresh()});return}
-    const finish=()=>{if(DB.session&&H&&(DB.session.provider||curShift())){renderShell();
+    const finish=()=>{
+      applyLiveSession();
+      if(DB.session&&H&&(DB.session.provider||curShift())){renderShell();
       if(DB.session.provider&&!DB.session.inHotel)go('prov.home');
       else go(firstHotelView());
       if(location.hash==='#systems'){try{history.replaceState(null,'',location.pathname+location.search)}catch(e){} setTimeout(openSystemsSwitcher,40)}}
-      else{const had=!!DB.session;DB.session=null;H=null;if(had)saveDB();showLogin()}};
+      else{DB.session=null;H=null;clearLiveSession();saveDB({keepTime:true,nocloud:true});showLogin()}};
     Promise.race([cloudPull().catch(()=>{}),new Promise(r=>setTimeout(r,8000))]).then(finish,finish)};
   setTimeout(startApp,1500);
   hydrateFromIDB().then(startApp,startApp);
