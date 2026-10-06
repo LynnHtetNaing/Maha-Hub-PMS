@@ -687,7 +687,7 @@ const LOGO_LOCKUP="icons/maha-hub-logo.png";
 const ECO_HERO="brand/login-hero-bg.jpg";
 "use strict";
 /* ================= Maha Hub PMS v4 — core ================= */
-const VERSION='MH5_PMS_20261002R';
+const VERSION='MH5_PMS_20261002S';
 const DBKEY='mahahub.v5';
 const DBKEY4='mahahub.v4';
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -908,7 +908,6 @@ function shapeHotel(h){
   (h.rateCodes||[]).forEach(r=>{if(r.meal==='ABF'&&(r.bfAdult==null||r.bfAdult===''))r.bfAdult=h.set.bfAdult});
   (h.companies||[]).forEach(c=>{if(c.creditLimit==null)c.creditLimit=0});
   h.amend=h.amend||[];h.audits=h.audits||[];h.logs=h.logs||[];h.invoices=h.invoices||[];
-  h.payLinks=Array.isArray(h.payLinks)?h.payLinks:[];
   if(h.users&&h.users.length&&!h.users.some(u=>u.owner)){const m=h.users.find(u=>u.role==='Manager')||h.users[0];m.owner=true;m.protected=true}
 }
 function migrateDB(db){
@@ -3754,7 +3753,7 @@ const MENU=[
  {t:'Profile',items:[['Guest Profile','profile.guests','profile','fn.profile.guests'],['Company / Agency','profile.companies','','fn.profile.companies'],['Rate Codes','profile.rates','','fn.profile.rates']]},
  {t:'Reservation',items:[['New Reservation','res.new','res.create','fn.res.new'],['Walk-In','res.walkin','res.create','fn.res.walkin'],['Reservation List / Change','res.list','','fn.res.list'],['Group Reservation','res.group','res.create','fn.res.group'],['Advance Rate Setup','res.rate','rate','fn.res.rate'],['Room Grid','fo.grid','','fn.res.grid']]},
  {t:'Front Office',items:[['Hotel Status','fo.status','','fn.fo.status'],['Manager Dashboard','fo.dash','reports','fn.fo.dash'],['Arrivals','fo.arrivals','','fn.fo.arrivals'],['Departures','fo.departures','','fn.fo.departures'],['Forecast','inq.forecast','','fn.fo.forecast'],['In House','fo.inhouse','','fn.fo.inhouse'],['Duty Roster','fo.roster','','fn.fo.roster']]},
- {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['Payment links','bill.paylinks','pay','fn.bill.folio'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','','fn.set.approve']]},
+ {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','','fn.set.approve']]},
  {t:'Room Management',items:[['Housekeeping Status','rm.hkstatus','','fn.rm.hkstatus'],['Room Grid','fo.grid','','fn.rm.grid'],['Out of Order','rm.ooo','','fn.rm.ooo']]},
  {t:'Inquiry',items:[['Hotel Status','fo.status','','fn.inq.status'],['Guest','inq.guest','','fn.inq.guest'],['Booking History','inq.history','','fn.inq.history'],['Forecast','inq.forecast','','fn.inq.forecast']]},
  {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty']]},
@@ -4796,55 +4795,6 @@ function billingSplit(el,id){
 }
 VIEWS['bill.folio']=(el,id)=>billingSplit(el,id);
 VIEWS['bill.open']=(el,id)=>billingSplit(el,id);
-function payLinkUrl(link){const base=location.href.split('#')[0].replace(/index\.html?$/i,'').replace(/\/?$/,'/');return base+'pay/?id='+encodeURIComponent(link.id)}
-function copyText(t){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}finally{a.remove()}}
-VIEWS['bill.paylinks']=el=>{
-  if(!need('pay'))return;
-  shapeHotel(H);H.payLinks=H.payLinks||[];
-  const list=H.payLinks.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  const st=s=>({open:'<span class="pill y">Open</span>',paid:'<span class="pill g">Paid</span>',cancelled:'<span class="pill r">Cancelled</span>',expired:'<span class="pill r">Expired</span>'}[s]||esc(s));
-  el.innerHTML=pageHead('Payment links',`<button class="btn gold" id="plNew">${ic('pay',16)} New payment link</button>`)+
-    `<div class="panel pad"><p class="sub">Create a shareable link for a guest to enter card details. <b>Foundation sample</b> — no live bank charge. The guest page keeps only brand, last 4 digits, expiry and a token (CVC is never stored).</p>
-      <p class="sub">Guest page: <code>${esc(location.href.split('#')[0].replace(/index\.html?$/i,'').replace(/\/?$/,'/')+'pay/')}</code> · same browser hotel file as Maha Hub.</p></div>
-     <div class="panel mt scroll"><table class="grid"><tr><th>Status</th><th>Created</th><th>Guest</th><th>RSVN</th><th class="n">Amount</th><th>Card</th><th>Note</th><th></th></tr>
-      ${list.map(p=>`<tr>
-        <td>${st(p.status)}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}</td><td>${esc(p.rsvn||'—')}</td>
-        <td class="n">${m2(p.amount)} ${esc(p.cur||H.set.cur)}</td>
-        <td>${p.card?esc((p.card.brand||'')+' •••• '+p.card.last4):'<span class="sub">—</span>'}</td>
-        <td>${esc(p.note||'')}</td>
-        <td class="nowrap">
-          <button class="btn sm ghost" data-copy="${p.id}">Copy link</button>
-          <a class="btn sm ghost" href="${esc(payLinkUrl(p))}" target="_blank" rel="noopener">Open</a>
-          ${p.status==='open'?`<button class="btn sm ghost" data-cancel="${p.id}">Cancel</button>`:''}
-        </td></tr>`).join('')||'<tr><td colspan="8" class="empty">No payment links yet. Create one for a deposit or outstanding balance.</td></tr>'}
-     </table></div>`;
-  $('#plNew',el).onclick=()=>{
-    const m=modal('New payment link',`<div class="form2">
-      ${fld('Guest name',`<input id="plG" autofocus placeholder="Guest full name">`)}
-      ${fld('Amount',`<input id="plA" type="number" min="0.01" step="0.01" value="">`)}
-      ${fld('Currency',`<input id="plC" value="${esc(H.set.cur||'THB')}">`)}
-      ${fld('Reservation #',`<input id="plR" placeholder="Optional">`)}
-      ${fld('Note / reason',`<input id="plN" placeholder="e.g. Deposit for stay" class="span2">`,'span2')}
-      ${fld('Email (optional)',`<input id="plE" type="email" placeholder="guest@email.com">`)}
-      ${fld('Expires in',`<select id="plX"><option value="24">24 hours</option><option value="72" selected>3 days</option><option value="168">7 days</option><option value="0">No expiry</option></select>`)}
-    </div><div class="err" id="plErr"></div><div class="btns"><button class="btn gold" id="plSave">Create link</button></div>`,{w:560});
-    $('#plSave',m).onclick=()=>{
-      const guest=$('#plG',m).value.trim(), amt=+$('#plA',m).value, cur=$('#plC',m).value.trim()||H.set.cur, note=$('#plN',m).value.trim(), rsvn=$('#plR',m).value.trim(), email=$('#plE',m).value.trim(), hrs=+$('#plX',m).value;
-      if(!guest){$('#plErr',m).textContent='Enter the guest name.';return}
-      if(!(amt>0)){$('#plErr',m).textContent='Enter an amount greater than 0.';return}
-      const id='pl'+uid();
-      const link={id,hotel:H.code,amount:r2(amt),cur,guest,email,note,rsvn,status:'open',createdAt:Date.now(),createdBy:user().name,paidAt:null,card:null,demo:true,expiresAt:hrs?Date.now()+hrs*36e5:null};
-      H.payLinks.unshift(link);log('Created payment link '+id+' for '+guest+' · '+m2(amt)+' '+cur);saveDB();closeModal(m);
-      const url=payLinkUrl(link);copyText(url);toast('Payment link created and copied');render();
-      modal('Share payment link',`<p class="sub">Send this link to the guest. They open it on a browser that shares this hotel file (same device / cloud DB), enter card details, and the link marks as paid.</p>
-        <label class="f"><span>Link</span><input id="plUrl" value="${esc(url)}" readonly></label>
-        <div class="btns"><button class="btn gold" id="plCopy2">Copy again</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">Open guest page</a></div>`,{w:560});
-      $('#plCopy2').onclick=()=>{copyText($('#plUrl').value);toast('Copied')};
-    };
-  };
-  $$('[data-copy]',el).forEach(b=>b.onclick=()=>{const p=H.payLinks.find(x=>x.id===b.dataset.copy);if(!p)return;copyText(payLinkUrl(p));toast('Link copied')});
-  $$('[data-cancel]',el).forEach(b=>b.onclick=()=>{const p=H.payLinks.find(x=>x.id===b.dataset.cancel);if(!p||p.status!=='open')return;if(!confirm('Cancel payment link '+p.id+'?'))return;p.status='cancelled';log('Cancelled payment link '+p.id);saveDB();render()});
-};
 VIEWS['bill.inquiry']=el=>{
   const list=allBookings().filter(b=>b.status==='out'&&!b.masterDummy).sort((a,b)=>b.statusDate.localeCompare(a.statusDate)||(a.room||'').localeCompare(b.room||''));
   el.innerHTML=pageHead('Folio Inquiry',`<span class="sub">Checked-out folios. After Close Day they are read-only.</span>`)+`<div class="panel scroll"><table class="grid"><tr><th>Status</th><th>RSVN#</th><th>Folio#</th><th>Guest</th><th>Room</th><th>Out</th><th class="n">Balance</th><th>Access</th><th></th></tr>
