@@ -6881,7 +6881,7 @@ VIEWS['ac.buy']=el=>{
       p.pays=p.pays||[];p.pays.push({at:Date.now(),bd:H.set.bd,amt:a,method:$('#ym',m).value,ref:$('#yr',m).value.trim(),user:user().name});
       if(buyOpen(p)<=0.004)p.status='paid';log('Supplier payment '+m2(a)+' '+p.desc);closeModal(m);refresh();toast('Payment recorded')}});
 };
-function downloadBackup(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(DB)],{type:'application/json'}));a.download=`mahahub-backup-${iso(new Date())}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400)}
+function downloadBackup(){const keep=DB.session;DB.session=null;const raw=JSON.stringify(DB);DB.session=keep;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([raw],{type:'application/json'}));a.download=`mahahub-backup-${iso(new Date())}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400)}
 function applyRestore(obj){if(!obj||!obj.hotels){toast('This file is not a Maha Hub backup.');return}
   DB=migrateDB(obj);DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Backup restored. Sign in again.')}
 VIEWS['set.backup']=el=>{
