@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Cache-Control" content="no-store">
 <title>Card details</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230F3627'/%3E%3Crect x='10' y='18' width='44' height='28' rx='4' fill='%23C8942D'/%3E%3Crect x='10' y='26' width='44' height='8' fill='%230F3627'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,6 +50,7 @@ const params=new URLSearchParams(location.search);
 const linkId=(params.get('id')||params.get('link')||'').trim();
 const hotelCode=(params.get('h')||params.get('hotel')||'').trim();
 const cloudUrl=(params.get('cloud')||'').trim().replace(/\/+$/,'');
+const packed=(params.get('p')||'').trim();
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
 function money(n,cur){
@@ -79,6 +81,21 @@ function bridgePut(link){
   try{localStorage.setItem(BRIDGE_KEY,JSON.stringify(b))}catch(e){}
   return link;
 }
+function unpack(p){
+  if(!p)return null;
+  try{
+    let s=p.replace(/-/g,'+').replace(/_/g,'/');
+    while(s.length%4)s+='=';
+    const o=JSON.parse(decodeURIComponent(escape(atob(s))));
+    if(!o||!o.id)return null;
+    return {
+      id:o.id,hotel:o.h||hotelCode,status:'waiting',
+      guest:o.g||'',amount:+o.a||0,cur:o.c||'THB',ref:o.r||'',note:o.n||'',
+      merchant:o.m||'',company:o.co||'',contact:o.ct||'',
+      expiresAt:o.x||null,createdAt:o.at||Date.now(),card:null,hasCard:false,fromPack:true
+    };
+  }catch(e){return null}
+}
 async function cloudRpc(name,body){
   if(!cloudUrl)throw new Error('NOCLOUD');
   const headers={'Content-Type':'application/json','apikey':CLOUD_PUBLISHABLE};
@@ -106,19 +123,26 @@ function normalizeLink(raw){
   };
 }
 async function loadLink(){
-  if(!linkId)return null;
-  if(cloudUrl){
+  /* 1) Cloud (any phone) 2) Same-browser bridge 3) Packed meta in the URL (form always openable) */
+  if(cloudUrl&&linkId){
     try{
       const res=await cloudRpc('maha_edc_public_get',{id:linkId});
       if(res&&res.ok)return normalizeLink(res);
+      if(res&&(res.status==='submitted'||res.status==='keyed'||res.hasCard))return normalizeLink(res);
     }catch(e){}
   }
-  return normalizeLink(bridgeGet(linkId));
+  if(linkId){
+    const br=bridgeGet(linkId);
+    if(br)return normalizeLink(br);
+  }
+  const fromUrl=unpack(packed);
+  if(fromUrl)return fromUrl;
+  return null;
 }
 function rootHtml(html){$('#root').innerHTML=html}
 
 function showMissing(){
-  rootHtml(`<div class="card"><h2 class="h2">Link not found</h2><p class="sub">This link is not available.</p></div>`);
+  rootHtml(`<div class="card"><h2 class="h2">Link not available</h2><p class="sub">Open the full link you were sent (Copy link from the hotel).</p></div>`);
 }
 function showDone(L){
   rootHtml(`<div class="card">
@@ -167,25 +191,18 @@ function showForm(L){
     let ok=false,fail='';
     if(cloudUrl){
       try{
-        const res=await cloudRpc('maha_edc_public_submit',{id:linkId,card});
+        const res=await cloudRpc('maha_edc_public_submit',{id:L.id||linkId,card});
         if(res&&res.ok)ok=true;
         else fail=(res&&res.error)||'submit-failed';
       }catch(ex){fail=String(ex.message||ex)}
     }
-    const local=bridgeGet(linkId)||Object.assign({},L,{id:linkId});
-    if(ok||!cloudUrl||fail){
-      if(!cloudUrl||ok||/function|404|PGRST|does not exist|Could not find/i.test(fail)){
-        if(!ok&&!cloudUrl){
-          local.status='submitted';local.submittedAt=Date.now();local.card=card;
-          bridgePut(local);ok=true;
-        }else if(ok){
-          local.status='submitted';local.submittedAt=Date.now();local.card=card;
-          bridgePut(local);
-        }else if(/function|404|PGRST|does not exist|Could not find/i.test(fail)){
-          local.status='submitted';local.submittedAt=Date.now();local.card=card;
-          bridgePut(local);ok=true;
-        }
-      }
+    const id=L.id||linkId;
+    const local=bridgeGet(id)||Object.assign({},L,{id});
+    local.status='submitted';local.submittedAt=Date.now();local.card=card;local.hotel=local.hotel||hotelCode;
+    /* Always save locally so hotel Billing on this browser can Refresh. */
+    if(!cloudUrl||ok||/function|404|PGRST|does not exist|Could not find|not-found|NOCLOUD/i.test(fail)){
+      bridgePut(local);
+      if(!cloudUrl||ok||/function|404|PGRST|does not exist|Could not find|not-found/i.test(fail))ok=true;
     }
     if(!ok){
       btn.disabled=false;btn.textContent='Submit';
@@ -198,10 +215,7 @@ function showForm(L){
 }
 
 async function boot(){
-  if(!linkId){
-    rootHtml(`<div class="card"><h2 class="h2">Link required</h2><p class="sub">Open the full link you were sent.</p></div>`);
-    return;
-  }
+  if(!linkId&&!packed){showMissing();return}
   const L=await loadLink();
   if(!L){showMissing();return}
   if(L.expiresAt&&Date.now()>L.expiresAt&&L.status==='waiting'){L.status='expired'}
