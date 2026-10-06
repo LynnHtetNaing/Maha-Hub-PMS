@@ -687,7 +687,7 @@ const LOGO_LOCKUP="icons/maha-hub-logo.png";
 const ECO_HERO="brand/login-hero-bg.jpg";
 "use strict";
 /* ================= Maha Hub PMS v4 — core ================= */
-const VERSION='MH5_PMS_20261006C';
+const VERSION='MH5_PMS_20261006D';
 const DBKEY='mahahub.v5';
 const DBKEY4='mahahub.v4';
 const SESSKEY='mahahub.sess';
@@ -3820,12 +3820,24 @@ function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.syste
 function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.connect)}
 function bookOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.google&&h.set.google.enabled)}
 function hubBaseUrl(){const base=location.href.split('#')[0].replace(/index\.html?$/i,'');return base.replace(/\/?$/,'/')}
+function edcB64url(str){
+  try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
+}
+function edcPack(L){
+  if(!L||!L.id)return '';
+  return edcB64url(JSON.stringify({
+    id:L.id,h:L.hotel||(H&&H.code)||'',g:L.guest||'',a:+L.amount||0,c:L.cur||(H&&H.set&&H.set.cur)||'THB',
+    r:L.ref||'',n:L.note||'',m:L.merchant||(H&&H.set&&H.set.name)||'',co:L.company||(H&&H.set&&H.set.legal)||'',
+    ct:L.contact||(H&&H.set&&H.set.phone)||'',x:L.expiresAt||null,at:L.createdAt||Date.now()
+  }));
+}
 function edcLinkUrl(link){
   const base=hubBaseUrl()+'edc-link/';
   if(!link)return base;
   const u=new URL(base,location.href);
   u.searchParams.set('id',link.id);
   if(link.hotel)u.searchParams.set('h',link.hotel);
+  const packed=edcPack(link);if(packed)u.searchParams.set('p',packed);
   const c=cloudCfg();
   if(c&&c.url)u.searchParams.set('cloud',c.url.replace(/\/+$/,''));
   return u.toString();
@@ -5077,7 +5089,7 @@ VIEWS['bill.edclinks']=el=>{
       const url=edcLinkUrl(link);copyText(url);
       toast(cloudOk?'EDC link created, copied, and published to cloud':'EDC link created and copied'+(cloudCfg()&&cloudCfg().url?' (run supabase/edc-schema.sql so guests on other phones can submit)':''));
       render();
-      modal('Share EDC link',`<p class="sub">Send this link to the guest. They fill card details; you open <b>EDC key-in</b> here and charge on your machine.</p>
+      modal('Share EDC link',`<p class="sub">Send this <b>full</b> link to the guest (do not shorten — it carries the amount).</p>
         <label class="f"><span>Link</span><input id="edcUrl" value="${esc(url)}" readonly></label>
         <div class="btns"><button class="btn gold" id="edcCopy2">Copy again</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">Open guest page</a></div>`,{w:560});
       $('#edcCopy2').onclick=()=>{copyText($('#edcUrl').value);toast('Copied')};
