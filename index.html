@@ -687,7 +687,7 @@ const LOGO_LOCKUP="icons/maha-hub-logo.png";
 const ECO_HERO="brand/login-hero-bg.jpg";
 "use strict";
 /* ================= Maha Hub PMS v4 — core ================= */
-const VERSION='MH5_PMS_20261002S';
+const VERSION='MH5_PMS_20261006B';
 const DBKEY='mahahub.v5';
 const DBKEY4='mahahub.v4';
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -3762,13 +3762,15 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
-const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account'],['Backup & restore','set.backup']]}];
+const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['EDC Card Link','prov.edc'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account'],['Backup & restore','set.backup']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
 function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.connect)}
 function bookOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.google&&h.set.google.enabled)}
 function hubBaseUrl(){const base=location.href.split('#')[0].replace(/index\.html?$/i,'');return base.replace(/\/?$/,'/')}
+function edcLinkUrl(){return hubBaseUrl()+'edc-link/'}
+function openEdcLink(){const url=edcLinkUrl();if(openApp(url,'EDC Card Link'))toast('Opened EDC Card Link in a new tab')}
 function reachUrl(h){const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return hubBaseUrl()+'reach/'+q}
 function connectHost(){return (localStorage.getItem('maha.connectHost')||'http://127.0.0.1:8782').replace(/\/+$/,'')}
 function bookHost(){return (localStorage.getItem('maha.bookHost')||'http://127.0.0.1:8781').replace(/\/+$/,'')}
@@ -3838,7 +3840,7 @@ function renderShell(){
   document.getElementById('app').innerHTML=shellHTML();
   if($('#tbProf'))$('#tbProf').onclick=()=>{if(DB.session.provider){go('prov.account');return}if(VIEW!=='me.profile'){PREV={v:VIEW,a:VARG}}go('me.profile')};
   const tick=()=>{const c=$('#rtClock');if(c){const n=new Date();c.textContent='Now '+fd(iso(n))+' '+tm(n)}};tick();clearInterval(window._rtc);window._rtc=setInterval(tick,20000);
-  const menu=DB.session.provider?(DB.session.inHotel?MENU.concat([{t:'Provider',items:[['Back to provider console','prov.exit'],['Provider history','prov.log']]}]):PROV_MENU):MENU;
+  const menu=DB.session.provider?(DB.session.inHotel?MENU.concat([{t:'Provider',items:[['Back to provider console','prov.exit'],['EDC Card Link','prov.edc'],['Provider history','prov.log']]}]):PROV_MENU):MENU;
   const nav=$('#menubar');
   nav.innerHTML=`<button class="mtoggle" id="mtoggle" aria-label="Menu">☰ Menu</button><div class="mitems" id="mitems">`+menu.map((m,i)=>{
     if(m.report)return can('reports')&&feat('reports')?`<button class="mtop" data-report="1">Report</button>`:'';
@@ -3855,6 +3857,7 @@ function renderShell(){
 function closeMenus(){$$('.mdrop').forEach(d=>d.hidden=true);$$('.mtop[data-m]').forEach(b=>b.setAttribute('aria-expanded','false'));const m=$('#mitems');if(m)m.classList.remove('open')}
 document.addEventListener('click',e=>{if(!e.target.closest('.mgrp'))closeMenus()});
 function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.session.inHotel;
+  if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
   VIEW=v;VARG=arg===undefined?null:arg;closeMenus();render()}
@@ -5796,6 +5799,12 @@ VIEWS['prov.systems']=el=>{
          <p class="sub">Run <code>node book/server.mjs</code> on port 8781 for catalog / rates.</p>
        </div>
      </div>
+     <div class="panel pad mt" style="background:#f3f6f4">
+       <b>EDC Card Link</b>
+       <div class="sub">Standalone card collect for EDC key-in (not inside Maha PMS billing). Guest fills the card; staff keys the EDC machine.</div>
+       <div class="btns mt"><a class="btn gold" id="cxEdc" href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">Open EDC Card Link</a></div>
+       <p class="sub mt" style="word-break:break-all">${esc(edcLinkUrl())}</p>
+     </div>
      <p class="sub mt"><button class="btn sm ghost" id="cxRules" type="button">System rules →</button>
        · <button class="btn sm ghost" id="cxDist" type="button">Distribution / Google →</button></p>
    </div>
@@ -5824,6 +5833,7 @@ VIEWS['prov.systems']=el=>{
       </div></div>`).join('')}</div>`;
   $('#cxSaveHost',el).onclick=()=>{const v=($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782';localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
   $('#bkSaveHost',el).onclick=()=>{const v=($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781';localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
+  if($('#cxEdc',el))$('#cxEdc',el).onclick=e=>{e.preventDefault();openEdcLink()};
   if($('#cxRules',el))$('#cxRules',el).onclick=()=>go('prov.rules');
   if($('#cxDist',el))$('#cxDist',el).onclick=()=>go('prov.distribution');
   $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);h.set.systems.reach=!reachOn(h);
@@ -5967,12 +5977,17 @@ VIEWS['prov.distribution']=el=>{
 
 /* ---------- Properties (provider home) ---------- */
 VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
-  el.innerHTML=pageHead('Properties',`<button class="btn gold" id="pvNewP">${ic('plus',15)} Create new property</button>`)+`<p class="sub">Every hotel using Maha Hub. Open one to set it up or change its setup. Functions &amp; plan shows or hides each title for that hotel. A new property starts empty and stays <b>Not active</b> until its setup is complete and you activate it.</p>
-   <div class="pgrid">${hs.map(h=>{const ck=setupChecks(h),done=ck.filter(c=>c.ok).length;return `<div class="pcard"><div class="pch"><b>${esc(h.set.name)}</b><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></div>
+  el.innerHTML=pageHead('Properties',`<button class="btn ghost" id="pvEdc" type="button">EDC Card Link</button><button class="btn gold" id="pvNewP">${ic('plus',15)} Create new property</button>`)+`<p class="sub">Every hotel using Maha Hub. Open one to set it up or change its setup. Functions &amp; plan shows or hides each title for that hotel. A new property starts empty and stays <b>Not active</b> until its setup is complete and you activate it.</p>
+   <div class="panel pad"><b>EDC Card Link</b> <span class="sub">— standalone tool (outside PMS). Create a guest link, collect card details, then key into your EDC machine.</span>
+     <div class="btns mt"><a class="btn gold" id="pvEdcOpen" href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">Open EDC Card Link</a>
+     <span class="sub" style="word-break:break-all">${esc(edcLinkUrl())}</span></div></div>
+   <div class="pgrid mt">${hs.map(h=>{const ck=setupChecks(h),done=ck.filter(c=>c.ok).length;return `<div class="pcard"><div class="pch"><b>${esc(h.set.name)}</b><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></div>
      <div class="pcm">${esc(h.code)} · ${esc(h.set.cur)} · ${esc(planName(h))} · ${h.rooms.length} rooms · ${h.users.length} staff</div><div class="pcm">Business date ${fd(h.set.bd)}</div>
      <div class="pbar"><i style="width:${done/ck.length*100}%"></i></div><div class="pcm">Setup ${done} of ${ck.length} complete</div>
      <div class="btns"><button class="btn" data-open="${h.code}">Open setup</button><button class="btn" data-fnplan="${h.code}">Functions &amp; plan</button><button class="btn gold" data-enter="${h.code}">Enter hotel</button>${h.active!==false&&featOn(h,'fn.cd.close')?`<button class="btn ghost" data-cd="${h.code}">${ic('log',14)} Close Day</button>`:''}</div><div class="pcm">Last Close Day: ${h.audits&&h.audits.length?fd(h.audits[h.audits.length-1].date):'not yet'}</div></div>`}).join('')}</div>`;
   $('#pvNewP',el).onclick=newPropertyForm;
+  if($('#pvEdc',el))$('#pvEdc',el).onclick=()=>openEdcLink();
+  if($('#pvEdcOpen',el))$('#pvEdcOpen',el).onclick=e=>{e.preventDefault();openEdcLink()};
   $$('[data-open]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.open);SET_SEC='profile';go('prov.setup')});
   $$('[data-fnplan]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.fnplan);go('prov.functions')});
   $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
