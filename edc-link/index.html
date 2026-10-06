@@ -62,6 +62,10 @@ a{color:var(--green)}
 .empty{color:var(--mut);padding:18px 0}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#15231c;color:#fff;padding:10px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
+.modal-bg{position:fixed;inset:0;background:rgba(10,30,22,.55);display:grid;place-items:center;padding:16px;z-index:50}
+.modal{width:min(520px,96vw);max-height:min(92vh,720px);overflow:auto}
+.merchant-line{margin:0;font-family:Fraunces,Georgia,serif;font-size:1.05rem;color:var(--green2);font-weight:700}
+.company-line{margin:2px 0 0;font-size:12.5px;color:var(--mut)}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}.wrap{margin-top:14px}}
 </style>
 </head>
@@ -80,20 +84,41 @@ const linkId=(params.get('id')||params.get('link')||'').trim();
 const wantAdmin=params.has('admin')||location.hash==='#admin'||(!linkId&&params.get('mode')!=='guest');
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
+function defaultSet(){
+  return {merchant:'Hotel Front Desk',company:'',contact:'',cur:'THB',pin:'2468'};
+}
+function normalizeSet(raw){
+  const s=Object.assign(defaultSet(),raw||{});
+  // migrate older "business" field → merchant
+  if((!s.merchant||s.merchant==='Hotel Front Desk')&&raw&&raw.business&&raw.business!=='Hotel Front Desk'){
+    s.merchant=raw.business;
+  }else if(!s.merchant&&raw&&raw.business){
+    s.merchant=raw.business;
+  }
+  s.merchant=String(s.merchant||'Hotel Front Desk').trim()||'Hotel Front Desk';
+  s.company=String(s.company||'').trim();
+  s.contact=String(s.contact||'').trim();
+  s.cur=String(s.cur||'THB').trim()||'THB';
+  s.pin=String(s.pin||'2468');
+  s.business=s.merchant; // keep alias for older reads
+  return s;
+}
 function load(){
   try{
     const raw=localStorage.getItem(DBKEY);
     if(!raw)return seed();
     const db=JSON.parse(raw);
     db.links=Array.isArray(db.links)?db.links:[];
-    db.set=Object.assign({business:'Hotel Front Desk',cur:'THB',pin:'2468'},db.set||{});
+    db.set=normalizeSet(db.set);
     return db;
   }catch(e){return seed()}
 }
 function seed(){
-  return {version:1,set:{business:'Hotel Front Desk',cur:'THB',pin:'2468'},links:[],logs:[]};
+  return {version:1,set:normalizeSet(null),links:[],logs:[]};
 }
-function save(db){db.savedAt=Date.now();localStorage.setItem(DBKEY,JSON.stringify(db))}
+function save(db){db.set=normalizeSet(db.set);db.savedAt=Date.now();localStorage.setItem(DBKEY,JSON.stringify(db))}
+function merchantName(set){return (set&&set.merchant)||'Hotel Front Desk'}
+function companyName(set){return (set&&set.company)||''}
 function money(n,cur){
   try{return new Intl.NumberFormat(undefined,{style:'currency',currency:cur||'THB',maximumFractionDigits:2}).format(+n||0)}
   catch(e){return ((+n||0).toFixed(2))+' '+(cur||'')}
@@ -136,18 +161,20 @@ function renderGuest(){
   if(!link){root.innerHTML=`<div class="card"><h2 class="h2">Link not found</h2><p class="sub">Ask the hotel for a new card-collection link.</p></div>`;return}
   if(link.expiresAt&&Date.now()>link.expiresAt&&link.status==='waiting'){link.status='expired';save(db)}
   if(link.status==='cancelled'||link.status==='expired'){root.innerHTML=`<div class="card"><h2 class="h2">Link unavailable</h2><p class="sub">This link is ${esc(link.status)}. Ask the hotel for a new one.</p></div>`;return}
+  const mName=merchantName(db.set), cName=companyName(db.set);
   if(link.status==='submitted'||link.status==='keyed'){
-    root.innerHTML=`<div class="card"><h2 class="h2">Details received</h2><p class="sub">Thank you. ${esc(db.set.business)} has your card details for EDC key-in.</p>
+    root.innerHTML=`<div class="card"><h2 class="h2">Details received</h2><p class="sub">Thank you. ${esc(mName)} has your card details for EDC key-in.</p>
       <div class="amt">${esc(money(link.amount,link.cur||db.set.cur))}</div>
       <p class="sub">Reference: <b>${esc(link.ref||link.id)}</b>${link.card?` · Card •••• ${esc(link.card.last4)}`:''}</p></div>`;
     return;
   }
   root.innerHTML=`<div class="card">
-    <p class="sub" style="margin:0 0 4px">${esc(db.set.business)}</p>
-    <h2 class="h2">Card details for EDC charge</h2>
-    <p class="sub">Fill your card so the hotel can key it into their payment machine (EDC). No automatic online charge is made on this page.</p>
+    <p class="merchant-line">${esc(mName)}</p>
+    ${cName?`<p class="company-line">${esc(cName)}</p>`:''}
+    <h2 class="h2" style="margin-top:10px">Card details for EDC charge</h2>
+    <p class="sub">Fill your card so ${esc(mName)} can key it into their payment machine (EDC). No automatic online charge is made on this page.</p>
     <div class="amt">${esc(money(link.amount,link.cur||db.set.cur))}</div>
-    <p class="sub">${link.guest?`Guest: <b>${esc(link.guest)}</b><br>`:''}${link.ref?`Reference: <b>${esc(link.ref)}</b><br>`:''}${link.note?esc(link.note):''}</p>
+    <p class="sub">${link.guest?`Guest: <b>${esc(link.guest)}</b><br>`:''}${link.ref?`Reference: <b>${esc(link.ref)}</b><br>`:''}${link.note?esc(link.note):''}${db.set.contact?`<br>Contact: ${esc(db.set.contact)}`:''}</p>
     <form id="form">
       <label class="f"><span>Cardholder name</span><input id="holder" autocomplete="cc-name" required placeholder="Name on card"></label>
       <label class="f"><span>Card number</span><input id="pan" inputmode="numeric" autocomplete="cc-number" required placeholder="•••• •••• •••• ••••"></label>
@@ -218,12 +245,16 @@ function renderAdmin(){
 
   const links=db.links.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const ready=links.filter(x=>x.status==='submitted');
+  const mName=merchantName(db.set), cName=companyName(db.set);
   document.body.innerHTML=`<div class="banner"><b>EDC Card Link — Staff desk</b> · Create links · view cards · key into EDC · then clear CVC</div>
   <div class="wrap">
     <div class="top">
-      <div class="brand"><div class="mark">EDC</div><div><h1>${esc(db.set.business)}</h1><p>Standalone card-collect for EDC key-in</p></div></div>
+      <div class="brand"><div class="mark">EDC</div><div>
+        <h1>${esc(mName)}</h1>
+        <p>${cName?esc(cName)+' · ':''}Standalone card-collect for EDC key-in</p>
+      </div></div>
       <div class="row">
-        <button class="btn ghost sm" id="btnSet">Settings</button>
+        <button class="btn ghost sm" id="btnSet">Provider settings</button>
         <button class="btn ghost sm" id="btnLock">Lock</button>
       </div>
     </div>
@@ -294,13 +325,58 @@ function renderAdmin(){
   $$('[data-wipe]').forEach(b=>b.onclick=()=>{const d=load();const L=d.links.find(x=>x.id===b.dataset.wipe);if(!L||!L.card)return;if(!confirm('Permanently remove full card number for '+L.id+'?'))return;L.card.pan='';L.card.cvc='';log(d,'Wiped PAN for '+L.id);save(d);toast('Card number wiped');renderAdmin()});
   $$('[data-view]').forEach(b=>b.onclick=()=>showCard(b.dataset.view));
   $('#btnLock').onclick=()=>{unlocked=false;sessionStorage.removeItem('edclink.ok');renderAdmin()};
-  $('#btnSet').onclick=()=>{
-    const d=load();
-    const biz=prompt('Business / hotel name',d.set.business);if(biz===null)return;
-    const cur=prompt('Default currency',d.set.cur);if(cur===null)return;
-    const pin=prompt('Staff PIN (min 4 chars)',d.set.pin);if(pin===null)return;
-    if(String(pin).length<4){toast('PIN too short');return}
-    d.set.business=biz.trim()||d.set.business;d.set.cur=(cur||d.set.cur).trim();d.set.pin=String(pin);log(d,'Updated settings');save(d);toast('Settings saved');renderAdmin();
+  $('#btnSet').onclick=()=>openProviderSettings();
+}
+
+function openProviderSettings(){
+  const d=load();
+  const box=document.createElement('div');
+  box.className='modal-bg';
+  box.innerHTML=`<div class="card modal">
+    <h2 class="h2">Provider settings</h2>
+    <p class="sub">Edit the merchant / company shown to guests on collection links. Only staff with the desk PIN can change this.</p>
+    <div class="grid2">
+      <label class="f" style="grid-column:1/-1"><span>Merchant name (shown to guest)</span>
+        <input id="setMerchant" value="${esc(merchantName(d.set))}" placeholder="e.g. Maha Boutique Hotel" autofocus>
+      </label>
+      <label class="f" style="grid-column:1/-1"><span>Company / legal name</span>
+        <input id="setCompany" value="${esc(companyName(d.set))}" placeholder="e.g. Padauk Hospitality Co., Ltd.">
+      </label>
+      <label class="f" style="grid-column:1/-1"><span>Guest contact (optional)</span>
+        <input id="setContact" value="${esc(d.set.contact||'')}" placeholder="Phone or email shown on guest form">
+      </label>
+      <label class="f"><span>Default currency</span>
+        <input id="setCur" value="${esc(d.set.cur||'THB')}" placeholder="THB">
+      </label>
+      <label class="f"><span>Staff PIN</span>
+        <input id="setPin" type="password" inputmode="numeric" value="${esc(d.set.pin||'')}" placeholder="Min 4 characters">
+      </label>
+    </div>
+    <div class="err" id="setErr"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn gold" id="setSave">Save</button>
+      <button class="btn ghost" id="setClose">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+  const close=()=>box.remove();
+  $('#setClose',box).onclick=close;
+  box.addEventListener('click',e=>{if(e.target===box)close()});
+  $('#setSave',box).onclick=()=>{
+    const merchant=$('#setMerchant',box).value.trim();
+    const company=$('#setCompany',box).value.trim();
+    const contact=$('#setContact',box).value.trim();
+    const cur=$('#setCur',box).value.trim()||'THB';
+    const pin=$('#setPin',box).value;
+    if(!merchant){$('#setErr',box).textContent='Enter a merchant name.';return}
+    if(String(pin).length<4){$('#setErr',box).textContent='PIN must be at least 4 characters.';return}
+    const fresh=load();
+    fresh.set=normalizeSet({...fresh.set,merchant,company,contact,cur,pin:String(pin),business:merchant});
+    log(fresh,'Provider updated merchant/company settings');
+    save(fresh);
+    toast('Provider settings saved');
+    close();
+    renderAdmin();
   };
 }
 
