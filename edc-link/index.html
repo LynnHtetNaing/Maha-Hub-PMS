@@ -4,10 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>EDC Card Link — Collect card for key-in</title>
-<meta name="description" content="Guest card form for hotel EDC key-in. Submit details so the hotel can charge on their machine.">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<title>Card payment</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230F3627'/%3E%3Crect x='10' y='18' width='44' height='28' rx='4' fill='%23C8942D'/%3E%3Crect x='10' y='26' width='44' height='8' fill='%230F3627'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -19,36 +18,29 @@
 body{font:15px/1.45 "DM Sans",system-ui,sans-serif;color:var(--ink);background:
   radial-gradient(900px 480px at 0% -10%,rgba(201,150,58,.16),transparent 55%),
   linear-gradient(180deg,#f4f7f5 0%,var(--bg) 100%)}
-button,input,select,textarea{font:inherit}button{cursor:pointer}
-.banner{background:var(--green2);color:#dce8e1;font-size:12px;padding:8px 14px;text-align:center;border-bottom:1px solid rgba(201,150,58,.35)}
-.banner b{color:var(--gold2)}
-.guest-wrap{width:min(520px,94vw);margin:24px auto 40px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 10px 28px rgba(13,58,44,.06)}
-.h2{margin:0 0 6px;font-family:Fraunces,Georgia,serif;font-size:1.25rem;color:var(--green2)}
-.sub{margin:0 0 14px;color:var(--mut);font-size:13.5px;line-height:1.5}
-.merchant-line{margin:0;font-family:Fraunces,Georgia,serif;font-size:1.05rem;color:var(--green2);font-weight:700}
-.company-line{margin:2px 0 0;font-size:12.5px;color:var(--mut)}
+button,input{font:inherit}button{cursor:pointer}
+.guest-wrap{width:min(520px,94vw);margin:28px auto 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 10px 28px rgba(13,58,44,.06)}
+.h2{margin:0 0 10px;font-family:Fraunces,Georgia,serif;font-size:1.25rem;color:var(--green2)}
+.sub{margin:0 0 12px;color:var(--mut);font-size:13.5px;line-height:1.45}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .f{display:grid;gap:4px;font-size:12px;font-weight:700;color:#44584e;margin-bottom:10px}
 .f input{width:100%;border:1px solid var(--line);border-radius:8px;padding:11px 12px;background:#fff;font-weight:500}
 .f input:focus{outline:2px solid var(--gold);outline-offset:1px}
-.btn{appearance:none;border:1px solid transparent;border-radius:8px;padding:10px 14px;font-weight:700}
-.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1e1606;border-color:#b07e20;width:100%}
+.btn{appearance:none;border:1px solid #b07e20;border-radius:8px;padding:11px 14px;font-weight:700;
+  background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1e1606;width:100%}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .err{color:var(--bad);font-weight:700;font-size:13px;min-height:1.15em}
-.amt{font-family:Fraunces,Georgia,serif;font-size:1.8rem;color:var(--green);margin:0 0 8px}
-.warn{background:#fff7e8;border:1px solid #ead5a4;color:var(--warn);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;margin-top:12px}
+.amt{font-family:Fraunces,Georgia,serif;font-size:1.9rem;color:var(--green);margin:0 0 14px}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#15231c;color:#fff;padding:10px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="banner"><b>Secure card form</b> · Your hotel will key this card into their EDC machine. This page only collects the details.</div>
-<div class="guest-wrap" id="root"><div class="card"><p class="sub">Loading link…</p></div></div>
+<div class="guest-wrap" id="root"><div class="card"><p class="sub">Loading…</p></div></div>
 <div class="toast" id="toast"></div>
 <script>
-/* Same publishable key as Maha Hub — guest submit uses public EDC RPCs (no hotel passphrase). */
 const CLOUD_PUBLISHABLE='sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
 const BRIDGE_KEY='mahahub.edc.bridge.v1';
 const $= (s,r=document)=>r.querySelector(s);
@@ -57,6 +49,11 @@ const params=new URLSearchParams(location.search);
 const linkId=(params.get('id')||params.get('link')||'').trim();
 const hotelCode=(params.get('h')||params.get('hotel')||'').trim();
 const cloudUrl=(params.get('cloud')||'').trim().replace(/\/+$/,'');
+const stripeHelper=(params.get('stripe')||'').trim().replace(/\/+$/,'');
+const packed=(params.get('p')||'').trim();
+const paidFlag=params.get('paid')==='1'||params.get('paid')==='true';
+const cancelledFlag=params.get('cancelled')==='1'||params.get('cancelled')==='true';
+const checkoutSessionId=(params.get('session_id')||params.get('cs')||'').trim();
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
 function money(n,cur){
@@ -87,6 +84,35 @@ function bridgePut(link){
   try{localStorage.setItem(BRIDGE_KEY,JSON.stringify(b))}catch(e){}
   return link;
 }
+function fromPlainParams(){
+  const a=params.get('a');
+  if(a==null||a==='')return null;
+  const amount=+a;
+  if(!(amount>=0))return null;
+  return {
+    id:linkId||('tmp'+Date.now().toString(36)),
+    hotel:hotelCode,status:'waiting',
+    guest:(params.get('g')||'').trim(),amount,
+    cur:(params.get('c')||'THB').trim()||'THB',
+    ref:(params.get('r')||'').trim(),note:(params.get('n')||'').trim(),
+    expiresAt:params.get('x')?+params.get('x'):null,
+    createdAt:Date.now(),card:null,hasCard:false,fromUrl:true
+  };
+}
+function unpack(p){
+  if(!p)return null;
+  try{
+    let s=p.replace(/-/g,'+').replace(/_/g,'/');
+    while(s.length%4)s+='=';
+    const o=JSON.parse(decodeURIComponent(escape(atob(s))));
+    if(!o||!(o.id||o.a!=null))return null;
+    return {
+      id:o.id||linkId,hotel:o.h||hotelCode,status:'waiting',
+      guest:o.g||'',amount:+o.a||0,cur:o.c||'THB',ref:o.r||'',note:o.n||'',
+      expiresAt:o.x||null,createdAt:o.at||Date.now(),card:null,hasCard:false,fromPack:true
+    };
+  }catch(e){return null}
+}
 async function cloudRpc(name,body){
   if(!cloudUrl)throw new Error('NOCLOUD');
   const headers={'Content-Type':'application/json','apikey':CLOUD_PUBLISHABLE};
@@ -102,55 +128,95 @@ function normalizeLink(raw){
     return {
       id:raw.id,hotel:raw.hotel||hotelCode,status:raw.status||'waiting',
       guest:m.guest||'',amount:+m.amount||0,cur:m.cur||'THB',ref:m.ref||'',note:m.note||'',
-      merchant:m.merchant||'',company:m.company||'',contact:m.contact||'',
       expiresAt:m.expiresAt||null,card:null,hasCard:!!raw.hasCard
     };
   }
   return {
     id:raw.id,hotel:raw.hotel||hotelCode,status:raw.status||'waiting',
     guest:raw.guest||'',amount:+raw.amount||0,cur:raw.cur||'THB',ref:raw.ref||'',note:raw.note||'',
-    merchant:raw.merchant||'',company:raw.company||'',contact:raw.contact||'',
     expiresAt:raw.expiresAt||null,card:raw.card||null,hasCard:!!raw.card
   };
 }
 async function loadLink(){
-  if(!linkId)return null;
-  if(cloudUrl){
+  const plain=fromPlainParams();
+  if(plain){
+    if(linkId){
+      const br=bridgeGet(linkId);
+      if(br&&(br.status==='submitted'||br.status==='keyed'||br.status==='paid'||br.card))return normalizeLink(br);
+      if(cloudUrl){
+        try{
+          const res=await cloudRpc('maha_edc_public_get',{id:linkId});
+          if(res&&res.ok&&(res.status==='submitted'||res.status==='keyed'||res.status==='paid'||res.hasCard))return normalizeLink(res);
+        }catch(e){}
+      }
+    }
+    return plain;
+  }
+  if(cloudUrl&&linkId){
     try{
       const res=await cloudRpc('maha_edc_public_get',{id:linkId});
       if(res&&res.ok)return normalizeLink(res);
-      if(res&&res.error==='not-found'){/* fall through to bridge */}
-    }catch(e){/* fall through */}
+    }catch(e){}
   }
-  return normalizeLink(bridgeGet(linkId));
+  if(linkId){
+    const br=bridgeGet(linkId);
+    if(br)return normalizeLink(br);
+  }
+  return unpack(packed);
 }
 function rootHtml(html){$('#root').innerHTML=html}
-
 function showMissing(){
-  rootHtml(`<div class="card"><h2 class="h2">Link not found</h2>
-    <p class="sub">Ask the hotel for a new EDC card-collection link. If you opened this on another phone, the hotel must have <b>Cloud database</b> connected and <code>supabase/edc-schema.sql</code> installed.</p></div>`);
+  rootHtml(`<div class="card"><h2 class="h2">Link not available</h2><p class="sub">Open the full link from the hotel (Copy link).</p></div>`);
 }
-function showDone(L){
-  rootHtml(`<div class="card">
-    <p class="merchant-line">${esc(L.merchant||'Hotel')}</p>
-    ${L.company?`<p class="company-line">${esc(L.company)}</p>`:''}
-    <h2 class="h2" style="margin-top:10px">Details received</h2>
-    <p class="sub">Thank you. ${esc(L.merchant||'The hotel')} has your card details for EDC key-in.</p>
-    <div class="amt">${esc(money(L.amount,L.cur))}</div>
-    <p class="sub">Reference: <b>${esc(L.ref||L.id)}</b></p>
-  </div>`);
+function showDone(L, opts){
+  const stripe=opts&&opts.stripe;
+  rootHtml(`<div class="card"><h2 class="h2">${stripe?'Payment received':'Thank you'}</h2><div class="amt">${esc(money(L.amount,L.cur))}</div>${L.ref?`<p class="sub">${esc(L.ref)}</p>`:''}${stripe?`<p class="sub">3D Secure completed via Stripe.</p>`:''}</div>`);
 }
-function showBlocked(L,why){
-  rootHtml(`<div class="card"><h2 class="h2">Link unavailable</h2><p class="sub">This link is ${esc(why||L.status)}. Ask the hotel for a new one.</p></div>`);
+function showBlocked(L){
+  rootHtml(`<div class="card"><h2 class="h2">Link unavailable</h2><p class="sub">This link is ${esc(L.status)}.</p></div>`);
+}
+function showCancelled(){
+  rootHtml(`<div class="card"><h2 class="h2">Payment cancelled</h2><p class="sub">No charge was made. Ask the hotel for a new link if you still need to pay.</p></div>`);
+}
+async function finishSubmit(L, card){
+  const id=L.id||linkId;
+  if(cloudUrl&&id){
+    try{await cloudRpc('maha_edc_public_submit',{id,card})}catch(ex){}
+  }
+  const local=bridgeGet(id)||Object.assign({},L,{id});
+  local.status='submitted';local.submittedAt=Date.now();local.card=card;local.hotel=local.hotel||hotelCode;
+  bridgePut(local);
+  showDone(L);
+}
+async function finishStripePaid(L, session){
+  const id=L.id||linkId||(session.metadata&&session.metadata.linkId)||'';
+  const card=session.card||{brand:'CARD',last4:'',stripe:true};
+  if(cloudUrl&&id){
+    try{await cloudRpc('maha_edc_public_submit',{id,card:Object.assign({},card,{stripeSessionId:session.id})})}catch(ex){}
+  }
+  if(id){
+    const local=bridgeGet(id)||Object.assign({},L||{},{id,amount:L&&L.amount,cur:L&&L.cur,ref:L&&L.ref,guest:L&&L.guest});
+    local.status='paid';local.submittedAt=Date.now();local.card=card;local.stripeSessionId=session.id;
+    local.hotel=local.hotel||hotelCode;
+    bridgePut(local);
+  }
+  showDone(L||{amount:(session.amountTotal!=null?session.amountTotal/100:0),cur:(session.currency||'thb').toUpperCase(),ref:''},{stripe:true});
+}
+async function lookupStripeSession(id){
+  if(!stripeHelper||!id)return null;
+  try{
+    const res=await fetch(stripeHelper+'/api/session/'+encodeURIComponent(id));
+    const data=await res.json().catch(()=>({}));
+    if(res.ok&&data.ok)return data;
+  }catch(e){}
+  return null;
 }
 function showForm(L){
+  const meta=[L.guest,L.ref,L.note].filter(Boolean).map(esc).join(' · ');
   rootHtml(`<div class="card">
-    <p class="merchant-line">${esc(L.merchant||'Hotel')}</p>
-    ${L.company?`<p class="company-line">${esc(L.company)}</p>`:''}
-    <h2 class="h2" style="margin-top:10px">Card details for EDC charge</h2>
-    <p class="sub">Fill your card so ${esc(L.merchant||'the hotel')} can key it into their payment machine (EDC). No automatic online charge is made on this page.</p>
     <div class="amt">${esc(money(L.amount,L.cur))}</div>
-    <p class="sub">${L.guest?`Guest: <b>${esc(L.guest)}</b><br>`:''}${L.ref?`Reference: <b>${esc(L.ref)}</b><br>`:''}${L.note?esc(L.note)+'<br>':''}${L.contact?`Contact: ${esc(L.contact)}`:''}</p>
+    ${meta?`<p class="sub">${meta}</p>`:''}
+    <p class="sub">Enter your card for the hotel. This page does not send a bank OTP — for real 3D Secure the hotel sends a Stripe Checkout link instead.</p>
     <form id="form">
       <label class="f"><span>Cardholder name</span><input id="holder" autocomplete="cc-name" required placeholder="Name on card"></label>
       <label class="f"><span>Card number</span><input id="pan" inputmode="numeric" autocomplete="cc-number" required placeholder="•••• •••• •••• ••••"></label>
@@ -159,9 +225,8 @@ function showForm(L){
         <label class="f"><span>CVC</span><input id="cvc" inputmode="numeric" autocomplete="cc-csc" required maxlength="4" placeholder="•••"></label>
       </div>
       <div class="err" id="err"></div>
-      <button class="btn gold" type="submit" id="go">Submit card for EDC key-in</button>
+      <button class="btn" type="submit" id="go">Submit</button>
     </form>
-    <div class="warn">Submit only on the hotel’s official link. After key-in, the hotel clears sensitive details.</div>
   </div>`);
   $('#pan').oninput=e=>e.target.value=formatPan(e.target.value);
   $('#exp').oninput=e=>e.target.value=formatExp(e.target.value);
@@ -181,54 +246,29 @@ function showForm(L){
     if(cvc.length<3||cvc.length>4){err.textContent='Enter a valid CVC.';return}
     const card={brand:brandOf(pan),pan,last4:pan.slice(-4),exp,cvc,holder};
     const btn=$('#go');btn.disabled=true;btn.textContent='Sending…';
-    let ok=false,fail='';
-    if(cloudUrl){
-      try{
-        const res=await cloudRpc('maha_edc_public_submit',{id:linkId,card});
-        if(res&&res.ok)ok=true;
-        else fail=(res&&res.error)||'submit-failed';
-      }catch(ex){fail=String(ex.message||ex)}
-    }
-    /* Always mirror locally so hotel Billing on this browser can refresh immediately. */
-    const local=bridgeGet(linkId)||Object.assign({},L,{id:linkId});
-    if(ok||!cloudUrl||fail){
-      if(!cloudUrl||ok||/function|404|PGRST|does not exist|Could not find/i.test(fail)){
-        if(!ok&&!cloudUrl){
-          local.status='submitted';local.submittedAt=Date.now();local.card=card;
-          bridgePut(local);ok=true;
-        }else if(ok){
-          local.status='submitted';local.submittedAt=Date.now();local.card=card;
-          bridgePut(local);
-        }else if(/function|404|PGRST|does not exist|Could not find/i.test(fail)){
-          /* Cloud connected but EDC SQL not installed — still save to bridge for same-browser hotel desk. */
-          local.status='submitted';local.submittedAt=Date.now();local.card=card;
-          bridgePut(local);ok=true;
-          toast('Saved for hotel desk on this browser. Ask hotel to run edc-schema.sql for other phones.');
-        }
-      }
-    }
-    if(!ok){
-      btn.disabled=false;btn.textContent='Submit card for EDC key-in';
-      err.textContent=fail==='not-waiting'?'This link is no longer waiting for a card.':fail==='expired'?'This link has expired.':'Could not send card. '+(fail||'Try again.');
-      return;
-    }
-    L.status='submitted';L.hasCard=true;
-    showDone(L);
+    await finishSubmit(L, card);
   };
 }
 
 async function boot(){
-  if(!linkId){
-    rootHtml(`<div class="card"><h2 class="h2">EDC Card Link</h2>
-      <p class="sub">Open the full link from your hotel (it includes <code>?id=…</code>). Staff create links in Maha Hub → <b>Billing / Folio → EDC Card Links</b>.</p>
-      <p class="sub"><a href="../">Back to Maha Hub</a></p></div>`);
+  if(cancelledFlag){showCancelled();return}
+
+  if(paidFlag||checkoutSessionId){
+    const L=await loadLink();
+    if(checkoutSessionId){
+      const sess=await lookupStripeSession(checkoutSessionId);
+      if(sess&&sess.paid){await finishStripePaid(L||{amount:0,cur:'THB'},sess);return}
+    }
+    if(L){showDone(L,{stripe:true});return}
+    rootHtml(`<div class="card"><h2 class="h2">Payment received</h2><p class="sub">Thank you. The hotel can confirm this payment in Stripe.</p></div>`);
     return;
   }
+
   const L=await loadLink();
   if(!L){showMissing();return}
   if(L.expiresAt&&Date.now()>L.expiresAt&&L.status==='waiting'){L.status='expired'}
   if(L.status==='cancelled'||L.status==='expired'){showBlocked(L);return}
-  if(L.status==='submitted'||L.status==='keyed'||L.hasCard){showDone(L);return}
+  if(L.status==='submitted'||L.status==='keyed'||L.status==='paid'||L.hasCard){showDone(L,{stripe:L.status==='paid'});return}
   showForm(L);
 }
 boot();
