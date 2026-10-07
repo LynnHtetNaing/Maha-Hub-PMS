@@ -22,6 +22,10 @@ export default {
       });
     }
     const url = new URL(request.url);
+    const bare = url.pathname.replace(/\/+$/, '') || '/';
+    if (bare === '/' || bare.toLowerCase() === '/index.html') {
+      return Response.redirect(new URL('/ecosystem/', url), 302);
+    }
     const doc = systemDoc(url.pathname);
     if (!doc) return env.ASSETS.fetch(request);
     const assetUrl = new URL(request.url);
