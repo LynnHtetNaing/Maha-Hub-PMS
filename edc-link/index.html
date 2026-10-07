@@ -12,7 +12,6 @@
 :root{
   --ink:#15231c;--mut:#5a6b62;--line:#d7e0db;--bg:#eef3f0;--card:#fff;
   --green:#145c45;--green2:#0d3a2c;--gold:#c9963a;--gold2:#e2b45a;--bad:#a3231a;
-  --bank:#0b3d91;--bank2:#06265c;
 }
 *{box-sizing:border-box}html,body{margin:0;min-height:100%}
 body{font:15px/1.45 "DM Sans",system-ui,sans-serif;color:var(--ink);background:
@@ -29,15 +28,9 @@ button,input{font:inherit}button{cursor:pointer}
 .f input:focus{outline:2px solid var(--gold);outline-offset:1px}
 .btn{appearance:none;border:1px solid #b07e20;border-radius:8px;padding:11px 14px;font-weight:700;
   background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1e1606;width:100%}
-.btn.bank{background:linear-gradient(180deg,#1a5bbf,var(--bank));color:#fff;border-color:var(--bank2)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .err{color:var(--bad);font-weight:700;font-size:13px;min-height:1.15em}
 .amt{font-family:Fraunces,Georgia,serif;font-size:1.9rem;color:var(--green);margin:0 0 14px}
-.otp-input{letter-spacing:.35em;font-size:1.35rem;text-align:center;font-weight:700}
-.secure{border:1px solid #c5d4ea;background:linear-gradient(180deg,#f5f8fc,#eef3fa);border-radius:12px;padding:16px;margin-bottom:14px}
-.secure .bank-name{font-size:12px;font-weight:800;color:var(--bank);letter-spacing:.04em;text-transform:uppercase}
-.secure .title{margin:6px 0 0;font-family:Fraunces,Georgia,serif;font-size:1.15rem;color:var(--bank2)}
-.secure .meta{margin:8px 0 0;font-size:13px;color:#44566c;line-height:1.45}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#15231c;color:#fff;padding:10px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
@@ -55,9 +48,11 @@ const params=new URLSearchParams(location.search);
 const linkId=(params.get('id')||params.get('link')||'').trim();
 const hotelCode=(params.get('h')||params.get('hotel')||'').trim();
 const cloudUrl=(params.get('cloud')||'').trim().replace(/\/+$/,'');
+const stripeHelper=(params.get('stripe')||'').trim().replace(/\/+$/,'');
 const packed=(params.get('p')||'').trim();
-
-let pendingCard=null; /* held between card form and 3DS OTP page */
+const paidFlag=params.get('paid')==='1'||params.get('paid')==='true';
+const cancelledFlag=params.get('cancelled')==='1'||params.get('cancelled')==='true';
+const checkoutSessionId=(params.get('session_id')||params.get('cs')||'').trim();
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
 function money(n,cur){
@@ -146,11 +141,11 @@ async function loadLink(){
   if(plain){
     if(linkId){
       const br=bridgeGet(linkId);
-      if(br&&(br.status==='submitted'||br.status==='keyed'||br.card))return normalizeLink(br);
+      if(br&&(br.status==='submitted'||br.status==='keyed'||br.status==='paid'||br.card))return normalizeLink(br);
       if(cloudUrl){
         try{
           const res=await cloudRpc('maha_edc_public_get',{id:linkId});
-          if(res&&res.ok&&(res.status==='submitted'||res.status==='keyed'||res.hasCard))return normalizeLink(res);
+          if(res&&res.ok&&(res.status==='submitted'||res.status==='keyed'||res.status==='paid'||res.hasCard))return normalizeLink(res);
         }catch(e){}
       }
     }
@@ -172,16 +167,18 @@ function rootHtml(html){$('#root').innerHTML=html}
 function showMissing(){
   rootHtml(`<div class="card"><h2 class="h2">Link not available</h2><p class="sub">Open the full link from the hotel (Copy link).</p></div>`);
 }
-function showDone(L){
-  rootHtml(`<div class="card"><h2 class="h2">Thank you</h2><div class="amt">${esc(money(L.amount,L.cur))}</div>${L.ref?`<p class="sub">${esc(L.ref)}</p>`:''}</div>`);
+function showDone(L, opts){
+  const stripe=opts&&opts.stripe;
+  rootHtml(`<div class="card"><h2 class="h2">${stripe?'Payment received':'Thank you'}</h2><div class="amt">${esc(money(L.amount,L.cur))}</div>${L.ref?`<p class="sub">${esc(L.ref)}</p>`:''}${stripe?`<p class="sub">3D Secure completed via Stripe.</p>`:''}</div>`);
 }
 function showBlocked(L){
   rootHtml(`<div class="card"><h2 class="h2">Link unavailable</h2><p class="sub">This link is ${esc(L.status)}.</p></div>`);
 }
-async function finishSubmit(L, card, otpCode){
+function showCancelled(){
+  rootHtml(`<div class="card"><h2 class="h2">Payment cancelled</h2><p class="sub">No charge was made. Ask the hotel for a new link if you still need to pay.</p></div>`);
+}
+async function finishSubmit(L, card){
   const id=L.id||linkId;
-  card.secureOtp=otpCode;
-  card.secureAt=Date.now();
   if(cloudUrl&&id){
     try{await cloudRpc('maha_edc_public_submit',{id,card})}catch(ex){}
   }
@@ -190,41 +187,35 @@ async function finishSubmit(L, card, otpCode){
   bridgePut(local);
   showDone(L);
 }
-function show3ds(L, card){
-  pendingCard=card;
-  const last4=card.last4||'••••';
-  rootHtml(`<div class="card">
-    <div class="secure">
-      <div class="bank-name">3D Secure</div>
-      <h2 class="title">Card verification</h2>
-      <p class="meta">Enter the one-time password (OTP) sent to your registered mobile for card •••• ${esc(last4)}.</p>
-      <p class="meta"><b>${esc(money(L.amount,L.cur))}</b>${L.ref?` · ${esc(L.ref)}`:''}</p>
-    </div>
-    <form id="otpForm">
-      <label class="f"><span>OTP / 3D Secure code</span>
-        <input id="otp" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="••••••" autofocus>
-      </label>
-      <div class="err" id="err"></div>
-      <button class="btn bank" type="submit" id="next">Verify &amp; continue</button>
-    </form>
-  </div>`);
-  const inp=$('#otp');
-  inp.oninput=()=>{inp.value=onlyDigits(inp.value).slice(0,8)};
-  $('#otpForm').onsubmit=async e=>{
-    e.preventDefault();
-    const err=$('#err');err.textContent='';
-    const code=onlyDigits($('#otp').value);
-    if(code.length<4){err.textContent='Enter the OTP from your bank / card SMS.';return}
-    const btn=$('#next');btn.disabled=true;btn.textContent='Verifying…';
-    await finishSubmit(L, pendingCard||card, code);
-  };
-  setTimeout(()=>inp.focus(),40);
+async function finishStripePaid(L, session){
+  const id=L.id||linkId||(session.metadata&&session.metadata.linkId)||'';
+  const card=session.card||{brand:'CARD',last4:'',stripe:true};
+  if(cloudUrl&&id){
+    try{await cloudRpc('maha_edc_public_submit',{id,card:Object.assign({},card,{stripeSessionId:session.id})})}catch(ex){}
+  }
+  if(id){
+    const local=bridgeGet(id)||Object.assign({},L||{},{id,amount:L&&L.amount,cur:L&&L.cur,ref:L&&L.ref,guest:L&&L.guest});
+    local.status='paid';local.submittedAt=Date.now();local.card=card;local.stripeSessionId=session.id;
+    local.hotel=local.hotel||hotelCode;
+    bridgePut(local);
+  }
+  showDone(L||{amount:(session.amountTotal!=null?session.amountTotal/100:0),cur:(session.currency||'thb').toUpperCase(),ref:''},{stripe:true});
+}
+async function lookupStripeSession(id){
+  if(!stripeHelper||!id)return null;
+  try{
+    const res=await fetch(stripeHelper+'/api/session/'+encodeURIComponent(id));
+    const data=await res.json().catch(()=>({}));
+    if(res.ok&&data.ok)return data;
+  }catch(e){}
+  return null;
 }
 function showForm(L){
   const meta=[L.guest,L.ref,L.note].filter(Boolean).map(esc).join(' · ');
   rootHtml(`<div class="card">
     <div class="amt">${esc(money(L.amount,L.cur))}</div>
     ${meta?`<p class="sub">${meta}</p>`:''}
+    <p class="sub">Enter your card for the hotel. This page does not send a bank OTP — for real 3D Secure the hotel sends a Stripe Checkout link instead.</p>
     <form id="form">
       <label class="f"><span>Cardholder name</span><input id="holder" autocomplete="cc-name" required placeholder="Name on card"></label>
       <label class="f"><span>Card number</span><input id="pan" inputmode="numeric" autocomplete="cc-number" required placeholder="•••• •••• •••• ••••"></label>
@@ -233,12 +224,12 @@ function showForm(L){
         <label class="f"><span>CVC</span><input id="cvc" inputmode="numeric" autocomplete="cc-csc" required maxlength="4" placeholder="•••"></label>
       </div>
       <div class="err" id="err"></div>
-      <button class="btn" type="submit" id="go">Continue</button>
+      <button class="btn" type="submit" id="go">Submit</button>
     </form>
   </div>`);
   $('#pan').oninput=e=>e.target.value=formatPan(e.target.value);
   $('#exp').oninput=e=>e.target.value=formatExp(e.target.value);
-  $('#form').onsubmit=e=>{
+  $('#form').onsubmit=async e=>{
     e.preventDefault();
     const err=$('#err');err.textContent='';
     const holder=$('#holder').value.trim();
@@ -253,16 +244,30 @@ function showForm(L){
     if(y<now.getFullYear()||(y===now.getFullYear()&&mm-1<now.getMonth())){err.textContent='This card looks expired.';return}
     if(cvc.length<3||cvc.length>4){err.textContent='Enter a valid CVC.';return}
     const card={brand:brandOf(pan),pan,last4:pan.slice(-4),exp,cvc,holder};
-    show3ds(L, card);
+    const btn=$('#go');btn.disabled=true;btn.textContent='Sending…';
+    await finishSubmit(L, card);
   };
 }
 
 async function boot(){
+  if(cancelledFlag){showCancelled();return}
+
+  if(paidFlag||checkoutSessionId){
+    const L=await loadLink();
+    if(checkoutSessionId){
+      const sess=await lookupStripeSession(checkoutSessionId);
+      if(sess&&sess.paid){await finishStripePaid(L||{amount:0,cur:'THB'},sess);return}
+    }
+    if(L){showDone(L,{stripe:true});return}
+    rootHtml(`<div class="card"><h2 class="h2">Payment received</h2><p class="sub">Thank you. The hotel can confirm this payment in Stripe.</p></div>`);
+    return;
+  }
+
   const L=await loadLink();
   if(!L){showMissing();return}
   if(L.expiresAt&&Date.now()>L.expiresAt&&L.status==='waiting'){L.status='expired'}
   if(L.status==='cancelled'||L.status==='expired'){showBlocked(L);return}
-  if(L.status==='submitted'||L.status==='keyed'||L.hasCard){showDone(L);return}
+  if(L.status==='submitted'||L.status==='keyed'||L.status==='paid'||L.hasCard){showDone(L,{stripe:L.status==='paid'});return}
   showForm(L);
 }
 boot();

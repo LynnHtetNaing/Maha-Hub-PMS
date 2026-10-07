@@ -1002,10 +1002,15 @@ function saveDB(opt){
   if(!(opt&&opt.nocloud)&&!_cloudApplying) scheduleCloudPush();
 }
 const CLOUDKEY='mahahub.cloud';
+const STRIPEKEY='mahahub.stripe';
 const CLOUD_PUBLISHABLE='sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
 let _cloudApplying=false,_cloudT=0,_cloudErrAt=0;
 function cloudCfg(){try{return JSON.parse(localStorage.getItem(CLOUDKEY)||'null')}catch(e){return null}}
 function saveCloudCfg(c){localStorage.setItem(CLOUDKEY,JSON.stringify(c))}
+function stripeCfg(){try{return JSON.parse(localStorage.getItem(STRIPEKEY)||'null')}catch(e){return null}}
+function saveStripeCfg(c){localStorage.setItem(STRIPEKEY,JSON.stringify(c||{}))}
+function stripeHost(){const c=stripeCfg();return (c&&c.server)||localStorage.getItem('maha.stripeHost')||'http://127.0.0.1:8783'}
+function stripeReady(){const c=stripeCfg()||{};return !!(c.secret||c.server)}
 function cloudUrl(raw){const u=String(raw||'').trim().replace(/\/+$/,'');return (/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?$/i.test(u)||/^http:\/\/127\.0\.0\.1:\d+$/i.test(u))?u:''}
 function cloudStrip(db){
   const o=JSON.parse(JSON.stringify(db));
@@ -3804,7 +3809,7 @@ const MENU=[
  {t:'Profile',items:[['Guest Profile','profile.guests','profile','fn.profile.guests'],['Company / Agency','profile.companies','','fn.profile.companies'],['Rate Codes','profile.rates','','fn.profile.rates']]},
  {t:'Reservation',items:[['New Reservation','res.new','res.create','fn.res.new'],['Walk-In','res.walkin','res.create','fn.res.walkin'],['Reservation List / Change','res.list','','fn.res.list'],['Group Reservation','res.group','res.create','fn.res.group'],['Advance Rate Setup','res.rate','rate','fn.res.rate'],['Room Grid','fo.grid','','fn.res.grid']]},
  {t:'Front Office',items:[['Hotel Status','fo.status','','fn.fo.status'],['Manager Dashboard','fo.dash','reports','fn.fo.dash'],['Arrivals','fo.arrivals','','fn.fo.arrivals'],['Departures','fo.departures','','fn.fo.departures'],['Forecast','inq.forecast','','fn.fo.forecast'],['In House','fo.inhouse','','fn.fo.inhouse'],['Duty Roster','fo.roster','','fn.fo.roster']]},
- {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['EDC Card Links','bill.edclinks','pay','fn.bill.folio'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','','fn.set.approve']]},
+ {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['Payment / EDC links','bill.edclinks','pay','fn.bill.folio'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','','fn.set.approve']]},
  {t:'Room Management',items:[['Housekeeping Status','rm.hkstatus','','fn.rm.hkstatus'],['Room Grid','fo.grid','','fn.rm.grid'],['Out of Order','rm.ooo','','fn.rm.ooo']]},
  {t:'Inquiry',items:[['Hotel Status','fo.status','','fn.inq.status'],['Guest','inq.guest','','fn.inq.guest'],['Booking History','inq.history','','fn.inq.history'],['Forecast','inq.forecast','','fn.inq.forecast']]},
  {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty']]},
@@ -3813,7 +3818,7 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
-const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['EDC Card Link','prov.edc'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account'],['Backup & restore','set.backup']]}];
+const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account'],['Backup & restore','set.backup']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
@@ -3832,6 +3837,8 @@ function edcPack(L){
   }));
 }
 function edcLinkUrl(link){
+  /* Prefer live Stripe Checkout URL when this link was created with Stripe 3DS. */
+  if(link&&link.stripeUrl)return link.stripeUrl;
   const base=hubBaseUrl()+'edc-link/';
   if(!link)return base;
   /* Absolute https/http URL — pasteable & clickable in chat apps. Keep short (no huge payload). */
@@ -3844,11 +3851,87 @@ function edcLinkUrl(link){
   if(link.ref)u.searchParams.set('r',link.ref);
   if(link.note)u.searchParams.set('n',link.note);
   if(link.expiresAt)u.searchParams.set('x',String(link.expiresAt));
+  if(link.stripeSessionId)u.searchParams.set('cs',link.stripeSessionId);
   const cfg=cloudCfg();
   if(cfg&&cfg.url)u.searchParams.set('cloud',cfg.url.replace(/\/+$/,''));
+  const sh=stripeHost();
+  if(link&&link.stripeSessionId&&sh)u.searchParams.set('stripe',sh.replace(/\/+$/,''));
   return u.toString();
 }
-function openEdcLink(link){const url=edcLinkUrl(link);if(openApp(url,link?'Guest EDC link':'EDC Card Link'))toast('Opened EDC Card Link in a new tab')}
+function openEdcLink(link){const url=edcLinkUrl(link);if(openApp(url,link?'Guest payment link':'EDC / payment link'))toast('Opened guest payment link')}
+const STRIPE_ZERO_DEC=new Set(['bif','clp','djf','gnf','jpy','kmf','krw','mga','pyg','rwf','ugx','vnd','vuv','xaf','xof','xpf']);
+function stripeUnitAmount(amount,cur){const c=String(cur||'thb').toLowerCase();const n=+amount;if(!(n>0))throw new Error('Amount must be greater than 0');return STRIPE_ZERO_DEC.has(c)?Math.round(n):Math.round(n*100)}
+async function stripeCreateCheckout(link){
+  const successUrl=hubBaseUrl()+'edc-link/?paid=1&id='+encodeURIComponent(link.id)+'&session_id={CHECKOUT_SESSION_ID}';
+  const cancelUrl=hubBaseUrl()+'edc-link/?cancelled=1&id='+encodeURIComponent(link.id);
+  const payload={
+    amount:link.amount,currency:link.cur||(H&&H.set&&H.set.cur)||'THB',
+    guest:link.guest||'',ref:link.ref||'',note:link.note||'',hotel:link.hotel||(H&&H.code)||'',
+    linkId:link.id,successUrl,cancelUrl
+  };
+  const cfg=stripeCfg()||{};
+  const server=(cfg.server||stripeHost()||'').replace(/\/+$/,'');
+  /* Prefer local Stripe helper (secret stays on server). */
+  if(server){
+    try{
+      const res=await fetch(server+'/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const data=await res.json().catch(()=>({}));
+      if(res.ok&&data.url)return data;
+      if(cfg.secret&&(data.error||'').includes('STRIPE_SECRET_KEY')){/* fall through to browser secret */}
+      else if(!res.ok)throw new Error(data.error||('Stripe helper HTTP '+res.status));
+      else if(data.url)return data;
+    }catch(e){
+      if(!cfg.secret)throw e;
+    }
+  }
+  if(!cfg.secret)throw new Error('Add Stripe secret key in Provider → Stripe payments, or run node stripe/server.mjs with STRIPE_SECRET_KEY');
+  const cur=String(payload.currency||'thb').toLowerCase();
+  const unit=stripeUnitAmount(payload.amount,cur);
+  const body=new URLSearchParams();
+  const set=(k,v)=>{if(v!=null&&v!=='')body.append(k,String(v))};
+  set('mode','payment');
+  set('success_url',successUrl);
+  set('cancel_url',cancelUrl);
+  set('client_reference_id',link.id);
+  set('payment_method_types[0]','card');
+  set('line_items[0][quantity]','1');
+  set('line_items[0][price_data][currency]',cur);
+  set('line_items[0][price_data][unit_amount]',String(unit));
+  set('line_items[0][price_data][product_data][name]',(payload.note||payload.ref||'Hotel charge').slice(0,120));
+  set('line_items[0][price_data][product_data][description]',[payload.guest,payload.ref,payload.hotel].filter(Boolean).join(' · ').slice(0,200));
+  set('payment_method_options[card][request_three_d_secure]','any');
+  set('payment_intent_data[metadata][linkId]',link.id);
+  set('payment_intent_data[metadata][hotel]',payload.hotel);
+  set('payment_intent_data[metadata][guest]',payload.guest);
+  set('metadata[linkId]',link.id);
+  set('metadata[hotel]',payload.hotel);
+  set('metadata[guest]',payload.guest);
+  set('metadata[ref]',payload.ref);
+  const res=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{Authorization:'Bearer '+cfg.secret,'Content-Type':'application/x-www-form-urlencoded'},body});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error((data.error&&data.error.message)||('Stripe HTTP '+res.status));
+  return {ok:true,id:data.id,url:data.url,livemode:!!data.livemode};
+}
+async function stripeFetchSession(sessionId){
+  const cfg=stripeCfg()||{};
+  const server=(cfg.server||stripeHost()||'').replace(/\/+$/,'');
+  if(server){
+    try{
+      const res=await fetch(server+'/api/session/'+encodeURIComponent(sessionId));
+      const data=await res.json().catch(()=>({}));
+      if(res.ok)return data;
+    }catch(e){if(!cfg.secret)throw e}
+  }
+  if(!cfg.secret)throw new Error('Stripe secret / helper not configured');
+  const res=await fetch('https://api.stripe.com/v1/checkout/sessions/'+encodeURIComponent(sessionId)+'?expand[]=payment_intent&expand[]=payment_intent.payment_method',{headers:{Authorization:'Bearer '+cfg.secret}});
+  const session=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error((session.error&&session.error.message)||('Stripe HTTP '+res.status));
+  const paid=session.payment_status==='paid'||session.status==='complete';
+  const pi=session.payment_intent&&typeof session.payment_intent==='object'?session.payment_intent:null;
+  const pm=pi&&pi.payment_method&&typeof pi.payment_method==='object'?pi.payment_method:null;
+  const card=pm&&pm.card?{brand:String(pm.card.brand||'card').toUpperCase(),last4:pm.card.last4||'',exp:(pm.card.exp_month&&pm.card.exp_year)?String(pm.card.exp_month).padStart(2,'0')+'/'+String(pm.card.exp_year).slice(-2):'',holder:(pm.billing_details&&pm.billing_details.name)||'',stripe:true}:null;
+  return {ok:true,id:session.id,paid,paymentStatus:session.payment_status,status:session.status,card,metadata:session.metadata||{},livemode:!!session.livemode};
+}
 const EDC_BRIDGE_KEY='mahahub.edc.bridge.v1';
 function edcBridgeAll(){try{const o=JSON.parse(localStorage.getItem(EDC_BRIDGE_KEY)||'{"links":[]}');o.links=Array.isArray(o.links)?o.links:[];return o}catch(e){return {links:[]}}}
 function edcBridgePut(link){const b=edcBridgeAll();const i=b.links.findIndex(x=>x.id===link.id);if(i>=0)b.links[i]=link;else b.links.unshift(link);if(b.links.length>200)b.links.length=200;try{localStorage.setItem(EDC_BRIDGE_KEY,JSON.stringify(b))}catch(e){}return link}
@@ -3858,7 +3941,8 @@ function edcLinkMeta(L){
     guest:L.guest||'',amount:L.amount,cur:L.cur||(H&&H.set&&H.set.cur)||'THB',ref:L.ref||'',note:L.note||'',
     merchant:L.merchant||(H&&H.set&&H.set.name)||'',company:L.company||(H&&H.set&&H.set.legal)||'',
     contact:L.contact||(H&&H.set&&H.set.phone)||'',expiresAt:L.expiresAt||null,
-    createdAt:L.createdAt||Date.now(),submittedAt:L.submittedAt||null,keyedAt:L.keyedAt||null
+    createdAt:L.createdAt||Date.now(),submittedAt:L.submittedAt||null,keyedAt:L.keyedAt||null,
+    stripeSessionId:L.stripeSessionId||'',stripeUrl:L.stripeUrl||'',stripeLivemode:!!L.stripeLivemode
   };
 }
 function edcToCloudPayload(L){
@@ -3871,6 +3955,7 @@ function edcFromCloudRow(row){
     guest:m.guest||'',amount:+m.amount||0,cur:m.cur||'THB',ref:m.ref||'',note:m.note||'',
     merchant:m.merchant||'',company:m.company||'',contact:m.contact||'',
     expiresAt:m.expiresAt||null,createdAt:m.createdAt||Date.now(),submittedAt:m.submittedAt||null,keyedAt:m.keyedAt||null,
+    stripeSessionId:m.stripeSessionId||'',stripeUrl:m.stripeUrl||'',stripeLivemode:!!m.stripeLivemode,
     card:row.card||null
   };
 }
@@ -5016,7 +5101,7 @@ function folioPane(el,id,onRe){
 
 /* ---------- EDC Card Links (Billing) — guest collect for EDC key-in ---------- */
 function edcStatusPill(st){
-  return ({waiting:'<span class="pill y">Waiting guest</span>',submitted:'<span class="pill b">Ready for EDC</span>',keyed:'<span class="pill g">Keyed</span>',cancelled:'<span class="pill r">Cancelled</span>',expired:'<span class="pill r">Expired</span>'}[st]||esc(st));
+  return ({waiting:'<span class="pill y">Waiting guest</span>',submitted:'<span class="pill b">Ready for EDC</span>',paid:'<span class="pill g">Paid (Stripe)</span>',keyed:'<span class="pill g">Keyed</span>',cancelled:'<span class="pill r">Cancelled</span>',expired:'<span class="pill r">Expired</span>'}[st]||esc(st));
 }
 function showEdcKeyIn(L,after){
   if(!L||!L.card){toast('No card on this link yet.');return}
@@ -5045,64 +5130,100 @@ VIEWS['bill.edclinks']=el=>{
   if(!need('pay'))return;
   shapeHotel(H);
   const cloudOn=!!(cloudCfg()&&cloudCfg().url&&cloudCfg().pass);
-  el.innerHTML=pageHead('EDC Card Links',`<button class="btn ghost" id="edcSync">Refresh from guest</button><button class="btn gold" id="edcNew">${ic('pay',16)} New EDC link</button>`)+
-    `<div class="panel pad"><p class="sub">Create a link for the guest. Guest fills card → 3D Secure OTP → done. You key the charge on the EDC machine.${cloudOn?' <span class="pill g">Cloud on</span>':' <span class="pill y">Cloud off</span>'}</p>
+  const stripeOn=stripeReady();
+  el.innerHTML=pageHead('Payment / EDC links',`<button class="btn ghost" id="edcSync">Refresh</button><button class="btn gold" id="edcNew">${ic('pay',16)} New link</button>`)+
+    `<div class="panel pad"><p class="sub">${stripeOn
+      ? 'Stripe is on: guest opens a <b>real Checkout</b> link → enters card → <b>3D Secure</b> (bank OTP in live; Stripe test page in test mode) → paid. Full PAN stays with Stripe (not for EDC key-in).'
+      : 'Stripe is off: guest form collects the card for <b>EDC key-in</b> only (no real bank OTP). Add keys in Provider → <b>Stripe payments (3DS)</b> for real 3D Secure.'}
+      ${stripeOn?' <span class="pill g">Stripe on</span>':' <span class="pill y">Stripe off</span>'}
+      ${cloudOn?' <span class="pill g">Cloud on</span>':' <span class="pill y">Cloud off</span>'}</p>
       <p class="sub">Guest host: <a href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">${esc(edcLinkUrl())}</a></p></div>
      <div class="panel mt scroll"><table class="grid"><tr><th>Status</th><th>Created</th><th>Guest</th><th>Ref</th><th class="n">Amount</th><th>Card</th><th></th></tr>
       ${H.edcLinks.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(p=>`<tr>
-        <td>${edcStatusPill(p.status)}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}</td><td>${esc(p.ref||'—')}</td>
+        <td>${edcStatusPill(p.status)}${p.stripeSessionId?' <span class="pill b">Stripe</span>':''}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}</td><td>${esc(p.ref||'—')}</td>
         <td class="n">${m2(p.amount)} ${esc(p.cur||H.set.cur)}</td>
-        <td>${p.card?esc((p.card.brand||'')+' •••• '+p.card.last4):'<span class="sub">—</span>'}</td>
+        <td>${p.card?esc((p.card.brand||'')+' •••• '+(p.card.last4||'')): '<span class="sub">—</span>'}</td>
         <td class="nowrap">
           <button class="btn sm ghost" data-copy="${p.id}">Copy link</button>
           <a class="btn sm gold" href="${esc(edcLinkUrl(p))}" target="_blank" rel="noopener">Open</a>
-          ${p.status==='submitted'?`<button class="btn sm gold" data-view="${p.id}">EDC key-in</button>`:''}
+          ${p.status==='submitted'&&p.card&&p.card.pan?`<button class="btn sm gold" data-view="${p.id}">EDC key-in</button>`:''}
           ${p.status==='waiting'?`<button class="btn sm ghost" data-cancel="${p.id}">Cancel</button>`:''}
           ${p.status==='keyed'&&p.card&&p.card.pan?`<button class="btn sm ghost" data-wipe="${p.id}">Wipe card #</button>`:''}
-        </td></tr>`).join('')||'<tr><td colspan="7" class="empty">No EDC links yet.</td></tr>'}
+        </td></tr>`).join('')||'<tr><td colspan="7" class="empty">No payment links yet.</td></tr>'}
      </table></div>`;
   const refresh=()=>render();
   const shareLink=p=>{
     const url=edcLinkUrl(p);
     copyText(url);
-    modal('Share with guest',`<p class="sub">Send this <b>blue link</b> to the guest. On their phone it should be tappable.</p>
+    modal('Share with guest',`<p class="sub">${p.stripeUrl?'This is a <b>Stripe Checkout</b> link. Guest pays with card + 3D Secure.':'Send this <b>blue link</b> to the guest.'}</p>
       <p style="margin:12px 0;word-break:break-all;font-size:15px"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:#0b57d0;text-decoration:underline">${esc(url)}</a></p>
       <label class="f"><span>Link</span><input id="edcUrl" value="${esc(url)}" readonly></label>
       <div class="btns"><button class="btn gold" id="edcCopy2">Copy link</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">Open link</a></div>`,{w:560});
     $('#edcCopy2').onclick=()=>{copyText($('#edcUrl').value);toast('Copied — paste into chat')};
   };
+  const syncStripePaid=async()=>{
+    let n=0;
+    for(const p of H.edcLinks){
+      if(!p.stripeSessionId||p.status==='paid'||p.status==='cancelled')continue;
+      try{
+        const s=await stripeFetchSession(p.stripeSessionId);
+        if(s&&s.paid){
+          p.status='paid';p.submittedAt=Date.now();p.card=s.card||p.card||{brand:'CARD',last4:'',stripe:true};
+          edcBridgePut(Object.assign({},p,{hotel:H.code}));
+          try{await edcCloudPut(p)}catch(e){}
+          n++;
+        }
+      }catch(e){}
+    }
+    return n;
+  };
   $('#edcSync',el).onclick=async()=>{
     $('#edcSync',el).disabled=true;
-    try{const n=await edcCloudSyncHotel();toast(n?`Updated ${n} link(s) from guest / cloud`:'No new guest cards yet');refresh()}
-    catch(e){toast('Refresh failed. '+(e.message||e))}
+    try{
+      const sn=await syncStripePaid();
+      const n=await edcCloudSyncHotel();
+      toast((sn||n)?`Updated ${(sn||0)+(n||0)} link(s)`:'No new payments yet');
+      refresh();
+    }catch(e){toast('Refresh failed. '+(e.message||e))}
     finally{$('#edcSync',el).disabled=false}
   };
+  syncStripePaid().then(n=>{if(n){saveDB();refresh()}}).catch(()=>{});
   edcCloudSyncHotel().then(n=>{if(n)refresh()}).catch(()=>{});
   $('#edcNew',el).onclick=()=>{
-    const m=modal('New EDC collection link',`<div class="form2">
+    const m=modal(stripeOn?'New Stripe payment link':'New EDC collection link',`<div class="form2">
       ${fld('Guest name',`<input id="edcG" autofocus placeholder="Guest full name">`)}
-      ${fld('Amount to key',`<input id="edcA" type="number" min="0.01" step="0.01" value="">`)}
+      ${fld(stripeOn?'Amount to charge':'Amount to key',`<input id="edcA" type="number" min="0.01" step="0.01" value="">`)}
       ${fld('Currency',`<input id="edcC" value="${esc(H.set.cur||'THB')}">`)}
       ${fld('Reservation / ref',`<input id="edcR" placeholder="Optional">`)}
       ${fld('Note / reason',`<input id="edcN" placeholder="e.g. Deposit for stay" class="span2">`,'span2')}
       ${fld('Link expires',`<select id="edcX"><option value="24">24 hours</option><option value="72" selected>3 days</option><option value="168">7 days</option><option value="0">No expiry</option></select>`)}
-    </div><div class="err" id="edcErr"></div><div class="btns"><button class="btn gold" id="edcSave">Create link</button></div>`,{w:560});
+    </div><p class="sub">${stripeOn?'Creates a Stripe Checkout session with <b>3D Secure required</b>.':'Manual EDC collect (no bank OTP). Configure Stripe for real 3DS.'}</p><div class="err" id="edcErr"></div><div class="btns"><button class="btn gold" id="edcSave">Create link</button></div>`,{w:560});
     $('#edcSave',m).onclick=async()=>{
       const guest=$('#edcG',m).value.trim(), amt=+$('#edcA',m).value, cur=$('#edcC',m).value.trim()||H.set.cur, note=$('#edcN',m).value.trim(), ref=$('#edcR',m).value.trim(), hrs=+$('#edcX',m).value;
       if(!guest){$('#edcErr',m).textContent='Enter the guest name.';return}
       if(!(amt>0)){$('#edcErr',m).textContent='Enter an amount greater than 0.';return}
+      const btn=$('#edcSave',m);btn.disabled=true;btn.textContent=stripeOn?'Creating Stripe link…':'Creating…';
       const id='edc'+uid();
       const link={id,hotel:H.code,guest,amount:r2(amt),cur,ref,note,status:'waiting',createdAt:Date.now(),submittedAt:null,keyedAt:null,card:null,
         merchant:H.set.name||H.code,company:H.set.legal||'',contact:H.set.phone||'',expiresAt:hrs?Date.now()+hrs*36e5:null};
-      H.edcLinks.unshift(link);
-      edcBridgePut(link);
-      log('Created EDC link '+id+' for '+guest+' · '+m2(amt)+' '+cur);
-      try{await edcCloudPut(link)}catch(e){}
-      saveDB();closeModal(m);render();shareLink(link);toast('Link ready — send to guest');
+      try{
+        if(stripeOn){
+          const sess=await stripeCreateCheckout(link);
+          link.stripeSessionId=sess.id;link.stripeUrl=sess.url;link.stripeLivemode=!!sess.livemode;
+        }
+        H.edcLinks.unshift(link);
+        edcBridgePut(link);
+        log('Created '+(link.stripeUrl?'Stripe':'EDC')+' link '+id+' for '+guest+' · '+m2(amt)+' '+cur);
+        try{await edcCloudPut(link)}catch(e){}
+        saveDB();closeModal(m);render();shareLink(link);toast(link.stripeUrl?'Stripe Checkout ready — send to guest':'Link ready — send to guest');
+      }catch(e){
+        btn.disabled=false;btn.textContent='Create link';
+        $('#edcErr',m).textContent=e.message||String(e);
+      }
     };
   };
   $$('[data-copy]',el).forEach(b=>b.onclick=()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.copy);if(!p)return;shareLink(p)});
-  $$('[data-cancel]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.cancel);if(!p||p.status!=='waiting')return;if(!confirm('Cancel EDC link '+p.id+'?'))return;p.status='cancelled';edcBridgePut(Object.assign({},p,{hotel:H.code}));try{await edcCloudPut(p)}catch(e){}log('Cancelled EDC link '+p.id);saveDB();render()});
+  $$('[data-cancel]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.cancel);if(!p||p.status!=='waiting')return;if(!confirm('Cancel link '+p.id+'?'))return;p.status='cancelled';edcBridgePut(Object.assign({},p,{hotel:H.code}));try{await edcCloudPut(p)}catch(e){}log('Cancelled link '+p.id);saveDB();render()});
   $$('[data-view]',el).forEach(b=>b.onclick=()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.view);showEdcKeyIn(p,refresh)});
   $$('[data-wipe]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.wipe);if(!p||!p.card)return;if(!confirm('Permanently remove full card number for '+p.id+'?'))return;
     p.card.pan='';p.card.cvc='';edcBridgePut(Object.assign({},p,{hotel:H.code}));
@@ -6053,9 +6174,12 @@ VIEWS['prov.systems']=el=>{
        </div>
      </div>
      <div class="panel pad mt" style="background:#f3f6f4">
-       <b>EDC Card Link</b>
-       <div class="sub">Standalone card collect for EDC key-in (not inside Maha PMS billing). Guest fills the card; staff keys the EDC machine.</div>
-       <div class="btns mt"><a class="btn gold" id="cxEdc" href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">Open EDC Card Link</a></div>
+       <b>Payment / EDC links</b>
+       <div class="sub">With Stripe keys: real Checkout + 3D Secure. Without Stripe: guest card form for EDC key-in (no bank OTP). Configure under <b>Stripe payments (3DS)</b>.</div>
+       <div class="btns mt">
+         <a class="btn gold" id="cxEdc" href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">Open guest page host</a>
+         <button class="btn ghost" id="cxStripe" type="button">Stripe settings</button>
+       </div>
        <p class="sub mt" style="word-break:break-all">${esc(edcLinkUrl())}</p>
      </div>
      <p class="sub mt"><button class="btn sm ghost" id="cxRules" type="button">System rules →</button>
@@ -6087,6 +6211,7 @@ VIEWS['prov.systems']=el=>{
   $('#cxSaveHost',el).onclick=()=>{const v=($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782';localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
   $('#bkSaveHost',el).onclick=()=>{const v=($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781';localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
   if($('#cxEdc',el))$('#cxEdc',el).onclick=e=>{e.preventDefault();openEdcLink()};
+  if($('#cxStripe',el))$('#cxStripe',el).onclick=()=>go('prov.stripe');
   if($('#cxRules',el))$('#cxRules',el).onclick=()=>go('prov.rules');
   if($('#cxDist',el))$('#cxDist',el).onclick=()=>go('prov.distribution');
   $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);h.set.systems.reach=!reachOn(h);
@@ -6231,7 +6356,7 @@ VIEWS['prov.distribution']=el=>{
 /* ---------- Properties (provider home) ---------- */
 VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
   el.innerHTML=pageHead('Properties',`<button class="btn ghost" id="pvEdc" type="button">EDC Card Link</button><button class="btn gold" id="pvNewP">${ic('plus',15)} Create new property</button>`)+`<p class="sub">Every hotel using Maha Hub. Open one to set it up or change its setup. Functions &amp; plan shows or hides each title for that hotel. A new property starts empty and stays <b>Not active</b> until its setup is complete and you activate it.</p>
-   <div class="panel pad"><b>EDC Card Links</b> <span class="sub">— create guest links in hotel <b>Billing / Folio → EDC Card Links</b>. Guest fills the card; hotel keys the EDC. For other phones, connect Cloud and run <code>supabase/edc-schema.sql</code>.</span>
+   <div class="panel pad"><b>Payment / EDC links</b> <span class="sub">— create guest links in hotel <b>Billing → Payment / EDC links</b>. With Stripe: Checkout + 3DS. Without: EDC key-in collect. Cloud optional for cross-device.</span>
      <div class="btns mt"><a class="btn gold" id="pvEdcOpen" href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">Open guest page host</a>
      <span class="sub" style="word-break:break-all">${esc(edcLinkUrl())}</span></div></div>
    <div class="pgrid mt">${hs.map(h=>{const ck=setupChecks(h),done=ck.filter(c=>c.ok).length;return `<div class="pcard"><div class="pch"><b>${esc(h.set.name)}</b><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></div>
@@ -7338,6 +7463,53 @@ VIEWS['help.home']=el=>{
 };
 function lastStayEnd(g){const stays=allBookings().filter(b=>b.guestId===g.id&&['inhouse','confirmed','tentative','out'].includes(b.status));if(stays.some(b=>['inhouse','confirmed','tentative'].includes(b.status)&&b.dep>=H.set.bd))return null;const outs=stays.filter(b=>b.status==='out');if(!outs.length)return null;return outs.map(b=>b.statusDate).sort().pop()}
 function purgeGuest(g){g.purged=true;g.last='Purged';g.first='';g.middle='';g.other='';g.email='';g.phone='';g.address='';g.photo='';g.socialId='';g.birthday='';g.remark='';if(g.doc)g.doc={type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''};g.card=null}
+VIEWS['prov.stripe']=el=>{
+  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
+  const c=stripeCfg()||{};
+  el.innerHTML=pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:720px">
+    <p>Real <b>3D Secure</b> OTP comes from the card issuer when Stripe runs Checkout — not from a fake page in Maha Hub.</p>
+    <p class="sub"><b>Test mode:</b> Stripe shows a test authentication page (Approve / Fail). No SMS from a bank.<br>
+      <b>Live mode:</b> the guest’s bank sends the real OTP / app approval.</p>
+    <p class="sub">Dashboard: <a href="https://dashboard.stripe.com/test/apikeys" target="_blank" rel="noopener">API keys (test)</a> ·
+      <a href="https://dashboard.stripe.com/acct_1UNpoeLDQjjQZsKa/test/dashboard" target="_blank" rel="noopener">Your test dashboard</a></p>
+    <label class="f"><span>Publishable key</span><input id="stPk" placeholder="pk_test_…" autocomplete="off" spellcheck="false" value="${esc(c.publishable||'')}"></label>
+    <label class="f"><span>Secret key</span><input id="stSk" type="password" placeholder="sk_test_…" autocomplete="off" spellcheck="false" value="${esc(c.secret||'')}"></label>
+    <label class="f"><span>Stripe helper server (recommended)</span><input id="stSrv" placeholder="http://127.0.0.1:8783" value="${esc(c.server||stripeHost())}"></label>
+    <p class="sub">Run <code>STRIPE_SECRET_KEY=sk_test_… STRIPE_PUBLISHABLE_KEY=pk_test_… node stripe/server.mjs</code> so the secret stays on the server. You can still paste the secret here for local demos.</p>
+    <div class="err" id="stErr"></div>
+    <div class="sub" id="stSt">${c.secret||c.server?'Keys saved on this browser.':'No Stripe keys on this browser yet.'}</div>
+    <div class="btns"><button class="btn gold" id="stSave">Save</button><button class="btn" id="stPing">Check helper</button><button class="btn ghost" id="stOff">Clear keys</button></div>
+    <h3 class="mt">How guests get the OTP</h3>
+    <ol class="sub">
+      <li>Save test keys here (or start <code>stripe/server.mjs</code>).</li>
+      <li>In hotel <b>Billing → Payment / EDC links</b>, create a link — Hub creates a Stripe Checkout session with 3DS required.</li>
+      <li>Send the guest the Checkout URL (starts with <code>https://checkout.stripe.com/…</code>).</li>
+      <li>Guest pays with a test card that requires 3DS, e.g. <code>4000000000003220</code>, any future expiry, any CVC.</li>
+      <li>Click Refresh in Billing to see <b>Paid (Stripe)</b> + last4.</li>
+    </ol>
+  </div>`;
+  $('#stSave',el).onclick=()=>{
+    const publishable=$('#stPk',el).value.trim(), secret=$('#stSk',el).value.trim(), server=$('#stSrv',el).value.trim().replace(/\/+$/,'');
+    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
+    if(secret&&!/^sk_(test|live)_/.test(secret)){$('#stErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
+    if(!secret&&!server){$('#stErr',el).textContent='Paste a secret key and/or a helper server URL.';return}
+    saveStripeCfg({publishable,secret,server:server||'http://127.0.0.1:8783',savedAt:Date.now()});
+    localStorage.setItem('maha.stripeHost',server||'http://127.0.0.1:8783');
+    $('#stErr',el).textContent='';$('#stSt',el).textContent='Saved. New Billing links will use Stripe Checkout + 3D Secure.';
+    toast('Stripe settings saved');
+  };
+  $('#stPing',el).onclick=async()=>{
+    const server=($('#stSrv',el).value.trim()||stripeHost()).replace(/\/+$/,'');
+    $('#stSt',el).textContent='Checking '+server+'…';
+    try{
+      const r=await fetch(server+'/api/status');const j=await r.json();
+      $('#stSt',el).textContent=j.hasSecret
+        ?('Helper OK · '+(j.livemode?'LIVE':'TEST')+' · secret loaded')
+        :('Helper reachable but STRIPE_SECRET_KEY not set on the server. '+ (j.note||''));
+    }catch(e){$('#stSt',el).textContent='Helper not reachable. Run: node stripe/server.mjs (or paste secret key above).'}
+  };
+  $('#stOff',el).onclick=()=>{localStorage.removeItem(STRIPEKEY);localStorage.removeItem('maha.stripeHost');toast('Stripe keys cleared on this browser');render()};
+};
 VIEWS['prov.cloud']=el=>{
   el.innerHTML=pageHead('Cloud database')+`<div class="panel pad" style="max-width:640px"><p>Supabase is the shared copy of this hotel file. Reservations, folios, shifts, and staff sign-in travel with it. Full card numbers stay in the browser that took the payment and are not uploaded.</p>
     <p class="sub">In the Supabase project, open the SQL editor and run <b>supabase/schema.sql</b> from this site's repository. Then copy the project URL and the anon public key from Project Settings → API.</p>
