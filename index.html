@@ -909,6 +909,8 @@ function shapeHotel(h){
   if(!Array.isArray(h.set.google.amenities))h.set.google.amenities=[];
   h.set.systems=Object.assign({reach:false,connect:false},h.set.systems||{});
   h.set.rules=Object.assign({},DEFAULT_RULES,h.set.rules||{});
+  /* Per-hotel Stripe: own API keys and/or Connect account id (acct_…). */
+  h.set.stripe=Object.assign({publishable:'',secret:'',connectAccountId:'',label:''},h.set.stripe||{});
   (h.rateCodes||[]).forEach(r=>{if(r.meal==='ABF'&&(r.bfAdult==null||r.bfAdult===''))r.bfAdult=h.set.bfAdult});
   (h.companies||[]).forEach(c=>{if(c.creditLimit==null)c.creditLimit=0});
   h.amend=h.amend||[];h.audits=h.audits||[];h.logs=h.logs||[];h.invoices=h.invoices||[];
@@ -1010,13 +1012,35 @@ function saveCloudCfg(c){localStorage.setItem(CLOUDKEY,JSON.stringify(c))}
 function stripeCfg(){try{return JSON.parse(localStorage.getItem(STRIPEKEY)||'null')}catch(e){return null}}
 function saveStripeCfg(c){localStorage.setItem(STRIPEKEY,JSON.stringify(c||{}))}
 function stripeHost(){const c=stripeCfg();return (c&&c.server)||localStorage.getItem('maha.stripeHost')||'http://127.0.0.1:8783'}
-function stripeReady(){const c=stripeCfg()||{};return !!(c.secret||c.server)}
+/** Effective Stripe config for a hotel: hotel’s own keys win, else platform helper/keys (+ optional Connect account). */
+function hotelStripeCfg(h){
+  h=h||H;shapeHotel(h);
+  const plat=stripeCfg()||{};
+  const hs=(h&&h.set&&h.set.stripe)||{};
+  const secret=(hs.secret||'').trim()||(plat.secret||'').trim();
+  const publishable=(hs.publishable||'').trim()||(plat.publishable||'').trim();
+  const server=(plat.server||stripeHost()||'').replace(/\/+$/,'');
+  const connectAccount=(hs.connectAccountId||'').trim();
+  const ownHotelSecret=!!(hs.secret||'').trim();
+  return {
+    secret,publishable,server,connectAccount,
+    ownHotelSecret,
+    /* Ready if hotel has its own secret, or platform helper/secret can charge (optionally for a Connect account). */
+    ready:!!(ownHotelSecret||secret||server)
+  };
+}
+function stripeReady(h){return hotelStripeCfg(h||H).ready}
 function cloudUrl(raw){const u=String(raw||'').trim().replace(/\/+$/,'');return (/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?$/i.test(u)||/^http:\/\/127\.0\.0\.1:\d+$/i.test(u))?u:''}
 function cloudStrip(db){
   const o=JSON.parse(JSON.stringify(db));
   delete o.session;delete o.cardVault;
   const walk=v=>{if(!v||typeof v!=='object')return;if(Array.isArray(v)){v.forEach(walk);return}delete v.pan;delete v.cvc;delete v.cvv;Object.keys(v).forEach(k=>walk(v[k]))};
-  walk(o);return o;
+  walk(o);
+  /* Never sync Stripe secret keys into the shared cloud blob. */
+  Object.values(o.hotels||{}).forEach(h=>{
+    if(h&&h.set&&h.set.stripe){delete h.set.stripe.secret}
+  });
+  return o;
 }
 function sessionValid(se){
   if(!se||!DB)return false;
@@ -3864,27 +3888,29 @@ function stripeUnitAmount(amount,cur){const c=String(cur||'thb').toLowerCase();c
 async function stripeCreateCheckout(link){
   const successUrl=hubBaseUrl()+'edc-link/?paid=1&id='+encodeURIComponent(link.id)+'&session_id={CHECKOUT_SESSION_ID}';
   const cancelUrl=hubBaseUrl()+'edc-link/?cancelled=1&id='+encodeURIComponent(link.id);
+  const cfg=hotelStripeCfg(H);
   const payload={
     amount:link.amount,currency:link.cur||(H&&H.set&&H.set.cur)||'THB',
     guest:link.guest||'',ref:link.ref||'',note:link.note||'',hotel:link.hotel||(H&&H.code)||'',
-    linkId:link.id,successUrl,cancelUrl
+    linkId:link.id,successUrl,cancelUrl,
+    /* Hotel’s own secret (preferred) or Connect account under the platform secret. */
+    secret:cfg.ownHotelSecret?cfg.secret:undefined,
+    stripeAccount:(!cfg.ownHotelSecret&&cfg.connectAccount)?cfg.connectAccount:undefined
   };
-  const cfg=stripeCfg()||{};
-  const server=(cfg.server||stripeHost()||'').replace(/\/+$/,'');
-  /* Prefer local Stripe helper (secret stays on server). */
+  const server=(cfg.server||'').replace(/\/+$/,'');
   if(server){
     try{
       const res=await fetch(server+'/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const data=await res.json().catch(()=>({}));
-      if(res.ok&&data.url)return data;
-      if(cfg.secret&&(data.error||'').includes('STRIPE_SECRET_KEY')){/* fall through to browser secret */}
+      if(res.ok&&data.url)return Object.assign({account:payload.stripeAccount||null,hotelOwned:!!payload.secret},data);
+      if(cfg.secret&&(data.error||'').includes('STRIPE_SECRET_KEY')){/* fall through */}
       else if(!res.ok)throw new Error(data.error||('Stripe helper HTTP '+res.status));
       else if(data.url)return data;
     }catch(e){
       if(!cfg.secret)throw e;
     }
   }
-  if(!cfg.secret)throw new Error('Add Stripe secret key in Provider → Stripe payments, or run node stripe/server.mjs with STRIPE_SECRET_KEY');
+  if(!cfg.secret)throw new Error('Add this hotel’s Stripe secret in Property setup → Payment methods, or platform keys in Provider → Stripe payments');
   const cur=String(payload.currency||'thb').toLowerCase();
   const unit=stripeUnitAmount(payload.amount,cur);
   const body=new URLSearchParams();
@@ -3907,23 +3933,30 @@ async function stripeCreateCheckout(link){
   set('metadata[hotel]',payload.hotel);
   set('metadata[guest]',payload.guest);
   set('metadata[ref]',payload.ref);
-  const res=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{Authorization:'Bearer '+cfg.secret,'Content-Type':'application/x-www-form-urlencoded'},body});
+  const headers={'Authorization':'Bearer '+cfg.secret,'Content-Type':'application/x-www-form-urlencoded'};
+  if(payload.stripeAccount)headers['Stripe-Account']=payload.stripeAccount;
+  const res=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers,body});
   const data=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error((data.error&&data.error.message)||('Stripe HTTP '+res.status));
-  return {ok:true,id:data.id,url:data.url,livemode:!!data.livemode};
+  return {ok:true,id:data.id,url:data.url,livemode:!!data.livemode,account:payload.stripeAccount||null,hotelOwned:cfg.ownHotelSecret};
 }
 async function stripeFetchSession(sessionId){
-  const cfg=stripeCfg()||{};
-  const server=(cfg.server||stripeHost()||'').replace(/\/+$/,'');
+  const cfg=hotelStripeCfg(H);
+  const server=(cfg.server||'').replace(/\/+$/,'');
   if(server){
     try{
-      const res=await fetch(server+'/api/session/'+encodeURIComponent(sessionId));
+      const hdrs={'Content-Type':'application/json'};
+      if(cfg.ownHotelSecret&&cfg.secret)hdrs['X-Maha-Stripe-Secret']=cfg.secret;
+      if(!cfg.ownHotelSecret&&cfg.connectAccount)hdrs['Stripe-Account']=cfg.connectAccount;
+      const res=await fetch(server+'/api/session/'+encodeURIComponent(sessionId),{headers:hdrs});
       const data=await res.json().catch(()=>({}));
       if(res.ok)return data;
     }catch(e){if(!cfg.secret)throw e}
   }
-  if(!cfg.secret)throw new Error('Stripe secret / helper not configured');
-  const res=await fetch('https://api.stripe.com/v1/checkout/sessions/'+encodeURIComponent(sessionId)+'?expand[]=payment_intent&expand[]=payment_intent.payment_method',{headers:{Authorization:'Bearer '+cfg.secret}});
+  if(!cfg.secret)throw new Error('Stripe secret / helper not configured for this hotel');
+  const headers={Authorization:'Bearer '+cfg.secret};
+  if(!cfg.ownHotelSecret&&cfg.connectAccount)headers['Stripe-Account']=cfg.connectAccount;
+  const res=await fetch('https://api.stripe.com/v1/checkout/sessions/'+encodeURIComponent(sessionId)+'?expand[]=payment_intent&expand[]=payment_intent.payment_method',{headers});
   const session=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error((session.error&&session.error.message)||('Stripe HTTP '+res.status));
   const paid=session.payment_status==='paid'||session.status==='complete';
@@ -5133,8 +5166,8 @@ VIEWS['bill.edclinks']=el=>{
   const stripeOn=stripeReady();
   el.innerHTML=pageHead('Payment / EDC links',`<button class="btn ghost" id="edcSync">Refresh</button><button class="btn gold" id="edcNew">${ic('pay',16)} New link</button>`)+
     `<div class="panel pad"><p class="sub">${stripeOn
-      ? 'Stripe is on: guest opens a <b>real Checkout</b> link → enters card → <b>3D Secure</b> (bank OTP in live; Stripe test page in test mode) → paid. Full PAN stays with Stripe (not for EDC key-in).'
-      : 'Stripe is off: guest form collects the card for <b>EDC key-in</b> only (no real bank OTP). Add keys in Provider → <b>Stripe payments (3DS)</b> for real 3D Secure.'}
+      ? 'Stripe is on for this hotel (own keys, Connect, or platform helper): guest pays on <b>Checkout</b> with <b>3D Secure</b>. Money goes to that Stripe account — not Maha Hub. Full PAN stays with Stripe.'
+      : 'Stripe is off for this hotel: guest form is <b>EDC key-in</b> only (no bank OTP). Add this hotel’s Stripe in Property setup → Payment methods, or platform keys in Provider → Stripe payments.'}
       ${stripeOn?' <span class="pill g">Stripe on</span>':' <span class="pill y">Stripe off</span>'}
       ${cloudOn?' <span class="pill g">Cloud on</span>':' <span class="pill y">Cloud off</span>'}</p>
       <p class="sub">Guest host: <a href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">${esc(edcLinkUrl())}</a></p></div>
@@ -6497,13 +6530,41 @@ const SEC={
     blank:()=>({code:'',desc:'',tab:'MISC.',vat:true}),
     validate:d=>{if(d.some(c=>!/^\d{3,4}$/.test(String(c.code))))return 'Codes are 3 or 4 digits.';if(d.some(c=>!c.desc))return 'Every code needs a description.';const std=TCODES.filter(x=>!_extraApplied.includes(x)).map(x=>x.code);if(d.some(c=>std.includes(String(c.code))))return 'That code number is already a standard code.';if(new Set(d.map(c=>String(c.code))).size!==d.length)return 'Codes must be different.';return ''},
     save:d=>{H.extraCodes=d.map(c=>({code:String(c.code),desc:c.desc,type:'c',vat:!!c.vat,dept:'Other',tab:c.tab}));applyHotelCodes();provLog(`Charge codes saved for ${H.code}`);saved()}})},
- pay(box){const off=H.set.payOff||(H.set.payOff={});const list=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!c.hidden);
+ pay(box){shapeHotel(H);const off=H.set.payOff||(H.set.payOff={});const list=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!c.hidden);const st=H.set.stripe||{};
    box.innerHTML=secHead('10. Payment methods','Switch on only the methods this hotel accepts. Staff see only these (and their refunds). Logos are shared by all hotels (set them in Code catalog).')+`<div class="btns"><button class="btn ghost sm" id="pyAll">Switch all on</button><button class="btn ghost sm" id="pyNone">Switch all off</button></div>
    ${PAY_TABS.map(tab=>`<div class="panel mt"><div class="ph">${tab}</div><div class="paygrid">${list.filter(c=>c.ptab===tab).map(c=>`<label class="payitem ${off[c.code]?'':'on'}"><input type="checkbox" data-pay="${c.code}" ${off[c.code]?'':'checked'}><span class="pic">${payIcon(c,26)}</span><span><b>${c.code}</b> ${esc(c.desc)}${c.region?` <em class="rg">${esc(c.region)}</em>`:''}</span><label class="btn sm ghost plup" title="Upload logo">${ic('upload',13)}<input type="file" accept="image/*" data-plg="${c.code}" hidden></label></label>`).join('')}</div></div>`).join('')}
-   <div class="btns"><button class="btn gold" id="pyS">Save</button></div>`;
+   <div class="btns"><button class="btn gold" id="pyS">Save payment methods</button></div>
+   <h3 class="mt">Stripe account for this hotel (guest card links)</h3>
+   <div class="panel pad">
+     <p class="sub">To <b>receive real money</b>, this hotel needs its own Stripe account (or a Stripe Connect account under Maha). Maha Hub only creates the Checkout link — Stripe holds the funds.</p>
+     <p class="sub"><b>Option A — hotel’s own Stripe:</b> paste this hotel’s <code>pk_</code> / <code>sk_</code> keys (money goes to the hotel).<br>
+        <b>Option B — Stripe Connect:</b> leave secret empty, set Connect account id <code>acct_…</code>, and keep platform keys in Provider → Stripe payments.</p>
+     <label class="f"><span>Label (optional)</span><input id="stLabel" value="${esc(st.label||'')}" placeholder="e.g. Padauk Stripe TH"></label>
+     <label class="f"><span>Publishable key</span><input id="stPkH" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc(st.publishable||'')}"></label>
+     <label class="f"><span>Secret key</span><input id="stSkH" type="password" placeholder="${st.secret?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
+     <label class="f"><span>Connect account id (optional)</span><input id="stAcct" placeholder="acct_…" autocomplete="off" spellcheck="false" value="${esc(st.connectAccountId||'')}"></label>
+     <p class="sub">Secret keys stay on this hotel file and are <b>not</b> uploaded to Cloud. Finish Stripe business verification + bank details in the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">Stripe Dashboard</a> before live charges work (<code>charges_enabled</code>).</p>
+     <div class="err" id="stHErr"></div>
+     <div class="btns"><button class="btn gold" id="stHSave">Save Stripe for this hotel</button><button class="btn ghost" id="stHClear">Clear hotel Stripe</button></div>
+   </div>`;
    $('#pyAll',box).onclick=()=>$$('[data-pay]',box).forEach(i=>i.checked=true);$('#pyNone',box).onclick=()=>$$('[data-pay]',box).forEach(i=>i.checked=false);
    $$('[data-plg]',box).forEach(inp=>inp.onchange=e=>{const file=e.target.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);DB.payLogos=DB.payLogos||{};DB.payLogos[inp.dataset.plg]=cv.toDataURL('image/png');provLog(`Logo uploaded for ${inp.dataset.plg} at ${H.code}`);saved('Logo saved')};img.src=rd.result};rd.readAsDataURL(file)});
-   $('#pyS',box).onclick=()=>{if(!provOnly())return;const n={};$$('[data-pay]',box).forEach(i=>{if(!i.checked)n[i.dataset.pay]=true});if(Object.keys(n).length===list.length){toast('Switch on at least one payment method.');return}H.set.payOff=n;provLog(`Payment methods saved for ${H.code}`);saved()}},
+   $('#pyS',box).onclick=()=>{if(!provOnly())return;const n={};$$('[data-pay]',box).forEach(i=>{if(!i.checked)n[i.dataset.pay]=true});if(Object.keys(n).length===list.length){toast('Switch on at least one payment method.');return}H.set.payOff=n;provLog(`Payment methods saved for ${H.code}`);saved()};
+   $('#stHSave',box).onclick=()=>{
+     if(!provOnly())return;
+     const publishable=$('#stPkH',box).value.trim();
+     const typed=$('#stSkH',box).value.trim();
+     const connectAccountId=$('#stAcct',box).value.trim();
+     const label=$('#stLabel',box).value.trim();
+     if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stHErr',box).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
+     if(typed&&!/^sk_(test|live)_/.test(typed)){$('#stHErr',box).textContent='Secret key should start with sk_test_ or sk_live_.';return}
+     if(connectAccountId&&!/^acct_/.test(connectAccountId)){$('#stHErr',box).textContent='Connect account id should start with acct_.';return}
+     if(!typed&&!st.secret&&!connectAccountId){$('#stHErr',box).textContent='Paste a hotel secret key, or a Connect acct_ id (with platform keys).';return}
+     H.set.stripe={publishable,secret:typed||st.secret||'',connectAccountId,label};
+     provLog('Stripe account settings saved for '+H.code+(connectAccountId?' · Connect '+connectAccountId:'')+(H.set.stripe.secret?' · own secret':'') );
+     saved('Stripe for '+H.code+' saved');
+   };
+   $('#stHClear',box).onclick=()=>{if(!provOnly())return;if(!confirm('Clear Stripe keys for '+H.code+'?'))return;H.set.stripe={publishable:'',secret:'',connectAccountId:'',label:''};provLog('Cleared Stripe settings for '+H.code);saved('Hotel Stripe cleared')}},
  companies(box){box.innerHTML=secHead('11. Companies & agents','(C) company or (T) travel agent. City ledger credit limit 0 means no limit.');
    listEditor(box,{rows:H.companies.map(c=>({...c,creditLimit:+c.creditLimit||0,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'type',h:'Type',opts:[['C','(C) Company'],['T','(T) Travel agent']]},{k:'name',h:'Name'},{k:'address',h:'Address'},{k:'taxId',h:'Tax ID',w:'130px'},{k:'comm',h:'Comm. %',type:'number',w:'80px'},{k:'creditLimit',h:'Credit limit',type:'number',w:'110px'}],
     blank:()=>({id:'c'+uid(),code:'',type:'T',name:'',address:'',taxId:'',branch:'Head Office',comm:0,creditLimit:0}),
@@ -7466,26 +7527,40 @@ function purgeGuest(g){g.purged=true;g.last='Purged';g.first='';g.middle='';g.ot
 VIEWS['prov.stripe']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
   const c=stripeCfg()||{};
-  el.innerHTML=pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:720px">
-    <p>Real <b>3D Secure</b> OTP comes from the card issuer when Stripe runs Checkout — not from a fake page in Maha Hub.</p>
-    <p class="sub"><b>Test mode:</b> Stripe shows a test authentication page (Approve / Fail). No SMS from a bank.<br>
-      <b>Live mode:</b> the guest’s bank sends the real OTP / app approval.</p>
-    <p class="sub">Dashboard: <a href="https://dashboard.stripe.com/test/apikeys" target="_blank" rel="noopener">API keys (test)</a> ·
-      <a href="https://dashboard.stripe.com/acct_1UNpoeLDQjjQZsKa/test/dashboard" target="_blank" rel="noopener">Your test dashboard</a></p>
+  const hotels=Object.values(DB.hotels||{});
+  el.innerHTML=pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:760px">
+    <p><b>Yes — real card money needs a Stripe account.</b> Maha Hub does not hold guest funds. It creates Checkout links; Stripe settles to the connected account’s bank.</p>
+    <p class="sub">I cannot finish Stripe’s company / KYC / bank setup for you — that is done only in the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">Stripe Dashboard</a> by the account owner (ID, business docs, bank). Until Stripe shows charges enabled, only <b>test mode</b> works.</p>
+    <h3 class="mt">Who receives the money?</h3>
+    <ul class="sub">
+      <li><b>Each hotel has its own Stripe</b> — paste that hotel’s keys in Property setup → <b>Payment methods → Stripe account for this hotel</b>. Guest pays → hotel’s Stripe balance.</li>
+      <li><b>Hotels under Maha (Connect)</b> — platform keys here + each hotel’s <code>acct_…</code> Connect id on the hotel. Guest pays → that hotel’s connected account.</li>
+      <li><b>Sandbox / demo</b> — platform helper keys only (what you already set up for testing).</li>
+    </ul>
+    <h3 class="mt">Platform / helper keys (fallback + Connect)</h3>
     <label class="f"><span>Publishable key</span><input id="stPk" placeholder="pk_test_…" autocomplete="off" spellcheck="false" value="${esc(c.publishable||'')}"></label>
     <label class="f"><span>Secret key</span><input id="stSk" type="password" placeholder="sk_test_…" autocomplete="off" spellcheck="false" value="${esc(c.secret||'')}"></label>
-    <label class="f"><span>Stripe helper server (recommended)</span><input id="stSrv" placeholder="http://127.0.0.1:8783" value="${esc(c.server||stripeHost())}"></label>
-    <p class="sub">Run <code>STRIPE_SECRET_KEY=sk_test_… STRIPE_PUBLISHABLE_KEY=pk_test_… node stripe/server.mjs</code> so the secret stays on the server. You can still paste the secret here for local demos.</p>
+    <label class="f"><span>Stripe helper server</span><input id="stSrv" placeholder="http://127.0.0.1:8783" value="${esc(c.server||stripeHost())}"></label>
+    <p class="sub">Recommended: <code>./stripe/start.sh</code> with gitignored <code>stripe/.env</code>. Or paste keys here for local demos.</p>
     <div class="err" id="stErr"></div>
-    <div class="sub" id="stSt">${c.secret||c.server?'Keys saved on this browser.':'No Stripe keys on this browser yet.'}</div>
-    <div class="btns"><button class="btn gold" id="stSave">Save</button><button class="btn" id="stPing">Check helper</button><button class="btn ghost" id="stOff">Clear keys</button></div>
-    <h3 class="mt">How guests get the OTP</h3>
+    <div class="sub" id="stSt">${c.secret||c.server?'Platform keys / helper saved on this browser.':'No platform Stripe keys on this browser yet.'}</div>
+    <div class="btns"><button class="btn gold" id="stSave">Save platform keys</button><button class="btn" id="stPing">Check helper</button><button class="btn ghost" id="stOff">Clear</button></div>
+    <h3 class="mt">Hotels mapped</h3>
+    <table class="grid"><tr><th>Hotel</th><th>Own secret</th><th>Connect acct</th><th>Ready</th><th></th></tr>
+      ${hotels.map(h=>{shapeHotel(h);const hs=h.set.stripe||{},cfg=hotelStripeCfg(h);return `<tr>
+        <td>${esc(h.code)} · ${esc(h.set.name)}${hs.label?` <span class="sub">(${esc(hs.label)})</span>`:''}</td>
+        <td>${hs.secret?'<span class="pill g">Yes</span>':'<span class="sub">—</span>'}</td>
+        <td>${hs.connectAccountId?esc(hs.connectAccountId):'<span class="sub">—</span>'}</td>
+        <td>${cfg.ready?'<span class="pill g">Ready</span>':'<span class="pill y">Not set</span>'}</td>
+        <td><button class="btn sm ghost" data-sthotel="${esc(h.code)}">Open setup</button></td>
+      </tr>`}).join('')||'<tr><td colspan="5" class="empty">No hotels yet.</td></tr>'}
+    </table>
+    <h3 class="mt">Guest 3DS flow</h3>
     <ol class="sub">
-      <li>Save test keys here (or start <code>stripe/server.mjs</code>).</li>
-      <li>In hotel <b>Billing → Payment / EDC links</b>, create a link — Hub creates a Stripe Checkout session with 3DS required.</li>
-      <li>Send the guest the Checkout URL (starts with <code>https://checkout.stripe.com/…</code>).</li>
-      <li>Guest pays with a test card that requires 3DS, e.g. <code>4000000000003220</code>, any future expiry, any CVC.</li>
-      <li>Click Refresh in Billing to see <b>Paid (Stripe)</b> + last4.</li>
+      <li>Hotel (or platform) Stripe keys saved.</li>
+      <li>Billing → Payment / EDC links → create link → guest gets <code>checkout.stripe.com</code>.</li>
+      <li>Test 3DS card <code>4000000000003220</code>. Live mode uses the bank OTP / app.</li>
+      <li>Refresh → Paid (Stripe) + last4 (no full PAN).</li>
     </ol>
   </div>`;
   $('#stSave',el).onclick=()=>{
@@ -7495,8 +7570,8 @@ VIEWS['prov.stripe']=el=>{
     if(!secret&&!server){$('#stErr',el).textContent='Paste a secret key and/or a helper server URL.';return}
     saveStripeCfg({publishable,secret,server:server||'http://127.0.0.1:8783',savedAt:Date.now()});
     localStorage.setItem('maha.stripeHost',server||'http://127.0.0.1:8783');
-    $('#stErr',el).textContent='';$('#stSt',el).textContent='Saved. New Billing links will use Stripe Checkout + 3D Secure.';
-    toast('Stripe settings saved');
+    $('#stErr',el).textContent='';$('#stSt',el).textContent='Saved. Hotels without their own keys use this platform / helper.';
+    toast('Platform Stripe settings saved');
   };
   $('#stPing',el).onclick=async()=>{
     const server=($('#stSrv',el).value.trim()||stripeHost()).replace(/\/+$/,'');
@@ -7506,9 +7581,10 @@ VIEWS['prov.stripe']=el=>{
       $('#stSt',el).textContent=j.hasSecret
         ?('Helper OK · '+(j.livemode?'LIVE':'TEST')+' · secret loaded')
         :('Helper reachable but STRIPE_SECRET_KEY not set on the server. '+ (j.note||''));
-    }catch(e){$('#stSt',el).textContent='Helper not reachable. Run: node stripe/server.mjs (or paste secret key above).'}
+    }catch(e){$('#stSt',el).textContent='Helper not reachable. Run: ./stripe/start.sh'}
   };
-  $('#stOff',el).onclick=()=>{localStorage.removeItem(STRIPEKEY);localStorage.removeItem('maha.stripeHost');toast('Stripe keys cleared on this browser');render()};
+  $('#stOff',el).onclick=()=>{localStorage.removeItem(STRIPEKEY);localStorage.removeItem('maha.stripeHost');toast('Platform Stripe keys cleared');render()};
+  $$('[data-sthotel]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sthotel);SET_SEC='pay';go('prov.setup')});
 };
 VIEWS['prov.cloud']=el=>{
   el.innerHTML=pageHead('Cloud database')+`<div class="panel pad" style="max-width:640px"><p>Supabase is the shared copy of this hotel file. Reservations, folios, shifts, and staff sign-in travel with it. Full card numbers stay in the browser that took the payment and are not uploaded.</p>

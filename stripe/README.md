@@ -38,3 +38,6 @@ Manual EDC card-collect (no Stripe) **cannot** send a bank OTP.
 
 - Stripe **does not** return the full PAN for EDC key-in. Paid links show brand + last4 only.
 - Without Stripe keys, Billing still offers the local EDC collect form (no bank OTP).
+- **Real money** requires a Stripe account with business verification + bank details completed in the Stripe Dashboard (`charges_enabled`). Maha Hub cannot finish that for you.
+- **Per hotel:** Property setup → Payment methods → hotel’s own `sk_`/`pk_`, **or** Connect `acct_…` under the platform secret.
+- Hotel Stripe **secrets are not uploaded** to the Cloud database blob.

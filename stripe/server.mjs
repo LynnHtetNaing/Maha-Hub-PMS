@@ -46,7 +46,7 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
     'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Stripe-Account, X-Maha-Stripe-Secret',
   });
   res.end(buf);
 }
@@ -65,8 +65,13 @@ function readBody(req) {
   });
 }
 
-async function stripeForm(path, params, method = 'POST') {
-  if (!SECRET) throw new Error('STRIPE_SECRET_KEY is not set on this server');
+function resolveSecret(override) {
+  const s = String(override || SECRET || '').trim();
+  if (!s) throw new Error('STRIPE_SECRET_KEY is not set on this server (and no per-hotel secret was provided)');
+  return s;
+}
+async function stripeForm(path, params, method = 'POST', opts = {}) {
+  const secret = resolveSecret(opts.secret);
   const body = new URLSearchParams();
   const add = (key, val) => {
     if (val == null || val === '') return;
@@ -84,12 +89,14 @@ async function stripeForm(path, params, method = 'POST') {
     body.append(key, String(val));
   };
   Object.entries(params || {}).forEach(([k, v]) => add(k, v));
+  const headers = {
+    Authorization: 'Bearer ' + secret,
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  if (opts.stripeAccount) headers['Stripe-Account'] = opts.stripeAccount;
   const res = await fetch('https://api.stripe.com/v1' + path, {
     method,
-    headers: {
-      Authorization: 'Bearer ' + SECRET,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers,
     body: method === 'GET' ? undefined : body,
   });
   const data = await res.json().catch(() => ({}));
@@ -128,6 +135,8 @@ async function createCheckout(input) {
   const productName = note || (ref ? `Hotel charge · ${ref}` : 'Hotel charge');
   const description = [guest, ref, hotel].filter(Boolean).join(' · ');
 
+  const stripeAccount = String(input.stripeAccount || '').trim() || undefined;
+  const secret = String(input.secret || '').trim() || undefined;
   const session = await stripeForm('/checkout/sessions', {
     mode: 'payment',
     success_url: successUrl.includes('{CHECKOUT_SESSION_ID}')
@@ -151,7 +160,7 @@ async function createCheckout(input) {
     'metadata[hotel]': hotel || undefined,
     'metadata[guest]': guest || undefined,
     'metadata[ref]': ref || undefined,
-  });
+  }, 'POST', { secret, stripeAccount });
 
   return {
     ok: true,
@@ -160,14 +169,18 @@ async function createCheckout(input) {
     paymentIntent: session.payment_intent || null,
     mode: session.mode,
     livemode: !!session.livemode,
+    stripeAccount: stripeAccount || null,
+    hotelOwned: !!secret,
   };
 }
 
-async function stripeGet(path) {
-  if (!SECRET) throw new Error('STRIPE_SECRET_KEY is not set on this server');
+async function stripeGet(path, opts = {}) {
+  const secret = resolveSecret(opts.secret);
+  const headers = { Authorization: 'Bearer ' + secret };
+  if (opts.stripeAccount) headers['Stripe-Account'] = opts.stripeAccount;
   const res = await fetch('https://api.stripe.com/v1' + path, {
     method: 'GET',
-    headers: { Authorization: 'Bearer ' + SECRET },
+    headers,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -234,9 +247,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && u.pathname.startsWith('/api/session/')) {
       const id = decodeURIComponent(u.pathname.slice('/api/session/'.length));
       if (!id) return send(res, 400, { ok: false, error: 'missing session id' });
+      const secret = (req.headers['x-maha-stripe-secret'] || '').trim() || undefined;
+      const stripeAccount = (req.headers['stripe-account'] || u.searchParams.get('stripeAccount') || '').trim() || undefined;
       const session = await stripeGet(
         '/checkout/sessions/' + encodeURIComponent(id) +
-        '?expand[]=payment_intent&expand[]=payment_intent.payment_method'
+        '?expand[]=payment_intent&expand[]=payment_intent.payment_method',
+        { secret, stripeAccount }
       );
       const paid = session.payment_status === 'paid' || session.status === 'complete';
       return send(res, 200, {
