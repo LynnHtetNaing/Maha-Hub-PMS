@@ -1,16 +1,16 @@
 /**
- * Maha Hub — Cloudflare Worker (name: maha-hub-pms).
- * Serves the static Hub via Assets; API paths can be added later.
- * Stripe Checkout stays on worker maha-hub-stripe.
+ * Minimal maha-hub-pms Worker entry (when Builds root = workers/maha-hub-pms).
+ * Prefer repo-root wrangler.toml [assets] for serving the full Hub.
  */
 export default {
-  async fetch(request, env) {
-    if (env.ASSETS) {
-      return env.ASSETS.fetch(request);
-    }
-    return new Response('maha-hub-pms worker is up (no ASSETS binding)', {
-      status: 200,
-      headers: { 'content-type': 'text/plain; charset=utf-8' },
-    });
+  async fetch() {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        worker: 'maha-hub-pms',
+        hint: 'Deploy from repo root with wrangler.toml [assets] to serve the Hub UI.',
+      }),
+      { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+    );
   },
 };
