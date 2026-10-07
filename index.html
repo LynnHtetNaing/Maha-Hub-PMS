@@ -3823,19 +3823,12 @@ function hubBaseUrl(){const base=location.href.split('#')[0].replace(/index\.htm
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
 }
-function edcNewOtp(){return String(Math.floor(100000+Math.random()*900000))}
-function edcOtpHash(otp,id){
-  let h=5381;const s=String(otp||'')+'|'+String(id||'');
-  for(let i=0;i<s.length;i++)h=((h<<5)+h)^s.charCodeAt(i);
-  return (h>>>0).toString(36);
-}
 function edcPack(L){
   if(!L||!L.id)return '';
   return edcB64url(JSON.stringify({
     id:L.id,h:L.hotel||(H&&H.code)||'',g:L.guest||'',a:+L.amount||0,c:L.cur||(H&&H.set&&H.set.cur)||'THB',
     r:L.ref||'',n:L.note||'',m:L.merchant||(H&&H.set&&H.set.name)||'',co:L.company||(H&&H.set&&H.set.legal)||'',
-    ct:L.contact||(H&&H.set&&H.set.phone)||'',x:L.expiresAt||null,at:L.createdAt||Date.now(),
-    otp:L.otp||'',oh:L.otp?edcOtpHash(L.otp,L.id):''
+    ct:L.contact||(H&&H.set&&H.set.phone)||'',x:L.expiresAt||null,at:L.createdAt||Date.now()
   }));
 }
 function edcLinkUrl(link){
@@ -3851,14 +3844,9 @@ function edcLinkUrl(link){
   if(link.ref)u.searchParams.set('r',link.ref);
   if(link.note)u.searchParams.set('n',link.note);
   if(link.expiresAt)u.searchParams.set('x',String(link.expiresAt));
-  if(link.otp)u.searchParams.set('oh',edcOtpHash(link.otp,link.id));
   const cfg=cloudCfg();
   if(cfg&&cfg.url)u.searchParams.set('cloud',cfg.url.replace(/\/+$/,''));
   return u.toString();
-}
-function edcShareText(link){
-  const url=edcLinkUrl(link);
-  return url+(link&&link.otp?('\n\nOTP: '+link.otp):'');
 }
 function openEdcLink(link){const url=edcLinkUrl(link);if(openApp(url,link?'Guest EDC link':'EDC Card Link'))toast('Opened EDC Card Link in a new tab')}
 const EDC_BRIDGE_KEY='mahahub.edc.bridge.v1';
@@ -3870,8 +3858,7 @@ function edcLinkMeta(L){
     guest:L.guest||'',amount:L.amount,cur:L.cur||(H&&H.set&&H.set.cur)||'THB',ref:L.ref||'',note:L.note||'',
     merchant:L.merchant||(H&&H.set&&H.set.name)||'',company:L.company||(H&&H.set&&H.set.legal)||'',
     contact:L.contact||(H&&H.set&&H.set.phone)||'',expiresAt:L.expiresAt||null,
-    createdAt:L.createdAt||Date.now(),submittedAt:L.submittedAt||null,keyedAt:L.keyedAt||null,
-    otp:L.otp||'',oh:L.otp?edcOtpHash(L.otp,L.id):''
+    createdAt:L.createdAt||Date.now(),submittedAt:L.submittedAt||null,keyedAt:L.keyedAt||null
   };
 }
 function edcToCloudPayload(L){
@@ -5059,11 +5046,11 @@ VIEWS['bill.edclinks']=el=>{
   shapeHotel(H);
   const cloudOn=!!(cloudCfg()&&cloudCfg().url&&cloudCfg().pass);
   el.innerHTML=pageHead('EDC Card Links',`<button class="btn ghost" id="edcSync">Refresh from guest</button><button class="btn gold" id="edcNew">${ic('pay',16)} New EDC link</button>`)+
-    `<div class="panel pad"><p class="sub">Create a link + OTP for the guest. Guest opens the link → enters OTP → card form. You key the charge on the EDC machine.${cloudOn?' <span class="pill g">Cloud on</span>':' <span class="pill y">Cloud off</span>'}</p>
+    `<div class="panel pad"><p class="sub">Create a link for the guest. Guest fills card → 3D Secure OTP → done. You key the charge on the EDC machine.${cloudOn?' <span class="pill g">Cloud on</span>':' <span class="pill y">Cloud off</span>'}</p>
       <p class="sub">Guest host: <a href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">${esc(edcLinkUrl())}</a></p></div>
-     <div class="panel mt scroll"><table class="grid"><tr><th>Status</th><th>Created</th><th>Guest</th><th>OTP</th><th>Ref</th><th class="n">Amount</th><th>Card</th><th></th></tr>
+     <div class="panel mt scroll"><table class="grid"><tr><th>Status</th><th>Created</th><th>Guest</th><th>Ref</th><th class="n">Amount</th><th>Card</th><th></th></tr>
       ${H.edcLinks.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(p=>`<tr>
-        <td>${edcStatusPill(p.status)}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}</td><td><b>${esc(p.otp||'—')}</b></td><td>${esc(p.ref||'—')}</td>
+        <td>${edcStatusPill(p.status)}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}</td><td>${esc(p.ref||'—')}</td>
         <td class="n">${m2(p.amount)} ${esc(p.cur||H.set.cur)}</td>
         <td>${p.card?esc((p.card.brand||'')+' •••• '+p.card.last4):'<span class="sub">—</span>'}</td>
         <td class="nowrap">
@@ -5072,20 +5059,17 @@ VIEWS['bill.edclinks']=el=>{
           ${p.status==='submitted'?`<button class="btn sm gold" data-view="${p.id}">EDC key-in</button>`:''}
           ${p.status==='waiting'?`<button class="btn sm ghost" data-cancel="${p.id}">Cancel</button>`:''}
           ${p.status==='keyed'&&p.card&&p.card.pan?`<button class="btn sm ghost" data-wipe="${p.id}">Wipe card #</button>`:''}
-        </td></tr>`).join('')||'<tr><td colspan="8" class="empty">No EDC links yet.</td></tr>'}
+        </td></tr>`).join('')||'<tr><td colspan="7" class="empty">No EDC links yet.</td></tr>'}
      </table></div>`;
   const refresh=()=>render();
   const shareLink=p=>{
-    if(!p.otp){p.otp=edcNewOtp();edcBridgePut(Object.assign({},p,{hotel:H.code}));saveDB()}
     const url=edcLinkUrl(p);
-    const msg=edcShareText(p);
-    copyText(msg);
-    modal('Share with guest',`<p class="sub">Send the <b>blue link</b> (and OTP) to the guest. On their phone the link should be tappable.</p>
-      <p style="margin:12px 0;word-break:break-all;font-size:15px"><a id="edcClick" href="${esc(url)}" target="_blank" rel="noopener" style="color:#0b57d0;text-decoration:underline">${esc(url)}</a></p>
-      <div class="panel pad" style="background:#f7faf8"><div class="sub">OTP for guest</div><div style="font-size:1.8rem;font-weight:800;letter-spacing:.12em">${esc(p.otp)}</div></div>
-      <label class="f mt"><span>Message (link + OTP)</span><textarea id="edcMsg" rows="4" readonly>${esc(msg)}</textarea></label>
-      <div class="btns"><button class="btn gold" id="edcCopy2">Copy message</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">Open link</a></div>`,{w:560});
-    $('#edcCopy2').onclick=()=>{copyText($('#edcMsg').value);toast('Copied — paste into chat')};
+    copyText(url);
+    modal('Share with guest',`<p class="sub">Send this <b>blue link</b> to the guest. On their phone it should be tappable.</p>
+      <p style="margin:12px 0;word-break:break-all;font-size:15px"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:#0b57d0;text-decoration:underline">${esc(url)}</a></p>
+      <label class="f"><span>Link</span><input id="edcUrl" value="${esc(url)}" readonly></label>
+      <div class="btns"><button class="btn gold" id="edcCopy2">Copy link</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">Open link</a></div>`,{w:560});
+    $('#edcCopy2').onclick=()=>{copyText($('#edcUrl').value);toast('Copied — paste into chat')};
   };
   $('#edcSync',el).onclick=async()=>{
     $('#edcSync',el).disabled=true;
@@ -5107,14 +5091,14 @@ VIEWS['bill.edclinks']=el=>{
       const guest=$('#edcG',m).value.trim(), amt=+$('#edcA',m).value, cur=$('#edcC',m).value.trim()||H.set.cur, note=$('#edcN',m).value.trim(), ref=$('#edcR',m).value.trim(), hrs=+$('#edcX',m).value;
       if(!guest){$('#edcErr',m).textContent='Enter the guest name.';return}
       if(!(amt>0)){$('#edcErr',m).textContent='Enter an amount greater than 0.';return}
-      const id='edc'+uid(), otp=edcNewOtp();
-      const link={id,hotel:H.code,guest,amount:r2(amt),cur,ref,note,otp,status:'waiting',createdAt:Date.now(),submittedAt:null,keyedAt:null,card:null,
+      const id='edc'+uid();
+      const link={id,hotel:H.code,guest,amount:r2(amt),cur,ref,note,status:'waiting',createdAt:Date.now(),submittedAt:null,keyedAt:null,card:null,
         merchant:H.set.name||H.code,company:H.set.legal||'',contact:H.set.phone||'',expiresAt:hrs?Date.now()+hrs*36e5:null};
       H.edcLinks.unshift(link);
       edcBridgePut(link);
-      log('Created EDC link '+id+' for '+guest+' · '+m2(amt)+' '+cur+' · OTP '+otp);
+      log('Created EDC link '+id+' for '+guest+' · '+m2(amt)+' '+cur);
       try{await edcCloudPut(link)}catch(e){}
-      saveDB();closeModal(m);render();shareLink(link);toast('Link ready — send link + OTP to guest');
+      saveDB();closeModal(m);render();shareLink(link);toast('Link ready — send to guest');
     };
   };
   $$('[data-copy]',el).forEach(b=>b.onclick=()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.copy);if(!p)return;shareLink(p)});
