@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>maha-hub / ecosystem - PMS</title>
+<title>maha-hub / ecosystem</title>
 <link rel="canonical" href="/ecosystem">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -13,12 +13,12 @@
 <meta property="og:site_name" content="Maha Hub">
 <meta property="og:locale" content="en_US">
 <meta property="og:url" content="/ecosystem">
-<meta property="og:title" content="maha-hub / ecosystem - PMS">
+<meta property="og:title" content="maha-hub / ecosystem">
 <meta property="og:description" content="One ecosystem for hotel operations: PMS, channel distribution, direct booking and guest engagement.">
 <meta property="og:image" content="/icons/icon-512.png">
 <meta property="og:image:alt" content="Maha Hub hospitality technology logo">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="maha-hub / ecosystem - PMS">
+<meta name="twitter:title" content="maha-hub / ecosystem">
 <meta name="twitter:description" content="One ecosystem for hotel operations: PMS, channel distribution, direct booking and guest engagement.">
 <meta name="twitter:image" content="/icons/icon-512.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
@@ -3909,7 +3909,12 @@ const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
 function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.connect)}
 function bookOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.google&&h.set.google.enabled)}
-function hubBaseUrl(){const u=new URL(location.href);let path=u.pathname.replace(/index\.html?$/i,'');path=path.replace(/\/ecosystem\/?$/i,'/');if(!path.endsWith('/'))path+='/';return u.origin+path}
+function hubBaseUrl(){const u=new URL(location.href);let path=u.pathname.replace(/index\.html?$/i,'');path=path.replace(/\/ecosystem(?:\/(?:PMS|Reach|Connect|Booking))?\/?$/i,'/');if(!path.endsWith('/'))path+='/';return u.origin+path}
+function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book:'Booking'}[kind]||''}
+function sysFromPath(){const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'');const m=p.match(/\/ecosystem\/(PMS|Reach|Connect|Booking)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book'}[m[1].toLowerCase()]:null}
+function ecosystemDir(){const path=location.pathname,i=path.toLowerCase().indexOf('/ecosystem');return location.origin+(i>=0?path.slice(0,i):'')+'/ecosystem/'}
+function sysUrl(kind,h){const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return ecosystemDir()+sysSegment(kind)+'/'+q}
+function applySysPath(kind){const seg=kind?sysSegment(kind):'';const want=(ecosystemDir()+(seg?seg+'/':'')).replace(location.origin,'');const now=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'')||'/';const next=want.replace(/\/+$/,'')||'/';if(now!==next)history.replaceState(null,'',want);document.title=seg?('maha-hub / ecosystem / '+seg):'maha-hub / ecosystem'}
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
 }
@@ -4107,15 +4112,16 @@ async function edcCloudSyncHotel(){
   return n;
 }
 function copyText(t){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}finally{a.remove()}}
-function reachUrl(h){const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return hubBaseUrl()+'reach/'+q}
+function reachUrl(h){return sysUrl('reach',h)}
 function connectHost(){return (localStorage.getItem('maha.connectHost')||'http://127.0.0.1:8782').replace(/\/+$/,'')}
 function bookHost(){return (localStorage.getItem('maha.bookHost')||'http://127.0.0.1:8781').replace(/\/+$/,'')}
 function connectUrlFor(h){return connectHost()+'/?hotel='+encodeURIComponent(h&&h.code||'')}
-function connectStaticUrl(h){return hubBaseUrl()+'connect/'+(h&&h.code?('?hotel='+encodeURIComponent(h.code)):'')}
+function connectStaticUrl(h){return sysUrl('connect',h)}
 function bookUrlFor(h){
   const g=(h&&h.set&&h.set.google)||{};
-  let base=(g.bookBaseUrl||'').trim()||(bookHost()+'/book');
-  if(/^\.\//.test(base)||base==='book'||base==='./book')base=hubBaseUrl()+'book';
+  let base=(g.bookBaseUrl||'').trim();
+  if(!base)return sysUrl('book',h);
+  if(/^\.\//.test(base)||base==='book'||base==='./book')return sysUrl('book',h);
   try{if(!/^https?:\/\//i.test(base))base=new URL(base,hubBaseUrl()).href}catch(e){base=hubBaseUrl()+'book'}
   return base.replace(/\/+$/,'')+'/?hotel='+encodeURIComponent(h&&h.code||'');
 }
@@ -4141,13 +4147,17 @@ function hotelSystems(h){
   else list.push({id:'reach',name:'Maha Reach',blurb:'Boost your brand with marketing & guest engagement.',open:false,kind:'reach',tone:'reach'});
   return list;
 }
-function openSystem(kind,h){
+function openSystem(kind,h,same){
   h=h||H;
   const asProv=!!(DB.session&&DB.session.provider);
-  if(kind==='hub'){if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
-  if(kind==='reach'){if(!reachOn(h)&&!asProv){toast('Maha Reach is closed for this hotel. The provider opens it under Systems.');return}openApp(reachUrl(h),'Maha Reach');return}
-  if(kind==='connect'){if(!connectOn(h)&&!asProv){toast('Maha Connect is closed for this hotel. The provider opens it under Systems.');return}openApp(connectUrlFor(h),'Maha Connect');return}
-  if(kind==='book'){if(!bookOn(h)&&!asProv){toast('Direct booking is not enabled for this hotel.');return}openApp(bookUrlFor(h),'Maha Booking');return}
+  if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
+  if(kind==='reach'&&!reachOn(h)&&!asProv){toast('Maha Reach is closed for this hotel. The provider opens it under Systems.');return}
+  if(kind==='connect'&&!connectOn(h)&&!asProv){toast('Maha Connect is closed for this hotel. The provider opens it under Systems.');return}
+  if(kind==='book'&&!bookOn(h)&&!asProv){toast('Direct booking is not enabled for this hotel.');return}
+  const url=kind==='reach'?reachUrl(h):kind==='connect'?connectStaticUrl(h):kind==='book'?bookUrlFor(h):'';
+  if(!url)return;
+  if(same){location.assign(url);return}
+  openApp(url,ecoSysLabel(kind));
 }
 function ecoAvailableCards(h, interactive, selected){
   return hotelSystems(h).map((s,i)=>{
@@ -4326,6 +4336,7 @@ function ecoPreviewHotel(){
   return code?DB.hotels[code]:{code:'',set:{name:'Maha Hub',systems:{}},roomTypes:[],rateCodes:[],rooms:[]};
 }
 function showLogin(msg){
+  if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
   document.body.classList.add('eco-noscroll');
   const preview=ecoPreviewHotel();shapeHotel(preview);
   if(lgTargetSys&&!hotelSystems(preview).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
@@ -4417,7 +4428,7 @@ function showLogin(msg){
   };
   $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>{
     if(b.classList.contains('is-locked')||b.disabled){toast('Ask Padauk to open this system for your hotel.');return}
-    lgTargetSys=b.dataset.sys===lgTargetSys?null:b.dataset.sys;syncSelect();paint();
+    lgTargetSys=b.dataset.sys===lgTargetSys?null:b.dataset.sys;applySysPath(lgTargetSys);syncSelect();paint();
   });
   $('#lgMode').onclick=()=>{lgProvider=!lgProvider;$('#lgErr').textContent='';paint()};
   $('#lgUser').addEventListener('input',hint);
@@ -4425,7 +4436,7 @@ function showLogin(msg){
   $('#lgForgot').onclick=()=>toast('Ask Padauk support to reset your password.');
   $('#lgSupport').onclick=()=>{location.href='mailto:support@maha-hub.com?subject=Maha%20Hub%20support'};
   ['lgUser','lgPass','lgCash'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doLogin()}})});
-  $('#lgGo').onclick=doLogin;paint();$('#lgErr').textContent=msg||'';
+  $('#lgGo').onclick=doLogin;if(lgTargetSys)applySysPath(lgTargetSys);paint();$('#lgErr').textContent=msg||'';
   $('#lgCloudBtn').onclick=()=>{const b=$('#lgCloudBox');b.hidden=!b.hidden;if(!b.hidden)fillCloudForm(document)};
   $('#clGo').onclick=()=>cloudConnect(document);
   setTimeout(()=>{const f=$('#lgUser');f&&f.focus()},40);
@@ -4446,7 +4457,7 @@ function openSystemsSwitcher(){
   m.id='sysSwitchModal';
   $$('[data-sys]',m).forEach(b=>b.onclick=()=>{
     const kind=b.dataset.sys;closeModal(m);
-    if(kind==='hub'){if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());toast('Maha PMS');return}
+    if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());toast('Maha PMS');return}
     openSystem(kind,H);
   });
 }
@@ -4464,15 +4475,14 @@ function doLogin(){
     const who=u.username,shift=s.name;
     if(!avail||!avail.open){
       toast('That system is closed for this hotel. Opening Maha PMS.');
-      renderShell();go(firstHotelView());return
+      applySysPath('hub');renderShell();go(firstHotelView());return
     }
-    if(sys==='hub'){renderShell();go(firstHotelView());toast(`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`);return}
-    renderShell();go(firstHotelView());
-    openSystem(sys,h);toast(`Welcome ${who}. Opening ${ecoSysLabel(sys)}.`);
+    if(sys==='hub'){applySysPath('hub');renderShell();go(firstHotelView());toast(`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`);return}
+    openSystem(sys,h,true);
   };
   const pv=DB.providers.find(x=>x.username===un);if(pv){if(pv.hash!==pwHash(pv.salt,pw))return fail();fails=0;
     const finish=(how)=>{const first=Object.keys(DB.hotels)[0];DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=DB.hotels[first];
-      DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in'+(how?' ('+how+')':'')+(pv.email&&pv.emailAlerts!==false?' – alert emailed to '+pv.email:'')});writeLiveSession(DB.session);saveDB();renderShell();go(pv.mfa&&pv.mfa.enabled?'prov.home':'prov.account')};
+      DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in'+(how?' ('+how+')':'')+(pv.email&&pv.emailAlerts!==false?' – alert emailed to '+pv.email:'')});writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go(pv.mfa&&pv.mfa.enabled?'prov.home':'prov.account')};
     if(pv.mfa&&pv.mfa.enabled){providerSecondStep(pv,()=>finish('with Google Authenticator'));return}finish('');return}
   const f=findStaff(un);if(!f)return fail();const {h,u}=f;if(u.active===false||u.hash!==pwHash(u.salt,pw))return fail();const hc=h.code;
   if(h.active===false){err.textContent='This hotel is not active yet. Please contact Padauk support.';return}
@@ -4486,7 +4496,7 @@ function doLogin(){
 function signOut(silent){
   if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!confirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   if(DB.session){if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});else log('Signed out')}
-  DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
+  DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
 
 /* ---------- reports open in their own tab (4.6) ---------- */
 function openReportsTab(){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
@@ -6341,7 +6351,7 @@ function migratePerms(){Object.values(DB.hotels).forEach(h=>{if(h._aiMig)return;
 let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_extraApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_extraApplied=[];if(!H)return;(H.extraCodes||[]).forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){TCODES.push(c);_extraApplied.push(c)}})}
 const payEnabled=c=>!c.hidden&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
 function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
-function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Maha PMS is open — use Systems anytime to switch.`)}
+function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Maha PMS is open — use Systems anytime to switch.`)}
 VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();go('prov.home')};
 function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes();saveDB()}
 
@@ -7831,11 +7841,15 @@ window.addEventListener('DOMContentLoaded',()=>{
       window.addEventListener('storage',e=>{if(e.key===DBKEY||e.key===DBKEY4)loadFresh()});return}
     const finish=()=>{
       applyLiveSession();
-      if(DB.session&&H&&(DB.session.provider||curShift())){renderShell();
+      const pathSys=sysFromPath();
+      if(DB.session&&H&&(DB.session.provider||curShift())){
+      if(pathSys&&pathSys!=='hub'&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
+      applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub');
+      renderShell();
       if(DB.session.provider&&!DB.session.inHotel)go('prov.home');
       else go(firstHotelView());
       if(location.hash==='#systems'){try{history.replaceState(null,'',location.pathname+location.search)}catch(e){} setTimeout(openSystemsSwitcher,40)}}
-      else{DB.session=null;H=null;clearLiveSession();saveDB({keepTime:true,nocloud:true});showLogin()}};
+      else{if(pathSys)lgTargetSys=pathSys;DB.session=null;H=null;clearLiveSession();saveDB({keepTime:true,nocloud:true});showLogin()}};
     Promise.race([cloudPull().catch(()=>{}),new Promise(r=>setTimeout(r,8000))]).then(finish,finish)};
   setTimeout(startApp,1500);
   hydrateFromIDB().then(startApp,startApp);
