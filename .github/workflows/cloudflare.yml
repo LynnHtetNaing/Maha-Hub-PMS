@@ -1,12 +1,9 @@
-# Deploy Hub Worker (maha-hub-pms), optional Pages, and Stripe Worker.
-# Required GitHub secrets:
-#   CLOUDFLARE_API_TOKEN   — API token with Pages Edit + Workers Scripts Edit
-#   CLOUDFLARE_ACCOUNT_ID  — from Cloudflare dashboard URL / overview
-# Optional Worker secret (set once in CF dashboard or via wrangler):
-#   STRIPE_SECRET_KEY on worker maha-hub-stripe
-#
-# Creating Worker maha-hub-pms (first deploy) is what greens the GitHub check
-# "Workers Builds: maha-hub-pms" on pull requests.
+# Deploy Hub Worker (maha-hub-pms), Pages, and the Stripe Worker.
+# GitHub repository secrets:
+#   CLOUDFLARE_API_TOKEN
+#   CLOUDFLARE_ACCOUNT_ID
+# Wrangler is installed globally so it is not uploaded with the site.
+# A local install drops node_modules/workerd (about 122 MB), which Cloudflare rejects.
 
 name: Cloudflare
 
@@ -27,11 +24,16 @@ jobs:
         with:
           node-version: '22'
       - name: Deploy Hub Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set. Skipping."
+            exit 0
+          fi
+          npm install -g wrangler@4
+          wrangler deploy
 
   pages:
     name: Deploy Pages (maha-hub)
@@ -45,11 +47,19 @@ jobs:
         with:
           node-version: '22'
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy . --project-name=maha-hub --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set. Skipping."
+            exit 0
+          fi
+          npm install -g wrangler@4
+          wrangler pages project create maha-hub --production-branch main || true
+          mkdir -p /tmp/maha-pages
+          tar -cf - --exclude .git --exclude node_modules --exclude .wrangler --exclude .github . | tar -xf - -C /tmp/maha-pages
+          wrangler pages deploy /tmp/maha-pages --project-name=maha-hub --commit-dirty=true --branch=main
 
   stripe-worker:
     name: Deploy Stripe Worker
@@ -62,9 +72,14 @@ jobs:
         with:
           node-version: '22'
       - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/stripe
-          command: deploy
+        working-directory: workers/stripe
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Cloudflare secrets are not set. Skipping."
+            exit 0
+          fi
+          npm install -g wrangler@4
+          wrangler deploy
