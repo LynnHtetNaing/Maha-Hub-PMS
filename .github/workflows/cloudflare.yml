@@ -1,0 +1,70 @@
+# Deploy Hub Worker (maha-hub-pms), optional Pages, and Stripe Worker.
+# Required GitHub secrets:
+#   CLOUDFLARE_API_TOKEN   — API token with Pages Edit + Workers Scripts Edit
+#   CLOUDFLARE_ACCOUNT_ID  — from Cloudflare dashboard URL / overview
+# Optional Worker secret (set once in CF dashboard or via wrangler):
+#   STRIPE_SECRET_KEY on worker maha-hub-stripe
+#
+# Creating Worker maha-hub-pms (first deploy) is what greens the GitHub check
+# "Workers Builds: maha-hub-pms" on pull requests.
+
+name: Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  hub-worker:
+    name: Deploy Worker (maha-hub-pms)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy Hub Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+  pages:
+    name: Deploy Pages (maha-hub)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy . --project-name=maha-hub --commit-dirty=true
+
+  stripe-worker:
+    name: Deploy Stripe Worker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/stripe
+          command: deploy
