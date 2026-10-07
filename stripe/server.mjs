@@ -3,14 +3,35 @@
  * Creates Checkout Sessions with 3D Secure so guests get a real bank OTP
  * (live) or Stripe’s test authentication page (test mode).
  *
- * Env:
+ * Env (or stripe/.env — never commit secrets):
  *   STRIPE_SECRET_KEY       sk_test_… or sk_live_…
  *   STRIPE_PUBLISHABLE_KEY  pk_test_… or pk_live_… (returned by /api/status)
  *   MAHA_STRIPE_PORT        default 8783
  *   MAHA_STRIPE_HOST        default 127.0.0.1
  */
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { URL } from 'node:url';
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+function loadDotEnv() {
+  try {
+    const raw = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
+    raw.split(/\r?\n/).forEach((line) => {
+      const s = line.trim();
+      if (!s || s.startsWith('#')) return;
+      const i = s.indexOf('=');
+      if (i < 1) return;
+      const k = s.slice(0, i).trim();
+      let v = s.slice(i + 1).trim();
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+      if (process.env[k] == null || process.env[k] === '') process.env[k] = v;
+    });
+  } catch {}
+}
+loadDotEnv();
 
 const PORT = Number(process.env.MAHA_STRIPE_PORT || 8783);
 const HOST = process.env.MAHA_STRIPE_HOST || '127.0.0.1';

@@ -12,15 +12,21 @@ Manual EDC card-collect (no Stripe) **cannot** send a bank OTP.
 ## Setup
 
 1. Open [Stripe test API keys](https://dashboard.stripe.com/test/apikeys).
-2. Either:
-   - **Recommended:** run the helper with env keys:
-     ```bash
-     STRIPE_SECRET_KEY=sk_test_… STRIPE_PUBLISHABLE_KEY=pk_test_… node stripe/server.mjs
-     ```
-     Default: `http://127.0.0.1:8783`
-   - Or paste keys in Hub → Provider → **Stripe payments (3DS)**.
-3. In hotel **Billing → Payment / EDC links**, create a link. Hub creates a Checkout Session with `request_three_d_secure=any`.
-4. Send the guest the `https://checkout.stripe.com/…` URL.
+2. Put the secret in `stripe/.env` (gitignored):
+   ```bash
+   STRIPE_SECRET_KEY=sk_test_…
+   # optional:
+   STRIPE_PUBLISHABLE_KEY=pk_test_…
+   ```
+   Then start:
+   ```bash
+   ./stripe/start.sh
+   # or: node stripe/server.mjs
+   ```
+   Default: `http://127.0.0.1:8783`
+3. Or paste keys in Hub → Provider → **Stripe payments (3DS)**.
+4. In hotel **Billing → Payment / EDC links**, create a link. Hub creates a Checkout Session with `request_three_d_secure=any`.
+5. Send the guest the `https://checkout.stripe.com/…` URL.
 
 ## Test cards (3DS)
 
