@@ -246,6 +246,19 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 .eco-card:nth-child(5){animation-delay:.36s;background:linear-gradient(145deg,#1a6b62,#0c3f3a)}
 .eco-card:hover:not(:disabled):not(.is-locked):not(.is-selected){transform:translateY(-2px) scale(1.015);border-color:rgba(226,180,90,.45)}
 .eco-card.is-selected{transform:scale(1.04);border-color:rgba(226,180,90,.95);box-shadow:0 14px 32px rgba(0,0,0,.28),0 0 0 1px rgba(226,180,90,.4);filter:brightness(1.06)}
+.eco-now.is-one{grid-template-columns:1fr;max-width:440px}
+.eco-card.is-focus,.eco-card.is-focus.is-selected{transform:none;padding:16px 18px;border-color:rgba(226,180,90,.95);box-shadow:0 16px 34px rgba(0,0,0,.28),0 0 0 1px rgba(226,180,90,.45);filter:brightness(1.05)}
+.eco-card.is-focus .eco-ico{width:62px;height:62px;border-radius:16px;perspective:280px}
+.eco-card.is-focus .eco-ico svg{width:32px;height:32px}
+.eco-card.is-focus b{font-size:18px}
+.eco-card.is-focus span{font-size:13px;line-height:1.35}
+.eco-card.is-focus .eco-go{width:28px;height:28px}
+.eco-card.is-flip{animation:ecoBoxIn .45s cubic-bezier(.2,.8,.2,1)}
+.eco-card.is-flip .eco-ico{animation:ecoIcoFlip .62s cubic-bezier(.2,.7,.2,1)}
+@keyframes ecoIcoFlip{from{transform:rotateY(-180deg) scale(.55)}to{transform:rotateY(0) scale(1)}}
+@keyframes ecoBoxIn{from{opacity:.4;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.eco-all{appearance:none;border:1px solid rgba(226,180,90,.5);background:transparent;color:rgba(244,239,230,.92);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;width:fit-content;margin:0 0 8px}
+.eco-all:hover{background:rgba(226,180,90,.16);border-color:rgba(226,180,90,.85)}
 .eco-card:disabled,.eco-card.is-locked{opacity:.52;cursor:not-allowed;filter:grayscale(.3)}
 .eco-card:disabled:hover,.eco-card.is-locked:hover{transform:none;border-color:rgba(255,255,255,.18)}
 .eco-ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(255,255,255,.14);flex:none}
@@ -311,7 +324,7 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 .eco-target{font-size:12px;color:#6a6256;text-align:center;min-height:1.2em}
 @keyframes ecoFade{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
 @keyframes ecoCloudDrift{from{transform:scale(1.06) translate3d(0,0,0)}to{transform:scale(1.14) translate3d(-2.8%,-1.4%,0)}}
-@media (prefers-reduced-motion:reduce){.eco-hero-bg,.eco-card,.eco-lockup,.eco-title,.eco-lede,.eco-kicker,.eco-foot,.eco-mini{animation:none!important}.eco-card.is-selected{transform:scale(1.02)}}
+@media (prefers-reduced-motion:reduce){.eco-hero-bg,.eco-card,.eco-lockup,.eco-title,.eco-lede,.eco-kicker,.eco-foot,.eco-mini,.eco-card.is-flip,.eco-card.is-flip .eco-ico{animation:none!important}.eco-card.is-selected{transform:scale(1.02)}.eco-card.is-focus,.eco-card.is-focus.is-selected{transform:none}}
 @media (max-width:1100px){
   .eco-shell{grid-template-columns:minmax(0,62fr) minmax(280px,38fr)}
 }
@@ -4381,7 +4394,7 @@ function render(){
 function refresh(){saveDB();render()}
 
 /* ---------- login + ecosystem (Maha Hub compound) ---------- */
-let lgProvider=false,lgShift=null,lgTargetSys=null,fails=0,lockUntil=0;
+let lgProvider=false,lgShift=null,lgTargetSys=null,lgPickAnim=null,fails=0,lockUntil=0;
 function suggestShift(){const h=new Date().getHours();return h>=6&&h<14?'Morning':h>=14&&h<22?'Afternoon':'Night'}
 function ecoSysLabel(kind){
   return ({hub:'Maha PMS',connect:'Maha Connect',book:'Maha Booking',reach:'Maha Reach',sales:'Maha Sales'}[kind])||'Maha Hub';
@@ -4404,11 +4417,12 @@ function showLogin(msg){
       <p class="eco-kicker">Smarter hospitality / Better tomorrow</p>
       <h1 class="eco-title">Welcome to Maha Hub Ecosystem</h1>
       <p class="eco-lede">One Platform. Complete Hospitality. Choose the system you want to use and build your smarter, more successful hotel.</p>
-      <div class="eco-sec">Available now</div>
+      <div class="eco-sec" id="lgAvailLabel">Available now</div>
       <p class="eco-pick-hint" id="lgPickHint">Select a product, then sign in on the right</p>
+      <button type="button" class="eco-all" id="lgAllSys" hidden>‹ All systems</button>
       <div class="eco-now" id="lgCards">${ecoAvailableCards(preview,true,lgTargetSys,null)}</div>
-      <div class="eco-sec">Upcoming services</div>
-      <div class="eco-soon">${ecoSoonCards()}</div>
+      <div id="lgSoon"><div class="eco-sec">Upcoming services</div>
+      <div class="eco-soon">${ecoSoonCards()}</div></div>
       <div class="eco-foot">More than software — a partner in your growth.</div>
     </div>
   </section>
@@ -4444,12 +4458,29 @@ function showLogin(msg){
   try{const rem=localStorage.getItem('maha.rememberUser');if(rem&&$('#lgRemember')){$('#lgRemember').checked=true;$('#lgUser').value=rem}}catch(e){}
   const setShift=v=>{lgShift=v;$$('[data-shift]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.shift===v?'true':'false'))};
   $$('[data-shift]').forEach(b=>b.onclick=()=>setShift(b.dataset.shift));setShift(lgShift||suggestShift());
+  const applyPick=()=>{
+    const box=$('#lgCards');if(!box)return;
+    const picked=!!lgTargetSys;
+    box.classList.toggle('is-one',picked);
+    $$('[data-sys]',box).forEach(b=>{
+      const on=picked&&b.dataset.sys===lgTargetSys&&!b.classList.contains('is-locked');
+      b.hidden=picked&&!on;
+      b.classList.toggle('is-focus',!!on);
+      b.classList.toggle('is-flip',!!(on&&lgPickAnim===b.dataset.sys));
+    });
+    lgPickAnim=null;
+    const soon=$('#lgSoon'),back=$('#lgAllSys'),avail=$('#lgAvailLabel');
+    if(soon)soon.hidden=picked;
+    if(back)back.hidden=!picked;
+    if(avail)avail.hidden=picked;
+  };
   const syncSelect=()=>{
     $$('#lgCards [data-sys]').forEach(b=>{
       const on=lgTargetSys&&b.dataset.sys===lgTargetSys&&!b.classList.contains('is-locked');
       b.classList.toggle('is-selected',!!on);b.setAttribute('aria-pressed',on?'true':'false');
       const go=$('.eco-go',b);if(go&&!b.classList.contains('is-locked'))go.textContent=on?'✓':'›';
     });
+    applyPick();
     const hint=$('#lgPickHint'), th=$('#lgTargetHint');
     if(lgTargetSys){
       hint.textContent='Selected · '+ecoSysLabel(lgTargetSys);
@@ -4458,6 +4489,11 @@ function showLogin(msg){
       hint.textContent='Optional: select a product, then sign in';
       th.textContent='Default opens Maha PMS after login. Use the switch icon in the header to open another system.';
     }
+  };
+  const pickSys=b=>{
+    if(b.classList.contains('is-locked')||b.disabled){toast(b.innerText.includes('this account')?'This system is not open for your account.':'Ask Padauk to open this system for your hotel.');return}
+    if(b.dataset.sys===lgTargetSys)return;
+    lgPickAnim=b.dataset.sys;lgTargetSys=b.dataset.sys;applySysPath(lgTargetSys);syncSelect();
   };
   const paint=()=>{
     $('#lgTitle').textContent=lgProvider?'Provider access':'Welcome back';
@@ -4479,10 +4515,8 @@ function showLogin(msg){
     const u=f?f.u:null;
     if(lgTargetSys&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
     box.innerHTML=ecoAvailableCards(h,true,lgTargetSys,u);
-    $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>{
-      if(b.classList.contains('is-locked')||b.disabled){toast(b.innerText.includes('this account')?'This system is not open for your account.':'Ask Padauk to open this system for your hotel.');return}
-      lgTargetSys=b.dataset.sys===lgTargetSys?null:b.dataset.sys;applySysPath(lgTargetSys);syncSelect();
-    });
+    $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
+    applyPick();
   };
   const hint=()=>{
     paintCards();
@@ -4496,10 +4530,8 @@ function showLogin(msg){
     $('#cashWrap').hidden=!!open||(u&&u.role==='Housekeeping');
     const night=!!(u&&nightOkFor(u,h));$$('[data-shift]').forEach(b=>{if(b.dataset.shift==='Night'){b.disabled=!night;b.title=night?'Night shift, 22:00 to 06:00':'Night shift is for Front Office and HOD'}});if(!night&&lgShift==='Night')setShift('Afternoon');
   };
-  $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>{
-    if(b.classList.contains('is-locked')||b.disabled){toast(b.innerText.includes('this account')?'This system is not open for your account.':'Ask Padauk to open this system for your hotel.');return}
-    lgTargetSys=b.dataset.sys===lgTargetSys?null:b.dataset.sys;applySysPath(lgTargetSys);syncSelect();paint();
-  });
+  $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
+  $('#lgAllSys').onclick=()=>{lgTargetSys=null;lgPickAnim=null;applySysPath(null);syncSelect()};
   $('#lgMode').onclick=()=>{lgProvider=!lgProvider;$('#lgErr').textContent='';paint()};
   $('#lgUser').addEventListener('input',hint);
   $('#lgEye').onclick=()=>{const i=$('#lgPass');i.type=i.type==='password'?'text':'password';$('#lgEye').setAttribute('aria-label',i.type==='password'?'Show password':'Hide password')};
