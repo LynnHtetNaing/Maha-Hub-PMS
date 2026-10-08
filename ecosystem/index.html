@@ -74,6 +74,10 @@ h1{font-size:var(--fs-h1);margin:0}h2{margin:0 0 6px;font-size:var(--fs-h2)}h3{f
 .tbbadge{position:absolute;top:0;right:-2px;background:var(--gold);color:#1e1606;font-size:10px;font-weight:800;border-radius:8px;min-width:16px;height:16px;padding:0 4px;line-height:16px;text-align:center}
 .menubar{position:relative;z-index:auto;background:transparent;border:0;padding:0;display:flex;align-items:center;justify-content:stretch;height:73px;min-width:0;max-width:100%;flex:1 1 auto}
 .mitems{display:flex;flex:1 1 auto;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:8px;width:100%;height:73px;min-width:0;overflow:hidden}
+@media (min-width:761px){
+  .topbar.provbar .menubar{justify-content:flex-start}
+  .topbar.provbar .mitems{justify-content:flex-start;width:auto;flex:0 1 auto;gap:8px}
+}
 .mtoggle{display:none;background:none;border:0;color:#fff;width:40px;height:40px;font-size:22px;cursor:pointer}
 .mgrp{position:relative;flex:none}.mtop{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;padding:0 2px;height:34px;line-height:32px;font-weight:650;font-size:15.5px;cursor:pointer;color:#fff;white-space:nowrap}.mtop:hover,.mtop[aria-expanded=true]{color:var(--gold2);background:transparent;border-bottom-color:var(--gold2)}.car{display:inline-block;font-size:9px;margin-left:4px;opacity:.85;transform:translateY(-1px)}
 @container titles (max-width:880px){.mtop{font-size:14.2px}}
@@ -3908,7 +3912,7 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
-const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},{t:'Setup',items:[['Hotel Settings','set.hotel'],['Functions','set.features'],['Staff & Permissions','set.users'],['Transaction Codes','set.codes'],['Rooms & Room Types','set.rooms'],['Purchasing & AP','ac.buy'],['Backup & restore','set.backup']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account']]}];
+const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
@@ -4183,7 +4187,7 @@ function ecoSoonCards(){
 function shellHTML(){
   const providerConsole=!!(DB.session&&DB.session.provider&&!DB.session.inHotel);
   const n=providerConsole?0:notifBadgeCount();
-  return `<header class="topbar">
+  return `<header class="topbar${providerConsole?' provbar':''}">
   <div class="tb-left">${LOGO()}</div>
   <div class="tb-mid"><span class="pipe" aria-hidden="true">|</span><nav class="menubar" id="menubar" aria-label="Main"></nav><span class="pipe" aria-hidden="true">|</span></div>
   <div class="tb-right">
@@ -4296,7 +4300,7 @@ function renderShell(){
   const tick=()=>{const c=$('#rtClock');if(c){const n=new Date();c.textContent=fd(iso(n));c.title='System date · '+VERSION}};tick();clearInterval(window._rtc);window._rtc=setInterval(tick,20000);
   const providerConsole=!!(DB.session.provider&&!DB.session.inHotel);
   const raw=DB.session.provider?(DB.session.inHotel?MENU.concat([{t:'Provider',items:[['Back to provider console','prov.exit'],['EDC Card Link','prov.edc'],['Provider history','prov.log'],['Revenue analysis','ai.revenue']]}]):PROV_MENU):MENU;
-  const hide=providerConsole?[]:(DB.session.provider?['Tax','Help','AI']:['Tax','Help','AI','Setup']);
+  const hide=providerConsole?[]:['Tax','Help','AI','Setup'];
   const menu=raw.filter(m=>!hide.includes(m.t));
   const nav=$('#menubar');
   nav.innerHTML=`<button class="mtoggle" id="mtoggle" aria-label="Menu">☰</button><div class="mitems" id="mitems">`+menu.map((m,i)=>{
