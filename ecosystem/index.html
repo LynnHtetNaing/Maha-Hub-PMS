@@ -1507,17 +1507,36 @@ function detectPlan(flags){flags=flags||{};const keys=allFunctionKeys();
 function syncLegacyFeatures(f){const leg={dashboard:['fn.fo.dash'],roster:['fn.fo.roster'],groups:['fn.res.group','fn.bill.master'],city:['fn.bill.city'],petty:['fn.cd.petty'],tax:['fn.tax.tm30','fn.tax.etax','fn.tax.copies'],ai:['fn.ai.guest','fn.ai.revenue'],help:['fn.help.home'],buy:['fn.ac.buy'],confirm:['confirm']};
   Object.entries(leg).forEach(([k,keys])=>{f[k]=keys.every(x=>f[x]!==false)})}
 function planName(h){const id=h&&h.set&&h.set.plan;return (HOTEL_PLANS[id]||HOTEL_PLANS.full).name}
+const HOTEL_PACKAGES={
+  build:{name:'Build Up',note:'Maha PMS with the essential titles. Connect, Booking and Reach stay closed for this hotel. Maha Sales stays on the switch icon.'},
+  fullpkg:{name:'Full Package',note:'Every PMS title is open, and Connect, Booking and Reach are open for this hotel. Maha Sales stays on the switch icon. Direct booking still needs the Google details in property setup before guests can book.'}
+};
+function applyHotelPackage(h,id){
+  shapeHotel(h);
+  const pkg=HOTEL_PACKAGES[id];if(!pkg)return;
+  h.set.package=id;
+  const plan=id==='fullpkg'?'full':'essential';
+  h.set.plan=plan;
+  h.set.features=Object.assign({},h.set.features||{},flagsForPlan(plan));
+  syncLegacyFeatures(h.set.features);
+  h.set.systems.connect=id==='fullpkg';
+  h.set.systems.reach=id==='fullpkg';
+  h.set.google.enabled=id==='fullpkg';
+}
 function viewKeys(v){if(!v||v==='set.features')return [];if(v==='reports')return ['reports'];const keys=[];
   (typeof MENU!=='undefined'?MENU:[]).forEach(m=>{(m.items||[]).forEach(x=>{if(x[1]===v&&x[3])keys.push(x[3])})});return keys}
 function viewAllowed(v){const keys=viewKeys(v);if(!keys.length)return true;return keys.some(k=>feat(k))}
 function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];return prefer.find(v=>viewAllowed(v))||'set.features'}
 function menuFeature(v){const keys=viewKeys(v);return keys[0]||''}
 function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);const plans=[['essential','Essential'],['front','Front Office'],['full','Full PMS'],['custom','Custom']];
+  const pkg=H.set&&H.set.package;
   const boxes=functionGroups().map(g=>`<h3 class="featsec">${esc(g.t)}</h3><div class="featgrid">${g.items.map(([k,l])=>`<label class="chk"><input type="checkbox" data-fn="${k}" ${feat(k)?'checked':''} ${editable?'':'disabled'}> ${esc(l)}</label>`).join('')}</div>`).join('');
-  const head=editable?`<div class="planrow">${plans.map(([id,name])=>`<button type="button" class="btn ${plan===id?'gold':''}" data-plan="${id}">${name}</button>`).join('')}</div><p class="sub" id="planNote">${esc((HOTEL_PLANS[plan]||HOTEL_PLANS.full).note)}</p><p class="sub">Setup → Functions stays visible so the hotel can read this list. Staff cannot turn a hidden title back on.</p>`:`<p>Plan: <b>${esc(planName(H))}</b>. The provider opens or hides these titles for this hotel, from the plan they bought or from their preferences.</p>`;
+  const pkgRow=editable?`<h3 class="featsec">Package</h3><div class="planrow">${Object.entries(HOTEL_PACKAGES).map(([id,p])=>`<button type="button" class="btn ${pkg===id?'gold':''}" data-pkg="${id}">${esc(p.name)}</button>`).join('')}</div><p class="sub" id="pkgNote">${esc((HOTEL_PACKAGES[pkg]||{note:'One choice for this hotel. Build Up or Full Package sets the PMS titles and Connect, Booking and Reach together. Maha Sales is not switched per hotel.'}).note)}</p>`:`<p>Package: <b>${esc((HOTEL_PACKAGES[pkg]||{name:'Custom mix'}).name)}</b>. Plan: <b>${esc(planName(H))}</b>.</p>`;
+  const head=editable?`${pkgRow}<h3 class="featsec">PMS titles</h3><div class="planrow">${plans.map(([id,name])=>`<button type="button" class="btn ${plan===id?'gold':''}" data-plan="${id}">${name}</button>`).join('')}</div><p class="sub" id="planNote">${esc((HOTEL_PLANS[plan]||HOTEL_PLANS.full).note)}</p><p class="sub">Setup → Functions stays visible so the hotel can read this list. Staff cannot turn a hidden title back on.</p>`:pkgRow;
   return head+boxes}
 function bindPlanEditor(root){if(!root)return;root.dataset.chosen=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);
-  const mark=id=>{$$('[data-plan]',root).forEach(b=>b.classList.toggle('gold',b.dataset.plan===id));const n=$('#planNote',root);if(n)n.textContent=(HOTEL_PLANS[id]||HOTEL_PLANS.custom).note;root.dataset.chosen=id};
+  const mark=id=>{$$('[data-plan]',root).forEach(b=>b.classList.toggle('gold',b.dataset.plan===id));const n=$('#planNote',root);if(n)n.textContent=(HOTEL_PLANS[id]||HOTEL_PLANS.custom).note;root.dataset.chosen=id;if(H.set)H.set.package='';$$('[data-pkg]',root).forEach(b=>b.classList.remove('gold'));const pn=$('#pkgNote',root);if(pn)pn.textContent='PMS titles were changed on their own. Save, or choose Build Up or Full Package again to set the whole hotel in one step.'};
+  $$('[data-pkg]',root).forEach(b=>b.onclick=()=>{if(!provOnly())return;applyHotelPackage(H,b.dataset.pkg);provLog(`${HOTEL_PACKAGES[b.dataset.pkg].name} for ${H.code}`);saveDB();toast(`${HOTEL_PACKAGES[b.dataset.pkg].name} saved for ${H.code}.`);render()});
   $$('[data-plan]',root).forEach(b=>b.onclick=()=>{mark(b.dataset.plan);if(b.dataset.plan==='custom')return;const flags=flagsForPlan(b.dataset.plan);$$('[data-fn]',root).forEach(c=>{c.checked=!!flags[c.dataset.fn]})});
   $$('[data-fn]',root).forEach(c=>c.addEventListener('change',()=>mark('custom')));
   const btn=$('#fnSave',root);if(!btn)return;
@@ -3913,7 +3932,7 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
-const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking · Sales)','prov.systems'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account']]}];
+const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
@@ -4195,7 +4214,7 @@ function shellHTML(){
   <div class="tb-mid"><span class="pipe" aria-hidden="true">|</span><nav class="menubar" id="menubar" aria-label="Main"></nav><span class="pipe" aria-hidden="true">|</span></div>
   <div class="tb-right">
     <div class="tb-tools">
-      ${providerConsole?'':`<button type="button" class="tbico" id="sysPick" title="Switch system" aria-label="Switch system">${ic('swap',20)}</button>`}
+      <button type="button" class="tbico" id="sysPick" title="Switch system" aria-label="Switch system">${ic('swap',20)}</button>
       <button type="button" class="tbico" id="tbHelp" title="Help" aria-label="Help">${ic('help',20)}</button>
       ${providerConsole?'':`<button type="button" class="tbico" id="tbBell" title="Notifications" aria-label="Notifications">${ic('bell',20)}${n?`<span class="tbbadge">${n>99?'99+':n}</span>`:''}</button>`}
     </div>
@@ -4224,12 +4243,20 @@ function tbPop(anchor,html){
   return p;
 }
 function openSystemsArrow(btn){
-  if(!H||!DB.session){showLogin();return}
+  if(!DB.session){showLogin();return}
+  if(!H){const first=Object.values(DB.hotels)[0];if(first)H=first}
+  if(!H){toast('Create a property first.');return}
   shapeHotel(H);
-  const open=hotelSystems(H).filter(s=>s.open);
-  if(!open.length){toast('No system is open for this hotel.');return}
-  const p=tbPop(btn,open.map(s=>`<button type="button" data-sys="${s.kind}"><b>${esc(s.name)}</b><span class="sub">${s.kind==='hub'?'You are here':esc(s.blurb)}</span></button>`).join(''));
-  $$('[data-sys]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const kind=b.dataset.sys;if(kind==='hub'){if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}openSystem(kind,H)});
+  const asProv=!!DB.session.provider;
+  const inProv=!DB.session.inHotel&&asProv;
+  const list=hotelSystems(H).filter(s=>asProv||s.open);
+  if(!list.length){toast('No system is open for this hotel.');return}
+  const p=tbPop(btn,list.map(s=>{
+    const here=s.kind==='hub'&&!inProv;
+    const sub=!s.open&&asProv?'Closed for hotel staff — you can still open it':here?'You are here':s.blurb;
+    return `<button type="button" data-sys="${s.kind}"><b>${esc(s.name)}</b><span class="sub">${esc(sub)}</span></button>`;
+  }).join(''));
+  $$('[data-sys]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const kind=b.dataset.sys;if(kind==='hub'){if(inProv){enterHotel(H.code);return}if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}openSystem(kind,H)});
 }
 function openHelpMenu(btn){
   const p=tbPop(btn,`<button type="button" data-act="help">Help</button><button type="button" data-act="ai">${ic('chat',16)} Chat with AI</button>`);
@@ -6364,7 +6391,7 @@ function migratePerms(){Object.values(DB.hotels).forEach(h=>{if(h._aiMig)return;
 let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_extraApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_extraApplied=[];if(!H)return;(H.extraCodes||[]).forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){TCODES.push(c);_extraApplied.push(c)}})}
 const payEnabled=c=>!c.hidden&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
 function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
-function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Maha PMS is open — use Systems anytime to switch.`)}
+function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
 VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();go('prov.home')};
 function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes();saveDB()}
 
@@ -6375,7 +6402,7 @@ VIEWS['prov.systems']=el=>{
   const hotels=Object.values(DB.hotels);hotels.forEach(shapeHotel);
   const cHost=connectHost(),bHost=bookHost(),first=hotels[0];
   const reachPreview=reachUrl(first),connectPreview=connectUrlFor(first),bookPreview=bookUrlFor(first);
-  el.innerHTML=pageHead('Systems (Reach · Connect · Booking · Sales)')+`
+  el.innerHTML=pageHead('Systems (Reach · Connect · Booking)')+`
    <div class="panel pad">
      <h3 style="margin:0 0 6px">Open apps for setup</h3>
      <p class="sub">Provider can open these <b>anytime</b> to build and review — before linking a hotel or publishing. Hotel Open/Close only controls whether hotel staff may use that product.</p>
@@ -6402,11 +6429,6 @@ VIEWS['prov.systems']=el=>{
          </div>
          <p class="sub mt">Server: <input id="bkHost" value="${esc(bHost)}" style="min-width:180px"> <button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></p>
          <p class="sub">Run <code>node book/server.mjs</code> on port 8781 for catalog / rates.</p>
-       </div>
-       <div class="panel pad" style="background:#f3f7f6">
-         <b>Maha Sales</b><div class="sub">Hotel leads, follow-ups, quotations and MSA. Always available — not opened per hotel.</div>
-         <div class="btns mt"><a class="btn gold" href="${esc(sysUrl('sales',first))}" target="_blank" rel="noopener">Open Sales</a></div>
-         <p class="sub mt" style="word-break:break-all">${esc(sysUrl('sales'))}</p>
        </div>
      </div>
      <div class="panel pad mt" style="background:#f3f6f4">
@@ -6443,8 +6465,6 @@ VIEWS['prov.systems']=el=>{
           <button class="btn sm ${bookOn(h)?'ghost':'gold'}" data-book="${h.code}" type="button">${bookOn(h)?'Disable':'Enable for hotel'}</button>
           <a class="btn sm gold" href="${esc(bookUrlFor(h))}" target="_blank" rel="noopener">Open app</a>
           <button class="btn sm ghost" data-booksetup="${h.code}" type="button">Setup</button></span></div>
-        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Sales</b><div class="sub">Leads, quotes and MSA</div></span>
-          <span class="row gap"><span class="pst on">Always on</span><a class="btn sm gold" href="${esc(sysUrl('sales',h))}" target="_blank" rel="noopener">Open app</a></span></div>
       </div></div>`).join('')}</div>`;
   $('#cxSaveHost',el).onclick=()=>{const v=($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782';localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
   $('#bkSaveHost',el).onclick=()=>{const v=($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781';localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
@@ -6452,11 +6472,11 @@ VIEWS['prov.systems']=el=>{
   if($('#cxStripe',el))$('#cxStripe',el).onclick=()=>go('prov.stripe');
   if($('#cxRules',el))$('#cxRules',el).onclick=()=>go('prov.rules');
   if($('#cxDist',el))$('#cxDist',el).onclick=()=>go('prov.distribution');
-  $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);h.set.systems.reach=!reachOn(h);
+  $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);h.set.package='';h.set.systems.reach=!reachOn(h);
     provLog(`${h.set.systems.reach?'Opened':'Closed'} Maha Reach for ${h.code}`);saveDB();render();toast(h.set.systems.reach?`Maha Reach is open for ${h.code}. Credits apply inside Reach.`:`Maha Reach is closed for ${h.code}.`)});
-  $$('[data-connect]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.connect];if(!h)return;shapeHotel(h);h.set.systems.connect=!connectOn(h);
+  $$('[data-connect]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.connect];if(!h)return;shapeHotel(h);h.set.package='';h.set.systems.connect=!connectOn(h);
     provLog(`${h.set.systems.connect?'Opened':'Closed'} Maha Connect for ${h.code}`);saveDB();render();toast(h.set.systems.connect?`Maha Connect is open for ${h.code}. Foundation only — not live on OTAs.`:`Maha Connect is closed for ${h.code}.`)});
-  $$('[data-book]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.book];if(!h)return;shapeHotel(h);h.set.google.enabled=!bookOn(h);
+  $$('[data-book]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.book];if(!h)return;shapeHotel(h);h.set.package='';h.set.google.enabled=!bookOn(h);
     provLog(`${h.set.google.enabled?'Enabled':'Disabled'} Maha Booking for ${h.code}`);saveDB();render();toast(h.set.google.enabled?`Maha Booking enabled for ${h.code}.`:`Maha Booking disabled for ${h.code}.`)});
   $$('[data-pub]',el).forEach(b=>b.onclick=async()=>{
     const h=DB.hotels[b.dataset.pub];if(!h)return;
@@ -6616,7 +6636,7 @@ VIEWS['prov.functions']=el=>{
   if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
   if(!H){el.innerHTML=pageHead('Functions & plan')+'<div class="empty">Create a property first.</div>';return}
   shapeHotel(H);
-  el.innerHTML=pageHead('Functions & plan',provHotelPicker())+`<p class="sub">Open or hide every function title for <b>${esc(H.set.name)}</b> (${esc(H.code)}). Choose the plan they bought, or set each title to match their preference.</p>
+  el.innerHTML=pageHead('Functions & plan',provHotelPicker())+`<p class="sub">One page for <b>${esc(H.set.name)}</b> (${esc(H.code)}). Build Up or Full Package sets the PMS titles and Connect, Booking and Reach together. You can still set a PMS title on its own.</p>
     <div class="panel pad" id="fnBox">${planEditorHtml(true)}
     <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
     ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="6">${esc(H.set.confirmTpl||'')}</textarea>`)}
@@ -6816,7 +6836,7 @@ const SEC={
    $$('[data-fix]',box).forEach(b=>b.onclick=()=>{SET_SEC=b.dataset.fix;render()});
    if($('#acOn',box))$('#acOn',box).onclick=()=>{if(!provOnly())return;H.active=true;H.activatedAt=Date.now();provLog(`Activated ${H.code}`);saved(`${H.code} is active. Its staff can now sign in.`)};
    if($('#acOff',box))$('#acOff',box).onclick=()=>{if(!provOnly())return;if(!confirm('Deactivate this hotel? Its staff will not be able to sign in.'))return;H.active=false;provLog(`Deactivated ${H.code}`);saved()}},
- functions(box){shapeHotel(H);box.innerHTML=secHead('18. Functions & plan','Show or hide every title for this hotel. Pick the plan they bought, or set each title on its own.')+`<div class="panel pad" id="fnBox">${planEditorHtml(true)}
+ functions(box){shapeHotel(H);box.innerHTML=secHead('18. Functions & plan','One page for this hotel. Build Up or Full Package sets the PMS titles and Connect, Booking and Reach together. You can still set a PMS title on its own.')+`<div class="panel pad" id="fnBox">${planEditorHtml(true)}
     <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
     ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="6">${esc(H.set.confirmTpl||'')}</textarea>`)}
     <div class="btns"><button class="btn gold" id="fnSave">Save functions &amp; plan</button></div></div>`;
