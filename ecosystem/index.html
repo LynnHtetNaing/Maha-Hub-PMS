@@ -190,7 +190,8 @@ tr.lchg td{background:#f7f7f7}tr.lpay td{background:var(--pay);color:var(--payt)
 .cgrid{display:grid;grid-template-columns:repeat(7,1fr)}.cc{min-height:62px;border:1px solid #eef2f5;padding:3px;font-size:11px;position:relative}.cc.om{background:#fafbfc;color:#aab4bb}.cc.ed{cursor:pointer}.cc.ed:hover{background:#eef7ff}.cc.sel{outline:2px solid var(--gold);outline-offset:-2px}.cn{display:block;text-align:right}
 .cc.real::after,.cc.late::after{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 16px 16px 0;pointer-events:none}
 .cc.late::after{border-color:transparent #d64541 transparent transparent}.cc.real::after{border-color:transparent #e2b100 transparent transparent}
-.legend i.corn{width:16px;height:16px;min-height:0;padding:0;border:1px solid #d5dee6;border-radius:2px;background:#fff;position:relative;vertical-align:-3px}
+.legend i.corn{width:18px;height:18px;min-height:0;padding:0;border:1px solid #d5dee6;border-radius:2px;background:#fff;position:relative;vertical-align:-4px;overflow:hidden}
+.legend i.cc::after{border-width:0 9px 9px 0}
 table.grid.arrfit th,table.grid.arrfit td{white-space:normal}
 .chip{display:block;margin-top:4px;border-radius:3px;padding:2px 3px;font-weight:700;font-size:10.5px;color:#fff;text-align:center}.chip.cr-b,.legend i.cr-b{background:#2e9a62}.chip.cr-p,.legend i.cr-p{background:#9aa5ad}.chip.cr-a,.legend i.cr-a{background:#2f6fb5}.chip.cr-h,.legend i.cr-h{background:#222}
 /* guest profile */
@@ -4982,17 +4983,38 @@ function sideSearch(host,cfg){const st=cfg.st,f=SIDE_FILTERS.find(x=>x[0]===st.b
 }
 
 /* ---------- Arrivals: full list; clicking a reservation opens the check-in view (11.2–11.5) ---------- */
+let arrSort='arr';
+const ARR_SORT=[['arr','Arrival'],['dep','Departure'],['room','Room'],['guest','Guest name'],['rsvn','RSVN#'],['type','Room type'],['co','Company'],['vip','VIP']];
+function sortArrivals(list){
+  const key={arr:b=>b.arr,dep:b=>b.dep,room:b=>b.room||'\uffff',guest:b=>gName(G(b.guestId)).toLowerCase(),rsvn:b=>String(resOf(b).no).padStart(8,'0'),type:b=>b.type||'',co:b=>coTag(CO(resOf(b).companyId)).toLowerCase(),vip:b=>(G(b.guestId).vip||'\uffff').toLowerCase()}[arrSort]||(b=>b.arr);
+  return list.slice().sort((a,b)=>String(key(a)).localeCompare(String(key(b)),undefined,{numeric:true})||String(a.room||'').localeCompare(String(b.room||''),undefined,{numeric:true})||a.arr.localeCompare(b.arr))}
+function assignArrival(id){
+  const B=bookingById(id);if(!B)return;
+  if(B.roomBlock){toast(`This room is blocked (${B.roomBlock.reason}). Clear the block before assigning another room.`);return}
+  const free=H.rooms.filter(r=>!r.dummy&&r.type===B.type&&roomFree(r.no,B.arr,B.dep,B.id)).sort((a,b)=>String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
+  if(!free.length){toast(`No free ${B.type} room for ${fd(B.arr)} – ${fd(B.dep)}.`);return}
+  const m=modal('Assign room',`<p>RSVN ${resOf(B).no} · ${esc(gName(G(B.guestId)))} · ${esc(B.type)}</p><div class="form2">${fld('Free rooms',`<select id="asRm">${free.map(r=>`<option value="${r.no}" ${r.no===B.room?'selected':''}>${r.no} – ${esc(hkShort(r)||HKL[r.hk]||'')}</option>`).join('')}</select>`)}</div><div class="btns"><button class="btn gold" id="asGo">Assign</button></div>`,{w:440});
+  $('#asGo',m).onclick=()=>{if(B.roomBlock){toast(`This room is blocked (${B.roomBlock.reason}). Clear the block before assigning another room.`);return}const no=$('#asRm',m).value;if(!roomFree(no,B.arr,B.dep,B.id)){toast(`Room ${no} is not free for these dates.`);return}if(no===B.room){closeModal(m);toast(`Room ${no} is already assigned.`);return}const prev=B.room;B.room=no;histB(B,prev?`Room ${prev} → ${no}`:`Room ${no} assigned`);log(`Assigned room ${no} RSVN ${resOf(B).no}`,B.id);closeModal(m);refresh();toast(`Room ${no} assigned`)}}
+function blockArrival(id){
+  const B=bookingById(id);if(!B)return;
+  if(!B.room){toast('Assign a room before blocking it.');return}
+  if(B.roomBlock){const why=B.roomBlock.reason||'';if(!confirm(`Clear the block on room ${B.room}? The room stays assigned.${why?'\nReason: '+why:''}`))return;B.roomBlock=null;histB(B,'Room block cleared; room '+B.room+' stays assigned');log(`Cleared room block ${B.room} RSVN ${resOf(B).no}`,B.id);refresh();toast(`Block cleared. Room ${B.room} stays assigned.`);return}
+  const reason=prompt(`Block room ${B.room} for RSVN ${resOf(B).no}. The room stays assigned until the block is cleared.\n\nReason:`);if(reason===null)return;if(!String(reason).trim()){toast('A block needs a reason.');return}
+  B.roomBlock={reason:String(reason).trim(),by:user().name,at:Date.now(),room:B.room};histB(B,'Room '+B.room+' blocked: '+B.roomBlock.reason);log(`Blocked room ${B.room} RSVN ${resOf(B).no}: ${B.roomBlock.reason}`,B.id);refresh();toast(`Room ${B.room} blocked`)}
 VIEWS['fo.arrivals']=(el,arg)=>{
-  const sp=dateSpan(arg);const list=arrivalsIn(sp.from,sp.to).sort((a,b)=>a.arr.localeCompare(b.arr)||(a.room||'zzz').localeCompare(b.room||'zzz'));
-  el.innerHTML=pageHead('Arrivals',`<label class="sub">From <input type="date" id="arF" value="${sp.from}"></label><label class="sub">To <input type="date" id="arT" value="${sp.to}"></label>`)+
-  `<p class="sub">The same From and To date shows that one day. Today also keeps arrivals that are still waiting from an earlier day. Click a reservation to open it.</p><div class="panel scroll"><table class="grid">
-   <tr><th>Status</th><th>RSVN#</th><th>Room</th><th>Room type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>VIP</th><th>Nationality</th><th>Rate code</th><th class="n">Rate total</th><th>ETA / Flight</th><th class="n">Deposit</th></tr>
-   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),dp=depAmt(b);
-     return `<tr class="click" data-open="${b.id}"><td class="nowrap">${stIcons(b,'')}</td><td>${r.no}</td><td>${b.room?esc(b.room):'<span class="bad">—</span>'}</td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${esc(g.vip)}</td><td>${esc(g.nationality)}</td><td>${b.rateCode}</td><td class="n">${m2(stayTotal(b))}</td><td>${esc(b.eta)}${b.flightArr?' · '+esc(b.flightArr)+' '+esc(b.flightArrTime):''}</td><td class="n">${dp?m2(dp):''}</td></tr>`}).join('')||'<tr><td colspan="16" class="empty">No arrivals in this period.</td></tr>'}
+  const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to));
+  el.innerHTML=pageHead('Arrivals',`<label class="sub">From <input type="date" id="arF" value="${sp.from}"></label><label class="sub">To <input type="date" id="arT" value="${sp.to}"></label><label class="sub">Sort by <select id="arS">${ARR_SORT.map(([k,l])=>`<option value="${k}" ${arrSort===k?'selected':''}>${l}</option>`).join('')}</select></label>`)+
+  `<p class="sub">The same From and To date shows that one day. Today also keeps arrivals that are still waiting from an earlier day. Click a reservation to open it. Assign chooses a free room of that type. Block holds the assigned room until the block is cleared. The $ icon shows a deposit.</p><div class="panel"><table class="grid arrfit">
+   <tr><th>Status</th><th>RSVN#</th><th>Room</th><th>Room type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>VIP</th><th>Nationality</th><th>Rate code</th><th class="n">Rate total</th><th>ETA / Flight</th><th></th></tr>
+   ${list.map(b=>{const r=resOf(b),g=G(b.guestId);
+     return `<tr class="click" data-open="${b.id}"><td>${stIcons(b,'')}</td><td>${r.no}</td><td>${b.room?esc(b.room):'<span class="bad">—</span>'}</td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${esc(g.vip)}</td><td>${esc(g.nationality)}</td><td>${b.rateCode}</td><td class="n">${m2(stayTotal(b))}</td><td>${esc(b.eta)}${b.flightArr?' · '+esc(b.flightArr)+' '+esc(b.flightArrTime):''}</td><td><button type="button" class="sic" data-asg="${b.id}" title="Assign a free ${esc(b.type)} room">${ic('pin',16)}</button><button type="button" class="sic ${b.roomBlock?'msg':''}" data-blk="${b.id}" title="${b.roomBlock?esc('Blocked: '+b.roomBlock.reason+' — click to clear the block'):'Block this room'}">${ic('lock',16)}</button></td></tr>`}).join('')||'<tr><td colspan="16" class="empty">No arrivals in this period.</td></tr>'}
    <tr class="tot"><td colspan="5">Total</td><td>${sum(list,b=>b.adults)}/${sum(list,b=>b.children)}</td><td colspan="2">${list.length} room(s)</td><td class="n">${sum(list,nights)}</td><td colspan="7"></td></tr></table></div>`;
   const pick=()=>go('fo.arrivals',{from:$('#arF',el).value,to:$('#arT',el).value});
   $('#arF',el).onchange=pick;$('#arT',el).onchange=pick;
+  $('#arS',el).onchange=()=>{arrSort=$('#arS',el).value;pick()};
   bindSide(el,'',()=>render());
+  $$('[data-asg]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();assignArrival(b.dataset.asg)});
+  $$('[data-blk]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();blockArrival(b.dataset.blk)});
   $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);go(B.arr<=H.set.bd&&['confirmed','tentative'].includes(B.status)?'fo.arrivals2':'res.open',B.id)});
 };
 let AS={by:'room',q:'',sel:null};
@@ -5043,25 +5065,26 @@ function stayList(el,title,list,mode){
   bindSide(el,'',()=>render());
   $$('[data-fol]',el).forEach(b=>b.onclick=()=>go('bill.open',b.dataset.fol));
 }
-VIEWS['fo.inhouse']=el=>stayList(el,'In House',allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)).sort((a,b)=>(a.room||'').localeCompare(b.room||'')),'ih');
+VIEWS['fo.inhouse']=el=>stayList(el,'In House',allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b))).sort((a,b)=>(a.room||'').localeCompare(b.room||'')),'ih');
 
 /* ---------- room grid ---------- */
-let gridStart=null;
+let gridFrom=null,gridTo=null;
 VIEWS['fo.grid']=el=>{
-  if(!gridStart)gridStart=addD(H.set.bd,-1);const N=14,days=[...Array(N)].map((_,i)=>addD(gridStart,i)),end=addD(gridStart,N);
-  let h=`<div class="gridwrap" style="--days:${N}"><div class="grow ghead"><div class="gl">ROOM / DATE</div>${days.map((d,i)=>{const o=occOn(d).filter(b=>b.status!=='out'||d<b.statusDate).length,sell=H.rooms.filter(r=>!(r.ooo&&d>=r.ooo.from&&d<=r.ooo.to)).length;
+  if(!gridFrom||!gridTo){gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,13)}
+  const N=Math.max(1,diff(gridFrom,gridTo)+1),days=[...Array(N)].map((_,i)=>addD(gridFrom,i)),end=addD(gridTo,1);
+  let h=`<div class="gridwrap" style="--days:${N}"><div class="grow ghead"><div class="gl">ROOM / DATE</div>${days.map((d,i)=>{const o=occOn(d).filter(b=>b.status!=='out'||d<b.statusDate).length,sell=H.rooms.filter(r=>!r.dummy&&!(r.ooo&&d>=r.ooo.from&&d<=r.ooo.to)).length;
     return `<div class="gd ${d===H.set.bd?'today':''}" style="grid-column:${i+2}">${P(d).toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()} ${P(d).getDate()} ${P(d).toLocaleDateString('en-GB',{month:'short'}).toUpperCase()}<b>${(sell?o/sell*100:0).toFixed(2)}%</b></div>`}).join('')}</div>`;
   H.rooms.forEach(rm=>{h+=`<div class="grow"><div class="gl"><b>${rm.no}</b> <span>${rm.type}</span></div>`;
     days.forEach((d,i)=>{const ooo=rm.ooo&&d>=rm.ooo.from&&d<=rm.ooo.to;h+=`<button class="gc ${d===H.set.bd?'today':''} ${ooo?'ooo':''}" style="grid-column:${i+2}" data-cell="${rm.no}|${d}" aria-label="Room ${rm.no} ${fd(d)}"></button>`});
-    allBookings().filter(b=>b.room===rm.no&&live(b)&&overlaps(gridStart,end,b.arr,b.dep)).forEach(b=>{const s=Math.max(0,diff(gridStart,b.arr)),e=Math.min(N,diff(gridStart,b.dep)),span=Math.max(1,e-s);
+    allBookings().filter(b=>b.room===rm.no&&live(b)&&overlaps(gridFrom,end,b.arr,b.dep)).forEach(b=>{const s=Math.max(0,diff(gridFrom,b.arr)),e=Math.min(N,diff(gridFrom,b.dep)),span=Math.max(1,e-s);
       h+=`<button class="gb gb-${b.status}" style="grid-column:${s+2} / span ${span}" data-bk="${b.id}" title="${esc(gName(G(b.guestId)))} ${fd(b.arr)}–${fd(b.dep)}">${esc(G(b.guestId).last)}${b.copyOf?' (Copy)':''}</button>`});
-    if(rm.ooo&&overlaps(gridStart,end,rm.ooo.from,addD(rm.ooo.to,1))){const s=Math.max(0,diff(gridStart,rm.ooo.from)),e=Math.min(N,diff(gridStart,addD(rm.ooo.to,1)));h+=`<div class="gb gb-ooo" style="grid-column:${s+2} / span ${Math.max(1,e-s)}">${rm.ooo.kind} ${esc(rm.ooo.reason)}</div>`}
+    if(rm.ooo&&overlaps(gridFrom,end,rm.ooo.from,addD(rm.ooo.to,1))){const s=Math.max(0,diff(gridFrom,rm.ooo.from)),e=Math.min(N,diff(gridFrom,addD(rm.ooo.to,1)));h+=`<div class="gb gb-ooo" style="grid-column:${s+2} / span ${Math.max(1,e-s)}">${rm.ooo.kind} ${esc(rm.ooo.reason)}</div>`}
     h+='</div>'});
-  el.innerHTML=pageHead('Room Grid',`<button class="btn ghost sm" id="gp">‹ 7 days</button><button class="btn ghost sm" id="gt">Business date</button><button class="btn ghost sm" id="gn">7 days ›</button>`)+
-   `<p class="sub">Click an empty box to make a booking for that room and date. Click a booking to open it.</p><div class="panel scroll">${h}</div></div>
+  el.innerHTML=`<div class="phead"><h1>Room Grid</h1><label class="sub">From <input type="date" id="gFrom" value="${gridFrom}"></label><label class="sub">To <input type="date" id="gTo" value="${gridTo}"></label><button class="btn sm gold" id="gSearch">Search</button></div>`+
+   `<p class="sub">From the day before the business date, 14 days. Search applies the dates you choose, up to 42 days. Click an empty box to make a booking for that room and date. Click a booking to open it.</p><div class="panel scroll">${h}</div></div>
    <div class="legend"><span><i class="gb-confirmed"></i>Confirmed</span><span><i class="gb-tentative"></i>Tentative</span><span><i class="gb-inhouse"></i>In house</span><span><i class="gb-out"></i>Checked out</span><span><i class="gb-ooo"></i>Out of order</span></div>`;
-  $('#gp',el).onclick=()=>{gridStart=addD(gridStart,-7);render()};$('#gn',el).onclick=()=>{gridStart=addD(gridStart,7);render()};$('#gt',el).onclick=()=>{gridStart=addD(H.set.bd,-1);render()};
-  $$('[data-bk]',el).forEach(b=>b.onclick=()=>go('res.open',b.dataset.bk));
+  $('#gSearch',el).onclick=()=>{let f=$('#gFrom',el).value,t=$('#gTo',el).value;if(!f||!t){toast('Choose a from date and a to date.');return}if(f>t){const x=f;f=t;t=x}const n=diff(f,t)+1;if(n>42){toast('A room grid search can cover at most 42 days.');return}gridFrom=f;gridTo=t;render()};
+  $$('[data-bk]',el).forEach(b=>b.onclick=()=>{go.keepBack=true;resBack='fo.grid';go('res.open',b.dataset.bk)});
   $$('[data-cell]',el).forEach(c=>c.onclick=()=>{const[no,d]=c.dataset.cell.split('|');if(d<H.set.bd){toast('Bookings cannot start before the business date.');return}
     if(!roomFree(no,d,addD(d,1))){toast(`Room ${no} is not free on ${fd(d)}.`);return}go('res.new',{room:no,arr:d})});
 };
@@ -5070,16 +5093,22 @@ VIEWS['fo.grid']=el=>{
 const HKL={clean:'VC · Vacant clean',dirty:'VD · Vacant dirty',inspected:'VI · Inspected'};
 
 VIEWS['rm.ooo']=el=>{
-  el.innerHTML=pageHead('Out of Order / Out of Inventory')+`<div class="panel scroll"><table class="grid"><tr><th>Room</th><th>Type</th><th>Status</th><th>From</th><th>To</th><th>Reason</th><th></th></tr>
-  ${H.rooms.map(r=>`<tr><td><b>${r.no}</b></td><td>${r.type}</td><td>${r.ooo?`<span class="pill k">${r.ooo.kind}</span>`:'In service'}</td><td>${r.ooo?fd(r.ooo.from):''}</td><td>${r.ooo?fd(r.ooo.to):''}</td><td>${r.ooo?esc(r.ooo.reason):''}</td>
-   <td>${r.ooo?`<button class="btn sm ghost" data-back="${r.no}">Back in service</button>`:`<button class="btn sm ghost" data-oo="${r.no}">Set OO / OI</button>`}</td></tr>`).join('')}</table></div>`;
+  const bits=(r,fn)=>[r.ooo?fn(r.ooo):'',r.softHold?fn(r.softHold):''].filter(Boolean).join('<br>');
+  el.innerHTML=pageHead('Out of Order / Out of Inventory')+`<p class="sub">Soft block holds a room for someone coming later. The room stays in inventory. Out of order and out of inventory still need the room empty.</p><div class="panel scroll"><table class="grid"><tr><th>Room</th><th>Type</th><th>Status</th><th>From</th><th>To</th><th>Reason</th><th></th></tr>
+  ${H.rooms.map(r=>{const sb=!!(r.softHold||r.softBlock);const st=[r.ooo?`<span class="pill k">${esc(r.ooo.kind)}</span>`:'',sb?'<span class="pill y">SB</span>':''].filter(Boolean).join(' ')||'In service';
+    const act=[r.ooo?`<button class="btn sm ghost" data-back="${r.no}">Back in service</button>`:`<button class="btn sm ghost" data-oo="${r.no}">Set OO / OI / SB</button>`,sb?`<button class="btn sm ghost" data-sbx="${r.no}">Clear soft block</button>`:''].filter(Boolean).join(' ');
+    return `<tr><td><b>${r.no}</b></td><td>${r.type}</td><td>${st}</td><td>${bits(r,x=>fd(x.from))}</td><td>${bits(r,x=>fd(x.to))}</td><td>${bits(r,x=>esc(x.reason))}</td><td class="nowrap">${act}</td></tr>`}).join('')}</table></div>`;
   $$('[data-back]',el).forEach(b=>b.onclick=()=>{if(!need('hk'))return;const r=RM(b.dataset.back);r.ooo=null;r.hk='dirty';log('Room '+r.no+' back in service');refresh()});
+  $$('[data-sbx]',el).forEach(b=>b.onclick=()=>{if(!need('hk'))return;const r=RM(b.dataset.sbx);r.softHold=null;r.softBlock=false;log('Room '+r.no+' soft block cleared');refresh();toast(`Soft block cleared on room ${r.no}. The room was not marked dirty.`)});
   $$('[data-oo]',el).forEach(b=>b.onclick=()=>{if(!need('hk'))return;const no=b.dataset.oo;const m=modal('Out of order – room '+no,`<div class="form2">
-    ${fld('Type',`<select id="ok"><option value="OO">OO – Out of order</option><option value="OI">OI – Out of inventory</option></select>`)}${fld('From',`<input type="date" id="of" value="${H.set.bd}">`)}${fld('To',`<input type="date" id="ot" value="${addD(H.set.bd,1)}">`)}${fld('Reason',`<input id="or" autofocus>`,'span2')}</div><div class="err" id="oe"></div>
-    <div class="btns"><button class="btn gold" id="os">Save</button></div>`,{w:520});
-    $('#os',m).onclick=()=>{const r=$('#or',m).value.trim(),f=$('#of',m).value,t=$('#ot',m).value;if(!r){$('#oe',m).textContent='Give a reason.';return}if(t<f){$('#oe',m).textContent='The end date is before the start date.';return}
+    ${fld('Type',`<select id="ok"><option value="OO">OO – Out of order</option><option value="OI">OI – Out of inventory</option><option value="SB">SB – Soft block</option></select>`)}${fld('From',`<input type="date" id="of" value="${H.set.bd}">`)}${fld('To',`<input type="date" id="ot" value="${addD(H.set.bd,1)}">`)}${fld('Reason',`<input id="or" autofocus placeholder="Who the room is held for">`,'span2')}</div><div class="err" id="oe"></div>
+    <p class="sub">Soft block keeps the room in inventory for someone coming later. It can overlap a future booking. Out of order and out of inventory still need the room empty.</p>
+    <div class="btns"><button class="btn gold" id="os">Save</button></div>`,{w:560});
+    $('#os',m).onclick=()=>{const reason=$('#or',m).value.trim(),f=$('#of',m).value,t=$('#ot',m).value,kind=$('#ok',m).value;if(!reason){$('#oe',m).textContent='Give a reason.';return}if(!f||!t||t<f){$('#oe',m).textContent='The end date is before the start date.';return}
+      const rm=RM(no);
+      if(kind==='SB'){rm.softHold={from:f,to:t,reason};rm.softBlock=true;log(`Room ${no} soft block ${fd(f)}–${fd(t)}: ${reason}`);closeModal(m);refresh();toast(`Room ${no} soft blocked. It stays in inventory.`);return}
       if(allBookings().some(x=>x.room===no&&['confirmed','tentative','inhouse'].includes(x.status)&&overlaps(f,addD(t,1),x.arr,x.dep))){$('#oe',m).textContent='A booking uses this room in those dates. Move it first.';return}
-      RM(no).ooo={from:f,to:t,reason:r,kind:$('#ok',m).value};log(`Room ${no} set ${$('#ok',m).value}`);closeModal(m);refresh()}});
+      rm.ooo={from:f,to:t,reason,kind};log(`Room ${no} set ${kind}`);closeModal(m);refresh()}});
 };
 
 /* ---------- inquiry ---------- */
@@ -5121,7 +5150,7 @@ VIEWS['res.list']=el=>{
   ['rlq','rls','rlf','rlt'].forEach(id=>$('#'+id,el).addEventListener('input',run));$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));run();
 };
 VIEWS['res.open']=(el,id)=>{const B=bookingById(id);if(!B){el.innerHTML='<div class="empty">Reservation not found.</div>';return}const r=resOf(B);
-  el.innerHTML=pageHead('Reservation',`<button class="btn ghost sm" data-go="res.list">Back to list</button>`);$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));
+  el.innerHTML=pageHead('Reservation',`<button class="btn ghost sm" data-go="${resBack}">${resBack==='fo.grid'?'Back to Room Grid':'Back to list'}</button>`);$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));
   const box=document.createElement('div');el.appendChild(box);reservationScreen(box,r,B,{});showNotifs(r,'Reservation')};
 VIEWS['res.new']=(el,pre)=>{if(!need('res.create')){go('fo.status');return}newReservation(el,pre||{},false)};
 VIEWS['res.walkin']=(el)=>{if(!need('res.create')){go('fo.status');return}newReservation(el,{arr:H.set.bd},true)};
@@ -5167,7 +5196,7 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
        ${fld('<span class="blue">Daily rate amt.</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
        ${fld('<span class="blue">Stay total</span>',`<input value="${m2(stayTotal(B))}" disabled class="n">`)}
-       ${fld('Room',`<select id="bRoom" ${dis('b')}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>`)}
+       ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Blocked: ${esc(B.roomBlock.reason)}. Clear the block before this room can change.</span>`:''}`)}
      </div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
     </div>
@@ -5227,7 +5256,7 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
   if(q('#aReinst'))q('#aReinst').onclick=()=>{if(!need('res.cancel'))return;if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'Reinstated');log('Reinstated RSVN '+r.no);reopen()};
   if(q('#aBack'))q('#aBack').onclick=()=>{if(checkBackIn(B))reopen()};
   if(q('#aMail'))q('#aMail').onclick=()=>{if(typeof confirmationLetter==='function')confirmationLetter(B)};
-  q('#bTypeRm').onchange=()=>{const t=q('#bTypeRm').value;q('#bRoom').innerHTML='<option value="">Assign later</option>'+H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>`<option value="${x.no}" ${!roomFree(x.no,q('#bArr').value,q('#bDep').value,B.id)?'disabled':''}>${x.no}</option>`).join('')};
+  q('#bTypeRm').onchange=()=>{if(B.roomBlock){q('#bTypeRm').value=B.type;toast(`Room ${B.room} is blocked: ${B.roomBlock.reason}. Clear the block before the room or room type can change.`);return}const t=q('#bTypeRm').value;q('#bRoom').innerHTML='<option value="">Assign later</option>'+H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>`<option value="${x.no}" ${!roomFree(x.no,q('#bArr').value,q('#bDep').value,B.id)?'disabled':''}>${x.no}</option>`).join('')};
   q('#bRc').onchange=()=>{const k=rateKindOf(q('#bRc').value);q('#bRate').value=rateFor(H,q('#bTypeRm').value,q('#bRc').value);q('#bRate').disabled=k==='comp'||!(E('rate')&&can('rate'))};
   q('#aSave').onclick=()=>{
     const err=q('#rErr');err.textContent='';if(!DB.session||!curShift()){need();return}
@@ -5241,6 +5270,7 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
       if(mode==='restricted'&&dep<H.set.bd){err.textContent='Departure cannot be before the business date.';return}
       if(mode==='full'&&arr<H.set.bd&&arr!==B.arr){err.textContent='Arrival cannot be before the business date.';return}
       const type=mode==='full'?q('#bTypeRm').value:B.type,room=mode==='full'?(q('#bRoom').value||null):B.room;
+      if(B.roomBlock&&((room||null)!==(B.room||null)||type!==B.type)){err.textContent=`Room ${B.roomBlock.room||B.room} is blocked: ${B.roomBlock.reason}. Clear the block before the room or room type can change.`;return}
       if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){err.textContent=`Room ${room} is not free for these dates. Choose another room or dates.`;return}
       if(mode==='full'){const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
         const setIf=(k,v)=>{if(String(B[k])!==String(v)){B[k]=v;ch.push(k)}};
@@ -5341,8 +5371,15 @@ function advanceRate(B,after){
   const editable=d=>d>=H.set.bd&&!isLocked(d)&&dates(B.arr,B.dep).includes(d)&&can('rate')&&!closedBooking(B)&&!user().provider;
   const paint=()=>{
     const rcs=H.rateCodes;const cur=rcs.find(x=>x.code===B.rateCode)||rcs[0];const base=rateFor(H,B.type,cur.code);
-    const first=P(month+'-01'),startDow=(first.getDay()+6)%7,start=addD(month+'-01',-startDow);
-    const cells=[...Array(42)].map((_,i)=>addD(start,i));const stay=dates(B.arr,B.dep);
+    const stay=dates(B.arr,B.dep);
+    const lateStay=B.status==='inhouse'&&H.set.bd>B.dep;
+    const ymShift=(ym,n)=>{const d=P(ym+'-01');d.setMonth(d.getMonth()+n);return iso(d).slice(0,7)};
+    const months=(()=>{if(!lateStay)return [month];const a=B.dep.slice(0,7),b=H.set.bd.slice(0,7);const all=[];let y=a,g=0;while(y<=b&&g<36){all.push(y);y=ymShift(y,1);g++}if(!all.length)return [b];return all.length>8?all.slice(-8):all})();
+    const calHtml=ym=>{const first=P(ym+'-01'),startDow=(first.getDay()+6)%7,start=addD(ym+'-01',-startDow);const cells=[...Array(42)].map((_,i)=>addD(start,i));
+      return `<div class="cal">${lateStay?`<div style="padding:6px 8px 0"><b class="armon">${P(ym+'-01').toLocaleDateString('en-US',{month:'long',year:'numeric'})}</b></div>`:''}<div class="cdow">${['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d=>`<span>${d}</span>`).join('')}</div><div class="cgrid">${cells.map(d=>{const inM=d.slice(0,7)===ym,inS=stay.includes(d),ed=editable(d),v=B.nightly[d];
+        const cls=!inS?'':isLocked(d)?(v!==rateFor(H,B.type,B.rateCode)?'cr-h':'cr-p'):(v!==rateFor(H,B.type,B.rateCode)?'cr-a':'cr-b');
+        const corner=d===H.set.bd?'real':(lateStay&&d>B.dep&&d<H.set.bd?'late':'');
+        return `<div class="cc ${inM?'':'om'} ${corner} ${ed?'ed':''} ${sel===d?'sel':''}" data-d="${d}"><span class="cn">${P(d).getDate()}</span>${inS?`<span class="chip ${cls}">${m2(v)} (${B.rateCode})</span>`:''}</div>`}).join('')}</div></div>`};
     $('#arBody',m).innerHTML=`<div class="ar">
      <div class="arl"><div class="row gap"><input id="arK" placeholder="Enter keyword" style="flex:1"><button class="btn sm ghost">${ic('search',15)}</button></div>
        <div class="row gap sub"><label><input type="radio" name="ark" checked> Code</label><label><input type="radio" name="ark"> Description</label><label><input type="checkbox" checked> Partial search</label></div>
@@ -5353,13 +5390,12 @@ function advanceRate(B,after){
         <tr class="tot"><td colspan="2"></td><td class="n">${m2(base)}</td><td class="n">${m2(base)}</td><td class="n">${m2(base)}</td><td class="n">0.00</td></tr></table>
        <div class="sub mt">Rates are inclusive of service charge and ${esc(H.set.taxName)}. Closed dates cannot be changed.</div></div>
      <div class="arr"><div class="row gap"><div class="toolbar in">${tb('arApply','wand','Apply rate code to all editable nights')}${tb('arCopy','copy','Copy the selected night to the following nights')}${tb('arClear','erase','Reset the selected night to the rate code')}${tb('arDel','trash','Reset all editable nights to the rate code')}${tb('arHelp','help','Help')}</div><span class="sp"></span><div class="artot">Total Amount : ${m2(stayTotal(B))}</div></div>
-       <div class="row gap mt"><button class="btn sm ghost" id="arToday">today</button><button class="btn sm ghost" id="arP">${ic('left',14)}</button><button class="btn sm ghost" id="arN">${ic('chev',14)}</button><span class="sp"></span><b class="armon">${P(month+'-01').toLocaleDateString('en-US',{month:'long',year:'numeric'})}</b></div>
-       <div class="cal"><div class="cdow">${['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d=>`<span>${d}</span>`).join('')}</div><div class="cgrid">${cells.map(d=>{const inM=d.slice(0,7)===month,inS=stay.includes(d),ed=editable(d),v=B.nightly[d];
-         const cls=!inS?'':isLocked(d)?(v!==rateFor(H,B.type,B.rateCode)?'cr-h':'cr-p'):(v!==rateFor(H,B.type,B.rateCode)?'cr-a':'cr-b');
-         return `<div class="cc ${inM?'':'om'} ${d===H.set.bd?'today':''} ${ed?'ed':''} ${sel===d?'sel':''}" data-d="${d}"><span class="cn">${P(d).getDate()}</span>${inS?`<span class="chip ${cls}">${m2(v)} (${B.rateCode})</span>`:''}</div>`}).join('')}</div></div>
-       <div class="legend"><span><i class="cr-b"></i>Booking rate</span><span><i class="cr-p"></i>Past / history</span><span><i class="cr-a"></i>Advance rate setup</span><span><i class="cr-h"></i>Past / history / rate setup</span></div>
+       ${lateStay?`<div class="sub mt">Still in house after ${fd(B.dep)}. Months run from check-out through the business date.</div>`:`<div class="row gap mt"><button class="btn sm ghost" id="arToday">today</button><button class="btn sm ghost" id="arP">${ic('left',14)}</button><button class="btn sm ghost" id="arN">${ic('chev',14)}</button><span class="sp"></span><b class="armon">${P(month+'-01').toLocaleDateString('en-US',{month:'long',year:'numeric'})}</b></div>`}
+       ${months.map(calHtml).join('')}
+       <div class="legend"><span><i class="cr-b"></i>Booking rate</span><span><i class="cr-p"></i>Past / history</span><span><i class="cr-a"></i>Advance rate setup</span><span><i class="cr-h"></i>Past / history / rate setup</span><span><i class="cc real corn"></i>Business date</span><span><i class="cc late corn"></i>In house after departure</span></div>
+       <div class="sub">A yellow corner is the business date. A red corner is a date after departure while the guest is still in house. The business date stays yellow.</div>
        <div id="arEdit"></div></div></div>`;
-    $('#arToday',m).onclick=()=>{month=H.set.bd.slice(0,7);paint()};$('#arP',m).onclick=()=>{month=addD(month+'-01',-1).slice(0,7);paint()};$('#arN',m).onclick=()=>{month=addD(month+'-28',7).slice(0,7);paint()};
+    if($('#arToday',m)){$('#arToday',m).onclick=()=>{month=H.set.bd.slice(0,7);paint()};$('#arP',m).onclick=()=>{month=addD(month+'-01',-1).slice(0,7);paint()};$('#arN',m).onclick=()=>{month=addD(month+'-28',7).slice(0,7);paint()}}
     $$('.cc[data-d]',m).forEach(c=>c.onclick=()=>{const d=c.dataset.d;if(!stay.includes(d))return;if(!editable(d)){toast(isLocked(d)?'This night is closed. Only the provider can change it.':'You cannot change this night.');return}sel=d;paint();editNight(d)});
     $('#arHelp',m).onclick=()=>toast('Click a night of the stay to change its rate. Today and upcoming nights can be changed; closed nights cannot.');
     const guard=()=>{if(!need('rate'))return false;if(closedBooking(B)){toast('This booking is closed.');return false}return true};
@@ -5455,7 +5491,7 @@ VIEWS['profile.rates']=el=>{
 let BF={by:'room',q:'',sel:null};
 function billingSplit(el,id){
   if(id)BF.sel=id;const extra=BF.sel&&bookingById(BF.sel);const keep=extra&&extra.status!=='inhouse'?extra:null;
-  const rowsF=()=>{const a=allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b));return keep?[keep].concat(a.filter(b=>b.id!==keep.id)):a};
+  const rowsF=()=>{const a=allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b)));return keep?[keep].concat(a.filter(b=>b.id!==keep.id)):a};
   if(BF.sel&&!rowsF().find(b=>b.id===BF.sel))BF.sel=null;
   el.innerHTML=`<div class="split"><div class="panel bfleft" id="bfLeft"></div><div id="bfPane"></div></div>`;
   sideSearch($('#bfLeft',el),{title:'BILLING / FOLIO / FOLIO',st:BF,rows:rowsF,mode:'fol',keep,pick:x=>{BF.sel=x;billingSplit(el)},rerender:()=>billingSplit(el)});
@@ -6526,14 +6562,14 @@ function autoPlan(floor){const rms=H.rooms.filter(r=>r.floor===floor).sort((a,b)
 function planFor(floor){return (H.floorPlans&&H.floorPlans[floor])||autoPlan(floor)}
 VIEWS['rm.hkstatus']=el=>{
   const fl=floorsList();if(!HKF.floor||(HKF.floor!=='dash'&&!fl.includes(HKF.floor)))HKF.floor=fl[0];
-  const all=H.rooms.filter(rm=>!rm.dummy).map(rm=>({rm,s:roomState(rm)})),count=k=>all.filter(x=>x.s.key===k).length;
+  const shown=H.rooms.map(rm=>({rm,s:roomState(rm)})),sell=shown.filter(x=>!x.rm.dummy),count=k=>sell.filter(x=>x.s.key===k).length;
   const legend=[['smile','Clean room'],['frown','Dirty room'],['moon','Discrepancy - Sleep room'],['ban','Discrepancy - Skip room'],['dnd','Do not disturb'],['phoneoff','Do not disturb (Telephone)'],['wifi','Inspected'],['log','Set special cleaning time'],['key','Soft block'],['chat','Comment information'],['warn','Do not move'],['link2','Connecting room'],['access','Handicap room']];
   el.innerHTML=`<div class="hkw"><aside class="hkl"><div class="hkh">ROOM MANAGEMENT / HOUSEKEEPING</div>
     <div class="hkform"><label>Floor plan</label><div class="row gap"><select id="hkFl" style="flex:1">${fl.map(f=>opt(f,floorName(f),HKF.floor)).join('')}${opt('dash','All floors (dashboard)',HKF.floor)}</select><button class="btn hkdash" id="hkDash">Dashboard</button></div>
      <label>Rooms</label><div class="row gap"><input id="hkQ" style="flex:1" value="${esc(HKF.q)}" placeholder="Room number"><button class="btn hksrch" id="hkGo">${ic('search',14)} Search</button></div></div>
     <div class="hkleg"><b>Color description</b>${legend.map(l=>`<div class="hli li-${l[0]}">${ic(l[0],17)}<span>${l[1]}</span></div>`).join('')}
      <table class="hkst"><tr><th>Room status</th><th class="n">Total</th></tr>${HKS.map(s=>`<tr><td><i style="background:${s[3]}"></i>${s[1]} ${s[2]?`<span class="hkb ${s[4]||''}">${s[2]}</span>`:''}</td><td class="n"><b>${count(s[0])}</b></td></tr>`).join('')}
-      <tr class="tot"><td>Total rooms</td><td class="n">${all.length}</td></tr></table></div></aside>
+      <tr class="tot"><td>Total rooms</td><td class="n">${sell.length}</td></tr></table></div></aside>
    <section class="hkr" id="hkR"></section></div>`;
   const R=$('#hkR',el);
   const at=x=>{const s=x.s,rm=x.rm;const ic2=[];if(s.dep)ic2.push(`<b class="at dep" title="Expect departure today">@</b>`);if(s.arr)ic2.push(`<b class="at arr" title="Expect arrival today">@</b>`);if(s.walkin)ic2.push(`<b class="at win" title="Walk-in guest">@</b>`);
@@ -6543,9 +6579,9 @@ VIEWS['rm.hkstatus']=el=>{
     return {top:ic2.join(''),low:low.join('')}};
   const tile=(x,style)=>{const a=at(x);return `<button class="hkt ${HKF.hi===x.rm.no?'hi':''}" data-rm="${x.rm.no}" style="${style};background:${HKCOL[x.s.key]}" title="Room ${x.rm.no} – ${HKS.find(s=>s[0]===x.s.key)[1]} ${HKS.find(s=>s[0]===x.s.key)[2]}"><span class="tn">${x.rm.no}</span><span class="tt">${x.rm.type}</span><span class="tat">${a.top}</span><span class="tlo">${a.low}</span></button>`};
   if(HKF.floor==='dash'){
-    R.innerHTML=`<div class="fph">${ic('plan',26)}<h2>Dashboard : All floors</h2></div><div class="fpinfo">Total: ${all.length} rooms <b class="at dep">@</b> Expect departure today <b class="at arr">@</b> Expect arrival today <b class="at win">@</b> Walk-in guest</div><div class="hkmode" role="group" aria-label="Click a room to"><span class="hkml">Click a room to:</span>${[['view','View only',''],['clean','Mark Clean','cln'],['dirty','Mark Dirty','drt'],['inspected','Mark Inspected','ins'],['disc','Close discrepancy','dsc']].map(x=>`<button type="button" data-hm="${x[0]}" class="${x[2]}" aria-pressed="${HKF.mode===x[0]}">${x[1]}</button>`).join('')}<span class="sub">${HKF.mode==='view'?'Right-click (or press and hold) a room for details.':HKF.mode==='disc'?'Click a room with a Sleep or Skip discrepancy to close it.':'Click rooms to mark them '+HKF.mode+' – vacant or occupied. Right-click for details.'}</span></div>
-     <div class="hkdashb">${fl.map(f=>{const rs=all.filter(x=>x.rm.floor===f);return `<div class="dfl"><button class="dfh" data-gofl="${f}">${esc(floorName(f))} <span>${rs.length} rooms · ${rs.filter(x=>x.s.occ).length} occupied · ${rs.filter(x=>!x.s.clean&&!x.s.ooo).length} dirty</span></button><div class="dft">${rs.map(x=>tile(x,'position:relative')).join('')}</div></div>`}).join('')}</div>`}
-  else{const f=HKF.floor,p=planFor(f),rs=all.filter(x=>x.rm.floor===f);
+    R.innerHTML=`<div class="fph">${ic('plan',26)}<h2>Dashboard : All floors</h2></div><div class="fpinfo">Total: ${sell.length} rooms <b class="at dep">@</b> Expect departure today <b class="at arr">@</b> Expect arrival today <b class="at win">@</b> Walk-in guest</div><div class="hkmode" role="group" aria-label="Click a room to"><span class="hkml">Click a room to:</span>${[['view','View only',''],['clean','Mark Clean','cln'],['dirty','Mark Dirty','drt'],['inspected','Mark Inspected','ins'],['disc','Close discrepancy','dsc']].map(x=>`<button type="button" data-hm="${x[0]}" class="${x[2]}" aria-pressed="${HKF.mode===x[0]}">${x[1]}</button>`).join('')}<span class="sub">${HKF.mode==='view'?'Right-click (or press and hold) a room for details.':HKF.mode==='disc'?'Click a room with a Sleep or Skip discrepancy to close it.':'Click rooms to mark them '+HKF.mode+' – vacant or occupied. Right-click for details.'}</span></div>
+     <div class="hkdashb">${fl.map(f=>{const rs=shown.filter(x=>x.rm.floor===f);return `<div class="dfl"><button class="dfh" data-gofl="${f}">${esc(floorName(f))} <span>${rs.length} rooms · ${rs.filter(x=>!x.rm.dummy&&x.s.occ).length} occupied · ${rs.filter(x=>!x.rm.dummy&&!x.s.clean&&!x.s.ooo).length} dirty</span></button><div class="dft">${rs.map(x=>tile(x,'position:relative')).join('')}</div></div>`}).join('')}</div>`}
+  else{const f=HKF.floor,p=planFor(f),rs=shown.filter(x=>x.rm.floor===f);
     const pct=(v,t)=>(v/t*100).toFixed(3)+'%';
     const cells=rs.map(x=>{const q=p.rooms[x.rm.no];if(!q)return '';return `<div class="fpc" style="left:${pct(q.x,p.W)};top:${pct(q.y,p.H)};width:${pct(q.w,p.W)};height:${pct(q.h,p.H)}"><span class="fptype">${x.rm.type}</span></div>`+
       tile(x,`left:${pct(q.x+1.3,p.W)};top:${pct(q.y+(q.y<p.H/2?3.6:1.3),p.H)};width:${pct(q.w-2.6,p.W)};height:${pct(4.8,p.H)}`)}).join('');
