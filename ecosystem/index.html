@@ -6692,13 +6692,15 @@ function newPropertyForm(){if(!provOnly())return;
     openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}
 
 /* ---------- Setup checks (activation) ---------- */
-function setupChecks(h){const s=h.set,g=s.google||{};return [
+function setupChecks(h){const s=h.set,g=s.google||{};
+  const types=(h.roomTypes||[]).filter(t=>!t.dummy),rooms=(h.rooms||[]).filter(r=>!r.dummy);
+  return [
   {k:'profile',t:'Hotel profile',ok:!!(s.name&&s.legal&&s.addr&&s.taxId&&s.phone)},
   {k:'tax',t:'Currency, tax and service',ok:!!(s.cur&&s.curWord&&s.taxName!=null)},
-  {k:'floors',t:'Floors',ok:(h.floors||[]).length>0||new Set(h.rooms.map(r=>r.floor)).size>0},
-  {k:'types',t:'Room types',ok:h.roomTypes.length>0},
-  {k:'rooms',t:'Rooms',ok:h.rooms.length>0&&h.rooms.every(r=>r.type&&r.floor)},
-  {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&h.roomTypes.every(t=>t.base>=1)},
+  {k:'floors',t:'Floors',ok:(h.floors||[]).length>0||new Set(rooms.map(r=>r.floor)).size>0},
+  {k:'types',t:'Room types',ok:types.length>0},
+  {k:'rooms',t:'Rooms',ok:rooms.length>0&&rooms.every(r=>r.type&&r.floor)},
+  {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&types.length>0&&types.every(t=>t.base>=1)},
   {k:'pay',t:'Payment methods',ok:TCODES.some(c=>c.type==='p'&&!c.refund&&!c.auto&&!(h.set.payOff||{})[c.code])},
   {k:'staff',t:'Staff & permissions',ok:h.users.some(u=>u.role==='Manager'&&u.active!==false)},
   {k:'terms',t:'Terms & Conditions',ok:true},
