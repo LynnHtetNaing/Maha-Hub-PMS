@@ -1,16 +1,17 @@
 /** Maha Hub Worker — serves the static Hub through the Assets binding.
- *  /ecosystem/ is the sign-in. /ecosystem/PMS|Reach|Connect|Booking are the systems that already exist.
+ *  /ecosystem/ is the sign-in. /ecosystem/PMS|Reach|Connect|Booking|Sales are the systems that already exist.
  */
 const SYSTEM_DOC = {
   pms: { file: '/ecosystem/index.html' },
   reach: { file: '/reach/index.html', base: '/reach/' },
   connect: { file: '/connect/index.html', base: '/connect/' },
   booking: { file: '/book/index.html', base: '/book/' },
+  sales: { file: '/sales/index.html', base: '/sales/' },
 };
 
 function systemDoc(pathname) {
   const path = pathname.replace(/\/index\.html?$/i, '').replace(/\/+$/, '');
-  const m = path.match(/\/ecosystem\/(pms|reach|connect|booking)$/i);
+  const m = path.match(/\/ecosystem\/(pms|reach|connect|booking|sales)$/i);
   return m ? SYSTEM_DOC[m[1].toLowerCase()] : null;
 }
 

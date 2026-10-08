@@ -1,5 +1,5 @@
 /* Maha Hub PMS — offline shell. Hotel data stays in IndexedDB / localStorage, not in this cache. */
-const CACHE='mahahub-mh5-36';
+const CACHE='mahahub-mh5-37';
 const ASSETS=['/ecosystem/index.html','/manifest.json','/icons/favicon-32.png','/icons/favicon-48.png','/icons/icon-192.png','/icons/pwa-192.png','/icons/icon-512.png','/icons/apple-touch-icon.png','/icons/maha-mark-sq.png','/icons/maha-hub-logo.png','/brand/login-hero-bg.jpg','/brand/ecosystem-hero.jpg'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
@@ -17,6 +17,8 @@ self.addEventListener('fetch',e=>{
     e.respondWith(fetch(req).catch(()=>new Response('EDC link offline',{status:503,headers:{'Content-Type':'text/plain'}})));
     return;
   }
+  /* Maha Sales has its own shell. Do not cache it here or fall back to the PMS page. */
+  if(/\/(?:sales|ecosystem\/sales)(\/|$)/i.test(url.pathname)) return;
   e.respondWith(fetch(req).then(res=>{
     if(res&&res.ok){const copy=res.clone();caches.open(CACHE).then(c=>c.put(req,copy)).catch(()=>{})}
     return res;
