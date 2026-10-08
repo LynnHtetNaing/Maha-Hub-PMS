@@ -85,7 +85,7 @@ h1{font-size:var(--fs-h1);margin:0}h2{margin:0 0 6px;font-size:var(--fs-h2)}h3{f
 @container titles (max-width:770px){.mtop{font-size:11.8px}}
 @container titles (max-width:750px){.mtop{font-size:11px}.mitems{gap:4px}}
 @container titles (max-width:670px){.mtop{font-size:10.5px}.mitems{gap:2px}}
-.mdrop{position:absolute;left:0;top:100%;background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 20px rgba(20,40,50,.14);min-width:220px;padding:4px 0;border-radius:0 0 6px 6px;z-index:80}.mdrop button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 14px;cursor:pointer;color:#22323c;font-size:14px;font-weight:600;line-height:1.35;height:auto}.mdrop button:hover{background:#eef5f1;color:var(--green)}
+.mdrop{position:absolute;left:0;top:100%;background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 20px rgba(20,40,50,.14);min-width:220px;max-height:min(70vh,560px);overflow:auto;padding:4px 0;border-radius:0 0 6px 6px;z-index:80}.mdrop button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 14px;cursor:pointer;color:#22323c;font-size:14px;font-weight:600;line-height:1.35;height:auto}.mdrop button:hover{background:#eef5f1;color:var(--green)}
 .tbpop{position:fixed;z-index:90;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 28px rgba(16,32,40,.2);min-width:230px;padding:6px;display:flex;flex-direction:column}.tbpop[hidden]{display:none!important}
 .tbpop button{background:none;border:0;text-align:left;padding:10px 12px;border-radius:6px;cursor:pointer;font-weight:600;color:#223;font-size:14px}.tbpop button:hover{background:#eef5f1;color:var(--green)}.tbpop button .sub{display:block;font-weight:500;font-size:12px}
 .mwrap.mcenter{align-items:center;justify-content:center;padding:4vh 3vw}
@@ -1510,7 +1510,7 @@ function syncLegacyFeatures(f){const leg={dashboard:['fn.fo.dash'],roster:['fn.f
 function planName(h){const id=h&&h.set&&h.set.plan;return (HOTEL_PLANS[id]||HOTEL_PLANS.full).name}
 const HOTEL_PACKAGES={
   build:{name:'Build Up',note:'Maha PMS with the essential titles. Connect, Booking, Reach and Sales are closed for this hotel. Each system can still be opened on its own, and each person is opened under Staff & permissions.'},
-  fullpkg:{name:'Full Package',note:'Every PMS title is open, and Connect, Booking, Reach and Sales are open for this hotel. Each person still needs that system under Staff & permissions. Direct booking still needs the Google details in property setup before guests can book.'}
+  fullpkg:{name:'Full Package',note:'Every PMS title is open, and Connect, Booking, Reach and Sales are open for this hotel. Each person still needs that system under Setup → Staff & permissions. Direct booking still needs the Google details under Setup → Direct booking & Google before guests can book.'}
 };
 function applyHotelPackage(h,id){
   shapeHotel(h);
@@ -3934,7 +3934,11 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
-const PROV_MENU=[{t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup'],['Functions & plan','prov.functions'],['Systems (Reach · Connect · Booking)','prov.systems'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},{t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},{t:'Account',items:[['My account & security','prov.account']]}];
+const PROV_MENU=[
+ {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
+ {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},
+ {t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},
+ {t:'Account',items:[['My account & security','prov.account']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
@@ -4009,7 +4013,7 @@ async function stripeCreateCheckout(link){
       if(!cfg.secret)throw e;
     }
   }
-  if(!cfg.secret)throw new Error('Add this hotel’s Stripe secret in Property setup → Payment methods, or platform keys in Provider → Stripe payments');
+  if(!cfg.secret)throw new Error('Add this hotel’s Stripe secret under Setup → Stripe payments, or save platform keys on that same page');
   const cur=String(payload.currency||'thb').toLowerCase();
   const unit=stripeUnitAmount(payload.amount,cur);
   const body=new URLSearchParams();
@@ -4363,7 +4367,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
 function render(){
   if(!DB.session){showLogin();return}
   if(typeof applyHotelCodes==='function')applyHotelCodes();
-  if(DB.session.provider&&!DB.session.inHotel&&!/^prov\./.test(VIEW)&&VIEW!=='set.backup'){VIEW='prov.home';VARG=null}
+  if(DB.session.provider&&!DB.session.inHotel&&!/^prov\./.test(VIEW)&&VIEW!=='set.backup'&&VIEW!=='ai.revenue'){VIEW='prov.home';VARG=null}
   if(VIEW==='sys.pick'){VIEW=firstHotelView();VARG=null;setTimeout(openSystemsSwitcher,0)}
   if(!document.querySelector('.topbar'))renderShell();
   const f=VIEWS[VIEW]||VIEWS[user().provider?'prov.home':'fo.status'];
@@ -5410,7 +5414,7 @@ VIEWS['bill.edclinks']=el=>{
   el.innerHTML=pageHead('Payment / EDC links',`<button class="btn ghost" id="edcSync">Refresh</button><button class="btn gold" id="edcNew">${ic('pay',16)} New link</button>`)+
     `<div class="panel pad"><p class="sub">${stripeOn
       ? 'Stripe is on for this hotel (own keys, Connect, or platform helper): guest pays on <b>Checkout</b> with <b>3D Secure</b>. Money goes to that Stripe account — not Maha Hub. Full PAN stays with Stripe.'
-      : 'Stripe is off for this hotel: guest form is <b>EDC key-in</b> only (no bank OTP). Add this hotel’s Stripe in Property setup → Payment methods, or platform keys in Provider → Stripe payments.'}
+      : 'Stripe is off for this hotel: guest form is <b>EDC key-in</b> only (no bank OTP). Add this hotel’s Stripe under Setup → Stripe payments, or platform keys on that same page.'}
       ${stripeOn?' <span class="pill g">Stripe on</span>':' <span class="pill y">Stripe off</span>'}
       ${cloudOn?' <span class="pill g">Cloud on</span>':' <span class="pill y">Cloud off</span>'}</p>
       <p class="sub">Guest host: <a href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">${esc(edcLinkUrl())}</a></p></div>
@@ -6076,7 +6080,10 @@ VIEWS['prov.hotels']=el=>{
       shapeHotel(h);DB.hotels[c]=h;provLog('Created hotel '+c);saveDB();closeModal(m);render();toast(`Hotel ${c} created as Not active. Add its details, then press Activate.`)}};
 };
 VIEWS['prov.perms']=el=>{
-  el.innerHTML=pageHead('Staff Permissions',provHotelPicker()+`<button class="btn gold" id="pvU">Add staff</button>`)+`<h3>Systems for each person</h3><p class="sub">Open or lock each system for each person. The hotel switch is separate: a closed hotel system stays hidden even when this person is Open.</p><div class="panel">${systemMatrix(H.users,true)}</div><h3 class="mt">PMS permissions</h3><div class="panel">${permMatrix(H.users,true)}</div>
+  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
+  if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
+  if(!H){el.innerHTML=pageHead('Staff & permissions')+'<div class="empty">Create a property first.</div>';return}
+  el.innerHTML=pageHead('Staff & permissions',provHotelPicker()+`<button class="btn gold" id="pvU">Add staff</button>`)+`<p class="sub">Access for people at <b>${esc(H.set.name)}</b>. This is not part of the hotel file. Open or lock each system per person, then set PMS permissions. A closed hotel system stays hidden even when this person is Open.</p><h3>Systems for each person</h3><div class="panel">${systemMatrix(H.users,true)}</div><h3 class="mt">PMS permissions</h3><div class="panel">${permMatrix(H.users,true)}</div>
    <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.active===false?'Inactive':'Active'}</td>
     <td class="nowrap"><button class="btn sm ghost" data-rp="${u.id}">Reset password</button> <button class="btn sm ghost" data-act="${u.id}">${u.active===false?'Activate':'Deactivate'}</button> <select data-pre="${u.id}"><option value="">Apply preset…</option>${Object.keys(PRESET).map(k=>opt(k)).join('')}</select></td></tr>`).join('')}</table><datalist id="posList">${['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'].map(x=>`<option value="${x}">`).join('')}</datalist></div>`;
   bindPicker(el);
@@ -6473,7 +6480,7 @@ VIEWS['prov.systems']=el=>{
        · <button class="btn sm ghost" id="cxDist" type="button">Distribution / Google →</button></p>
    </div>
    <h3 class="mt">Per hotel — availability &amp; open</h3>
-   <p class="sub">Open or close each system for this hotel. A person can use it only when it is also open for their account, under Property setup → Staff &amp; permissions.</p>
+   <p class="sub">Open or close each system for this hotel. A person can use it only when it is also open for their account, under Setup → Staff &amp; permissions.</p>
    <div class="cols2 mt">${hotels.map(h=>`<div class="panel pad">
       <div class="row gap" style="justify-content:space-between;align-items:flex-start"><div><b style="font-size:15px">${esc(h.code)}</b><div class="sub">${esc(h.set.name)}</div></div>
         <button class="btn sm ghost" data-enter="${h.code}" type="button">Enter PMS</button></div>
@@ -6530,7 +6537,7 @@ VIEWS['prov.systems']=el=>{
     finally{b.disabled=false}
   });
   $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
-  $$('[data-booksetup]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.booksetup);SET_SEC='google';go('prov.setup')});
+  $$('[data-booksetup]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.booksetup);go('prov.google')});
 };
 VIEWS['prov.rules']=el=>{
   if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('System rules')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
@@ -6632,7 +6639,7 @@ VIEWS['prov.distribution']=el=>{
     catch(e){st.textContent='Publish failed. Is node book/server.mjs running?';toast('Publish failed')}};
   $('#dxList',el).onclick=async()=>{try{const r=await fetch(host()+'/feeds/hotel-list.xml');downloadText('hotel-list.xml',await r.text(),'application/xml');toast('hotel-list.xml downloaded')}catch(e){toast('Start book/server.mjs first')}};
   $('#dxPos',el).onclick=async()=>{try{const r=await fetch(host()+'/feeds/landing-pages.xml');downloadText('landing-pages.xml',await r.text(),'application/xml');toast('landing-pages.xml downloaded')}catch(e){toast('Start book/server.mjs first')}};
-  $$('[data-setup]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.setup);SET_SEC='google';go('prov.setup')});
+  $$('[data-setup]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.setup);go('prov.google')});
   $$('[data-book]',el).forEach(b=>b.onclick=()=>window.open(`${host()}/book/?hotel=${encodeURIComponent(b.dataset.book)}`,'_blank'));
   $$('[data-ari]',el).forEach(b=>b.onclick=()=>{const id=b.dataset.ari,box=$('#dxAri',el),base=host();
     box.hidden=false;box.innerHTML=`<h3>ARI sample feeds for ${esc(id)}</h3>
@@ -6648,19 +6655,13 @@ VIEWS['prov.distribution']=el=>{
 
 /* ---------- Properties (provider home) ---------- */
 VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
-  el.innerHTML=pageHead('Properties',`<button class="btn ghost" id="pvEdc" type="button">EDC Card Link</button><button class="btn gold" id="pvNewP">${ic('plus',15)} Create new property</button>`)+`<p class="sub">Every hotel using Maha Hub. Open one to set it up or change its setup. Functions &amp; plan shows or hides each title for that hotel. A new property starts empty and stays <b>Not active</b> until its setup is complete and you activate it.</p>
-   <div class="panel pad"><b>Payment / EDC links</b> <span class="sub">— create guest links in hotel <b>Billing → Payment / EDC links</b>. With Stripe: Checkout + 3DS. Without: EDC key-in collect. Cloud optional for cross-device.</span>
-     <div class="btns mt"><a class="btn gold" id="pvEdcOpen" href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">Open guest page host</a>
-     <span class="sub" style="word-break:break-all">${esc(edcLinkUrl())}</span></div></div>
-   <div class="pgrid mt">${hs.map(h=>{const ck=setupChecks(h),done=ck.filter(c=>c.ok).length;return `<div class="pcard"><div class="pch"><b>${esc(h.set.name)}</b><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></div>
+  el.innerHTML=pageHead('Properties',`<button class="btn gold" id="pvNewP">${ic('plus',15)} Create new property</button>`)+`<p class="sub">Every hotel using Maha Hub. <b>Property setup</b> is only the hotel file: profile, rooms, rates, payments the desk can post, companies and documents. Staff access, systems, plans, EDC, Stripe and anything beyond that hotel file are under <b>Setup</b>. A new property starts empty and stays <b>Not active</b> until property setup is complete and you activate it.</p>
+   <div class="pgrid mt">${hs.map(h=>{const ck=propertyChecks(h),done=ck.filter(c=>c.ok).length;return `<div class="pcard"><div class="pch"><b>${esc(h.set.name)}</b><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></div>
      <div class="pcm">${esc(h.code)} · ${esc(h.set.cur)} · ${esc(planName(h))} · ${h.rooms.length} rooms · ${h.users.length} staff</div><div class="pcm">Business date ${fd(h.set.bd)}</div>
-     <div class="pbar"><i style="width:${done/ck.length*100}%"></i></div><div class="pcm">Setup ${done} of ${ck.length} complete</div>
-     <div class="btns"><button class="btn" data-open="${h.code}">Open setup</button><button class="btn" data-fnplan="${h.code}">Functions &amp; plan</button><button class="btn gold" data-enter="${h.code}">Enter hotel</button>${h.active!==false&&featOn(h,'fn.cd.close')?`<button class="btn ghost" data-cd="${h.code}">${ic('log',14)} Close Day</button>`:''}</div><div class="pcm">Last Close Day: ${h.audits&&h.audits.length?fd(h.audits[h.audits.length-1].date):'not yet'}</div></div>`}).join('')}</div>`;
+     <div class="pbar"><i style="width:${ck.length?done/ck.length*100:0}%"></i></div><div class="pcm">Property setup ${done} of ${ck.length} complete</div>
+     <div class="btns"><button class="btn" data-open="${h.code}">Property setup</button><button class="btn gold" data-enter="${h.code}">Enter hotel</button>${h.active!==false&&featOn(h,'fn.cd.close')?`<button class="btn ghost" data-cd="${h.code}">${ic('log',14)} Close Day</button>`:''}</div><div class="pcm">Last Close Day: ${h.audits&&h.audits.length?fd(h.audits[h.audits.length-1].date):'not yet'}</div></div>`}).join('')}</div>`;
   $('#pvNewP',el).onclick=newPropertyForm;
-  if($('#pvEdc',el))$('#pvEdc',el).onclick=()=>openEdcLink();
-  if($('#pvEdcOpen',el))$('#pvEdcOpen',el).onclick=e=>{e.preventDefault();openEdcLink()};
   $$('[data-open]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.open);SET_SEC='profile';go('prov.setup')});
-  $$('[data-fnplan]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.fnplan);go('prov.functions')});
   $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
   $$('[data-cd]',el).forEach(b=>b.onclick=()=>{enterHotel(b.dataset.cd);go('cd.close')});
 };
@@ -6671,7 +6672,7 @@ VIEWS['prov.functions']=el=>{
   if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
   if(!H){el.innerHTML=pageHead('Functions & plan')+'<div class="empty">Create a property first.</div>';return}
   shapeHotel(H);
-  el.innerHTML=pageHead('Functions & plan',provHotelPicker())+`<p class="sub">One page for <b>${esc(H.set.name)}</b> (${esc(H.code)}). Build Up or Full Package sets the PMS titles and Connect, Booking and Reach together. You can still set a PMS title on its own.</p>
+  el.innerHTML=pageHead('Functions & plan',provHotelPicker())+`<p class="sub">One page under Setup for <b>${esc(H.set.name)}</b> (${esc(H.code)}). Build Up or Full Package sets the PMS titles and Connect, Booking, Reach and Sales together. You can still set a PMS title on its own. The hotel file itself stays under Properties → Property setup.</p>
     <div class="panel pad" id="fnBox">${planEditorHtml(true)}
     <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
     ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="6">${esc(H.set.confirmTpl||'')}</textarea>`)}
@@ -6688,28 +6689,31 @@ function newPropertyForm(){if(!provOnly())return;
     if(!n){e.textContent='Enter the hotel name.';return}if(!/^[a-z0-9._-]{3,20}$/.test(u)){e.textContent='Username: 3 to 20 letters, numbers, dot, dash or underscore.';return}
     if(usernameTaken(u)){e.textContent='This username is already used in another hotel.';return}if(p.length<8){e.textContent='The password needs at least 8 characters.';return}
     const h=emptyHotel({code:c,name:n,cur:$('#npCur',m).value,bd:$('#npBd',m).value});h.users.push(mkUser('u'+uid(),u,'Owner','Manager',p));shapeHotel(h);DB.hotels[c]=h;
-    openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in the setup title by title.`)}}
+    openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}
 
 /* ---------- Setup checks (activation) ---------- */
-function setupChecks(h){const s=h.set,g=s.google||{};return [
+function setupChecks(h){const s=h.set,g=s.google||{};
+  const types=(h.roomTypes||[]).filter(t=>!t.dummy),rooms=(h.rooms||[]).filter(r=>!r.dummy);
+  return [
   {k:'profile',t:'Hotel profile',ok:!!(s.name&&s.legal&&s.addr&&s.taxId&&s.phone)},
   {k:'tax',t:'Currency, tax and service',ok:!!(s.cur&&s.curWord&&s.taxName!=null)},
-  {k:'floors',t:'Floors',ok:(h.floors||[]).length>0||new Set(h.rooms.map(r=>r.floor)).size>0},
-  {k:'types',t:'Room types',ok:h.roomTypes.length>0},
-  {k:'rooms',t:'Rooms',ok:h.rooms.length>0&&h.rooms.every(r=>r.type&&r.floor)},
-  {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&h.roomTypes.every(t=>t.base>=1)},
+  {k:'floors',t:'Floors',ok:(h.floors||[]).length>0||new Set(rooms.map(r=>r.floor)).size>0},
+  {k:'types',t:'Room types',ok:types.length>0},
+  {k:'rooms',t:'Rooms',ok:rooms.length>0&&rooms.every(r=>r.type&&r.floor)},
+  {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&types.length>0&&types.every(t=>t.base>=1)},
   {k:'pay',t:'Payment methods',ok:TCODES.some(c=>c.type==='p'&&!c.refund&&!c.auto&&!(h.set.payOff||{})[c.code])},
   {k:'staff',t:'Staff & permissions',ok:h.users.some(u=>u.role==='Manager'&&u.active!==false)},
   {k:'terms',t:'Terms & Conditions',ok:true},
   {k:'google',t:'Direct booking & Google metadata',ok:!g.enabled||!!(g.lat&&g.lng&&g.countryCode&&g.cancelPolicy)}]}
+function propertyChecks(h){return setupChecks(h).filter(c=>c.k!=='staff'&&c.k!=='google')}
 
-/* ---------- Property setup: sections title by title ---------- */
+/* ---------- Property setup: hotel file only ---------- */
 let SET_SEC='profile';
 const SET_SECTIONS=[['profile','1','Hotel profile'],['tax','2','Currency, tax & service'],['bd','3','Business date & times'],['floors','4','Floors'],['types','5','Room types'],['rooms','6','Rooms'],
   ['plan','7','Floor plan'],['rates','8','Rate codes'],['charges','9','Charge codes'],['pay','10','Payment methods'],['companies','11','Companies & agents'],['allot','12','Allotments'],
-  ['staff','13','Staff & permissions'],['docs','14','Registration card & invoice'],['terms','15','Terms & Conditions'],['google','16','Direct booking & Google'],['activate','17','Review & activate'],['functions','18','Functions & plan']];
-VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}applyHotelCodes();const ck=setupChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
-  el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
+  ['docs','13','Registration card & invoice'],['terms','14','Terms & Conditions'],['activate','15','Review & activate']];
+VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
+  el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · property setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
    <div class="su"><nav class="sunav">${SET_SECTIONS.map(s=>{const st=ok(s[0]);return `<button class="${SET_SEC===s[0]?'on':''}" data-sec="${s[0]}"><span class="sun">${s[1]}</span>${s[2]}${st===true?'<i class="ok">✓</i>':st===false?'<i class="no">•</i>':''}</button>`}).join('')}</nav>
    <section class="subody" id="suBody"></section></div>`;
   $('#suBack',el).onclick=()=>go('prov.home');$('#suEnter',el).onclick=()=>enterHotel(H.code);
@@ -6790,41 +6794,14 @@ const SEC={
     blank:()=>({code:'',desc:'',tab:'MISC.',vat:true}),
     validate:d=>{if(d.some(c=>!/^\d{3,4}$/.test(String(c.code))))return 'Codes are 3 or 4 digits.';if(d.some(c=>!c.desc))return 'Every code needs a description.';const std=TCODES.filter(x=>!_extraApplied.includes(x)).map(x=>x.code);if(d.some(c=>std.includes(String(c.code))))return 'That code number is already a standard code.';if(new Set(d.map(c=>String(c.code))).size!==d.length)return 'Codes must be different.';return ''},
     save:d=>{H.extraCodes=d.map(c=>({code:String(c.code),desc:c.desc,type:'c',vat:!!c.vat,dept:'Other',tab:c.tab}));applyHotelCodes();provLog(`Charge codes saved for ${H.code}`);saved()}})},
- pay(box){shapeHotel(H);const off=H.set.payOff||(H.set.payOff={});const list=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!c.hidden);const st=H.set.stripe||{};
+ pay(box){shapeHotel(H);const off=H.set.payOff||(H.set.payOff={});const list=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!c.hidden);
    box.innerHTML=secHead('10. Payment methods','Switch on only the methods this hotel accepts. Staff see only these (and their refunds). Logos are shared by all hotels (set them in Code catalog).')+`<div class="btns"><button class="btn ghost sm" id="pyAll">Switch all on</button><button class="btn ghost sm" id="pyNone">Switch all off</button></div>
    ${PAY_TABS.map(tab=>`<div class="panel mt"><div class="ph">${tab}</div><div class="paygrid">${list.filter(c=>c.ptab===tab).map(c=>`<label class="payitem ${off[c.code]?'':'on'}"><input type="checkbox" data-pay="${c.code}" ${off[c.code]?'':'checked'}><span class="pic">${payIcon(c,26)}</span><span><b>${c.code}</b> ${esc(c.desc)}${c.region?` <em class="rg">${esc(c.region)}</em>`:''}</span><label class="btn sm ghost plup" title="Upload logo">${ic('upload',13)}<input type="file" accept="image/*" data-plg="${c.code}" hidden></label></label>`).join('')}</div></div>`).join('')}
    <div class="btns"><button class="btn gold" id="pyS">Save payment methods</button></div>
-   <h3 class="mt">Stripe account for this hotel (guest card links)</h3>
-   <div class="panel pad">
-     <p class="sub">To <b>receive real money</b>, this hotel needs its own Stripe account (or a Stripe Connect account under Maha). Maha Hub only creates the Checkout link — Stripe holds the funds.</p>
-     <p class="sub"><b>Option A — hotel’s own Stripe:</b> paste this hotel’s <code>pk_</code> / <code>sk_</code> keys (money goes to the hotel).<br>
-        <b>Option B — Stripe Connect:</b> leave secret empty, set Connect account id <code>acct_…</code>, and keep platform keys in Provider → Stripe payments.</p>
-     <label class="f"><span>Label (optional)</span><input id="stLabel" value="${esc(st.label||'')}" placeholder="e.g. Padauk Stripe TH"></label>
-     <label class="f"><span>Publishable key</span><input id="stPkH" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc(st.publishable||'')}"></label>
-     <label class="f"><span>Secret key</span><input id="stSkH" type="password" placeholder="${st.secret?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
-     <label class="f"><span>Connect account id (optional)</span><input id="stAcct" placeholder="acct_…" autocomplete="off" spellcheck="false" value="${esc(st.connectAccountId||'')}"></label>
-     <p class="sub">Secret keys stay on this hotel file and are <b>not</b> uploaded to Cloud. Finish Stripe business verification + bank details in the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">Stripe Dashboard</a> before live charges work (<code>charges_enabled</code>).</p>
-     <div class="err" id="stHErr"></div>
-     <div class="btns"><button class="btn gold" id="stHSave">Save Stripe for this hotel</button><button class="btn ghost" id="stHClear">Clear hotel Stripe</button></div>
-   </div>`;
+   <p class="sub mt">Guest card links and Stripe keys are not part of the hotel file. Set them under <b>Setup → Stripe payments</b>.</p>`;
    $('#pyAll',box).onclick=()=>$$('[data-pay]',box).forEach(i=>i.checked=true);$('#pyNone',box).onclick=()=>$$('[data-pay]',box).forEach(i=>i.checked=false);
    $$('[data-plg]',box).forEach(inp=>inp.onchange=e=>{const file=e.target.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);DB.payLogos=DB.payLogos||{};DB.payLogos[inp.dataset.plg]=cv.toDataURL('image/png');provLog(`Logo uploaded for ${inp.dataset.plg} at ${H.code}`);saved('Logo saved')};img.src=rd.result};rd.readAsDataURL(file)});
-   $('#pyS',box).onclick=()=>{if(!provOnly())return;const n={};$$('[data-pay]',box).forEach(i=>{if(!i.checked)n[i.dataset.pay]=true});if(Object.keys(n).length===list.length){toast('Switch on at least one payment method.');return}H.set.payOff=n;provLog(`Payment methods saved for ${H.code}`);saved()};
-   $('#stHSave',box).onclick=()=>{
-     if(!provOnly())return;
-     const publishable=$('#stPkH',box).value.trim();
-     const typed=$('#stSkH',box).value.trim();
-     const connectAccountId=$('#stAcct',box).value.trim();
-     const label=$('#stLabel',box).value.trim();
-     if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stHErr',box).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
-     if(typed&&!/^sk_(test|live)_/.test(typed)){$('#stHErr',box).textContent='Secret key should start with sk_test_ or sk_live_.';return}
-     if(connectAccountId&&!/^acct_/.test(connectAccountId)){$('#stHErr',box).textContent='Connect account id should start with acct_.';return}
-     if(!typed&&!st.secret&&!connectAccountId){$('#stHErr',box).textContent='Paste a hotel secret key, or a Connect acct_ id (with platform keys).';return}
-     H.set.stripe={publishable,secret:typed||st.secret||'',connectAccountId,label};
-     provLog('Stripe account settings saved for '+H.code+(connectAccountId?' · Connect '+connectAccountId:'')+(H.set.stripe.secret?' · own secret':'') );
-     saved('Stripe for '+H.code+' saved');
-   };
-   $('#stHClear',box).onclick=()=>{if(!provOnly())return;if(!confirm('Clear Stripe keys for '+H.code+'?'))return;H.set.stripe={publishable:'',secret:'',connectAccountId:'',label:''};provLog('Cleared Stripe settings for '+H.code);saved('Hotel Stripe cleared')}},
+   $('#pyS',box).onclick=()=>{if(!provOnly())return;const n={};$$('[data-pay]',box).forEach(i=>{if(!i.checked)n[i.dataset.pay]=true});if(Object.keys(n).length===list.length){toast('Switch on at least one payment method.');return}H.set.payOff=n;provLog(`Payment methods saved for ${H.code}`);saved()}},
  companies(box){box.innerHTML=secHead('11. Companies & agents','(C) company or (T) travel agent. City ledger credit limit 0 means no limit.');
    listEditor(box,{rows:H.companies.map(c=>({...c,creditLimit:+c.creditLimit||0,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'type',h:'Type',opts:[['C','(C) Company'],['T','(T) Travel agent']]},{k:'name',h:'Name'},{k:'address',h:'Address'},{k:'taxId',h:'Tax ID',w:'130px'},{k:'comm',h:'Comm. %',type:'number',w:'80px'},{k:'creditLimit',h:'Credit limit',type:'number',w:'110px'}],
     blank:()=>({id:'c'+uid(),code:'',type:'T',name:'',address:'',taxId:'',branch:'Head Office',comm:0,creditLimit:0}),
@@ -6835,13 +6812,12 @@ const SEC={
     blank:()=>({id:'a'+uid(),companyId:H.companies[0]&&H.companies[0].id,type:H.roomTypes[0]&&H.roomTypes[0].code,rooms:1,from:H.set.bd,to:addD(H.set.bd,30),cutoff:7}),
     validate:d=>{if(d.some(a=>!a.companyId||!a.type))return 'Choose the company and room type.';if(d.some(a=>!a.from||!a.to||a.to<a.from))return 'Check the dates.';if(d.some(a=>!(+a.rooms>=1)))return 'At least 1 room.';return ''},
     save:d=>{H.allotments=d.map(a=>({id:a.id||'a'+uid(),companyId:a.companyId,type:a.type,rooms:+a.rooms,from:a.from,to:a.to,cutoff:+a.cutoff||0}));provLog(`Allotments saved for ${H.code}`);saved()}})},
- staff(box){VIEWS['prov.perms'](box);box.insertAdjacentHTML('afterbegin',secHead('13. Staff & permissions','Usernames are unique across all hotels. Open each system per person here, then set PMS permissions below.'))},
- docs(box){const s=H.set;box.innerHTML=secHead('14. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}${fld('Next tax invoice number',`<input type="number" id="d_inv" value="${s.nextInv}" ${H.active!==false?'disabled':''}>`)}</div>
-   <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 15).</p><div class="btns"><button class="btn gold" id="dS">Save</button></div></div>`;
+ docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}${fld('Next tax invoice number',`<input type="number" id="d_inv" value="${s.nextInv}" ${H.active!==false?'disabled':''}>`)}</div>
+   <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 14).</p><div class="btns"><button class="btn gold" id="dS">Save</button></div></div>`;
    $('#dS',box).onclick=()=>{if(!provOnly())return;s.formCode=$('#d_fc',box).value.trim();s.building=$('#d_bl',box).value.trim();if(H.active===false)s.nextInv=Math.max(1,+$('#d_inv',box).value||1);provLog(`Documents saved for ${H.code}`);saved()}},
- terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
+ terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('14. Terms & Conditions'))},
  google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly'];
-   box.innerHTML=secHead('16. Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
+   box.innerHTML=secHead('Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
    <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
    <div class="form3 mt">
     ${fld('Latitude',`<input id="g_lat" value="${esc(g.lat||'')}" placeholder="13.7367">`)}
@@ -6855,7 +6831,7 @@ const SEC={
    <h3 class="mt">Amenities (public)</h3>
    <div class="row gap wrap" id="g_am">${AMEN.map(a=>`<label class="f"><input type="checkbox" data-am="${a}" ${(g.amenities||[]).includes(a)?'checked':''}> ${a.replace(/_/g,' ')}</label>`).join('')}</div>
    ${fld('Cancellation policy (required when booking is enabled)',`<textarea id="g_cx" rows="4">${esc(g.cancelPolicy||'')}</textarea>`)}
-   <p class="sub">Google approval, Hotel Center, Maps matching, and ARI certification are outside Maha Hub. Open <b>Distribution (Google Hotels)</b> in the provider menu to export feeds.</p>
+   <p class="sub">Google approval, Hotel Center, Maps matching, and ARI certification are outside Maha Hub. Export feeds from Setup → <b>Distribution (Google Hotels)</b>.</p>
    <div class="btns"><button class="btn gold" id="gS">Save</button>
     <button class="btn ghost" id="gOpen" type="button">Open booking page</button></div></div>`;
    $('#gS',box).onclick=()=>{if(!provOnly())return;const en=$('#g_en',box).checked;const lat=$('#g_lat',box).value.trim(),lng=$('#g_lng',box).value.trim(),cc=$('#g_cc',box).value.trim().toUpperCase(),cx=$('#g_cx',box).value.trim();
@@ -6866,16 +6842,20 @@ const SEC={
      provLog(`Direct booking / Google metadata saved for ${H.code}`);saved()};
    $('#gOpen',box).onclick=()=>{const base=($('#g_base',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')}},
  activate(box){const ck=setupChecks(H),all=ck.every(c=>c.ok);
-   box.innerHTML=secHead('17. Review & activate','Staff of this hotel can sign in only when it is active.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
-   <div class="btns">${H.active!==false?`<button class="btn red" id="acOff">Deactivate hotel</button>`:`<button class="btn gold" id="acOn" ${all?'':'disabled'}>Activate hotel</button>`}</div>${all||H.active!==false?'':'<p class="sub">Finish every item to activate.</p>'}</div>`;
-   $$('[data-fix]',box).forEach(b=>b.onclick=()=>{SET_SEC=b.dataset.fix;render()});
+   box.innerHTML=secHead('15. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
+   <div class="btns">${H.active!==false?`<button class="btn red" id="acOff">Deactivate hotel</button>`:`<button class="btn gold" id="acOn" ${all?'':'disabled'}>Activate hotel</button>`}</div>${all||H.active!==false?'':'<p class="sub">Finish every item to activate. Staff and direct booking open under Setup.</p>'}</div>`;
+   $$('[data-fix]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.fix;if(k==='staff'){go('prov.perms');return}if(k==='google'){go('prov.google');return}SET_SEC=k;render()});
    if($('#acOn',box))$('#acOn',box).onclick=()=>{if(!provOnly())return;H.active=true;H.activatedAt=Date.now();provLog(`Activated ${H.code}`);saved(`${H.code} is active. Its staff can now sign in.`)};
-   if($('#acOff',box))$('#acOff',box).onclick=()=>{if(!provOnly())return;if(!confirm('Deactivate this hotel? Its staff will not be able to sign in.'))return;H.active=false;provLog(`Deactivated ${H.code}`);saved()}},
- functions(box){shapeHotel(H);box.innerHTML=secHead('18. Functions & plan','One page for this hotel. Build Up or Full Package sets the PMS titles and Connect, Booking and Reach together. You can still set a PMS title on its own.')+`<div class="panel pad" id="fnBox">${planEditorHtml(true)}
-    <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
-    ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="6">${esc(H.set.confirmTpl||'')}</textarea>`)}
-    <div class="btns"><button class="btn gold" id="fnSave">Save functions &amp; plan</button></div></div>`;
-  bindPlanEditor($('#fnBox',box))}
+   if($('#acOff',box))$('#acOff',box).onclick=()=>{if(!provOnly())return;if(!confirm('Deactivate this hotel? Its staff will not be able to sign in.'))return;H.active=false;provLog(`Deactivated ${H.code}`);saved()}}
+};
+VIEWS['prov.google']=el=>{
+  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
+  if(DB.session.inHotel){el.innerHTML=pageHead('Direct booking & Google')+`<div class="panel pad"><p>Leave the hotel first. Direct booking is set from the provider console.</p><button class="btn" id="pgLeave">Back to provider console</button></div>`;
+    $('#pgLeave',el).onclick=()=>go('prov.exit');return}
+  if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
+  if(!H){el.innerHTML=pageHead('Direct booking & Google')+'<div class="empty">Create a property first.</div>';return}
+  el.innerHTML=pageHead('Direct booking & Google',provHotelPicker())+`<div id="gBody"></div>`;
+  bindPicker(el);SEC.google($('#gBody',el));
 };
 function allBookingsH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>o.push(b)));return o}
 
@@ -7788,13 +7768,16 @@ VIEWS['prov.stripe']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
   const c=stripeCfg()||{};
   const hotels=Object.values(DB.hotels||{});
+  if(!H&&hotels[0]){H=hotels[0];if(DB.session)DB.session.hotel=H.code}
+  if(H)shapeHotel(H);
+  const st=H&&H.set.stripe||{};
   el.innerHTML=pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:760px">
-    <p><b>Yes — real card money needs a Stripe account.</b> Maha Hub does not hold guest funds. It creates Checkout links; Stripe settles to the connected account’s bank.</p>
+    <p><b>Yes — real card money needs a Stripe account.</b> Maha Hub does not hold guest funds. It creates Checkout links; Stripe settles to the connected account’s bank. These keys live under Setup, not in property setup.</p>
     <p class="sub">I cannot finish Stripe’s company / KYC / bank setup for you — that is done only in the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">Stripe Dashboard</a> by the account owner (ID, business docs, bank). Until Stripe shows charges enabled, only <b>test mode</b> works.</p>
     <h3 class="mt">Who receives the money?</h3>
     <ul class="sub">
-      <li><b>Each hotel has its own Stripe</b> — paste that hotel’s keys in Property setup → <b>Payment methods → Stripe account for this hotel</b>. Guest pays → hotel’s Stripe balance.</li>
-      <li><b>Hotels under Maha (Connect)</b> — platform keys here + each hotel’s <code>acct_…</code> Connect id on the hotel. Guest pays → that hotel’s connected account.</li>
+      <li><b>Each hotel has its own Stripe</b> — paste that hotel’s keys below. Guest pays → hotel’s Stripe balance.</li>
+      <li><b>Hotels under Maha (Connect)</b> — platform keys here + each hotel’s <code>acct_…</code> Connect id. Guest pays → that hotel’s connected account.</li>
       <li><b>Sandbox / demo</b> — platform helper keys only (what you already set up for testing).</li>
     </ul>
     <h3 class="mt">Platform / helper keys (fallback + Connect)</h3>
@@ -7805,6 +7788,15 @@ VIEWS['prov.stripe']=el=>{
     <div class="err" id="stErr"></div>
     <div class="sub" id="stSt">${c.secret||c.server?'Platform keys / helper saved on this browser.':'No platform Stripe keys on this browser yet.'}</div>
     <div class="btns"><button class="btn gold" id="stSave">Save platform keys</button><button class="btn" id="stPing">Check helper</button><button class="btn ghost" id="stOff">Clear</button></div>
+    <h3 class="mt" id="stHotelHead">This hotel’s Stripe keys</h3>
+    ${H?`${provHotelPicker()}
+    <p class="sub">Keys for <b>${esc(H.code)}</b> · ${esc(H.set.name)}. Own secret sends the guest payment to this hotel. A Connect <code>acct_…</code> uses the platform keys above. Secrets stay on this hotel file and are not uploaded to Cloud.</p>
+    <label class="f"><span>Label (optional)</span><input id="stLabel" value="${esc(st.label||'')}" placeholder="e.g. Padauk Stripe TH"></label>
+    <label class="f"><span>Publishable key</span><input id="stPkH" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc(st.publishable||'')}"></label>
+    <label class="f"><span>Secret key</span><input id="stSkH" type="password" placeholder="${st.secret?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
+    <label class="f"><span>Connect account id (optional)</span><input id="stAcct" placeholder="acct_…" autocomplete="off" spellcheck="false" value="${esc(st.connectAccountId||'')}"></label>
+    <div class="err" id="stHErr"></div>
+    <div class="btns"><button class="btn gold" id="stHSave">Save Stripe for this hotel</button><button class="btn ghost" id="stHClear">Clear hotel Stripe</button></div>`:'<p class="sub">Create a property first.</p>'}
     <h3 class="mt">Hotels mapped</h3>
     <table class="grid"><tr><th>Hotel</th><th>Own secret</th><th>Connect acct</th><th>Ready</th><th></th></tr>
       ${hotels.map(h=>{shapeHotel(h);const hs=h.set.stripe||{},cfg=hotelStripeCfg(h);return `<tr>
@@ -7812,7 +7804,7 @@ VIEWS['prov.stripe']=el=>{
         <td>${hs.secret?'<span class="pill g">Yes</span>':'<span class="sub">—</span>'}</td>
         <td>${hs.connectAccountId?esc(hs.connectAccountId):'<span class="sub">—</span>'}</td>
         <td>${cfg.ready?'<span class="pill g">Ready</span>':'<span class="pill y">Not set</span>'}</td>
-        <td><button class="btn sm ghost" data-sthotel="${esc(h.code)}">Open setup</button></td>
+        <td><button class="btn sm ghost" data-sthotel="${esc(h.code)}">Edit keys</button></td>
       </tr>`}).join('')||'<tr><td colspan="5" class="empty">No hotels yet.</td></tr>'}
     </table>
     <h3 class="mt">Guest 3DS flow</h3>
@@ -7844,7 +7836,24 @@ VIEWS['prov.stripe']=el=>{
     }catch(e){$('#stSt',el).textContent='Helper not reachable. Run: ./stripe/start.sh'}
   };
   $('#stOff',el).onclick=()=>{localStorage.removeItem(STRIPEKEY);localStorage.removeItem('maha.stripeHost');toast('Platform Stripe keys cleared');render()};
-  $$('[data-sthotel]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sthotel);SET_SEC='pay';go('prov.setup')});
+  if($('#pvH',el))bindPicker(el);
+  if($('#stHSave',el))$('#stHSave',el).onclick=()=>{
+    if(!provOnly()||!H)return;
+    const publishable=$('#stPkH',el).value.trim();
+    const typed=$('#stSkH',el).value.trim();
+    const connectAccountId=$('#stAcct',el).value.trim();
+    const label=$('#stLabel',el).value.trim();
+    const prev=H.set.stripe||{};
+    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stHErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
+    if(typed&&!/^sk_(test|live)_/.test(typed)){$('#stHErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
+    if(connectAccountId&&!/^acct_/.test(connectAccountId)){$('#stHErr',el).textContent='Connect account id should start with acct_.';return}
+    if(!typed&&!prev.secret&&!connectAccountId){$('#stHErr',el).textContent='Paste a hotel secret key, or a Connect acct_ id (with platform keys).';return}
+    H.set.stripe={publishable,secret:typed||prev.secret||'',connectAccountId,label};
+    provLog('Stripe account settings saved for '+H.code+(connectAccountId?' · Connect '+connectAccountId:'')+(H.set.stripe.secret?' · own secret':''));
+    saved('Stripe for '+H.code+' saved');
+  };
+  if($('#stHClear',el))$('#stHClear',el).onclick=()=>{if(!provOnly()||!H)return;if(!confirm('Clear Stripe keys for '+H.code+'?'))return;H.set.stripe={publishable:'',secret:'',connectAccountId:'',label:''};provLog('Cleared Stripe settings for '+H.code);saved('Hotel Stripe cleared')};
+  $$('[data-sthotel]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sthotel);go('prov.stripe')});
 };
 VIEWS['prov.cloud']=el=>{
   el.innerHTML=pageHead('Cloud database')+`<div class="panel pad" style="max-width:640px"><p>Supabase is the shared copy of this hotel file. Reservations, folios, shifts, and staff sign-in travel with it. Full card numbers stay in the browser that took the payment and are not uploaded.</p>
