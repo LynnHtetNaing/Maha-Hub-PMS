@@ -22,7 +22,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
-as $$
+as $edc$
 declare
   lid text;
   hcode text;
@@ -55,14 +55,14 @@ begin
     updated_at = now();
   return jsonb_build_object('ok', true, 'id', lid);
 end;
-$$;
+$edc$;
 
 create or replace function maha_edc_list(pass text, hotel text)
 returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
-as $$
+as $edc$
 begin
   perform maha_check(pass);
   return coalesce((
@@ -78,32 +78,36 @@ begin
     where e.hotel = hotel
   ), '[]'::jsonb);
 end;
-$$;
+$edc$;
 
 create or replace function maha_edc_keyed(pass text, id text)
 returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
-as $$
+as $edc$
+declare
+  lid text := id;
 begin
   perform maha_check(pass);
   update maha_edc
     set status = 'keyed',
         card = case when card is null then null else (card - 'cvc' - 'cvv') end,
         updated_at = now()
-  where maha_edc.id = id;
+  where maha_edc.id = lid;
   if not found then raise exception 'not-found'; end if;
   return jsonb_build_object('ok', true);
 end;
-$$;
+$edc$;
 
 create or replace function maha_edc_wipe(pass text, id text)
 returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
-as $$
+as $edc$
+declare
+  lid text := id;
 begin
   perform maha_check(pass);
   update maha_edc
@@ -114,11 +118,11 @@ begin
           'exp', card->>'exp'
         ) end,
         updated_at = now()
-  where maha_edc.id = id;
+  where maha_edc.id = lid;
   if not found then raise exception 'not-found'; end if;
   return jsonb_build_object('ok', true);
 end;
-$$;
+$edc$;
 
 -- Public guest read (no passphrase). Returns form fields; never returns stored card.
 create or replace function maha_edc_public_get(id text)
@@ -126,10 +130,12 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
-as $$
-declare e maha_edc%rowtype;
+as $edc$
+declare
+  lid text := id;
+  e maha_edc%rowtype;
 begin
-  select * into e from maha_edc where maha_edc.id = id;
+  select * into e from maha_edc where maha_edc.id = lid;
   if e.id is null then
     return jsonb_build_object('ok', false, 'error', 'not-found');
   end if;
@@ -142,7 +148,7 @@ begin
     'hasCard', e.card is not null
   );
 end;
-$$;
+$edc$;
 
 -- Public guest submit. Only when status is waiting.
 create or replace function maha_edc_public_submit(id text, card jsonb)
@@ -150,12 +156,14 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
-as $$
-declare e maha_edc%rowtype;
+as $edc$
+declare
+  lid text := id;
+  e maha_edc%rowtype;
   pan text;
   cvc text;
 begin
-  select * into e from maha_edc where maha_edc.id = id for update;
+  select * into e from maha_edc where maha_edc.id = lid for update;
   if e.id is null then
     return jsonb_build_object('ok', false, 'error', 'not-found');
   end if;
@@ -165,7 +173,7 @@ begin
   if (e.meta ? 'expiresAt') and (e.meta->>'expiresAt') ~ '^[0-9]+$'
      and (e.meta->>'expiresAt')::bigint > 0
      and (e.meta->>'expiresAt')::bigint < (extract(epoch from now())*1000)::bigint then
-    update maha_edc set status = 'expired', updated_at = now() where maha_edc.id = id;
+    update maha_edc set status = 'expired', updated_at = now() where maha_edc.id = lid;
     return jsonb_build_object('ok', false, 'error', 'expired');
   end if;
   if card is null or jsonb_typeof(card) <> 'object' then
@@ -188,10 +196,10 @@ begin
     ),
     meta = e.meta || jsonb_build_object('submittedAt', (extract(epoch from now())*1000)::bigint),
     updated_at = now()
-  where maha_edc.id = id;
+  where maha_edc.id = lid;
   return jsonb_build_object('ok', true, 'status', 'submitted', 'last4', right(pan, 4));
 end;
-$$;
+$edc$;
 
 grant execute on function maha_edc_put(text, jsonb) to anon, authenticated;
 grant execute on function maha_edc_list(text, text) to anon, authenticated;
