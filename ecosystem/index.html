@@ -677,7 +677,7 @@ tr.muted td{opacity:.55}
 @media (max-width:900px){.rpb{grid-template-columns:1fr}.rpmid .bdate{font-size:17px}.rptitle{font-size:14px}}
 .rptool .rtt{font-size:16.5px}.rptool{padding:10px 14px}.rptool .rtt+span,.rptool .sub{font-size:13px}
 .age{font-weight:700}.bkstrip{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}.bkstrip .panel{padding:10px 12px;min-width:140px}
-.idlelock{position:fixed;inset:0;background:rgba(15,54,39,.78);z-index:90;display:grid;place-items:center;padding:16px}
+.idlelock{position:fixed;inset:0;background:rgba(15,54,39,.78);z-index:400;display:grid;place-items:center;padding:16px}
 .idlelock .panel{width:min(440px,94vw)}
 .helpgrid{display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start}
 .helplist button{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:4px;padding:8px 10px;margin-bottom:6px;cursor:pointer}
@@ -7808,23 +7808,65 @@ VIEWS['prov.security']=el=>{
   };
   bindPicker(el);const sel=$('#pvH',el);if(sel)sel.addEventListener('change',()=>setTimeout(paint,0));paint();
 };
-let _idle,_sessTouch=0;
+let _idle,_sessTouch=0,_activeAt=0;
 function touchLiveSession(){
   if(!DB||!DB.session)return;
-  if(!sessionValid(DB.session)){DB.session=null;H=null;clearLiveSession();saveDB();showLogin('Your session ended. Sign in again.');return}
+  if(!sessionValid(DB.session)){endLiveSession();return}
   const now=Date.now();
   if(now-_sessTouch<30000)return;
   _sessTouch=now;
   stampSession(DB.session);
   writeLiveSession(DB.session);
 }
-function armIdle(){clearTimeout(_idle);touchLiveSession();if(document.getElementById('idleLock'))return;if(!DB||!DB.session||!H)return;const mins=+(H.set&&H.set.idleMin)||0;if(mins<=0)return;if(DB.session.provider&&!DB.session.inHotel)return;_idle=setTimeout(showIdleLock,mins*60000)}
+function idleLimitMs(){
+  if(!DB||!DB.session)return 0;
+  const raw=H&&H.set&&H.set.idleMin!=null?+H.set.idleMin:15;
+  if(!(raw>0))return 0;
+  return raw*60000;
+}
+function idleAnchor(){
+  const se=DB&&DB.session;
+  const saved=(se&&+se.last)||(se&&+se.at)||0;
+  return Math.max(_activeAt||0,saved||0);
+}
+function endLiveSession(){
+  DB.session=null;H=null;clearLiveSession();
+  const lock=document.getElementById('idleLock');if(lock)lock.remove();
+  saveDB();showLogin('Your session ended. Sign in again.');
+}
+function screenRuleCheck(){
+  if(!DB||!DB.session)return;
+  if(!sessionValid(DB.session)){endLiveSession();return}
+  if(document.getElementById('idleLock'))return;
+  const limit=idleLimitMs();
+  if(limit&&Date.now()-idleAnchor()>=limit)showIdleLock();
+}
+function armIdle(){
+  clearTimeout(_idle);
+  if(!DB||!DB.session)return;
+  screenRuleCheck();
+  if(!DB||!DB.session||document.getElementById('idleLock'))return;
+  const limit=idleLimitMs();
+  if(!limit)return;
+  const left=Math.max(1000,limit-(Date.now()-idleAnchor()));
+  _idle=setTimeout(screenRuleCheck,left);
+}
 function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   d.innerHTML=`<div class="panel pad"><h2>Screen locked</h2><p>Your shift stays open. Type your password to continue as <b>${esc(user().name)}</b>.</p><label class="f"><span>Password</span><input id="idlePw" type="password"></label><div class="err" id="idleE"></div><div class="btns"><button class="btn gold" id="idleGo">Unlock</button></div></div>`;
   document.body.appendChild(d);const go=()=>{const pw=$('#idlePw').value;let ok=false;if(DB.session.provider){const p=DB.providers.find(x=>x.id===DB.session.userId);ok=!!(p&&p.hash===pwHash(p.salt,pw))}else{const u=H&&H.users.find(x=>x.id===DB.session.userId);ok=!!(u&&u.hash===pwHash(u.salt,pw))}
-    if(!ok){$('#idleE').textContent='Password is not correct.';return}d.remove();armIdle()};
+    if(!ok){$('#idleE').textContent='Password is not correct.';return}_activeAt=Date.now();stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
   $('#idleGo').onclick=go;$('#idlePw').onkeydown=e=>{if(e.key==='Enter')go()};setTimeout(()=>{const i=$('#idlePw');i&&i.focus()},40)}
-['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{if(!document.getElementById('idleLock'))armIdle()}));
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,e=>{
+  if(document.getElementById('idleLock'))return;
+  if(!DB||!DB.session)return;
+  const limit=idleLimitMs();
+  if(!sessionValid(DB.session)||(limit&&Date.now()-idleAnchor()>=limit)){e.preventDefault();e.stopPropagation();screenRuleCheck();return}
+  _activeAt=Date.now();touchLiveSession();armIdle();
+},true));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')screenRuleCheck()});
+window.addEventListener('pageshow',()=>screenRuleCheck());
+window.addEventListener('focus',()=>screenRuleCheck());
+setInterval(screenRuleCheck,15000);
 
 /* ================= boot ================= */
 window.addEventListener('DOMContentLoaded',()=>{
