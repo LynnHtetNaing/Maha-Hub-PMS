@@ -108,4 +108,28 @@ This migration does not modify or replace the legacy shared-payload tables/RPCs 
 - Add automated database integration tests before linking the live ecosystem app.
 - Plan a dry-run importer, backup/export, migration report, and rollback before touching any real tenant payload.
 
-**Status:** schema foundation drafted on the hardening branch; SQL execution and RLS integration tests are not yet verified. Do not apply to production or claim tenant isolation is complete.
+**Status:** the schema foundation is merged into `main`, but SQL execution and RLS integration tests are not yet verified. Do not apply to production or claim tenant isolation is complete.
+
+
+## Next stage: tenant-scoped cloud payload storage
+
+Added `supabase/migrations/20261009_002_property_cloud_storage.sql` on the cloud PMS implementation branch. This is a separate additive migration and has not been applied.
+
+- Adds one versioned cloud payload per property, rather than one global payload for all hotels.
+- Requires Supabase Auth identity and the existing property-access helper for reads and writes.
+- Exposes read/save RPCs to authenticated clients while withholding direct browser insert/update/delete privileges on the payload table.
+- Uses a monotonically increasing version and expected-version check to detect concurrent edits rather than trusting client clocks.
+- Rejects payloads containing card PAN/CVC/CVV, browser session state, and nested Stripe secret fields as a server-side defense-in-depth measure.
+- Does not yet connect the browser PMS to Supabase Auth or map the existing `DB.hotels` structure to property records.
+- Does not migrate the legacy shared-passphrase payload, and does not remove the legacy RPCs.
+
+### Validation still required
+
+1. Apply both migrations in a disposable Supabase staging project and confirm the project PostgreSQL version supports the SQL.
+2. Test organization/property isolation and inactive memberships with separate Auth users.
+3. Test first save, version increments, stale-version conflict response, and two simultaneous first saves.
+4. Test forbidden-key rejection including nested arrays and objects.
+5. Verify that unauthenticated requests and users outside the property fail, and that browser clients cannot write directly to the payload table.
+6. Build an explicit, backed-up importer and per-property data mapping before enabling this storage in the app.
+
+**Current implementation status:** database groundwork with passing disposable PostgreSQL 15 smoke tests. The existing app still uses the legacy shared-passphrase sync until a separate, tested app integration and migration is completed.
