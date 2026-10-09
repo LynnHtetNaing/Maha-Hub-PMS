@@ -85,16 +85,24 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1
-    from public.maha_properties p
-    join public.maha_memberships m
-      on m.organization_id = p.organization_id
-     and (m.property_id is null or m.property_id = p.id)
-    where p.id = target_property
-      and m.user_id = (select auth.uid())
-      and m.active
-  );
+  select
+    exists (
+      select 1
+      from public.maha_properties p
+      join public.maha_organizations o on o.id = p.organization_id
+      where p.id = target_property
+        and o.owner_user_id = (select auth.uid())
+    )
+    or exists (
+      select 1
+      from public.maha_properties p
+      join public.maha_memberships m
+        on m.organization_id = p.organization_id
+       and (m.property_id is null or m.property_id = p.id)
+      where p.id = target_property
+        and m.user_id = (select auth.uid())
+        and m.active
+    );
 $$;
 
 revoke all on function public.maha_is_org_admin(uuid) from public, anon;
