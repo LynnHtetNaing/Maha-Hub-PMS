@@ -1374,6 +1374,7 @@ async function cloudPull(opt){
   }
   if(!data||data.empty){if(opt&&opt.init){await cloudPush();return 'pushed'}return 'empty'}
   const remoteAt=Date.parse(data.updated_at)||0,cursor=+(c.cursor||0),localAt=+(DB.savedAt||0);
+  if(opt&&opt.force){adoptCloud(data.payload,remoteAt,opt&&opt.render?{render:true}:null);return 'pulled'}
   if(!cursor||remoteAt>localAt){adoptCloud(data.payload,remoteAt,opt&&opt.render?{render:true}:null);return 'pulled'}
   if(localAt>cursor){await cloudPush();return 'pushed-local'}
   return 'same';
@@ -8318,7 +8319,7 @@ VIEWS['prov.cloud']=el=>{
     <div class="btns"><button class="btn gold" id="clGo">Connect</button><button class="btn" id="clPull">Download</button><button class="btn" id="clPush">Upload</button><button class="btn ghost" id="clOff">Disconnect this browser</button></div></div>`;
   fillCloudForm(el);
   $('#clGo',el).onclick=()=>cloudConnect(el);
-  $('#clPull',el).onclick=async()=>{try{const r=await cloudPull({render:true});toast(r==='pulled'?'Downloaded the cloud copy':r==='empty'?'The cloud database is still empty':'This browser already has the latest copy')}catch(e){toast('Download did not finish')}};
+  $('#clPull',el).onclick=async()=>{if(!confirm('Download and load the saved cloud PMS copy into this browser? This replaces the current browser hotel data. Choose Cancel to keep the current browser data.'))return;try{const r=await cloudPull({render:true,force:true});toast(r==='pulled'?'Downloaded the cloud copy':r==='empty'?'The cloud database is still empty':r==='off'?'Connect to the cloud database first':'Download did not finish')}catch(e){toast('Download did not finish')}};
   $('#clPush',el).onclick=async()=>{try{await cloudPush();fillCloudForm(el);toast('Uploaded to Supabase')}catch(e){const m=String(e.message||'');toast(m.includes('unauthorized')?'Passphrase does not match':'Upload did not finish')}};
   $('#clOff',el).onclick=()=>{localStorage.removeItem(CLOUDKEY);fillCloudForm(el);toast('This browser is disconnected. The cloud copy is still there.')};
 };
