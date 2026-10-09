@@ -1165,7 +1165,7 @@ const MahaAuth={
   base(){return String(MAHA_AUTH_CONFIG.url||'').replace(/\/+$/,'')},
   read(){try{const t=JSON.parse(sessionStorage.getItem(SBAUTHKEY)||'null');return t&&t.access_token&&t.user&&t.user.id?t:null}catch(e){return null}},
   conflict:false,   /* true while a stale-version conflict is waiting for the user's decision */
-  write(t){try{if(!t){try{MahaSync.stop()}catch(e){}sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
+  write(t){try{if(!t){try{MahaSync.stop()}catch(e){}try{ProvSync.stop()}catch(e){}sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
   keep(d){return {access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000,user:{id:d.user&&d.user.id}}},
   /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config',message} */
   async signIn(username,password){
@@ -1211,10 +1211,17 @@ const MahaAuth={
     if(/@/.test(un))return {ok:false,reason:'email',message:'Sign in with your username, not an email address.'};
     const r=await this.signIn(un,pw);if(!r.ok)return r;
     const reject=(reason,message)=>{MahaSync.stop();this.write(null);this.revoke(r.tokens);return {ok:false,reason,message}};
+    this.write(r.tokens);
+    let isAdmin=false;try{isAdmin=(await this.rpc('maha_is_platform_admin',{}))===true}catch(e){isAdmin=false}
     let props;
     try{props=await this.properties(r.tokens)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
+    if(isAdmin){
+      const st=await ProvSync.openAll(props);
+      if(st.unavailable)return reject('unavailable','Not every hotel cloud copy could be loaded, so sign-in was stopped. Nothing was changed. Try again in a moment.');
+      MahaSync.stop();ProvSync.start();
+      return {ok:true,provider:true,userId:r.tokens.user.id};
+    }
     if(!props.length)return reject('unlinked','Your account is not linked to a hotel yet. Please contact Padauk support.');
-    this.write(r.tokens);
     const userOf=h=>(h&&h.users||[]).find(x=>String(x&&x.username||'').toLowerCase()===un&&x.active!==false);
     let unavailable=false,invalid=false,emptyCand=null;
     for(const p of props){
@@ -1534,18 +1541,25 @@ function msMerge3(base,mine,theirs){
   }
   return out;
 }
-const MahaSync={
+function msNewSync(){return {
   code:null,pid:null,base:new Map(),baseData:new Map(),cursor:0,leases:{},busy:false,again:false,timer:null,poll:null,
   offline:false,lastError:null,conflicts:[],onRemote:null,onState:null,
   skey(){return 'maha.sync.'+this.code},
   reset(code,pid){this.code=code;this.pid=pid;this.base=new Map();this.baseData=new Map();this.cursor=0;this.leases={};this.conflicts=[];this.lastError=null},
-  persist(){try{localStorage.setItem(this.skey(),JSON.stringify({cursor:this.cursor,leases:this.leases,base:[...this.base]}))}catch(e){}},
+  persist(){try{localStorage.setItem(this.skey(),JSON.stringify({pid:this.pid,cursor:this.cursor,leases:this.leases,base:[...this.base]}))}catch(e){}},
   restore(){
     try{const s=JSON.parse(localStorage.getItem(this.skey())||'null');
       if(!s||!Array.isArray(s.base))return false;
       this.cursor=+s.cursor||0;this.leases=s.leases||{};this.base=new Map(s.base);return true}catch(e){return false}
   },
   forget(){try{localStorage.removeItem(this.skey())}catch(e){}},
+  /* After a page reload: pick the hotel up again from what was saved on this device. */
+  resume(code){
+    this.code=code;
+    try{const s=JSON.parse(localStorage.getItem(this.skey())||'null');
+      if(!s||!s.pid||!Array.isArray(s.base))return false;
+      this.pid=s.pid;this.cursor=+s.cursor||0;this.leases=s.leases||{};this.base=new Map(s.base);return true}catch(e){return false}
+  },
   hotel(){return DB&&DB.hotels&&DB.hotels[this.code]},
   async rpc(name,body){return MahaAuth.rpc(name,body)},
   /* ---- applying cloud records to the live hotel ---- */
@@ -1726,7 +1740,8 @@ const MahaSync={
     await this.ensureLeases(true);
     this.persist();return true;
   }
-};
+};}
+const MahaSync=msNewSync();
 /* ---------- end record-level sync engine ---------- */
 MahaSync.onRemote=n=>{
   try{
@@ -1736,7 +1751,82 @@ MahaSync.onRemote=n=>{
     bindHotel();if(typeof render==='function')render();
   }catch(e){}
 };
-window.addEventListener&&window.addEventListener('online',()=>{try{if(MahaSync.code)MahaSync.syncOnce()}catch(e){}});
+window.addEventListener&&window.addEventListener('online',()=>{try{if(MahaSync.code)MahaSync.syncOnce();ProvSync.syncAll()}catch(e){}});
+function randomSecret(){const a=new Uint8Array(16);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')}
+/* The provider (platform owner) owns every hotel, so the provider signs in once and keeps ALL hotels in sync. */
+const ProvSync={
+  items:new Map(),timer:null,poll:null,
+  make(code,pid){const s=msNewSync();s.reset(code,pid);s.onRemote=MahaSync.onRemote;this.items.set(code,s);return s},
+  remember(){try{sessionStorage.setItem('maha.provHotels',JSON.stringify([...this.items.values()].map(s=>({code:s.code,pid:s.pid}))))}catch(e){}},
+  async openAll(props){
+    this.stop();let unavailable=false;
+    for(const p of props){
+      const s=this.make(p.code,p.id);let res;
+      try{res=await s.open(p.code,p.id)}catch(e){unavailable=true;this.items.delete(p.code);continue}
+      if(res==='resumed')continue;
+      if(res==='empty'){
+        const lh=DB.hotels&&DB.hotels[p.code];
+        if(lh&&confirm('Hotel '+p.code+' has no cloud copy yet.\n\nUse the data stored on THIS device as its first cloud copy? A backup file downloads first.\n\nChoose Cancel to skip this hotel.')){
+          try{downloadHotelBackup(p.code)}catch(e){}
+          let ok=false;try{ok=await s.firstCopy()}catch(e){ok=false}
+          if(!ok)this.items.delete(p.code);
+        }else this.items.delete(p.code);
+        continue;
+      }
+      await snapshotBeforeAdopt(p.code);
+      try{s.install(res);await s.ensureLeases(true);s.persist()}catch(e){unavailable=true;this.items.delete(p.code)}
+    }
+    this.remember();return {unavailable};
+  },
+  async adopt(code,pid){const s=this.make(code,pid);const ok=await s.firstCopy();if(!ok){this.items.delete(code);throw new Error('FIRST_COPY_FAILED')}this.remember();return s},
+  async syncAll(){for(const s of [...this.items.values()]){if(DB&&DB.hotels&&DB.hotels[s.code])await s.syncOnce()}},
+  schedule(){clearTimeout(this.timer);this.timer=setTimeout(()=>{this.syncAll()},800)},
+  start(){clearInterval(this.poll);this.poll=setInterval(()=>{if(typeof document!=='undefined'&&document.hidden)return;this.syncAll()},12000)},
+  stop(){clearTimeout(this.timer);clearInterval(this.poll);this.timer=null;this.poll=null;this.items.clear();try{sessionStorage.removeItem('maha.provHotels')}catch(e){}},
+  resume(){
+    try{const l=JSON.parse(sessionStorage.getItem('maha.provHotels')||'null');if(!Array.isArray(l)||!l.length)return false;
+      l.forEach(x=>{const s=this.make(x.code,x.pid);s.restore()});this.start();this.syncAll();return true}catch(e){return false}
+  }
+};
+/* Account administration is done only by the provider, on the server. */
+const ProvAdmin={
+  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.'},
+  msg(e){return (e&&this.msgs[e.message])||'The server could not complete this. Nothing was changed. Try again.'},
+  async call(body){
+    const t=await MahaAuth.fresh();if(!t)throw new Error('AUTH_REQUIRED');
+    const res=await fetch(MahaAuth.base()+'/functions/v1/platform-admin-provision',{method:'POST',
+      headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify(body)});
+    let d=null;try{d=await res.json()}catch(e){}
+    if(!res.ok)throw new Error(d&&d.error||('HTTP '+res.status));
+    return d;
+  },
+  async createHotel(o){
+    const d=await this.call({action:'create_hotel',organization_name:o.name,property_name:o.name,property_code:o.code,username:o.user,email:o.email,role:'property_admin'});
+    const h=emptyHotel({code:o.code,name:o.name,cur:o.cur,bd:o.bd});
+    h.users.push(mkUser('u'+uid(),o.user,'Owner','Manager',randomSecret()));shapeHotel(h);DB.hotels[o.code]=h;
+    await ProvSync.adopt(o.code,d.property_id);
+    return d;
+  }
+};
+function enterProvider(un,uid){
+  let pv=DB.providers.find(x=>x.supabaseId===uid)||DB.providers.find(x=>x.username===un);
+  if(!pv){pv=mkUser('pa'+String(uid).replace(/-/g,'').slice(0,10),un,'Platform administrator','Provider',randomSecret());pv.email='';DB.providers.push(pv)}
+  pv.supabaseId=uid;pv.username=un;pv.active=true;
+  pv.salt=newSalt();pv.hash=pwHash(pv.salt,randomSecret());   /* in this mode the old local password can never be used */
+  const first=Object.keys(DB.hotels)[0];
+  DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=first?DB.hotels[first]:null;
+  DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in (Supabase)'});
+  writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go('prov.home');
+}
+/* After a page reload the sign-in token and the live session survive; start syncing again. */
+function resumeSync(){
+  try{
+    if(!MahaAuth.on()||!DB||!DB.session||!MahaAuth.read())return;
+    if(DB.session.provider){ProvSync.resume();return}
+    const code=DB.session.hotel;
+    if(code&&MahaSync.resume(code)){MahaSync.start();MahaSync.syncOnce()}
+  }catch(e){}
+}
 function sessionValid(se){
   if(!se||!DB)return false;
   const now=Date.now();
@@ -1829,8 +1919,9 @@ async function tenantCloudPush(){
   if(result&&result.cloud){tcvSet(code,result.cloud.version);return 'pushed'}
   return 'error';
 }
-function scheduleCloudPush(){if(MahaAuth.on()){if(MahaSync.code&&DB&&DB.session&&!DB.session.provider)MahaSync.schedule();return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
+function scheduleCloudPush(){if(MahaAuth.on()){if(DB&&DB.session&&DB.session.provider)ProvSync.schedule();else if(MahaSync.code&&DB&&DB.session)MahaSync.schedule();return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
 async function cloudPull(opt){
+  if(MahaAuth.on())return 'off';   /* the old passphrase cloud never overwrites a device that signs in with a username */
   const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass||!DB)return 'off';
   let data;
   try{data=await cloudRpc('maha_pull',{pass:c.pass})}
@@ -5284,7 +5375,7 @@ function doLogin(){
   if(!un||!pw){err.textContent='Enter your username and password.';return}
   try{if($('#lgRemember')&&$('#lgRemember').checked)localStorage.setItem('maha.rememberUser',un);else localStorage.removeItem('maha.rememberUser')}catch(e){}
   const fail=()=>{fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}err.textContent='Username or password is not correct.';$('#lgPass').value='';$('#lgPass').focus()};
-  const pv=DB.providers.find(x=>x.username===un);if(pv){if(pv.hash!==pwHash(pv.salt,pw))return fail();fails=0;
+  const pv=MahaAuth.on()?null:DB.providers.find(x=>x.username===un);if(pv){if(pv.hash!==pwHash(pv.salt,pw))return fail();fails=0;
     const finish=(how)=>{const first=Object.keys(DB.hotels)[0];DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=DB.hotels[first];
       DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in'+(how?' ('+how+')':'')+(pv.email&&pv.emailAlerts!==false?' – alert emailed to '+pv.email:'')});writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go(pv.mfa&&pv.mfa.enabled?'prov.home':'prov.account')};
     if(pv.mfa&&pv.mfa.enabled){providerSecondStep(pv,()=>finish('with Google Authenticator'));return}finish('');return}
@@ -5293,7 +5384,7 @@ function doLogin(){
     MahaAuth.staffSignIn(un,pw).then(r=>{
       if(btn)btn.disabled=false;
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
-      err.textContent='';staffEnter(r.h,r.u);
+      err.textContent='';if(r.provider){enterProvider(un,r.userId);return}staffEnter(r.h,r.u);
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
   }
@@ -7009,10 +7100,13 @@ VIEWS['prov.perms']=el=>{
   $$('[data-su]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
   $$('[data-pu]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();render()});
   $$('[data-pre]',el).forEach(s=>s.onchange=()=>{if(!s.value)return;const u=H.users.find(x=>x.id===s.dataset.pre);u.perms=[...PRESET[s.value]];u.role=s.value;provLog(`Applied preset ${s.value} to ${u.username}`);saveDB();render()});
-  $$('[data-rp]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rp);const pw=prompt(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
-  $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}if(u.active!==false&&H.shifts.some(s=>s.userId===u.id&&s.status==='open')){toast('Close this person\'s open shift first.');return}u.active=u.active===false;provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()});
-  $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
-    $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(p.length<8){$('#auE',m).textContent='The password needs at least 8 characters.';return}
+  $$('[data-rp]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(()=>{provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=prompt(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
+  $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}if(u.active!==false&&H.shifts.some(s=>s.userId===u.id&&s.status==='open')){toast('Close this person\'s open shift first.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
+  $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
+    $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
+      $('#auE',m).textContent='Creating the loginâ€¦';
+      ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff'}).then(()=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast('Login created. A set-password email was sent.')},err=>{$('#auE',m).textContent=ProvAdmin.msg(err)});return}
+    if(p.length<8){$('#auE',m).textContent='The password needs at least 8 characters.';return}
       const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,p);nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;H.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render()}};
 };
 VIEWS['prov.amend']=el=>{
@@ -7600,12 +7694,15 @@ VIEWS['prov.functions']=el=>{
 function newPropertyForm(){if(!provOnly())return;
   const m=modal('Create new property',`<div class="form2">${fld('Hotel code (unique, e.g. BKK02)',`<input id="npC" autocapitalize="characters" autofocus>`)}${fld('Hotel name',`<input id="npN">`)}
    ${fld('Currency',`<select id="npCur">${Object.keys(CUR_WORDS).map(c=>opt(c,c+(CUR_WORDS[c][2]?' – '+CUR_WORDS[c][2]:''),'THB')).join('')}</select>`)}${fld('First business date',`<input type="date" id="npBd" value="${iso(new Date())}">`)}
-   ${fld('Owner / manager username (unique across all hotels)',`<input id="npU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${fld('Temporary password (8+ characters)',`<input id="npP">`)}</div>
+   ${fld('Owner / manager username (unique across all hotels)',`<input id="npU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${MahaAuth.on()?fld('Owner / manager email (a set-password link is emailed)',`<input id="npP" type="email" autocapitalize="none">`):fld('Temporary password (8+ characters)',`<input id="npP">`)}</div>
    <div class="sub">The property starts empty. You then fill in its setup title by title and activate it when everything is ready.</div><div class="err" id="npE"></div><div class="btns"><button class="btn gold" id="npS">Create property</button></div>`,{w:640});
   $('#npS',m).onclick=()=>{const c=$('#npC',m).value.trim().toUpperCase(),n=$('#npN',m).value.trim(),u=$('#npU',m).value.trim().toLowerCase(),p=$('#npP',m).value,e=$('#npE',m);
     if(!/^[A-Z0-9]{3,10}$/.test(c)){e.textContent='Hotel code: 3 to 10 letters or numbers.';return}if(DB.hotels[c]){e.textContent='This hotel code already exists.';return}
     if(!n){e.textContent='Enter the hotel name.';return}if(!/^[a-z0-9._-]{3,20}$/.test(u)){e.textContent='Username: 3 to 20 letters, numbers, dot, dash or underscore.';return}
-    if(usernameTaken(u)){e.textContent='This username is already used in another hotel.';return}if(p.length<8){e.textContent='The password needs at least 8 characters.';return}
+    if(usernameTaken(u)){e.textContent='This username is already used in another hotel.';return}if(MahaAuth.on()){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)){e.textContent='Enter a valid email address for the owner / manager.';return}
+      e.textContent='Creating the hotel and its loginâ€¦';
+      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value}).then(()=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
+    if(p.length<8){e.textContent='The password needs at least 8 characters.';return}
     const h=emptyHotel({code:c,name:n,cur:$('#npCur',m).value,bd:$('#npBd',m).value});h.users.push(mkUser('u'+uid(),u,'Owner','Manager',p));shapeHotel(h);DB.hotels[c]=h;
     openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}
 
@@ -8860,7 +8957,7 @@ function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session
   d.innerHTML=`<div class="panel pad"><h2>Screen locked</h2><p>Your shift stays open. Type your password to continue as <b>${esc(user().name)}</b>.</p><label class="f"><span>Password</span><input id="idlePw" type="password"></label><div class="err" id="idleE"></div><div class="btns"><button class="btn gold" id="idleGo">Unlock</button></div></div>`;
   document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
   const go=()=>{const pw=$('#idlePw').value;
-    if(MahaAuth.on()&&!DB.session.provider){const u=H&&H.users.find(x=>x.id===DB.session.userId),cur=MahaAuth.read();
+    if(MahaAuth.on()){const u=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),cur=MahaAuth.read();
       if(!u||!pw){$('#idleE').textContent='Password is not correct.';return}
       $('#idleE').textContent='Checking…';
       MahaAuth.signIn(u.username.toLowerCase(),pw).then(r=>{
@@ -8899,7 +8996,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(location.hash==='#reports'){document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
       window.addEventListener('storage',e=>{if(e.key===DBKEY||e.key===DBKEY4)loadFresh()});return}
     const finish=()=>{
-      applyLiveSession();
+      applyLiveSession();resumeSync();
       const pathSys=sysFromPath();
       if(DB.session&&H&&(DB.session.provider||curShift())){
       if(pathSys&&pathSys!=='hub'&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}

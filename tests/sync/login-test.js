@@ -9,12 +9,15 @@ function makeCloud(){
   const accounts={'front.desk':{pw:'pw-ok',uid:'U1',props:[{id:'P-H1',property_code:'H1'}]},
                   'other.user':{pw:'pw-ok',uid:'U2',props:[{id:'P-H2',property_code:'H2'}]},
                   'nohotel':{pw:'pw-ok',uid:'U3',props:[]},
-                  'ghost':{pw:'pw-ok',uid:'U4',props:[{id:'P-H1',property_code:'H1'}]}};   /* has access to H1 but is not a staff record in it */
+                  'ghost':{pw:'pw-ok',uid:'U4',props:[{id:'P-H1',property_code:'H1'}]},
+                  'mahaadmin':{pw:'pw-ok',uid:'UA',admin:true,props:[]}};
+  const allProps=[{id:'P-H1',property_code:'H1'},{id:'P-H2',property_code:'H2'}];   /* has access to H1 but is not a staff record in it */
   const byProp=new Map();const store=id=>{if(!byProp.has(id))byProp.set(id,{recs:new Map(),seq:0});return byProp.get(id)};
-  const cloud={accounts,down:false,store,
+  const cloud={accounts,allProps,calls:[],down:false,store,
     rpc(uid,name,b){
       const acc=Object.values(accounts).find(a=>a.uid===uid);
-      if(!acc.props.some(p=>p.id===b.target_property))throw Object.assign(new Error('property-access-denied'),{status:403,code:'42501'});
+      if(name==='maha_is_platform_admin')return acc.admin===true;
+      if(!(acc.admin?allProps:acc.props).some(p=>p.id===b.target_property))throw Object.assign(new Error('property-access-denied'),{status:403,code:'42501'});
       const S=store(b.target_property);
       if(name==='maha_sync_pull'){const all=[...S.recs.values()].filter(r=>r.seq>b.since).sort((x,y)=>x.seq-y.seq).slice(0,b.page_size);const mx=all.length?all[all.length-1].seq:b.since;return {records:JSON.parse(JSON.stringify(all)),seq:mx,head:S.seq,more:mx<S.seq}}
       if(name==='maha_sync_push'){const applied=[],conflicts=[];for(const ch of b.changes){const id=ch.collection+'\u0001'+ch.key,cur=S.recs.get(id),base=ch.base_version||0,del=!!ch.deleted;
@@ -35,12 +38,17 @@ function device(cloud){
   const tokens={};
   const fetch=async(url,opt={})=>{
     if(cloud.down&&/rest\/v1\/rpc/.test(url))return resp(502,{message:'bad gateway'});
-    if(/functions\/v1\/username-auth/.test(url)){const b=JSON.parse(opt.body);const a=cloud.accounts[b.username];if(!a||a.pw!==b.password)return resp(401,{error:'invalid_credentials'});const t='tok-'+a.uid;tokens[t]=a.uid;return resp(200,{access_token:t,refresh_token:'r',expires_in:3600,token_type:'bearer',user:{id:a.uid,email:'x@x'}})}
+    if(/functions\/v1\/username-auth/.test(url)){const b=JSON.parse(opt.body);const a=cloud.accounts[b.username];if(!a||a.pw!==b.password||a.disabled)return resp(401,{error:'invalid_credentials'});const t='tok-'+a.uid;tokens[t]=a.uid;return resp(200,{access_token:t,refresh_token:'r',expires_in:3600,token_type:'bearer',user:{id:a.uid,email:'x@x'}})}
     if(/auth\/v1\/logout/.test(url))return resp(204,null);
     const uid=tokens[(opt.headers&&opt.headers.Authorization||'').replace('Bearer ','')];
     if(!uid)return resp(401,{message:'JWT'});
     const acc=Object.values(cloud.accounts).find(a=>a.uid===uid);
-    if(/rest\/v1\/maha_properties/.test(url))return resp(200,acc.props);
+    if(/functions\/v1\/platform-admin-provision/.test(url)){const b=JSON.parse(opt.body);if(!acc.admin)return resp(403,{error:'forbidden'});cloud.calls.push(b.action||'create_hotel');
+      if((b.action||'create_hotel')==='create_hotel'){if(cloud.allProps.some(p=>p.property_code===b.property_code))return resp(409,{error:'property_code_taken'});const prop={id:'P-'+b.property_code,property_code:b.property_code};cloud.allProps.push(prop);cloud.accounts[b.username]={pw:'pw-ok',uid:'U-'+b.username,props:[prop]};return resp(201,{ok:true,property_id:prop.id})}
+      if(b.action==='set_active'){const t=cloud.accounts[b.username];if(!t)return resp(404,{error:'staff_not_found'});t.disabled=!b.active;return resp(200,{ok:true,active:b.active})}
+      if(b.action==='add_staff'){const prop=cloud.allProps.find(p=>p.property_code===b.property_code);if(!prop)return resp(404,{error:'property_not_found'});if(cloud.accounts[b.username])return resp(409,{error:'username_taken'});cloud.accounts[b.username]={pw:'pw-ok',uid:'U-'+b.username,props:[prop]};return resp(201,{ok:true})}
+      return resp(400,{error:'unsupported_action'})}
+    if(/rest\/v1\/maha_properties/.test(url))return resp(200,acc.admin?cloud.allProps:acc.props);
     const m=url.match(/rest\/v1\/rpc\/(\w+)/);if(m){try{return resp(200,cloud.rpc(uid,m[1],JSON.parse(opt.body)))}catch(e){return resp(e.status||500,{message:e.message,code:e.code})}}
     return resp(404,{});
   };
@@ -49,10 +57,11 @@ function device(cloud){
     const document={createElement:()=>{ctx.backups++;return {click(){},remove(){}}},body:{appendChild(){}},hidden:false,activeElement:null};
     let DB=ctx.DB,H=null,_cloudApplying=false,_cloudErrAt=0;
     const toast=m=>ctx.toasts.push(m);const confirm=m=>{ctx.confirms.push(m);return ctx.confirmAnswer};
+    const emptyHotel=o=>({code:o.code,set:{name:o.name,cur:o.cur,bd:o.bd,nextRsv:1,nextInv:1,nextInternal:1,nextSys:1,nextProfile:1},users:[],guests:[],reservations:[],rooms:[]});const shapeHotel=()=>{};const mkUser=(id,username,name,role)=>({id,username,name,role,active:true,hash:'x',salt:'y'});const uid=()=>Math.random().toString(36).slice(2,8);
     const migrateDB=d=>d;const bindHotel=()=>{};const saveDB=()=>{};const renderShell=()=>{};const render=()=>{};
     const iso=d=>d.toISOString().slice(0,10);const supabaseSessionExpired=()=>{};
     ${code}
-    ctx.api={MahaAuth,MahaSync,getDB:()=>DB};
+    ctx.api={MahaAuth,MahaSync,ProvSync,ProvAdmin,getDB:()=>DB,resumeSync};
   `;
   new Function('ctx','localStorage','sessionStorage','URLSearchParams','fetch',body)(ctx,localStorage,sessionStorage,URLSearchParams,fetch);
   ctx.ls=ls;ctx.ss=ss;return ctx;
@@ -109,7 +118,48 @@ let fails=0;const T=(n,ok,x)=>{console.log((ok?'PASS ':'FAIL ')+n+(x?' | '+x:'')
   await Promise.all([F.api.MahaSync.syncOnce(),G.api.MahaSync.syncOnce()]);await F.api.MahaSync.syncOnce();await G.api.MahaSync.syncOnce();
   const ids=h=>h.guests.map(g=>g.id).sort().join();
   T('two signed-in devices see each other\'s new records',ids(F.api.getDB().hotels.H1)===ids(G.api.getDB().hotels.H1)&&/gF/.test(ids(G.api.getDB().hotels.H1))&&/gG/.test(ids(F.api.getDB().hotels.H1)),ids(F.api.getDB().hotels.H1));
-  [A,B,F,G].forEach(d=>d.api.MahaSync.stop());
+  /* ===== provider (platform owner): signs in through Supabase and keeps every hotel in sync ===== */
+  /* H2 gets data from a staff-less seed: the provider opens it empty -> skipped (no local copy), H1 downloads */
+  let P=device(cloud);
+  r=await P.api.MahaAuth.staffSignIn('mahaadmin','wrong');T('provider wrong password -> invalid',!r.ok&&r.reason==='invalid');
+  P.confirmAnswer=false;
+  r=await P.api.MahaAuth.staffSignIn('mahaadmin','pw-ok');
+  T('provider signs in as provider (not as hotel staff)',r.ok&&r.provider===true&&!r.h,JSON.stringify(r).slice(0,80));
+  T('provider has H1 from the cloud; empty H2 skipped without prompt noise',!!P.api.getDB().hotels.H1&&P.api.ProvSync.items.has('H1')&&!P.api.ProvSync.items.has('H2'),[...P.api.ProvSync.items.keys()].join());
+  T('provider hotels are remembered for reload',JSON.parse(P.ss['maha.provHotels']).length===1);
+  /* provider changes reach hotel staff */
+  P.api.getDB().session={provider:true};
+  P.api.getDB().hotels.H1.users.push({id:'u2',username:'new.staff',role:'Front desk',active:true});
+  P.api.getDB().hotels.H1.set.name='Hotel One (renamed by provider)';
+  await P.api.ProvSync.syncAll();
+  let S2=device(cloud);cloud.accounts['new.staff']={pw:'pw-ok',uid:'U9',props:[{id:'P-H1',property_code:'H1'}]};
+  r=await S2.api.MahaAuth.staffSignIn('new.staff','pw-ok');
+  T('staff added by provider can sign in and sees provider edits',r.ok&&S2.api.getDB().hotels.H1.set.name==='Hotel One (renamed by provider)'&&r.u.username==='new.staff',r.ok?'':r.reason);
+  S2.api.MahaSync.stop();
+  /* staff edit reaches provider */
+  S2.api.getDB().hotels.H1.guests.push({id:'gS2',last:'FromStaff'});await S2.api.MahaSync.syncOnce();await P.api.ProvSync.syncAll();
+  T('staff edit reaches the provider',P.api.getDB().hotels.H1.guests.some(g=>g.id==='gS2'));
+  /* create a hotel + login from the provider panel code path */
+  P.api.getDB().hotels.NEW1=undefined;delete P.api.getDB().hotels.NEW1;
+  let created=null,cerr=null;try{created=await P.api.ProvAdmin.createHotel({code:'NEW1',name:'New Hotel One',user:'new1.owner',email:'o@x.test',cur:'THB',bd:'2026-10-09'})}catch(e){cerr=e}
+  T('create hotel: server account + property created, first copy uploaded',!!created&&cloud.store('P-NEW1').recs.size>3&&P.api.ProvSync.items.has('NEW1'),cerr?cerr.message:String(cloud.store('P-NEW1').recs.size));
+  let N=device(cloud);r=await N.api.MahaAuth.staffSignIn('new1.owner','pw-ok');
+  T('new hotel owner signs in on a brand-new device with username+password only',r.ok&&N.api.getDB().hotels.NEW1&&r.u.username==='new1.owner',r.ok?'':r.reason);N.api.MahaSync.stop();
+  try{await P.api.ProvAdmin.createHotel({code:'NEW1',name:'dup',user:'x.y.z',email:'o@x.test',cur:'THB',bd:'2026-10-09'});T('duplicate hotel code rejected',false)}catch(e){T('duplicate hotel code rejected with a clear message',e.message==='property_code_taken'&&/already used/.test(P.api.ProvAdmin.msg(e)),e.message)}
+  /* disable a login: provider -> server; the staff member can no longer sign in */
+  await P.api.ProvAdmin.call({action:'set_active',username:'new.staff',active:false});
+  let S3=device(cloud);r=await S3.api.MahaAuth.staffSignIn('new.staff','pw-ok');
+  T('disabled staff member cannot sign in',!r.ok&&r.reason==='invalid',r.reason);
+  await P.api.ProvAdmin.call({action:'set_active',username:'new.staff',active:true});
+  r=await S3.api.MahaAuth.staffSignIn('new.staff','pw-ok');T('re-enabled staff member can sign in again',r.ok);S3.api.MahaSync.stop();
+  /* a hotel staff account cannot use the provider function */
+  const sTok=await S3.api.MahaAuth.fresh();let denied=false;try{await S3.api.ProvAdmin.call({action:'add_staff',property_code:'H1',username:'hack',email:'h@x.test',role:'staff'})}catch(e){denied=e.message==='forbidden'}
+  T('hotel staff cannot create accounts (provider function refuses)',denied&&!cloud.accounts.hack);
+  /* reload: provider sync resumes from what was saved in the tab */
+  const P2=P;P2.api.ProvSync.stop();P2.ss['maha.provHotels']=JSON.stringify([{code:'H1',pid:'P-H1'}]);
+  P2.api.getDB().session={provider:true,hotel:'H1'};
+  const resumed=P2.api.ProvSync.resume();T('provider sync resumes after a page reload',resumed===true&&P2.api.ProvSync.items.has('H1')&&!!P2.api.ProvSync.poll);
+  P2.api.ProvSync.stop();  [A,B,F,G].forEach(d=>d.api.MahaSync.stop());
   console.log(fails?('\n'+fails+' FAILED'):'\nALL PASSED');process.exit(fails?1:0);
 })().catch(e=>{console.log('HARNESS ERROR',e);process.exit(2)});
 ;
