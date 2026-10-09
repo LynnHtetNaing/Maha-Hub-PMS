@@ -66,6 +66,37 @@ $$;
 
 revoke all on function public.maha_payload_has_forbidden_keys(jsonb, text) from public, anon, authenticated;
 
+create or replace function public.maha_can_write_property(target_property uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select
+    exists (
+      select 1
+      from public.maha_properties p
+      join public.maha_organizations o on o.id = p.organization_id
+      where p.id = target_property
+        and o.owner_user_id = (select auth.uid())
+    )
+    or exists (
+      select 1
+      from public.maha_properties p
+      join public.maha_memberships m
+        on m.organization_id = p.organization_id
+       and (m.property_id is null or m.property_id = p.id)
+      where p.id = target_property
+        and m.user_id = (select auth.uid())
+        and m.active
+        and m.role <> 'read_only'
+    );
+$;
+
+revoke all on function public.maha_can_write_property(uuid) from public, anon;
+grant execute on function public.maha_can_write_property(uuid) to authenticated;
+
 create or replace function public.maha_get_property_cloud(target_property uuid)
 returns jsonb
 language plpgsql
@@ -118,8 +149,8 @@ begin
   if current_user_id is null then
     raise exception 'authentication-required' using errcode = '28000';
   end if;
-  if not public.maha_can_access_property(target_property) then
-    raise exception 'property-access-denied' using errcode = '42501';
+  if not public.maha_can_write_property(target_property) then
+    raise exception 'property-write-denied' using errcode = '42501';
   end if;
   if new_payload is null or jsonb_typeof(new_payload) <> 'object' then
     raise exception 'invalid-payload' using errcode = '22023';
