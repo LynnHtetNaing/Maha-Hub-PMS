@@ -15,14 +15,15 @@
 
 ## Files
 - `supabase/migrations/20261009_003_username_auth_owner_boundary.sql`: private username mapping and owner boundary.
-- `supabase/functions/username-auth/index.ts`: username-to-email lookup followed by Supabase Auth password verification.
+- `supabase/functions/username-auth/index.ts`: private username lookup, Supabase Auth password verification, and generic password-reset requests.
+- `supabase/functions/platform-admin-provision/index.ts`: platform-owner-only invitation and property/staff provisioning.
 
 ## Required staging work before app integration
 1. Apply migrations 001, 002, and 003 to a disposable Supabase staging project, not production.
 2. Set Edge Function secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. The service-role key must never be put in HTML, GitHub Pages, browser storage, or a client-visible config.
-3. Deploy `username-auth` with JWT verification disabled for the unauthenticated login request; the function itself handles input validation. Keep CORS restricted to the actual Maha Hub origins before production.
-4. Add login rate limiting, abuse monitoring, and recovery-email verification before public launch. The current function is a staging foundation and does not yet implement rate limiting.
-5. Build trusted account provisioning that creates Auth users, assigns usernames, links verified recovery email, and creates property membership. Never allow hotel users to write `maha_login_identities` or `maha_platform_admins` directly.
+3. Deploy `username-auth` with JWT verification disabled for the unauthenticated login request. Set `MAHA_ALLOWED_ORIGIN` to the exact Maha Hub origin. The password-reset handler currently redirects to `https://maha-hub.com/reset-password`; create and test that page before enabling recovery.
+4. Deploy `platform-admin-provision` with JWT verification enabled. It verifies the caller's Auth JWT and checks the private platform-admin table before creating an invited account and membership. It can create a company plus first property or add another property to a company owned by the same platform owner.
+5. Add rate limiting and abuse monitoring before public launch. Never allow hotel users to write `maha_login_identities` or `maha_platform_admins` directly.
 6. Update `ecosystem/index.html` to use Supabase sessions, tenant-scoped cloud load/save, and explicit conflict handling. Do not remove the existing sync or import local data until a verified backup/restore path exists.
 7. Test two separate organizations, owner-only admin UI/API, inactive staff, read-only staff, invalid passwords, recovery flow, multiple devices, and concurrent writes against real Supabase staging.
 
