@@ -4,7 +4,8 @@ begin;
 
 insert into auth.users(id, email) values
  ('00000000-0000-0000-0000-000000000101', 'platform-owner@example.test'),
- ('00000000-0000-0000-0000-000000000102', 'hotel-staff@example.test');
+ ('00000000-0000-0000-0000-000000000102', 'hotel-staff@example.test'),
+ ('00000000-0000-0000-0000-000000000103', 'other-user@example.test');
 
 insert into public.maha_login_identities(user_id, username, recovery_email) values
  ('00000000-0000-0000-0000-000000000101', 'MahaOwner', 'platform-owner@example.test'),
@@ -58,7 +59,7 @@ declare rejected boolean := false;
 begin
   begin
     insert into public.maha_login_identities(user_id, username, recovery_email)
-    values ('00000000-0000-0000-0000-000000000102', 'MAHAOWNER', 'other@example.test');
+    values ('00000000-0000-0000-0000-000000000103', 'MAHAOWNER', 'other@example.test');
   exception when unique_violation then
     rejected := true;
   end;
