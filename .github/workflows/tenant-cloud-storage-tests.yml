@@ -12,6 +12,7 @@ on:
     branches:
       - codex/cloud-pms-auth-sync
       - claude/harden-table-grants
+      - claude/backup-and-rollback
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
@@ -53,12 +54,15 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_003_username_auth_owner_boundary.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_004_global_property_code_atomic_provision.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_005_harden_table_grants.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_006_cloud_history_restore.sql
       - name: Run tenant isolation and concurrency smoke tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/tenant_cloud_storage_test.sql
       - name: Run username privacy and owner boundary smoke tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/username_auth_owner_boundary_test.sql
       - name: Run provisioning and property code tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/provision_and_property_code_test.sql
+      - name: Run cloud history and restore tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/cloud_history_restore_test.sql
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
