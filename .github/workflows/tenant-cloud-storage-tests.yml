@@ -1,0 +1,51 @@
+name: Tenant cloud storage SQL tests
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/tenant-cloud-storage-tests.yml'
+  push:
+    branches:
+      - codex/cloud-pms-auth-sync
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/tenant-cloud-storage-tests.yml'
+
+jobs:
+  tenant-cloud-storage:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: maha_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d maha_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: maha_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Bootstrap disposable Auth compatibility schema
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/tenant_cloud_test_bootstrap.sql
+      - name: Apply tenant schema migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_001_tenant_identity_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_002_property_cloud_storage.sql
+      - name: Run tenant isolation and concurrency smoke tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/tenant_cloud_storage_test.sql
