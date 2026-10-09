@@ -5,6 +5,8 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - 'supabase/functions/**'
+      - 'docs/USERNAME_AUTH_IMPLEMENTATION.md'
       - '.github/workflows/tenant-cloud-storage-tests.yml'
   push:
     branches:
@@ -52,3 +54,9 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/tenant_cloud_storage_test.sql
       - name: Run username privacy and owner boundary smoke tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/username_auth_owner_boundary_test.sql
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase Edge Functions
+        run: deno check --no-lock supabase/functions/username-auth/index.ts supabase/functions/platform-admin-provision/index.ts

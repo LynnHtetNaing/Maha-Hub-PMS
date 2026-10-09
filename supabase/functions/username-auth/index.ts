@@ -7,7 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("MAHA_ALLOWED_ORIGIN") || "https://maha-hub.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -27,12 +27,13 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !anonKey || !serviceKey) return json({ error: "auth_not_configured" }, 503);
 
-  let body: { username?: unknown; password?: unknown };
+  let body: { action?: unknown; username?: unknown; password?: unknown };
   try { body = await req.json(); } catch { return json({ error: "invalid_request" }, 400); }
 
+  const action = body.action === "request_password_reset" ? "request_password_reset" : "sign_in";
   const username = typeof body.username === "string" ? body.username.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
-  if (!/^[A-Za-z0-9._-]{3,40}$/.test(username) || password.length < 1 || password.length > 1024) {
+  if (!/^[A-Za-z0-9._-]{3,40}$/.test(username) || (action === "sign_in" && (password.length < 1 || password.length > 1024))) {
     return json({ error: "invalid_credentials" }, 401);
   }
 
@@ -45,6 +46,17 @@ Deno.serve(async (req) => {
     .select("user_id,recovery_email")
     .eq("username_normalized", username.toLowerCase())
     .maybeSingle();
+
+  // Keep password-reset responses identical for existing and unknown usernames.
+  if (action === "request_password_reset") {
+    if (!lookupError && identity?.recovery_email) {
+      const recoveryClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      await recoveryClient.auth.resetPasswordForEmail(identity.recovery_email, {
+        redirectTo: "https://maha-hub.com/reset-password",
+      });
+    }
+    return json({ ok: true, message: "If the account exists, recovery instructions will be sent to its linked email." });
+  }
 
   // Same response for unknown username and wrong password prevents username enumeration.
   if (lookupError || !identity?.recovery_email) return json({ error: "invalid_credentials" }, 401);
