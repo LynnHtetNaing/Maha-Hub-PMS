@@ -1165,7 +1165,7 @@ const MahaAuth={
   base(){return String(MAHA_AUTH_CONFIG.url||'').replace(/\/+$/,'')},
   read(){try{const t=JSON.parse(sessionStorage.getItem(SBAUTHKEY)||'null');return t&&t.access_token&&t.user&&t.user.id?t:null}catch(e){return null}},
   conflict:false,   /* true while a stale-version conflict is waiting for the user's decision */
-  write(t){try{if(!t){sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
+  write(t){try{if(!t){try{MahaSync.stop()}catch(e){}sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
   keep(d){return {access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000,user:{id:d.user&&d.user.id}}},
   /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config',message} */
   async signIn(username,password){
@@ -1197,10 +1197,10 @@ const MahaAuth={
   },
   /* Properties this account may open, newest rules from the server (RLS). Sorted by code so the choice is stable. */
   async properties(t){
-    const rows=await this.rest('maha_properties?select=property_code&property_code=not.is.null',t);
-    const codes=[];
-    (rows||[]).forEach(p=>{const c=p&&p.property_code?String(p.property_code).trim().toUpperCase():'';if(c&&!codes.includes(c))codes.push(c)});
-    return codes.sort();
+    const rows=await this.rest('maha_properties?select=id,property_code&property_code=not.is.null',t);
+    const out=[];
+    (rows||[]).forEach(p=>{const c=p&&p.property_code?String(p.property_code).trim().toUpperCase():'';if(c&&p.id&&!out.some(x=>x.code===c))out.push({code:c,id:p.id})});
+    return out.sort((a,b)=>a.code<b.code?-1:1);
   },
   /* Cloud-first sign-in: authenticate -> resolve the properties the SERVER says this account may open ->
      load that property's cloud copy -> validate it -> merge it into this device -> enter.
@@ -1210,42 +1210,57 @@ const MahaAuth={
   async staffSignIn(un,pw){
     if(/@/.test(un))return {ok:false,reason:'email',message:'Sign in with your username, not an email address.'};
     const r=await this.signIn(un,pw);if(!r.ok)return r;
-    const reject=(reason,message)=>{this.write(null);this.revoke(r.tokens);return {ok:false,reason,message}};
-    let codes;
-    try{codes=await this.properties(r.tokens)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
-    if(!codes.length)return reject('unlinked','Your account is not linked to a hotel yet. Please contact Padauk support.');
+    const reject=(reason,message)=>{MahaSync.stop();this.write(null);this.revoke(r.tokens);return {ok:false,reason,message}};
+    let props;
+    try{props=await this.properties(r.tokens)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
+    if(!props.length)return reject('unlinked','Your account is not linked to a hotel yet. Please contact Padauk support.');
     this.write(r.tokens);
+    const userOf=h=>(h&&h.users||[]).find(x=>String(x&&x.username||'').toLowerCase()===un&&x.active!==false);
     let unavailable=false,invalid=false,emptyCand=null;
-    for(const code of codes){
+    for(const p of props){
       let res;
-      try{res=await this.tenantCloud('load',code)}
+      try{res=await MahaSync.open(p.code,p.id)}
       catch(e){if(e&&(e.status===401||e.status===403))continue;unavailable=true;continue}
-      const cloud=res&&res.cloud;
-      if(!cloud||!cloud.payload){
-        const lh=(DB.hotels||{})[code];
-        const lu=lh&&(lh.users||[]).find(x=>String(x.username||'').toLowerCase()===un&&x.active!==false);
-        if(lu&&!emptyCand)emptyCand={code,h:lh,u:lu};
+      if(res==='resumed'){const h=DB.hotels[p.code],u=userOf(h);if(u){MahaSync.start();return {ok:true,h,u}}continue}
+      if(res==='empty'){
+        const lh=DB.hotels&&DB.hotels[p.code],lu=userOf(lh);
+        if(lu&&!emptyCand)emptyCand={code:p.code,id:p.id,h:lh,u:lu};
         continue;
       }
-      if(!tenantPayloadOk(cloud.payload,code)){invalid=true;continue}
-      const cu=cloud.payload.hotel.users.find(x=>String(x&&x.username||'').toLowerCase()===un&&x.active!==false);
-      if(!cu)continue;
-      await snapshotBeforeAdopt(code);
-      try{adoptTenantHotel(code,cloud.payload)}catch(e){invalid=true;continue}
-      tcvSet(code,cloud.version);
-      const h=DB.hotels[code];
-      return {ok:true,h,u:h.users.find(x=>String(x.username||'').toLowerCase()===un&&x.active!==false)||cu};
+      /* downloaded cloud copy: check it is this hotel and this user before it replaces anything */
+      const probe=msAssemble(res.records);
+      if(String(probe.code||'').toUpperCase()!==p.code||!Array.isArray(probe.users)||!probe.set||typeof probe.set!=='object'){invalid=true;continue}
+      if(!userOf(probe))continue;
+      await snapshotBeforeAdopt(p.code);
+      try{MahaSync.install(res);await MahaSync.ensureLeases(true);MahaSync.persist()}
+      catch(e){if(e&&e.status&&e.status<500)invalid=true;else unavailable=true;continue}
+      const h=DB.hotels[p.code];
+      MahaSync.start();
+      return {ok:true,h,u:userOf(h)||userOf(probe)};
     }
     if(emptyCand&&!unavailable&&!invalid){
       const go=confirm('No cloud copy exists yet for hotel '+emptyCand.code+'.\n\nUse the hotel data stored on THIS device as the first cloud copy? A backup file of it will download first.\n\nChoose Cancel if this is a new device, or if the data here is demo or test data.');
       if(!go)return reject('cancelled','Sign-in cancelled. Nothing was saved to the cloud.');
-      try{downloadHotelBackup(emptyCand.code)}catch(e){}   /* a backup file of this hotel is saved before its first cloud copy */
-      tcvSet(emptyCand.code,0);
+      try{downloadHotelBackup(emptyCand.code)}catch(e){}
+      MahaSync.reset(emptyCand.code,emptyCand.id);
+      let ok=false;try{ok=await MahaSync.firstCopy()}catch(e){return reject('unavailable','The first cloud copy could not be saved. Nothing was changed. Try again in a moment.')}
+      if(!ok)return reject('raced','Another device just created the first cloud copy. Please sign in again to load it.');
+      MahaSync.start();
       return {ok:true,h:emptyCand.h,u:emptyCand.u};
     }
     if(unavailable)return reject('unavailable','The hotel cloud copy could not be loaded, so sign-in was stopped. Nothing on this device or in the cloud was changed. Try again in a moment.');
     if(invalid)return reject('invalid-cloud','The hotel cloud copy could not be read safely. Nothing was changed. Please contact Padauk support.');
     return reject('unlinked','Your account is not set up for a hotel yet. Please contact Padauk support.');
+  },
+  /* Calls a database function as the signed-in user (row-level security decides what they can touch). */
+  async rpc(name,body){
+    const t=await this.fresh();if(!t){const e=new Error('AUTH_REQUIRED');e.code='AUTH_REQUIRED';throw e}
+    const res=await fetch(this.base()+'/rest/v1/rpc/'+name,{method:'POST',
+      headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
+      body:JSON.stringify(body)});
+    let data=null;try{data=await res.json()}catch(e){}
+    if(!res.ok){const err=new Error(data&&data.message||('HTTP '+res.status));err.status=res.status;err.code=data&&data.code;throw err}
+    return data;
   },
   async tenantCloud(action,propertyCode,payload,expectedVersion){
     const t=await this.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -1420,6 +1435,308 @@ function adoptTenantHotel(code,payload){
     saveDB({nocloud:true});
   }finally{_cloudApplying=false}
 }
+/* ---------- record-level sync engine ----------
+   Replaces the one-block-per-hotel cloud copy. A hotel is stored in the cloud one record at a time
+   (reservation, guest, folio, room, ...), each with its own version, so many staff on many devices
+   can work on the same hotel at once:
+   - different records never conflict; the same record edited on two devices is merged field by
+     field when possible, otherwise the cloud copy wins and the losing copy is kept as a snapshot;
+   - deletes travel as tombstones; a device that was offline catches up with an incremental pull;
+   - reservation / invoice / profile numbers come from non-overlapping blocks leased from the server;
+   - nothing is ever overwritten blindly: every write carries the version it was based on. */
+const MS_KEYS={reservations:'id',guests:'id',companies:'id',rooms:'no',roomTypes:'code',rateCodes:'code',shifts:'id',petty:'id',suppliers:'id',purchases:'id',users:'id',invoices:'no',audits:'date',cityLedger:'id',groups:'id',shiftCodes:'code'};
+const MS_DESC=new Set(['amend','edcLinks','approvals','mailLog','logs']);   /* lists the PMS fills newest-first */
+const MS_NODELETE=new Set(['logs','mailLog']);                                /* local trimming must not delete other devices' history */
+const MS_COUNTERS=['nextRsv','nextInternal','nextInv','nextSys','nextProfile'];
+const MS_SKIP=new Set(['session','cardVault']);
+const MS_BLOCK=50,MS_LOW=10;
+function msStable(v){
+  if(v===null||typeof v!=='object')return JSON.stringify(v===undefined?null:v);
+  if(Array.isArray(v))return '['+v.map(msStable).join(',')+']';
+  return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+msStable(v[k])).join(',')+'}';
+}
+function msHash(str){
+  let h1=0xdeadbeef,h2=0x41c6ce57;
+  for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return (4294967296*(2097151&h2)+(h1>>>0)).toString(36);
+}
+/* Copy of a record that is safe to store in the cloud: no card data, session, secrets or local password hashes. */
+function msClean(coll,v){
+  const o=JSON.parse(JSON.stringify(v===undefined?null:v));
+  const walk=x=>{if(!x||typeof x!=='object')return;if(Array.isArray(x)){x.forEach(walk);return}
+    Object.keys(x).forEach(k=>{if(TENANT_FORBIDDEN.has(k.toLowerCase()))delete x[k];else walk(x[k])})};
+  walk(o);
+  if(coll==='users'&&o&&typeof o==='object'){delete o.hash;delete o.salt;delete o.mfa}
+  if(coll==='$set'&&o&&o.v&&o.v.secret)delete o.v.secret;     /* set.stripe.secret */
+  return o;
+}
+function msKey(coll,item,seen){
+  let k;
+  if(item&&typeof item==='object'&&!Array.isArray(item)){
+    const f=MS_KEYS[coll];let c=f?item[f]:undefined;
+    if(c==null)c=item.id!=null?item.id:(item.no!=null?item.no:item.code);
+    if(c!=null)k=String(c);
+  }
+  if(k==null)k='h'+msHash(msStable(item));
+  const n=seen.get(k)||0;seen.set(k,n+1);
+  return n?k+'#'+n:k;
+}
+const msId=(c,k)=>c+'\u0001'+k;
+/* Hotel -> Map(id -> {c,k,data,hash,ref}). `ref` is the live object inside the hotel. */
+function msExplode(h){
+  const out=new Map();
+  const add=(c,k,data,ref)=>{out.set(msId(c,k),{c,k,data,hash:msHash(msStable(data)),ref})};
+  Object.keys(h||{}).forEach(name=>{
+    if(MS_SKIP.has(name))return;
+    const v=h[name];
+    if(name==='set'&&v&&typeof v==='object'&&!Array.isArray(v)){
+      Object.keys(v).forEach(f=>{if(MS_COUNTERS.includes(f)||v[f]===undefined)return;add('$set',f,msClean('$set',{v:v[f]}),null)});
+      return;
+    }
+    if(Array.isArray(v)){
+      const seen=new Map();
+      v.forEach(item=>{
+        if(item===null||item===undefined)return;
+        const k=msKey(name,item,seen);
+        const plain=item&&typeof item==='object'&&!Array.isArray(item);
+        add(name,k,plain?msClean(name,item):{$p:msClean(name,item)},item);
+      });
+      return;
+    }
+    if(v!==undefined)add('$obj',name,msClean('$obj',{v}),null);
+  });
+  return out;
+}
+/* Cloud records (in server order) -> a hotel object. */
+function msAssemble(records){
+  const h={set:{}},lists={};
+  records.forEach(r=>{
+    if(r.deleted||r.data==null)return;
+    if(r.collection==='$set'){h.set[r.key]=r.data.v;return}
+    if(r.collection==='$obj'){h[r.key]=r.data.v;return}
+    (lists[r.collection]=lists[r.collection]||[]).push(r.data&&r.data.$p!==undefined?r.data.$p:r.data);
+  });
+  Object.keys(lists).forEach(n=>{h[n]=MS_DESC.has(n)?lists[n].reverse():lists[n]});
+  return h;
+}
+/* Field-level three-way merge of two edits of the same record. Returns the merged record, or null if the
+   same field was changed differently on both sides. */
+function msMerge3(base,mine,theirs){
+  if(!base||typeof base!=='object'||Array.isArray(base)||!mine||typeof mine!=='object'||Array.isArray(mine)||!theirs||typeof theirs!=='object'||Array.isArray(theirs))return null;
+  const out={},keys=new Set([...Object.keys(base),...Object.keys(mine),...Object.keys(theirs)]);
+  for(const k of keys){
+    const b=msStable(base[k]),m=msStable(mine[k]),t=msStable(theirs[k]);
+    let pick;
+    if(m===t)pick=mine;else if(m===b)pick=theirs;else if(t===b)pick=mine;else return null;
+    if(pick[k]!==undefined)out[k]=pick[k];
+  }
+  return out;
+}
+const MahaSync={
+  code:null,pid:null,base:new Map(),baseData:new Map(),cursor:0,leases:{},busy:false,again:false,timer:null,poll:null,
+  offline:false,lastError:null,conflicts:[],onRemote:null,onState:null,
+  skey(){return 'maha.sync.'+this.code},
+  reset(code,pid){this.code=code;this.pid=pid;this.base=new Map();this.baseData=new Map();this.cursor=0;this.leases={};this.conflicts=[];this.lastError=null},
+  persist(){try{localStorage.setItem(this.skey(),JSON.stringify({cursor:this.cursor,leases:this.leases,base:[...this.base]}))}catch(e){}},
+  restore(){
+    try{const s=JSON.parse(localStorage.getItem(this.skey())||'null');
+      if(!s||!Array.isArray(s.base))return false;
+      this.cursor=+s.cursor||0;this.leases=s.leases||{};this.base=new Map(s.base);return true}catch(e){return false}
+  },
+  forget(){try{localStorage.removeItem(this.skey())}catch(e){}},
+  hotel(){return DB&&DB.hotels&&DB.hotels[this.code]},
+  async rpc(name,body){return MahaAuth.rpc(name,body)},
+  /* ---- applying cloud records to the live hotel ---- */
+  applyRecords(records){
+    const h=this.hotel();if(!h)return {applied:0,lost:[]};
+    const local=msExplode(h);let applied=0;const lost=[];
+    const setBase=(id,rec,data)=>{this.base.set(id,{v:rec.version,h:rec.deleted?null:msHash(msStable(data)),tomb:!!rec.deleted});
+      if(rec.deleted)this.baseData.delete(id);else this.baseData.set(id,JSON.stringify(data))};
+    for(const r of records){
+      const id=msId(r.collection,r.key),L=local.get(id),b=this.base.get(id);
+      const dirty=!!L&&(!b||b.tomb||L.hash!==b.h);
+      const pendingDelete=!L&&!!b&&!b.tomb;
+      if(r.deleted){
+        if(L){if(dirty)lost.push(id);this.removeLocal(h,L,r);local.delete(id);applied++}
+        setBase(id,r,null);continue;
+      }
+      let data=r.data;
+      if(L&&dirty){
+        const bd=this.baseData.has(id)?JSON.parse(this.baseData.get(id)):null;
+        const merged=bd?msMerge3(bd,L.data,r.data):null;
+        if(merged&&msStable(merged)!==msStable(L.data)){data=merged}
+        else if(merged){setBase(id,r,r.data);continue}                  /* my edit already equals the merge: nothing to take */
+        else{lost.push(id)}
+        this.setLocal(h,r.collection,r.key,data,L);
+        this.base.set(id,{v:r.version,h:msHash(msStable(r.data)),tomb:false});this.baseData.set(id,JSON.stringify(r.data));
+        local.set(id,{c:r.collection,k:r.key,data,hash:msHash(msStable(data)),ref:this.refOf(h,r.collection,r.key,data)});
+        applied++;continue;
+      }
+      if(pendingDelete)lost.push(id);                                   /* I deleted it, someone else changed it: restore theirs */
+      this.setLocal(h,r.collection,r.key,data,L);
+      setBase(id,r,data);
+      local.set(id,{c:r.collection,k:r.key,data,hash:msHash(msStable(data)),ref:this.refOf(h,r.collection,r.key,data)});
+      applied++;
+    }
+    return {applied,lost};
+  },
+  refOf(h,c,k,data){if(c==='$set'||c==='$obj')return null;const a=h[c];if(!Array.isArray(a))return null;return a.find(x=>x===data||(x&&typeof x==='object'&&msStable(x)===msStable(data)))||null},
+  setLocal(h,coll,key,data,L){
+    if(coll==='$set'){h.set=h.set||{};h.set[key]=data.v;return}
+    if(coll==='$obj'){h[key]=data.v;return}
+    if(!Array.isArray(h[coll]))h[coll]=[];
+    const arr=h[coll],val=data&&data.$p!==undefined?data.$p:data;
+    const i=L&&L.ref?arr.indexOf(L.ref):-1;
+    if(i>=0)arr[i]=val;else if(MS_DESC.has(coll))arr.unshift(val);else arr.push(val);
+  },
+  removeLocal(h,L,r){
+    if(r.collection==='$set'){if(h.set)delete h.set[r.key];return}
+    if(r.collection==='$obj'){delete h[r.key];return}
+    const arr=h[r.collection];if(!Array.isArray(arr)||!L.ref)return;
+    const i=arr.indexOf(L.ref);if(i>=0)arr.splice(i,1);
+  },
+  /* ---- one sync round ---- */
+  async pull(){
+    let total=0;const lost=[];
+    for(let guard=0;guard<200;guard++){
+      const r=await this.rpc('maha_sync_pull',{target_property:this.pid,since:this.cursor,page_size:500});
+      const a=this.applyRecords(r.records||[]);total+=a.applied;lost.push(...a.lost);
+      this.cursor=r.seq;
+      if(!r.more)break;
+    }
+    return {applied:total,lost};
+  },
+  diff(){
+    const h=this.hotel(),local=msExplode(h),changes=[];
+    for(const [id,L] of local){
+      const b=this.base.get(id);
+      if(!b)changes.push({id,collection:L.c,key:L.k,base_version:0,data:L.data,hash:L.hash});
+      else if(b.tomb)changes.push({id,collection:L.c,key:L.k,base_version:b.v,data:L.data,hash:L.hash});
+      else if(L.hash!==b.h)changes.push({id,collection:L.c,key:L.k,base_version:b.v,data:L.data,hash:L.hash});
+    }
+    for(const [id,b] of this.base){
+      if(local.has(id)||b.tomb)continue;
+      const c=id.split('\u0001')[0];
+      if(MS_NODELETE.has(c)){this.base.delete(id);this.baseData.delete(id);continue}
+      changes.push({id,collection:c,key:id.slice(c.length+1),base_version:b.v,deleted:true});
+    }
+    /* Newest-first lists are uploaded oldest-first, so the server's order matches the order things happened. */
+    const desc=changes.filter(c=>MS_DESC.has(c.collection)&&!c.deleted&&c.base_version===0);
+    if(desc.length>1){const ordered=desc.slice().reverse();let j=0;return changes.map(c=>(MS_DESC.has(c.collection)&&!c.deleted&&c.base_version===0)?ordered[j++]:c)}
+    return changes;
+  },
+  async push(){
+    const changes=this.diff();let pushed=0,conflicts=[];
+    for(let i=0;i<changes.length;i+=200){
+      const chunk=changes.slice(i,i+200);
+      const r=await this.rpc('maha_sync_push',{target_property:this.pid,changes:chunk.map(c=>({collection:c.collection,key:c.key,base_version:c.base_version,deleted:!!c.deleted,data:c.deleted?undefined:c.data}))});
+      const byId=new Map(chunk.map(c=>[msId(c.collection,c.key),c]));
+      (r.applied||[]).forEach(a=>{
+        const id=msId(a.collection,a.key),c=byId.get(id);pushed++;
+        if(c&&c.deleted){this.base.set(id,{v:a.version,h:null,tomb:true});this.baseData.delete(id)}
+        else if(c){this.base.set(id,{v:a.version,h:c.hash,tomb:false});this.baseData.set(id,JSON.stringify(c.data))}
+      });
+      (r.conflicts||[]).forEach(c=>conflicts.push({collection:c.collection,key:c.key,version:c.version,deleted:!!c.deleted,data:c.data}));
+    }
+    return {pushed,conflicts};
+  },
+  /* Pull what others changed, push what I changed, repeat if a push raced someone. Safe to call any time. */
+  async syncOnce(){
+    if(!this.code||!this.pid)return 'off';
+    if(this.busy){this.again=true;return 'busy'}
+    this.busy=true;let remote=0;const lost=[];
+    try{
+      for(let round=0;round<4;round++){
+        const p=await this.pull();remote+=p.applied;lost.push(...p.lost);
+        const q=await this.push();
+        if(q.conflicts.length){const a=this.applyRecords(q.conflicts.map(c=>({collection:c.collection,key:c.key,version:c.version,deleted:c.deleted,data:c.data})));remote+=a.applied;lost.push(...a.lost);continue}
+        break;
+      }
+      await this.ensureLeases();
+      this.persist();this.offline=false;this.lastError=null;
+      if(lost.length){this.conflicts.push(...lost);if(typeof toast==='function')toast('Another device changed '+lost.length+' record'+(lost.length>1?'s':'')+' you also edited. The latest cloud copy was kept.')}
+      if(remote&&this.onRemote)this.onRemote(remote);
+      return 'ok';
+    }catch(e){
+      this.lastError=e;this.offline=!(e&&e.status&&e.status<500&&e.status!==408);
+      if(e&&(e.status===401||e.code==='AUTH_REQUIRED')&&typeof supabaseSessionExpired==='function')supabaseSessionExpired();
+      return 'error';
+    }finally{
+      this.busy=false;
+      if(this.again){this.again=false;this.schedule()}
+      if(this.onState)this.onState(this.offline?'offline':'ok');
+    }
+  },
+  schedule(){clearTimeout(this.timer);this.timer=setTimeout(()=>{this.syncOnce()},800)},
+  start(){
+    this.stop();
+    this.poll=setInterval(()=>{if(typeof document!=='undefined'&&document.hidden)return;this.syncOnce()},12000);
+  },
+  stop(){clearTimeout(this.timer);clearInterval(this.poll);this.timer=null;this.poll=null},
+  /* ---- number blocks ---- */
+  async ensureLeases(force){
+    const h=this.hotel();if(!h||!h.set)return;let changed=false;
+    for(const c of MS_COUNTERS){
+      const cur=+h.set[c]||0,ls=this.leases[c];
+      const need=force||!ls||cur<ls.start||cur>ls.end-MS_LOW;
+      if(!need)continue;
+      const r=await this.rpc('maha_lease_numbers',{target_property:this.pid,counter_name:c,floor_value:Math.max(cur,1),block_size:MS_BLOCK});
+      this.leases[c]={start:+r.start,end:+r.end};
+      if(cur<+r.start||cur>+r.end){h.set[c]=+r.start;changed=true}
+    }
+    if(changed&&typeof saveDB==='function')saveDB({keepTime:true,nocloud:true});
+  },
+  /* ---- sign-in ---- */
+  /* Load a hotel from the cloud at sign-in. Returns 'resumed' | 'loaded' | 'empty'. */
+  async open(code,pid){
+    this.reset(code,pid);
+    const had=!!this.hotel();
+    const resumed=had&&this.restore();
+    if(resumed){await this.syncOnce();if(this.lastError)throw this.lastError;return 'resumed'}
+    let cursor=0,all=[];
+    for(let guard=0;guard<500;guard++){
+      const r=await this.rpc('maha_sync_pull',{target_property:pid,since:cursor,page_size:1000});
+      all.push(...(r.records||[]));cursor=r.seq;if(!r.more)break;
+    }
+    if(!all.length)return 'empty';
+    return {records:all,cursor};
+  },
+  /* Install a downloaded cloud copy as this device's hotel (the caller already took a safety snapshot). */
+  install(res){
+    const h=msAssemble(res.records);
+    h.code=h.code||this.code;
+    const tmp=migrateDB({version:5,hotels:{[this.code]:h},providers:[],provLog:[]});
+    DB.hotels[this.code]=tmp.hotels[this.code];
+    this.base=new Map();this.baseData=new Map();
+    const local=msExplode(DB.hotels[this.code]);
+    res.records.forEach(r=>{
+      if(r.deleted){this.base.set(msId(r.collection,r.key),{v:r.version,h:null,tomb:true});return}
+      const id=msId(r.collection,r.key);
+      this.base.set(id,{v:r.version,h:msHash(msStable(r.data)),tomb:false});this.baseData.set(id,JSON.stringify(r.data));
+    });
+    this.cursor=res.cursor;
+  },
+  /* First cloud copy: upload everything on this device. Fails (returns false) if the cloud already has records. */
+  async firstCopy(){
+    const h=this.hotel();if(!h)return false;
+    const r=await this.push();
+    if(r.conflicts.length)return false;
+    await this.ensureLeases(true);
+    this.persist();return true;
+  }
+};
+/* ---------- end record-level sync engine ---------- */
+MahaSync.onRemote=n=>{
+  try{
+    if(!DB||!DB.session||DB.session.provider)return;
+    const ae=document.activeElement,typing=ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
+    if((typeof MODALS!=='undefined'&&MODALS.length)||typing){toast('Updated from another device. This screen refreshes when you close it.');return}
+    bindHotel();if(typeof render==='function')render();
+  }catch(e){}
+};
+window.addEventListener&&window.addEventListener('online',()=>{try{if(MahaSync.code)MahaSync.syncOnce()}catch(e){}});
 function sessionValid(se){
   if(!se||!DB)return false;
   const now=Date.now();
@@ -1512,7 +1829,7 @@ async function tenantCloudPush(){
   if(result&&result.cloud){tcvSet(code,result.cloud.version);return 'pushed'}
   return 'error';
 }
-function scheduleCloudPush(){if(MahaAuth.on()){clearTimeout(_cloudT);_cloudT=setTimeout(()=>{tenantCloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast(e&&e.status===409?'Cloud save conflict: reload the latest hotel data before continuing.':'Secure cloud save did not finish. This browser still has the hotel file.')})},800);return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
+function scheduleCloudPush(){if(MahaAuth.on()){if(MahaSync.code&&DB&&DB.session&&!DB.session.provider)MahaSync.schedule();return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
 async function cloudPull(opt){
   const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass||!DB)return 'off';
   let data;
