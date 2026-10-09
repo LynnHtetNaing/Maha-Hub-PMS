@@ -132,4 +132,4 @@ Added `supabase/migrations/20261009_002_property_cloud_storage.sql` on the cloud
 5. Verify that unauthenticated requests and users outside the property fail, and that browser clients cannot write directly to the payload table.
 6. Build an explicit, backed-up importer and per-property data mapping before enabling this storage in the app.
 
-**Current implementation status:** database groundwork only. The existing app still uses the legacy shared-passphrase sync until a separate, tested app integration and migration is completed.
+**Current implementation status:** database groundwork with passing disposable PostgreSQL 15 smoke tests. The existing app still uses the legacy shared-passphrase sync until a separate, tested app integration and migration is completed.
