@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "invalid_request" }, 400); }
 
+  const requestedOrgId = typeof body.organization_id === "string" ? body.organization_id.trim() : "";
   const organizationName = typeof body.organization_name === "string" ? body.organization_name.trim() : "";
   const propertyName = typeof body.property_name === "string" ? body.property_name.trim() : "";
   const propertyCode = typeof body.property_code === "string" ? body.property_code.trim().toUpperCase() : "";
@@ -48,7 +49,8 @@ Deno.serve(async (req) => {
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const role = body.role === "property_admin" ? "property_admin" : "staff";
 
-  if (organizationName.length < 2 || organizationName.length > 160 ||
+  if ((!requestedOrgId && (organizationName.length < 2 || organizationName.length > 160)) ||
+      (requestedOrgId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedOrgId)) ||
       propertyName.length < 2 || propertyName.length > 160 ||
       !/^[A-Z0-9_-]{2,24}$/.test(propertyCode) ||
       !/^[A-Za-z0-9._-]{3,40}$/.test(username) ||
@@ -65,12 +67,21 @@ Deno.serve(async (req) => {
 
   const userId = invited.user.id;
   let orgId: string | null = null;
+  let createdOrg = false;
   let propertyId: string | null = null;
   try {
-    const { data: org, error: orgError } = await admin.from("maha_organizations")
-      .insert({ name: organizationName, owner_user_id: caller.user.id }).select("id").single();
-    if (orgError || !org) throw new Error("organization_create_failed");
-    orgId = org.id;
+    if (requestedOrgId) {
+      const { data: org, error: orgError } = await admin.from("maha_organizations")
+        .select("id").eq("id", requestedOrgId).eq("owner_user_id", caller.user.id).maybeSingle();
+      if (orgError || !org) throw new Error("organization_not_owned");
+      orgId = org.id;
+    } else {
+      const { data: org, error: orgError } = await admin.from("maha_organizations")
+        .insert({ name: organizationName, owner_user_id: caller.user.id }).select("id").single();
+      if (orgError || !org) throw new Error("organization_create_failed");
+      orgId = org.id;
+      createdOrg = true;
+    }
 
     const { data: property, error: propertyError } = await admin.from("maha_properties")
       .insert({ organization_id: orgId, name: propertyName, property_code: propertyCode })
@@ -89,7 +100,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, organization_id: orgId, property_id: propertyId, username, role, invitation_sent: true }, 201);
   } catch {
     if (propertyId) await admin.from("maha_properties").delete().eq("id", propertyId);
-    if (orgId) await admin.from("maha_organizations").delete().eq("id", orgId);
+    if (createdOrg && orgId) await admin.from("maha_organizations").delete().eq("id", orgId);
     await admin.from("maha_login_identities").delete().eq("user_id", userId);
     await admin.auth.admin.deleteUser(userId);
     return json({ error: "provisioning_failed" }, 400);
