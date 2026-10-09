@@ -1,7 +1,15 @@
 // Supabase Edge Function: platform-admin-provision
-// Owner-only invitation and provisioning for a hotel + its first staff account.
+// Owner-only provisioning of a hotel + its first staff account.
 // Required secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
 // Keep this function JWT-protected. Never put service-role credentials in browser code.
+//
+// Order of operations (changed from v5 so a failure can never leave partial data):
+//   1. create the auth user (confirmed, no email sent yet; fails if the email exists, so
+//      a pre-existing account is never touched or deleted by the cleanup below)
+//   2. maha_provision_hotel() writes organization/property/identity/membership in ONE
+//      database transaction
+//   3. only after that commits, send the set-password email
+// If step 2 fails the auth user created in step 1 is deleted; no email has gone out.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -58,51 +66,53 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_fields" }, 400);
   }
 
-  // Account access is established through an email invitation; this endpoint never
-  // receives or stores a password. The user chooses their password via Supabase.
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { maha_username: username },
+  // Cheap pre-checks so common mistakes fail before any auth user is created.
+  const { data: codeTaken } = await admin.from("maha_properties").select("id").eq("property_code", propertyCode).maybeSingle();
+  if (codeTaken) return json({ error: "property_code_taken" }, 409);
+  const { data: nameTaken } = await admin.from("maha_login_identities").select("user_id")
+    .eq("username_normalized", username.toLowerCase()).maybeSingle();
+  if (nameTaken) return json({ error: "username_taken" }, 409);
+
+  // 1. Auth user. createUser fails if the email already exists: never reuse or delete one.
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email, email_confirm: true, user_metadata: { maha_username: username },
   });
-  if (inviteError || !invited.user) return json({ error: "invite_failed" }, 400);
+  if (createError || !created.user) return json({ error: "account_create_failed" }, 400);
+  const userId = created.user.id;
 
-  const userId = invited.user.id;
-  let orgId: string | null = null;
-  let createdOrg = false;
-  let propertyId: string | null = null;
-  try {
-    if (requestedOrgId) {
-      const { data: org, error: orgError } = await admin.from("maha_organizations")
-        .select("id").eq("id", requestedOrgId).eq("owner_user_id", caller.user.id).maybeSingle();
-      if (orgError || !org) throw new Error("organization_not_owned");
-      orgId = org.id;
-    } else {
-      const { data: org, error: orgError } = await admin.from("maha_organizations")
-        .insert({ name: organizationName, owner_user_id: caller.user.id }).select("id").single();
-      if (orgError || !org) throw new Error("organization_create_failed");
-      orgId = org.id;
-      createdOrg = true;
-    }
-
-    const { data: property, error: propertyError } = await admin.from("maha_properties")
-      .insert({ organization_id: orgId, name: propertyName, property_code: propertyCode })
-      .select("id").single();
-    if (propertyError || !property) throw new Error("property_create_failed");
-    propertyId = property.id;
-
-    const { error: identityError } = await admin.from("maha_login_identities")
-      .insert({ user_id: userId, username, recovery_email: email });
-    if (identityError) throw new Error("username_create_failed");
-
-    const { error: membershipError } = await admin.from("maha_memberships")
-      .insert({ organization_id: orgId, property_id: propertyId, user_id: userId, role, active: true });
-    if (membershipError) throw new Error("membership_create_failed");
-
-    return json({ ok: true, organization_id: orgId, property_id: propertyId, username, role, invitation_sent: true }, 201);
-  } catch {
-    if (propertyId) await admin.from("maha_properties").delete().eq("id", propertyId);
-    if (createdOrg && orgId) await admin.from("maha_organizations").delete().eq("id", orgId);
-    await admin.from("maha_login_identities").delete().eq("user_id", userId);
-    await admin.auth.admin.deleteUser(userId);
-    return json({ error: "provisioning_failed" }, 400);
+  // 2. One transaction for all tenant rows.
+  const { data: ids, error: provisionError } = await admin.rpc("maha_provision_hotel", {
+    p_org_id: requestedOrgId || null,
+    p_org_name: requestedOrgId ? null : organizationName,
+    p_owner: caller.user.id,
+    p_property_name: propertyName,
+    p_property_code: propertyCode,
+    p_user_id: userId,
+    p_username: username,
+    p_email: email,
+    p_role: role,
+  });
+  if (provisionError || !ids) {
+    const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
+    const status = provisionError?.code === "23505" ? 409 : provisionError?.code === "42501" ? 403 : 400;
+    return json({
+      error: provisionError?.code === "23505" ? "duplicate_property_or_username" : "provisioning_failed",
+      cleanup_failed: deleteError ? true : undefined,
+    }, status);
   }
+
+  // 3. Set-password email only after everything committed. A failure here does not undo
+  // the hotel; the owner can re-send through the username-auth password reset action.
+  const { error: mailError } = await authClient.auth.resetPasswordForEmail(email, {
+    redirectTo: "https://maha-hub.com/reset-password",
+  });
+
+  return json({
+    ok: true,
+    organization_id: ids.organization_id,
+    property_id: ids.property_id,
+    username,
+    role,
+    invitation_sent: !mailError,
+  }, 201);
 });
