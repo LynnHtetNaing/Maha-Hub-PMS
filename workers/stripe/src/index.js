@@ -176,8 +176,8 @@ export default {
           service: 'maha-stripe-worker',
           hasSecret: !!secret,
           publishableKey: (env.STRIPE_PUBLISHABLE_KEY || '').trim() || null,
-          livemode: secret.startsWith('sk_live_'),
-          testMode: secret.startsWith('sk_test_') || !secret,
+          livemode: secret.startsWith('sk_live_') || secret.startsWith('rk_live_'),
+          testMode: !secret || secret.startsWith('sk_test_') || secret.startsWith('rk_test_'),
           note: secret
             ? 'Stripe Worker ready. Checkout Sessions request 3D Secure.'
             : 'Set Worker secret STRIPE_SECRET_KEY.',

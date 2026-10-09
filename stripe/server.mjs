@@ -37,6 +37,8 @@ const PORT = Number(process.env.MAHA_STRIPE_PORT || 8783);
 const HOST = process.env.MAHA_STRIPE_HOST || '127.0.0.1';
 const SECRET = (process.env.STRIPE_SECRET_KEY || '').trim();
 const PUBLISHABLE = (process.env.STRIPE_PUBLISHABLE_KEY || '').trim();
+const keyLive = (k) => k.startsWith('sk_live_') || k.startsWith('rk_live_');
+const keyTest = (k) => !k || k.startsWith('sk_test_') || k.startsWith('rk_test_');
 
 function send(res, status, body, type = 'application/json; charset=utf-8') {
   const buf = Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
@@ -314,8 +316,8 @@ const server = http.createServer(async (req, res) => {
         service: 'maha-stripe',
         hasSecret: !!SECRET,
         publishableKey: PUBLISHABLE || null,
-        livemode: SECRET.startsWith('sk_live_'),
-        testMode: SECRET.startsWith('sk_test_') || !SECRET,
+        livemode: keyLive(SECRET),
+        testMode: keyTest(SECRET),
         note: SECRET
           ? 'Stripe keys loaded. Checkout Sessions will request 3D Secure.'
           : 'Set STRIPE_SECRET_KEY (and optional STRIPE_PUBLISHABLE_KEY) then restart.',
