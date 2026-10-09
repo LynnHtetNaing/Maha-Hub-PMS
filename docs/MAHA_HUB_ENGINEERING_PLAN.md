@@ -46,3 +46,18 @@ Status: initial source-code audit; not a penetration test. This document records
 
 ## Release gate
 Do not use the current build with real guest data or live Stripe secrets until the authentication, tenant-isolation, and payment-secret issues have been addressed and independently tested. This source review alone does not establish that the live service has been compromised.
+
+## Work completed on the hardening branch
+
+- The Stripe Worker now rejects browser requests whose `Origin` is not in the exact configured allowlist. It no longer defaults to wildcard CORS in code.
+- Worker checkout success/cancel URLs must use HTTPS and an explicitly allowed origin, reducing open-redirect abuse.
+- Stripe amount parsing now rejects non-finite values, invalid currency codes, and values that overflow safe integer minor units.
+- Added Node built-in tests for origin rejection, trusted-origin behavior, off-site return URL rejection, and invalid amount rejection.
+- Updated Worker configuration to allow only `https://maha-hub.com` and `https://www.maha-hub.com` by default. Add any legitimate custom production frontend origins explicitly before release.
+- These changes are committed only to `codex/maha-hub-hardening`; no deployment has been made.
+
+## Verification and remaining blockers
+
+- Automated tests are added but could not be executed in this environment because a GitHub clone attempt failed at network DNS resolution. Do not mark them as passing until run in CI or a connected development environment.
+- This is an interim hardening step, not a complete payment security fix. CORS does not authenticate callers. The Worker still supports client-supplied hotel Stripe secrets and account IDs for backward compatibility; those need a tenant-aware server-side credential migration and authorization before production use.
+- The shared-passphrase Supabase model and client-side role checks remain unresolved. Do not represent Maha Hub as production-secure or process real guest/payment data on the strength of these changes alone.
