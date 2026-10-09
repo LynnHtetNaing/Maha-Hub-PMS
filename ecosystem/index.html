@@ -1208,6 +1208,17 @@ const MahaAuth={
     this.revoke(r.tokens);
     return {ok:false,reason:'unlinked',message:'Your account is not linked to a hotel on this device yet. Please contact Padauk support.'};
   },
+  async tenantCloud(action,propertyCode,payload,expectedVersion){
+    const t=await this.fresh();if(!t)throw new Error('AUTH_REQUIRED');
+    const res=await fetch(this.base()+'/functions/v1/tenant-cloud',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
+      body:JSON.stringify({action,property_code:propertyCode,payload,expected_version:expectedVersion})
+    });
+    let data=null;try{data=await res.json()}catch(e){}
+    if(!res.ok){const err=new Error(data&&data.error||('HTTP '+res.status));err.status=res.status;err.details=data;throw err}
+    return data;
+  },
   /* Keep the token fresh; returns a usable token or null. */
   async fresh(){
     const t=this.read();if(!t)return null;
@@ -1363,7 +1374,38 @@ async function cloudPush(){
   if(res&&res.conflict){adoptCloud(res.payload,Date.parse(res.updated_at)||Date.now(),{render:true});toast('The cloud copy was newer. This screen is showing that copy.');return}
   markCloudCursor(DB.savedAt||Date.now());
 }
-function scheduleCloudPush(){const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
+async function tenantCloudPull(opt){
+  if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return 'off';
+  const token=await MahaAuth.fresh();if(!token)return 'off';
+  const hotel=DB.hotels&&DB.hotels[DB.session.hotel];if(!hotel||!hotel.code)return 'no-property';
+  const result=await MahaAuth.tenantCloud('load',hotel.code);
+  const cloud=result&&result.cloud;if(!cloud||!cloud.payload)return 'empty';
+  const remoteAt=Date.parse(cloud.updated_at)||0;
+  const localAt=+(DB.savedAt||0);
+  const state=JSON.parse(JSON.stringify(DB));
+  const cursor=+(sessionStorage.getItem('maha.tenantCloudCursor')||0);
+  if(opt&&opt.force||!cursor||remoteAt>localAt){
+    adoptCloud(cloud.payload,remoteAt,opt&&opt.render?{render:true}:null);
+    sessionStorage.setItem('maha.tenantCloudVersion',String(cloud.version||1));
+    sessionStorage.setItem('maha.tenantCloudCursor',String(remoteAt));
+    return 'pulled';
+  }
+  return 'same';
+}
+async function tenantCloudPush(){
+  if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider||_cloudApplying)return 'off';
+  const token=await MahaAuth.fresh();if(!token)return 'off';
+  const hotel=DB.hotels&&DB.hotels[DB.session.hotel];if(!hotel||!hotel.code)return 'no-property';
+  const expected=+(sessionStorage.getItem('maha.tenantCloudVersion')||0);
+  const result=await MahaAuth.tenantCloud('save',hotel.code,cloudStrip(DB),expected);
+  if(result&&result.cloud){
+    sessionStorage.setItem('maha.tenantCloudVersion',String(result.cloud.version||expected+1));
+    sessionStorage.setItem('maha.tenantCloudCursor',String(Date.parse(result.cloud.updated_at)||Date.now()));
+    return 'pushed';
+  }
+  return 'error';
+}
+function scheduleCloudPush(){if(MahaAuth.on()){clearTimeout(_cloudT);_cloudT=setTimeout(()=>{tenantCloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast(e&&e.status===409?'Cloud save conflict: reload the latest hotel data before continuing.':'Secure cloud save did not finish. This browser still has the hotel file.')})},800);return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
 async function cloudPull(opt){
   const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass||!DB)return 'off';
   let data;
