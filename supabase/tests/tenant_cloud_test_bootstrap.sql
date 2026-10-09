@@ -26,3 +26,8 @@ stable
 as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
+
+-- Mirror Supabase: new public tables get full privileges for anon/authenticated by default.
+-- Migrations must narrow these (see 20261009_005_harden_table_grants.sql).
+alter default privileges in schema public grant all on tables to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
