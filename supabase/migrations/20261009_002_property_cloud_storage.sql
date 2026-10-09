@@ -53,7 +53,7 @@ begin
       end if;
     end loop;
   elsif jsonb_typeof(node) = 'array' then
-    for item in select value as key, value from jsonb_array_elements(node) as value
+    for item in select element as key, element as value from jsonb_array_elements(node) as arr(element)
     loop
       if public.maha_payload_has_forbidden_keys(item.value, parent_key) then
         return true;
