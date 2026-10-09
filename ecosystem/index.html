@@ -1208,6 +1208,17 @@ const MahaAuth={
     this.revoke(r.tokens);
     return {ok:false,reason:'unlinked',message:'Your account is not linked to a hotel on this device yet. Please contact Padauk support.'};
   },
+  async tenantCloud(action,propertyCode,payload,expectedVersion){
+    const t=await this.fresh();if(!t)throw new Error('AUTH_REQUIRED');
+    const res=await fetch(this.base()+'/functions/v1/tenant-cloud',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
+      body:JSON.stringify({action,property_code:propertyCode,payload,expected_version:expectedVersion})
+    });
+    let data=null;try{data=await res.json()}catch(e){}
+    if(!res.ok){const err=new Error(data&&data.error||('HTTP '+res.status));err.status=res.status;err.details=data;throw err}
+    return data;
+  },
   /* Keep the token fresh; returns a usable token or null. */
   async fresh(){
     const t=this.read();if(!t)return null;
