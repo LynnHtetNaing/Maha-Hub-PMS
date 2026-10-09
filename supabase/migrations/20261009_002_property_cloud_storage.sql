@@ -92,7 +92,7 @@ as $
         and m.active
         and m.role <> 'read_only'
     );
-$;
+$$;
 
 revoke all on function public.maha_can_write_property(uuid) from public, anon;
 grant execute on function public.maha_can_write_property(uuid) to authenticated;
