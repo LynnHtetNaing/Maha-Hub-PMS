@@ -1230,14 +1230,16 @@ const MahaAuth={
       if(!tenantPayloadOk(cloud.payload,code)){invalid=true;continue}
       const cu=cloud.payload.hotel.users.find(x=>String(x&&x.username||'').toLowerCase()===un&&x.active!==false);
       if(!cu)continue;
+      await snapshotBeforeAdopt(code);
       try{adoptTenantHotel(code,cloud.payload)}catch(e){invalid=true;continue}
       tcvSet(code,cloud.version);
       const h=DB.hotels[code];
       return {ok:true,h,u:h.users.find(x=>String(x.username||'').toLowerCase()===un&&x.active!==false)||cu};
     }
     if(emptyCand&&!unavailable&&!invalid){
-      const go=confirm('No cloud copy exists yet for hotel '+emptyCand.code+'.\n\nUse the hotel data stored on THIS device as the first cloud copy?\n\nChoose Cancel if this is a new device, or if the data here is demo or test data.');
+      const go=confirm('No cloud copy exists yet for hotel '+emptyCand.code+'.\n\nUse the hotel data stored on THIS device as the first cloud copy? A backup file of it will download first.\n\nChoose Cancel if this is a new device, or if the data here is demo or test data.');
       if(!go)return reject('cancelled','Sign-in cancelled. Nothing was saved to the cloud.');
+      try{downloadHotelBackup(emptyCand.code)}catch(e){}   /* a backup file of this hotel is saved before its first cloud copy */
       tcvSet(emptyCand.code,0);
       return {ok:true,h:emptyCand.h,u:emptyCand.u};
     }
@@ -1385,6 +1387,25 @@ function tenantPayloadOk(p,code){
 }
 function tcvGet(code){try{const v=sessionStorage.getItem(TCV_PREFIX+code);return v===null?null:(+v||0)}catch(e){return null}}
 function tcvSet(code,v){try{sessionStorage.setItem(TCV_PREFIX+code,String(+v||0))}catch(e){}}
+/* Safety copy before cloud data replaces a hotel that already exists on this device.
+   Written in the same format as the daily snapshots, so Settings > Backup can restore it. Best effort. */
+async function snapshotBeforeAdopt(code){
+  try{
+    if(!DB||!DB.hotels||!DB.hotels[code]||typeof idbSet!=='function')return false;
+    const keep=DB.session;DB.session=null;let raw;try{raw=JSON.stringify(DB)}finally{DB.session=keep}
+    const at=Date.now();
+    await idbSet('snaps','s'+at+'-pre',{at,day:iso(new Date(at)),db:JSON.parse(raw),note:'Before loading '+code+' from the cloud'});
+    await trimSnaps();
+    return true;
+  }catch(e){return false}
+}
+/* Downloads one hotel as a JSON file (used before the first cloud copy is created). */
+function downloadHotelBackup(code){
+  const h=DB&&DB.hotels&&DB.hotels[code];if(!h)return false;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),hotel:h})],{type:'application/json'}));
+  a.download='mahahub-'+code+'-before-cloud-'+iso(new Date())+'.json';document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400);return true;
+}
 /* Merge ONE hotel from the cloud into this device. Providers, other hotels, card vault and logos stay as they are. */
 function adoptTenantHotel(code,payload){
   const prev=DB.hotels&&DB.hotels[code];
@@ -1456,6 +1477,7 @@ async function tenantCloudPull(opt){
   const result=await MahaAuth.tenantCloud('load',code);
   const cloud=result&&result.cloud;if(!cloud||!cloud.payload)return 'empty';
   if(!tenantPayloadOk(cloud.payload,code))return 'invalid';
+  await snapshotBeforeAdopt(code);
   adoptTenantHotel(code,cloud.payload);
   tcvSet(code,cloud.version);MahaAuth.conflict=false;
   if(opt&&opt.render){renderShell();render()}
@@ -1465,11 +1487,12 @@ async function tenantCloudPull(opt){
    the cloud copy is never overwritten with stale data. */
 function tenantCloudConflict(code,cloud){
   MahaAuth.conflict=true;
-  setTimeout(()=>{
+  setTimeout(async()=>{
     if(cloud&&cloud.payload&&tenantPayloadOk(cloud.payload,code)&&
        confirm('This hotel was changed on another device.\n\nLoad the latest cloud copy now? Unsaved changes on this screen will be replaced.\n\nCancel keeps this screen, but cloud saving stays paused until you reload.')){
+      await snapshotBeforeAdopt(code);
       adoptTenantHotel(code,cloud.payload);tcvSet(code,cloud.version);MahaAuth.conflict=false;
-      renderShell();render();toast('Loaded the latest cloud copy.');return;
+      renderShell();render();toast('Loaded the latest cloud copy. Your previous screen was saved as a snapshot in Settings > Backup.');return;
     }
     toast('Cloud saving is paused because another device saved first. Reload the page and sign in again to load the latest copy.');
   },0);
