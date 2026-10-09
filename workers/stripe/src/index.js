@@ -66,6 +66,75 @@ async function stripeGet(secret, path, opts = {}) {
   return data;
 }
 
+function validEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+}
+
+async function createCollect(secret, input, stripeAccount) {
+  const currency = String(input.currency || 'THB').toLowerCase();
+  const unitAmount = toStripeAmount(input.amount, currency);
+  const guest = String(input.guest || '').trim().slice(0, 120);
+  const email = String(input.email || '').trim().slice(0, 200);
+  const item = String(input.item || input.note || '').trim().slice(0, 120);
+  const hotel = String(input.hotel || 'PAD01').slice(0, 32);
+  const hotelName = String(input.hotelName || '').trim().slice(0, 120);
+  const linkId = String(input.linkId || '').slice(0, 64);
+  if (!item) throw Object.assign(new Error('Enter the item name'), { status: 400 });
+  if (!guest) throw Object.assign(new Error('Enter the guest name'), { status: 400 });
+  if (!validEmail(email)) throw Object.assign(new Error('Enter a valid email'), { status: 400 });
+  const opts = { stripeAccount };
+  const meta = {
+    'metadata[linkId]': linkId || undefined,
+    'metadata[hotel]': hotel || undefined,
+    'metadata[guest]': guest,
+    'metadata[item]': item,
+    'metadata[email]': email,
+  };
+  const customer = await stripeForm(secret, '/customers', { email, name: guest, ...meta }, opts);
+  const draft = await stripeForm(secret, '/invoices', {
+    customer: customer.id,
+    collection_method: 'send_invoice',
+    days_until_due: '7',
+    auto_advance: 'false',
+    description: [hotelName, item].filter(Boolean).join(' — ').slice(0, 200) || undefined,
+    ...meta,
+  }, opts);
+  await stripeForm(secret, '/invoiceitems', {
+    customer: customer.id,
+    invoice: draft.id,
+    amount: String(unitAmount),
+    currency,
+    description: item,
+    ...meta,
+  }, opts);
+  const finalized = await stripeForm(secret, '/invoices/' + encodeURIComponent(draft.id) + '/finalize', {}, opts);
+  let sent = finalized;
+  let emailed = false;
+  let emailError = '';
+  try {
+    sent = await stripeForm(secret, '/invoices/' + encodeURIComponent(draft.id) + '/send', {}, opts);
+    emailed = true;
+  } catch (e) {
+    emailError = e.message || String(e);
+  }
+  const url = (sent && sent.hosted_invoice_url) || finalized.hosted_invoice_url;
+  if (!url) throw new Error(emailError || 'Stripe did not return a payment link');
+  const live = !!(sent.livemode || finalized.livemode);
+  return {
+    ok: true,
+    id: sent.id || finalized.id,
+    url,
+    number: sent.number || finalized.number || '',
+    status: sent.status || finalized.status || 'open',
+    emailed,
+    emailError: emailed ? '' : emailError,
+    livemode: live,
+    testMode: !live,
+    customerEmail: email,
+    kind: 'invoice',
+  };
+}
+
 function cardFromSession(session) {
   const pi = session.payment_intent && typeof session.payment_intent === 'object' ? session.payment_intent : null;
   const pm = pi && pi.payment_method && typeof pi.payment_method === 'object' ? pi.payment_method : null;
@@ -167,6 +236,36 @@ export default {
           livemode: !!session.livemode,
           stripeAccount: stripeAccount || null,
           hotelOwned: !!input.secret,
+        }, 200, cors);
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/collect') {
+        const input = await request.json().catch(() => ({}));
+        const secret = String(input.secret || env.STRIPE_SECRET_KEY || '').trim();
+        if (!secret) throw Object.assign(new Error('STRIPE_SECRET_KEY is not set'), { status: 400 });
+        const stripeAccount = String(input.stripeAccount || '').trim() || undefined;
+        const out = await createCollect(secret, input, stripeAccount);
+        return json(out, 200, cors);
+      }
+
+      if (request.method === 'GET' && url.pathname.startsWith('/api/invoice/')) {
+        const id = decodeURIComponent(url.pathname.slice('/api/invoice/'.length));
+        if (!id) return json({ ok: false, error: 'missing invoice id' }, 400, cors);
+        const secret = String(request.headers.get('X-Maha-Stripe-Secret') || env.STRIPE_SECRET_KEY || '').trim();
+        if (!secret) throw Object.assign(new Error('STRIPE_SECRET_KEY is not set'), { status: 400 });
+        const stripeAccount = String(request.headers.get('Stripe-Account') || '').trim() || undefined;
+        const inv = await stripeGet(secret, '/invoices/' + encodeURIComponent(id) + '?expand[]=payment_intent', { stripeAccount });
+        return json({
+          ok: true,
+          id: inv.id,
+          status: inv.status,
+          paid: inv.status === 'paid',
+          url: inv.hosted_invoice_url || '',
+          number: inv.number || '',
+          customerEmail: inv.customer_email || '',
+          amountDue: inv.amount_due,
+          currency: inv.currency,
+          livemode: !!inv.livemode,
         }, 200, cors);
       }
 

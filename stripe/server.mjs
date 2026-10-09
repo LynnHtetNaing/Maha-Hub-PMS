@@ -174,6 +174,90 @@ async function createCheckout(input) {
   };
 }
 
+function validEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+}
+
+/**
+ * Create a Stripe invoice for one item and email the hosted payment link.
+ * One charge only — the link Stripe emails is the link we store.
+ */
+async function createCollect(input) {
+  const currency = String(input.currency || 'THB').toLowerCase();
+  const unitAmount = toStripeAmount(input.amount, currency);
+  const guest = String(input.guest || '').trim().slice(0, 120);
+  const email = String(input.email || '').trim().slice(0, 200);
+  const item = String(input.item || input.note || '').trim().slice(0, 120);
+  const hotel = String(input.hotel || 'PAD01').slice(0, 32);
+  const hotelName = String(input.hotelName || '').trim().slice(0, 120);
+  const linkId = String(input.linkId || '').slice(0, 64);
+  if (!item) throw new Error('Enter the item name');
+  if (!guest) throw new Error('Enter the guest name');
+  if (!validEmail(email)) throw new Error('Enter a valid email');
+
+  const secret = String(input.secret || '').trim() || undefined;
+  const stripeAccount = String(input.stripeAccount || '').trim() || undefined;
+  const opts = { secret, stripeAccount };
+  const meta = {
+    'metadata[linkId]': linkId || undefined,
+    'metadata[hotel]': hotel || undefined,
+    'metadata[guest]': guest,
+    'metadata[item]': item,
+    'metadata[email]': email,
+  };
+
+  const customer = await stripeForm('/customers', {
+    email,
+    name: guest,
+    ...meta,
+  }, 'POST', opts);
+
+  const draft = await stripeForm('/invoices', {
+    customer: customer.id,
+    collection_method: 'send_invoice',
+    days_until_due: '7',
+    auto_advance: 'false',
+    description: [hotelName, item].filter(Boolean).join(' — ').slice(0, 200) || undefined,
+    ...meta,
+  }, 'POST', opts);
+
+  await stripeForm('/invoiceitems', {
+    customer: customer.id,
+    invoice: draft.id,
+    amount: String(unitAmount),
+    currency,
+    description: item,
+    ...meta,
+  }, 'POST', opts);
+
+  const finalized = await stripeForm('/invoices/' + encodeURIComponent(draft.id) + '/finalize', {}, 'POST', opts);
+  let sent = finalized;
+  let emailed = false;
+  let emailError = '';
+  try {
+    sent = await stripeForm('/invoices/' + encodeURIComponent(draft.id) + '/send', {}, 'POST', opts);
+    emailed = true;
+  } catch (e) {
+    emailError = e.message || String(e);
+  }
+  const url = (sent && sent.hosted_invoice_url) || finalized.hosted_invoice_url;
+  if (!url) throw new Error(emailError || 'Stripe did not return a payment link');
+  const live = !!(sent.livemode || finalized.livemode);
+  return {
+    ok: true,
+    id: sent.id || finalized.id,
+    url,
+    number: sent.number || finalized.number || '',
+    status: sent.status || finalized.status || 'open',
+    emailed,
+    emailError: emailed ? '' : emailError,
+    livemode: live,
+    testMode: !live,
+    customerEmail: email,
+    kind: 'invoice',
+  };
+}
+
 async function stripeGet(path, opts = {}) {
   const secret = resolveSecret(opts.secret);
   const headers = { Authorization: 'Bearer ' + secret };
@@ -242,6 +326,36 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const out = await createCheckout(body);
       return send(res, 200, out);
+    }
+
+    if (req.method === 'POST' && u.pathname === '/api/collect') {
+      const body = await readBody(req);
+      const out = await createCollect(body);
+      return send(res, 200, out);
+    }
+
+    if (req.method === 'GET' && u.pathname.startsWith('/api/invoice/')) {
+      const id = decodeURIComponent(u.pathname.slice('/api/invoice/'.length));
+      if (!id) return send(res, 400, { ok: false, error: 'missing invoice id' });
+      const secret = (req.headers['x-maha-stripe-secret'] || '').trim() || undefined;
+      const stripeAccount = (req.headers['stripe-account'] || u.searchParams.get('stripeAccount') || '').trim() || undefined;
+      const inv = await stripeGet(
+        '/invoices/' + encodeURIComponent(id) + '?expand[]=payment_intent',
+        { secret, stripeAccount }
+      );
+      const paid = inv.status === 'paid';
+      return send(res, 200, {
+        ok: true,
+        id: inv.id,
+        status: inv.status,
+        paid,
+        url: inv.hosted_invoice_url || '',
+        number: inv.number || '',
+        customerEmail: inv.customer_email || '',
+        amountDue: inv.amount_due,
+        currency: inv.currency,
+        livemode: !!inv.livemode,
+      });
     }
 
     if (req.method === 'GET' && u.pathname.startsWith('/api/session/')) {

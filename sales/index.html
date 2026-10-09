@@ -134,6 +134,8 @@ label.f span{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);m
 
 /* ---------- detail ---------- */
 .panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:16px}
+.formerr{color:var(--alert);font-size:13.5px;min-height:1.2em;margin:8px 0 0}
+.paylink{word-break:break-all;color:#0b57d0}
 .facts{display:grid;grid-template-columns:1fr;gap:0}
 @media (min-width:640px){.facts{grid-template-columns:1fr 1fr}}
 .fact{padding:9px 0;border-bottom:1px dashed var(--line)}
@@ -493,6 +495,7 @@ const ICON = {
  hotels:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M2.5 21h19"/><path d="M8 8h3M8 12h3M8 16h3"/></svg>',
  quotes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2.5h9l4 4V21a.5.5 0 0 1-.5.5h-12A.5.5 0 0 1 6 21z"/><path d="M14.5 2.5V7h4.5M9 12h6M9 16h6"/></svg>',
  playbook:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19v-3"/><path d="M9 7.5h6"/></svg>',
+ collect:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg>',
  more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><path d="M17.25 14v6.5M14 17.25h6.5"/></svg>',
  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -1275,18 +1278,18 @@ function mapHeaders(headers) {
 }
 
 /* ================= NAV ================= */
-const NAV = [['today','Today'],['hotels','Hotels'],['quotes','Quotes'],['playbook','Playbook'],['more','More']];
+const NAV = [['today','Today'],['hotels','Hotels'],['quotes','Quotes'],['collect','Collect'],['playbook','Playbook'],['more','More']];
 function drawNav(cur) {
   $('#railnav').innerHTML = NAV.map(([k, l]) => `<a class="nav" href="#${k}" ${cur === k ? 'aria-current="page"' : ''}>${ICON[k]}${l}</a>`).join('');
   $('#tabnav').innerHTML = NAV.map(([k, l]) => `<a href="#${k}" ${cur === k ? 'aria-current="page"' : ''}>${ICON[k]}${l}</a>`).join('');
 }
-const SECTION_OF = {today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 function route() {
   const [r, ...rest] = (location.hash.slice(1) || 'today').split('/'); const id = decodeURIComponent(rest.join('/'));
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vHotels, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch}[r] || vToday)(id);
+  ({today:vToday, hotels:vHotels, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch}[r] || vToday)(id);
 }
 function rerender(keepScroll = true) { const y = scrollY; route(); if (keepScroll) scrollTo(0, y); }
 window.addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
@@ -1582,6 +1585,125 @@ function cardSheet(c) {
     $('#csave', root).onclick = async () => { const v = readForm(root, [{k:'cat'}, {k:'title'}, {k:'body'}]); if (!v.title) { toast('Add a title'); return; }
       await save({...c, ...v, cat: v.cat || 'General', id: c.id || uid(), kind:'card', order: c.order ?? 999}); closeSheet(); toast('Card saved'); rerender(); };
   });
+}
+
+/* ---------- collect: Stripe payment link ---------- */
+const COLLECT_KEY = 'maha.sales.collect.v1';
+const EDC_BRIDGE_KEY = 'mahahub.edc.bridge.v1';
+const PMS_KEY = 'mahahub.v5';
+const PADAUK = {code:'PAD01', name:'Padauk Demo Hotel Bangkok', legal:'Padauk Hospitality Demo Co., Ltd.'};
+function stripeHelper() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('mahahub.stripe') || 'null');
+    if (cfg && cfg.server) return String(cfg.server).replace(/\/+$/, '');
+  } catch (e) {}
+  return (localStorage.getItem('maha.stripeHost') || 'http://127.0.0.1:8783').replace(/\/+$/, '');
+}
+function collectHistory() {
+  try { const a = JSON.parse(localStorage.getItem(COLLECT_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function fileOnPadauk(link) {
+  try {
+    const b = JSON.parse(localStorage.getItem(EDC_BRIDGE_KEY) || '{"links":[]}');
+    b.links = Array.isArray(b.links) ? b.links : [];
+    const i = b.links.findIndex(x => x.id === link.id);
+    if (i >= 0) b.links[i] = link; else b.links.unshift(link);
+    if (b.links.length > 200) b.links.length = 200;
+    localStorage.setItem(EDC_BRIDGE_KEY, JSON.stringify(b));
+  } catch (e) {}
+  try {
+    const raw = localStorage.getItem(PMS_KEY);
+    if (!raw) return;
+    const db = JSON.parse(raw);
+    const h = db && db.hotels && db.hotels[PADAUK.code];
+    if (!h) return;
+    h.edcLinks = Array.isArray(h.edcLinks) ? h.edcLinks : [];
+    const i = h.edcLinks.findIndex(x => x.id === link.id);
+    if (i >= 0) h.edcLinks[i] = link; else h.edcLinks.unshift(link);
+    localStorage.setItem(PMS_KEY, JSON.stringify(db));
+  } catch (e) {}
+}
+function vCollect() {
+  const rows = collectHistory();
+  view().innerHTML = `<div class="top"><div><h1>Collect</h1><p>Stripe creates the payment link, emails it to the guest, and files it on Padauk Demo Hotel.</p></div></div>
+   <form class="panel" id="colForm">
+    <div class="grid two">
+     <label class="f"><span>Item name</span><input id="colItem" name="item" required placeholder="e.g. Room deposit" autocomplete="off"></label>
+     <label class="f"><span>Amount (THB)</span><input id="colAmt" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" inputmode="decimal"></label>
+     <label class="f"><span>Guest name</span><input id="colGuest" name="guest" required placeholder="Guest full name" autocomplete="name"></label>
+     <label class="f"><span>Email</span><input id="colMail" name="mail" type="email" required placeholder="guest@email.com" autocomplete="email"></label>
+    </div>
+    <p class="formerr" id="colErr" role="alert"></p>
+    <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit" id="colSend">Send</button></div>
+   </form>
+   <div id="colOut"></div>
+   <h2>Sent <span class="count">${rows.length}</span></h2>
+   ${rows.length ? `<div class="list">${rows.map(p => `<div class="row"><div class="main"><div class="t">${esc(p.item || 'Item')} · ${fmt(p.amount)} THB</div><div class="s">${esc(p.guest || '')}${p.email ? ' · ' + esc(p.email) : ''}</div></div>
+     <div class="end">${p.url ? `<button class="btn sm" type="button" data-copy-url="${esc(p.url)}">Copy link</button>` : ''}<div class="muted small">${p.emailed ? 'Emailed' : 'Link ready'}</div></div></div>`).join('')}</div>` : '<div class="list"><div class="empty">Nothing sent yet.</div></div>'}`;
+  $('#colForm').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const item = $('#colItem').value.trim();
+    const amount = +$('#colAmt').value;
+    const guest = $('#colGuest').value.trim();
+    const email = $('#colMail').value.trim();
+    const err = $('#colErr');
+    err.textContent = '';
+    if (!item) { err.textContent = 'Enter the item name.'; return; }
+    if (!(amount > 0)) { err.textContent = 'Enter an amount greater than 0.'; return; }
+    if (!guest) { err.textContent = 'Enter the guest name.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email.'; return; }
+    const btn = $('#colSend');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    const id = 'edc' + uid();
+    try {
+      const res = await fetch(stripeHelper() + '/api/collect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          item, amount, guest, email, currency: 'THB',
+          hotel: PADAUK.code, hotelName: PADAUK.name, linkId: id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error || ('Stripe helper HTTP ' + res.status));
+      const link = {
+        id, hotel: PADAUK.code, guest, email, amount: Math.round(amount * 100) / 100, cur: 'THB',
+        ref: item, note: item, status: 'waiting', createdAt: Date.now(), submittedAt: null, keyedAt: null, card: null,
+        merchant: PADAUK.name, company: PADAUK.legal, contact: '',
+        stripeInvoiceId: data.kind === 'invoice' ? data.id : '',
+        stripeSessionId: data.kind === 'invoice' ? '' : (data.id || ''),
+        stripeUrl: data.url, stripeLivemode: !!data.livemode,
+      };
+      fileOnPadauk(link);
+      const hist = collectHistory();
+      hist.unshift({id, item, amount: link.amount, guest, email, url: data.url, emailed: !!data.emailed, testMode: !!data.testMode, at: link.createdAt});
+      if (hist.length > 40) hist.length = 40;
+      localStorage.setItem(COLLECT_KEY, JSON.stringify(hist));
+      const sentLine = data.emailed
+        ? (data.testMode
+          ? `Stripe created the link and accepted the send to ${email}. A test key does not deliver that email into the inbox — the link below is the one Stripe would send. With a live key, the guest receives it.`
+          : `Stripe emailed the payment link to ${email}.`)
+        : `Stripe created the link. The email was not sent${data.emailError ? ' (' + data.emailError + ')' : ''}. Copy the link and send it yourself.`;
+      toast(data.emailed ? 'Link created and sent' : 'Link created');
+      vCollect();
+      $('#colOut').innerHTML = `<div class="banner"><span>${esc(sentLine)} It is also on Padauk Demo Hotel → Payment / EDC links.</span></div>
+        <div class="panel" style="margin-bottom:8px"><div style="font-weight:600">${esc(item)} · ${fmt(link.amount)} THB</div>
+        <div class="muted small">${esc(guest)} · ${esc(email)}</div>
+        <p style="margin:10px 0"><a class="paylink" href="${esc(data.url)}" target="_blank" rel="noopener">${esc(data.url)}</a></p>
+        <div class="actions"><button class="btn sm" type="button" id="colCopy">Copy link</button><a class="btn sm" href="${esc(data.url)}" target="_blank" rel="noopener">Open link</a></div></div>`;
+      $('#colCopy').onclick = () => copyText(data.url, 'Link copied');
+    } catch (e) {
+      const msg = (e && e.message) ? e.message : String(e);
+      err.textContent = /failed to fetch|networkerror|load failed/i.test(msg)
+        ? 'Stripe helper is not running. Start it, then press Send again.'
+        : msg;
+    } finally {
+      const b = $('#colSend');
+      if (b) { b.disabled = false; b.textContent = 'Send'; }
+    }
+  };
+  $$('[data-copy-url]').forEach(b => b.onclick = () => copyText(b.dataset.copyUrl, 'Link copied'));
 }
 
 /* ---------- more: sockets + data ---------- */

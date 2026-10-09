@@ -4197,17 +4197,38 @@ async function stripeFetchSession(sessionId){
   const card=pm&&pm.card?{brand:String(pm.card.brand||'card').toUpperCase(),last4:pm.card.last4||'',exp:(pm.card.exp_month&&pm.card.exp_year)?String(pm.card.exp_month).padStart(2,'0')+'/'+String(pm.card.exp_year).slice(-2):'',holder:(pm.billing_details&&pm.billing_details.name)||'',stripe:true}:null;
   return {ok:true,id:session.id,paid,paymentStatus:session.payment_status,status:session.status,card,metadata:session.metadata||{},livemode:!!session.livemode};
 }
+async function stripeFetchInvoice(invoiceId){
+  const cfg=hotelStripeCfg(H);
+  const server=(cfg.server||'').replace(/\/+$/,'');
+  if(server){
+    try{
+      const hdrs={'Content-Type':'application/json'};
+      if(cfg.ownHotelSecret&&cfg.secret)hdrs['X-Maha-Stripe-Secret']=cfg.secret;
+      if(!cfg.ownHotelSecret&&cfg.connectAccount)hdrs['Stripe-Account']=cfg.connectAccount;
+      const res=await fetch(server+'/api/invoice/'+encodeURIComponent(invoiceId),{headers:hdrs});
+      const data=await res.json().catch(()=>({}));
+      if(res.ok)return data;
+    }catch(e){if(!cfg.secret)throw e}
+  }
+  if(!cfg.secret)throw new Error('Stripe secret / helper not configured for this hotel');
+  const headers={Authorization:'Bearer '+cfg.secret};
+  if(!cfg.ownHotelSecret&&cfg.connectAccount)headers['Stripe-Account']=cfg.connectAccount;
+  const res=await fetch('https://api.stripe.com/v1/invoices/'+encodeURIComponent(invoiceId),{headers});
+  const inv=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error((inv.error&&inv.error.message)||('Stripe HTTP '+res.status));
+  return {ok:true,id:inv.id,paid:inv.status==='paid',status:inv.status,url:inv.hosted_invoice_url||'',livemode:!!inv.livemode};
+}
 const EDC_BRIDGE_KEY='mahahub.edc.bridge.v1';
 function edcBridgeAll(){try{const o=JSON.parse(localStorage.getItem(EDC_BRIDGE_KEY)||'{"links":[]}');o.links=Array.isArray(o.links)?o.links:[];return o}catch(e){return {links:[]}}}
 function edcBridgePut(link){const b=edcBridgeAll();const i=b.links.findIndex(x=>x.id===link.id);if(i>=0)b.links[i]=link;else b.links.unshift(link);if(b.links.length>200)b.links.length=200;try{localStorage.setItem(EDC_BRIDGE_KEY,JSON.stringify(b))}catch(e){}return link}
 function edcBridgeGet(id){return edcBridgeAll().links.find(x=>x.id===id)||null}
 function edcLinkMeta(L){
   return {
-    guest:L.guest||'',amount:L.amount,cur:L.cur||(H&&H.set&&H.set.cur)||'THB',ref:L.ref||'',note:L.note||'',
+    guest:L.guest||'',email:L.email||'',amount:L.amount,cur:L.cur||(H&&H.set&&H.set.cur)||'THB',ref:L.ref||'',note:L.note||'',
     merchant:L.merchant||(H&&H.set&&H.set.name)||'',company:L.company||(H&&H.set&&H.set.legal)||'',
     contact:L.contact||(H&&H.set&&H.set.phone)||'',expiresAt:L.expiresAt||null,
     createdAt:L.createdAt||Date.now(),submittedAt:L.submittedAt||null,keyedAt:L.keyedAt||null,
-    stripeSessionId:L.stripeSessionId||'',stripeUrl:L.stripeUrl||'',stripeLivemode:!!L.stripeLivemode
+    stripeSessionId:L.stripeSessionId||'',stripeInvoiceId:L.stripeInvoiceId||'',stripeUrl:L.stripeUrl||'',stripeLivemode:!!L.stripeLivemode
   };
 }
 function edcToCloudPayload(L){
@@ -4217,10 +4238,10 @@ function edcFromCloudRow(row){
   const m=row.meta||{};
   return {
     id:row.id,hotel:row.hotel,status:row.status||'waiting',
-    guest:m.guest||'',amount:+m.amount||0,cur:m.cur||'THB',ref:m.ref||'',note:m.note||'',
+    guest:m.guest||'',email:m.email||'',amount:+m.amount||0,cur:m.cur||'THB',ref:m.ref||'',note:m.note||'',
     merchant:m.merchant||'',company:m.company||'',contact:m.contact||'',
     expiresAt:m.expiresAt||null,createdAt:m.createdAt||Date.now(),submittedAt:m.submittedAt||null,keyedAt:m.keyedAt||null,
-    stripeSessionId:m.stripeSessionId||'',stripeUrl:m.stripeUrl||'',stripeLivemode:!!m.stripeLivemode,
+    stripeSessionId:m.stripeSessionId||'',stripeInvoiceId:m.stripeInvoiceId||'',stripeUrl:m.stripeUrl||'',stripeLivemode:!!m.stripeLivemode,
     card:row.card||null
   };
 }
@@ -5723,7 +5744,7 @@ VIEWS['bill.edclinks']=el=>{
       <p class="sub">Guest host: <a href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">${esc(edcLinkUrl())}</a></p></div>
      <div class="panel mt scroll"><table class="grid"><tr><th>Status</th><th>Created</th><th>Guest</th><th>Ref</th><th class="n">Amount</th><th>Card</th><th></th></tr>
       ${H.edcLinks.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(p=>`<tr>
-        <td>${edcStatusPill(p.status)}${p.stripeSessionId?' <span class="pill b">Stripe</span>':''}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}</td><td>${esc(p.ref||'—')}</td>
+        <td>${edcStatusPill(p.status)}${(p.stripeSessionId||p.stripeInvoiceId)?' <span class="pill b">Stripe</span>':''}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}${p.email?`<div class="sub">${esc(p.email)}</div>`:''}</td><td>${esc(p.ref||p.note||'—')}</td>
         <td class="n">${m2(p.amount)} ${esc(p.cur||H.set.cur)}</td>
         <td>${p.card?esc((p.card.brand||'')+' •••• '+(p.card.last4||'')): '<span class="sub">—</span>'}</td>
         <td class="nowrap">
@@ -5747,9 +5768,10 @@ VIEWS['bill.edclinks']=el=>{
   const syncStripePaid=async()=>{
     let n=0;
     for(const p of H.edcLinks){
-      if(!p.stripeSessionId||p.status==='paid'||p.status==='cancelled')continue;
+      if(p.status==='paid'||p.status==='cancelled')continue;
+      if(!p.stripeSessionId&&!p.stripeInvoiceId)continue;
       try{
-        const s=await stripeFetchSession(p.stripeSessionId);
+        const s=p.stripeInvoiceId&&!p.stripeSessionId?await stripeFetchInvoice(p.stripeInvoiceId):await stripeFetchSession(p.stripeSessionId);
         if(s&&s.paid){
           p.status='paid';p.submittedAt=Date.now();p.card=s.card||p.card||{brand:'CARD',last4:'',stripe:true};
           edcBridgePut(Object.assign({},p,{hotel:H.code}));
