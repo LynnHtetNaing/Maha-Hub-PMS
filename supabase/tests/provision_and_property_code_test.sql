@@ -98,4 +98,29 @@ begin
 end
 $$;
 
+-- Browser roles keep only the intended table privileges (no DELETE/TRUNCATE, no direct cloud writes).
+do $$
+declare t text; p text;
+begin
+  foreach t in array array['maha_organizations','maha_properties','maha_memberships','maha_property_cloud'] loop
+    foreach p in array array['DELETE','TRUNCATE','REFERENCES','TRIGGER'] loop
+      if has_table_privilege('authenticated', 'public.'||t, p) then
+        raise exception 'authenticated unexpectedly has % on %', p, t;
+      end if;
+    end loop;
+    if has_table_privilege('anon', 'public.'||t, 'SELECT') then
+      raise exception 'anon unexpectedly has SELECT on %', t;
+    end if;
+  end loop;
+  if has_table_privilege('authenticated', 'public.maha_memberships', 'INSERT')
+     or has_table_privilege('authenticated', 'public.maha_memberships', 'UPDATE') then
+    raise exception 'authenticated can write memberships directly';
+  end if;
+  if has_table_privilege('authenticated', 'public.maha_property_cloud', 'INSERT')
+     or has_table_privilege('authenticated', 'public.maha_property_cloud', 'UPDATE') then
+    raise exception 'authenticated can write property cloud directly';
+  end if;
+end
+$$;
+
 rollback;
