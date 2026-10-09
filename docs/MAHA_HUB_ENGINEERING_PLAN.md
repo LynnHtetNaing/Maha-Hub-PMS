@@ -85,3 +85,27 @@ Do not silently replace the existing RPC signatures or enable a new identity sys
 6. Move payment credential ownership to a trusted server-side tenant configuration before disabling the legacy browser-supplied Stripe-key path.
 
 Until these steps are implemented and tested, the current cloud feature should be described as shared-passphrase sync, not production-grade multi-tenant cloud security.
+
+## Next implementation step: additive tenant schema foundation
+
+Added `supabase/migrations/20261009_001_tenant_identity_foundation.sql` as an **additive, not-yet-applied migration**. It introduces:
+
+- Organization records with an owner tied to a Supabase Auth user.
+- Property records scoped to an organization.
+- Active/inactive memberships with organization-wide or property-specific roles.
+- RLS policies for organization/property visibility and administrative property changes.
+- Security-definer helper functions with an empty search path to check organization-admin and property access.
+- No browser permission to create/change memberships directly; provisioning is reserved for a trusted backend.
+
+This migration does not modify or replace the legacy shared-payload tables/RPCs and has not been applied to any Supabase project. It does not yet connect the current browser app to Supabase Auth or migrate any existing hotel data.
+
+### Required validation before any deployment
+
+- Run the migration in a disposable Supabase staging project and confirm it applies cleanly on the project's PostgreSQL version.
+- Use at least two test organizations and three test users (owner/admin, property staff, unrelated tenant) to verify all RLS cases.
+- Verify inactive memberships immediately lose access, property staff cannot see sibling properties, and one organization cannot enumerate another organization's data.
+- Verify trusted provisioning is the only path to adding/removing memberships and that owners cannot self-assign privileged membership rows.
+- Add automated database integration tests before linking the live ecosystem app.
+- Plan a dry-run importer, backup/export, migration report, and rollback before touching any real tenant payload.
+
+**Status:** schema foundation drafted on the hardening branch; SQL execution and RLS integration tests are not yet verified. Do not apply to production or claim tenant isolation is complete.
