@@ -60,15 +60,22 @@ stable
 security definer
 set search_path = ''
 as $$
-  select exists (
-    select 1
-    from public.maha_memberships m
-    where m.organization_id = target_org
-      and m.user_id = (select auth.uid())
-      and m.active
-      and m.property_id is null
-      and m.role in ('owner', 'org_admin')
-  );
+  select
+    exists (
+      select 1
+      from public.maha_organizations o
+      where o.id = target_org
+        and o.owner_user_id = (select auth.uid())
+    )
+    or exists (
+      select 1
+      from public.maha_memberships m
+      where m.organization_id = target_org
+        and m.user_id = (select auth.uid())
+        and m.active
+        and m.property_id is null
+        and m.role in ('owner', 'org_admin')
+    );
 $$;
 
 create or replace function public.maha_can_access_property(target_property uuid)
