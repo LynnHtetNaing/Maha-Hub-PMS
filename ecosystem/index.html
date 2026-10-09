@@ -1405,7 +1405,7 @@ async function tenantCloudPush(){
   }
   return 'error';
 }
-function scheduleCloudPush(){const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
+function scheduleCloudPush(){if(MahaAuth.on()){clearTimeout(_cloudT);_cloudT=setTimeout(()=>{tenantCloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast(e&&e.status===409?'Cloud save conflict: reload the latest hotel data before continuing.':'Secure cloud save did not finish. This browser still has the hotel file.')})},800);return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
 async function cloudPull(opt){
   const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass||!DB)return 'off';
   let data;
