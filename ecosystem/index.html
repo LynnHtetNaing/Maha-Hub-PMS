@@ -1164,7 +1164,8 @@ const MahaAuth={
   configured(){return !!(MAHA_AUTH_CONFIG.url&&MAHA_AUTH_CONFIG.publishableKey)},
   base(){return String(MAHA_AUTH_CONFIG.url||'').replace(/\/+$/,'')},
   read(){try{const t=JSON.parse(sessionStorage.getItem(SBAUTHKEY)||'null');return t&&t.access_token&&t.user&&t.user.id?t:null}catch(e){return null}},
-  write(t){try{if(!t){sessionStorage.removeItem(SBAUTHKEY);return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
+  conflict:false,   /* true while a stale-version conflict is waiting for the user's decision */
+  write(t){try{if(!t){sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
   keep(d){return {access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000,user:{id:d.user&&d.user.id}}},
   /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config',message} */
   async signIn(username,password){
@@ -1194,19 +1195,55 @@ const MahaAuth={
     (rows||[]).forEach(p=>{if(p&&p.property_code)codes.add(String(p.property_code).trim().toUpperCase())});
     return codes;
   },
-  /* Sign in, then match the Supabase account to a hotel and staff record already on this device. */
+  /* Properties this account may open, newest rules from the server (RLS). Sorted by code so the choice is stable. */
+  async properties(t){
+    const rows=await this.rest('maha_properties?select=property_code&property_code=not.is.null',t);
+    const codes=[];
+    (rows||[]).forEach(p=>{const c=p&&p.property_code?String(p.property_code).trim().toUpperCase():'';if(c&&!codes.includes(c))codes.push(c)});
+    return codes.sort();
+  },
+  /* Cloud-first sign-in: authenticate -> resolve the properties the SERVER says this account may open ->
+     load that property's cloud copy -> validate it -> merge it into this device -> enter.
+     - A failed or unreadable cloud load never falls back to whatever is stored on this device.
+     - "No cloud copy yet" is different from "could not load": only the former can start a first copy,
+       and only after the user confirms. Nothing is ever overwritten silently. */
   async staffSignIn(un,pw){
     if(/@/.test(un))return {ok:false,reason:'email',message:'Sign in with your username, not an email address.'};
     const r=await this.signIn(un,pw);if(!r.ok)return r;
+    const reject=(reason,message)=>{this.write(null);this.revoke(r.tokens);return {ok:false,reason,message}};
     let codes;
-    try{codes=await this.propertyCodes(r.tokens)}catch(e){this.revoke(r.tokens);return {ok:false,reason:'unavailable',message:'Your hotel access could not be checked. Try again in a moment.'}}
-    for(const h of Object.values(DB.hotels||{})){
-      if(!codes.has(String(h.code||'').toUpperCase()))continue;
-      const u=(h.users||[]).find(x=>String(x.username||'').toLowerCase()===un);
-      if(u&&u.active!==false){this.write(r.tokens);return {ok:true,h,u}}
+    try{codes=await this.properties(r.tokens)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
+    if(!codes.length)return reject('unlinked','Your account is not linked to a hotel yet. Please contact Padauk support.');
+    this.write(r.tokens);
+    let unavailable=false,invalid=false,emptyCand=null;
+    for(const code of codes){
+      let res;
+      try{res=await this.tenantCloud('load',code)}
+      catch(e){if(e&&(e.status===401||e.status===403))continue;unavailable=true;continue}
+      const cloud=res&&res.cloud;
+      if(!cloud||!cloud.payload){
+        const lh=(DB.hotels||{})[code];
+        const lu=lh&&(lh.users||[]).find(x=>String(x.username||'').toLowerCase()===un&&x.active!==false);
+        if(lu&&!emptyCand)emptyCand={code,h:lh,u:lu};
+        continue;
+      }
+      if(!tenantPayloadOk(cloud.payload,code)){invalid=true;continue}
+      const cu=cloud.payload.hotel.users.find(x=>String(x&&x.username||'').toLowerCase()===un&&x.active!==false);
+      if(!cu)continue;
+      try{adoptTenantHotel(code,cloud.payload)}catch(e){invalid=true;continue}
+      tcvSet(code,cloud.version);
+      const h=DB.hotels[code];
+      return {ok:true,h,u:h.users.find(x=>String(x.username||'').toLowerCase()===un&&x.active!==false)||cu};
     }
-    this.revoke(r.tokens);
-    return {ok:false,reason:'unlinked',message:'Your account is not linked to a hotel on this device yet. Please contact Padauk support.'};
+    if(emptyCand&&!unavailable&&!invalid){
+      const go=confirm('No cloud copy exists yet for hotel '+emptyCand.code+'.\n\nUse the hotel data stored on THIS device as the first cloud copy?\n\nChoose Cancel if this is a new device, or if the data here is demo or test data.');
+      if(!go)return reject('cancelled','Sign-in cancelled. Nothing was saved to the cloud.');
+      tcvSet(emptyCand.code,0);
+      return {ok:true,h:emptyCand.h,u:emptyCand.u};
+    }
+    if(unavailable)return reject('unavailable','The hotel cloud copy could not be loaded, so sign-in was stopped. Nothing on this device or in the cloud was changed. Try again in a moment.');
+    if(invalid)return reject('invalid-cloud','The hotel cloud copy could not be read safely. Nothing was changed. Please contact Padauk support.');
+    return reject('unlinked','Your account is not set up for a hotel yet. Please contact Padauk support.');
   },
   async tenantCloud(action,propertyCode,payload,expectedVersion){
     const t=await this.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -1326,6 +1363,42 @@ function cloudStrip(db){
   });
   return o;
 }
+/* ---------- tenant cloud payload (one hotel per cloud record) ----------
+   The tenant cloud row for a property holds ONLY that hotel. It never carries provider accounts,
+   other hotels, password hashes, card data or Stripe secrets. The server rejects the same keys. */
+const TCV_PREFIX='maha.tcv.';
+const TENANT_FORBIDDEN=new Set(['pan','cvc','cvv','cardvault','session']);
+function tenantPayload(db,code){
+  const h=db&&db.hotels&&db.hotels[code];if(!h)return null;
+  const o=JSON.parse(JSON.stringify(h));
+  const walk=v=>{if(!v||typeof v!=='object')return;if(Array.isArray(v)){v.forEach(walk);return}
+    Object.keys(v).forEach(k=>{if(TENANT_FORBIDDEN.has(k.toLowerCase()))delete v[k];else walk(v[k])})};
+  walk(o);
+  if(o.set&&o.set.stripe)delete o.set.stripe.secret;
+  /* Staff passwords are checked by Supabase Auth in this mode; local hashes never go to the cloud. */
+  (o.users||[]).forEach(u=>{delete u.hash;delete u.salt;delete u.mfa});
+  return {format:'maha-tenant-v1',property_code:code,hotel:o};
+}
+function tenantPayloadOk(p,code){
+  return !!(p&&typeof p==='object'&&p.format==='maha-tenant-v1'&&p.hotel&&typeof p.hotel==='object'
+    &&String(p.hotel.code||'').toUpperCase()===code&&Array.isArray(p.hotel.users)&&p.hotel.set&&typeof p.hotel.set==='object');
+}
+function tcvGet(code){try{const v=sessionStorage.getItem(TCV_PREFIX+code);return v===null?null:(+v||0)}catch(e){return null}}
+function tcvSet(code,v){try{sessionStorage.setItem(TCV_PREFIX+code,String(+v||0))}catch(e){}}
+/* Merge ONE hotel from the cloud into this device. Providers, other hotels, card vault and logos stay as they are. */
+function adoptTenantHotel(code,payload){
+  const prev=DB.hotels&&DB.hotels[code];
+  const keepSecret=prev&&prev.set&&prev.set.stripe&&prev.set.stripe.secret;
+  _cloudApplying=true;
+  try{
+    const tmp=migrateDB({version:5,hotels:{[code]:JSON.parse(JSON.stringify(payload.hotel))},providers:[],provLog:[]});
+    const h=tmp.hotels&&tmp.hotels[code];if(!h)throw new Error('bad-hotel');
+    if(keepSecret&&h.set&&h.set.stripe&&!h.set.stripe.secret)h.set.stripe.secret=keepSecret;
+    DB.hotels[code]=h;
+    bindHotel();
+    saveDB({nocloud:true});
+  }finally{_cloudApplying=false}
+}
 function sessionValid(se){
   if(!se||!DB)return false;
   const now=Date.now();
@@ -1378,31 +1451,42 @@ async function tenantCloudPull(opt){
   if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return 'off';
   const token=await MahaAuth.fresh();if(!token)return 'off';
   const hotel=DB.hotels&&DB.hotels[DB.session.hotel];if(!hotel||!hotel.code)return 'no-property';
-  const result=await MahaAuth.tenantCloud('load',hotel.code);
+  const code=String(hotel.code).toUpperCase();
+  /* Explicit reload of the cloud copy; replaces this hotel's data on this device with the cloud copy. */
+  const result=await MahaAuth.tenantCloud('load',code);
   const cloud=result&&result.cloud;if(!cloud||!cloud.payload)return 'empty';
-  const remoteAt=Date.parse(cloud.updated_at)||0;
-  const localAt=+(DB.savedAt||0);
-  const state=JSON.parse(JSON.stringify(DB));
-  const cursor=+(sessionStorage.getItem('maha.tenantCloudCursor')||0);
-  if(opt&&opt.force||!cursor||remoteAt>localAt){
-    adoptCloud(cloud.payload,remoteAt,opt&&opt.render?{render:true}:null);
-    sessionStorage.setItem('maha.tenantCloudVersion',String(cloud.version||1));
-    sessionStorage.setItem('maha.tenantCloudCursor',String(remoteAt));
-    return 'pulled';
-  }
-  return 'same';
+  if(!tenantPayloadOk(cloud.payload,code))return 'invalid';
+  adoptTenantHotel(code,cloud.payload);
+  tcvSet(code,cloud.version);MahaAuth.conflict=false;
+  if(opt&&opt.render){renderShell();render()}
+  return 'pulled';
+}
+/* A save found a newer cloud copy (another device saved first). Saving stays paused until the user decides;
+   the cloud copy is never overwritten with stale data. */
+function tenantCloudConflict(code,cloud){
+  MahaAuth.conflict=true;
+  setTimeout(()=>{
+    if(cloud&&cloud.payload&&tenantPayloadOk(cloud.payload,code)&&
+       confirm('This hotel was changed on another device.\n\nLoad the latest cloud copy now? Unsaved changes on this screen will be replaced.\n\nCancel keeps this screen, but cloud saving stays paused until you reload.')){
+      adoptTenantHotel(code,cloud.payload);tcvSet(code,cloud.version);MahaAuth.conflict=false;
+      renderShell();render();toast('Loaded the latest cloud copy.');return;
+    }
+    toast('Cloud saving is paused because another device saved first. Reload the page and sign in again to load the latest copy.');
+  },0);
 }
 async function tenantCloudPush(){
   if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider||_cloudApplying)return 'off';
-  const token=await MahaAuth.fresh();if(!token)return 'off';
   const hotel=DB.hotels&&DB.hotels[DB.session.hotel];if(!hotel||!hotel.code)return 'no-property';
-  const expected=+(sessionStorage.getItem('maha.tenantCloudVersion')||0);
-  const result=await MahaAuth.tenantCloud('save',hotel.code,cloudStrip(DB),expected);
-  if(result&&result.cloud){
-    sessionStorage.setItem('maha.tenantCloudVersion',String(result.cloud.version||expected+1));
-    sessionStorage.setItem('maha.tenantCloudCursor',String(Date.parse(result.cloud.updated_at)||Date.now()));
-    return 'pushed';
-  }
+  const code=String(hotel.code).toUpperCase();
+  if(MahaAuth.conflict){const now=Date.now();if(now-_cloudErrAt>60000){_cloudErrAt=now;toast('Cloud saving is paused because another device saved first. Reload to load the latest copy.')}return 'conflict'}
+  const expected=tcvGet(code);
+  if(expected===null)return 'not-loaded';   /* never write a hotel whose cloud state this tab has not read */
+  const token=await MahaAuth.fresh();if(!token)return 'off';
+  const payload=tenantPayload(DB,code);if(!payload)return 'no-property';
+  let result;
+  try{result=await MahaAuth.tenantCloud('save',code,payload,expected)}
+  catch(e){if(e&&e.status===409){tenantCloudConflict(code,e.details&&e.details.cloud);return 'conflict'}throw e}
+  if(result&&result.cloud){tcvSet(code,result.cloud.version);return 'pushed'}
   return 'error';
 }
 function scheduleCloudPush(){if(MahaAuth.on()){clearTimeout(_cloudT);_cloudT=setTimeout(()=>{tenantCloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast(e&&e.status===409?'Cloud save conflict: reload the latest hotel data before continuing.':'Secure cloud save did not finish. This browser still has the hotel file.')})},800);return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}

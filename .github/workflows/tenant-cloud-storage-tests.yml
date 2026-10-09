@@ -50,13 +50,16 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_001_tenant_identity_foundation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_002_property_cloud_storage.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_003_username_auth_owner_boundary.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_004_global_property_code_atomic_provision.sql
       - name: Run tenant isolation and concurrency smoke tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/tenant_cloud_storage_test.sql
       - name: Run username privacy and owner boundary smoke tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/username_auth_owner_boundary_test.sql
+      - name: Run provisioning and property code tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/provision_and_property_code_test.sql
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
       - name: Type-check Supabase Edge Functions
-        run: deno check --no-lock supabase/functions/username-auth/index.ts supabase/functions/platform-admin-provision/index.ts
+        run: deno check --no-lock supabase/functions/username-auth/index.ts supabase/functions/platform-admin-provision/index.ts supabase/functions/tenant-cloud/index.ts
