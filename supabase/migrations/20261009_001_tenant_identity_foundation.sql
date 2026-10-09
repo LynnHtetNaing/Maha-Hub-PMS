@@ -48,7 +48,9 @@ alter table public.maha_memberships enable row level security;
 revoke all on public.maha_organizations from anon, public;
 revoke all on public.maha_properties from anon, public;
 revoke all on public.maha_memberships from anon, public;
-grant select, insert, update on public.maha_organizations to authenticated;
+grant select, insert on public.maha_organizations to authenticated;
+-- Organization ownership is immutable through the browser API. Only the name is editable.
+grant update (name) on public.maha_organizations to authenticated;
 grant select, insert, update on public.maha_properties to authenticated;
 grant select on public.maha_memberships to authenticated;
 
