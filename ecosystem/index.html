@@ -1128,8 +1128,105 @@ function applyLiveSession(){
   const live=readLiveSession();
   if(live&&sessionValid(live)){DB.session=live;writeLiveSession(live)}
   else{DB.session=null;clearLiveSession()}
+  /* Supabase sign-in mode: a staff session without a Supabase token in this tab is not trusted. */
+  if(DB.session&&!DB.session.provider&&MahaAuth.on()&&!MahaAuth.read()){DB.session=null;clearLiveSession()}
   bindHotel();
 }
+
+/* ---------- Supabase username sign-in (staging; OFF by default) ----------
+   Implements the sign-in part of docs/USERNAME_AUTH_IMPLEMENTATION.md, step 6.
+   - Off unless MAHA_AUTH_CONFIG.enabled is true. On any host that is not the live site, a tester can
+     switch it on for one tab with ?auth=supabase (and back with ?auth=local). The live site ignores this.
+   - Staff passwords are checked by Supabase Auth through the username-auth Edge Function.
+     Supabase tokens live only in this tab's sessionStorage; they are never written to the hotel file,
+     localStorage, or the cloud payload.
+   - Unchanged in this phase: provider (Padauk) sign-in, legacy passphrase cloud sync, password recovery.
+     Tenant cloud storage (maha_get/save_property_cloud) is not used until the importer and backup path exist.
+*/
+const MAHA_AUTH_CONFIG={
+  enabled:false,                                   /* keep false until staging tests pass */
+  url:'https://ulguzclaeksxfhzwuovg.supabase.co',  /* staging project */
+  publishableKey:'',                               /* staging publishable key (sb_publishable_...) */
+  liveHosts:['maha-hub.com','www.maha-hub.com']
+};
+const SBAUTHKEY='mahahub.sbauth';
+const MahaAuth={
+  on(){
+    if(MAHA_AUTH_CONFIG.enabled)return true;
+    if(MAHA_AUTH_CONFIG.liveHosts.includes(location.hostname))return false;
+    try{
+      const q=new URLSearchParams(location.search).get('auth');
+      if(q==='supabase')sessionStorage.setItem('maha.authMode','supabase');
+      if(q==='local')sessionStorage.removeItem('maha.authMode');
+      return sessionStorage.getItem('maha.authMode')==='supabase';
+    }catch(e){return false}
+  },
+  configured(){return !!(MAHA_AUTH_CONFIG.url&&MAHA_AUTH_CONFIG.publishableKey)},
+  base(){return String(MAHA_AUTH_CONFIG.url||'').replace(/\/+$/,'')},
+  read(){try{const t=JSON.parse(sessionStorage.getItem(SBAUTHKEY)||'null');return t&&t.access_token&&t.user&&t.user.id?t:null}catch(e){return null}},
+  write(t){try{if(!t){sessionStorage.removeItem(SBAUTHKEY);return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
+  keep(d){return {access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000,user:{id:d.user&&d.user.id}}},
+  /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config',message} */
+  async signIn(username,password){
+    if(!this.configured())return {ok:false,reason:'config',message:'Supabase sign-in is not configured on this page yet.'};
+    let res;
+    try{
+      res=await fetch(this.base()+'/functions/v1/username-auth',{method:'POST',
+        headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},
+        body:JSON.stringify({action:'login',username,password})});
+    }catch(e){return {ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}
+    if(res.status===401||res.status===400)return {ok:false,reason:'invalid'};
+    let d=null;try{d=await res.json()}catch(e){d=null}
+    if(!res.ok||!d||!d.access_token||!d.user||!d.user.id)return {ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'};
+    return {ok:true,tokens:this.keep(d)};
+  },
+  async rest(path,t){
+    const res=await fetch(this.base()+'/rest/v1/'+path,{headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token,'Accept':'application/json'}});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    return res.json();
+  },
+  /* Property codes this user may open. Row-level security on maha_properties returns exactly the
+     properties maha_can_access_property() allows: organisation owner, active organisation-wide
+     membership, or active property membership. */
+  async propertyCodes(t){
+    const rows=await this.rest('maha_properties?select=property_code',t);
+    const codes=new Set();
+    (rows||[]).forEach(p=>{if(p&&p.property_code)codes.add(String(p.property_code).trim().toUpperCase())});
+    return codes;
+  },
+  /* Sign in, then match the Supabase account to a hotel and staff record already on this device. */
+  async staffSignIn(un,pw){
+    if(/@/.test(un))return {ok:false,reason:'email',message:'Sign in with your username, not an email address.'};
+    const r=await this.signIn(un,pw);if(!r.ok)return r;
+    let codes;
+    try{codes=await this.propertyCodes(r.tokens)}catch(e){this.revoke(r.tokens);return {ok:false,reason:'unavailable',message:'Your hotel access could not be checked. Try again in a moment.'}}
+    for(const h of Object.values(DB.hotels||{})){
+      if(!codes.has(String(h.code||'').toUpperCase()))continue;
+      const u=(h.users||[]).find(x=>String(x.username||'').toLowerCase()===un);
+      if(u&&u.active!==false){this.write(r.tokens);return {ok:true,h,u}}
+    }
+    this.revoke(r.tokens);
+    return {ok:false,reason:'unlinked',message:'Your account is not linked to a hotel on this device yet. Please contact Padauk support.'};
+  },
+  /* Keep the token fresh; returns a usable token or null. */
+  async fresh(){
+    const t=this.read();if(!t)return null;
+    if(Date.now()<t.expires_at-90000)return t;
+    try{
+      const res=await fetch(this.base()+'/auth/v1/token?grant_type=refresh_token',{method:'POST',
+        headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},body:JSON.stringify({refresh_token:t.refresh_token})});
+      if(!res.ok){this.write(null);return null}
+      const d=await res.json();if(!d.access_token){this.write(null);return null}
+      const n=this.keep(d);if(n.user.id!==t.user.id){this.write(null);return null}
+      this.write(n);return n;
+    }catch(e){return t}  /* offline: keep the current token until it expires */
+  },
+  revoke(t){
+    if(!t||!t.access_token)return;
+    try{fetch(this.base()+'/auth/v1/logout?scope=local',{method:'POST',headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token}}).catch(()=>{})}catch(e){}
+  },
+  signOut(){const t=this.read();this.write(null);this.revoke(t)}
+};
 function loadDB(){
   let raw=null;
   try{raw=localStorage.getItem(DBKEY)||localStorage.getItem(DBKEY4)}catch(e){raw=null}
@@ -4647,7 +4744,7 @@ function showLogin(msg){
     $('#lgExtra').hidden=lgProvider;
     $('#lgGo').textContent=lgProvider?'Sign in as provider →':'Login →';
     $('#lgMode').textContent=lgProvider?'Back to staff sign-in':'Provider access';
-    const demo=lgProvider?[]:[['','manager','manager123','Manager'],['','frontdesk','front123','Front desk'],['wide','housekeeping','hk123','Other department (Housekeeping)']];
+    const demo=(lgProvider||MahaAuth.on())?[]:[['','manager','manager123','Manager'],['','frontdesk','front123','Front desk'],['wide','housekeeping','hk123','Other department (Housekeeping)']];
     const demoBox=$('#lgDemo');demoBox.hidden=!demo.length;
     demoBox.innerHTML=demo.length?'Demo (tap to fill):<div class="demob">'+demo.map(d=>`<button type="button" class="btn ghost sm ${d[0]||''}" data-demo="${d.join('|')}">${d[3]}</button>`).join('')+'</div>':'';
     $$('[data-demo]').forEach(b=>b.onclick=()=>{const parts=b.dataset.demo.split('|');const u=parts[1],p=parts[2];$('#lgUser').value=u;$('#lgPass').value=p;hint()});
@@ -4720,6 +4817,22 @@ function doLogin(){
   if(!un||!pw){err.textContent='Enter your username and password.';return}
   try{if($('#lgRemember')&&$('#lgRemember').checked)localStorage.setItem('maha.rememberUser',un);else localStorage.removeItem('maha.rememberUser')}catch(e){}
   const fail=()=>{fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}err.textContent='Username or password is not correct.';$('#lgPass').value='';$('#lgPass').focus()};
+  const pv=DB.providers.find(x=>x.username===un);if(pv){if(pv.hash!==pwHash(pv.salt,pw))return fail();fails=0;
+    const finish=(how)=>{const first=Object.keys(DB.hotels)[0];DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=DB.hotels[first];
+      DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in'+(how?' ('+how+')':'')+(pv.email&&pv.emailAlerts!==false?' – alert emailed to '+pv.email:'')});writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go(pv.mfa&&pv.mfa.enabled?'prov.home':'prov.account')};
+    if(pv.mfa&&pv.mfa.enabled){providerSecondStep(pv,()=>finish('with Google Authenticator'));return}finish('');return}
+  if(MahaAuth.on()){
+    const btn=$('#lgGo');if(btn)btn.disabled=true;err.textContent='Checking your account…';
+    MahaAuth.staffSignIn(un,pw).then(r=>{
+      if(btn)btn.disabled=false;
+      if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
+      err.textContent='';staffEnter(r.h,r.u);
+    },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
+    return;
+  }
+  const f=findStaff(un);if(!f)return fail();const {h,u}=f;if(u.active===false||u.hash!==pwHash(u.salt,pw))return fail();
+  staffEnter(h,u);
+  function staffEnter(h,u){const hc=h.code;
   const enterStaffSystem=(h)=>{
     const who=u.username,shift=s.name;
     const list=hotelSystems(h,u);
@@ -4734,23 +4847,25 @@ function doLogin(){
     if(sys==='hub'){applySysPath('hub');renderShell();go(firstHotelView());toast(`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`);return}
     lgTargetSys=sys;openSystem(sys,h,true);
   };
-  const pv=DB.providers.find(x=>x.username===un);if(pv){if(pv.hash!==pwHash(pv.salt,pw))return fail();fails=0;
-    const finish=(how)=>{const first=Object.keys(DB.hotels)[0];DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=DB.hotels[first];
-      DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in'+(how?' ('+how+')':'')+(pv.email&&pv.emailAlerts!==false?' – alert emailed to '+pv.email:'')});writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go(pv.mfa&&pv.mfa.enabled?'prov.home':'prov.account')};
-    if(pv.mfa&&pv.mfa.enabled){providerSecondStep(pv,()=>finish('with Google Authenticator'));return}finish('');return}
-  const f=findStaff(un);if(!f)return fail();const {h,u}=f;if(u.active===false||u.hash!==pwHash(u.salt,pw))return fail();const hc=h.code;
-  if(h.active===false){err.textContent='This hotel is not active yet. Please contact Padauk support.';return}
+  if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Padauk support.';return}
   fails=0;H=h;let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open');
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
   if(!s){const closed=h.shifts.find(x=>x.userId===u.id&&x.name===lgShift&&x.bd===h.set.bd&&x.status==='closed'&&!x.reopenOk);
     if(closed&&ruleOn(h,'blockClosedShiftReopen')){err.textContent=`The ${lgShift} shift for ${fd(h.set.bd)} is already closed. The provider must allow it to be opened again.`;return}
     s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:Math.max(0,+$('#lgCash').value||0),status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Opened ${s.name} shift`)}
   else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
-  writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}
+  writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}}
 function signOut(silent){
   if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!confirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   if(DB.session){if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});else log('Signed out')}
+  if(MahaAuth.on())MahaAuth.signOut();
   DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
+/* Supabase mode: if the sign-in can no longer be refreshed, return to the sign-in screen (shifts stay open). */
+function supabaseSessionExpired(){
+  if(!DB||!DB.session||DB.session.provider)return;
+  log('Signed out (sign-in expired)');MahaAuth.write(null);
+  DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin('Your sign-in has expired. Please sign in again.')}
+setInterval(()=>{if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return;MahaAuth.fresh().then(t=>{if(!t)supabaseSessionExpired()})},60000);
 
 /* ---------- reports open in their own tab (4.6) ---------- */
 function openReportsTab(){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
@@ -8276,8 +8391,18 @@ function armIdle(){
 }
 function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   d.innerHTML=`<div class="panel pad"><h2>Screen locked</h2><p>Your shift stays open. Type your password to continue as <b>${esc(user().name)}</b>.</p><label class="f"><span>Password</span><input id="idlePw" type="password"></label><div class="err" id="idleE"></div><div class="btns"><button class="btn gold" id="idleGo">Unlock</button></div></div>`;
-  document.body.appendChild(d);const go=()=>{const pw=$('#idlePw').value;let ok=false;if(DB.session.provider){const p=DB.providers.find(x=>x.id===DB.session.userId);ok=!!(p&&p.hash===pwHash(p.salt,pw))}else{const u=H&&H.users.find(x=>x.id===DB.session.userId);ok=!!(u&&u.hash===pwHash(u.salt,pw))}
-    if(!ok){$('#idleE').textContent='Password is not correct.';return}_activeAt=Date.now();stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
+  document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
+  const go=()=>{const pw=$('#idlePw').value;
+    if(MahaAuth.on()&&!DB.session.provider){const u=H&&H.users.find(x=>x.id===DB.session.userId),cur=MahaAuth.read();
+      if(!u||!pw){$('#idleE').textContent='Password is not correct.';return}
+      $('#idleE').textContent='Checking…';
+      MahaAuth.signIn(u.username.toLowerCase(),pw).then(r=>{
+        if(!r.ok){$('#idleE').textContent=r.reason==='invalid'?'Password is not correct.':(r.message||'Try again.');return}
+        if(cur&&cur.user.id!==r.tokens.user.id){MahaAuth.revoke(r.tokens);$('#idleE').textContent='Password is not correct.';return}
+        MahaAuth.write(r.tokens);if(cur)MahaAuth.revoke(cur);unlock()});
+      return}
+    let ok=false;if(DB.session.provider){const p=DB.providers.find(x=>x.id===DB.session.userId);ok=!!(p&&p.hash===pwHash(p.salt,pw))}else{const u=H&&H.users.find(x=>x.id===DB.session.userId);ok=!!(u&&u.hash===pwHash(u.salt,pw))}
+    if(!ok){$('#idleE').textContent='Password is not correct.';return}unlock()};
   $('#idleGo').onclick=go;$('#idlePw').onkeydown=e=>{if(e.key==='Enter')go()};setTimeout(()=>{const i=$('#idlePw');i&&i.focus()},40)}
 ['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,e=>{
   if(document.getElementById('idleLock'))return;
