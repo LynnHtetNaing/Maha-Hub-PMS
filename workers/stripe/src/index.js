@@ -7,24 +7,48 @@ const ZERO_DECIMAL = new Set([
   'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf',
 ]);
 
-function json(data, status = 200, corsOrigin = '*') {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': corsOrigin,
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Stripe-Account, X-Maha-Stripe-Secret',
-    },
-  });
+function json(data, status = 200, corsOrigin = '') {
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Vary': 'Origin',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Stripe-Account, X-Maha-Stripe-Secret',
+  };
+  if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
+  return new Response(JSON.stringify(data), { status, headers });
+}
+
+function allowedOrigins(value) {
+  return String(value || 'https://maha-hub.com,https://www.maha-hub.com')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function validateReturnUrl(value, allowed) {
+  let parsed;
+  try {
+    parsed = new URL(String(value || '').trim());
+  } catch {
+    throw Object.assign(new Error('Return URL must be a valid absolute URL'), { status: 400 });
+  }
+  if (parsed.protocol !== 'https:' || !allowed.includes(parsed.origin)) {
+    throw Object.assign(new Error('Return URL origin is not allowed'), { status: 400 });
+  }
+  return parsed.toString();
 }
 
 function toStripeAmount(amount, currency) {
   const cur = String(currency || 'thb').toLowerCase();
-  const n = +amount;
-  if (!(n > 0)) throw new Error('Amount must be greater than 0');
-  return ZERO_DECIMAL.has(cur) ? Math.round(n) : Math.round(n * 100);
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) throw Object.assign(new Error('Amount must be a finite number greater than 0'), { status: 400 });
+  if (!/^[a-z]{3}$/.test(cur)) throw Object.assign(new Error('Currency must be a valid 3-letter code'), { status: 400 });
+  const minorUnits = ZERO_DECIMAL.has(cur) ? Math.round(n) : Math.round(n * 100);
+  if (!Number.isSafeInteger(minorUnits) || minorUnits <= 0) {
+    throw Object.assign(new Error('Amount is outside the supported range'), { status: 400 });
+  }
+  return minorUnits;
 }
 
 async function stripeForm(secret, path, params, opts = {}) {
@@ -164,7 +188,12 @@ function cardFromSession(session) {
 
 export default {
   async fetch(request, env) {
-    const cors = env.CORS_ORIGIN || '*';
+    const origin = request.headers.get('Origin') || '';
+    const origins = allowedOrigins(env.CORS_ORIGIN);
+    const cors = origin && origins.includes(origin) ? origin : '';
+    // CORS is not authentication, but rejecting untrusted browser origins limits
+    // accidental cross-origin use of the payment API.
+    if (origin && !cors) return json({ ok: false, error: 'Origin not allowed' }, 403);
     if (request.method === 'OPTIONS') return json({}, 204, cors);
 
     const url = new URL(request.url);
@@ -199,17 +228,20 @@ export default {
         const successUrl = String(input.successUrl || '').trim();
         const cancelUrl = String(input.cancelUrl || '').trim();
         if (!successUrl || !cancelUrl) throw Object.assign(new Error('successUrl and cancelUrl are required'), { status: 400 });
+        const returnOrigins = allowedOrigins(env.ALLOWED_RETURN_ORIGINS || env.CORS_ORIGIN);
+        const safeSuccessUrl = validateReturnUrl(successUrl, returnOrigins);
+        const safeCancelUrl = validateReturnUrl(cancelUrl, returnOrigins);
 
         const productName = note || (ref ? `Hotel charge · ${ref}` : 'Hotel charge');
         const description = [guest, ref, hotel].filter(Boolean).join(' · ');
-        const success = successUrl.includes('{CHECKOUT_SESSION_ID}')
-          ? successUrl
-          : successUrl + (successUrl.includes('?') ? '&' : '?') + 'session_id={CHECKOUT_SESSION_ID}';
+        const success = safeSuccessUrl.includes('{CHECKOUT_SESSION_ID}')
+          ? safeSuccessUrl
+          : safeSuccessUrl + (safeSuccessUrl.includes('?') ? '&' : '?') + 'session_id={CHECKOUT_SESSION_ID}';
 
         const session = await stripeForm(secret, '/checkout/sessions', {
           mode: 'payment',
           success_url: success,
-          cancel_url: cancelUrl,
+          cancel_url: safeCancelUrl,
           client_reference_id: linkId || undefined,
           'payment_method_types[0]': 'card',
           'line_items[0][quantity]': '1',
