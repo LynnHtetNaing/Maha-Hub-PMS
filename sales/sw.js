@@ -1,5 +1,5 @@
 /* Maha Sales — offline shell. Hotel leads stay in IndexedDB, not in this cache. */
-const VERSION = 'maha-sales-v2';
+const VERSION = 'maha-sales-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   '/icons/maha-mark-sq.png', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 

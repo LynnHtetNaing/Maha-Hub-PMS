@@ -1005,6 +1005,7 @@ function vMsa(id, state) {
     ${!m.isNew ? '<p style="margin-top:18px"><button class="btn danger sm" data-act="delMsa">Delete MSA</button></p>' : ''}
    </div><div class="sticky"><div class="panel"><h2 style="margin-top:0">Before you send</h2><div id="m_flags"></div>
     <p class="muted small" style="margin-bottom:0">Fixed in the master: 15-day payment, 12-month term with auto-renew, 90-day notice, early termination 300,000 THB or remaining value, Thai law. Kritipah signs for Maha Hub.</p></div>
+    <div class="panel" id="mPay" style="margin-top:12px"><h2 style="margin-top:0">Collect set-up fee</h2><p class="muted small" id="mPayNote"></p><div id="mPayForm"></div><div id="mPayOut"></div></div>
     <div class="note"><b>⬇ Download MSA PDF</b> builds the official MSA v10 (10 pages + Letter of Appointment) right here — no Claude, no tokens. The save window opens by itself: choose <b>Save as PDF</b> → <b>Save</b>.</div></div></div>`;
   const rowsBox = () => {
     const r = msaRows(m), L = MSA_DEFAULT_ROWS.map(x => x.label);
@@ -1019,6 +1020,18 @@ function vMsa(id, state) {
     if (m.model === 'custom') { const r = msaRows({...m, model:'master'}); m.rows = (m.rows && m.rows.length === 3 ? m.rows : r).map((x, i) => ({en: ($(`[data-row="${i}"][data-lang=en]`) || {}).value ?? x.en, th: ($(`[data-row="${i}"][data-lang=th]`) || {}).value ?? x.th})); }
     $('#m_flags').innerHTML = msaFlags(m).map(f => `<div class="warn">${esc(f)}</div>`).join('') || '<div class="note">All details complete.</div>';
     if (m.model !== 'custom') rowsBox();
+    const due = m.waived || !m.setup || m.setup === 'none' ? 0 : +m.setup;
+    const who = m.signName || (m.contact || '').split('·')[0].trim() || (h && h.contact) || '';
+    paintDocPay('mPay', due > 0 ? {
+      show: true, amount: due,
+      item: `MSA set-up — ${m.company || m.hotelName || 'hotel'}`.replace(/\s+/g, ' ').trim(),
+      guest: who,
+      email: mailIn(m.contact) || (h && h.email) || '',
+      note: `Stripe emails a payment link for the set-up fee, ${fmt(due)} THB. The monthly fee and commission stay in the MSA. The 10-page PDF is unchanged.`,
+    } : {
+      show: false, amount: 0, item: '', guest: '', email: '',
+      note: 'The set-up fee is waived. There is no one-time amount for Stripe. The monthly fee is collected under the MSA, not as a payment link.',
+    });
   };
   view().oninput = e => { if (e.target.closest('.split') && !e.target.dataset.row) sync(); else if (e.target.dataset.row) sync(); };
   view().onchange = e => {
@@ -1528,6 +1541,7 @@ function vQuote(id) {
     <div class="panel"><div id="customs">${q.custom.map((c, i) => customRow(c, i)).join('')}</div><button class="btn sm" data-act="addCustom">${ICON.plus}Add custom line</button></div>
     ${!q.isNew ? `<p style="margin-top:18px"><button class="btn danger sm" data-act="delQuote">Delete quote</button></p>` : ''}
    </div><div class="sticky"><div class="panel qsum"><h2 style="margin-top:0">Summary</h2><div id="qwarn"></div><div id="qtable"></div></div>
+    <div class="panel" id="qPay" style="margin-top:12px"><h2 style="margin-top:0">Collect one-time</h2><p class="muted small" id="qPayNote"></p><div id="qPayForm"></div><div id="qPayOut"></div></div>
     <div class="note"><b>⬇ Download quotation PDF</b> builds the official Maha Hub quotation right here — no Claude, no tokens. The save window opens by itself: choose <b>Save as PDF</b> → <b>Save</b>.</div><p class="muted small">Need a proposal or another document only Claude makes? <button class="btn sm" data-act="copyPrompt">${ICON.copy}Copy request for Claude</button></p></div></div>`;
 
   const sync = () => {
@@ -1538,6 +1552,18 @@ function vQuote(id) {
     $$('[data-opt]').forEach(el => { const l = q.lines[el.dataset.p] = q.lines[el.dataset.p] || {}; l[el.dataset.opt] = el.type === 'checkbox' ? el.checked : el.value; });
     q.custom = $$('#customs .crow').map(r => ({name: $('[data-c=name]', r).value.trim(), amount: $('[data-c=amount]', r).value.trim(), cad: $('[data-c=cad]', r).value}));
     const c = compute(q); $('#qtable').innerHTML = quoteTable(c); $('#qwarn').innerHTML = c.warn.map(w => `<div class="warn">${esc(w)}</div>`).join('');
+    paintDocPay('qPay', c.once > 0 ? {
+      show: true, amount: c.once,
+      item: `Quotation ${q.no || q.hotelName || 'draft'} — one-time`.replace(/\s+/g, ' ').trim(),
+      guest: q.contact || (h && h.contact) || '',
+      email: (h && h.email) || '',
+      note: `Stripe emails a payment link for the one-time total, ${fmt(c.once)} THB. Monthly, yearly and commission stay on the quotation. The 2-page PDF is unchanged.`,
+    } : {
+      show: false, amount: 0, item: '', guest: '', email: '',
+      note: (q.waived && q.setup && q.setup !== 'none')
+        ? 'The set-up fee is waived, and there is no other one-time amount. Stripe is not used for the monthly, yearly or commission lines.'
+        : 'This quotation has no one-time amount. Stripe is not used for the monthly, yearly or commission lines.',
+    });
   };
   view().oninput = e => { if (e.target.closest('.split')) sync(); };
   view().onchange = e => {
@@ -1603,6 +1629,102 @@ function collectHistory() {
   try { const a = JSON.parse(localStorage.getItem(COLLECT_KEY) || '[]'); return Array.isArray(a) ? a : []; }
   catch (e) { return []; }
 }
+function mailIn(text) {
+  const m = String(text || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return m ? m[0] : '';
+}
+async function sendStripeCollect({item, amount, guest, email}) {
+  item = String(item || '').trim();
+  guest = String(guest || '').trim();
+  email = String(email || '').trim();
+  amount = Math.round((+amount) * 100) / 100;
+  if (!item) throw new Error('Enter the item name.');
+  if (!(amount > 0)) throw new Error('Enter an amount greater than 0.');
+  if (!guest) throw new Error('Enter the guest name.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email.');
+  const id = 'edc' + uid();
+  const res = await fetch(stripeHelper() + '/api/collect', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({item, amount, guest, email, currency: 'THB', hotel: PADAUK.code, hotelName: PADAUK.name, linkId: id}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.url) throw new Error(data.error || ('Stripe helper HTTP ' + res.status));
+  const link = {
+    id, hotel: PADAUK.code, guest, email, amount, cur: 'THB',
+    ref: item, note: item, status: 'waiting', createdAt: Date.now(), submittedAt: null, keyedAt: null, card: null,
+    merchant: PADAUK.name, company: PADAUK.legal, contact: '',
+    stripeInvoiceId: data.kind === 'invoice' ? data.id : '',
+    stripeSessionId: data.kind === 'invoice' ? '' : (data.id || ''),
+    stripeUrl: data.url, stripeLivemode: !!data.livemode,
+  };
+  fileOnPadauk(link);
+  const hist = collectHistory();
+  hist.unshift({id, item, amount, guest, email, url: data.url, emailed: !!data.emailed, testMode: !!data.testMode, at: link.createdAt});
+  if (hist.length > 40) hist.length = 40;
+  localStorage.setItem(COLLECT_KEY, JSON.stringify(hist));
+  const sentLine = data.emailed
+    ? (data.testMode
+      ? `Stripe created the link and accepted the send to ${email}. A test key does not deliver that email into the inbox. With a live key, the guest receives it.`
+      : `Stripe emailed the payment link to ${email}.`)
+    : `Stripe created the link. The email was not sent${data.emailError ? ' (' + data.emailError + ')' : ''}. Copy the link and send it yourself.`;
+  return {url: data.url, emailed: !!data.emailed, testMode: !!data.testMode, amount, item, guest, email, sentLine};
+}
+function payResultHTML(r) {
+  return `<div class="banner" style="margin-top:10px"><span>${esc(r.sentLine)} It is also on Padauk Demo Hotel → Payment / EDC links.</span></div>
+    <p style="margin:10px 0"><a class="paylink" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></p>
+    <div class="actions"><button class="btn sm" type="button" data-copy-url="${esc(r.url)}">Copy link</button><a class="btn sm" href="${esc(r.url)}" target="_blank" rel="noopener">Open link</a></div>`;
+}
+function paintDocPay(id, spec) {
+  const note = document.getElementById(id + 'Note');
+  const form = document.getElementById(id + 'Form');
+  if (!note || !form) return;
+  note.textContent = spec.note;
+  if (!spec.show) { form.innerHTML = ''; const out = document.getElementById(id + 'Out'); if (out && !out.dataset.kept) out.innerHTML = ''; return; }
+  if (!document.getElementById(id + 'Guest')) {
+    form.innerHTML = `<div class="grid">
+      <label class="f"><span>Guest name</span><input id="${id}Guest" type="text" autocomplete="name"></label>
+      <label class="f"><span>Email</span><input id="${id}Mail" type="email" autocomplete="email"></label>
+    </div>
+    <p class="formerr" id="${id}Err"></p>
+    <div class="actions" style="margin-top:10px"><button class="btn primary" type="button" id="${id}Go">Send payment link</button></div>`;
+    document.getElementById(id + 'Go').onclick = () => submitDocPay(id);
+  }
+  form.dataset.item = spec.item;
+  form.dataset.amount = String(spec.amount);
+  const guest = document.getElementById(id + 'Guest');
+  const mail = document.getElementById(id + 'Mail');
+  if (guest && !guest.value && spec.guest) guest.value = spec.guest;
+  if (mail && !mail.value && spec.email) mail.value = spec.email;
+}
+async function submitDocPay(id) {
+  const form = document.getElementById(id + 'Form');
+  const err = document.getElementById(id + 'Err');
+  const btn = document.getElementById(id + 'Go');
+  if (!form || !btn) return;
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await sendStripeCollect({
+      item: form.dataset.item,
+      amount: form.dataset.amount,
+      guest: document.getElementById(id + 'Guest').value,
+      email: document.getElementById(id + 'Mail').value,
+    });
+    const out = document.getElementById(id + 'Out');
+    out.dataset.kept = '1';
+    out.innerHTML = payResultHTML(r);
+    $$('[data-copy-url]', out).forEach(b => b.onclick = () => copyText(b.dataset.copyUrl, 'Link copied'));
+    toast(r.emailed ? 'Link created and sent' : 'Link created');
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    err.textContent = /failed to fetch|networkerror|load failed/i.test(msg)
+      ? 'Stripe helper is not running. Start it, then press Send again.'
+      : msg;
+  } finally {
+    if (btn.isConnected) { btn.disabled = false; btn.textContent = 'Send payment link'; }
+  }
+}
 function fileOnPadauk(link) {
   try {
     const b = JSON.parse(localStorage.getItem(EDC_BRIDGE_KEY) || '{"links":[]}');
@@ -1655,44 +1777,15 @@ function vCollect() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email.'; return; }
     const btn = $('#colSend');
     btn.disabled = true; btn.textContent = 'Sending…';
-    const id = 'edc' + uid();
     try {
-      const res = await fetch(stripeHelper() + '/api/collect', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          item, amount, guest, email, currency: 'THB',
-          hotel: PADAUK.code, hotelName: PADAUK.name, linkId: id,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) throw new Error(data.error || ('Stripe helper HTTP ' + res.status));
-      const link = {
-        id, hotel: PADAUK.code, guest, email, amount: Math.round(amount * 100) / 100, cur: 'THB',
-        ref: item, note: item, status: 'waiting', createdAt: Date.now(), submittedAt: null, keyedAt: null, card: null,
-        merchant: PADAUK.name, company: PADAUK.legal, contact: '',
-        stripeInvoiceId: data.kind === 'invoice' ? data.id : '',
-        stripeSessionId: data.kind === 'invoice' ? '' : (data.id || ''),
-        stripeUrl: data.url, stripeLivemode: !!data.livemode,
-      };
-      fileOnPadauk(link);
-      const hist = collectHistory();
-      hist.unshift({id, item, amount: link.amount, guest, email, url: data.url, emailed: !!data.emailed, testMode: !!data.testMode, at: link.createdAt});
-      if (hist.length > 40) hist.length = 40;
-      localStorage.setItem(COLLECT_KEY, JSON.stringify(hist));
-      const sentLine = data.emailed
-        ? (data.testMode
-          ? `Stripe created the link and accepted the send to ${email}. A test key does not deliver that email into the inbox — the link below is the one Stripe would send. With a live key, the guest receives it.`
-          : `Stripe emailed the payment link to ${email}.`)
-        : `Stripe created the link. The email was not sent${data.emailError ? ' (' + data.emailError + ')' : ''}. Copy the link and send it yourself.`;
-      toast(data.emailed ? 'Link created and sent' : 'Link created');
+      const r = await sendStripeCollect({item, amount, guest, email});
+      toast(r.emailed ? 'Link created and sent' : 'Link created');
       vCollect();
-      $('#colOut').innerHTML = `<div class="banner"><span>${esc(sentLine)} It is also on Padauk Demo Hotel → Payment / EDC links.</span></div>
-        <div class="panel" style="margin-bottom:8px"><div style="font-weight:600">${esc(item)} · ${fmt(link.amount)} THB</div>
-        <div class="muted small">${esc(guest)} · ${esc(email)}</div>
-        <p style="margin:10px 0"><a class="paylink" href="${esc(data.url)}" target="_blank" rel="noopener">${esc(data.url)}</a></p>
-        <div class="actions"><button class="btn sm" type="button" id="colCopy">Copy link</button><a class="btn sm" href="${esc(data.url)}" target="_blank" rel="noopener">Open link</a></div></div>`;
-      $('#colCopy').onclick = () => copyText(data.url, 'Link copied');
+      $('#colOut').innerHTML = `<div class="banner"><span>${esc(r.sentLine)} It is also on Padauk Demo Hotel → Payment / EDC links.</span></div>
+        <div class="panel" style="margin-bottom:8px"><div style="font-weight:600">${esc(r.item)} · ${fmt(r.amount)} THB</div>
+        <div class="muted small">${esc(r.guest)} · ${esc(r.email)}</div>
+        ${payResultHTML(r)}</div>`;
+      $$('[data-copy-url]', $('#colOut')).forEach(b => b.onclick = () => copyText(b.dataset.copyUrl, 'Link copied'));
     } catch (e) {
       const msg = (e && e.message) ? e.message : String(e);
       err.textContent = /failed to fetch|networkerror|load failed/i.test(msg)
