@@ -4778,7 +4778,7 @@ const PROV_MENU=[
  {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
  {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},
  {t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},
- {t:'Account',items:[['My account & security','prov.account']]}];
+ {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
@@ -5137,7 +5137,7 @@ function openHelpMenu(btn){
 function openAccountMenu(btn){
   const provider=!!(DB.session&&DB.session.provider);
   const inHotel=!(provider&&!DB.session.inHotel);
-  const p=tbPop(btn,`${provider?'<button type="button" data-act="account">My account &amp; security</button>':'<button type="button" data-act="profile">My profile</button>'}${inHotel?'<button type="button" data-act="search">Search</button>':''}<button type="button" class="msignout" data-act="out">Sign out</button>`);
+  const p=tbPop(btn,`${provider?'<button type="button" data-act="account">'+(MahaAuth.on()?'My profile':'My account &amp; security')+'</button>':'<button type="button" data-act="profile">My profile</button>'}${inHotel?'<button type="button" data-act="search">Search</button>':''}<button type="button" class="msignout" data-act="out">Sign out</button>`);
   $$('[data-act]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const a=b.dataset.act;
     if(a==='account'){go('prov.account');return}
     if(a==='profile'){if(VIEW!=='me.profile')PREV={v:VIEW,a:VARG};go('me.profile');return}
@@ -8057,8 +8057,44 @@ function providerSecondStep(p,done){const box=$('#lform');
   $('#mfaRec').onclick=()=>{rec=!rec;$('#mfaRec').textContent=rec?'Use the authenticator code instead':'Lost your phone? Use a recovery code';inp.placeholder=rec?'abcd-1234':'123 456';inp.maxLength=rec?9:7;inp.removeAttribute('inputmode');$('.f span',box).textContent=rec?'Recovery code':'Authenticator code';inp.focus()};
   $('#mfaBack').onclick=()=>showLogin()}
 
+/* ---- My profile (provider, username sign-in mode): account information, sign-in security and logs ---- */
+function renderProviderProfile(el){
+  const p=curProvider();if(!p){el.innerHTML='<div class="empty">Provider account not found.</div>';return}
+  const logs=DB.provLog||[];
+  const signins=logs.filter(x=>/signed (in|out)/i.test(x.a)).slice(0,10);
+  const act=logs.slice(0,100);
+  el.innerHTML=pageHead('My profile')+`<div class="mp"><div class="panel mpcard"><div class="mpav">${ic('user',64)}</div><div class="mpu">${esc(p.username)}</div><div class="mppos">Platform administrator</div>
+     <div class="mpnote">You manage hotels, staff logins and access for every property. Hotel staff cannot open this page.</div></div>
+    <div class="panel pad"><h3>Account</h3><div class="form2">${fld('Username',`<input value="${esc(p.username)}" disabled>`)}${fld('Role',`<input value="Platform administrator (provider)" disabled>`)}${fld('Email',`<input id="pfEmail" value="Loading..." disabled>`,'span2')}</div>
+     <h3 class="mt">Sign-in security</h3><div class="form2">${fld('Sign-in method',`<input value="Username and password, then a 6-digit authenticator code" disabled>`,'span2')}${fld('Two-step verification',`<input id="pfMfa" value="Checking..." disabled>`)}${fld('Last sign-in',`<input id="pfLast" value="Checking..." disabled>`)}</div>
+     <p class="sub">The authenticator is registered once and works on every device. To move it to a new phone, remove the old one in the Supabase dashboard (Authentication, Users), then sign in and scan the new QR code once.</p>
+     <div class="btns"><button class="btn ghost" id="pfReset">Email me a password reset link</button></div></div></div>
+   <div class="panel mt"><div class="ph">Recent sign-ins</div>${signins.length?`<table class="grid"><tr><th>When</th><th>Event</th></tr>${signins.map(s=>`<tr><td>${fd(iso(new Date(s.at)))} ${tm(s.at)}</td><td>${esc(s.a)}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded on this device yet.</div>'}</div>
+   <div class="panel mt"><div class="ph">Activity log</div><table class="grid"><tr><th>When</th><th>Hotel</th><th>Action</th></tr>${act.map(a=>`<tr><td>${fd(iso(new Date(a.at)))} ${tm(a.at)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' - '+esc(a.reason):''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No activity recorded on this device yet.</td></tr>'}</table>
+    <p class="sub pad">This log lists the provider actions made from this browser. It is kept on this device only.</p></div>`;
+  /* email, two-step status and last sign-in come from the sign-in service */
+  (async()=>{
+    const set=(id,v)=>{const n=$('#'+id,el);if(n)n.value=v};
+    try{
+      const t=await MahaAuth.fresh();if(!t)throw new Error('AUTH');
+      const u=await MahaAuth.authApi('GET','/user',null,t);
+      const f=(u.factors||[]).filter(x=>x.status==='verified');
+      set('pfEmail',u.email||'');
+      set('pfMfa',f.length?'On (registered '+fd(iso(new Date(f[0].created_at)))+')':'Not set up');
+      set('pfLast',u.last_sign_in_at?fd(iso(new Date(u.last_sign_in_at)))+' '+tm(Date.parse(u.last_sign_in_at)):'');
+    }catch(e){['pfEmail','pfMfa','pfLast'].forEach(id=>set(id,'Not available right now'))}
+  })();
+  const rb=$('#pfReset',el);
+  rb.onclick=()=>{
+    rb.disabled=true;
+    fetch(MahaAuth.base()+'/functions/v1/username-auth',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},body:JSON.stringify({action:'request_password_reset',username:p.username})})
+      .then(r=>{if(r.ok){provLog('Password reset email requested');saveDB();toast('A reset link was sent to your account email. It works once.')}else toast('The email could not be sent now. Try again in a minute.')},()=>toast('The service did not answer. Try again in a minute.'))
+      .finally(()=>setTimeout(()=>{rb.disabled=false},60000));
+  };
+}
+
 /* ---- My account (provider) ---- */
-VIEWS['prov.account']=el=>{const p=curProvider();if(!p){el.innerHTML='<div class="empty">Provider account not found.</div>';return}const m=p.mfa||{};
+VIEWS['prov.account']=el=>{if(MahaAuth.on()){renderProviderProfile(el);return}const p=curProvider();if(!p){el.innerHTML='<div class="empty">Provider account not found.</div>';return}const m=p.mfa||{};
   const signins=DB.provLog.filter(x=>x.user===p.name&&/signed in/i.test(x.a)).slice(0,8);
   el.innerHTML=pageHead('My account & security')+`${!m.enabled?`<div class="lockbar">Google Authenticator is not on yet. Set it up below so provider sign-in asks for a code. The console stays open while you do that.</div>`:''}${isDefaultProvider(p)?'<div class="lockbar">You are still using the starting username and password. Change them now: after that they are no longer shown on the sign-in page.</div>':''}
    <div class="acgrid">
