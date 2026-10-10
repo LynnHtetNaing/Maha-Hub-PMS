@@ -72,11 +72,22 @@ Deno.serve(async (req) => {
   if (ownerError || !owner) return json({ error: "forbidden" }, 403);
   const ownerId = caller.user.id;
 
+  // Activity log (server-side, permanent). Logging is best effort: it can never break a request.
+  const track = (p: Promise<unknown>) => {
+    try { (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime?.waitUntil?.(p); } catch { /* ignore */ }
+  };
+  const { data: me } = await admin.from("maha_login_identities").select("username").eq("user_id", ownerId).maybeSingle();
+  const actorName = (me as { username?: string } | null)?.username ?? "provider";
+  const audit = (event: string, target: string | null, property: string | null, ok: boolean, detail: string | null) =>
+    Promise.resolve(admin.rpc("maha_log_event", {
+      p_actor_user: ownerId, p_actor_username: actorName, p_event: event, p_target: target,
+      p_property_code: property, p_ok: ok, p_detail: detail,
+    })).catch(() => undefined);
   // Two-factor gate: the provider must have an authenticator enrolled AND have passed the 6-digit step in this session.
   const { data: hasMfa, error: mfaError } = await admin.rpc("maha_has_verified_mfa", { p_user: ownerId });
   if (mfaError) return json({ error: "mfa_check_failed" }, 502);
-  if (!hasMfa) return json({ error: "mfa_enrollment_required" }, 403);
-  if (jwtClaim(tokenMatch[1], "aal") !== "aal2") return json({ error: "mfa_required" }, 403);
+  if (!hasMfa) { track(audit("mfa_blocked", null, null, false, "mfa_enrollment_required")); return json({ error: "mfa_enrollment_required" }, 403); }
+  if (jwtClaim(tokenMatch[1], "aal") !== "aal2") { track(audit("mfa_blocked", null, null, false, "mfa_required")); return json({ error: "mfa_required" }, 403); }
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "invalid_request" }, 400); }
 
@@ -85,6 +96,28 @@ Deno.serve(async (req) => {
   const username = str("username");
   const email = str("email").toLowerCase();
   const role = body.role === "property_admin" ? "property_admin" : "staff";
+
+  // Every answer below goes through respond(): it writes the activity-log entry, then returns the response.
+  const respond = (resBody: unknown, status = 200): Response => {
+    try {
+      const b = (resBody ?? {}) as Record<string, unknown>;
+      const ok = status < 400;
+      const err = typeof b.error === "string" ? b.error : "";
+      const property = str("property_code").toUpperCase() || null;
+      const target = action === "rename_username" ? `${username}>${str("new_username")}` : action === "create_hotel" ? property : username;
+      let event = "";
+      let detail = ok ? "" : err;
+      if (action === "create_hotel") event = ok ? "hotel_created" : "hotel_create_failed";
+      else if (action === "add_staff") event = ok ? "staff_added" : "staff_add_failed";
+      else if (action === "set_active") event = ok ? (b.active ? "staff_enabled" : "staff_disabled") : "staff_status_failed";
+      else if (action === "reset_password") event = ok ? "password_reset_sent" : "password_reset_failed";
+      else if (action === "rename_username") event = ok ? "username_changed" : "username_change_failed";
+      if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
+      if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
+      if (event) track(audit(event, target, property, ok, detail || null));
+    } catch { /* logging must never break the request */ }
+    return json(resBody, status);
+  };
 
   let mailError = "";   // reason the last email was refused (e.g. over_email_send_rate_limit); never includes addresses
   const sendSetPasswordEmail = async (to: string) => {
@@ -132,11 +165,11 @@ Deno.serve(async (req) => {
         (requestedOrgId && !UUID.test(requestedOrgId)) ||
         propertyName.length < 2 || propertyName.length > 160 ||
         !CODE.test(propertyCode) || !USERNAME.test(username) || !EMAIL.test(email) || email.length > 254) {
-      return json({ error: "invalid_fields" }, 400);
+      return respond({ error: "invalid_fields" }, 400);
     }
     const { data: codeTaken } = await admin.from("maha_properties").select("id").eq("property_code", propertyCode).maybeSingle();
-    if (codeTaken) return json({ error: "property_code_taken" }, 409);
-    if (await usernameTaken(username)) return json({ error: "username_taken" }, 409);
+    if (codeTaken) return respond({ error: "property_code_taken" }, 409);
+    if (await usernameTaken(username)) return respond({ error: "username_taken" }, 409);
 
     const result = await createAccountThen(async (userId) => {
       const r = await admin.rpc("maha_provision_hotel", {
@@ -154,7 +187,7 @@ Deno.serve(async (req) => {
     });
     if (!result.ok) return result.response;
     const ids = result.data as { organization_id: string; property_id: string };
-    return json({
+    return respond({
       ok: true, organization_id: ids.organization_id, property_id: ids.property_id, username, role,
       invitation_sent: await sendSetPasswordEmail(email),
       invitation_error: mailError || undefined,
@@ -165,15 +198,15 @@ Deno.serve(async (req) => {
   if (action === "add_staff") {
     const propertyCode = str("property_code").toUpperCase();
     if (!CODE.test(propertyCode) || !USERNAME.test(username) || !EMAIL.test(email) || email.length > 254) {
-      return json({ error: "invalid_fields" }, 400);
+      return respond({ error: "invalid_fields" }, 400);
     }
     const { data: property } = await admin.from("maha_properties").select("id,organization_id")
       .eq("property_code", propertyCode).maybeSingle();
-    if (!property) return json({ error: "property_not_found" }, 404);
+    if (!property) return respond({ error: "property_not_found" }, 404);
     const { data: org } = await admin.from("maha_organizations").select("owner_user_id")
       .eq("id", property.organization_id).maybeSingle();
-    if (!org || org.owner_user_id !== ownerId) return json({ error: "forbidden" }, 403);
-    if (await usernameTaken(username)) return json({ error: "username_taken" }, 409);
+    if (!org || org.owner_user_id !== ownerId) return respond({ error: "forbidden" }, 403);
+    if (await usernameTaken(username)) return respond({ error: "username_taken" }, 409);
 
     const result = await createAccountThen(async (userId) => {
       const r = await admin.rpc("maha_provision_staff", {
@@ -184,46 +217,46 @@ Deno.serve(async (req) => {
     });
     if (!result.ok) return result.response;
     const sent = await sendSetPasswordEmail(email);
-    return json({ ok: true, property_id: property.id, username, role, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
+    return respond({ ok: true, property_id: property.id, username, role, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
   }
 
   // ---------------------------------------------------------------- staff look-ups (all owner-scoped)
   if (action === "set_active" || action === "reset_password" || action === "rename_username") {
-    if (!USERNAME.test(username)) return json({ error: "invalid_fields" }, 400);
+    if (!USERNAME.test(username)) return respond({ error: "invalid_fields" }, 400);
 
     if (action === "reset_password") {
       const { data, error } = await admin.rpc("maha_owned_staff", { p_owner: ownerId, p_username: username });
-      if (error || !data) return json({ error: "staff_not_found" }, 404);
+      if (error || !data) return respond({ error: "staff_not_found" }, 404);
       const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email);
-      return json({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
+      return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
 
     if (action === "set_active") {
-      if (typeof body.active !== "boolean") return json({ error: "invalid_fields" }, 400);
+      if (typeof body.active !== "boolean") return respond({ error: "invalid_fields" }, 400);
       const active = body.active as boolean;
       const { data: userId, error } = await admin.rpc("maha_set_staff_active", {
         p_owner: ownerId, p_username: username, p_active: active,
       });
-      if (error || !userId) return json({ error: "staff_not_found" }, 404);
+      if (error || !userId) return respond({ error: "staff_not_found" }, 404);
       // Database access is already cut or restored. The ban also stops token refresh and new sign-ins.
       const { error: banError } = await admin.auth.admin.updateUserById(userId as string, {
         ban_duration: active ? "none" : "876000h",
       });
-      if (banError) return json({ error: "ban_update_failed", database_updated: true }, 502);
-      return json({ ok: true, active });
+      if (banError) return respond({ error: "ban_update_failed", database_updated: true }, 502);
+      return respond({ ok: true, active });
     }
 
     const newUsername = str("new_username");
-    if (!USERNAME.test(newUsername)) return json({ error: "invalid_fields" }, 400);
-    if (await usernameTaken(newUsername)) return json({ error: "username_taken" }, 409);
+    if (!USERNAME.test(newUsername)) return respond({ error: "invalid_fields" }, 400);
+    if (await usernameTaken(newUsername)) return respond({ error: "username_taken" }, 409);
     const { data: userId, error } = await admin.rpc("maha_rename_staff", {
       p_owner: ownerId, p_username: username, p_new_username: newUsername,
     });
     if (error || !userId) {
-      return json({ error: error?.code === "23505" ? "username_taken" : "staff_not_found" }, error?.code === "23505" ? 409 : 404);
+      return respond({ error: error?.code === "23505" ? "username_taken" : "staff_not_found" }, error?.code === "23505" ? 409 : 404);
     }
-    return json({ ok: true, username: newUsername });
+    return respond({ ok: true, username: newUsername });
   }
 
-  return json({ error: "unsupported_action" }, 400);
+  return respond({ error: "unsupported_action" }, 400);
 });
