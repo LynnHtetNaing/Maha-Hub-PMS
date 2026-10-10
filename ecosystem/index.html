@@ -1239,8 +1239,8 @@ const MahaAuth={
       if(String(probe.code||'').toUpperCase()!==p.code||!Array.isArray(probe.users)||!probe.set||typeof probe.set!=='object'){invalid=true;continue}
       if(!userOf(probe))continue;
       await snapshotBeforeAdopt(p.code);
-      try{MahaSync.install(res);await MahaSync.ensureLeases(true);MahaSync.persist()}
-      catch(e){if(e&&e.status&&e.status<500)invalid=true;else unavailable=true;continue}
+      try{MahaSync.install(res)}catch(e){invalid=true;continue}                       /* the cloud copy cannot be read by this version: say so, do not call it an outage */
+      try{await MahaSync.ensureLeases(true);MahaSync.persist()}catch(e){unavailable=true;continue}
       const h=DB.hotels[p.code];
       MahaSync.start();
       return {ok:true,h,u:userOf(h)||userOf(probe)};
@@ -1774,7 +1774,8 @@ const ProvSync={
         continue;
       }
       await snapshotBeforeAdopt(p.code);
-      try{s.install(res);await s.ensureLeases(true);s.persist()}catch(e){unavailable=true;this.items.delete(p.code)}
+      try{s.install(res)}catch(e){this.items.delete(p.code);if(typeof toast==='function')toast('Hotel '+p.code+' has cloud data this version cannot read. It was skipped.');continue}
+      try{await s.ensureLeases(true);s.persist()}catch(e){unavailable=true;this.items.delete(p.code)}
     }
     this.remember();return {unavailable};
   },
@@ -7100,12 +7101,12 @@ VIEWS['prov.perms']=el=>{
   $$('[data-su]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
   $$('[data-pu]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();render()});
   $$('[data-pre]',el).forEach(s=>s.onchange=()=>{if(!s.value)return;const u=H.users.find(x=>x.id===s.dataset.pre);u.perms=[...PRESET[s.value]];u.role=s.value;provLog(`Applied preset ${s.value} to ${u.username}`);saveDB();render()});
-  $$('[data-rp]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(()=>{provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=prompt(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
+  $$('[data-rp]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{if(d&&d.invitation_sent===false){toast('The email could not be sent now. Try again in a few minutes.');return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=prompt(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
   $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}if(u.active!==false&&H.shifts.some(s=>s.userId===u.id&&s.status==='open')){toast('Close this person\'s open shift first.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
     $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
       $('#auE',m).textContent='Creating the loginâ€¦';
-      ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff'}).then(()=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast('Login created. A set-password email was sent.')},err=>{$('#auE',m).textContent=ProvAdmin.msg(err)});return}
+      ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff'}).then(d=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast(d&&d.invitation_sent===false?'Login created, but the email could not be sent now. Use Reset password in a few minutes.':'Login created. A set-password email was sent.')},err=>{$('#auE',m).textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){$('#auE',m).textContent='The password needs at least 8 characters.';return}
       const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,p);nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;H.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render()}};
 };
@@ -7701,7 +7702,7 @@ function newPropertyForm(){if(!provOnly())return;
     if(!n){e.textContent='Enter the hotel name.';return}if(!/^[a-z0-9._-]{3,20}$/.test(u)){e.textContent='Username: 3 to 20 letters, numbers, dot, dash or underscore.';return}
     if(usernameTaken(u)){e.textContent='This username is already used in another hotel.';return}if(MahaAuth.on()){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)){e.textContent='Enter a valid email address for the owner / manager.';return}
       e.textContent='Creating the hotel and its loginâ€¦';
-      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value}).then(()=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
+      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value}).then(d=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');if(d&&d.invitation_sent===false){toast(c+' created, but the email could not be sent now. Use Reset password on the owner login in a few minutes.');return}toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){e.textContent='The password needs at least 8 characters.';return}
     const h=emptyHotel({code:c,name:n,cur:$('#npCur',m).value,bd:$('#npBd',m).value});h.users.push(mkUser('u'+uid(),u,'Owner','Manager',p));shapeHotel(h);DB.hotels[c]=h;
     openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}

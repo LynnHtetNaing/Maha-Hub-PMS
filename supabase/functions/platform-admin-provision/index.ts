@@ -70,8 +70,10 @@ Deno.serve(async (req) => {
   const email = str("email").toLowerCase();
   const role = body.role === "property_admin" ? "property_admin" : "staff";
 
+  let mailError = "";   // reason the last email was refused (e.g. over_email_send_rate_limit); never includes addresses
   const sendSetPasswordEmail = async (to: string) => {
     const { error } = await authClient.auth.resetPasswordForEmail(to, { redirectTo: RESET_REDIRECT });
+    mailError = error ? String((error as { code?: string }).code || error.status || "email_failed") : "";
     return !error;
   };
   const usernameTaken = async (name: string) => {
@@ -139,6 +141,7 @@ Deno.serve(async (req) => {
     return json({
       ok: true, organization_id: ids.organization_id, property_id: ids.property_id, username, role,
       invitation_sent: await sendSetPasswordEmail(email),
+      invitation_error: mailError || undefined,
     }, 201);
   }
 
@@ -164,7 +167,8 @@ Deno.serve(async (req) => {
       return { data: r.data, error: r.error };
     });
     if (!result.ok) return result.response;
-    return json({ ok: true, property_id: property.id, username, role, invitation_sent: await sendSetPasswordEmail(email) }, 201);
+    const sent = await sendSetPasswordEmail(email);
+    return json({ ok: true, property_id: property.id, username, role, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
   }
 
   // ---------------------------------------------------------------- staff look-ups (all owner-scoped)
@@ -174,7 +178,8 @@ Deno.serve(async (req) => {
     if (action === "reset_password") {
       const { data, error } = await admin.rpc("maha_owned_staff", { p_owner: ownerId, p_username: username });
       if (error || !data) return json({ error: "staff_not_found" }, 404);
-      return json({ ok: true, invitation_sent: await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email) });
+      const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email);
+      return json({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
 
     if (action === "set_active") {
