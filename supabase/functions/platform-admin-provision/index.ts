@@ -39,6 +39,17 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE = /^[A-Z0-9_-]{2,24}$/;
 const RESET_REDIRECT = "https://maha-hub.com/reset-password.html";
 
+// Reads one claim from a JWT. The token was already verified by Supabase Auth (getUser) before this is used.
+function jwtClaim(token: string, name: string): string {
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return String(JSON.parse(atob(padded))[name] ?? "");
+  } catch {
+    return "";
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -61,6 +72,11 @@ Deno.serve(async (req) => {
   if (ownerError || !owner) return json({ error: "forbidden" }, 403);
   const ownerId = caller.user.id;
 
+  // Two-factor gate: the provider must have an authenticator enrolled AND have passed the 6-digit step in this session.
+  const { data: hasMfa, error: mfaError } = await admin.rpc("maha_has_verified_mfa", { p_user: ownerId });
+  if (mfaError) return json({ error: "mfa_check_failed" }, 502);
+  if (!hasMfa) return json({ error: "mfa_enrollment_required" }, 403);
+  if (jwtClaim(tokenMatch[1], "aal") !== "aal2") return json({ error: "mfa_required" }, 403);
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "invalid_request" }, 400); }
 

@@ -10,13 +10,15 @@ function makeCloud(){
                   'other.user':{pw:'pw-ok',uid:'U2',props:[{id:'P-H2',property_code:'H2'}]},
                   'nohotel':{pw:'pw-ok',uid:'U3',props:[]},
                   'ghost':{pw:'pw-ok',uid:'U4',props:[{id:'P-H1',property_code:'H1'}]},
-                  'mahaadmin':{pw:'pw-ok',uid:'UA',admin:true,props:[]}};
+                  'mahaadmin':{pw:'pw-ok',uid:'UA',admin:true,factors:[],props:[]},
+                  'admin.two':{pw:'pw-ok',uid:'UA2',admin:true,factors:[],props:[]}};
   const allProps=[{id:'P-H1',property_code:'H1'},{id:'P-H2',property_code:'H2'}];   /* has access to H1 but is not a staff record in it */
   const byProp=new Map();const store=id=>{if(!byProp.has(id))byProp.set(id,{recs:new Map(),seq:0});return byProp.get(id)};
   const cloud={accounts,allProps,calls:[],down:false,store,
-    rpc(uid,name,b){
+    rpc(uid,name,b,gated){
       const acc=Object.values(accounts).find(a=>a.uid===uid);
       if(name==='maha_is_platform_admin')return acc.admin===true;
+      if(gated&&acc.admin)throw Object.assign(new Error('property-access-denied'),{status:403,code:'42501'});
       if(!(acc.admin?allProps:acc.props).some(p=>p.id===b.target_property))throw Object.assign(new Error('property-access-denied'),{status:403,code:'42501'});
       const S=store(b.target_property);
       if(name==='maha_sync_pull'){const all=[...S.recs.values()].filter(r=>r.seq>b.since).sort((x,y)=>x.seq-y.seq).slice(0,b.page_size);const mx=all.length?all[all.length-1].seq:b.since;return {records:JSON.parse(JSON.stringify(all)),seq:mx,head:S.seq,more:mx<S.seq}}
@@ -34,7 +36,7 @@ function device(cloud){
   const ls={},ss={};
   const mkStore=o=>({getItem:k=>k in o?o[k]:null,setItem:(k,v)=>{o[k]=String(v)},removeItem:k=>{delete o[k]},key:i=>Object.keys(o)[i],get length(){return Object.keys(o).length}});
   const localStorage=mkStore(ls),sessionStorage=new Proxy(mkStore(ss),{ownKeys:()=>Object.keys(ss),getOwnPropertyDescriptor:(t,k)=>k in ss?{enumerable:true,configurable:true,value:ss[k]}:undefined,get:(t,k)=>k in t?t[k]:ss[k]});
-  const ctx={DB:{hotels:{},providers:[{username:'mahaadmin',hash:'SECRET'}]},toasts:[],confirms:[],confirmAnswer:true,backups:0};
+  const ctx={DB:{hotels:{},providers:[{username:'mahaadmin',hash:'SECRET'}]},toasts:[],confirms:[],confirmAnswer:true,backups:0,mfaAsked:[],mfaNext:[]};
   const tokens={};
   const fetch=async(url,opt={})=>{
     if(cloud.down&&/rest\/v1\/rpc/.test(url))return resp(502,{message:'bad gateway'});
@@ -43,13 +45,22 @@ function device(cloud){
     const uid=tokens[(opt.headers&&opt.headers.Authorization||'').replace('Bearer ','')];
     if(!uid)return resp(401,{message:'JWT'});
     const acc=Object.values(cloud.accounts).find(a=>a.uid===uid);
-    if(/functions\/v1\/platform-admin-provision/.test(url)){const b=JSON.parse(opt.body);if(!acc.admin)return resp(403,{error:'forbidden'});cloud.calls.push(b.action||'create_hotel');
+    const tokenStr=(opt.headers&&opt.headers.Authorization||'').replace('Bearer ','');
+    const aal2=tokenStr.startsWith('tok2-');
+    const enrolled=!!(acc.admin&&(acc.factors||[]).some(f=>f.status==='verified'));
+    const gated=enrolled&&!aal2;
+    if(/auth\/v1\/user$/.test(url))return resp(200,{id:uid,factors:acc.factors||[]});
+    if(/auth\/v1\/factors\/[^/]+\/challenge$/.test(url))return resp(200,{id:'C-'+Math.random().toString(36).slice(2,6)});
+    if(/auth\/v1\/factors\/[^/]+\/verify$/.test(url)){const fid=url.match(/factors\/([^/]+)\/verify/)[1];const b=JSON.parse(opt.body);if(b.code!=='123456')return resp(422,{error_code:'mfa_verification_failed',msg:'Invalid TOTP code entered'});const f=acc.factors.find(x=>x.id===fid);f.status='verified';const t2='tok2-'+acc.uid+'-'+Math.random().toString(36).slice(2,6);tokens[t2]=uid;return resp(200,{access_token:t2,refresh_token:'r2',expires_in:3600,token_type:'bearer',user:{id:uid}})}
+    if(/auth\/v1\/factors\/[^/]+$/.test(url)&&opt.method==='DELETE'){const fid=url.match(/factors\/([^/]+)$/)[1];acc.factors=(acc.factors||[]).filter(f=>f.id!==fid);return resp(200,{id:fid})}
+    if(/auth\/v1\/factors$/.test(url)&&opt.method==='POST'){acc.factors=acc.factors||[];const f={id:'F-'+Math.random().toString(36).slice(2,6),factor_type:'totp',status:'unverified'};acc.factors.push(f);return resp(200,{id:f.id,type:'totp',totp:{qr_code:'data:image/svg+xml;utf-8,<svg/>',secret:'SECRETKEY'}})}
+    if(/functions\/v1\/platform-admin-provision/.test(url)){const b=JSON.parse(opt.body);if(!acc.admin)return resp(403,{error:'forbidden'});if(!enrolled)return resp(403,{error:'mfa_enrollment_required'});if(!aal2)return resp(403,{error:'mfa_required'});cloud.calls.push(b.action||'create_hotel');
       if((b.action||'create_hotel')==='create_hotel'){if(cloud.allProps.some(p=>p.property_code===b.property_code))return resp(409,{error:'property_code_taken'});const prop={id:'P-'+b.property_code,property_code:b.property_code};cloud.allProps.push(prop);cloud.accounts[b.username]={pw:'pw-ok',uid:'U-'+b.username,props:[prop]};return resp(201,{ok:true,property_id:prop.id})}
       if(b.action==='set_active'){const t=cloud.accounts[b.username];if(!t)return resp(404,{error:'staff_not_found'});t.disabled=!b.active;return resp(200,{ok:true,active:b.active})}
       if(b.action==='add_staff'){const prop=cloud.allProps.find(p=>p.property_code===b.property_code);if(!prop)return resp(404,{error:'property_not_found'});if(cloud.accounts[b.username])return resp(409,{error:'username_taken'});cloud.accounts[b.username]={pw:'pw-ok',uid:'U-'+b.username,props:[prop]};return resp(201,{ok:true})}
       return resp(400,{error:'unsupported_action'})}
-    if(/rest\/v1\/maha_properties/.test(url))return resp(200,acc.admin?cloud.allProps:acc.props);
-    const m=url.match(/rest\/v1\/rpc\/(\w+)/);if(m){try{return resp(200,cloud.rpc(uid,m[1],JSON.parse(opt.body)))}catch(e){return resp(e.status||500,{message:e.message,code:e.code})}}
+    if(/rest\/v1\/maha_properties/.test(url))return resp(200,gated?[]:(acc.admin?cloud.allProps:acc.props));
+    const m=url.match(/rest\/v1\/rpc\/(\w+)/);if(m){try{return resp(200,cloud.rpc(uid,m[1],JSON.parse(opt.body),gated))}catch(e){return resp(e.status||500,{message:e.message,code:e.code})}}
     return resp(404,{});
   };
   const body=`
@@ -64,6 +75,7 @@ function device(cloud){
     ctx.api={MahaAuth,MahaSync,ProvSync,ProvAdmin,getDB:()=>DB,resumeSync};
   `;
   new Function('ctx','localStorage','sessionStorage','URLSearchParams','fetch',body)(ctx,localStorage,sessionStorage,URLSearchParams,fetch);
+  ctx.api.MahaAuth.askCode=async(kind,info,again)=>{ctx.mfaAsked.push({kind,info,again});return ctx.mfaNext.length?ctx.mfaNext.shift():'123456'};
   ctx.ls=ls;ctx.ss=ss;return ctx;
 }
 const hotelData=()=>({code:'H1',active:true,set:{name:'Hotel One',bd:'2026-10-09',nextRsv:1201,nextInv:101,nextInternal:3100,nextSys:5200,nextProfile:300},
@@ -167,7 +179,33 @@ let fails=0;const T=(n,ok,x)=>{console.log((ok?'PASS ':'FAIL ')+n+(x?' | '+x:'')
   const P2=P;P2.api.ProvSync.stop();P2.ss['maha.provHotels']=JSON.stringify([{code:'H1',pid:'P-H1'}]);
   P2.api.getDB().session={provider:true,hotel:'H1'};
   const resumed=P2.api.ProvSync.resume();T('provider sync resumes after a page reload',resumed===true&&P2.api.ProvSync.items.has('H1')&&!!P2.api.ProvSync.poll);
-  P2.api.ProvSync.stop();  [A,B,F,G].forEach(d=>d.api.MahaSync.stop());
+  P2.api.ProvSync.stop();  /* ===== provider two-step sign-in ===== */
+  const accA=cloud.accounts.mahaadmin;
+  T('first provider sign-in set up an authenticator (QR + key shown, then verified)',P.mfaAsked[0]&&P.mfaAsked[0].kind==='enrol'&&!!P.mfaAsked[0].info.qr&&!!P.mfaAsked[0].info.secret&&accA.factors.some(f=>f.status==='verified'),JSON.stringify(P.mfaAsked.map(a=>a.kind)));
+  let P3=device(cloud);P3.mfaNext=['000000'];
+  r=await P3.api.MahaAuth.staffSignIn('mahaadmin','pw-ok');
+  T('later sign-in asks for the code; a wrong code is refused and asked again',r.ok&&r.provider&&P3.mfaAsked.length===2&&P3.mfaAsked[0].kind==='verify'&&!P3.mfaAsked[0].again&&P3.mfaAsked[1].again===true,JSON.stringify(P3.mfaAsked.map(a=>a.kind+':'+!!a.again)));
+  T('the kept session is the two-step one (hotels loaded)',P3.api.MahaAuth.read().access_token.startsWith('tok2-')&&P3.api.ProvSync.items.has('H1'));
+  let P4=device(cloud);P4.mfaNext=[null];
+  r=await P4.api.MahaAuth.staffSignIn('mahaadmin','pw-ok');
+  T('closing the code box cancels: nothing kept, no hotels installed',!r.ok&&r.reason==='cancelled'&&P4.api.MahaAuth.read()===null&&!P4.api.getDB().hotels.H1,r.reason);
+  let P5=device(cloud);P5.mfaNext=['000000','000000','000000','000000','000000'];
+  r=await P5.api.MahaAuth.staffSignIn('mahaadmin','pw-ok');
+  T('five wrong codes in a row end the sign-in',!r.ok&&r.reason==='cancelled'&&P5.api.MahaAuth.read()===null,r.reason);
+  /* a stolen password alone (password-only session) is useless once the provider is enrolled */
+  let P6=device(cloud);const only=await P6.api.MahaAuth.signIn('mahaadmin','pw-ok');P6.api.MahaAuth.write(only.tokens);
+  let seen=null;try{seen=await P6.api.MahaAuth.properties(only.tokens)}catch(e){seen='ERR'}
+  let denied1=false;try{await P6.api.MahaAuth.rpc('maha_sync_pull',{target_property:'P-H1',since:0,page_size:10})}catch(e){denied1=e.status===403}
+  let denied2='';try{await P6.api.ProvAdmin.call({action:'add_staff',property_code:'H1',username:'x.y.z',email:'a@b.test',role:'staff'})}catch(e){denied2=e.message}
+  T('password-only session sees no hotels, cannot read data, cannot use provider tools',Array.isArray(seen)&&seen.length===0&&denied1&&denied2==='mfa_required'&&/6-digit/.test(P6.api.ProvAdmin.msg(new Error(denied2))),JSON.stringify(seen)+' '+denied1+' '+denied2);
+  /* a provider who never enrolled cannot use provider tools until they enrol */
+  let P7=device(cloud);const o2=await P7.api.MahaAuth.signIn('admin.two','pw-ok');P7.api.MahaAuth.write(o2.tokens);
+  let denied3='';try{await P7.api.ProvAdmin.call({action:'add_staff',property_code:'H1',username:'x.y.z',email:'a@b.test',role:'staff'})}catch(e){denied3=e.message}
+  T('provider tools refuse an admin who has not set up two-step sign-in',denied3==='mfa_enrollment_required',denied3);
+  /* hotel staff never see a code prompt */
+  let SS=device(cloud);r=await SS.api.MahaAuth.staffSignIn('front.desk','pw-ok');
+  T('hotel staff are not asked for a code',r.ok&&SS.mfaAsked.length===0);SS.api.MahaSync.stop();
+  [P3].forEach(d=>d.api.ProvSync.stop());  [A,B,F,G].forEach(d=>d.api.MahaSync.stop());
   console.log(fails?('\n'+fails+' FAILED'):'\nALL PASSED');process.exit(fails?1:0);
 })().catch(e=>{console.log('HARNESS ERROR',e);process.exit(2)});
 ;

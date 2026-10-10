@@ -1216,6 +1216,11 @@ const MahaAuth={
     let props;
     try{props=await this.properties(r.tokens)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
     if(isAdmin){
+      let t2=null;
+      try{t2=await this.providerMfa(r.tokens)}catch(e){return reject('unavailable','The two-step sign-in service did not answer. Try again in a moment.')}
+      if(!t2)return reject('cancelled','Two-step sign-in was not completed. Nothing was changed.');
+      r.tokens=t2;this.write(t2);
+      try{props=await this.properties(t2)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
       const st=await ProvSync.openAll(props);
       if(st.unavailable)return reject('unavailable','Not every hotel cloud copy could be loaded, so sign-in was stopped. Nothing was changed. Try again in a moment.');
       MahaSync.stop();ProvSync.start();
@@ -1268,6 +1273,49 @@ const MahaAuth={
     let data=null;try{data=await res.json()}catch(e){}
     if(!res.ok){const err=new Error(data&&data.message||('HTTP '+res.status));err.status=res.status;err.code=data&&data.code;throw err}
     return data;
+  },
+  /* ---- two-step sign-in (authenticator app) for the provider ---- */
+  async authApi(method,path,body,t){
+    const res=await fetch(this.base()+'/auth/v1'+path,{method,headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:body?JSON.stringify(body):undefined});
+    let d=null;try{d=await res.json()}catch(e){}
+    if(!res.ok){const e=new Error((d&&(d.msg||d.message||d.error_description))||('HTTP '+res.status));e.status=res.status;e.code=d&&(d.error_code||d.code);throw e}
+    return d;
+  },
+  /* Asks for the 6-digit code. Returns the code, or null if the person closes the box. Replaced in tests. */
+  askCode(kind,info,again){
+    return new Promise(resolve=>{
+      const enrol=kind==='enrol';
+      const body=(enrol?`<p class="sub">Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator or Authy). If you cannot scan it, type the key below into the app instead.</p><div style="text-align:center;margin:10px 0"><img alt="QR code" src="${info.qr}" style="width:200px;height:200px;background:#fff"></div><p class="sub" style="word-break:break-all"><b>Key:</b> ${esc(info.secret)}</p><p class="sub">Then type the 6-digit code the app shows.</p>`:`<p class="sub">Type the 6-digit code from your authenticator app.</p>`)
+        +`<div class="form2">${fld('6-digit code',`<input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" autofocus>`)}</div><div class="err" id="mfaErr">${again?'That code was not accepted. Use the newest code from the app.':''}</div><div class="btns"><button class="btn gold" id="mfaGo">${enrol?'Turn on and continue':'Continue'}</button></div>`;
+      const m=modal(enrol?'Set up two-step sign-in':'Two-step sign-in',body,{w:480});
+      let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
+      $('#mfaGo',m).onclick=()=>{const v=($('#mfaCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#mfaErr',m).textContent='Enter the 6 digits.';return}finish(v)};
+      $('#mfaCode',m).onkeydown=e=>{if(e.key==='Enter')$('#mfaGo',m).onclick()};
+      m._wrap._onclose=()=>finish(null);
+    });
+  },
+  /* Second step of the provider sign-in. Returns tokens that passed the 6-digit step, or null if cancelled/failed. */
+  async providerMfa(tokens){
+    const user=await this.authApi('GET','/user',null,tokens);
+    const factors=(user&&user.factors)||[];
+    const verified=factors.filter(f=>f.factor_type==='totp'&&f.status==='verified');
+    let factorId,pending=null;
+    if(verified.length)factorId=verified[0].id;
+    else{
+      for(const f of factors){if(f.status!=='verified'){try{await this.authApi('DELETE','/factors/'+f.id,null,tokens)}catch(e){}}}   /* half-finished earlier set-ups */
+      pending=await this.authApi('POST','/factors',{factor_type:'totp',friendly_name:'Maha Hub provider '+Date.now(),issuer:'Maha Hub'},tokens);
+      factorId=pending.id;
+    }
+    for(let attempt=0;attempt<5;attempt++){
+      const code=await this.askCode(pending?'enrol':'verify',pending&&pending.totp?{qr:pending.totp.qr_code,secret:pending.totp.secret}:null,attempt>0);
+      if(!code){if(pending){try{await this.authApi('DELETE','/factors/'+factorId,null,tokens)}catch(e){}}return null}
+      try{
+        const ch=await this.authApi('POST','/factors/'+factorId+'/challenge',null,tokens);
+        const ver=await this.authApi('POST','/factors/'+factorId+'/verify',{challenge_id:ch.id,code},tokens);
+        return this.keep(ver);
+      }catch(e){if(e&&(e.status===400||e.status===422))continue;throw e}
+    }
+    return null;
   },
   async tenantCloud(action,propertyCode,payload,expectedVersion){
     const t=await this.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -1798,7 +1846,7 @@ const ProvSync={
 };
 /* Account administration is done only by the provider, on the server. */
 const ProvAdmin={
-  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.'},
+  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.'},
   msg(e){return (e&&this.msgs[e.message])||'The server could not complete this. Nothing was changed. Try again.'},
   async call(body){
     const t=await MahaAuth.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -8971,6 +9019,7 @@ function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session
       MahaAuth.signIn(u.username.toLowerCase(),pw).then(r=>{
         if(!r.ok){$('#idleE').textContent=r.reason==='invalid'?'Password is not correct.':(r.message||'Try again.');return}
         if(cur&&cur.user.id!==r.tokens.user.id){MahaAuth.revoke(r.tokens);$('#idleE').textContent='Password is not correct.';return}
+        if(DB.session.provider){MahaAuth.revoke(r.tokens);unlock();return}    /* keep the two-step session; the new password-only one is discarded */
         MahaAuth.write(r.tokens);if(cur)MahaAuth.revoke(cur);unlock()});
       return}
     let ok=false;if(DB.session.provider){const p=DB.providers.find(x=>x.id===DB.session.userId);ok=!!(p&&p.hash===pwHash(p.salt,pw))}else{const u=H&&H.users.find(x=>x.id===DB.session.userId);ok=!!(u&&u.hash===pwHash(u.salt,pw))}
