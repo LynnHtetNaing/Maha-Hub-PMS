@@ -1721,6 +1721,13 @@ function msNewSync(){return {
   install(res){
     const h=msAssemble(res.records);
     h.code=h.code||this.code;
+    /* Empty lists (no rooms yet, no reservations yet...) have no cloud records, so a downloaded hotel can lack them.
+       Fill every missing standard list/setting from the app's own empty-hotel template before the app reads it. */
+    if(typeof emptyHotel==='function'){
+      const dflt=emptyHotel({code:this.code,name:(h.set&&h.set.name)||'',cur:(h.set&&h.set.cur)||'',bd:(h.set&&h.set.bd)||undefined});
+      Object.keys(dflt).forEach(k=>{if(!(k in h))h[k]=JSON.parse(JSON.stringify(dflt[k]))});
+      if(h.set&&dflt.set)Object.keys(dflt.set).forEach(k=>{if(!(k in h.set))h.set[k]=JSON.parse(JSON.stringify(dflt.set[k]))});
+    }
     const tmp=migrateDB({version:5,hotels:{[this.code]:h},providers:[],provLog:[]});
     DB.hotels[this.code]=tmp.hotels[this.code];
     this.base=new Map();this.baseData=new Map();
