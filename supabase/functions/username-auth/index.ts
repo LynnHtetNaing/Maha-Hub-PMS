@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     if (!lookupError && identity?.recovery_email) {
       const recoveryClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
       await recoveryClient.auth.resetPasswordForEmail(identity.recovery_email, {
-        redirectTo: "https://maha-hub.com/reset-password",
+        redirectTo: "https://maha-hub.com/reset-password.html",
       });
     }
     return json({ ok: true, message: "If the account exists, recovery instructions will be sent to its linked email." });
