@@ -27,6 +27,20 @@ as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 
+create or replace function auth.jwt()
+returns jsonb
+language sql
+stable
+as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+$$;
+
+create table if not exists auth.mfa_factors (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null
+);
+
 -- Mirror Supabase: new public tables get full privileges for anon/authenticated by default.
 -- Migrations must narrow these (see 20261009_005_harden_table_grants.sql).
 alter default privileges in schema public grant all on tables to anon, authenticated;
