@@ -1741,6 +1741,7 @@ function msNewSync(){return {
   async ensureLeases(force){
     const h=this.hotel();if(!h||!h.set)return;let changed=false;
     for(const c of MS_COUNTERS){
+      if(c==='nextInv'&&h.set.gaplessInvoices)continue;   /* gapless hotels take invoice numbers from the server, one at a time */
       const cur=+h.set[c]||0,ls=this.leases[c];
       const need=force||!ls||cur<ls.start||cur>ls.end-MS_LOW;
       if(!need)continue;
@@ -6827,7 +6828,23 @@ function rentalSpan(B){if(!B||!B.arr||!B.dep)return '';const [ay,am,ad]=B.arr.sp
 function receiptTwin(B,l){return !!(l&&l.group&&B.lines.some(x=>x.group===l.group&&x.kind==='payrec'&&x.id!==l.id))}
 function selectedReceiptLine(B){const l=folSel&&B.lines.find(x=>x.id===folSel);if(!l)return null;if(l.kind==='payrec')return l;if(l.kind==='pay'&&!receiptTwin(B,l))return l;return null}
 function selectedAdvanceCredit(B){const l=folSel&&B.lines.find(x=>x.id===folSel);return l&&l.kind==='pay'&&receiptTwin(B,l)?l:null}
-function taxInvoiceFor(B,key,amount,billTo,folio){let inv=H.invoices.find(i=>i.bookingId===B.id&&i.key===key);if(!inv){inv={no:H.set.nextInv++,bookingId:B.id,folio:folio||1,key,bd:H.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount};H.invoices.push(inv)}inv.prints++;inv.amount=amount;inv.billTo=billTo;return inv}
+/* ---- Gapless tax-invoice numbers (optional, per hotel). The number comes from the server one at a time, in this
+   hotel's own sequence, so there are no gaps. It needs an internet connection at the moment an invoice is made. ---- */
+function gaplessOn(h){return !!(h&&h.set&&h.set.gaplessInvoices&&MahaAuth.on())}
+function syncOfHotel(code){if(MahaSync.code===code&&MahaSync.pid)return MahaSync;const s=ProvSync.items.get(code);return s&&s.pid?s:null}
+function invoiceExists(h,B,key){return h.invoices.some(i=>i.bookingId===B.id&&i.key===key)}
+function gaplessMsg(e){return (e&&e.message==='GAPLESS_OFFLINE')||!(e&&e.status)?'This hotel uses gapless invoice numbers, which need an internet connection. Nothing was printed. Try again when you are online.':'The invoice number could not be reserved. Nothing was printed. Try again.'}
+async function reserveInvoice(B,key,amount,billTo,folio){
+  const h=H;if(invoiceExists(h,B,key))return;
+  const sy=syncOfHotel(h.code);if(!sy)throw new Error('GAPLESS_OFFLINE');
+  const floor=Math.max(+h.set.nextInv||1,h.invoices.reduce((m,i)=>Math.max(m,+i.no||0),0)+1);
+  const r=await sy.rpc('maha_issue_invoice_no',{target_property:sy.pid,floor_value:floor});
+  if(invoiceExists(h,B,key))return;
+  h.invoices.push({no:+r.no,bookingId:B.id,folio:folio||1,key,bd:h.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount});
+  h.set.nextInv=Math.max(+h.set.nextInv||1,+r.no+1);
+  saveDB();
+}
+function taxInvoiceFor(B,key,amount,billTo,folio){let inv=H.invoices.find(i=>i.bookingId===B.id&&i.key===key);if(!inv){if(gaplessOn(H))throw new Error('GAPLESS_NEEDS_NUMBER');inv={no:H.set.nextInv++,bookingId:B.id,folio:folio||1,key,bd:H.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount};H.invoices.push(inv)}inv.prints++;inv.amount=amount;inv.billTo=billTo;return inv}
 function companyLine(B,bt){const r=resOf(B),co=r&&CO(r.companyId),g=gName(G(B.guestId));if(co&&co.code!=='WIN'&&co.code!=='DIR')return co.name;return bt&&bt.name&&bt.name!==g?bt.name:''}
 function billFields(B){const r=resOf(B),co=CO(r.companyId),billable=co&&co.code!=='WIN'&&co.code!=='DIR',def=B.billTo||(billable?'company':'guest'),b=B.bill||{};
   const coLabel=co?(co.type==='T'?'Agency':'Company')+' · '+co.name:'';
@@ -6876,7 +6893,9 @@ function openMoneyDoc(B,spec,title){const built=moneyDocHtml(B,spec);const r=res
   if(!spec.guest){const t=taxSplit(spec.base||0,true);H.taxCopies=H.taxCopies||[];H.taxCopies.push({no:spec.inv.no,bookingId:B.id,folio:spec.folio,bd:spec.inv.bd,at:Date.now(),guest:gName(g),room:B.room||'',billName:built.bt.name,billTax:built.bt.tax||'',amount:r2((spec.base||0)+(spec.nonvat||0)),vat:t.vat,vatable:r2(t.net+t.svc),nonvat:spec.nonvat||0})}
   log(title+' RSVN '+r.no,B.id);saveDB();
   printPages(built.html,title,{to:r.email||g.email||'',rsvn:r.no,subject:title+' · '+H.set.name})}
-function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line);spec.billTo=billTo;spec.other=other;spec.copies=copies||'both';spec.guest=false;spec.inv=taxInvoiceFor(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio);
+function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line);spec.billTo=billTo;spec.other=other;spec.copies=copies||'both';spec.guest=false;
+  if(gaplessOn(H)&&!invoiceExists(H,B,spec.key)){reserveInvoice(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio).then(()=>printReceipt(B,line,billTo,other,copies),e=>toast(gaplessMsg(e)));return}
+  spec.inv=taxInvoiceFor(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio);
   openMoneyDoc(B,spec,(spec.deposit?'Reservation deposit':'Receipt / Tax invoice')+' '+spec.inv.no)}
 function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[only]:B.lines.filter(l=>l.folio===f)).slice().sort((a,b)=>a.time-b.time);if(!ls.length){toast('This folio has no lines to print.');return}const fol=only?only.folio:f;const payKind=k=>['pay','payrec','payoff','corrpay'].includes(k);
   const folioExtra=l=>payKind(l.kind)&&!(l.kind==='pay'&&(l.adv||l.deposit));
@@ -6898,8 +6917,10 @@ function printDeposit(B){if(!need('print'))return;const seen=new Set(),lines=[];
   if(!lines.length){toast('No reservation deposit is posted.');return}
   const bf=billFields(B);const m=modal('Print reservation deposit',`<div class="form2">${bf.html}${fld('Print',`<select id="ivC">${opt('both','Original & Copy (2 sets)','both')}${opt('original','Original only')}${opt('copy','Copy only')}</select>`)}</div>
     <div class="sub">Same page as the tax invoice, with the reservation number and one deposit line. Original and copy print together unless you choose one.</div><div class="btns"><button class="btn gold" id="ivGo">Preview</button></div>`,{w:680});
-  $('#ivGo',m).onclick=()=>{const o=readBill(m);closeModal(m);const html=lines.map(l=>{const spec=receiptSpec(B,l);spec.billTo=o.bill;spec.other=o.other;spec.copies=o.copies;spec.guest=false;spec.deposit=true;spec.inv=taxInvoiceFor(B,spec.key,spec.base,o.bill,4);const built=moneyDocHtml(B,spec);const t=taxSplit(spec.base,true);H.taxCopies=H.taxCopies||[];H.taxCopies.push({no:spec.inv.no,bookingId:B.id,folio:4,bd:spec.inv.bd,at:Date.now(),guest:gName(G(B.guestId)),room:B.room||'',billName:built.bt.name,billTax:built.bt.tax||'',amount:spec.base,vat:t.vat,vatable:r2(t.net+t.svc),nonvat:0});return built.html}).join('');
-    const r=resOf(B),g=G(B.guestId);log('Printed reservation deposit RSVN '+r.no,B.id);saveDB();printPages(html,'Reservation deposit RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Reservation deposit '+r.no+' · '+H.set.name})}}
+  $('#ivGo',m).onclick=()=>{const o=readBill(m);closeModal(m);const run=()=>{const html=lines.map(l=>{const spec=receiptSpec(B,l);spec.billTo=o.bill;spec.other=o.other;spec.copies=o.copies;spec.guest=false;spec.deposit=true;spec.inv=taxInvoiceFor(B,spec.key,spec.base,o.bill,4);const built=moneyDocHtml(B,spec);const t=taxSplit(spec.base,true);H.taxCopies=H.taxCopies||[];H.taxCopies.push({no:spec.inv.no,bookingId:B.id,folio:4,bd:spec.inv.bd,at:Date.now(),guest:gName(G(B.guestId)),room:B.room||'',billName:built.bt.name,billTax:built.bt.tax||'',amount:spec.base,vat:t.vat,vatable:r2(t.net+t.svc),nonvat:0});return built.html}).join('');
+    const r=resOf(B),g=G(B.guestId);log('Printed reservation deposit RSVN '+r.no,B.id);saveDB();printPages(html,'Reservation deposit RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Reservation deposit '+r.no+' · '+H.set.name})};
+    if(gaplessOn(H)){const miss=lines.filter(l=>!invoiceExists(H,B,receiptSpec(B,l).key));if(miss.length){(async()=>{try{for(const l of miss){const sp=receiptSpec(B,l);await reserveInvoice(B,sp.key,sp.base,o.bill,4)}}catch(e){toast(gaplessMsg(e));return}run()})();return}}
+    run()}}
 
 /* ---------- Registration card (Section 5) ---------- */
 const TERMS={
@@ -7889,8 +7910,11 @@ const SEC={
     validate:d=>{if(d.some(a=>!a.companyId||!a.type))return 'Choose the company and room type.';if(d.some(a=>!a.from||!a.to||a.to<a.from))return 'Check the dates.';if(d.some(a=>!(+a.rooms>=1)))return 'At least 1 room.';return ''},
     save:d=>{H.allotments=d.map(a=>({id:a.id||'a'+uid(),companyId:a.companyId,type:a.type,rooms:+a.rooms,from:a.from,to:a.to,cutoff:+a.cutoff||0}));provLog(`Allotments saved for ${H.code}`);saved()}})},
  docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}${fld('Next tax invoice number',`<input type="number" id="d_inv" value="${s.nextInv}" ${H.active!==false?'disabled':''}>`)}</div>
-   <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 14).</p><div class="btns"><button class="btn gold" id="dS">Save</button></div></div>`;
-   $('#dS',box).onclick=()=>{if(!provOnly())return;s.formCode=$('#d_fc',box).value.trim();s.building=$('#d_bl',box).value.trim();if(H.active===false)s.nextInv=Math.max(1,+$('#d_inv',box).value||1);provLog(`Documents saved for ${H.code}`);saved()}},
+   <label class="rpchk mt"><input type="checkbox" id="d_gl" ${s.gaplessInvoices?'checked':''}><span><b>Gapless tax-invoice numbers (this hotel only)</b><br><small>Each number comes from the server, one at a time, in this hotel's own sequence, with no gaps. An internet connection is needed when an invoice is made. Leave off for the normal numbering.</small></span></label>
+   <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 14).</p><div class="btns"><button class="btn ghost" id="dAudit" type="button">Check invoice numbers</button><button class="btn gold" id="dS">Save</button></div></div>`;
+   $('#dAudit',box).onclick=async()=>{try{const sy=syncOfHotel(H.code);if(!sy)throw new Error('x');const r=await sy.rpc('maha_invoice_audit',{target_property:sy.pid});
+     modal('Invoice number check',`<p class="sub">Numbers issued by the server for <b>${esc(H.code)}</b>: <b>${r.issued||0}</b>${r.first?` (from ${r.first} to ${r.last})`:''}.</p><p class="sub">Issued but with no invoice record: <b>${esc((r.issued_without_invoice_record||[]).join(', ')||'none')}</b></p><p class="sub">Missing from the sequence: <b>${esc((r.missing_from_sequence||[]).join(', ')||'none')}</b></p>`,{w:520})}catch(e){toast('The check is not available right now.')}};
+   $('#dS',box).onclick=()=>{if(!provOnly())return;s.formCode=$('#d_fc',box).value.trim();s.building=$('#d_bl',box).value.trim();s.gaplessInvoices=$('#d_gl',box).checked;if(H.active===false)s.nextInv=Math.max(1,+$('#d_inv',box).value||1);provLog(`Documents saved for ${H.code}`);saved()}},
  terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('14. Terms & Conditions'))},
  google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly'];
    box.innerHTML=secHead('Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
@@ -8069,9 +8093,9 @@ function renderProviderProfile(el){
      <h3 class="mt">Sign-in security</h3><div class="form2">${fld('Sign-in method',`<input value="Username and password, then a 6-digit authenticator code" disabled>`,'span2')}${fld('Two-step verification',`<input id="pfMfa" value="Checking..." disabled>`)}${fld('Last sign-in',`<input id="pfLast" value="Checking..." disabled>`)}</div>
      <p class="sub">The authenticator is registered once and works on every device. To move it to a new phone, remove the old one in the Supabase dashboard (Authentication, Users), then sign in and scan the new QR code once.</p>
      <div class="btns"><button class="btn ghost" id="pfReset">Email me a password reset link</button></div></div></div>
-   <div class="panel mt"><div class="ph">Recent sign-ins</div>${signins.length?`<table class="grid"><tr><th>When</th><th>Event</th></tr>${signins.map(s=>`<tr><td>${fd(iso(new Date(s.at)))} ${tm(s.at)}</td><td>${esc(s.a)}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded on this device yet.</div>'}</div>
-   <div class="panel mt"><div class="ph">Activity log</div><table class="grid"><tr><th>When</th><th>Hotel</th><th>Action</th></tr>${act.map(a=>`<tr><td>${fd(iso(new Date(a.at)))} ${tm(a.at)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' - '+esc(a.reason):''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No activity recorded on this device yet.</td></tr>'}</table>
-    <p class="sub pad">This log lists the provider actions made from this browser. It is kept on this device only.</p></div>`;
+   <div class="panel mt"><div class="ph">Recent sign-ins</div><div id="pfSignins">${signins.length?`<table class="grid"><tr><th>When</th><th>Event</th></tr>${signins.map(s=>`<tr><td>${fd(iso(new Date(s.at)))} ${tm(s.at)}</td><td>${esc(s.a)}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded on this device yet.</div>'}</div></div>
+   <div class="panel mt"><div class="ph">Activity log</div><div id="pfAct"><table class="grid"><tr><th>When</th><th>Hotel</th><th>Action</th></tr>${act.map(a=>`<tr><td>${fd(iso(new Date(a.at)))} ${tm(a.at)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' - '+esc(a.reason):''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No activity recorded on this device yet.</td></tr>'}</table></div>
+    <p class="sub pad" id="pfLogNote">This log lists the provider actions made from this browser. It is kept on this device only.</p></div>`;
   /* email, two-step status and last sign-in come from the sign-in service */
   (async()=>{
     const set=(id,v)=>{const n=$('#'+id,el);if(n)n.value=v};
@@ -8083,6 +8107,21 @@ function renderProviderProfile(el){
       set('pfMfa',f.length?'On (registered '+fd(iso(new Date(f[0].created_at)))+')':'Not set up');
       set('pfLast',u.last_sign_in_at?fd(iso(new Date(u.last_sign_in_at)))+' '+tm(Date.parse(u.last_sign_in_at)):'');
     }catch(e){['pfEmail','pfMfa','pfLast'].forEach(id=>set(id,'Not available right now'))}
+  })();
+  /* the permanent log kept by the server (all provider actions and every sign-in, from every device) */
+  (async()=>{
+    try{
+      const rows=await MahaAuth.rpc('maha_recent_activity',{p_limit:300,p_property:null});
+      if(!Array.isArray(rows))return;
+      const lab={hotel_created:'Hotel created',hotel_create_failed:'Hotel creation failed',staff_added:'Staff login created',staff_add_failed:'Staff login not created',staff_enabled:'Login enabled',staff_disabled:'Login disabled',staff_status_failed:'Login change failed',password_reset_sent:'Password reset email',password_reset_failed:'Password reset failed',password_reset_requested:'Password reset requested by the user',username_changed:'Username changed',username_change_failed:'Username change failed',mfa_blocked:'Blocked: two-step sign-in needed'};
+      const when=r=>fd(iso(new Date(r.at)))+' '+tm(Date.parse(r.at));
+      const si=rows.filter(r=>r.event==='sign_in'||r.event==='sign_in_failed').slice(0,15);
+      const ac=rows.filter(r=>r.event!=='sign_in'&&r.event!=='sign_in_failed').slice(0,100);
+      const a=$('#pfSignins',el),b=$('#pfAct',el),n=$('#pfLogNote',el);
+      if(a)a.innerHTML=si.length?`<table class="grid"><tr><th>When</th><th>Who</th><th>Result</th></tr>${si.map(r=>`<tr><td>${when(r)}</td><td>${esc(r.actor_username||'')}</td><td>${r.ok?'Signed in':'Sign-in failed'}${r.detail?' ('+esc(r.detail)+')':''}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded yet.</div>';
+      if(b)b.innerHTML=`<table class="grid"><tr><th>When</th><th>By</th><th>Hotel</th><th>Action</th></tr>${ac.map(r=>`<tr><td>${when(r)}</td><td>${esc(r.actor_username||'')}</td><td>${esc(r.property_code||'')}</td><td>${esc(lab[r.event]||r.event)}${r.target&&!r.property_code?' - '+esc(r.target):''}${r.ok?'':' (failed)'}${r.detail?' - '+esc(r.detail):''}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No activity recorded yet.</td></tr>'}</table>`;
+      if(n)n.textContent='Kept permanently by the server: provider actions and every sign-in, from every device.';
+    }catch(e){/* older server or offline: the local lists above stay */}
   })();
   const rb=$('#pfReset',el);
   rb.onclick=()=>{

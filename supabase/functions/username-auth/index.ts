@@ -41,6 +41,16 @@ Deno.serve(async (req) => {
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  // Activity log (server-side, permanent). Best effort: it can never break a sign-in.
+  const logEvent = (event: string, userId: string | null, ok: boolean, detail: string | null) => {
+    try {
+      const p = Promise.resolve(admin.rpc("maha_log_event", {
+        p_actor_user: userId, p_actor_username: username, p_event: event, p_target: null,
+        p_property_code: null, p_ok: ok, p_detail: detail,
+      })).catch(() => undefined);
+      (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime?.waitUntil?.(p);
+    } catch { /* ignore */ }
+  };
   const { data: identity, error: lookupError } = await admin
     .from("maha_login_identities")
     .select("user_id,recovery_email")
@@ -54,6 +64,7 @@ Deno.serve(async (req) => {
       await recoveryClient.auth.resetPasswordForEmail(identity.recovery_email, {
         redirectTo: "https://maha-hub.com/reset-password.html",
       });
+      logEvent("password_reset_requested", identity.user_id, true, null);
     }
     return json({ ok: true, message: "If the account exists, recovery instructions will be sent to its linked email." });
   }
@@ -70,8 +81,12 @@ Deno.serve(async (req) => {
   });
 
   if (error || !data.session || data.user?.id !== identity.user_id) {
+    // only for a username that exists (unknown names are not logged), and the log throttles repeats
+    logEvent("sign_in_failed", identity.user_id, false,
+      (error as { code?: string } | null)?.code === "user_banned" ? "account disabled" : "wrong password");
     return json({ error: "invalid_credentials" }, 401);
   }
+  logEvent("sign_in", identity.user_id, true, null);
 
   return json({
     access_token: data.session.access_token,

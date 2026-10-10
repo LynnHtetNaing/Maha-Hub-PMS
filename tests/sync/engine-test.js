@@ -134,5 +134,9 @@ const open=async(d,code,pid)=>{const r=await d.sync.open(code,pid);if(r&&r.recor
   await Promise.all(devs.map(d=>d.sync.syncOnce()));await Promise.all(devs.map(d=>d.sync.syncOnce()));await Promise.all(devs.map(d=>d.sync.syncOnce()));
   const counts=devs.map(d=>d.api.getDB().hotels.H1.guests.length);
   T('15 guests created concurrently on 3 devices: none lost, all converge',counts.every(c=>c===counts[0])&&counts[0]>=17,counts.join(','));
-  console.log(fails?('\n'+fails+' FAILED'):'\nALL PASSED');process.exit(fails?1:0);
+  /* a gapless-invoice hotel takes invoice numbers from the server one at a time, so it must NOT lease invoice blocks */
+  const GL=device(S,'GL');GL.api.getDB().hotels.H1=newHotel();GL.api.getDB().hotels.H1.set.gaplessInvoices=true;GL.sync.reset('H1','pid');
+  const leaseBefore=S.counters.get('nextInv');
+  await GL.sync.ensureLeases(true);
+  T('gapless hotel leases every counter except the invoice number',GL.sync.leases.nextRsv&&GL.sync.leases.nextProfile&&!GL.sync.leases.nextInv&&S.counters.get('nextInv')===leaseBefore,JSON.stringify(Object.keys(GL.sync.leases)));  console.log(fails?('\n'+fails+' FAILED'):'\nALL PASSED');process.exit(fails?1:0);
 })().catch(e=>{console.log('HARNESS ERROR',e);process.exit(2)});

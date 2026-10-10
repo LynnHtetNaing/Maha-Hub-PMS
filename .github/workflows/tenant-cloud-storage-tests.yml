@@ -17,6 +17,7 @@ on:
       - claude/backup-and-rollback
       - claude/record-level-sync
       - claude/provider-mfa
+      - claude/review-audit-gapless
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
@@ -65,6 +66,10 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_007_record_level_sync.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_008_provider_staff_admin.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261009_009_provider_mfa_gate.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010_010_review_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010_011_remove_old_whole_hotel_sync.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010_012_activity_log.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010_013_gapless_invoice_numbers.sql
       - name: Run tenant isolation and concurrency smoke tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/tenant_cloud_storage_test.sql
       - name: Run username privacy and owner boundary smoke tests
@@ -79,6 +84,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/staff_admin_test.sql
       - name: Run provider two-factor gate tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/provider_mfa_gate_test.sql
+      - name: Run review, activity log and gapless invoice tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/review_activity_gapless_test.sql
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -87,6 +94,7 @@ jobs:
         run: |
           node tests/sync/engine-test.js ecosystem/index.html
           node tests/sync/login-test.js ecosystem/index.html
+          node tests/sync/gapless-test.js ecosystem/index.html
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
