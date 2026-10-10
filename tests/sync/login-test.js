@@ -57,8 +57,8 @@ function device(cloud){
     const document={createElement:()=>{ctx.backups++;return {click(){},remove(){}}},body:{appendChild(){}},hidden:false,activeElement:null};
     let DB=ctx.DB,H=null,_cloudApplying=false,_cloudErrAt=0;
     const toast=m=>ctx.toasts.push(m);const confirm=m=>{ctx.confirms.push(m);return ctx.confirmAnswer};
-    const emptyHotel=o=>({code:o.code,set:{name:o.name,cur:o.cur,bd:o.bd,nextRsv:1,nextInv:1,nextInternal:1,nextSys:1,nextProfile:1},users:[],guests:[],reservations:[],rooms:[]});const shapeHotel=()=>{};const mkUser=(id,username,name,role)=>({id,username,name,role,active:true,hash:'x',salt:'y'});const uid=()=>Math.random().toString(36).slice(2,8);
-    const migrateDB=d=>{if(Object.values(d.hotels||{}).some(h=>h&&h.corrupt))throw new Error('cannot migrate');return d};const bindHotel=()=>{};const saveDB=()=>{};const renderShell=()=>{};const render=()=>{};
+    const emptyHotel=o=>({code:o.code,set:{name:o.name,cur:o.cur,bd:o.bd,nextRsv:1,nextInv:1,nextInternal:1,nextSys:1,nextProfile:1},users:[],guests:[],reservations:[],rooms:[],roomTypes:[],shifts:[],logs:[]});const shapeHotel=()=>{};const mkUser=(id,username,name,role)=>({id,username,name,role,active:true,hash:'x',salt:'y'});const uid=()=>Math.random().toString(36).slice(2,8);
+    const migrateDB=d=>{Object.values(d.hotels||{}).forEach(h=>{if(h&&h.corrupt)throw new Error('cannot migrate');if(!Array.isArray(h.roomTypes))throw new TypeError('Cannot read properties of undefined (reading push)')});return d};const bindHotel=()=>{};const saveDB=()=>{};const renderShell=()=>{};const render=()=>{};
     const iso=d=>d.toISOString().slice(0,10);const supabaseSessionExpired=()=>{};
     ${code}
     ctx.api={MahaAuth,MahaSync,ProvSync,ProvAdmin,getDB:()=>DB,resumeSync};
