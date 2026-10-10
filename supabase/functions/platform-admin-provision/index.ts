@@ -37,7 +37,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const USERNAME = /^[A-Za-z0-9._-]{3,40}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE = /^[A-Z0-9_-]{2,24}$/;
-const RESET_REDIRECT = "https://maha-hub.com/reset-password";
+const RESET_REDIRECT = "https://maha-hub.com/reset-password.html";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
