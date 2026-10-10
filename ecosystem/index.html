@@ -1239,8 +1239,8 @@ const MahaAuth={
       if(String(probe.code||'').toUpperCase()!==p.code||!Array.isArray(probe.users)||!probe.set||typeof probe.set!=='object'){invalid=true;continue}
       if(!userOf(probe))continue;
       await snapshotBeforeAdopt(p.code);
-      try{MahaSync.install(res);await MahaSync.ensureLeases(true);MahaSync.persist()}
-      catch(e){if(e&&e.status&&e.status<500)invalid=true;else unavailable=true;continue}
+      try{MahaSync.install(res)}catch(e){invalid=true;continue}                       /* the cloud copy cannot be read by this version: say so, do not call it an outage */
+      try{await MahaSync.ensureLeases(true);MahaSync.persist()}catch(e){unavailable=true;continue}
       const h=DB.hotels[p.code];
       MahaSync.start();
       return {ok:true,h,u:userOf(h)||userOf(probe)};
@@ -1774,7 +1774,8 @@ const ProvSync={
         continue;
       }
       await snapshotBeforeAdopt(p.code);
-      try{s.install(res);await s.ensureLeases(true);s.persist()}catch(e){unavailable=true;this.items.delete(p.code)}
+      try{s.install(res)}catch(e){this.items.delete(p.code);if(typeof toast==='function')toast('Hotel '+p.code+' has cloud data this version cannot read. It was skipped.');continue}
+      try{await s.ensureLeases(true);s.persist()}catch(e){unavailable=true;this.items.delete(p.code)}
     }
     this.remember();return {unavailable};
   },

@@ -58,7 +58,7 @@ function device(cloud){
     let DB=ctx.DB,H=null,_cloudApplying=false,_cloudErrAt=0;
     const toast=m=>ctx.toasts.push(m);const confirm=m=>{ctx.confirms.push(m);return ctx.confirmAnswer};
     const emptyHotel=o=>({code:o.code,set:{name:o.name,cur:o.cur,bd:o.bd,nextRsv:1,nextInv:1,nextInternal:1,nextSys:1,nextProfile:1},users:[],guests:[],reservations:[],rooms:[]});const shapeHotel=()=>{};const mkUser=(id,username,name,role)=>({id,username,name,role,active:true,hash:'x',salt:'y'});const uid=()=>Math.random().toString(36).slice(2,8);
-    const migrateDB=d=>d;const bindHotel=()=>{};const saveDB=()=>{};const renderShell=()=>{};const render=()=>{};
+    const migrateDB=d=>{if(Object.values(d.hotels||{}).some(h=>h&&h.corrupt))throw new Error('cannot migrate');return d};const bindHotel=()=>{};const saveDB=()=>{};const renderShell=()=>{};const render=()=>{};
     const iso=d=>d.toISOString().slice(0,10);const supabaseSessionExpired=()=>{};
     ${code}
     ctx.api={MahaAuth,MahaSync,ProvSync,ProvAdmin,getDB:()=>DB,resumeSync};
@@ -118,7 +118,15 @@ let fails=0;const T=(n,ok,x)=>{console.log((ok?'PASS ':'FAIL ')+n+(x?' | '+x:'')
   await Promise.all([F.api.MahaSync.syncOnce(),G.api.MahaSync.syncOnce()]);await F.api.MahaSync.syncOnce();await G.api.MahaSync.syncOnce();
   const ids=h=>h.guests.map(g=>g.id).sort().join();
   T('two signed-in devices see each other\'s new records',ids(F.api.getDB().hotels.H1)===ids(G.api.getDB().hotels.H1)&&/gF/.test(ids(G.api.getDB().hotels.H1))&&/gG/.test(ids(F.api.getDB().hotels.H1)),ids(F.api.getDB().hotels.H1));
-  /* ===== provider (platform owner): signs in through Supabase and keeps every hotel in sync ===== */
+  /* a cloud copy this version cannot read must be reported as unreadable, never as an outage */
+  cloud.accounts['bad.hotel']={pw:'pw-ok',uid:'UB',props:[{id:'P-BAD',property_code:'BAD1'}]};
+  cloud.allProps.push({id:'P-BAD',property_code:'BAD1'});
+  const sb=cloud.store('P-BAD');[['$obj','code','BAD1'],['$obj','corrupt',true]].forEach(([c,k,v],i)=>sb.recs.set(c+'\u0001'+k,{collection:c,key:k,data:{v},deleted:false,version:1,seq:++sb.seq}));
+  sb.recs.set('$set\u0001name',{collection:'$set',key:'name',data:{v:'Bad'},deleted:false,version:1,seq:++sb.seq});
+  sb.recs.set('users\u0001u1',{collection:'users',key:'u1',data:{id:'u1',username:'bad.hotel',active:true},deleted:false,version:1,seq:++sb.seq});
+  let BD=device(cloud);BD.api.getDB().hotels.BAD1={code:'BAD1',set:{name:'LOCAL KEPT'},users:[]};
+  r=await BD.api.MahaAuth.staffSignIn('bad.hotel','pw-ok');
+  T('unreadable cloud copy -> clear "invalid-cloud" message (not an outage), local data kept',!r.ok&&r.reason==='invalid-cloud'&&BD.api.getDB().hotels.BAD1.set.name==='LOCAL KEPT'&&BD.api.MahaAuth.read()===null,r.reason);  /* ===== provider (platform owner): signs in through Supabase and keeps every hotel in sync ===== */
   /* H2 gets data from a staff-less seed: the provider opens it empty -> skipped (no local copy), H1 downloads */
   let P=device(cloud);
   r=await P.api.MahaAuth.staffSignIn('mahaadmin','wrong');T('provider wrong password -> invalid',!r.ok&&r.reason==='invalid');
