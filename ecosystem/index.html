@@ -1165,7 +1165,7 @@ const MahaAuth={
   base(){return String(MAHA_AUTH_CONFIG.url||'').replace(/\/+$/,'')},
   read(){try{const t=JSON.parse(sessionStorage.getItem(SBAUTHKEY)||'null');return t&&t.access_token&&t.user&&t.user.id?t:null}catch(e){return null}},
   conflict:false,   /* true while a stale-version conflict is waiting for the user's decision */
-  write(t){try{if(!t){try{MahaSync.stop()}catch(e){}try{ProvSync.stop()}catch(e){}sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
+  write(t){try{if(!t){try{MahaSync.stop()}catch(e){}try{ProvSync.stop()}catch(e){}try{PlatSet.stop()}catch(e){}sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
   keep(d){return {access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000,user:{id:d.user&&d.user.id}}},
   /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config',message} */
   async signIn(username,password){
@@ -1875,13 +1875,78 @@ function enterProvider(un,uid){
   DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in (Supabase)'});
   writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go('prov.home');
 }
+/* ---------- provider-wide settings kept in the cloud: the code catalog and the payment logos ----------
+   They belong to the whole system, not to one hotel. The provider changes them (any device); every device and every
+   hotel's staff loads the same copy at sign-in and picks up changes within seconds. Each save carries the version it
+   was based on, so two devices never overwrite each other blindly. Only the provider can write; staff can only read. */
+const PlatSet={
+  ver:{},hash:{},timer:null,poll:null,busy:false,
+  KEYS:{catalog:{get:()=>DB.catalog,set:v=>{DB.catalog=v}},pay_logos:{get:()=>DB.payLogos,set:v=>{DB.payLogos=v}}},
+  limit:{catalog:300000,pay_logos:3000000},
+  hashOf(v){return msHash(msStable(v===undefined?null:v))},
+  isEmpty(k,v){if(!v||typeof v!=='object')return true;if(k==='catalog')return !(v.charges||[]).length&&!(v.payments||[]).length&&!Object.keys(v.hidden||{}).length;return !Object.keys(v).length},
+  take(k,data,version){this.KEYS[k].set(JSON.parse(JSON.stringify(data)));this.ver[k]=+version;this.hash[k]=this.hashOf(this.KEYS[k].get())},
+  /* Download the cloud copy. Returns true if this device's copy changed. A key never saved to the cloud is left alone. */
+  async load(){
+    const r=await MahaAuth.rpc('maha_get_platform_settings',{});
+    let changed=false;
+    for(const k of Object.keys(this.KEYS)){
+      const c=r&&r[k];
+      if(c&&c.data&&typeof c.data==='object'){
+        if(this.ver[k]!==+c.version||this.hash[k]!==this.hashOf(c.data)){this.take(k,c.data,c.version);changed=true}
+      }else if(this.ver[k]===undefined)this.ver[k]=0;
+    }
+    return changed;
+  },
+  changed(){try{if(typeof applyCatalog==='function')applyCatalog()}catch(e){}if(MahaSync.onRemote)MahaSync.onRemote(1)},
+  /* Provider only: upload what changed on this device. */
+  async push(){
+    if(!(DB&&DB.session&&DB.session.provider)||this.busy)return;
+    this.busy=true;
+    try{
+      for(const k of Object.keys(this.KEYS)){
+        const v=this.KEYS[k].get();
+        if(this.isEmpty(k,v)&&!this.ver[k])continue;                       /* nothing to upload yet */
+        const hh=this.hashOf(v);if(hh===this.hash[k])continue;             /* unchanged */
+        if(JSON.stringify(v).length>this.limit[k]){toast('The shared '+(k==='catalog'?'code catalog':'payment logos')+' are too large to save to the cloud. Remove some or use smaller images.');continue}
+        const r=await MahaAuth.rpc('maha_save_platform_setting',{p_key:k,p_data:v,p_expected_version:this.ver[k]||0});
+        if(r&&r.conflict){
+          if(r.data&&typeof r.data==='object'){this.take(k,r.data,r.version);this.changed()}
+          toast('Another device of yours changed the shared codes or logos first. The latest version was loaded. Repeat your change if it is missing.');
+          continue;
+        }
+        this.ver[k]=+r.version;this.hash[k]=hh;
+      }
+    }catch(e){/* offline or refused: tried again at the next save or check */}
+    finally{this.busy=false}
+  },
+  /* Cheap check: only if a version number moved is the full copy downloaded. */
+  async pull(){
+    const vs=await MahaAuth.rpc('maha_platform_settings_versions',{});
+    if(!Object.keys(this.KEYS).some(k=>vs&&vs[k]&&+vs[k]!==(this.ver[k]||0)))return;
+    if(await this.load())this.changed();
+  },
+  schedule(){clearTimeout(this.timer);this.timer=setTimeout(()=>{this.push()},800)},
+  start(){
+    clearInterval(this.poll);
+    this.poll=setInterval(async()=>{if(typeof document!=='undefined'&&document.hidden)return;try{await this.push();await this.pull()}catch(e){}},12000);
+  },
+  stop(){clearTimeout(this.timer);clearInterval(this.poll);this.timer=null;this.poll=null},
+  /* At sign-in. Never throws: a problem here must not stop anyone from signing in. */
+  async begin(){
+    this.stop();this.ver={};this.hash={};
+    try{if(await this.load())this.changed()}catch(e){}
+    try{await this.push()}catch(e){}
+    this.start();
+  }
+};
 /* After a page reload the sign-in token and the live session survive; start syncing again. */
 function resumeSync(){
   try{
     if(!MahaAuth.on()||!DB||!DB.session||!MahaAuth.read())return;
-    if(DB.session.provider){ProvSync.resume();return}
+    if(DB.session.provider){ProvSync.resume();PlatSet.begin();return}
     const code=DB.session.hotel;
-    if(code&&MahaSync.resume(code)){MahaSync.start();MahaSync.syncOnce()}
+    if(code&&MahaSync.resume(code)){MahaSync.start();MahaSync.syncOnce();PlatSet.begin()}
   }catch(e){}
 }
 function sessionValid(se){
@@ -1976,7 +2041,7 @@ async function tenantCloudPush(){
   if(result&&result.cloud){tcvSet(code,result.cloud.version);return 'pushed'}
   return 'error';
 }
-function scheduleCloudPush(){if(MahaAuth.on()){if(DB&&DB.session&&DB.session.provider)ProvSync.schedule();else if(MahaSync.code&&DB&&DB.session)MahaSync.schedule();return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
+function scheduleCloudPush(){if(MahaAuth.on()){if(DB&&DB.session&&DB.session.provider){ProvSync.schedule();PlatSet.schedule()}else if(MahaSync.code&&DB&&DB.session)MahaSync.schedule();return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
 async function cloudPull(opt){
   if(MahaAuth.on())return 'off';   /* the old passphrase cloud never overwrites a device that signs in with a username */
   const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass||!DB)return 'off';
@@ -5441,7 +5506,7 @@ function doLogin(){
     MahaAuth.staffSignIn(un,pw).then(r=>{
       if(btn)btn.disabled=false;
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
-      err.textContent='';if(r.provider){enterProvider(un,r.userId);return}staffEnter(r.h,r.u);
+      err.textContent='';PlatSet.begin().then(()=>{if(r.provider){enterProvider(un,r.userId);return}staffEnter(r.h,r.u)});
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
   }
