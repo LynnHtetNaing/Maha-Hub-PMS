@@ -6,10 +6,13 @@ const a = src.indexOf('/* ---- Backup & migration (provider)');
 const b = src.indexOf('/* ---- end Backup & migration ---- */');
 if (a < 0 || b < 0) throw new Error('migration code not found');
 const code = src.slice(a, b);
+const ca = src.indexOf('/* ---- Agent commission'), cb = src.indexOf('/* ---- end Agent commission ---- */');
+if (ca < 0 || cb < 0) throw new Error('commission code not found');
+const commCode = src.slice(ca, cb);
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
 let n = 0;
-const X = new Function('uid', code + '\nreturn {toCsv,parseCsv,csvObjects,hotelBackupObject,migExportCsv,MIG_EXPORTS,migPlan,migApply};')(() => 'x' + (++n));
+const X = new Function('uid', 'r2', 'm2', 'rateFor', commCode + '\n' + code + '\nreturn {toCsv,parseCsv,csvObjects,hotelBackupObject,migExportCsv,MIG_EXPORTS,migPlan,migApply};')(() => 'x' + (++n), v => Math.round(v * 100) / 100, v => String(v), () => 0);
 
 const hotel = () => ({
   code: 'H1', set: { name: 'Hotel One', nextProfile: 5 }, floors: [],
@@ -41,8 +44,8 @@ T('making the backup leaves the live hotel untouched', h.users[0].hash === 'SECR
 const g = X.parseCsv(X.migExportCsv(h, 'guests'));
 T('guest export skips the internal group master record', g.length === 2 && g[1][2] === 'Smith');
 const r = X.parseCsv(X.migExportCsv(h, 'reservations'));
-T('reservation export gives dates, nights and the average rate', r.length === 2 && r[1][5] === '2026-10-10' && r[1][7] === '2' && r[1][10] === '1550' && r[1][13] === 'DIR' && r[1][14] === 'R,ef "q"');
-T('multi-line remarks survive the export', r[1][15] === 'line1\nline2');
+T('reservation export gives dates, nights and the average rate', r.length === 2 && r[1][5] === '2026-10-10' && r[1][7] === '2' && r[1][10] === '1550' && r[1][20] === 'DIR' && r[1][21] === 'R,ef "q"');
+T('multi-line remarks survive the export', r[1][22] === 'line1\nline2');
 const f = X.parseCsv(X.migExportCsv(h, 'folio'));
 T('folio export lists the postings', f.length === 2 && f[1][0] === '1001' && f[1][6] === '1500');
 const iv = X.parseCsv(X.migExportCsv(h, 'invoices'));
@@ -71,6 +74,6 @@ T('guests: new profile gets the next profile number and an ID document', ng && n
 p = X.migPlan('companies', h, X.csvObjects('code,name,type\nabc,ABC Travel,a\nDIR,Direct again,C\nxyz,,C').list);
 X.migApply('companies', h, p);
 T('companies: code upper-cased, agent type kept, existing code skipped, missing name rejected',
-  p.add.length === 1 && p.skip.length === 1 && p.err.length === 1 && h.companies.some(c => c.code === 'ABC' && c.type === 'A'));
+  p.add.length === 1 && p.skip.length === 1 && p.err.length === 1 && h.companies.some(c => c.code === 'ABC' && c.type === 'T'));
 
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
