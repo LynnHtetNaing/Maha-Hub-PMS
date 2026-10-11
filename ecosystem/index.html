@@ -1917,9 +1917,23 @@ const ProvSync={
       l.forEach(x=>{const s=this.make(x.code,x.pid);s.restore()});this.start();this.syncAll();return true}catch(e){return false}
   }
 };
+/* ---- Chains: companies that hold several hotels. The provider decides which hotels each person may open. ---- */
+const chainCodeNormalize=s=>String(s||'').trim().toUpperCase();
+const chainCodeOk=s=>/^[A-Z0-9]{6,12}$/.test(chainCodeNormalize(s));
+const chainLabel=c=>c?c.name+' ('+c.chain_code+')':'';
+function chainOfHotel(info,code){return ((info&&info.chains)||[]).find(c=>(c.hotels||[]).some(h=>h.property_code===code))||null}
+/* the hotel codes one person may open, as the server has them */
+function chainAccessOf(info,username){return new Set(((info&&info.access)||[]).filter(a=>a.username===username&&a.active!==false).map(a=>a.property_code))}
+/* the entry of a person in the file of another hotel of the chain: the same permissions as a starting point, the provider adjusts them per hotel */
+function chainUserCopy(src,dep){const u=dep.mk(dep.id(),src.username,src.name,src.role,dep.rand());
+  u.perms=[...(src.perms||[])];u.position=src.position||src.role;u.systems=JSON.parse(JSON.stringify(src.systems||u.systems||{}));u.active=true;if(src.noShift)u.noShift=true;return u}
+/* ---- end Chains ---- */
+const ChainInfo={data:null,loading:null,
+  load(force){if(this.data&&!force)return Promise.resolve(this.data);if(!this.loading)this.loading=MahaAuth.rpc('maha_access_overview',{}).then(d=>{this.data={chains:(d&&d.chains)||[],access:(d&&d.access)||[]};return this.data}).finally(()=>{this.loading=null});return this.loading},
+  clear(){this.data=null}};
 /* Account administration is done only by the provider, on the server. */
 const ProvAdmin={
-  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.',already_deleted:'This hotel is already in the Recycle bin.',not_restorable:'This hotel can no longer be restored.',not_deleted:'Only a hotel in the Recycle bin can be deleted permanently.',recycle_failed:'The server could not complete this. Nothing was changed. Try again.'},
+  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.',already_deleted:'This hotel is already in the Recycle bin.',not_restorable:'This hotel can no longer be restored.',not_deleted:'Only a hotel in the Recycle bin can be deleted permanently.',recycle_failed:'The server could not complete this. Nothing was changed. Try again.',chain_code_taken:'This chain code is already used.',chain_not_found:'That chain was not found.',staff_shared:'Some people work at this hotel and at another hotel of its chain. Remove their access to one of them first.',already_there:'The hotel is already there.',hotel_deleted:'This hotel is in the Recycle bin.',different_chain:'This person works in another chain. A person can only open hotels of one chain.',chain_failed:'The server could not complete this. Nothing was changed. Try again.'},
   msg(e){return (e&&this.msgs[e.message])||'The server could not complete this. Nothing was changed. Try again.'},
   async call(body){
     const t=await MahaAuth.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -1927,10 +1941,11 @@ const ProvAdmin={
       headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify(body)});
     let d=null;try{d=await res.json()}catch(e){}
     if(!res.ok)throw new Error(d&&d.error||('HTTP '+res.status));
+    try{ChainInfo.clear()}catch(e){}   /* chains, hotels and access may have changed: read them again next time */
     return d;
   },
   async createHotel(o){
-    const d=await this.call({action:'create_hotel',organization_name:o.name,property_name:o.name,property_code:o.code,username:o.user,email:o.email,role:'property_admin'});
+    const d=await this.call({action:'create_hotel',organization_name:o.name,property_name:o.name,property_code:o.code,username:o.user,email:o.email,role:'property_admin',chain_code:o.chain||undefined});
     const h=emptyHotel({code:o.code,name:o.name,cur:o.cur,bd:o.bd,tz:o.tz});
     h.users.push(mkUser('u'+uid(),o.user,'Owner','Manager',randomSecret()));shapeHotel(h);DB.hotels[o.code]=h;
     await ProvSync.adopt(o.code,d.property_id);
@@ -7315,8 +7330,8 @@ function provLog(a,extra){DB.provLog.unshift({at:Date.now(),user:user().name,hot
 function provHotelPicker(){return `<label class="sub">Hotel <select id="pvH">${Object.values(DB.hotels).map(h=>opt(h.code,h.code+' – '+h.set.name,H.code)).join('')}</select></label>`}
 function bindPicker(el){const s=$('#pvH',el);if(s)s.onchange=()=>{H=DB.hotels[s.value];DB.session.hotel=s.value;saveDB();renderShell();render()}}
 VIEWS['prov.hotels']=el=>{
-  el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Status</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
-   ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td><span class="hst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
+  el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
+   ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst  ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
     <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-use="${h.code}">Work on this hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
    <p class="sub">Each hotel's data is kept apart. Staff sign in with only their username and password; the system opens the hotel their account belongs to. A new hotel stays Not active until you activate it, and its staff cannot sign in before that.</p>`;
   $$('[data-use]',el).forEach(b=>b.onclick=()=>{H=DB.hotels[b.dataset.use];DB.session.hotel=H.code;saveDB();renderShell();go('prov.perms')});
@@ -7324,6 +7339,7 @@ VIEWS['prov.hotels']=el=>{
   $$('[data-unlock]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.unlock];const why=prompt(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
     const old=h.set.lockedThrough;h.set.lockedThrough=addD(old,-1);H=h;h.amend.unshift({at:Date.now(),user:user().name,what:`Unlocked closed day ${fd(old)}`,before:old,after:h.set.lockedThrough,reason:why.trim()});provLog(`Unlocked ${fd(old)}`,{reason:why.trim()});saveDB();render();toast('Day unlocked. Staff can change it until the next Close Day.')});
   $$('[data-del]',el).forEach(b=>b.onclick=()=>deleteHotelFlow(b.dataset.del));
+  if(MahaAuth.on())ChainInfo.load().then(info=>$$('[data-chain]',el).forEach(td=>{const c=chainOfHotel(info,td.dataset.chain);td.textContent=c?chainLabel(c):'-'}),()=>{})
   $('#pvNew',el).onclick=()=>{if(MahaAuth.on()){newPropertyForm();return}const m=modal('Add hotel',`<div class="form2">${fld('Hotel code',`<input id="nhC" placeholder="e.g. BKK02" autofocus>`)}${fld('Hotel name',`<input id="nhN">`)}${fld('Currency',`<select id="nhCur">${opt('THB')}${opt('MMK')}${opt('USD')}</select>`)}${fld('Country',`<input id="nhCo" value="Thailand">`)}
     ${fld('Service charge %',`<input type="number" id="nhS" value="10">`)}${fld('Tax %',`<input type="number" id="nhV" value="7">`)}${fld('Owner username (unique across all hotels)',`<input id="nhU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${fld('Owner password',`<input id="nhP" type="text" value="">`)}</div><div class="err" id="nhE"></div><div class="btns"><button class="btn gold" id="nhS2">Create hotel</button></div>`,{w:620});
     $('#nhS2',m).onclick=()=>{const c=$('#nhC',m).value.trim().toUpperCase(),n=$('#nhN',m).value.trim(),pw=$('#nhP',m).value;if(!/^[A-Z0-9]{3,8}$/.test(c)){$('#nhE',m).textContent='Hotel code: 3 to 8 letters or numbers.';return}if(DB.hotels[c]){$('#nhE',m).textContent='This hotel code is already used.';return}if(!n){$('#nhE',m).textContent='Enter the hotel name.';return}if(pw.length<8){$('#nhE',m).textContent='The owner password needs at least 8 characters.';return}const ou=$('#nhU',m).value.trim().toLowerCase();if(!/^[a-z0-9._-]{3,20}$/.test(ou)){$('#nhE',m).textContent='Owner username: 3 to 20 letters, numbers, dot, dash or underscore.';return}if(usernameTaken(ou)){$('#nhE',m).textContent='This username is already used in another hotel. Usernames must be unique across all hotels.';return}
@@ -7388,14 +7404,61 @@ VIEWS['prov.recycle']=el=>{
     paint(rows)};
   load();
 };
+/* Chain / Group line of the hotel profile (provider only). Everything is saved in the cloud. */
+function chainBlock(el){
+  if(!el||!MahaAuth.on())return;
+  const paint=info=>{const cur=chainOfHotel(info,H.code);
+    el.innerHTML=`<h3>Chain / Group</h3><p class="sub">${cur?`This hotel belongs to <b>${esc(cur.name)}</b> (${esc(cur.chain_code)}). People you approve can switch between the hotels of this chain from their Profile menu.`:'This hotel is not in a chain.'}</p>
+      <div class="form2">${fld('Chain / Group',`<select id="chSel"><option value="">None (stand-alone hotel)</option>${info.chains.map(c=>opt(c.chain_code,chainLabel(c),cur?cur.chain_code:'')).join('')}<option value="__new">+ New chain...</option></select>`)}</div>
+      <div class="btns"><button class="btn" id="chGo">Save chain</button></div><div class="err" id="chErr"></div>`;
+    $('#chGo',el).onclick=async()=>{if(!provOnly())return;const sel=$('#chSel',el).value,err=$('#chErr',el);
+      const move=async code=>{err.textContent='Saving...';try{await ProvAdmin.call({action:'move_hotel',property_code:H.code,chain_code:code})}catch(e){err.textContent=ProvAdmin.msg(e);return false}
+        provLog('Hotel '+H.code+' moved to '+(code||'no chain'));saveDB();toast(code?'Hotel moved to the chain.':'Hotel is now stand-alone.');ChainInfo.load(true).then(paint);return true};
+      if(sel==='__new'){newChainForm(async code=>{await move(code)});return}
+      if(sel===(cur?cur.chain_code:''))return;
+      await move(sel)}};
+  ChainInfo.load().then(paint,()=>{el.innerHTML='<h3>Chain / Group</h3><p class="sub">The chain could not be loaded now. Sign out and in again, then try once more.</p>'});
+}
+/* A new chain: a name and a code (6 to 12 letters or numbers, unique). onDone(code) runs after it is created. */
+function newChainForm(onDone){
+  const m=modal('New chain / group',`<div class="form2">${fld('Chain name',`<input id="ncN" autofocus placeholder="e.g. Padauk Hotel Group">`,'span2')}${fld('Chain code (6 to 12 letters or numbers, unique)',`<input id="ncC" autocapitalize="characters" placeholder="e.g. PADAUK2026">`,'span2')}</div><div class="err" id="ncE"></div>
+    <div class="btns"><button class="btn gold" id="ncS">Create chain</button><button class="btn ghost" id="ncX">Cancel</button></div>`,{w:520});
+  $('#ncX',m).onclick=()=>closeModal(m);
+  $('#ncS',m).onclick=async()=>{const name=$('#ncN',m).value.trim(),code=chainCodeNormalize($('#ncC',m).value),e=$('#ncE',m);
+    if(name.length<2){e.textContent='Enter the chain name.';return}if(!chainCodeOk(code)){e.textContent='The code needs 6 to 12 letters or numbers (no spaces or signs).';return}
+    $('#ncS',m).disabled=true;e.textContent='Creating...';
+    try{await ProvAdmin.call({action:'create_chain',chain_name:name,chain_code:code})}catch(err){e.textContent=ProvAdmin.msg(err);$('#ncS',m).disabled=false;return}
+    provLog('Created chain '+code+' ('+name+')');closeModal(m);toast('Chain '+code+' created.');await onDone(code)}}
+/* Which hotels of the chain each person may open (ticked by the provider, saved in the cloud). */
+function hotelAccessPanel(box){
+  if(!box||!MahaAuth.on()||!H)return;
+  const paint=info=>{const chain=chainOfHotel(info,H.code);
+    if(!chain||(chain.hotels||[]).length<2){box.hidden=true;return}
+    box.hidden=false;const hotels=chain.hotels.map(h=>h.property_code),people=H.users.filter(u=>u.active!==false);
+    box.innerHTML=`<div class="ph">Hotel access - ${esc(chainLabel(chain))}</div><div class="scroll"><table class="grid"><tr><th>Person</th>${hotels.map(c=>`<th class="n">${esc(c)}</th>`).join('')}</tr>
+      ${people.map(u=>{const has=chainAccessOf(info,u.username);return `<tr><td>${esc(u.name)} <span class="sub">${esc(u.username)}</span></td>${hotels.map(c=>`<td class="n"><input type="checkbox" data-ca="${esc(u.username)}|${esc(c)}" ${c===H.code||has.has(c)?'checked':''} ${c===H.code?'disabled':''} aria-label="${esc(u.username)} may open ${esc(c)}"></td>`).join('')}</tr>`}).join('')}</table></div>
+      <p class="sub pad">Tick the hotels a person may open. They sign in with the same username and password and switch hotel from their Profile menu. Nothing is automatic: a new hotel of the chain is closed to everyone until you tick it. Permissions are set per hotel: choose the hotel at the top, then change the person's permissions there.</p>`;
+    $$('[data-ca]',box).forEach(c=>c.onchange=async()=>{const [un,code]=c.dataset.ca.split('|'),allowed=c.checked;c.disabled=true;
+      try{await ProvAdmin.call({action:'set_access',username:un,property_code:code,allowed})}catch(e){c.checked=!allowed;c.disabled=false;toast(ProvAdmin.msg(e));return}
+      const th=DB.hotels[code],src=H.users.find(x=>x.username===un);
+      if(th&&src){th.users=th.users||[];let tu=th.users.find(x=>x.username===un);
+        if(allowed){if(tu)tu.active=true;else th.users.push(chainUserCopy(src,{mk:mkUser,id:()=>'u'+uid(),rand:randomSecret}))}else if(tu)tu.active=false;
+        th.amend=th.amend||[];th.amend.unshift({at:Date.now(),user:user().name,what:`${allowed?'Opened':'Closed'} this hotel for ${un} (chain access)`,reason:'Provider setting'})}
+      provLog(`${allowed?'Allowed':'Stopped'} ${un} to open hotel ${code}`);saveDB();toast(allowed?un+' can now open '+code+'.':un+' can no longer open '+code+'.');ChainInfo.load(true).then(paint)})};
+  ChainInfo.load().then(paint,()=>{box.hidden=true});
+}
 VIEWS['prov.perms']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
   if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
   if(!H){el.innerHTML=pageHead('Staff & permissions')+'<div class="empty">Create a property first.</div>';return}
   el.innerHTML=pageHead('Staff & permissions',provHotelPicker()+`<button class="btn gold" id="pvU">Add staff</button>`)+`<p class="sub">Access for people at <b>${esc(H.set.name)}</b>. This is not part of the hotel file. Open or lock each system per person, then set PMS permissions. A closed hotel system stays hidden even when this person is Open.</p><h3>Systems for each person</h3><div class="panel">${systemMatrix(H.users,true)}</div><h3 class="mt">PMS permissions</h3><div class="panel">${permMatrix(H.users,true)}</div>
-   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.active===false?'Inactive':'Active'}</td>
+   <div class="panel mt" id="chAcc" hidden></div>
+   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th title="Signs in without opening a shift">No shift</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.active===false?'Inactive':'Active'}</td><td><input type="checkbox" data-ns="${u.id}" ${u.noShift?'checked':''} aria-label="No shift for ${esc(u.username)}"></td>
     <td class="nowrap"><button class="btn sm ghost" data-rp="${u.id}">Reset password</button> <button class="btn sm ghost" data-act="${u.id}">${u.active===false?'Activate':'Deactivate'}</button> <select data-pre="${u.id}"><option value="">Apply preset…</option>${Object.keys(PRESET).map(k=>opt(k)).join('')}</select></td></tr>`).join('')}</table><datalist id="posList">${['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'].map(x=>`<option value="${x}">`).join('')}</datalist></div>`;
   bindPicker(el);
+  $$('[data-ns]',el).forEach(c=>c.onchange=()=>{const u=H.users.find(x=>x.id===c.dataset.ns);if(!u)return;u.noShift=c.checked||undefined;
+    H.amend.unshift({at:Date.now(),user:user().name,what:`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`,reason:'Provider setting'});provLog(`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`);saveDB();toast(c.checked?'This person now signs in without a shift.':'This person signs in with a shift again.')});
+  hotelAccessPanel($('#chAcc',el));
   $$('[data-pos]',el).forEach(i=>i.onchange=()=>{const u=H.users.find(x=>x.id===i.dataset.pos),v=i.value.trim();if(!v){i.value=u.position||u.role;toast('Enter a position title.');return}const old=u.position||u.role;u.position=v;H.amend.unshift({at:Date.now(),user:user().name,what:`Position of ${u.username}: ${old} → ${v}`,reason:'Position change'});provLog(`Position of ${u.username}: ${old} → ${v}`);saveDB();toast('Position saved')});
   $$('[data-su]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
   $$('[data-pu]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();render()});
@@ -7993,15 +8056,16 @@ VIEWS['prov.functions']=el=>{
 };
 function newPropertyForm(){if(!provOnly())return;
   const m=modal('Create new property',`<div class="form2">${fld('Hotel code (unique, e.g. BKK02)',`<input id="npC" autocapitalize="characters" autofocus>`)}${fld('Hotel name',`<input id="npN">`)}
-   ${fld('Currency',`<select id="npCur">${Object.keys(CUR_WORDS).map(c=>opt(c,c+(CUR_WORDS[c][2]?' – '+CUR_WORDS[c][2]:''),'THB')).join('')}</select>`)}${fld('First business date',`<input type="date" id="npBd" value="${todayZ()}">`)}${fld('Time zone',`<select id="npTz">${tzOptions('Asia/Bangkok')}</select>`)}
+   ${fld('Currency',`<select id="npCur">${Object.keys(CUR_WORDS).map(c=>opt(c,c+(CUR_WORDS[c][2]?' – '+CUR_WORDS[c][2]:''),'THB')).join('')}</select>`)}${fld('First business date',`<input type="date" id="npBd" value="${todayZ()}">`)}${fld('Time zone',`<select id="npTz">${tzOptions('Asia/Bangkok')}</select>`)}${MahaAuth.on()?fld('Chain / Group (optional)',`<select id="npCh"><option value="">None (stand-alone hotel)</option></select>`):''}
    ${fld('Owner / manager username (unique across all hotels)',`<input id="npU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${MahaAuth.on()?fld('Owner / manager email (a set-password link is emailed)',`<input id="npP" type="email" autocapitalize="none">`):fld('Temporary password (8+ characters)',`<input id="npP">`)}</div>
    <div class="sub">The property starts empty. You then fill in its setup title by title and activate it when everything is ready.</div><div class="err" id="npE"></div><div class="btns"><button class="btn gold" id="npS">Create property</button></div>`,{w:640});
+  if($('#npCh',m))ChainInfo.load().then(info=>{$('#npCh',m).innerHTML='<option value="">None (stand-alone hotel)</option>'+info.chains.map(c=>opt(c.chain_code,chainLabel(c),'')).join('')},()=>{});
   $('#npS',m).onclick=()=>{const c=$('#npC',m).value.trim().toUpperCase(),n=$('#npN',m).value.trim(),u=$('#npU',m).value.trim().toLowerCase(),p=$('#npP',m).value,e=$('#npE',m);
     if(!/^[A-Z0-9]{3,10}$/.test(c)){e.textContent='Hotel code: 3 to 10 letters or numbers.';return}if(DB.hotels[c]){e.textContent='This hotel code already exists.';return}
     if(!n){e.textContent='Enter the hotel name.';return}if(!/^[a-z0-9._-]{3,20}$/.test(u)){e.textContent='Username: 3 to 20 letters, numbers, dot, dash or underscore.';return}
     if(usernameTaken(u)){e.textContent='This username is already used in another hotel.';return}if(MahaAuth.on()){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)){e.textContent='Enter a valid email address for the owner / manager.';return}
       e.textContent='Creating the hotel and its login...';
-      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value}).then(d=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');if(d&&d.invitation_sent===false){toast(c+' created, but the email could not be sent now. Use Reset password on the owner login in a few minutes.');return}toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
+      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value,chain:($('#npCh',m)&&$('#npCh',m).value)||''}).then(d=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');if(d&&d.invitation_sent===false){toast(c+' created, but the email could not be sent now. Use Reset password on the owner login in a few minutes.');return}toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){e.textContent='The password needs at least 8 characters.';return}
     const h=emptyHotel({code:c,name:n,cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value});h.users.push(mkUser('u'+uid(),u,'Owner','Manager',p));shapeHotel(h);DB.hotels[c]=h;
     openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}
@@ -8054,11 +8118,13 @@ function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data
 const SEC={
  profile(box){const s=H.set;box.innerHTML=secHead('1. Hotel profile','Printed on the receipt / tax invoice, registration card, reservation confirmation and reports.')+`<div class="panel pad"><div class="form2">
    ${[['name','Hotel name'],['legal','Legal company name (tax invoice)'],['branch','Branch (e.g. Head Office)'],['taxId','Tax ID'],['addr','Address'],['phone','Phone'],['fax','Fax'],['email','Email'],['web','Website'],['country','Country'],['nat','Local nationality (for government reports)']].map(([k,l])=>fld(l,`<input id="p_${k}" value="${esc(s[k]||'')}">`,k==='addr'||k==='legal'?'span2':'')).join('')}${fld('Time zone (for times on logs, reports and documents)',`<select id="p_tz">${tzOptions(s.tz)}</select>`)}</div>
+   <div class="mt" id="chainBox"></div>
    <div class="mt"><h3>Hotel logo</h3><p class="sub">Shown on the reservation confirmation, registration card, receipt, guest folio and reports. If none is added, those documents use the Maha Hub mark. The sign-in screen keeps the Maha Hub mark.</p>
     ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:''}
     <div class="btns"><label class="btn ghost">Upload logo<input id="pLogo" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>${s.logo?'<button class="btn ghost" id="pLogoX" type="button">Remove</button>':''}</div></div>
    <div class="btns"><button class="btn gold" id="pS">Save</button></div></div>`;
    $('#pS',box).onclick=()=>{if(!provOnly())return;['name','legal','branch','taxId','addr','phone','fax','email','web','country','nat'].forEach(k=>s[k]=$('#p_'+k,box).value.trim());s.tz=$('#p_tz',box).value||'Asia/Bangkok';if(!s.name){toast('The hotel name is needed.');return}provLog(`Profile saved for ${H.code}`);saved()};
+   chainBlock($('#chainBox',box));
    if($('#pLogo',box))$('#pLogo',box).onchange=e=>{if(!provOnly())return;applyLogoFile(e.target.files[0],()=>{provLog('Hotel logo saved for '+H.code);saved('Logo saved')})};
    if($('#pLogoX',box))$('#pLogoX',box).onclick=()=>{if(!provOnly())return;clearHotelLogo(()=>{provLog('Hotel logo removed for '+H.code);saved('Logo removed')})}},
  tax(box){const s=H.set;box.innerHTML=secHead('2. Currency, tax & service','All rates are inclusive. Service is worked out on the net amount; tax on net plus service.')+`<div class="panel pad"><div class="form3">
