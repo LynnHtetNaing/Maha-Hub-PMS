@@ -23,18 +23,18 @@ const six = [1230, 1230, 1230, 1230, 1230, 1230];
 let tt = X.totalBoxes(six, agoda);
 T('NET agent, 6 nights: total rate 7,380, total commission 1,620, total gross rate 9,000', tt.rVal === '7380.00' && tt.cLabel === 'Total commission 18%' && tt.cVal === '1620.00' && tt.nLabel === 'Total gross rate' && tt.nVal === '9000.00', JSON.stringify(tt));
 
-/* gross agent: typed is the gross; the commission is what the hotel pays back */
+/* gross agent: typed is the gross; the commission is what the hotel pays back; the other box is the net the hotel keeps */
 k = X.commCalc(1600, gross);
 T('GROSS agent 15%: typed 1,600 -> gross 1,600, commission 240, net 1,360', k.typed === 1600 && k.gross === 1600 && k.comm === 240 && k.net === 1360, JSON.stringify(k));
 bx = X.commBoxes(1600, gross);
-T('GROSS agent: the next box shows the gross rate as typed', bx.cVal === '240.00' && bx.nLabel === 'Gross rate per night' && bx.nVal === '1600.00');
+T('GROSS agent: commission 15% = 240.00, the next box shows the NET rate 1,360.00', bx.cLabel === 'Commission per night 15%' && bx.cVal === '240.00' && bx.nLabel === 'Net rate per night' && bx.nVal === '1360.00', JSON.stringify(bx));
 tt = X.totalBoxes([1600, 1600, 1600], gross);
-T('GROSS agent, 3 nights: total rate 4,800, commission 720, total gross 4,800', tt.rVal === '4800.00' && tt.cVal === '720.00' && tt.nVal === '4800.00');
+T('GROSS agent, 3 nights: total rate 4,800, total commission 720, total NET rate 4,080', tt.rVal === '4800.00' && tt.cVal === '720.00' && tt.nLabel === 'Total net rate' && tt.nVal === '4080.00', JSON.stringify(tt));
 
 /* no commission */
 for (const c of [null, undefined, {}, { comm: 0 }, { comm: '' }, { comm: -5 }, { comm: 100 }, { comm: 'abc' }, { comm: 0, rateBasis: 'net' }]) {
   const d = X.commBoxes(3000, c), t = X.totalBoxes([3000, 3000], c);
-  T('no commission (' + JSON.stringify(c) + '): dashes, and the typed rate is the gross', d.cVal === '-' && d.nVal === '-' && d.pct === 0 && t.rVal === '6000.00' && t.cVal === '-' && X.commCalc(3000, c).gross === 3000);
+  T('no commission (' + JSON.stringify(c) + '): dashes, and the typed rate stays', d.cVal === '-' && d.nVal === '-' && d.pct === 0 && t.rVal === '6000.00' && t.cVal === '-' && X.commCalc(3000, c).gross === 3000);
 }
 T('an agent with no basis set behaves as gross', X.commBasis({ comm: 10 }) === 'gross' && X.commBasis({ comm: 10, rateBasis: 'weird' }) === 'gross' && X.commBasis({ comm: 10, rateBasis: 'net' }) === 'net');
 T('rate not typed yet shows 0.00, not an error', X.commBoxes(0, agoda).cVal === '0.00' && X.commBoxes(0, agoda).nVal === '0.00');

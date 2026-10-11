@@ -2304,16 +2304,16 @@ function commCalc(rate,c){const pct=commPct(c),basis=commBasis(c),t=r2(+rate||0)
   if(!pct)return {pct:0,basis,typed:t,gross:t,comm:0,net:t};
   if(basis==='net'){const gross=r2(t/(1-pct/100));return {pct,basis,typed:t,gross,comm:r2(gross-t),net:t}}   /* the user typed the net rate the agent pays the hotel */
   const comm=r2(t*pct/100);return {pct,basis,typed:t,gross:t,comm,net:r2(t-comm)}}                          /* the user typed the gross rate */
-/* What a reservation shows next to the rate the user typed: the commission and the gross rate the guest pays. A dash when there is no commission. */
+/* What a reservation shows next to the rate the user typed: the commission and the OTHER rate (Net agent: the gross the guest pays; Gross agent: the net the hotel keeps). A dash when there is no commission. */
 function commBoxes(rate,c){const k=commCalc(rate,c);
-  if(!k.pct)return {pct:0,cLabel:'Commission per night',cVal:'-',nLabel:'Gross rate per night',nVal:'-',tip:''};
-  return {pct:k.pct,cLabel:'Commission per night '+k.pct+'%',cVal:m2(k.comm),nLabel:'Gross rate per night',nVal:m2(k.gross),
+  if(!k.pct)return {pct:0,cLabel:'Commission per night',cVal:'-',nLabel:k.basis==='net'?'Gross rate per night':'Net rate per night',nVal:'-',tip:''};
+  return {pct:k.pct,cLabel:'Commission per night '+k.pct+'%',cVal:m2(k.comm),nLabel:k.basis==='net'?'Gross rate per night':'Net rate per night',nVal:m2(k.basis==='net'?k.gross:k.net),
     tip:k.basis==='net'?'The agent keeps this commission and pays the hotel the net rate typed here. The guest pays the gross rate.':'The agent collected the full rate. The hotel pays this commission back.'}}
-/* Totals for the whole stay from the rate of each night (each night rounded on its own): total rate typed, total commission, total gross rate. */
+/* Totals for the whole stay from the rate of each night (each night rounded on its own): total rate typed, total commission, and the total of the other rate. */
 function commTotals(rates,c){let ty=0,g=0,cm=0,n=0;(rates||[]).forEach(v=>{const k=commCalc(v,c);ty=r2(ty+k.typed);g=r2(g+k.gross);cm=r2(cm+k.comm);n=r2(n+k.net)});return {pct:commPct(c),basis:commBasis(c),typed:ty,gross:g,comm:cm,net:n}}
 function totalBoxes(rates,c){const t=commTotals(rates,c),none=!t.pct;
-  return {rVal:m2(t.typed),cLabel:none?'Total commission':'Total commission '+t.pct+'%',cVal:none?'-':m2(t.comm),nLabel:'Total gross rate',nVal:none?'-':m2(t.gross),
-    tip:none?'':t.basis==='net'?'The agent keeps this commission and pays the hotel the total net rate. The guest pays the total gross rate.':'The agent collected the full rate. The hotel pays this commission back.'}}
+  return {rVal:m2(t.typed),cLabel:none?'Total commission':'Total commission '+t.pct+'%',cVal:none?'-':m2(t.comm),nLabel:t.basis==='net'?'Total gross rate':'Total net rate',nVal:none?'-':m2(t.basis==='net'?t.gross:t.net),
+    tip:none?'':t.basis==='net'?'The agent keeps this commission and pays the hotel the total net rate. The guest pays the total gross rate.':'The agent collected the full rate. The hotel pays this commission back, so the hotel keeps the total net rate.'}}
 /* The commission terms a reservation was made with (kept on the reservation so a later change never rewrites old bills). */
 const resComm=(h,r)=>r&&r.commPct!==undefined?{comm:r.commPct,rateBasis:r.commBasis}:((h.companies||[]).find(c=>c.id===(r&&r.companyId))||null);
 /* A new night of a stay follows the rate already agreed for that stay; there is no standard room-type rate any more. */
