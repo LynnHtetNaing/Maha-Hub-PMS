@@ -1,4 +1,4 @@
-/* Reservation deposit text in the folio: Folio 1 reads "Reservation Deposit - (payment method)", Folio 4 keeps the two advance lines.
+/* Reservation deposit text in the folio: Every line of a reservation deposit reads "Reservation Deposit - (payment method)": Folio 1 and the two on Folio 4.
      node tests/sync/deposit-test.js ecosystem/index.html */
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8');
@@ -22,7 +22,8 @@ let B = { lines: [] };
 X.postPayment({}, B, '900', 500, { deposit: true, adv: true, folio: 1 });
 let f1 = B.lines.filter(l => l.folio === 1), f4 = B.lines.filter(l => l.folio === 4);
 T('Folio 1 has ONE line: Reservation Deposit - Cash', f1.length === 1 && f1[0].desc === 'Reservation Deposit - Cash' && f1[0].amt === -500, show(B));
-T('Folio 4 has TWO lines, the advance posting', f4.length === 2 && f4.some(l => l.kind === 'payoff' && l.desc === 'Advance Payment - Cash' && l.amt === 500) && f4.some(l => l.kind === 'payrec' && l.desc === 'Cash - Advance Payment' && l.amt === -500), show(B));
+T('Folio 4 has TWO lines (the advance posting) with the SAME wording as Folio 1', f4.length === 2 && f4.some(l => l.kind === 'payoff' && l.desc === 'Reservation Deposit - Cash' && l.amt === 500) && f4.some(l => l.kind === 'payrec' && l.desc === 'Reservation Deposit - Cash' && l.amt === -500), show(B));
+T('all three lines read exactly the same', new Set(B.lines.map(l => l.desc)).size === 1 && B.lines.length === 3);
 T('the payment method is kept on every line (reports use it)', B.lines.every(l => l.method === 'Cash'));
 
 /* another payment method */
@@ -53,9 +54,9 @@ const oldLines = [
 const hotel = { reservations: [{ bookings: [{ lines: oldLines }] }] };
 X.retitleAdvanceLines(hotel);
 T('an old reservation deposit on Folio 1 now reads Reservation Deposit - Cash', oldLines[0].desc === 'Reservation Deposit - Cash');
-T('its Folio 4 lines keep the advance wording', oldLines[1].desc === 'Advance Payment - Cash' && oldLines[2].desc === 'Cash - Advance Payment');
+T('its two Folio 4 lines now read the same', oldLines[1].desc === 'Reservation Deposit - Cash' && oldLines[2].desc === 'Reservation Deposit - Cash');
 T('an in-house advance payment is left as an advance payment', oldLines[3].desc === 'Visa Card - Advance Payment');
 X.retitleAdvanceLines(hotel);
-T('running it again changes nothing', oldLines[0].desc === 'Reservation Deposit - Cash' && oldLines[1].desc === 'Advance Payment - Cash');
+T('running it again changes nothing', oldLines[0].desc === 'Reservation Deposit - Cash' && oldLines[1].desc === 'Reservation Deposit - Cash' && oldLines[3].desc === 'Visa Card - Advance Payment');
 
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);

@@ -845,6 +845,12 @@ tr.co-row td{background:#fff5f5}
 .sic.back small{font-size:9px;letter-spacing:.02em}
 .stl-vip{background:#d49a38;color:#1e1606;border-radius:3px;padding:1px 5px;font-size:10.5px;letter-spacing:.03em;min-width:0}
 .sic.cibig{width:40px;height:40px;border-radius:8px;background:#1f7a4a;color:#fff;border:1px solid #17603a;box-shadow:0 1px 3px rgba(0,0,0,.25)}.sic.cibig:hover{background:#17603a}.sic.cibig svg{width:22px;height:22px}
+.rscreen.nres .pn{overflow:visible}
+.cbw{position:relative}.cbw input{width:100%}
+.cblist{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:50;background:#fff;border:1px solid #b9c6cf;border-radius:4px;box-shadow:0 8px 22px rgba(20,40,50,.18);max-height:280px;overflow-y:auto;overflow-x:hidden}
+.cbi{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 12px;cursor:pointer;font-size:14px;color:#1a272f;border-bottom:1px solid #f0f3f5}.cbi small{color:#7a8892;font-size:12px;white-space:nowrap}
+.cbi.on,.cbi:hover{background:#e8f1ec}
+.cbe{padding:10px 12px;color:#7a8892;font-size:13px}
 .rscreen .rfull{grid-column:1/-1}.rscreen .rfind{grid-column:1/-1;margin-top:2px}.rscreen .rfind input{width:100%}
 .depi{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#1f7a4a;color:#fff;font-size:12px;font-weight:800;margin-right:5px;vertical-align:middle}
 .rscreen .pnb>.sub.rfull{margin:0}
@@ -2399,19 +2405,19 @@ function postPayment(h,B,code,amt,o={}){
   const base={code,method:typed,group:g,bd:o.bd,shift:o.shift,user:o.user,ref:o.ref||'',deposit:!!o.deposit,remark:o.remark||'',vat:false,time:o.time};
   const s=tc&&tc.refund?-1:1,label=o.label||(o.adv?'Advance Payment':o.deposit?'Advance Deposit':tc&&tc.refund?'Refund':'Payment');
   const three=!!(o.adv||o.deposit);
-  const guestDesc=o.deposit?'Reservation Deposit - '+typed:three?typed+' - '+label:(o.desc||codeDesc);   /* the guest folio line of a reservation deposit always reads Reservation Deposit - (payment method); Folio 4 keeps the advance lines */
+  const guestDesc=o.deposit?'Reservation Deposit - '+typed:three?typed+' - '+label:(o.desc||codeDesc);   /* every line of a reservation deposit (Folio 1 and the two on Folio 4) reads Reservation Deposit - (payment method) */
   const A=addLine(h,B,{...base,folio:o.folio||1,desc:guestDesc,amt:-s*Math.abs(amt),kind:'pay',adv:!!o.adv});
   let R=null,C=null;
   if(three){
     const t0=o.time||Date.now();
-    C=addLine(h,B,{...base,time:t0,folio:4,desc:label+' - '+typed,amt:s*Math.abs(amt),kind:'payoff',adv:!!o.adv});
-    R=addLine(h,B,{...base,time:t0+1,folio:4,desc:typed+' - '+label,amt:-s*Math.abs(amt),kind:'payrec',fixed:true,adv:!!o.adv});
+    C=addLine(h,B,{...base,time:t0,folio:4,desc:o.deposit?'Reservation Deposit - '+typed:label+' - '+typed,amt:s*Math.abs(amt),kind:'payoff',adv:!!o.adv});
+    R=addLine(h,B,{...base,time:t0+1,folio:4,desc:o.deposit?'Reservation Deposit - '+typed:typed+' - '+label,amt:-s*Math.abs(amt),kind:'payrec',fixed:true,adv:!!o.adv});
   }
   if(tc&&tc.ptab==='CITY LEDGER'&&!tc.refund&&typeof refreshCityItems==='function')refreshCityItems(h);
   return {A,R,C,g};
 }
 /* Folio text for an advance, matching the sample lines:
-   guest folio (−): "Visa Card - Advance Payment" (a reservation deposit reads "Reservation Deposit - Visa Card" here)
+   guest folio (−): "Visa Card - Advance Payment" (a reservation deposit reads "Reservation Deposit - Visa Card" on all three lines)
    Folio 4 grey (+): "Advance Payment - Visa Card"
    Folio 4 red (−): "Visa Card - Advance Payment"
    Codes stay ours. Only the description is rewritten. */
@@ -2421,7 +2427,7 @@ function retitleAdvanceLines(h){
     const label=l.adv?'Advance Payment':'Advance Deposit';
     const name=String(l.method||l.desc||'Payment').replace(/\s*-\s*Advance (Payment|Deposit)$/i,'').replace(/^(Advance (Payment|Deposit)|Reservation Deposit)\s*-\s*/i,'').trim()||'Payment';
     l.method=name;
-    l.desc=l.kind==='payoff'?label+' - '+name:(l.deposit&&l.kind==='pay')?'Reservation Deposit - '+name:name+' - '+label;
+    l.desc=l.deposit?'Reservation Deposit - '+name:l.kind==='payoff'?label+' - '+name:name+' - '+label;
   })));
 }
 const bal=B=>r2(sum(B.lines,l=>l.amt));
@@ -6349,6 +6355,10 @@ function natResolve(text){const raw=String(text==null?'':text).trim();if(!raw)re
   return hits.size===1?[...hits][0]:raw}
 /* the list shown while typing: the nationality, with its country beside it */
 const natOptions=()=>NATIONS.map(n=>`<option value="${n.nat}" label="${n.country}"></option>`).join('');
+/* the dropdown list: what to show for what was typed (matches the start first, then anywhere; value or country/label) */
+function comboFilter(items,q){const k=natNorm(q);if(!k)return (items||[]).slice();
+  const st=[],ct=[];(items||[]).forEach(it=>{const a=natNorm(it.value),b=natNorm(it.label);if(a.startsWith(k)||b.startsWith(k))st.push(it);else if(a.includes(k)||b.includes(k))ct.push(it)});return st.concat(ct)}
+const NATION_ITEMS=NATIONS.map(n=>({value:n.nat,label:n.country}));
 /* ---- end Nationalities ---- */
 /* ---- Room line: assign a room and block it from one popup ---- */
 /* now: {room, block:{reason}|null}; want: {room, block:boolean, reason}. Returns {err} or what to do. */
@@ -6364,12 +6374,30 @@ function roomLineDecide(now,want){
     return {unblock:false,assign,block:{reason:String(want.reason).trim(),room}}}
   return {unblock:false,assign,block:null}}
 /* ---- end Room line ---- */
+/* A white, full-width drop-down under a text box: it lists everything, narrows as you type, and you can click or use the arrow keys and Enter. */
+function attachCombo(input,items,onPick){
+  const w=document.createElement('div');w.className='cbw';input.parentNode.insertBefore(w,input);w.appendChild(input);
+  const list=document.createElement('div');list.className='cblist';list.hidden=true;w.appendChild(list);
+  let shown=[],act=-1;
+  const paint=()=>{const q=input.value;shown=comboFilter(items(),q);act=shown.length&&q.trim()?0:-1;
+    list.innerHTML=shown.length?shown.map((it,i)=>`<div class="cbi${i===act?' on':''}" data-i="${i}"><span>${esc(it.value)}</span>${it.label?`<small>${esc(it.label)}</small>`:''}</div>`).join(''):'<div class="cbe">No match - the text stays as you typed it</div>';list.hidden=false};
+  const close=()=>{list.hidden=true};
+  const pick=i=>{const it=shown[i];if(!it)return;input.value=it.value;close();input.dispatchEvent(new Event('change',{bubbles:true}));if(onPick)onPick(it)};
+  input.addEventListener('focus',paint);input.addEventListener('input',paint);
+  input.addEventListener('keydown',e=>{
+    if(list.hidden&&e.key==='ArrowDown'){e.preventDefault();paint();return}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){if(!shown.length)return;e.preventDefault();act=(act+(e.key==='ArrowDown'?1:-1)+shown.length)%shown.length;[...list.children].forEach((c,i)=>c.classList.toggle('on',i===act));const c=list.children[act];if(c&&c.scrollIntoView)c.scrollIntoView({block:'nearest'})}
+    else if(e.key==='Enter'&&!list.hidden&&act>=0){e.preventDefault();pick(act)}
+    else if(e.key==='Escape'){close()}});
+  list.addEventListener('mousedown',e=>{const c=e.target.closest('.cbi');if(c){e.preventDefault();pick(+c.dataset.i)}});
+  input.addEventListener('blur',()=>setTimeout(close,120));
+}
 function newReservation(el,pre,walkin){
   const arr=pre.arr||H.set.bd,dep=addD(arr,1),type=pre.room?RM(pre.room).type:H.roomTypes[0].code;
-  el.innerHTML=pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':'')+`<div class="rscreen"><div class="pn"><div class="pnh blue">Guest Details</div><div class="pnb g3">
+  el.innerHTML=pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':'')+`<div class="rscreen nres"><div class="pn"><div class="pnh blue">Guest Details</div><div class="pnb g3">
     ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('First name',`<input id="nF">`)}${fld('Last name',`<input id="nL" autofocus>`)}
-    ${fld('Nationality',`<input id="nN" list="natList" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type a country or nationality"><datalist id="natList">${natOptions()}</datalist>`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}
-    <div class="rfind"><input id="nG" list="nGl" aria-label="Find a returning guest" placeholder="Find a returning guest: type a name to search" autocomplete="off"><datalist id="nGl">${H.guests.map(g=>`<option value="${esc(gName(g))} #${g.profileId}">`).join('')}</datalist></div></div></div>
+    ${fld('Nationality',`<input id="nN" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type or choose a country or nationality">`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}
+    <div class="rfind"><input id="nG" aria-label="Find a returning guest" placeholder="Find a returning guest: type a name to search" autocomplete="off"></div></div></div>
    <div class="pn"><div class="pnh grey">Reservation Details</div><div class="pnb g4">
     ${fld('Company / T/A',`<select id="nCo">${H.companies.map(c=>opt(c.id,`(${c.type}) ${c.name}`,walkin?'c7':'c6')).join('')}</select>`,'span2')}${fld('Reference',`<input id="nRef">`)}
     ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
@@ -6389,6 +6417,8 @@ function newReservation(el,pre,walkin){
    <div class="quote" id="nQ"></div><div class="err" id="nErr"></div>
    <div class="btns"><button class="btn gold" id="nSave">${walkin?'Save and check in':'Save reservation'}</button><button class="btn ghost" id="nX">Cancel</button></div></div>`;
   const q=s=>$(s,el);
+  attachCombo(q('#nN'),()=>NATION_ITEMS);
+  attachCombo(q('#nG'),()=>H.guests.filter(g=>g.profileId&&g.profileId!=='GROUP').map(g=>({value:gName(g)+' #'+g.profileId,label:g.nationality||''})));
   const upd=()=>{const a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value;const cur=q('#nRm').value||pre.room;
     q('#nRm').innerHTML=(walkin?'':'<option value="">Assign later</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
     const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
