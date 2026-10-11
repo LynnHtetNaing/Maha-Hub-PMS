@@ -1298,6 +1298,7 @@ const MahaAuth={
       MahaSync.stop();ProvSync.start();
       return {ok:true,provider:true,userId:r.tokens.user.id};
     }
+    try{const lh=localStorage.getItem('maha.lastHotel.'+un);if(lh)props.sort((a,b)=>(a.code===lh?0:1)-(b.code===lh?0:1))}catch(e){}
     if(!props.length)return reject('unlinked','Your account is not linked to a hotel yet. Please contact Padauk support.');
     const userOf=h=>(h&&h.users||[]).find(x=>String(x&&x.username||'').toLowerCase()===un&&x.active!==false);
     let unavailable=false,invalid=false,emptyCand=null;
@@ -2046,6 +2047,7 @@ function sessionValid(se){
   if(se.provider)return (DB.providers||[]).some(p=>p.id===se.userId&&p.active!==false);
   const h=DB.hotels&&DB.hotels[se.hotel];if(!h)return false;
   const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false)return false;
+  if(!noShiftSessionOk(se,u))return false;   /* the provider took the No-shift setting away: sign in again */
   if(se.shiftId&&!(h.shifts||[]).some(s=>s.id===se.shiftId&&s.status==='open'))return false;
   return true;
 }
@@ -2470,7 +2472,15 @@ function user(){const se=DB&&DB.session;if(!se)return {name:'Signed out',perms:[
   /* records, reports and invoices always show the username created by the provider – never the personal name the user types in their profile */
   return {...u,name:u.username,accountName:u.name,position:u.position||u.role}}
 const can=p=>{const u=user();return !!u.provider||(u.perms||[]).includes(p)};
-function curShift(){const se=DB&&DB.session;if(se&&se.provider&&se.inHotel&&H){const p=DB.providers.find(x=>x.id===se.userId);return {id:'prov-'+se.userId,userId:se.userId,userName:p?p.username:'provider',name:'Provider',bd:H.set.bd,openAt:se.at||Date.now(),openCash:0,status:'open',virtual:true}}return se&&se.shiftId&&H?H.shifts.find(s=>s.id===se.shiftId&&s.status==='open')||null:null}
+/* ---- No shift: people the provider ticked sign in without opening a shift ---- */
+function noShiftVirtual(se,u,bd){return {id:'ns-'+((se&&se.userId)||''),userId:se&&se.userId,userName:u?u.username:'',name:'No shift',bd,openAt:(se&&se.at)||Date.now(),openCash:0,status:'open',virtual:true,noShift:true}}
+const openCashierShifts=h=>((h&&h.shifts)||[]).filter(s=>s.status==='open');
+function pickPayShift(open,id){return (open||[]).find(s=>s.id===id)||(open||[])[0]||null}
+const noShiftSessionOk=(se,u)=>!(se&&se.noShift)||!!(u&&u.noShift);
+/* the hotels in the switcher: everything the person may open, with the current one marked */
+function switchChoices(props,names,current){return (props||[]).map(p=>({code:p.code,id:p.id,name:(names&&names[p.code])||p.code,current:p.code===current})).sort((a,b)=>a.code<b.code?-1:a.code>b.code?1:0)}
+/* ---- end No shift ---- */
+function curShift(){const se=DB&&DB.session;if(se&&se.provider&&se.inHotel&&H){const p=DB.providers.find(x=>x.id===se.userId);return {id:'prov-'+se.userId,userId:se.userId,userName:p?p.username:'provider',name:'Provider',bd:H.set.bd,openAt:se.at||Date.now(),openCash:0,status:'open',virtual:true}}if(se&&se.noShift&&!se.provider&&H){const nu=(H.users||[]).find(x=>x.id===se.userId);return noShiftVirtual(se,nu,H.set.bd)}return se&&se.shiftId&&H?H.shifts.find(s=>s.id===se.shiftId&&s.status==='open')||null:null}
 function log(a,ref){if(!H)return;if(DB.session&&DB.session.provider&&DB.session.inHotel){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H.code,a:'[in hotel] '+a})}const s=curShift();H.logs.unshift({at:Date.now(),bd:H.set.bd,user:user().name,shift:s?s.name:(user().provider?'Provider':''),a,ref:ref||null});if(H.logs.length>800)H.logs.length=800}
 /* Close Day and Post room: open to every position, but only on the Night shift (the provider may also run it) */
 const onNightShift=()=>{const s=curShift();return !!(user().isProv||(s&&s.name==='Night'))};
@@ -2576,7 +2586,7 @@ function need(perm){
   if(!curShift()){toast('Your shift is closed. Sign in again to open a new shift.');signOut(true);return false}
   if(perm&&!can(perm)){toast('You do not have permission for this. The provider can open it for your account.');return false}
   return true}
-const lineCtx=()=>{const s=curShift();return {bd:H.set.bd,shift:s,user:user().name}};
+const lineCtx=ov=>{const s=ov||curShift();return {bd:H.set.bd,shift:s,user:user().name}};
 function histB(B,what){const s=curShift();B.hist.push({at:Date.now(),bd:H.set.bd,user:user().name,shift:s?s.name:'',what})}
 
 /* ---------- toast / modals ---------- */
@@ -5316,9 +5326,10 @@ function openHelpMenu(btn){
 function openAccountMenu(btn){
   const provider=!!(DB.session&&DB.session.provider);
   const inHotel=!(provider&&!DB.session.inHotel);
-  const p=tbPop(btn,`${provider?'<button type="button" data-act="account">'+(MahaAuth.on()?'My profile':'My account &amp; security')+'</button>':'<button type="button" data-act="profile">My profile</button>'}${inHotel?'<button type="button" data-act="search">Search</button>':''}<button type="button" class="msignout" data-act="out">Sign out</button>`);
+  const p=tbPop(btn,`${provider?'<button type="button" data-act="account">'+(MahaAuth.on()?'My profile':'My account &amp; security')+'</button>':'<button type="button" data-act="profile">My profile</button>'}${(!provider&&curShift()&&curShift().noShift&&MahaAuth.on())?'<button type="button" data-act="switch">Switch hotel</button>':''}${inHotel?'<button type="button" data-act="search">Search</button>':''}<button type="button" class="msignout" data-act="out">Sign out</button>`);
   $$('[data-act]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const a=b.dataset.act;
     if(a==='account'){go('prov.account');return}
+    if(a==='switch'){openHotelSwitcher();return}
     if(a==='profile'){if(VIEW!=='me.profile')PREV={v:VIEW,a:VARG};go('me.profile');return}
     if(a==='search')globalSearch();
     if(a==='out')signOut(false)});
@@ -5549,6 +5560,7 @@ function showLogin(msg){
     $('#lgExtra').hidden=pvu;
     if(pvu){$('#lgGo').textContent='Sign in to provider console →';return}
     const f=findStaff($('#lgUser').value.trim().toLowerCase());const h=f&&f.h,u=f&&f.u;
+    if(u&&u.noShift){$('#lgExtra').hidden=true;$('#lgGo').textContent='Login (no shift) →';return}
     const open=u&&h.shifts.find(s=>s.userId===u.id&&s.status==='open');
     $('#lgGo').textContent=open?`Continue ${open.name} shift →`:'Login →';
     $('#cashWrap').hidden=!!open||(u&&u.role==='Housekeeping');
@@ -5624,11 +5636,12 @@ function doLogin(){
       toast(ecoSysLabel(sys)+' is closed for your account. Opening '+fallback.name+'.');
       sys=fallback.kind;avail=fallback;
     }
-    if(sys==='hub'){applySysPath('hub');renderShell();go(firstHotelView());toast(`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`);return}
+    if(sys==='hub'){applySysPath('hub');renderShell();go(firstHotelView());toast(shift==='No shift'?`Welcome ${who}. ${fd(h.set.bd)}.`:`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`);return}
     lgTargetSys=sys;openSystem(sys,h,true);
   };
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Padauk support.';return}
   fails=0;H=h;let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open');
+  if(u.noShift){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log('Signed in without a shift');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
   if(!s){const closed=h.shifts.find(x=>x.userId===u.id&&x.name===lgShift&&x.bd===h.set.bd&&x.status==='closed'&&!x.reopenOk);
     if(closed&&ruleOn(h,'blockClosedShiftReopen')){err.textContent=`The ${lgShift} shift for ${fd(h.set.bd)} is already closed. The provider must allow it to be opened again.`;return}
@@ -5636,7 +5649,7 @@ function doLogin(){
   else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
   writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}}
 function signOut(silent){
-  if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!confirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
+  if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!curShift().noShift&&!confirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   if(DB.session){if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});else log('Signed out')}
   if(MahaAuth.on())MahaAuth.signOut();
   DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
@@ -6346,7 +6359,7 @@ function newReservation(el,pre,walkin){
     Object.keys(B.nightly).forEach(k=>B.nightly[k]=rt);B.bkType=q('#nBt').value;
     B.billTo=q('#nBill').value;r.billTo=B.billTo;B.bill={name:q('#nBn').value.trim(),addr:q('#nBa').value.trim(),tax:q('#nBtx').value.trim(),branch:q('#nBbr').value.trim()};
     r.bookings.push(B);H.reservations.push(r);histB(B,'Reservation created');log(`Created RSVN ${r.no}`,B.id);saveDB();
-    if(depN>0){if(can('pay')){postPayment(H,B,q('#nPay').value,depN,{...lineCtx(),folio:1,deposit:true,adv:true,ref:q('#nPref').value.trim(),remark:'Reservation deposit'});histB(B,'Reservation deposit '+m2(depN));log('Reservation deposit '+m2(depN)+' RSVN '+r.no,B.id);saveDB()}else toast('The reservation is saved. The deposit was not posted because payment is locked for this user.')}
+    if(depN>0){if(curShift()&&curShift().noShift){toast('The reservation is saved. The deposit was not posted because you sign in without a shift. Post it from the reservation with Payment.')}else if(can('pay')){postPayment(H,B,q('#nPay').value,depN,{...lineCtx(),folio:1,deposit:true,adv:true,ref:q('#nPref').value.trim(),remark:'Reservation deposit'});histB(B,'Reservation deposit '+m2(depN));log('Reservation deposit '+m2(depN)+' RSVN '+r.no,B.id);saveDB()}else toast('The reservation is saved. The deposit was not posted because payment is locked for this user.')}
     if(walkin){if(checkIn(B,true)){saveDB();go('bill.open',B.id)}else go('res.open',B.id)}
     else{go('res.open',B.id);toast(depN>0?`Reservation ${r.no} created with deposit ${m2(depN)}`:`Reservation ${r.no} created`);if(depN>0&&can('pay')&&can('print'))printDeposit(B)}};
 }
@@ -6778,7 +6791,7 @@ function postModal(B,after,folio){if(!need('post'))return;if(B.status!=='inhouse
   const save=()=>{m._v={};['niR','niA','niM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value});if(cur&&$('#niD',m))cur={...cur,desc:$('#niD',m).value.trim()||cur.desc}};
   const upd=()=>{const a=+String($('#niA',m).value).replace(/,/g,'')||0;if(!cur||!a){$('#niQ',m).innerHTML=cur?'':'Choose a code on the left or type it.';return}const vOn=chargeVat(cur),t=taxSplit(a,vOn);
     $('#niQ',m).innerHTML=`${cur.rebate?'Rebate: posts as −'+m2(a)+'. ':''}Net ${m2(t.net)} + service ${m2(t.svc)} + ${esc(H.set.taxName)} ${m2(t.vat)} = <b>${m2(a)}</b>${vOn?'':' (non-VAT)'} → Folio ${pf}`};
-  const doPost=()=>{if(!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}const a=r2(+String($('#niA',m).value).replace(/,/g,''));
+  const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}const a=r2(+String($('#niA',m).value).replace(/,/g,''));
     if(!(a>0)){e.textContent='Enter an amount above 0.';return}if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
     const adj=/^Adjust/i.test(base.desc)||base.code==='398'||base.code==='728';
     if(adj&&bal(B)>=-0.004){e.textContent='Adjust (+) is only for an overpayment. The folio balance must be below zero.';return}
@@ -6837,7 +6850,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     if($('#cdN',m)){$('#cdN',m).oninput=e=>{const v=e.target.value.replace(/\D/g,'').slice(0,19);e.target.value=v.replace(/(.{4})/g,'$1 ').trim()};$('#cdE',m).oninput=e=>{let v=e.target.value.replace(/\D/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);e.target.value=v};$('#cdC',m).oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)}}
     $('#pyCalc',m).onclick=()=>calcPad($('#pyPad',m),$('#pyA',m));$('#pyX',m).onclick=()=>closeModal(m);$('#pyP',m).onclick=doPay};
   const save=()=>{m._v={};['pyR','pyA','pyM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value})};
-  const doPay=()=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a=r2(+String($('#pyA',m).value).replace(/,/g,''));
+  const doPay=()=>noShiftGate('payment',sh=>doPay0(sh));const doPay0=sh=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a=r2(+String($('#pyA',m).value).replace(/,/g,''));
     if(!(a>0)){e.textContent='Enter an amount above 0.';return}
     if(cur.refund&&adv){e.textContent='Refunds are made with Payment, not Advance Payment.';return}
     if(cur.refund){const prior=B.lines.filter(l=>(l.kind==='pay'||l.kind==='payrec')&&l.code===(cur.refFor||l.code)&&isLocked(l.bd)&&l.amt<0);
@@ -6854,7 +6867,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     const refIn=$('#pyR',m).value.trim();
     const openBills=B.lines.filter(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);
     if(!adv&&!cur.refund&&!openBills.length){e.textContent='There is no open bill in this folio. A payment needs a bill.';return}
-    const P_=postPayment(H,B,cur.code,a,{...lineCtx(),folio,ref:refIn,remark:$('#pyM',m).value.trim(),deposit,adv,desc:$('#pyD',m).value.trim()||cur.desc});
+    const P_=postPayment(H,B,cur.code,a,{...lineCtx(sh),folio,ref:refIn,remark:$('#pyM',m).value.trim(),deposit,adv,desc:$('#pyD',m).value.trim()||cur.desc});
     const refNo=refIn||String(P_.A.sys).padStart(6,'0');
     if(!refIn)[P_.A,P_.R,P_.C].filter(Boolean).forEach(x=>x.ref=refNo);
     if(card)[P_.A,P_.R,P_.C].filter(Boolean).forEach(x=>{x.card={brand:card.brand,last4:card.last4,exp:card.exp,holder:card.holder,vault:card.vault}});
@@ -6964,14 +6977,14 @@ function transactionPopup(B,l,after){if(!l)return;
     if($('#tCP',m))$('#tCP',m).onclick=()=>{if(!need('corrpost'))return;const why=prompt('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
       const c=addLine(H,B,{...lineCtx(),folio:l.folio,code:l.code,desc:'Correct - '+l.desc,ref:l.ref,amt:-l.amt,kind:'corrpost',link:l.id,vat:l.vat,remark:why.trim()});
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Corrected by line '+c.sys+': '+why});log(`Correct post ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();toast('Correct post added. The charge now nets to 0.')};
-    if($('#tCY',m))$('#tCY',m).onclick=()=>{if(!need('corrpay'))return;if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Correct payment is only for a payment taken today, before Close Day.');return}const why=prompt('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
+    if($('#tCY',m))$('#tCY',m).onclick=()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is corrected by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Correct payment is only for a payment taken today, before Close Day.');return}const why=prompt('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
       const fol=B.lines.some(x=>x.group===l.group&&x.kind==='payrec')?4:l.folio;
       const c=addLine(H,B,{...lineCtx(),folio:fol,code:l.code,desc:'Correct Payment - '+(l.method||l.desc),ref:l.ref,amt:-l.amt,kind:'corrpay',group:l.group,method:l.method,vat:false,remark:why.trim()});
       releaseSettled(B,l.group,'Opened again because the payment was corrected');
       if(typeof refreshCityItems==='function')refreshCityItems(H);
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Correct payment line '+c.sys+': '+why});log(`Correct payment ${l.method} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();
       toast(fol===l.folio?'Correction posted on the same folio. The payment now nets to 0.':'Green correction line added on Folio 4. Move lines so the pair nets to 0, then post the right payment.')};
-    if($('#tVoid',m))$('#tVoid',m).onclick=()=>{if(!need('corrpay'))return;if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Void payment is only for a payment taken today. A payment from a closed day is refunded.');return}const why=prompt('Reason for voiding this payment:');if(!why||!why.trim()){toast('A void needs a reason.');return}
+    if($('#tVoid',m))$('#tVoid',m).onclick=()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is voided by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Void payment is only for a payment taken today. A payment from a closed day is refunded.');return}const why=prompt('Reason for voiding this payment:');if(!why||!why.trim()){toast('A void needs a reason.');return}
       if(typeof needsApproval==='function'&&needsApproval('voidPay')){queueApproval({action:'void',kind:'voidPay',bookingId:B.id,lineId:l.id,title:`Void ${l.method||l.desc} ${m2(Math.abs(l.amt))}`,reason:why.trim()});closeModal(m);after();return}
       applyVoid(B,l,why.trim());closeModal(m);after();toast('Payment voided.')};
     if($('#tReb',m))$('#tReb',m).onclick=()=>{const why=prompt('Reason for the rebate after Close Day:');if(!why||!why.trim())return;const vat=!!l.vat;
@@ -7152,7 +7165,7 @@ function printRegCard(B){
 function shiftTotals(s){const ls=allLinesH(H).filter(l=>l.shiftId===s.id);const pays=paymentsIn(ls);const by={};pays.forEach(p=>{by[p.l.method]=(by[p.l.method]||0)+p.amt});
   const cash=r2(by['Cash']||0),paidOut=r2(sum(ls.filter(l=>l.code==='600'&&isCharge(l)),l=>l.amt));return {ls,by,cash,paidOut,expected:r2((s.openCash||0)+cash-paidOut),charges:r2(sum(ls.filter(isCharge),l=>l.amt))}}
 VIEWS['cd.shift']=el=>{
-  const s=curShift();if(!s){el.innerHTML='<div class="empty">No open shift.</div>';return}const t=shiftTotals(s);
+  const s=curShift();if(!s){el.innerHTML='<div class="empty">No open shift.</div>';return}if(s.noShift){el.innerHTML=pageHead('My Shift & Cashier')+'<div class="empty">You sign in without a shift, so there is no shift to close. Payments you take are counted in the cashier shift you choose.</div>';return}const t=shiftTotals(s);
   const others=H.shifts.filter(x=>x.status==='open'&&x.id!==s.id);
   el.innerHTML=pageHead('My Shift & Cashier',`<span class="sub">${esc(s.name)} shift · opened ${tm(s.openAt)} · business date ${fd(s.bd)}</span>`)+`<div class="cols2">
    <div class="panel"><div class="ph">Collections this shift</div><table class="grid kv">${Object.entries(t.by).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${m2(v)}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
@@ -7446,6 +7459,54 @@ function hotelAccessPanel(box){
         th.amend=th.amend||[];th.amend.unshift({at:Date.now(),user:user().name,what:`${allowed?'Opened':'Closed'} this hotel for ${un} (chain access)`,reason:'Provider setting'})}
       provLog(`${allowed?'Allowed':'Stopped'} ${un} to open hotel ${code}`);saveDB();toast(allowed?un+' can now open '+code+'.':un+' can no longer open '+code+'.');ChainInfo.load(true).then(paint)})};
   ChainInfo.load().then(paint,()=>{box.hidden=true});
+}
+/* A person without a shift is asked first. A payment goes into the cashier shift they choose (counted in that cashier's till, shown as received by this person); a charge is recorded under their name outside any shift. */
+function noShiftGate(kind,next){
+  const cs=curShift();
+  if(!cs||!cs.noShift){next(null);return}
+  const pay=kind==='payment',open=openCashierShifts(H);
+  if(pay&&!open.length){toast('No cashier shift is open in this hotel, so a payment cannot be taken now. Ask the front desk to open a shift.');return}
+  const m=modal(pay?'Take this payment?':'Post to the folio?',`<p>You are signed in <b>without a shift</b>. Do you really want to ${pay?'take this payment':'post this charge'}?</p>
+    ${pay?`<p class="sub">The payment is counted in a cashier's shift and shown as received by <b>${esc(user().name)}</b>.</p>${open.length>1?fld('Cashier shift that receives it',`<select id="nsSh">${open.map(x=>`<option value="${x.id}">${esc(x.name)} - ${esc(x.userName)}</option>`).join('')}</select>`):`<p class="sub">Shift: <b>${esc(open[0].name)} - ${esc(open[0].userName)}</b></p>`}`:`<p class="sub">It is recorded under your name, outside any cashier shift.</p>`}
+    <div class="btns"><button class="btn gold" id="nsYes">Yes, continue</button><button class="btn ghost" id="nsNo">Cancel</button></div>`,{w:480});
+  $('#nsNo',m).onclick=()=>closeModal(m);
+  $('#nsYes',m).onclick=()=>{const sh=pay?pickPayShift(open,$('#nsSh',m)?$('#nsSh',m).value:''):null;closeModal(m);next(sh)}}
+/* Switch hotel (Profile menu, only for people who sign in without a shift) */
+async function openHotelSwitcher(){
+  if(!MahaAuth.on()||!DB.session||DB.session.provider)return;
+  let props,names={},chain=null;
+  try{const t=await MahaAuth.fresh();if(!t)throw new Error('auth');props=await MahaAuth.properties(t);
+    try{(await MahaAuth.rest('maha_properties?select=property_code,name&property_code=not.is.null',t)||[]).forEach(r=>{names[String(r.property_code).toUpperCase()]=r.name})}catch(e){}
+    try{const o=await MahaAuth.rest('maha_organizations?select=name,chain_code&chain_code=not.is.null',t);if(o&&o[0])chain=o[0]}catch(e){}
+  }catch(e){toast('Your hotels could not be loaded now. Try again in a moment.');return}
+  const list=switchChoices(props,names,H.code);
+  const m=modal('Switch hotel',`${chain?`<p class="sub">${esc(chain.name)} (${esc(chain.chain_code)})</p>`:''}
+    ${list.length>1?list.map(c=>`<button type="button" class="btn ${c.current?'ghost':'gold'}" data-sw="${esc(c.code)}" data-pid="${esc(c.id)}" ${c.current?'disabled':''} style="justify-content:flex-start;width:100%;margin:0 0 8px"><b>${esc(c.name)}</b>&nbsp;<span class="sub">${esc(c.code)}${c.current?' · you are here':''}</span></button>`).join(''):'<p class="sub">You have access to one hotel only.</p>'}
+    <p class="sub mt">You stay signed in. Hotels are approved by the provider.</p>`,{w:520});
+  $$('[data-sw]',m).forEach(b=>b.onclick=()=>{closeModal(m);switchHotel(b.dataset.sw,b.dataset.pid)});
+}
+async function switchHotel(code,pid){
+  const un=String(user().username||'').toLowerCase(),prev={code:MahaSync.code,pid:MahaSync.pid};
+  toast('Switching to '+code+'...');
+  const back=async()=>{try{await MahaSync.open(prev.code,prev.pid);MahaSync.start()}catch(e){}};
+  try{
+    MahaSync.stop();await MahaSync.syncOnce();                       /* send what was changed here first */
+    const res=await MahaSync.open(code,pid);
+    if(res==='empty'){await back();toast('Hotel '+code+' has no cloud data yet.');return}
+    if(res!=='resumed'){
+      const probe=msAssemble(res.records);
+      if(String(probe.code||'').toUpperCase()!==code||!Array.isArray(probe.users)||!probe.set){await back();toast('Hotel '+code+' could not be read by this version.');return}
+      await snapshotBeforeAdopt(code);MahaSync.install(res);await MahaSync.ensureLeases(true);MahaSync.persist();
+    }
+    const h=DB.hotels[code],u=h&&(h.users||[]).find(x=>String(x.username||'').toLowerCase()===un&&x.active!==false);
+    if(!h||!u){await back();toast('You are not set up in hotel '+code+' yet. Ask the provider.');return}
+    if(h.active===false){await back();toast('Hotel '+code+' is not active yet.');return}
+    if(!u.noShift){await back();toast('In hotel '+code+' you sign in with a shift. Sign out and sign in again to open one.');return}
+    log('Switched to another hotel ('+code+')');
+    DB.session=stampSession({hotel:code,userId:u.id,noShift:true});H=h;applyHotelCodes();
+    try{localStorage.setItem('maha.lastHotel.'+un,code)}catch(e){}
+    writeLiveSession(DB.session);saveDB({nocloud:true});MahaSync.start();closeAllModals();applySysPath('hub');renderShell();go(firstHotelView());toast('You are now in '+h.set.name+' ('+code+').');
+  }catch(e){await back();toast('Switching did not finish. You are still in '+prev.code+'.')}
 }
 VIEWS['prov.perms']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
@@ -9010,7 +9071,7 @@ function applyVoid(B,l,why){const fol=B.lines.some(x=>x.group===l.group&&x.kind=
   if(typeof refreshCityItems==='function')refreshCityItems(H);log(`Void payment ${l.method||l.desc} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no}`,B.id)}
 function applyApproval(ap){const B=bookingById(ap.bookingId);if(!B){toast('That booking is no longer on file.');return false}
   if(ap.action==='void'){const l=B.lines.find(x=>x.id===ap.lineId);if(!l){toast('That payment line is gone.');return false}if(B.lines.some(x=>x.group===l.group&&x.kind==='corrpay')){toast('This payment is already corrected.');return false}applyVoid(B,l,ap.reason||ap.title);return true}
-  if(ap.action==='refund'){postPayment(H,B,ap.code,ap.amt,{bd:H.set.bd,shift:curShift(),user:user().name,folio:ap.folio||1,remark:ap.remark||'',desc:ap.desc||'',ref:ap.ref||''});log('Approved refund '+m2(ap.amt)+' RSVN '+resOf(B).no,B.id);return true}
+  if(ap.action==='refund'){if(curShift()&&curShift().noShift){toast('A refund is approved by someone who signs in with a shift.');return false}postPayment(H,B,ap.code,ap.amt,{bd:H.set.bd,shift:curShift(),user:user().name,folio:ap.folio||1,remark:ap.remark||'',desc:ap.desc||'',ref:ap.ref||''});log('Approved refund '+m2(ap.amt)+' RSVN '+resOf(B).no,B.id);return true}
   if(ap.action==='rebate'){addLine(H,B,{bd:ap.bd||H.set.bd,shift:curShift(),user:user().name,folio:ap.folio||1,code:ap.code,desc:ap.desc,ref:ap.ref||'',amt:ap.amt,kind:'post',remark:ap.remark||'',vat:!!ap.vat});log('Approved rebate '+ap.code+' RSVN '+resOf(B).no,B.id);return true}
   return false}
 function chargeTarget(B,code){const r=resOf(B);if(!r||!r.groupId)return B;const g=(H.groups||[]).find(x=>x.id===r.groupId);if(!g)return B;
