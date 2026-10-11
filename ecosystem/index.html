@@ -1161,8 +1161,9 @@ function shapeHotel(h){
   h.set.approvals=Object.assign({vatRebate:true,nonVatRebate:true,refund:true,voidPay:true},h.set.approvals||{});
   ['aiKey','geminiKey','logo','signature'].forEach(k=>{if(h.set[k]==null)h.set[k]=''});
   if(h.set.idleMin==null)h.set.idleMin=15;
+  if(!(h.set.nextRef>=1))h.set.nextRef=1;
   if(h.set.bfAdult==null)h.set.bfAdult=h.set.cur==='MMK'?4000:150;
-  if(!h.set.confirmTpl)h.set.confirmTpl='Dear {{guest}},\n\nYour stay at {{hotel}} is confirmed.\nReservation {{rsvn}}\nArrival {{arr}}    Departure {{dep}}\nRoom {{room}} ({{type}}) · {{nights}} night(s)\nGuests {{adults}} adult(s), {{children}} child(ren)\n\nWe look forward to welcoming you.\n\n{{signature}}';
+  if(!h.set.confirmTpl)h.set.confirmTpl='Dear {{guest}},\n\nYour stay at {{hotel}} is confirmed.\nReservation {{rsvn}} · Confirmation No. {{confirmation}}\nArrival {{arr}}    Departure {{dep}}\nRoom {{room}} ({{type}}) · {{nights}} night(s)\nGuests {{adults}} adult(s), {{children}} child(ren)\n\nWe look forward to welcoming you.\n\n{{signature}}';
   h.set.google=Object.assign({
     enabled:false,lat:'',lng:'',countryCode:'',category:'hotel',amenities:[],cancelPolicy:'',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''
   },h.set.google||{});
@@ -1594,7 +1595,7 @@ function adoptTenantHotel(code,payload){
 const MS_KEYS={reservations:'id',guests:'id',companies:'id',rooms:'no',roomTypes:'code',rateCodes:'code',shifts:'id',petty:'id',suppliers:'id',purchases:'id',users:'id',invoices:'no',audits:'date',cityLedger:'id',groups:'id',shiftCodes:'code'};
 const MS_DESC=new Set(['amend','edcLinks','approvals','mailLog','logs']);   /* lists the PMS fills newest-first */
 const MS_NODELETE=new Set(['logs','mailLog']);                                /* local trimming must not delete other devices' history */
-const MS_COUNTERS=['nextRsv','nextInternal','nextInv','nextSys','nextProfile'];
+const MS_COUNTERS=['nextRsv','nextInternal','nextInv','nextSys','nextProfile','nextRef'];
 const MS_SKIP=new Set(['session','cardVault']);
 const MS_BLOCK=50,MS_LOW=10;
 function msStable(v){
@@ -6219,7 +6220,7 @@ function reservationScreen(box,r,B,o={}){
      ${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="sp"></span>${stBadge(B)}</div>
    ${lockNote}
    <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input id="rContact" value="${esc(r.contact)}" ${dis('res')}>`,'w2')}
-     ${fld('Reference',`<input id="rRef" value="${esc(r.reference)}" ${dis('res')}>`)}${fld('Phone no.',`<input id="rPhone" value="${esc(r.phone)}" ${dis('res')}>`)}${fld('Fax no.',`<input id="rFax" value="${esc(r.fax)}" ${dis('res')}>`)}${fld('Email',`<input id="rEmail" value="${esc(r.email)}" ${dis('res')}>`,'w2')}${fld('Confirmation#',`<input id="rConf" value="${esc(r.confirmation)}" ${dis('res')}>`)}</div>
+     ${fld('Reference',`<input id="rRef" value="${esc(r.reference)}" ${r.refAuto?'disabled':dis('res')}${r.refAuto?'':' placeholder="OTA booking reference"'}>`)}${fld('Phone no.',`<input id="rPhone" value="${esc(r.phone)}" ${dis('res')}>`)}${fld('Fax no.',`<input id="rFax" value="${esc(r.fax)}" ${dis('res')}>`)}${fld('Email',`<input id="rEmail" value="${esc(r.email)}" ${dis('res')}>`,'w2')}${fld('Confirmation No.',`<input id="rConf" value="${esc(r.confirmation)}" disabled title="Given by the system">`)}</div>
    <div class="btabs">${r.bookings.map(b=>`<button class="btab ${b===B?'on':''}" data-bt="${b.id}">${esc(G(b.guestId).last)}${b.room?' · '+b.room:''}</button>`).join('')}</div>
    <div class="rgrid">
     <div class="rcol">
@@ -6298,7 +6299,7 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
     const a_=q('#bArr')?q('#bArr').value:B.arr,d_=q('#bDep')?q('#bDep').value:B.dep,typed=!q('#bRate').disabled&&q('#bRate').value!==''?+q('#bRate').value:null;
     const list=d_>a_?dates(a_,d_).map(d=>typed!==null&&d>=H.set.bd&&!isLocked(d)?typed:(B.nightly[d]!==undefined?B.nightly[d]:(typed||0))):[];
     const tb=totalBoxes(list,live);q('#bTot').value=tb.rVal;q('#bTcL').textContent=tb.cLabel;q('#bTc').value=tb.cVal;q('#bTnL').textContent=tb.nLabel;q('#bTn').value=tb.nVal;q('#bTc').title=q('#bTn').title=tb.tip};
-  q('#bRate').addEventListener('input',cmUpd);if(q('#rCo'))q('#rCo').addEventListener('change',cmUpd);['#bArr','#bDep'].forEach(i=>{if(q(i))q(i).addEventListener('change',cmUpd)});cmUpd();
+  q('#bRate').addEventListener('input',cmUpd);if(q('#rCo'))q('#rCo').addEventListener('change',()=>{cmUpd();const rf=q('#rRef');if(!rf)return;const auto=refIsAuto(CO(q('#rCo').value));if(auto){rf.value=r.refAuto?r.reference:refNo(H.code,H.set.nextRef);rf.disabled=true}else{if(r.refAuto)rf.value='';rf.disabled=false}});['#bArr','#bDep'].forEach(i=>{if(q(i))q(i).addEventListener('change',cmUpd)});cmUpd();
   q('#aSave').onclick=()=>{
     const err=q('#rErr');err.textContent='';if(!DB.session||!curShift()){need();return}
     const ch=[];
@@ -6319,9 +6320,13 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
         const typeCh=type!==B.type,rcCh=rcd!==B.rateCode;setIf('type',type);setIf('rateCode',rcd);setIf('room',room);
         ['market:#bMkt','bkCountry:#bBkc','channel:#bCh2','source:#bSrc','salesMgr:#bSm','gstType:#bGt','upgFrom:#bUpg','view:#bView','eta:#bEta','etd:#bEtd','flightArr:#bFa','flightArrTime:#bFat','flightDep:#bFd','flightDepTime:#bFdt','services:#bSvc','remark:#bRemark','meal:#bMeal'].forEach(p=>{const[k,s]=p.split(':');setIf(k,q(s).value.trim())});
         setIf('confirmDep',q('#bConfDep').checked);if(rco)B.comp=rco.comp||'';
-        const rv={contact:q('#rContact').value.trim(),reference:q('#rRef').value.trim(),phone:q('#rPhone').value.trim(),fax:q('#rFax').value.trim(),email:q('#rEmail').value.trim(),confirmation:q('#rConf').value.trim(),companyId:q('#rCo').value};
+        const rv={contact:q('#rContact').value.trim(),reference:q('#rRef').value.trim(),phone:q('#rPhone').value.trim(),fax:q('#rFax').value.trim(),email:q('#rEmail').value.trim(),companyId:q('#rCo').value};
+        const oldRef=r.reference,wasAuto=!!r.refAuto;
         Object.keys(rv).forEach(k=>{if(r[k]!==rv[k]){r[k]=rv[k];ch.push(k)}});
-        if(ch.includes('companyId')){const c2=CO(r.companyId);r.commPct=commPct(c2);r.commBasis=commBasis(c2)}
+        if(ch.includes('companyId')){const c2=CO(r.companyId),auto=refIsAuto(c2);
+          if(auto&&!wasAuto){r.reference=takeRef(H);r.refAuto=true;if(!ch.includes('reference'))ch.push('reference');histB(B,`Reference ${r.reference} given automatically (company ${c2.code})${oldRef?'; the typed reference "'+oldRef+'" was removed':''}`)}
+          else if(!auto&&wasAuto){r.refAuto=false;if(!ch.includes('reference'))ch.push('reference');histB(B,`Automatic reference ${oldRef} released (company changed to ${c2?c2.code:'none'})`)}
+          r.commPct=commPct(c2);r.commBasis=commBasis(c2)}
         const billTo=q('#bBill').value,bill={name:q('#bBn').value.trim(),addr:q('#bBa').value.trim(),tax:q('#bBtx').value.trim(),branch:q('#bBbr').value.trim()};
         if((B.billTo||'')!==billTo){B.billTo=billTo;r.billTo=billTo;ch.push('bill to')}
         const prev=B.bill||{name:'',addr:'',tax:'',branch:''};if(['name','addr','tax','branch'].some(k=>(prev[k]||'')!==bill[k])){B.bill=bill;ch.push('billing address')}
@@ -6336,7 +6341,7 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
     histB(B,'Changed: '+ch.join(', '));log(`Amended RSVN ${r.no}: ${ch.join(', ')}`,B.id);reopen();toast('Reservation saved')};
 }
 function copyReservation(B){const r=resOf(B);const start=B.status==='inhouse'||B.status==='out'?(B.dep>H.set.bd?B.dep:H.set.bd):B.dep;
-  const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:r.contact,reference:r.reference,phone:r.phone,fax:r.fax,email:r.email,confirmation:'0',companyId:r.companyId,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};
+  const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:r.contact,reference:r.reference,phone:r.phone,fax:r.fax,email:r.email,confirmation:'0',companyId:r.companyId,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};stampHotelNumbers(H,nr);
   const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:start,dep:addD(start,1),rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr,adults:B.adults});
   nb.copyOf=B.id;nb.remark='Copy of RSVN '+r.no+' (extension)';nr.bookings.push(nb);H.reservations.push(nr);histB(nb,'Created by copy from RSVN '+r.no);log(`Copied RSVN ${r.no} to ${nr.no}`,nb.id);saveDB();return nb}
 
@@ -6374,6 +6379,18 @@ function roomLineDecide(now,want){
     return {unblock:false,assign,block:{reason:String(want.reason).trim(),room}}}
   return {unblock:false,assign,block:null}}
 /* ---- end Room line ---- */
+/* ---- Hotel numbers: Confirmation No. (hotel code + reservation number) and the automatic Reference for Direct / Walk-In ---- */
+const confNo=(code,rsvn)=>String(code||'')+'-'+rsvn;                                   /* PAD01-1002 ; 9999 -> 10000: it grows by itself */
+const refLetters=code=>(String(code||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)+'XXX').slice(0,3);
+const refNo=(code,n)=>refLetters(code)+String(Math.max(1,Math.floor(+n||1))).padStart(6,'0');   /* PAD000245 ; 999999 -> PAD1000000: one more digit, no limit */
+/* Direct (DIR) and Walk-In (WIN) get an automatic reference; any other company or agent keeps a free box for the OTA's own booking reference */
+const refIsAuto=co=>!!(co&&(co.code==='DIR'||co.code==='WIN'));
+function takeRef(h){if(!(h.set.nextRef>=1))h.set.nextRef=1;return refNo(h.code,h.set.nextRef++)}
+/* Applied to every new reservation: the Confirmation No. always, the automatic Reference when the company is Direct or Walk-In. */
+function stampHotelNumbers(h,res,o){o=o||{};res.confirmation=confNo(h.code,res.no);if(o.keepRef)return;
+  const co=(h.companies||[]).find(c=>c.id===res.companyId);
+  if(refIsAuto(co)){res.reference=takeRef(h);res.refAuto=true}else res.refAuto=false}
+/* ---- end Hotel numbers ---- */
 /* A white, full-width drop-down under a text box: it lists everything, narrows as you type, and you can click or use the arrow keys and Enter. */
 function attachCombo(input,items,onPick){
   const w=document.createElement('div');w.className='cbw';input.parentNode.insertBefore(w,input);w.appendChild(input);
@@ -6399,9 +6416,9 @@ function newReservation(el,pre,walkin){
     ${fld('Nationality',`<input id="nN" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type or choose a country or nationality">`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}
     <div class="rfind"><input id="nG" aria-label="Find a returning guest" placeholder="Find a returning guest: type a name to search" autocomplete="off"></div></div></div>
    <div class="pn"><div class="pnh grey">Reservation Details</div><div class="pnb g4">
-    ${fld('Company / T/A',`<select id="nCo">${H.companies.map(c=>opt(c.id,`(${c.type}) ${c.name}`,walkin?'c7':'c6')).join('')}</select>`,'span2')}${fld('Reference',`<input id="nRef">`)}
+    ${fld('Company / T/A',`<select id="nCo">${H.companies.map(c=>opt(c.id,`(${c.type}) ${c.name}`,walkin?'c7':'c6')).join('')}</select>`,'span2')}${fld('Reference',`<input id="nRef" placeholder="OTA booking reference" autocomplete="off">`)}${fld('Confirmation No.',`<input id="nCf" disabled value="${esc(confNo(H.code,H.set.nextRsv))}">`)}
     ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
-    ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`,'span2')}
+    ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
     ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
     ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}
@@ -6428,10 +6445,11 @@ function newReservation(el,pre,walkin){
   ['nA','nD','nRt','nRc'].forEach(id=>q('#'+id).addEventListener('change',()=>{if(id!=='nA'&&id!=='nD')delete q('#nRate').dataset.touched;if(id==='nA'&&q('#nD').value<=q('#nA').value)q('#nD').value=addD(q('#nA').value,1);upd()}));
   q('#nRate').oninput=()=>{q('#nRate').dataset.touched=1;upd()};
   const syncBill=()=>{if(q('#nBill').dataset.touched)return;const co=CO(q('#nCo').value);q('#nBill').value=co&&co.code!=='WIN'&&co.code!=='DIR'?'company':'guest'};
-  q('#nCo').addEventListener('change',()=>{syncBill();upd()});q('#nBill').addEventListener('change',()=>{q('#nBill').dataset.touched='1'});
+  const syncRef=()=>{const auto=refIsAuto(CO(q('#nCo').value)),rf=q('#nRef');if(auto){rf.value=refNo(H.code,H.set.nextRef);rf.disabled=true;rf.title='Automatic reference, given by the system'}else{if(rf.disabled)rf.value='';rf.disabled=false;rf.title=''}};
+  q('#nCo').addEventListener('change',()=>{syncBill();syncRef();upd()});q('#nBill').addEventListener('change',()=>{q('#nBill').dataset.touched='1'});
   q('#nG').onchange=()=>{const m=q('#nG').value.match(/#(\d+)$/);const g=m&&H.guests.find(x=>String(x.profileId)===m[1]);if(g){q('#nT').value=g.title;q('#nL').value=g.last;q('#nF').value=g.first;q('#nN').value=g.nationality;q('#nP').value=g.phone;q('#nE').value=g.email;q('#nG').dataset.gid=g.id}};
   q('#nN').addEventListener('change',()=>{q('#nN').value=natResolve(q('#nN').value)});
-  syncBill();
+  syncBill();syncRef();
   upd();q('#nX').onclick=()=>go('fo.status');
   q('#nSave').onclick=()=>{const err=q('#nErr');if(!need('res.create'))return;
     const last=q('#nL').value.trim(),a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value,room=q('#nRm').value||null,rt=+q('#nRate').value,rcd=q('#nRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
@@ -6442,7 +6460,7 @@ function newReservation(el,pre,walkin){
     const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0){err.textContent='The deposit cannot be below 0.';return}
     let g=q('#nG').dataset.gid&&H.guests.find(x=>x.id===q('#nG').dataset.gid);
     if(!g||g.last!==last){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:q('#nT').value,last,first:q('#nF').value.trim(),middle:'',other:'',jobTitle:'',company:'',nationality:natResolve(q('#nN').value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:q('#nE').value.trim(),phone:q('#nP').value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(g)}
-    const r={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.last+', '+g.first,reference:q('#nRef').value.trim(),phone:g.phone,fax:'',email:g.email,confirmation:'0',companyId:q('#nCo').value,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};{const c_=CO(q('#nCo').value);r.commPct=commPct(c_);r.commBasis=commBasis(c_)}
+    const r={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.last+', '+g.first,reference:q('#nRef').value.trim(),phone:g.phone,fax:'',email:g.email,confirmation:'0',companyId:q('#nCo').value,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};{const c_=CO(q('#nCo').value);r.commPct=commPct(c_);r.commBasis=commBasis(c_)}stampHotelNumbers(H,r);
     const B=newBooking(H,{guestId:g.id,type:t,room,arr:a,dep:d,rateCode:rcd,status:q('#nBt').value==='FT'?'tentative':'confirmed',market:q('#nMk').value,channel:q('#nChn').value,source:q('#nSrc').value,adults:+q('#nAd').value||1,children:+q('#nCh').value||0,remark:q('#nRem').value.trim()});
     Object.keys(B.nightly).forEach(k=>B.nightly[k]=rt);B.bkType=q('#nBt').value;
     B.billTo=q('#nBill').value;r.billTo=B.billTo;B.bill={name:q('#nBn').value.trim(),addr:q('#nBa').value.trim(),tax:q('#nBtx').value.trim(),branch:q('#nBbr').value.trim()};
@@ -8198,7 +8216,7 @@ VIEWS['prov.functions']=el=>{
   shapeHotel(H);
   el.innerHTML=pageHead('Functions & plan',provHotelPicker())+`<p class="sub">One page under Setup for <b>${esc(H.set.name)}</b> (${esc(H.code)}). Build Up or Full Package sets the PMS titles and Connect, Booking, Reach and Sales together. You can still set a PMS title on its own. The hotel file itself stays under Properties → Property setup.</p>
     <div class="panel pad" id="fnBox">${planEditorHtml(true)}
-    <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
+    <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{confirmation}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
     ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="6">${esc(H.set.confirmTpl||'')}</textarea>`)}
     <div class="btns"><button class="btn gold" id="fnSave">Save functions &amp; plan</button></div></div>`;
   bindPicker(el);bindPlanEditor($('#fnBox',el));
@@ -9166,7 +9184,7 @@ function chargeTarget(B,code){const r=resOf(B);if(!r||!r.groupId)return B;const 
   const tc=TCODES.find(c=>c.code===code)||{};const hit=(g.routing||[]).find(x=>x.on!==false&&(x.match==='ALL'||x.match===code||x.match===(tc.dept||'')||x.match===(tc.tab||'')));
   if(!hit||hit.to!=='master')return B;return bookingById(g.masterId)||B}
 function fillTpl(tpl,map){return String(tpl||'').replace(/\{\{(\w+)\}\}/g,(_,k)=>map[k]==null?'':String(map[k]))}
-function confirmationPack(B){const r=resOf(B),g=G(B.guestId),co=CO(r.companyId);const dep=depositReceived(B);const map={guest:gName(g),hotel:H.set.name,rsvn:r.no,arr:fd(B.arr),dep:fd(B.dep),room:B.room||'to be assigned',type:RT(B.type).name||B.type,nights:nights(B),adults:B.adults,children:B.children,signature:H.set.signature||H.set.name,deposit:dep>0.004?m2(dep)+' '+H.set.cur:'none'};
+function confirmationPack(B){const r=resOf(B),g=G(B.guestId),co=CO(r.companyId);const dep=depositReceived(B);const map={guest:gName(g),hotel:H.set.name,rsvn:r.no,confirmation:(r.confirmation&&r.confirmation!=='0')?r.confirmation:String(r.no),arr:fd(B.arr),dep:fd(B.dep),room:B.room||'to be assigned',type:RT(B.type).name||B.type,nights:nights(B),adults:B.adults,children:B.children,signature:H.set.signature||H.set.name,deposit:dep>0.004?m2(dep)+' '+H.set.cur:'none'};
   let letter=fillTpl(H.set.confirmTpl,map);if(dep>0.004&&!/\{\{deposit\}\}/.test(H.set.confirmTpl||'')&&letter.indexOf(m2(dep))<0)letter+='\n\nReservation deposit received: '+m2(dep)+' '+H.set.cur+'.';
   const rows=[['Reservation no.',r.no],['Guest',gName(g)],['Arrival',fd(B.arr)],['Departure',fd(B.dep)],['Nights',nights(B)],['Room type',RT(B.type).name||B.type],['Room',B.room||'To be assigned'],['Guests',B.adults+' adult(s), '+B.children+' child(ren)'],['Company',co&&co.code!=='WIN'&&co.code!=='DIR'?co.name:'—'],['Deposit',dep>0.004?m2(dep)+' '+H.set.cur:'None']];
   const html=`<div class="ppage port cf"><div class="a4in">${hotelHead()}<div class="ivtitle">RESERVATION CONFIRMATION</div>
@@ -9206,7 +9224,7 @@ function ensureGroupMaster(g){let B=g.masterId&&bookingById(g.masterId);if(B)ret
   if(!guest){guest={id:'gGRP',profileId:'GROUP',title:'',last:'Master',first:'Group',middle:'',other:'',jobTitle:'',company:'',nationality:'',country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:'',phone:'',address:'',pdpa:false,photo:'',remark:'Group master folio',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(guest)}
   B=newBooking(H,{guestId:guest.id,type:'DUM',room:null,arr:g.arr,dep:g.dep,rateCode:'HU',status:'inhouse',adults:0,children:0,remark:'Group master folio · '+g.name});
   B.groupMaster=true;B.status='inhouse';B.statusDate=H.set.bd;B.nightly={};dates(B.arr,B.dep).forEach(d=>B.nightly[d]=0);
-  const res={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.name,reference:'GROUP',phone:'',fax:'',email:'',confirmation:'',companyId:g.companyId||'',bookings:[B],notifs:[],groupId:g.id,createdShift:'',createdUser:user().name};
+  const res={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.name,reference:'GROUP',phone:'',fax:'',email:'',confirmation:'',companyId:g.companyId||'',bookings:[B],notifs:[],groupId:g.id,createdShift:'',createdUser:user().name};stampHotelNumbers(H,res,{keepRef:true});
   H.reservations.push(res);g.masterId=B.id;return B}
 let grpSel=null;
 VIEWS['res.group']=el=>{
@@ -9235,7 +9253,7 @@ VIEWS['res.group']=el=>{
         H.guests.push(guest);const type=$('#rmT',m).value,room=$('#rmR',m).value.trim()||null;
         if(room&&!roomFree(room,g.arr,g.dep)){$('#rmE',m).textContent='That room is not free for these dates.';return}
         const B=newBooking(H,{guestId:guest.id,type,room,arr:g.arr,dep:g.dep,rateCode:'RO',status:'confirmed',market:'GRP',adults:Math.max(1,+$('#rmA',m).value||1),children:0});
-        H.reservations.push({id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:gName(guest),reference:'',phone:'',fax:'',email:'',confirmation:'',companyId:g.companyId||'',bookings:[B],notifs:[],groupId:g.id,createdShift:curShift()?curShift().name:'',createdUser:user().name});
+        {const gr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:gName(guest),reference:'',phone:'',fax:'',email:'',confirmation:'',companyId:g.companyId||'',bookings:[B],notifs:[],groupId:g.id,createdShift:curShift()?curShift().name:'',createdUser:user().name};stampHotelNumbers(H,gr);H.reservations.push(gr)}
         log('Rooming list '+gName(guest)+' added to '+g.name,B.id);closeModal(m);saveDB();paint(g.id);toast('Added to the rooming list')}}};
   $$('[data-gp]',el).forEach(b=>b.onclick=()=>paint(b.dataset.gp));
   $('#gpNew',el).onclick=()=>{if(!need('res.create'))return;const m=modal('New group',`<div class="form2">${fld('Group name',`<input id="gn" autofocus>`,'span2')}${fld('Arrival',`<input type="date" id="ga" value="${H.set.bd}">`)}${fld('Departure',`<input type="date" id="gd" value="${addD(H.set.bd,2)}">`)}
@@ -9281,7 +9299,7 @@ VIEWS['set.approve']=el=>{
 VIEWS['set.features']=el=>{if(!can('setup')&&!user().isProv){el.innerHTML='<div class="empty">Hotel setup opens this page.</div>';return}
   shapeHotel(H);
   el.innerHTML=pageHead('Functions')+`<div class="panel pad">${planEditorHtml(false)}
-    <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
+    <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{confirmation}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
     ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="8">${esc(H.set.confirmTpl||'')}</textarea>`)}
     <div class="btns"><button class="btn gold" id="ftSave">Save letter</button></div></div>`;
   $('#ftSave',el).onclick=()=>{if(!need('setup'))return;H.set.signature=$('#ftSig',el).value.trim();H.set.confirmTpl=$('#ftTpl',el).value;log('Confirmation letter saved');saveDB();toast('Confirmation letter saved')};
