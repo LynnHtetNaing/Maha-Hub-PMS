@@ -44,8 +44,8 @@ T('making the backup leaves the live hotel untouched', h.users[0].hash === 'SECR
 const g = X.parseCsv(X.migExportCsv(h, 'guests'));
 T('guest export skips the internal group master record', g.length === 2 && g[1][2] === 'Smith');
 const r = X.parseCsv(X.migExportCsv(h, 'reservations'));
-T('reservation export gives dates, nights and the average rate', r.length === 2 && r[1][5] === '2026-10-10' && r[1][7] === '2' && r[1][10] === '1550' && r[1][20] === 'DIR' && r[1][21] === 'R,ef "q"');
-T('multi-line remarks survive the export', r[1][22] === 'line1\nline2');
+T('reservation export gives dates, nights and the average rate', r.length === 2 && r[1][5] === '2026-10-10' && r[1][7] === '2' && r[1][10] === '1550' && r[1][22] === 'DIR' && r[1][23] === 'R,ef "q"');
+T('multi-line remarks survive the export', r[1][24] === 'line1\nline2');
 const f = X.parseCsv(X.migExportCsv(h, 'folio'));
 T('folio export lists the postings', f.length === 2 && f[1][0] === '1001' && f[1][6] === '1500');
 const iv = X.parseCsv(X.migExportCsv(h, 'invoices'));

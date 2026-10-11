@@ -2300,22 +2300,28 @@ function rateFor(h,type,code){const t=h.roomTypes.find(x=>x.code===type),r=h.rat
 /* ---- Agent commission (per hotel, per company or agent; the provider sets it) ---- */
 const commPct=c=>{const p=+(c&&c.comm);return p>0&&p<100?p:0};
 const commBasis=c=>c&&c.rateBasis==='net'?'net':'gross';
-function commCalc(rate,c){const pct=commPct(c),g=r2(+rate||0),comm=pct?r2(g*pct/100):0;return {pct,basis:commBasis(c),gross:g,comm,net:r2(g-comm)}}
-/* What a reservation shows next to the rate the user typed (the rate typed is always the gross rate). A dash when there is no commission. */
+function commCalc(rate,c){const pct=commPct(c),basis=commBasis(c),t=r2(+rate||0);
+  if(!pct)return {pct:0,basis,typed:t,gross:t,comm:0,net:t};
+  if(basis==='net'){const gross=r2(t/(1-pct/100));return {pct,basis,typed:t,gross,comm:r2(gross-t),net:t}}   /* the user typed the net rate the agent pays the hotel */
+  const comm=r2(t*pct/100);return {pct,basis,typed:t,gross:t,comm,net:r2(t-comm)}}                          /* the user typed the gross rate */
+/* What a reservation shows next to the rate the user typed: the commission and the OTHER rate (Net agent: the gross the guest pays; Gross agent: the net the hotel keeps). A dash when there is no commission. */
 function commBoxes(rate,c){const k=commCalc(rate,c);
-  if(!k.pct)return {pct:0,cLabel:'Commission',cVal:'-',nLabel:'Net rate',nVal:'-',tip:''};
-  return {pct:k.pct,cLabel:'Commission '+k.pct+'%',cVal:m2(k.comm),nLabel:k.basis==='net'?'Net rate':'Gross rate',nVal:m2(k.basis==='net'?k.net:k.gross),
-    tip:k.basis==='net'?'The agent already kept this commission. The hotel receives the net rate.':'The agent collected the full rate. The hotel pays this commission back.'}}
+  if(!k.pct)return {pct:0,cLabel:'Commission per night',cVal:'-',nLabel:k.basis==='net'?'Gross rate per night':'Net rate per night',nVal:'-',tip:''};
+  return {pct:k.pct,cLabel:'Commission per night '+k.pct+'%',cVal:m2(k.comm),nLabel:k.basis==='net'?'Gross rate per night':'Net rate per night',nVal:m2(k.basis==='net'?k.gross:k.net),
+    tip:k.basis==='net'?'The agent keeps this commission and pays the hotel the net rate typed here. The guest pays the gross rate.':'The agent collected the full rate. The hotel pays this commission back.'}}
+/* Totals for the whole stay from the rate of each night (each night rounded on its own): total rate typed, total commission, and the total of the other rate. */
+function commTotals(rates,c){let ty=0,g=0,cm=0,n=0;(rates||[]).forEach(v=>{const k=commCalc(v,c);ty=r2(ty+k.typed);g=r2(g+k.gross);cm=r2(cm+k.comm);n=r2(n+k.net)});return {pct:commPct(c),basis:commBasis(c),typed:ty,gross:g,comm:cm,net:n}}
+function totalBoxes(rates,c){const t=commTotals(rates,c),none=!t.pct;
+  return {rVal:m2(t.typed),cLabel:none?'Total commission':'Total commission '+t.pct+'%',cVal:none?'-':m2(t.comm),nLabel:t.basis==='net'?'Total gross rate':'Total net rate',nVal:none?'-':m2(t.basis==='net'?t.gross:t.net),
+    tip:none?'':t.basis==='net'?'The agent keeps this commission and pays the hotel the total net rate. The guest pays the total gross rate.':'The agent collected the full rate. The hotel pays this commission back, so the hotel keeps the total net rate.'}}
 /* The commission terms a reservation was made with (kept on the reservation so a later change never rewrites old bills). */
 const resComm=(h,r)=>r&&r.commPct!==undefined?{comm:r.commPct,rateBasis:r.commBasis}:((h.companies||[]).find(c=>c.id===(r&&r.companyId))||null);
 /* A new night of a stay follows the rate already agreed for that stay; there is no standard room-type rate any more. */
 function nightRate(h,B){const ks=Object.keys(B.nightly||{}).sort();for(let i=ks.length-1;i>=0;i--){const v=+B.nightly[ks[i]];if(v>0)return v}return rateFor(h,B.type,B.rateCode)}
-/* What is billed for a night. The user types the gross rate; a Net agent is billed the net rate, everyone else the rate as typed.
-   Folio postings, the stay total, invoices and revenue reports all read this one figure. */
-const billedOf=(rate,c)=>{const k=commCalc(rate,c);return k.basis==='net'?k.net:k.gross};
-const _resMap=new WeakMap();
-function resOfIn(h,B){let r=_resMap.get(B);if(!r||!r.bookings.includes(B)){r=(h.reservations||[]).find(x=>x.bookings.includes(B))||null;if(r)_resMap.set(B,r)}return r}
-function billRate(B,d,h,r){h=h||H;r=r||resOfIn(h,B);return billedOf((B.nightly&&B.nightly[d])||0,resComm(h,r))}
+/* What is billed for a night is always the rate the user typed, whether the agent is Gross or Net.
+   Folio postings, the stay total, invoices and revenue reports all read this one figure.
+   Commission and net/gross are shown beside it for information only; they never change what is posted. */
+const billRate=(B,d)=>r2(+(B.nightly&&B.nightly[d])||0);
 /* ---- end Agent commission ---- */
 function ensureDummyBooking(h){
   if(!h||!h.set)return null;
@@ -6157,8 +6163,8 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Adult# / Child#',`<div class="two"><input type="number" id="bAd" min="1" value="${B.adults}" ${dis('b')}><input type="number" id="bCh" min="0" value="${B.children}" ${dis('b')}></div>`)}
        ${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
        ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
-       ${fld('<span id="bCmL">Commission</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Daily rate amt. (gross)</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
-       ${fld('<span class="blue">Stay total</span>',`<input value="${m2(stayTotal(B))}" disabled class="n">`)}
+       ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
+       ${fld('<span class="blue">Total rate</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
        ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Blocked: ${esc(B.roomBlock.reason)}. Clear the block before this room can change.</span>`:''}`)}
      </div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
@@ -6221,8 +6227,11 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
   if(q('#aMail'))q('#aMail').onclick=()=>{if(typeof confirmationLetter==='function')confirmationLetter(B)};
   q('#bTypeRm').onchange=()=>{if(B.roomBlock){q('#bTypeRm').value=B.type;toast(`Room ${B.room} is blocked: ${B.roomBlock.reason}. Clear the block before the room or room type can change.`);return}const t=q('#bTypeRm').value;q('#bRoom').innerHTML='<option value="">Assign later</option>'+H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>`<option value="${x.no}" ${!roomFree(x.no,q('#bArr').value,q('#bDep').value,B.id)?'disabled':''}>${x.no}</option>`).join('')};
   q('#bRc').onchange=()=>{const k=rateKindOf(q('#bRc').value),rcz=H.rateCodes.find(x=>x.code===q('#bRc').value);if(rcz&&rcz.kind==='zero')q('#bRate').value=0;else if(!(+q('#bRate').value>0))q('#bRate').value='';q('#bRate').disabled=k==='comp'||!(E('rate')&&can('rate'));cmUpd()};
-  const cmUpd=()=>{const rt=+q('#bRate').value||0,live=q('#rCo')&&q('#rCo').value!==(r.companyId||'')?CO(q('#rCo').value):resComm(H,r),cb=commBoxes(rt,live);q('#bCmL').textContent=cb.cLabel;q('#bCm').value=cb.cVal;q('#bNtL').textContent=cb.nLabel;q('#bNt').value=cb.nVal;q('#bCm').title=q('#bNt').title=cb.tip};
-  q('#bRate').addEventListener('input',cmUpd);if(q('#rCo'))q('#rCo').addEventListener('change',cmUpd);cmUpd();
+  const cmUpd=()=>{const rt=+q('#bRate').value||0,live=q('#rCo')&&q('#rCo').value!==(r.companyId||'')?CO(q('#rCo').value):resComm(H,r),cb=commBoxes(rt,live);q('#bCmL').textContent=cb.cLabel;q('#bCm').value=cb.cVal;q('#bNtL').textContent=cb.nLabel;q('#bNt').value=cb.nVal;q('#bCm').title=q('#bNt').title=cb.tip;
+    const a_=q('#bArr')?q('#bArr').value:B.arr,d_=q('#bDep')?q('#bDep').value:B.dep,typed=!q('#bRate').disabled&&q('#bRate').value!==''?+q('#bRate').value:null;
+    const list=d_>a_?dates(a_,d_).map(d=>typed!==null&&d>=H.set.bd&&!isLocked(d)?typed:(B.nightly[d]!==undefined?B.nightly[d]:(typed||0))):[];
+    const tb=totalBoxes(list,live);q('#bTot').value=tb.rVal;q('#bTcL').textContent=tb.cLabel;q('#bTc').value=tb.cVal;q('#bTnL').textContent=tb.nLabel;q('#bTn').value=tb.nVal;q('#bTc').title=q('#bTn').title=tb.tip};
+  q('#bRate').addEventListener('input',cmUpd);if(q('#rCo'))q('#rCo').addEventListener('change',cmUpd);['#bArr','#bDep'].forEach(i=>{if(q(i))q(i).addEventListener('change',cmUpd)});cmUpd();
   q('#aSave').onclick=()=>{
     const err=q('#rErr');err.textContent='';if(!DB.session||!curShift()){need();return}
     const ch=[];
@@ -6272,7 +6281,7 @@ function newReservation(el,pre,walkin){
     ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('Last name',`<input id="nL" autofocus>`)}${fld('First name',`<input id="nF">`)}${fld('Nationality',`<input id="nN" value="${esc(H.set.nat)}">`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}</div></div>
    <div class="pn"><div class="pnh grey">Stay</div><div class="pnb g4">
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
-    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Daily rate amt. (gross)',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate</span>',`<input id="nNt" disabled class="n">`)}
+    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
     ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}
     ${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}</div></div>
    <div class="pn"><div class="pnh lblue">Production</div><div class="pnb g4">
@@ -6296,7 +6305,7 @@ function newReservation(el,pre,walkin){
     q('#nRm').innerHTML=(walkin?'':'<option value="">Assign later</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
     const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
     const n=a&&d?diff(a,d):0,rt=+q('#nRate').value||0,free=H.rooms.filter(r=>r.type===t&&n>0&&roomFree(r.no,a,d)).length;
-    {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip}
+    {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip;const tb=totalBoxes(Array(Math.max(0,n)).fill(rt),CO(q('#nCo').value));q('#nTot').value=tb.rVal;q('#nTcL').textContent=tb.cLabel;q('#nTc').value=tb.cVal;q('#nTnL').textContent=tb.nLabel;q('#nTn').value=tb.nVal;q('#nTc').title=q('#nTn').title=tb.tip}
     q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${H.set.cur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
   ['nA','nD','nRt','nRc'].forEach(id=>q('#'+id).addEventListener('change',()=>{if(id!=='nA'&&id!=='nD')delete q('#nRate').dataset.touched;if(id==='nA'&&q('#nD').value<=q('#nA').value)q('#nD').value=addD(q('#nA').value,1);upd()}));
   q('#nRate').oninput=()=>{q('#nRate').dataset.touched=1;upd()};
@@ -6441,17 +6450,17 @@ function guestProfile(gid,after){
 VIEWS['profile.guests']=el=>{VIEWS['inq.guest'](el);const h=$('h1',el);if(h)h.innerHTML=titleMark('Guest Profile')+'Guest Profile'};
 VIEWS['profile.companies']=el=>{
   const prov=!!(user().provider||user().isProv);   /* the provider, also while working inside a hotel */
-  const basisOpts=sel=>opt('gross','Gross - the agent collects the full rate and the hotel pays the commission back',sel)+opt('net','Net - the agent keeps the commission and pays the hotel the net rate',sel);
-  el.innerHTML=pageHead('Company / Agency',can('setup')?'<button class="btn gold" id="coN">Add company or agent</button>':'','act')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Name</th><th>Type</th><th>Address</th><th>Tax ID</th><th>Branch</th><th class="n">Comm. %</th><th>Rate shown as</th><th class="n">Credit limit</th><th class="n">Bookings</th>${prov?'<th></th>':''}</tr>
+  const basisOpts=sel=>opt('gross','Gross - the user types the full rate; the agent collects it and the hotel pays the commission back',sel)+opt('net','Net - the user types the net rate the agent pays the hotel; the agent keeps its commission in advance',sel);
+  el.innerHTML=pageHead('Company / Agency',can('setup')?'<button class="btn gold" id="coN">Add company or agent</button>':'','act')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Name</th><th>Type</th><th>Address</th><th>Tax ID</th><th>Branch</th><th class="n">Comm. %</th><th>Rate typed as</th><th class="n">Credit limit</th><th class="n">Bookings</th>${prov?'<th></th>':''}</tr>
   ${H.companies.map(c=>`<tr><td>${c.code}</td><td>${esc(c.name)}</td><td>${c.type==='T'?'(T) Travel agent':'(C) Company'}</td><td>${esc(c.address)}</td><td>${esc(c.taxId)}</td><td>${esc(c.branch)}</td><td class="n">${commPct(c)||'-'}</td><td>${commPct(c)?(commBasis(c)==='net'?'Net':'Gross'):'-'}</td><td class="n">${+c.creditLimit>0?m2(c.creditLimit):'—'}</td><td class="n">${H.reservations.filter(r=>r.companyId===c.id).length}</td>${prov?`<td><button class="btn sm ghost" data-ce="${c.id}">Commission</button></td>`:''}</tr>`).join('')}</table></div>
-  <p class="sub">Credit limit 0 means no limit. A limit blocks a new City Ledger transfer when the open balance would go over it.${prov?' Commission and the way the rate is shown are set here by the provider for this hotel. The user always types the gross rate on a reservation; the commission and the net rate are worked out from it.':' Commission is set by the provider.'}</p>`;
-  if($('#coN',el))$('#coN',el).onclick=()=>{if(!need('setup'))return;const m=modal('Add company or agent',`<div class="form2">${fld('Code',`<input id="cc" autofocus>`)}${fld('Type',`<select id="ct"><option value="C">(C) Company</option><option value="T">(T) Travel agent</option></select>`)}${fld('Name',`<input id="cn">`,'span2')}${fld('Address',`<input id="ca">`,'span2')}${fld('Tax ID',`<input id="cx">`)}${fld('Branch',`<input id="cb" value="Head Office">`)}${prov?fld('Commission % (0 = none)',`<input type="number" id="cm" value="0" min="0" max="99.99" step="0.01">`)+fld('Rate shown as',`<select id="cbs">${basisOpts('gross')}</select>`):''}${fld('City ledger credit limit (0 = none)',`<input type="number" id="cLim" min="0" value="0">`)}</div><div class="err" id="ce"></div><div class="btns"><button class="btn gold" id="cs">Save</button></div>`,{w:620});
+  <p class="sub">Credit limit 0 means no limit. A limit blocks a new City Ledger transfer when the open balance would go over it.${prov?' Commission and the way the rate is shown are set here by the provider for this hotel. The user types the rate in the way set here (gross or net, as the agent states it); the system works out the commission and the gross rate.':' Commission is set by the provider.'}</p>`;
+  if($('#coN',el))$('#coN',el).onclick=()=>{if(!need('setup'))return;const m=modal('Add company or agent',`<div class="form2">${fld('Code',`<input id="cc" autofocus>`)}${fld('Type',`<select id="ct"><option value="C">(C) Company</option><option value="T">(T) Travel agent</option></select>`)}${fld('Name',`<input id="cn">`,'span2')}${fld('Address',`<input id="ca">`,'span2')}${fld('Tax ID',`<input id="cx">`)}${fld('Branch',`<input id="cb" value="Head Office">`)}${prov?fld('Commission % (0 = none)',`<input type="number" id="cm" value="0" min="0" max="99.99" step="0.01">`)+fld('Rate typed as',`<select id="cbs">${basisOpts('gross')}</select>`):''}${fld('City ledger credit limit (0 = none)',`<input type="number" id="cLim" min="0" value="0">`)}</div><div class="err" id="ce"></div><div class="btns"><button class="btn gold" id="cs">Save</button></div>`,{w:620});
     $('#cs',m).onclick=()=>{const code=$('#cc',m).value.trim().toUpperCase(),name=$('#cn',m).value.trim();if(!code||!name){$('#ce',m).textContent='Enter a code and a name.';return}if(H.companies.some(c=>c.code===code)){$('#ce',m).textContent='This code is already used.';return}
       const pct=prov?(+$('#cm',m).value||0):0;if(pct<0||pct>=100){$('#ce',m).textContent='Commission must be from 0 to below 100.';return}
       H.companies.push({id:'c'+uid(),code,name,type:$('#ct',m).value,address:$('#ca',m).value.trim(),taxId:$('#cx',m).value.trim(),branch:$('#cb',m).value.trim(),comm:pct,rateBasis:prov&&$('#cbs',m).value==='net'?'net':'gross',creditLimit:Math.max(0,+($('#cLim',m).value)||0)});log('Added company '+code);closeModal(m);refresh()}};
   $$('[data-ce]',el).forEach(b=>b.onclick=()=>{if(!prov)return;const c=H.companies.find(x=>x.id===b.dataset.ce);if(!c)return;
-    const m=modal('Commission - '+c.code+' '+c.name,`<div class="form2">${fld('Commission % (0 = none)',`<input type="number" id="kc" value="${commPct(c)}" min="0" max="99.99" step="0.01">`)}${fld('Rate shown as',`<select id="kb">${basisOpts(commBasis(c))}</select>`,'span2')}</div>
-      <p class="sub">On a reservation the user types the gross rate. The commission is worked out from it. Gross: the screen shows the gross rate and the commission the hotel pays back. Net: the screen shows the net rate after the commission the agent already kept. Reservations already made keep the terms they were made with.</p><div class="err" id="ke"></div><div class="btns"><button class="btn gold" id="ks">Save</button></div>`,{w:620});
+    const m=modal('Commission - '+c.code+' '+c.name,`<div class="form2">${fld('Commission % (0 = none)',`<input type="number" id="kc" value="${commPct(c)}" min="0" max="99.99" step="0.01">`)}${fld('Rate typed as',`<select id="kb">${basisOpts(commBasis(c))}</select>`,'span2')}</div>
+      <p class="sub">Gross: the user types the full rate and the screen shows the commission the hotel pays back. Net: the user types the net rate stated by the agent (for example 1,230 on an Agoda booking at 18%), and the screen works out the gross rate the guest pays (1,500) and the commission. What is posted to the folio and invoiced is always the rate typed. Reservations already made keep the terms they were made with.</p><div class="err" id="ke"></div><div class="btns"><button class="btn gold" id="ks">Save</button></div>`,{w:620});
     $('#ks',m).onclick=()=>{const pct=+$('#kc',m).value||0;if(pct<0||pct>=100){$('#ke',m).textContent='Commission must be from 0 to below 100.';return}
       const was=commPct(c)+'% '+commBasis(c);c.comm=pct;c.rateBasis=$('#kb',m).value==='net'?'net':'gross';provLog('Commission of '+c.code+' at '+H.code+': '+was+' to '+pct+'% '+c.rateBasis);log('Commission of '+c.code+' set to '+pct+'% '+c.rateBasis);saveDB();closeModal(m);refresh()}});
 };
@@ -9190,18 +9199,18 @@ const migGuestName=(h,id)=>{const g=(h.guests||[]).find(x=>x.id===id);return g?[
 const MIG_EXPORTS={
   guests:{label:'Guests',cols:['profile_no','title','last_name','first_name','nationality','country','gender','birthday','email','phone','address','id_type','id_no','vip','company','remark'],
     rows:h=>(h.guests||[]).filter(g=>!g.purged&&g.profileId!=='GROUP').map(g=>[g.profileId,g.title,g.last,g.first,g.nationality,g.country,g.gender,g.birthday,g.email,g.phone,g.address,g.doc&&g.doc.type,g.doc&&g.doc.no,g.vip,g.company,g.remark])},
-  reservations:{label:'Reservations',cols:['rsvn_no','booking_no','guest','room_type','room','arrival','departure','nights','status','rate_code','average_gross_rate','commission_pct','rate_shown_as','average_commission','average_net_rate','total_gross','total_commission','total_net','adults','children','company','reference','remark'],
+  reservations:{label:'Reservations',cols:['rsvn_no','booking_no','guest','room_type','room','arrival','departure','nights','status','rate_code','average_rate_typed','commission_pct','rate_typed_as','average_commission','average_gross_rate','average_net_rate','total_rate_typed','total_commission','total_gross','total_net','adults','children','company','reference','remark'],
     rows:h=>{const out=[];(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.groupMaster||b.type==='DUM')return;
       const vals=Object.values(b.nightly||{}).map(Number),avg=vals.length?Math.round(vals.reduce((a,x)=>a+x,0)/vals.length*100)/100:0;
       const co=(h.companies||[]).find(c=>c.id===r.companyId),k=commCalc(avg,resComm(h,r)),tot=commCalc(vals.reduce((a,x)=>a+x,0),resComm(h,r));
-      out.push([r.no,b.internal,migGuestName(h,b.guestId),b.type,b.room,b.arr,b.dep,vals.length,b.status,b.rateCode,avg,k.pct||'',k.pct?k.basis:'',k.pct?k.comm:'',k.pct?k.net:'',tot.gross,k.pct?tot.comm:'',k.pct?tot.net:'',b.adults,b.children,co?co.code:'',r.reference,b.remark])}));return out}},
+      out.push([r.no,b.internal,migGuestName(h,b.guestId),b.type,b.room,b.arr,b.dep,vals.length,b.status,b.rateCode,avg,k.pct||'',k.pct?k.basis:'',k.pct?k.comm:'',k.gross,k.net,tot.typed,k.pct?tot.comm:'',tot.gross,tot.net,b.adults,b.children,co?co.code:'',r.reference,b.remark])}));return out}},
   folio:{label:'Folio postings',cols:['rsvn_no','room','folio','business_date','code','description','amount','kind','method','reference'],
     rows:h=>{const out=[];(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.type==='DUM')return;(b.lines||[]).forEach(l=>out.push([r.no,b.room,l.folio,l.bd,l.code,l.desc,l.amt,l.kind,l.method,l.ref]))}));return out}},
   invoices:{label:'Tax invoices',cols:['invoice_no','date','rsvn_no','bill_to','amount'],
     rows:h=>(h.invoices||[]).map(i=>{let no='';(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.id===i.bookingId)no=r.no}));return [i.no,i.bd,no,i.billTo,i.amount]})},
   rooms:{label:'Rooms and room types',cols:['room_no','room_type','floor','type_name','base_rate'],
     rows:h=>(h.rooms||[]).filter(r=>!r.dummy).map(r=>{const t=(h.roomTypes||[]).find(x=>x.code===r.type)||{};return [r.no,r.type,r.floor,t.name,t.base]})},
-  companies:{label:'Companies and agents',cols:['code','name','type','address','tax_id','branch','commission_pct','rate_shown_as'],
+  companies:{label:'Companies and agents',cols:['code','name','type','address','tax_id','branch','commission_pct','rate_typed_as'],
     rows:h=>(h.companies||[]).map(c=>[c.code,c.name,c.type,c.address,c.taxId,c.branch,commPct(c)||'',commPct(c)?commBasis(c):''])}
 };
 const migExportCsv=(h,key)=>{const d=MIG_EXPORTS[key];return toCsv([d.cols].concat(d.rows(h)))};
