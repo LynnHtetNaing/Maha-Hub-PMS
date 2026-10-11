@@ -417,6 +417,42 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 @media (max-width:520px){
   .eco-soon{grid-template-columns:1fr}
 }
+/* ===== Entry screens: the login is a centred box over the hero; text stays on one line; no flashing ===== */
+.eco-shell .eco-login{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(7,26,20,.46);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);border:0;padding:14px;height:auto;max-height:none;min-height:0;overflow:auto;animation:ecoBoxIn .28s ease both}
+.eco-shell.is-signin,.eco-shell.is-signin:not(.is-chosen){grid-template-columns:1fr}
+.eco-shell.is-signin .eco-dock,.eco-shell.is-chosen .eco-dock{display:none}
+.eco-shell.is-signin .eco-all{display:none}
+.eco-shell .eco-login .eco-login-inner{width:min(430px,100%);margin:auto;padding:18px 26px 14px;background:linear-gradient(180deg,#faf6ec,#efe8d8);border:1px solid rgba(200,148,45,.6);border-radius:18px;box-shadow:0 26px 64px rgba(0,0,0,.5);display:grid;gap:8px;flex:none;overflow:visible}
+.eco-back{justify-self:start;appearance:none;border:0;background:transparent;color:var(--green);font-size:12.5px;font-weight:600;cursor:pointer;padding:2px 0;line-height:1}
+.eco-back:hover{text-decoration:underline}
+.eco-shell .eco-login .eco-lockup{width:72px;margin:0 auto 0}
+.eco-sysrow{display:flex;align-items:center;justify-content:center;gap:12px;margin:2px 0 4px}
+.eco-sysico{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#1f6d58,#134536)}
+.eco-sysico:empty{display:none}
+.eco-sysico svg{width:22px;height:22px}
+.eco-sysico[data-k="connect"]{background:linear-gradient(145deg,#2a5f88,#16384f)}
+.eco-sysico[data-k="book"]{background:linear-gradient(145deg,#9a7128,#5a3d12)}
+.eco-sysico[data-k="reach"]{background:linear-gradient(145deg,#6a458f,#3a2452)}
+.eco-sysico[data-k="sales"]{background:linear-gradient(145deg,#1a6b62,#0c3f3a)}
+.eco-systxt{min-width:0}
+.eco-shell .eco-login .eco-hi{font-size:clamp(16px,5vw,22px);line-height:1.15;margin:0;text-align:left;white-space:nowrap}
+.eco-shell .eco-login .eco-hisub{margin:2px 0 0;text-align:left;font-size:12.5px;line-height:1.3;white-space:nowrap}
+.eco-shell .eco-login .eco-form{gap:8px}
+.eco-shell .eco-login .eco-form label{font-size:12.5px;gap:3px}
+.eco-shell .eco-login .eco-field input{font-size:15px;padding:9px 0}
+.eco-shell .eco-login #shWrap{margin-bottom:0!important}
+.eco-shell .eco-login #shWrap>span{font-size:12.5px;margin-bottom:4px!important}
+.eco-shell .eco-login .eco-segs button{padding:5px 3px;font-size:13px}
+.eco-shell .eco-login .eco-segs small{font-size:10.5px}
+.eco-shell .eco-login .eco-row{flex-wrap:nowrap;white-space:nowrap;font-size:12.5px}
+.eco-shell .eco-login .eco-form label.eco-check{font-size:12.5px}
+.eco-shell .eco-login .eco-btn{padding:11px;font-size:16px}
+.eco-help{text-align:center;font-size:12.5px;color:#6a6256;white-space:nowrap}
+.eco-shell .eco-login .eco-err{font-size:12.5px;min-height:0}
+.eco-now.is-ready .eco-card{animation:none}
+@media (max-width:900px){.eco-shell .eco-login{padding:10px}.eco-shell.is-signin .eco-hero{display:none}}
+@media (max-height:640px){.eco-shell .eco-login .eco-login-inner{padding:12px 20px 10px;gap:6px}.eco-shell .eco-login .eco-lockup{display:none}}
+@media (prefers-reduced-motion:reduce){.eco-shell .eco-login{animation:none!important}}
 .cshft{margin-top:14px;font-size:11px;break-inside:avoid}
 .cnts{display:flex;gap:18px;flex-wrap:wrap}
 .cnt{border-collapse:collapse;min-width:220px;flex:1}.cnt th,.cnt td{border:1px solid #333;padding:4px 8px;height:20px;text-align:left}.cnt th{background:#f1f1f1}
@@ -5358,10 +5394,6 @@ function showLogin(msg){
   <section class="eco-hero" style="--eco-photo:url('${ECO_HERO}')" aria-label="Maha Hub ecosystem">
     <div class="eco-hero-bg" aria-hidden="true"></div>
     <div class="eco-leaves" aria-hidden="true"></div>
-    <div class="eco-toptools">
-      <div class="eco-lang"><label><select id="lgLang" aria-label="Language"><option value="en">Eng</option><option value="th">ไทย</option><option value="my">မြန်မာ</option></select></label></div>
-      <button type="button" class="eco-prov" id="lgProvTop">Provider access</button>
-    </div>
     <div class="eco-brand">
       ${LOGO_FULL()}
       <p class="eco-kicker">Smarter hospitality / Better tomorrow</p>
@@ -5379,12 +5411,11 @@ function showLogin(msg){
   </section>
   <aside class="eco-login" aria-label="Sign in"${lgOpen?'':' hidden'}>
     <div class="eco-login-inner">
+      <button type="button" class="eco-back" id="lgBack">&lsaquo; All systems</button>
       ${LOGO_FULL()}
-      <h2 class="eco-hi" id="lgTitle">Welcome back</h2>
-      <p class="eco-hisub" id="lgSub">Sign in to your Maha Hub account to continue.</p>
-      <p class="eco-target" id="lgTargetHint"></p>
+      <div class="eco-sysrow"><span class="eco-sysico" id="lgSysIco" aria-hidden="true"></span><div class="eco-systxt"><h2 class="eco-hi" id="lgTitle">Sign in</h2><p class="eco-hisub" id="lgSub">Enter your username and password.</p></div></div>
       <form class="eco-form" id="lform" onsubmit="return false">
-        <label><span>Email or Username</span><div class="eco-field"><span class="eco-ico-in" aria-hidden="true">✉</span><input id="lgUser" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Email or username"></div></label>
+        <label><span>Username</span><div class="eco-field"><span class="eco-ico-in" aria-hidden="true">✉</span><input id="lgUser" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Username"></div></label>
         <label><span>Password</span><div class="eco-field"><span class="eco-ico-in" aria-hidden="true">🔒</span><input id="lgPass" type="password" autocomplete="current-password" placeholder="Password"><button type="button" id="lgEye" aria-label="Show password">👁</button></div></label>
         <div id="lgExtra">
           <div id="shWrap" style="margin-bottom:10px"><span style="display:block;margin-bottom:6px">Shift</span><div class="eco-segs segs">${['Morning','Afternoon','Night'].map(s=>`<button type="button" data-shift="${s}">${s}<small>${{Morning:'06:00–14:00',Afternoon:'14:00–22:00',Night:'22:00–06:00'}[s]}</small></button>`).join('')}</div></div>
@@ -5393,14 +5424,8 @@ function showLogin(msg){
         <div class="eco-row auth-row"><label class="eco-check"><input type="checkbox" id="lgRemember"> Remember me</label><button type="button" class="eco-link gold" id="lgForgot">Forgot password?</button></div>
         <div class="eco-err" id="lgErr" role="alert"></div>
         <button class="eco-btn gold" type="button" id="lgGo">Login →</button>
-        <div class="eco-or">OR</div>
-        <button class="eco-btn ghost" type="button" id="lgSupport">☎ Contact Support</button>
-        <div class="eco-row" style="justify-content:center;gap:14px">
-          <button type="button" class="eco-link" id="lgMode"></button>
-          <button type="button" class="eco-link" id="lgCloudBtn">Cloud database</button>
-        </div>
+        <div class="eco-help">Need help? <button type="button" class="eco-link" id="lgSupport">Contact support</button></div>
         <div class="eco-demo" id="lgDemo"></div>
-        <div class="eco-cloud" id="lgCloudBox" hidden><p class="sub">Supabase keeps this hotel on every computer. Full card numbers stay on the device that took the payment.</p>${cloudFormHtml()}<button type="button" class="btn" id="clGo">Connect</button></div>
       </form>
       
     </div>
@@ -5433,6 +5458,9 @@ function showLogin(msg){
     if(avail)avail.hidden=picked;
     if(lede)lede.hidden=picked;
     if(title)title.textContent=picked?'Maha Hub Ecosystem':'Welcome to Maha Hub Ecosystem';
+    const hi=$('#lgTitle'),sico=$('#lgSysIco');
+    if(hi)hi.textContent='Sign in to '+(lgTargetSys?ecoSysLabel(lgTargetSys):'Maha Hub');
+    if(sico){const row=lgTargetSys&&hotelSystems(ecoPreviewHotel(),null).find(x=>x.kind===lgTargetSys);sico.dataset.k=lgTargetSys||'';sico.innerHTML=lgTargetSys?ecoCardSvg((row&&row.tone)||lgTargetSys):''}
   };
   const syncSelect=()=>{
     $$('#lgCards [data-sys]').forEach(b=>{
@@ -5452,11 +5480,7 @@ function showLogin(msg){
     lgPickAnim=b.dataset.sys;lgTargetSys=b.dataset.sys;applySysPath(lgTargetSys);syncSelect();
   };
   const paint=()=>{
-    $('#lgTitle').textContent=lgProvider?'Provider access':'Welcome back';
-    $('#lgSub').textContent=lgProvider?'For Padauk support staff only. Every change is recorded with a reason.':'Sign in to your Maha Hub account to continue.';
-    $('#lgExtra').hidden=lgProvider;
-    $('#lgGo').textContent=lgProvider?'Sign in as provider →':'Login →';
-    $('#lgMode').textContent=lgProvider?'Back to staff sign-in':'Provider access';
+    $('#lgExtra').hidden=false;
     const demo=(lgProvider||MahaAuth.on())?[]:[['','manager','manager123','Manager'],['','frontdesk','front123','Front desk'],['wide','housekeeping','hk123','Other department (Housekeeping)']];
     const demoBox=$('#lgDemo');demoBox.hidden=!demo.length;
     demoBox.innerHTML=demo.length?'Demo (tap to fill):<div class="demob">'+demo.map(d=>`<button type="button" class="btn ghost sm ${d[0]||''}" data-demo="${d.join('|')}">${d[3]}</button>`).join('')+'</div>':'';
@@ -5470,8 +5494,8 @@ function showLogin(msg){
     const h=f?f.h:ecoPreviewHotel();shapeHotel(h);
     const u=f?f.u:null;
     if(lgTargetSys&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
-    box.innerHTML=ecoAvailableCards(h,true,lgTargetSys,u);
-    $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
+    const cardsHtml=ecoAvailableCards(h,true,lgTargetSys,u);
+    if(box.dataset.sig!==cardsHtml){box.innerHTML=cardsHtml;box.dataset.sig=cardsHtml;$$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b))}   /* rebuilt only when the cards really change: no flashing */
     applyPick();
   };
   const hint=()=>{
@@ -5488,8 +5512,9 @@ function showLogin(msg){
   };
   $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
   $('#lgAllSys').onclick=()=>{lgTargetSys=null;lgPickAnim=null;applySysPath(null);syncSelect()};
-  $('#lgProvTop').onclick=()=>{if(!lgProvider)lgProvider=true;$('#lgErr').textContent='';paint()};
-  $('#lgMode').onclick=()=>{lgProvider=!lgProvider;$('#lgErr').textContent='';paint()};
+  $('#lgBack').onclick=()=>$('#lgAllSys').click();
+  document.querySelector('.eco-login').addEventListener('mousedown',e=>{if(e.target===e.currentTarget)$('#lgAllSys').click()});   /* a click outside the box goes back to all systems */
+  setTimeout(()=>{const b=$('#lgCards');if(b)b.classList.add('is-ready')},1400);                                                   /* the entrance animation plays once only */
   $('#lgUser').addEventListener('input',hint);
   $('#lgEye').onclick=()=>{const i=$('#lgPass');i.type=i.type==='password'?'text':'password';$('#lgEye').setAttribute('aria-label',i.type==='password'?'Show password':'Hide password')};
   $('#lgForgot').onclick=()=>toast('Ask Padauk support to reset your password.');
@@ -5497,8 +5522,6 @@ function showLogin(msg){
   ['lgUser','lgPass','lgCash'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doLogin()}})});
   $('#lgGo').onclick=doLogin;if(lgTargetSys)applySysPath(lgTargetSys);paint();$('#lgErr').textContent=msg||'';
   if(lgOpen)setTimeout(()=>{const f=$('#lgUser');f&&f.focus({preventScroll:true})},40);
-  $('#lgCloudBtn').onclick=()=>{const b=$('#lgCloudBox');b.hidden=!b.hidden;if(!b.hidden)fillCloudForm(document)};
-  $('#clGo').onclick=()=>cloudConnect(document);
 }
 function openSystemsSwitcher(){
   if(!H||!DB.session){showLogin();return}
