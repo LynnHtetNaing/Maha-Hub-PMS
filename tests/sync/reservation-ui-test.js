@@ -6,7 +6,7 @@ const a = src.indexOf('/* ---- Nationalities:'), b = src.indexOf('/* ---- end Ro
 if (a < 0 || b < 0) throw new Error('code not found');
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
-const X = new Function(src.slice(a, b) + '\nreturn {NATIONS,natResolve,natOptions,roomLineDecide};')();
+const X = new Function(src.slice(a, b) + '\nreturn {NATIONS,NATION_ITEMS,natResolve,natOptions,roomLineDecide,comboFilter};')();
 const R = X.natResolve;
 
 /* the list */
@@ -55,4 +55,16 @@ T('turning the block off clears it and keeps the room', d.unblock === true && d.
 d = D({ room: '101', block: { reason: 'VIP' } }, { room: '103', block: false });
 T('turning the block off and choosing another room does both', d.unblock === true && d.assign === '103');
 
+/* the drop-down list: what it shows while typing */
+const items = X.NATION_ITEMS, F = X.comboFilter;
+T('an empty box lists every country (scrollable list of the whole world)', F(items, '').length === items.length && items.length >= 190);
+T('typing "tha" shows Thai first (Thailand)', F(items, 'tha')[0].value === 'Thai' && F(items, 'tha')[0].label === 'Thailand');
+T('typing a country finds its nationality ("germany" -> German)', F(items, 'germany')[0].value === 'German');
+T('typing a nationality finds it ("japan" -> Japanese)', F(items, 'japan')[0].value === 'Japanese');
+T('what starts with the typing comes before what only contains it', (() => { const r = F(items, 'ko').map(x => x.value); return r.indexOf('Korean') >= 0 && r.indexOf('Korean') < r.indexOf('Slovak') || r.indexOf('Slovak') < 0; })());
+T('accents and capitals do not matter', F([{ value: 'José Pérez #7', label: 'Spanish' }], 'JOSE')[0].value === 'José Pérez #7' && F(items, 'THAI')[0].value === 'Thai');
+T('nothing matching gives an empty list', F(items, 'qqqq').length === 0);
+const guests = [{ value: 'Somchai Rattanakul #1001', label: 'Thai' }, { value: 'Olivia Clarke #1002', label: 'British' }, { value: 'Kim Minjun #1003', label: 'Korean' }];
+T('the guest search finds by any part of the name or by nationality', F(guests, 'clarke')[0].value.startsWith('Olivia') && F(guests, 'rattana').length === 1 && F(guests, 'korean')[0].value.startsWith('Kim'));
+T('the guest search finds by the profile number', F(guests, '1003')[0].value.startsWith('Kim'));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
