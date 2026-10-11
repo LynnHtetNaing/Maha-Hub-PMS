@@ -15,6 +15,11 @@
 //   restore_hotel    property_code                  - brings it back (only within the 30 days)
 //   purge_hotel      property_code                  - erases a hotel that is in the Recycle bin, with its staff logins
 //   purge_expired    (nothing)                      - erases every hotel whose 30 days are over
+//   create_chain     chain_name, chain_code         - a company that holds several hotels (code: 6-12 letters/numbers, unique)
+//   rename_chain     chain_code, chain_name
+//   move_hotel       property_code, chain_code      - into a chain; an empty chain_code makes the hotel stand-alone
+//   set_access       username, property_code, allowed (boolean), role - which hotels one person may open (same chain only)
+//   (create_hotel also accepts chain_code: the new hotel joins that chain)
 //
 // Account creation order (so a failure never leaves partial data or a stray email):
 //   1. create the auth user (confirmed, no email yet; fails if the email exists, so a pre-existing
@@ -110,6 +115,9 @@ Deno.serve(async (req) => {
       const property = str("property_code").toUpperCase() || null;
       const target = action === "rename_username" ? `${username}>${str("new_username")}`
         : ["create_hotel", "delete_hotel", "restore_hotel", "purge_hotel"].includes(action) ? property
+        : ["create_chain", "rename_chain"].includes(action) ? str("chain_code").toUpperCase()
+        : action === "move_hotel" ? property
+        : action === "set_access" ? `${username}@${property ?? ""}`
         : action === "purge_expired" ? null : username;
       let event = "";
       let detail = ok ? "" : err;
@@ -122,8 +130,13 @@ Deno.serve(async (req) => {
       else if (action === "restore_hotel") event = ok ? "hotel_restored" : "hotel_restore_failed";
       else if (action === "purge_hotel") event = ok ? "hotel_purged" : "hotel_purge_failed";
       else if (action === "purge_expired") event = ok ? "expired_hotels_purged" : "expired_purge_failed";
+      else if (action === "create_chain") event = ok ? "chain_created" : "chain_create_failed";
+      else if (action === "rename_chain") event = ok ? "chain_renamed" : "chain_rename_failed";
+      else if (action === "move_hotel") event = ok ? "hotel_moved" : "hotel_move_failed";
+      else if (action === "set_access") event = ok ? (b.allowed ? "hotel_access_granted" : "hotel_access_removed") : "hotel_access_failed";
       if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
       if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
+      if (ok && action === "move_hotel") detail = "to " + (str("chain_code").toUpperCase() || "stand-alone");
       if (event) track(audit(event, target, property, ok, detail || null));
     } catch { /* logging must never break the request */ }
     return json(resBody, status);
@@ -167,7 +180,14 @@ Deno.serve(async (req) => {
 
   // ---------------------------------------------------------------- create_hotel
   if (action === "create_hotel") {
-    const requestedOrgId = str("organization_id");
+    let requestedOrgId = str("organization_id");
+    const chainCode = str("chain_code").toUpperCase();
+    if (chainCode) {
+      // the new hotel joins an existing chain of this provider
+      const { data: chain } = await admin.from("maha_organizations").select("id,owner_user_id").eq("chain_code", chainCode).maybeSingle();
+      if (!chain || chain.owner_user_id !== ownerId) return respond({ error: "chain_not_found" }, 404);
+      requestedOrgId = chain.id as string;
+    }
     const organizationName = str("organization_name");
     const propertyName = str("property_name");
     const propertyCode = str("property_code").toUpperCase();
@@ -340,6 +360,78 @@ Deno.serve(async (req) => {
     if (error || !data) return recycleError(error);
     const gone = await removeAccounts((data as { orphan_user_ids?: unknown }).orphan_user_ids);
     return respond({ ok: true, accounts_removed: gone.removed, cleanup_failed: gone.failed > 0 ? true : undefined });
+  }
+
+  // ---------------------------------------------------------------- Chains (groups of hotels)
+  if (action === "create_chain" || action === "rename_chain" || action === "move_hotel" || action === "set_access") {
+    const chainError = (e: { code?: string; message?: string } | null) => {
+      const m = String(e?.message ?? "");
+      if (e?.code === "23505") return respond({ error: "chain_code_taken" }, 409);
+      if (m.includes("invalid-chain")) return respond({ error: "invalid_fields" }, 400);
+      if (m.includes("chain-not-found")) return respond({ error: "chain_not_found" }, 404);
+      if (m.includes("shared-staff")) return respond({ error: "staff_shared" }, 409);
+      if (m.includes("same-chain")) return respond({ error: "already_there" }, 409);
+      if (m.includes("hotel-deleted")) return respond({ error: "hotel_deleted" }, 409);
+      if (m.includes("different-chain")) return respond({ error: "different_chain" }, 409);
+      if (m.includes("property-not-owned")) return respond({ error: "property_not_found" }, 404);
+      if (m.includes("staff-not-found") || e?.code === "P0002") return respond({ error: "staff_not_found" }, 404);
+      if (e?.code === "42501") return respond({ error: "forbidden" }, 403);
+      return respond({ error: "chain_failed" }, 502);
+    };
+    const chainCode = str("chain_code").toUpperCase();
+    const CHAIN = /^[A-Z0-9]{6,12}$/;
+    const chainOf = async (code: string) => {
+      const { data } = await admin.from("maha_organizations").select("id,owner_user_id").eq("chain_code", code).maybeSingle();
+      return data && data.owner_user_id === ownerId ? (data.id as string) : null;
+    };
+    const hotelOf = async (code: string) => {
+      const { data: hotel } = await admin.from("maha_properties").select("id,organization_id").eq("property_code", code).maybeSingle();
+      if (!hotel) return null;
+      const { data: org } = await admin.from("maha_organizations").select("owner_user_id").eq("id", hotel.organization_id).maybeSingle();
+      return org && org.owner_user_id === ownerId ? (hotel.id as string) : null;
+    };
+
+    if (action === "create_chain") {
+      const name = str("chain_name");
+      if (name.length < 2 || name.length > 160 || !CHAIN.test(chainCode)) return respond({ error: "invalid_fields" }, 400);
+      const { data, error } = await admin.rpc("maha_create_chain", { p_owner: ownerId, p_name: name, p_code: chainCode });
+      if (error || !data) return chainError(error);
+      return respond({ ok: true, ...(data as Record<string, unknown>) }, 201);
+    }
+    if (action === "rename_chain") {
+      const name = str("chain_name");
+      if (name.length < 2 || name.length > 160 || !CHAIN.test(chainCode)) return respond({ error: "invalid_fields" }, 400);
+      const org = await chainOf(chainCode);
+      if (!org) return respond({ error: "chain_not_found" }, 404);
+      const { data, error } = await admin.rpc("maha_rename_chain", { p_owner: ownerId, p_org: org, p_name: name });
+      if (error || !data) return chainError(error);
+      return respond({ ok: true });
+    }
+    if (action === "move_hotel") {
+      const code = str("property_code").toUpperCase();
+      if (!CODE.test(code) || (chainCode && !CHAIN.test(chainCode))) return respond({ error: "invalid_fields" }, 400);
+      const hotel = await hotelOf(code);
+      if (!hotel) return respond({ error: "property_not_found" }, 404);
+      let target: string | null = null;
+      if (chainCode) {
+        target = await chainOf(chainCode);
+        if (!target) return respond({ error: "chain_not_found" }, 404);
+      }
+      const { data, error } = await admin.rpc("maha_move_hotel", { p_owner: ownerId, p_property_id: hotel, p_target_org: target });
+      if (error || !data) return chainError(error);
+      return respond({ ok: true });
+    }
+    // set_access
+    const code = str("property_code").toUpperCase();
+    if (!USERNAME.test(username) || !CODE.test(code) || typeof body.allowed !== "boolean") return respond({ error: "invalid_fields" }, 400);
+    const hotel = await hotelOf(code);
+    if (!hotel) return respond({ error: "property_not_found" }, 404);
+    const { data, error } = await admin.rpc("maha_set_hotel_access", {
+      p_owner: ownerId, p_username: username, p_property_id: hotel, p_allowed: body.allowed,
+      p_role: body.role === "property_admin" ? "property_admin" : "staff",
+    });
+    if (error || !data) return chainError(error);
+    return respond({ ok: true, allowed: body.allowed, hotels: (data as { hotels?: unknown }).hotels });
   }
 
   return respond({ error: "unsupported_action" }, 400);
