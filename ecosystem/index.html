@@ -2395,11 +2395,11 @@ function addLine(h,B,o){
    A normal payment or refund is one red line on the folio being paid. */
 function postPayment(h,B,code,amt,o={}){
   const tc=TCODES.find(c=>c.code===code),g='pg'+uid(),codeDesc=tc?tc.desc:'Payment';
-  const typed=String(o.desc||codeDesc).replace(/\s*-\s*Advance (Payment|Deposit)$/i,'').replace(/^Advance (Payment|Deposit)\s*-\s*/i,'').trim()||codeDesc;
+  const typed=String(o.desc||codeDesc).replace(/\s*-\s*Advance (Payment|Deposit)$/i,'').replace(/^(Advance (Payment|Deposit)|Reservation Deposit)\s*-\s*/i,'').trim()||codeDesc;
   const base={code,method:typed,group:g,bd:o.bd,shift:o.shift,user:o.user,ref:o.ref||'',deposit:!!o.deposit,remark:o.remark||'',vat:false,time:o.time};
   const s=tc&&tc.refund?-1:1,label=o.label||(o.adv?'Advance Payment':o.deposit?'Advance Deposit':tc&&tc.refund?'Refund':'Payment');
   const three=!!(o.adv||o.deposit);
-  const guestDesc=three?typed+' - '+label:(o.desc||codeDesc);
+  const guestDesc=o.deposit?'Reservation Deposit - '+typed:three?typed+' - '+label:(o.desc||codeDesc);   /* the guest folio line of a reservation deposit always reads Reservation Deposit - (payment method); Folio 4 keeps the advance lines */
   const A=addLine(h,B,{...base,folio:o.folio||1,desc:guestDesc,amt:-s*Math.abs(amt),kind:'pay',adv:!!o.adv});
   let R=null,C=null;
   if(three){
@@ -2411,7 +2411,7 @@ function postPayment(h,B,code,amt,o={}){
   return {A,R,C,g};
 }
 /* Folio text for an advance, matching the sample lines:
-   guest folio (−): "Visa Card - Advance Payment"
+   guest folio (−): "Visa Card - Advance Payment" (a reservation deposit reads "Reservation Deposit - Visa Card" here)
    Folio 4 grey (+): "Advance Payment - Visa Card"
    Folio 4 red (−): "Visa Card - Advance Payment"
    Codes stay ours. Only the description is rewritten. */
@@ -2419,9 +2419,9 @@ function retitleAdvanceLines(h){
   (h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>(b.lines||[]).forEach(l=>{
     if(!(l.adv||l.deposit)||!['pay','payoff','payrec'].includes(l.kind))return;
     const label=l.adv?'Advance Payment':'Advance Deposit';
-    const name=String(l.method||l.desc||'Payment').replace(/\s*-\s*Advance (Payment|Deposit)$/i,'').replace(/^Advance (Payment|Deposit)\s*-\s*/i,'').trim()||'Payment';
+    const name=String(l.method||l.desc||'Payment').replace(/\s*-\s*Advance (Payment|Deposit)$/i,'').replace(/^(Advance (Payment|Deposit)|Reservation Deposit)\s*-\s*/i,'').trim()||'Payment';
     l.method=name;
-    l.desc=l.kind==='payoff'?label+' - '+name:name+' - '+label;
+    l.desc=l.kind==='payoff'?label+' - '+name:(l.deposit&&l.kind==='pay')?'Reservation Deposit - '+name:name+' - '+label;
   })));
 }
 const bal=B=>r2(sum(B.lines,l=>l.amt));
