@@ -18,6 +18,7 @@ on:
       - claude/record-level-sync
       - claude/provider-mfa
       - claude/review-audit-gapless
+      - claude/platform-settings-sync
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
@@ -70,6 +71,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010_011_remove_old_whole_hotel_sync.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010_012_activity_log.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261010_013_gapless_invoice_numbers.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261011_014_platform_settings.sql
       - name: Run tenant isolation and concurrency smoke tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/tenant_cloud_storage_test.sql
       - name: Run username privacy and owner boundary smoke tests
@@ -86,6 +88,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/provider_mfa_gate_test.sql
       - name: Run review, activity log and gapless invoice tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/review_activity_gapless_test.sql
+      - name: Run provider-wide settings tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/platform_settings_test.sql
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
