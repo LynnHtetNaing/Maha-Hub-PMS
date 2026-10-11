@@ -4911,7 +4911,7 @@ const MENU=[
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
 const PROV_MENU=[
  {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
- {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Cloud database','prov.cloud'],['Revenue analysis','ai.revenue']]},
+ {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Revenue analysis','ai.revenue']]},
  {t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
@@ -5648,7 +5648,7 @@ const TITLE_ICON={
  'all properties':'bank','properties':'bank','property setup':'gear','systems':'wifi','systems (reach · connect · booking)':'wifi',
  'direct booking & google':'globe','edc card link':'cardp','stripe payments (3ds)':'cardp','system rules':'gear','system rules (per hotel)':'gear',
  'distribution (google hotels)':'globe','code catalog (all hotels)':'card','code catalog – all hotels':'card','security center':'lock',
- 'cloud database':'upload','revenue analysis':'grid','amend records':'detail','amendment log':'log','my account & security':'user',
+ 'backup & migration':'upload','revenue analysis':'grid','amend records':'detail','amendment log':'log','my account & security':'user',
  'back to provider console':'left','provider history':'log','hotels':'bank','terms & conditions':'card'
 };
 function titleMark(label){
@@ -9127,16 +9127,135 @@ VIEWS['prov.stripe']=el=>{
   if($('#stHClear',el))$('#stHClear',el).onclick=()=>{if(!provOnly()||!H)return;if(!confirm('Clear Stripe keys for '+H.code+'?'))return;H.set.stripe={publishable:'',secret:'',connectAccountId:'',label:''};provLog('Cleared Stripe settings for '+H.code);saved('Hotel Stripe cleared')};
   $$('[data-sthotel]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sthotel);go('prov.stripe')});
 };
-VIEWS['prov.cloud']=el=>{
-  el.innerHTML=pageHead('Cloud database')+`<div class="panel pad" style="max-width:640px"><p>Supabase is the shared copy of this hotel file. Reservations, folios, shifts, and staff sign-in travel with it. Full card numbers stay in the browser that took the payment and are not uploaded.</p>
-    <p class="sub">In the Supabase project, open the SQL editor and run <b>supabase/schema.sql</b> from this site's repository. Then copy the project URL and the anon public key from Project Settings → API.</p>
-    ${cloudFormHtml()}
-    <div class="btns"><button class="btn gold" id="clGo">Connect</button><button class="btn" id="clPull">Download</button><button class="btn" id="clPush">Upload</button><button class="btn ghost" id="clOff">Disconnect this browser</button></div></div>`;
-  fillCloudForm(el);
-  $('#clGo',el).onclick=()=>cloudConnect(el);
-  $('#clPull',el).onclick=async()=>{if(!confirm('Download and load the saved cloud PMS copy into this browser? This replaces the current browser hotel data. Choose Cancel to keep the current browser data.'))return;try{const r=await cloudPull({render:true,force:true});toast(r==='pulled'?'Downloaded the cloud copy':r==='empty'?'The cloud database is still empty':r==='off'?'Connect to the cloud database first':'Download did not finish')}catch(e){toast('Download did not finish')}};
-  $('#clPush',el).onclick=async()=>{try{await cloudPush();fillCloudForm(el);toast('Uploaded to Supabase')}catch(e){const m=String(e.message||'');toast(m.includes('unauthorized')?'Passphrase does not match':'Upload did not finish')}};
-  $('#clOff',el).onclick=()=>{localStorage.removeItem(CLOUDKEY);fillCloudForm(el);toast('This browser is disconnected. The cloud copy is still there.')};
+/* ---- Backup & migration (provider): take one hotel's data out, bring another system's data in. ---- */
+const MIG_MAX_ROWS=20000,MIG_MAX_BYTES=6e6;
+const csvCell=v=>{const s=v==null?'':String(v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+const toCsv=rows=>rows.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';
+function parseCsv(text){
+  text=String(text||'').replace(/^﻿/,'');
+  const rows=[];let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}
+    else if(c==='"')q=true;
+    else if(c===','){row.push(cur);cur=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cur);cur='';if(row.some(x=>x!==''))rows.push(row);row=[]}
+    else cur+=c}
+  row.push(cur);if(row.some(x=>x!==''))rows.push(row);
+  return rows;
+}
+/* A table with a header row becomes a list of {header:value} objects (headers are matched in lower case). */
+function csvObjects(text){const rows=parseCsv(text);if(rows.length<1)return {head:[],list:[]};
+  const head=rows[0].map(x=>String(x).trim().toLowerCase().replace(/[\s-]+/g,'_'));
+  return {head,list:rows.slice(1).map(r=>{const o={};head.forEach((k,i)=>{o[k]=String(r[i]==null?'':r[i]).trim()});return o})}}
+
+/* One hotel as a file the provider can keep or hand over: staff sign-in secrets are never included. */
+function hotelBackupObject(h){
+  const copy=JSON.parse(JSON.stringify(h));
+  (copy.users||[]).forEach(u=>{delete u.hash;delete u.salt;delete u.pw});
+  return {mahaHotelBackup:1,exportedAt:new Date().toISOString(),code:h.code,name:h.set&&h.set.name,hotel:copy};
+}
+const migGuestName=(h,id)=>{const g=(h.guests||[]).find(x=>x.id===id);return g?[g.title,g.first,g.last].filter(Boolean).join(' '):''};
+const MIG_EXPORTS={
+  guests:{label:'Guests',cols:['profile_no','title','last_name','first_name','nationality','country','gender','birthday','email','phone','address','id_type','id_no','vip','company','remark'],
+    rows:h=>(h.guests||[]).filter(g=>!g.purged&&g.profileId!=='GROUP').map(g=>[g.profileId,g.title,g.last,g.first,g.nationality,g.country,g.gender,g.birthday,g.email,g.phone,g.address,g.doc&&g.doc.type,g.doc&&g.doc.no,g.vip,g.company,g.remark])},
+  reservations:{label:'Reservations',cols:['rsvn_no','booking_no','guest','room_type','room','arrival','departure','nights','status','rate_code','average_rate','adults','children','company','reference','remark'],
+    rows:h=>{const out=[];(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.groupMaster||b.type==='DUM')return;
+      const vals=Object.values(b.nightly||{}).map(Number),avg=vals.length?Math.round(vals.reduce((a,x)=>a+x,0)/vals.length*100)/100:0;
+      const co=(h.companies||[]).find(c=>c.id===r.companyId);
+      out.push([r.no,b.internal,migGuestName(h,b.guestId),b.type,b.room,b.arr,b.dep,vals.length,b.status,b.rateCode,avg,b.adults,b.children,co?co.code:'',r.reference,b.remark])}));return out}},
+  folio:{label:'Folio postings',cols:['rsvn_no','room','folio','business_date','code','description','amount','kind','method','reference'],
+    rows:h=>{const out=[];(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.type==='DUM')return;(b.lines||[]).forEach(l=>out.push([r.no,b.room,l.folio,l.bd,l.code,l.desc,l.amt,l.kind,l.method,l.ref]))}));return out}},
+  invoices:{label:'Tax invoices',cols:['invoice_no','date','rsvn_no','bill_to','amount'],
+    rows:h=>(h.invoices||[]).map(i=>{let no='';(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.id===i.bookingId)no=r.no}));return [i.no,i.bd,no,i.billTo,i.amount]})},
+  rooms:{label:'Rooms and room types',cols:['room_no','room_type','floor','type_name','base_rate'],
+    rows:h=>(h.rooms||[]).filter(r=>!r.dummy).map(r=>{const t=(h.roomTypes||[]).find(x=>x.code===r.type)||{};return [r.no,r.type,r.floor,t.name,t.base]})},
+  companies:{label:'Companies and agents',cols:['code','name','type','address','tax_id','branch'],
+    rows:h=>(h.companies||[]).map(c=>[c.code,c.name,c.type,c.address,c.taxId,c.branch])}
+};
+const migExportCsv=(h,key)=>{const d=MIG_EXPORTS[key];return toCsv([d.cols].concat(d.rows(h)))};
+
+/* What an import would do, without changing anything. */
+const MIG_IMPORTS={
+  rooms:{label:'Rooms and room types',cols:['room_no','room_type','floor','type_name','base_rate'],sample:['101','STD','1','Standard','1500']},
+  guests:{label:'Guests',cols:['title','last_name','first_name','nationality','country','gender','birthday','email','phone','address','id_type','id_no','vip','remark'],sample:['MR.','Smith','John','British','United Kingdom','Male','1985-02-02','john@example.com','+66 80 000 0000','','PASSPORT','P1234567','','']},
+  companies:{label:'Companies and agents',cols:['code','name','type','address','tax_id','branch'],sample:['ABC','ABC Travel Co.','A','','0105500000000','Head Office']}
+};
+const migDateOk=s=>!s||/^\d{4}-\d{2}-\d{2}$/.test(s);
+function migPlan(kind,h,list){
+  const add=[],skip=[],err=[];
+  const types=new Set((h.roomTypes||[]).map(t=>t.code)),rooms=new Set((h.rooms||[]).map(r=>r.no)),codes=new Set((h.companies||[]).map(c=>c.code));
+  const gkeys=new Set((h.guests||[]).map(g=>(g.doc&&g.doc.no?'id:'+String(g.doc.no).toLowerCase():'')).filter(Boolean));
+  const gnames=new Set((h.guests||[]).map(g=>[g.last,g.first,g.birthday].join('|').toLowerCase()));
+  const newTypes=new Map();
+  list.forEach((o,i)=>{const line=i+2,bad=m=>err.push({line,msg:m});
+    if(kind==='rooms'){
+      const no=o.room_no,ty=(o.room_type||'').toUpperCase();
+      if(!no)return bad('room_no is empty');if(!ty)return bad('room_type is empty');
+      if(rooms.has(no)){skip.push({line,msg:'room '+no+' already exists'});return}
+      if(!types.has(ty)&&!newTypes.has(ty)){const base=+String(o.base_rate||'').replace(/,/g,'');if(!(base>0))return bad('room type '+ty+' is new, so base_rate must be a number above 0');newTypes.set(ty,{code:ty,name:o.type_name||ty,base:base,max:2})}
+      rooms.add(no);add.push({no,type:ty,floor:o.floor||String(no)[0]||'1'})}
+    else if(kind==='guests'){
+      if(!o.last_name)return bad('last_name is empty');
+      if(!migDateOk(o.birthday))return bad('birthday must be YYYY-MM-DD');
+      const idk=o.id_no?'id:'+o.id_no.toLowerCase():'',nk=[o.last_name,o.first_name,o.birthday].join('|').toLowerCase();
+      if((idk&&gkeys.has(idk))||gnames.has(nk)){skip.push({line,msg:'guest '+o.last_name+' '+(o.first_name||'')+' already exists'});return}
+      if(idk)gkeys.add(idk);gnames.add(nk);add.push(o)}
+    else if(kind==='companies'){
+      const code=(o.code||'').toUpperCase();
+      if(!code)return bad('code is empty');if(!o.name)return bad('name is empty');
+      if(codes.has(code)){skip.push({line,msg:'company '+code+' already exists'});return}
+      codes.add(code);add.push({...o,code,type:/^a/i.test(o.type)?'A':'C'})}
+  });
+  return {add,skip,err,newTypes:[...newTypes.values()]};
+}
+function migApply(kind,h,plan){
+  if(kind==='rooms'){plan.newTypes.forEach(t=>h.roomTypes.push(t));
+    plan.add.forEach(r=>{h.rooms.push({no:r.no,type:r.type,floor:r.floor,hk:'clean',ooo:null});
+      if(h.floors&&h.floors.length&&!h.floors.some(z=>z.id===r.floor))h.floors.push({id:r.floor,name:'Floor '+r.floor,order:h.floors.length+1})})}
+  else if(kind==='guests'){plan.add.forEach(o=>h.guests.push({id:'g'+uid(),profileId:h.set.nextProfile++,title:o.title||'',last:o.last_name,first:o.first_name||'',middle:'',other:'',jobTitle:'',company:'',nationality:o.nationality||'',country:o.country||'',
+      gender:o.gender||'',birthday:o.birthday||'',vip:o.vip||'',occupation:'',socialId:'',email:o.email||'',phone:o.phone||'',address:o.address||'',pdpa:false,photo:'',remark:o.remark||'',
+      doc:{type:o.id_type||'',no:o.id_no||'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null}))}
+  else if(kind==='companies'){plan.add.forEach(o=>h.companies.push({id:'c'+uid(),code:o.code,name:o.name,type:o.type,address:o.address||'',taxId:o.tax_id||'',branch:o.branch||'',comm:0}))}
+}
+/* ---- end Backup & migration ---- */
+VIEWS['prov.backup']=el=>{
+  if(!(user().provider||user().isProv)){el.innerHTML='<div class="empty">Backup and migration is for the provider.</div>';return}
+  const exps=Object.keys(MIG_EXPORTS),imps=Object.keys(MIG_IMPORTS);
+  el.innerHTML=pageHead('Backup & migration',provHotelPicker())+`<div class="cols2">
+   <div class="panel pad"><h3>Take this hotel's data out</h3>
+    <p class="sub">For the hotel's own copy, or when a hotel leaves Maha Hub and moves to another system. Staff passwords are never included.</p>
+    <div class="btns"><button class="btn gold" id="mbJson">Download full backup (one file)</button></div>
+    <p class="sub mt">Spreadsheet files (open in Excel, import into another system):</p>
+    <div class="btns">${exps.map(k=>`<button class="btn" data-ex="${k}">${esc(MIG_EXPORTS[k].label)}</button>`).join('')}</div>
+    <p class="sub">The full backup holds everything about this hotel, including folios, shifts and logs. Keep it safe: it contains guest personal data.</p></div>
+   <div class="panel pad"><h3>Bring data in from another system</h3>
+    <p class="sub">Download the template, fill it in from the old system, then load it here. You see a preview first and nothing is added until you confirm. Records that already exist are skipped, so a file can be loaded again safely.</p>
+    <label class="sub">What to import <select id="mbKind">${imps.map(k=>`<option value="${k}">${esc(MIG_IMPORTS[k].label)}</option>`).join('')}</select></label>
+    <div class="btns"><button class="btn" id="mbTpl">Download template</button><label class="btn ghost">Choose file to import<input id="mbFile" type="file" accept=".csv,text/csv" hidden></label></div>
+    <div id="mbPrev" class="mt"></div></div></div>
+   <p class="sub mt">Reservations and folios from another system are not imported yet. Send arrivals and in-house guests through the Guests and Companies files, and enter open reservations in the system.</p>`;
+  bindPicker(el);
+  const stamp=()=>iso(new Date());
+  $('#mbJson',el).onclick=()=>{if(!provOnly()||!H)return;if(!confirm('Download the full backup of '+H.code+'? It contains guest personal data. Keep the file safe.'))return;
+    downloadText('mahahub-'+H.code+'-backup-'+stamp()+'.json',JSON.stringify(hotelBackupObject(H)),'application/json');provLog('Downloaded full backup of '+H.code);saveDB();toast('Backup downloaded')};
+  $$('[data-ex]',el).forEach(b=>b.onclick=()=>{if(!provOnly()||!H)return;const k=b.dataset.ex;
+    downloadText('mahahub-'+H.code+'-'+k+'-'+stamp()+'.csv','﻿'+migExportCsv(H,k),'text/csv');provLog('Downloaded '+MIG_EXPORTS[k].label+' of '+H.code);saveDB();toast(MIG_EXPORTS[k].label+' downloaded')});
+  $('#mbTpl',el).onclick=()=>{const k=$('#mbKind',el).value,d=MIG_IMPORTS[k];downloadText('maha-import-'+k+'-template.csv','﻿'+toCsv([d.cols,d.sample]),'text/csv')};
+  $('#mbKind',el).onchange=()=>{$('#mbPrev',el).innerHTML=''};
+  $('#mbFile',el).onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f||!H)return;const box=$('#mbPrev',el),k=$('#mbKind',el).value,d=MIG_IMPORTS[k];
+    if(f.size>MIG_MAX_BYTES){box.innerHTML='<p class="err">That file is too large. Split it into smaller files.</p>';return}
+    const rd=new FileReader();rd.onload=()=>{const t=csvObjects(rd.result),miss=({rooms:['room_no','room_type'],guests:['last_name'],companies:['code','name']})[k].filter(c=>!t.head.includes(c));
+      if(miss.length){box.innerHTML='<p class="err">The file is missing the column(s): '+esc(miss.join(', '))+'. Download the template and use its first row.</p>';return}
+      if(t.list.length>MIG_MAX_ROWS){box.innerHTML='<p class="err">More than '+MIG_MAX_ROWS+' rows. Split the file.</p>';return}
+      const plan=migPlan(k,H,t.list),errs=plan.err.slice(0,15);
+      box.innerHTML=`<p><b>${plan.add.length}</b> to add &middot; <b>${plan.skip.length}</b> already there (skipped) &middot; <b>${plan.err.length}</b> with problems</p>
+        ${plan.newTypes.length?`<p class="sub">New room types: ${esc(plan.newTypes.map(x=>x.code+' ('+m2(x.base)+')').join(', '))}</p>`:''}
+        ${errs.length?`<ul class="sub">${errs.map(x=>`<li>Line ${x.line}: ${esc(x.msg)}</li>`).join('')}${plan.err.length>errs.length?'<li>...and more</li>':''}</ul>`:''}
+        <div class="btns"><button class="btn gold" id="mbGo" ${plan.add.length?'':'disabled'}>Add ${plan.add.length} to ${esc(H.code)}</button></div>
+        <p class="sub">Rows with problems are left out. Fix them in the file and load it again.</p>`;
+      const go=$('#mbGo',box);if(go)go.onclick=()=>{if(!provOnly())return;if(!confirm('Add '+plan.add.length+' '+d.label.toLowerCase()+' to '+H.code+'?'))return;
+        migApply(k,H,plan);provLog('Imported '+plan.add.length+' '+d.label.toLowerCase()+' into '+H.code);saveDB();box.innerHTML='<p><b>Done.</b> '+plan.add.length+' added.</p>';toast(plan.add.length+' added')};
+    };rd.readAsText(f)};
 };
 VIEWS['prov.security']=el=>{
   el.innerHTML=pageHead('Security Center',provHotelPicker())+`<div id="secB"></div>`;
