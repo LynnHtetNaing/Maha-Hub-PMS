@@ -843,6 +843,14 @@ table.roster select{width:100%;max-width:100%;height:34px;box-sizing:border-box;
 tr.co-row td{background:#fff5f5}
 .sic.back{display:inline-flex;align-items:center;gap:1px;color:#0b5f8a;font-weight:800}
 .sic.back small{font-size:9px;letter-spacing:.02em}
+.stl-vip{background:#d49a38;color:#1e1606;border-radius:3px;padding:1px 5px;font-size:10.5px;letter-spacing:.03em;min-width:0}
+.sic.cibig{width:40px;height:40px;border-radius:8px;background:#1f7a4a;color:#fff;border:1px solid #17603a;box-shadow:0 1px 3px rgba(0,0,0,.25)}.sic.cibig:hover{background:#17603a}.sic.cibig svg{width:22px;height:22px}
+tr.rblk td{background:#c3c8cd!important;color:#1f2a33}tr.rblk:hover td{background:#b7bdc3!important}
+.rline{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(130px,1.1fr) minmax(90px,.7fr) minmax(130px,1fr) 90px;gap:12px;align-items:end;padding:10px 0}.rline.withreason{grid-template-columns:minmax(150px,1.3fr) minmax(130px,1.1fr) minmax(90px,.7fr) minmax(130px,1fr) 90px minmax(170px,1.4fr)}
+.rline .rc{display:flex;flex-direction:column;gap:4px;min-width:0}.rline .rc>span{font-size:12px;color:#5a6a76;font-weight:600}.rline .rc>b{min-height:38px;display:flex;align-items:center;font-weight:600}
+.rline select,.rline input{width:100%;height:38px}
+.rline .blkSw{height:38px;border-radius:19px;border:1px solid #9aa6af;background:#e9edf0;color:#4b5963;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;padding:0 12px}.rline .blkSw[aria-pressed=true]{background:#5d6870;border-color:#444d54;color:#fff}
+.rend{display:flex;justify-content:flex-end}
 .stl-o{color:#9a2c22}.stl-i{color:#0b5f8a}.stl-ih{color:#146c3a}
 .rscreen{display:flex;flex-direction:column;gap:14px;padding:16px}
 .rscreen .hrow{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin:0}
@@ -5924,6 +5932,7 @@ const openMsgs=B=>{const r=resOf(B);return r&&r.notifs?r.notifs.filter(n=>!n.don
 function roomReady(B){const rm=B.room&&RM(B.room);return !!(rm&&roomIsVC(rm,B.id))}
 function stIcons(B,mode){const m=stayMark(B);const a=[];
   a.push(`<b class="stl stl-${m.cls}" title="${esc(m.label)}">${esc(m.k)}</b>`);
+  {const vg=G(B.guestId);if(vg&&vg.vip)a.push(`<b class="stl stl-vip" title="VIP: ${esc(vg.vip)}">VIP</b>`)}
   if(canCheckBack(B))a.push(`<button class="sic back" data-back="${B.id}" title="Check back in (Auto)">${ic('left',14)}<small>Auto</small></button>`);
   a.push(`<button class="sic" data-prc="${B.id}" title="Print registration card">${ic('print',15)}</button>`);
   if(mode==='arr')a.push(`<button class="sic ok" data-ci="${B.id}" title="Check in">${ic('bed',15)}</button>`);
@@ -5984,30 +5993,46 @@ function sortArrivals(list){
   return list.slice().sort((a,b)=>String(key(a)).localeCompare(String(key(b)),undefined,{numeric:true})||String(a.room||'').localeCompare(String(b.room||''),undefined,{numeric:true})||a.arr.localeCompare(b.arr))}
 function assignArrival(id){
   const B=bookingById(id);if(!B)return;
-  if(B.roomBlock){toast(`This room is blocked (${B.roomBlock.reason}). Clear the block before assigning another room.`);return}
-  const free=H.rooms.filter(r=>!r.dummy&&r.type===B.type&&roomFree(r.no,B.arr,B.dep,B.id)).sort((a,b)=>String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
+  if(!['confirmed','tentative'].includes(B.status)){toast('A room is assigned or blocked only for a booking that has not checked in.');return}
+  const free=H.rooms.filter(r=>!r.dummy&&r.type===B.type&&(r.no===B.room||roomFree(r.no,B.arr,B.dep,B.id))).sort((a,b)=>String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
   if(!free.length){toast(`No free ${B.type} room for ${fd(B.arr)} – ${fd(B.dep)}.`);return}
-  const m=modal('Assign room',`<p>RSVN ${resOf(B).no} · ${esc(gName(G(B.guestId)))} · ${esc(B.type)}</p><div class="form2">${fld('Free rooms',`<select id="asRm">${free.map(r=>`<option value="${r.no}" ${r.no===B.room?'selected':''}>${r.no} – ${esc(hkShort(r)||HKL[r.hk]||'')}</option>`).join('')}</select>`)}</div><div class="btns"><button class="btn gold" id="asGo">Assign</button></div>`,{w:440});
-  $('#asGo',m).onclick=()=>{if(B.roomBlock){toast(`This room is blocked (${B.roomBlock.reason}). Clear the block before assigning another room.`);return}const no=$('#asRm',m).value;if(!roomFree(no,B.arr,B.dep,B.id)){toast(`Room ${no} is not free for these dates.`);return}if(no===B.room){closeModal(m);toast(`Room ${no} is already assigned.`);return}const prev=B.room;B.room=no;histB(B,prev?`Room ${prev} → ${no}`:`Room ${no} assigned`);log(`Assigned room ${no} RSVN ${resOf(B).no}`,B.id);closeModal(m);refresh();toast(`Room ${no} assigned`)}}
-function blockArrival(id){
-  const B=bookingById(id);if(!B)return;
-  if(!B.room){toast('Assign a room before blocking it.');return}
-  if(B.roomBlock){const why=B.roomBlock.reason||'';if(!confirm(`Clear the block on room ${B.room}? The room stays assigned.${why?'\nReason: '+why:''}`))return;B.roomBlock=null;histB(B,'Room block cleared; room '+B.room+' stays assigned');log(`Cleared room block ${B.room} RSVN ${resOf(B).no}`,B.id);refresh();toast(`Block cleared. Room ${B.room} stays assigned.`);return}
-  const reason=prompt(`Block room ${B.room} for RSVN ${resOf(B).no}. The room stays assigned until the block is cleared.\n\nReason:`);if(reason===null)return;if(!String(reason).trim()){toast('A block needs a reason.');return}
-  B.roomBlock={reason:String(reason).trim(),by:user().name,at:Date.now(),room:B.room};histB(B,'Room '+B.room+' blocked: '+B.roomBlock.reason);log(`Blocked room ${B.room} RSVN ${resOf(B).no}: ${B.roomBlock.reason}`,B.id);refresh();toast(`Room ${B.room} blocked`)}
+  const was=!!B.roomBlock,rt=H.roomTypes.find(t=>t.code===B.type);
+  const info=no=>{const r=RM(no);const f=r&&(H.floors||[]).find(x=>x.id===r.floor);return {st:r?(HKL[r.hk]||hkShort(r)||''):'',fl:r?(f?f.name:(r.floor?'Floor '+r.floor:'')):''}};
+  const m=modal(`Room - RSVN ${resOf(B).no} · ${esc(gName(G(B.guestId)))}`,`<div class="rline ${was?'withreason':''}" id="asLine">
+      <label class="rc"><span>Room</span><select id="asRm" ${was?'disabled':''}>${B.room?'':'<option value="">Choose a room</option>'}${free.map(r=>`<option value="${r.no}" ${r.no===B.room?'selected':''}>${r.no} – ${esc(hkShort(r)||'')}</option>`).join('')}</select></label>
+      <div class="rc"><span>Status</span><b id="asSt">${esc(info(B.room).st)}</b></div>
+      <div class="rc"><span>Floor</span><b id="asFl">${esc(info(B.room).fl)}</b></div>
+      <div class="rc"><span>Room type</span><b>${esc(B.type)}${rt?' – '+esc(rt.name):''}</b></div>
+      <div class="rc"><span>Block</span><button type="button" class="blkSw" id="asBl" aria-pressed="${was}">${ic('lock',16)}<span id="asBlT">${was?'On':'Off'}</span></button></div>
+      <label class="rc" id="asRsW" ${was?'':'hidden'}><span>Reason</span><input id="asRs" value="${esc(was?(B.roomBlock.reason||''):'')}" placeholder="Why is it blocked?"></label>
+    </div><div class="err" id="asErr"></div>
+    <div class="btns rend"><button class="btn gold" id="asGo">Save</button></div>`,{w:was?1060:900});
+  const line=$('#asLine',m);let on=was;
+  const paintBlock=()=>{$('#asBl',m).setAttribute('aria-pressed',on);$('#asBlT',m).textContent=on?'On':'Off';$('#asRsW',m).hidden=!on;line.classList.toggle('withreason',on);$('#asRm',m).disabled=on&&was;m.style.width=on?'min(1060px,97vw)':'min(900px,97vw)'};
+  $('#asRm',m).onchange=()=>{const i=info($('#asRm',m).value);$('#asSt',m).textContent=i.st;$('#asFl',m).textContent=i.fl};
+  $('#asBl',m).onclick=()=>{on=!on;paintBlock();if(on)setTimeout(()=>{const r=$('#asRs',m);r&&r.focus()},30)};
+  $('#asGo',m).onclick=()=>{const err=$('#asErr',m);err.textContent='';
+    const room=$('#asRm',m).value||B.room||'';
+    const d=roomLineDecide({room:B.room||null,block:was?{reason:B.roomBlock.reason}:null},{room,block:on,reason:$('#asRs',m).value});
+    if(d.err){err.textContent=d.err;return}
+    if(d.assign&&!roomFree(d.assign,B.arr,B.dep,B.id)){err.textContent=`Room ${d.assign} is not free for these dates.`;return}
+    if(d.unblock){const why=B.roomBlock&&B.roomBlock.reason||'';B.roomBlock=null;histB(B,`Room block cleared; room ${B.room} stays assigned`);log(`Cleared room block ${B.room} RSVN ${resOf(B).no}${why?': '+why:''}`,B.id)}
+    if(d.assign){const prev=B.room;B.room=d.assign;histB(B,prev?`Room ${prev} → ${d.assign}`:`Room ${d.assign} assigned`);log(`Assigned room ${d.assign} RSVN ${resOf(B).no}`,B.id)}
+    if(d.block){B.roomBlock={reason:d.block.reason,by:user().name,at:Date.now(),room:B.room};histB(B,`Room ${B.room} blocked: ${d.block.reason}`);log(`Blocked room ${B.room} RSVN ${resOf(B).no}: ${d.block.reason}`,B.id)}
+    closeModal(m);refresh();toast(d.block?`Room ${B.room} blocked`:d.unblock?`Block cleared. Room ${B.room} stays assigned.`:d.assign?`Room ${d.assign} assigned`:'Nothing changed')}
+}
 VIEWS['fo.arrivals']=(el,arg)=>{
   const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to));
   el.innerHTML=pageHead('Arrivals',`<label class="ufl">From date ${ufDate('arF',sp.from)}</label><label class="ufl">To date ${ufDate('arT',sp.to)}</label><label class="ufl">Sort by <select id="arS">${ARR_SORT.map(([k,l])=>`<option value="${k}" ${arrSort===k?'selected':''}>${l}</option>`).join('')}</select></label>`,'under')+
-  `<p class="sub">The same From and To date shows that one day. Today also keeps arrivals that are still waiting from an earlier day. Click a reservation to open it. Assign chooses a free room of that type. Block holds the assigned room until the block is cleared. The $ icon shows a deposit.</p><div class="panel"><table class="grid arrfit">
-   <tr><th>Status</th><th>RSVN#</th><th>Room</th><th>Room type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>VIP</th><th>Nationality</th><th>Rate code</th><th class="n">Rate total</th><th>ETA / Flight</th><th></th></tr>
+  `<p class="sub">The same From and To date shows that one day. Today also keeps arrivals that are still waiting from an earlier day. Click a reservation to open it, or the green icon to check the guest in. Right-click a reservation to assign a room or to block it (a blocked reservation turns grey). Signs: B booking, IH in house, O checked out, VIP guest, $ deposit received.</p><div class="panel"><table class="grid arrfit">
+   <tr><th>Status</th><th>RSVN#</th><th>Room</th><th>Room type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Rate total</th><th>ETA / Flight</th><th class="c">Check in</th></tr>
    ${list.map(b=>{const r=resOf(b),g=G(b.guestId);
-     return `<tr class="click" data-open="${b.id}"><td>${stIcons(b,'')}</td><td>${r.no}</td><td>${b.room?esc(b.room):'<span class="bad">—</span>'}</td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${esc(g.vip)}</td><td>${esc(g.nationality)}</td><td>${b.rateCode}</td><td class="n">${m2(stayTotal(b))}</td><td>${esc(b.eta)}${b.flightArr?' · '+esc(b.flightArr)+' '+esc(b.flightArrTime):''}</td><td><button type="button" class="sic" data-asg="${b.id}" title="Assign a free ${esc(b.type)} room">${ic('pin',16)}</button><button type="button" class="sic ${b.roomBlock?'msg':''}" data-blk="${b.id}" title="${b.roomBlock?esc('Blocked: '+b.roomBlock.reason+' — click to clear the block'):'Block this room'}">${ic('lock',16)}</button></td></tr>`}).join('')||'<tr><td colspan="16" class="empty">No arrivals in this period.</td></tr>'}
-   <tr class="tot"><td colspan="5">Total</td><td>${sum(list,b=>b.adults)}/${sum(list,b=>b.children)}</td><td colspan="2">${list.length} room(s)</td><td class="n">${sum(list,nights)}</td><td colspan="7"></td></tr></table></div>`;
+     return `<tr class="click ${b.roomBlock?'rblk':''}" data-open="${b.id}" title="${b.roomBlock?esc('Room '+b.room+' blocked: '+b.roomBlock.reason+'. Right-click to change.'):'Right-click to assign or block a room'}"><td>${stIcons(b,'')}</td><td>${r.no}</td><td>${b.room?esc(b.room):'<span class="bad">—</span>'}</td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n">${m2(stayTotal(b))}</td><td>${esc(b.eta)}${b.flightArr?' · '+esc(b.flightArr)+' '+esc(b.flightArrTime):''}</td><td class="c">${b.arr<=H.set.bd&&['confirmed','tentative'].includes(b.status)?`<button type="button" class="sic cibig" data-ci="${b.id}" title="Check in" aria-label="Check in">${ic('bed',22)}</button>`:'<span class="sub">—</span>'}</td></tr>`}).join('')||'<tr><td colspan="14" class="empty">No arrivals in this period.</td></tr>'}
+   <tr class="tot"><td colspan="5">Total</td><td>${sum(list,b=>b.adults)}/${sum(list,b=>b.children)}</td><td colspan="2">${list.length} room(s)</td><td class="n">${sum(list,nights)}</td><td colspan="5"></td></tr></table></div>`;
   const pick=()=>{const spn=readPair(el,'arF','arT');if(!spn){toast('Enter From date and To date as dd/mm/yyyy.');return}go('fo.arrivals',spn)};
   $('#arF',el).onchange=pick;$('#arT',el).onchange=pick;$('#arS',el).onchange=()=>{arrSort=$('#arS',el).value;pick()};bindDatePick(el);
   bindSide(el,'',()=>render());
-  $$('[data-asg]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();assignArrival(b.dataset.asg)});
-  $$('[data-blk]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();blockArrival(b.dataset.blk)});
+  $$('[data-open]',el).forEach(t=>t.oncontextmenu=e=>{e.preventDefault();assignArrival(t.dataset.open)});
   $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);go(B.arr<=H.set.bd&&['confirmed','tentative'].includes(B.status)?'fo.arrivals2':'res.open',B.id)});
 };
 let AS={by:'room',q:'',sel:null};
@@ -6305,21 +6330,50 @@ function copyReservation(B){const r=resOf(B);const start=B.status==='inhouse'||B
   nb.copyOf=B.id;nb.remark='Copy of RSVN '+r.no+' (extension)';nr.bookings.push(nb);H.reservations.push(nr);histB(nb,'Created by copy from RSVN '+r.no);log(`Copied RSVN ${r.no} to ${nr.no}`,nb.id);saveDB();return nb}
 
 /* ---------- new reservation / walk-in ---------- */
+/* ---- Nationalities: type a country or a nationality, the matching nationality is chosen ---- */
+const NATION_DATA="Afghanistan|Afghan;Albania|Albanian;Algeria|Algerian;Andorra|Andorran;Angola|Angolan;Antigua and Barbuda|Antiguan;Argentina|Argentine;Armenia|Armenian;Australia|Australian;Austria|Austrian;Azerbaijan|Azerbaijani;Bahamas|Bahamian;Bahrain|Bahraini;Bangladesh|Bangladeshi;Barbados|Barbadian;Belarus|Belarusian;Belgium|Belgian;Belize|Belizean;Benin|Beninese;Bhutan|Bhutanese;Bolivia|Bolivian;Bosnia and Herzegovina|Bosnian;Botswana|Motswana;Brazil|Brazilian;Brunei|Bruneian;Bulgaria|Bulgarian;Burkina Faso|Burkinabe;Burundi|Burundian;Cambodia|Cambodian;Cameroon|Cameroonian;Canada|Canadian;Cape Verde|Cape Verdean;Central African Republic|Central African;Chad|Chadian;Chile|Chilean;China|Chinese;Colombia|Colombian;Comoros|Comorian;Congo|Congolese;Democratic Republic of the Congo|Congolese;Costa Rica|Costa Rican;Croatia|Croatian;Cuba|Cuban;Cyprus|Cypriot;Czech Republic|Czech;Denmark|Danish;Djibouti|Djiboutian;Dominica|Dominican;Dominican Republic|Dominican;Ecuador|Ecuadorian;Egypt|Egyptian;El Salvador|Salvadoran;Equatorial Guinea|Equatorial Guinean;Eritrea|Eritrean;Estonia|Estonian;Eswatini|Swazi;Ethiopia|Ethiopian;Fiji|Fijian;Finland|Finnish;France|French;Gabon|Gabonese;Gambia|Gambian;Georgia|Georgian;Germany|German;Ghana|Ghanaian;Greece|Greek;Grenada|Grenadian;Guatemala|Guatemalan;Guinea|Guinean;Guinea-Bissau|Bissau-Guinean;Guyana|Guyanese;Haiti|Haitian;Honduras|Honduran;Hong Kong|Hong Konger;Hungary|Hungarian;Iceland|Icelandic;India|Indian;Indonesia|Indonesian;Iran|Iranian;Iraq|Iraqi;Ireland|Irish;Israel|Israeli;Italy|Italian;Ivory Coast|Ivorian;Jamaica|Jamaican;Japan|Japanese;Jordan|Jordanian;Kazakhstan|Kazakh;Kenya|Kenyan;Kiribati|I-Kiribati;Kosovo|Kosovar;Kuwait|Kuwaiti;Kyrgyzstan|Kyrgyz;Laos|Lao;Latvia|Latvian;Lebanon|Lebanese;Lesotho|Basotho;Liberia|Liberian;Libya|Libyan;Liechtenstein|Liechtensteiner;Lithuania|Lithuanian;Luxembourg|Luxembourger;Macau|Macanese;Madagascar|Malagasy;Malawi|Malawian;Malaysia|Malaysian;Maldives|Maldivian;Mali|Malian;Malta|Maltese;Marshall Islands|Marshallese;Mauritania|Mauritanian;Mauritius|Mauritian;Mexico|Mexican;Micronesia|Micronesian;Moldova|Moldovan;Monaco|Monegasque;Mongolia|Mongolian;Montenegro|Montenegrin;Morocco|Moroccan;Mozambique|Mozambican;Myanmar|Myanmar;Namibia|Namibian;Nauru|Nauruan;Nepal|Nepalese;Netherlands|Dutch;New Zealand|New Zealander;Nicaragua|Nicaraguan;Niger|Nigerien;Nigeria|Nigerian;North Korea|North Korean;North Macedonia|Macedonian;Norway|Norwegian;Oman|Omani;Pakistan|Pakistani;Palau|Palauan;Palestine|Palestinian;Panama|Panamanian;Papua New Guinea|Papua New Guinean;Paraguay|Paraguayan;Peru|Peruvian;Philippines|Filipino;Poland|Polish;Portugal|Portuguese;Puerto Rico|Puerto Rican;Qatar|Qatari;Romania|Romanian;Russia|Russian;Rwanda|Rwandan;Saint Kitts and Nevis|Kittitian;Saint Lucia|Saint Lucian;Saint Vincent and the Grenadines|Vincentian;Samoa|Samoan;San Marino|Sammarinese;Sao Tome and Principe|Sao Tomean;Saudi Arabia|Saudi;Senegal|Senegalese;Serbia|Serbian;Seychelles|Seychellois;Sierra Leone|Sierra Leonean;Singapore|Singaporean;Slovakia|Slovak;Slovenia|Slovenian;Solomon Islands|Solomon Islander;Somalia|Somali;South Africa|South African;South Korea|Korean;South Sudan|South Sudanese;Spain|Spanish;Sri Lanka|Sri Lankan;Sudan|Sudanese;Suriname|Surinamese;Sweden|Swedish;Switzerland|Swiss;Syria|Syrian;Taiwan|Taiwanese;Tajikistan|Tajik;Tanzania|Tanzanian;Thailand|Thai;Timor-Leste|Timorese;Togo|Togolese;Tonga|Tongan;Trinidad and Tobago|Trinidadian;Tunisia|Tunisian;Turkey|Turkish;Turkmenistan|Turkmen;Tuvalu|Tuvaluan;Uganda|Ugandan;Ukraine|Ukrainian;United Arab Emirates|Emirati;United Kingdom|British;United States|American;Uruguay|Uruguayan;Uzbekistan|Uzbek;Vanuatu|Ni-Vanuatu;Vatican City|Vatican;Venezuela|Venezuelan;Vietnam|Vietnamese;Yemen|Yemeni;Zambia|Zambian;Zimbabwe|Zimbabwean";
+const NATION_ALIASES="Burma|Myanmar;UK|British;Great Britain|British;England|British;Scotland|British;Wales|British;USA|American;US|American;America|American;UAE|Emirati;Korea|Korean;Holland|Dutch;Czechia|Czech;Turkiye|Turkish;Cote d Ivoire|Ivorian;Lao PDR|Lao;Viet Nam|Vietnamese;Burmese|Myanmar";
+const NATIONS=NATION_DATA.split(';').map(x=>{const p=x.split('|');return {country:p[0],nat:p[1]}});
+const natNorm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const _natIndex=(()=>{const m=new Map();NATIONS.forEach(n=>{if(!m.has(natNorm(n.nat)))m.set(natNorm(n.nat),n.nat)});NATIONS.forEach(n=>{if(!m.has(natNorm(n.country)))m.set(natNorm(n.country),n.nat)});
+  NATION_ALIASES.split(';').forEach(x=>{const p=x.split('|');if(!m.has(natNorm(p[0])))m.set(natNorm(p[0]),p[1])});return m})();
+/* what was typed -> the nationality name; anything that matches nothing is kept as typed */
+function natResolve(text){const raw=String(text==null?'':text).trim();if(!raw)return '';const k=natNorm(raw);if(!k)return raw;
+  if(_natIndex.has(k))return _natIndex.get(k);
+  const hits=new Set();_natIndex.forEach((nat,key)=>{if(key.startsWith(k))hits.add(nat)});
+  return hits.size===1?[...hits][0]:raw}
+/* the list shown while typing: the nationality, with its country beside it */
+const natOptions=()=>NATIONS.map(n=>`<option value="${n.nat}" label="${n.country}"></option>`).join('');
+/* ---- end Nationalities ---- */
+/* ---- Room line: assign a room and block it from one popup ---- */
+/* now: {room, block:{reason}|null}; want: {room, block:boolean, reason}. Returns {err} or what to do. */
+function roomLineDecide(now,want){
+  const room=want.room||now.room||null;
+  if(now.block){
+    if(want.block)return {unblock:false,assign:null,block:null};                       /* stays blocked: the room cannot change */
+    return {unblock:true,assign:room&&room!==now.room?room:null,block:null}}
+  const assign=room&&room!==now.room?room:null;
+  if(want.block){
+    if(!room)return {err:'Choose a room before blocking it.'};
+    if(!String(want.reason||'').trim())return {err:'A block needs a reason.'};
+    return {unblock:false,assign,block:{reason:String(want.reason).trim(),room}}}
+  return {unblock:false,assign,block:null}}
+/* ---- end Room line ---- */
 function newReservation(el,pre,walkin){
   const arr=pre.arr||H.set.bd,dep=addD(arr,1),type=pre.room?RM(pre.room).type:H.roomTypes[0].code;
-  el.innerHTML=pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':'')+`<div class="rscreen"><div class="pn"><div class="pnh blue">Guest</div><div class="pnb g4">
-    ${fld('Find returning guest',`<input id="nG" list="nGl" placeholder="Type a name to search" autocomplete="off"><datalist id="nGl">${H.guests.map(g=>`<option value="${esc(gName(g))} #${g.profileId}">`).join('')}</datalist>`,'span2')}
-    ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('Last name',`<input id="nL" autofocus>`)}${fld('First name',`<input id="nF">`)}${fld('Nationality',`<input id="nN" value="${esc(H.set.nat)}">`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}</div></div>
-   <div class="pn"><div class="pnh grey">Stay</div><div class="pnb g4">
+  el.innerHTML=pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':'')+`<div class="rscreen"><div class="pn"><div class="pnh blue">Guest</div><div class="pnb g3">
+    ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('First name',`<input id="nF">`)}${fld('Last name',`<input id="nL" autofocus>`)}
+    ${fld('Nationality',`<input id="nN" list="natList" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type a country or nationality"><datalist id="natList">${natOptions()}</datalist>`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}</div></div>
+      <div class="pn"><div class="pnh lblue">Production</div><div class="pnb g4">
+    ${fld('Company / T/A',`<select id="nCo">${H.companies.map(c=>opt(c.id,`(${c.type}) ${c.name}`,walkin?'c7':'c6')).join('')}</select>`,'span2')}${fld('Reference',`<input id="nRef">`)}
+    ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
+    ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Remark',`<input id="nRem">`,'span2')}</div></div>
+      <div class="pn"><div class="pnh grey">Stay</div><div class="pnb g4">
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
     ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
     ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}
     ${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}</div></div>
-   <div class="pn"><div class="pnh lblue">Production</div><div class="pnb g4">
-    ${fld('Company / T/A',`<select id="nCo">${H.companies.map(c=>opt(c.id,`(${c.type}) ${c.name}`,walkin?'c7':'c6')).join('')}</select>`,'span2')}${fld('Reference',`<input id="nRef">`)}
-    ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
-    ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Remark',`<input id="nRem">`,'span2')}</div></div>
-   <div class="pn"><div class="pnh orange">Billing address</div><div class="pnb g4">
+      <div class="pn"><div class="pnh orange">Billing address</div><div class="pnb g4">
     ${fld('Bill to',`<select id="nBill">${opt('company','Company / agency')}${opt('guest','Guest profile')}${opt('other','Another address')}</select>`)}
     ${fld('Bill name',`<input id="nBn" placeholder="Another address">`)}${fld('Tax ID',`<input id="nBtx">`)}${fld('Branch',`<input id="nBbr">`)}
     ${fld('Address',`<input id="nBa" placeholder="Street, city">`,'span2')}</div>
@@ -6329,6 +6383,9 @@ function newReservation(el,pre,walkin){
     ${fld('Payment',`<select id="nPay">${TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&payEnabled(c)).map(c=>opt(c.code,c.code+' – '+c.desc,'900')).join('')}</select>`)}
     ${fld('Reference',`<input id="nPref" maxlength="60" placeholder="Optional">`,'span2')}</div>
     <p class="sub">Leave the amount at 0 to post the deposit later from the reservation. A deposit is an advance: three lines, with the red receipt in Folio 4. Saving opens the deposit invoice.</p></div>`}
+   <div class="pn"><div class="pnh grey">Find returning guest</div><div class="pnb g4">
+    ${fld('Search a guest who stayed before',`<input id="nG" list="nGl" placeholder="Type a name to search" autocomplete="off"><datalist id="nGl">${H.guests.map(g=>`<option value="${esc(gName(g))} #${g.profileId}">`).join('')}</datalist>`,'span2')}</div>
+    <p class="sub">Choose a guest and the title, name, nationality, phone and email above are filled in.</p></div>
    <div class="quote" id="nQ"></div><div class="err" id="nErr"></div>
    <div class="btns"><button class="btn gold" id="nSave">${walkin?'Save and check in':'Save reservation'}</button><button class="btn ghost" id="nX">Cancel</button></div></div>`;
   const q=s=>$(s,el);
@@ -6343,6 +6400,7 @@ function newReservation(el,pre,walkin){
   const syncBill=()=>{if(q('#nBill').dataset.touched)return;const co=CO(q('#nCo').value);q('#nBill').value=co&&co.code!=='WIN'&&co.code!=='DIR'?'company':'guest'};
   q('#nCo').addEventListener('change',()=>{syncBill();upd()});q('#nBill').addEventListener('change',()=>{q('#nBill').dataset.touched='1'});
   q('#nG').onchange=()=>{const m=q('#nG').value.match(/#(\d+)$/);const g=m&&H.guests.find(x=>String(x.profileId)===m[1]);if(g){q('#nT').value=g.title;q('#nL').value=g.last;q('#nF').value=g.first;q('#nN').value=g.nationality;q('#nP').value=g.phone;q('#nE').value=g.email;q('#nG').dataset.gid=g.id}};
+  q('#nN').addEventListener('change',()=>{q('#nN').value=natResolve(q('#nN').value)});
   syncBill();
   upd();q('#nX').onclick=()=>go('fo.status');
   q('#nSave').onclick=()=>{const err=q('#nErr');if(!need('res.create'))return;
@@ -6353,7 +6411,7 @@ function newReservation(el,pre,walkin){
     const re_=rateError(rt,rateKindOf(rcd));if(re_){err.textContent=re_;return}
     const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0){err.textContent='The deposit cannot be below 0.';return}
     let g=q('#nG').dataset.gid&&H.guests.find(x=>x.id===q('#nG').dataset.gid);
-    if(!g||g.last!==last){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:q('#nT').value,last,first:q('#nF').value.trim(),middle:'',other:'',jobTitle:'',company:'',nationality:q('#nN').value.trim(),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:q('#nE').value.trim(),phone:q('#nP').value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(g)}
+    if(!g||g.last!==last){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:q('#nT').value,last,first:q('#nF').value.trim(),middle:'',other:'',jobTitle:'',company:'',nationality:natResolve(q('#nN').value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:q('#nE').value.trim(),phone:q('#nP').value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(g)}
     const r={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.last+', '+g.first,reference:q('#nRef').value.trim(),phone:g.phone,fax:'',email:g.email,confirmation:'0',companyId:q('#nCo').value,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};{const c_=CO(q('#nCo').value);r.commPct=commPct(c_);r.commBasis=commBasis(c_)}
     const B=newBooking(H,{guestId:g.id,type:t,room,arr:a,dep:d,rateCode:rcd,status:q('#nBt').value==='FT'?'tentative':'confirmed',market:q('#nMk').value,channel:q('#nChn').value,source:q('#nSrc').value,adults:+q('#nAd').value||1,children:+q('#nCh').value||0,remark:q('#nRem').value.trim()});
     Object.keys(B.nightly).forEach(k=>B.nightly[k]=rt);B.bkType=q('#nBt').value;
