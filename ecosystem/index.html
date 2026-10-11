@@ -872,9 +872,41 @@ const diff=(a,b)=>Math.round((P(b)-P(a))/864e5);
 const fd=s=>{if(!s)return '';const[y,m,d]=s.split('-');return `${d}/${m}/${y}`};
 const fdWide=s=>P(s).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
 const fdCompact=s=>{if(!s)return '';try{return P(s).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}catch(e){return fd(s)}};
-const tm=t=>{if(!t)return '';const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())};
-const fdt=t=>fd(iso(new Date(t)))+' '+tm(t);
-const tms=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())};
+/* ---- Time zones. A moment is stored once, as a universal timestamp. It is SHOWN in:
+   - the hotel's own time zone (hotel screens, logs, reports, invoices and every printed document), whatever the
+     computer's clock settings are; no zone label is added to hotel screens;
+   - Bangkok time on the provider's own console (BKK), so provider logs read the same on any computer. ---- */
+const PROVIDER_ZONE='Asia/Bangkok';
+const TZ_LIST=[['Asia/Bangkok','Bangkok - Thailand (UTC+7)'],['Asia/Yangon','Yangon - Myanmar (UTC+6:30)'],['Asia/Ho_Chi_Minh','Ho Chi Minh - Vietnam (UTC+7)'],['Asia/Vientiane','Vientiane - Laos (UTC+7)'],['Asia/Phnom_Penh','Phnom Penh - Cambodia (UTC+7)'],['Asia/Singapore','Singapore (UTC+8)'],['Asia/Kuala_Lumpur','Kuala Lumpur - Malaysia (UTC+8)'],['Asia/Jakarta','Jakarta - Indonesia (UTC+7)'],['Asia/Makassar','Makassar / Bali - Indonesia (UTC+8)'],['Asia/Manila','Manila - Philippines (UTC+8)'],['Asia/Hong_Kong','Hong Kong (UTC+8)'],['Asia/Shanghai','China (UTC+8)'],['Asia/Taipei','Taipei (UTC+8)'],['Asia/Tokyo','Tokyo - Japan (UTC+9)'],['Asia/Seoul','Seoul - Korea (UTC+9)'],['Asia/Kolkata','India (UTC+5:30)'],['Asia/Colombo','Sri Lanka (UTC+5:30)'],['Asia/Dhaka','Dhaka - Bangladesh (UTC+6)'],['Asia/Kathmandu','Kathmandu - Nepal (UTC+5:45)'],['Asia/Dubai','Dubai (UTC+4)'],['Australia/Sydney','Sydney - Australia'],['Europe/London','London - UK'],['UTC','UTC']];
+const tzOptions=sel=>TZ_LIST.map(([z,l])=>`<option value="${z}" ${z===(sel||'Asia/Bangkok')?'selected':''}>${l}</option>`).join('');
+/* the zone used to show times right now: Bangkok on the provider console, the hotel's zone everywhere else */
+function dispZone(){
+  try{
+    if(typeof DB!=='undefined'&&DB&&DB.session&&DB.session.provider&&!DB.session.inHotel)return PROVIDER_ZONE;
+    const z=typeof H!=='undefined'&&H&&H.set&&H.set.tz;return z||'';
+  }catch(e){return ''}
+}
+const _tzFmt={};
+/* the date and clock parts of a moment in a zone ('' or an unknown zone = this computer's own clock, the old behaviour) */
+function tzp(t,zone){
+  const d=new Date(t);
+  if(zone){
+    try{
+      const f=_tzFmt[zone]||(_tzFmt[zone]=new Intl.DateTimeFormat('en-GB',{timeZone:zone,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+      const o={};f.formatToParts(d).forEach(p=>{o[p.type]=p.value});
+      return {y:o.year,m:o.month,d:o.day,h:o.hour==='24'?'00':o.hour,mi:o.minute,s:o.second};
+    }catch(e){}
+  }
+  return {y:String(d.getFullYear()),m:pad(d.getMonth()+1),d:pad(d.getDate()),h:pad(d.getHours()),mi:pad(d.getMinutes()),s:pad(d.getSeconds())};
+}
+const tm=t=>{if(!t)return '';const q=tzp(t,dispZone());return q.h+':'+q.mi};
+const tms=t=>{const q=tzp(t,dispZone());return q.h+':'+q.mi+':'+q.s};
+const fdt=t=>{if(!t)return '';const q=tzp(t,dispZone());return q.d+'/'+q.m+'/'+q.y+' '+q.h+':'+q.mi};
+const dateOf=t=>{const q=tzp(t,dispZone());return q.y+'-'+q.m+'-'+q.d};      /* YYYY-MM-DD of a moment in the display zone */
+const todayZ=()=>dateOf(Date.now());
+const tmIn=(t,zone)=>{const q=tzp(t,zone);return q.h+':'+q.mi};
+/* provider logs: note the hotel's own clock time next to the Bangkok time when the hotel is in another zone */
+function hotelTimeNote(code,t){const h=DB&&DB.hotels&&code&&DB.hotels[code];const z=h&&h.set&&h.set.tz;if(!z||z===PROVIDER_ZONE)return '';return ' (hotel time '+tmIn(t,z)+')'}
 const r2=n=>Math.round((+n||0)*100)/100;
 const m2=n=>r2(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -1050,6 +1082,7 @@ function ensureMasterProvider(){
 function defaultFeatures(){return {city:true,petty:true,buy:true,roster:true,groups:true,tax:true,help:true,ai:true,dashboard:true,confirm:true}}
 function shapeHotel(h){
   if(!h||!h.set)return;
+  if(!h.set.tz)h.set.tz='Asia/Bangkok';      /* hotels made before time zones existed */
   h.cityLedger=Array.isArray(h.cityLedger)?h.cityLedger:[];
   h.petty=Array.isArray(h.petty)?h.petty:[];
   if(h.pettyFloat==null)h.pettyFloat=0;
@@ -1859,7 +1892,7 @@ const ProvAdmin={
   },
   async createHotel(o){
     const d=await this.call({action:'create_hotel',organization_name:o.name,property_name:o.name,property_code:o.code,username:o.user,email:o.email,role:'property_admin'});
-    const h=emptyHotel({code:o.code,name:o.name,cur:o.cur,bd:o.bd});
+    const h=emptyHotel({code:o.code,name:o.name,cur:o.cur,bd:o.bd,tz:o.tz});
     h.users.push(mkUser('u'+uid(),o.user,'Owner','Manager',randomSecret()));shapeHotel(h);DB.hotels[o.code]=h;
     await ProvSync.adopt(o.code,d.property_id);
     return d;
@@ -5238,7 +5271,7 @@ function notifInRange(row,kind,from,to){
 }
 function openNotifyCenter(){
   if(!H||!DB.session){showLogin();return}
-  const today=H.set.bd||iso(new Date());
+  const today=H.set.bd||todayZ();
   const m=modal(`${ic('bell',18)} Notifications`,`<div class="nfilt">
     <label class="f"><span>Date type</span><select id="nfKind"><option value="created">Created date</option><option value="effective">Effective date</option></select></label>
     <label class="f"><span>From</span><input type="date" id="nfFrom" value="${addD(today,-14)}"></label>
@@ -5306,7 +5339,7 @@ function refresh(){saveDB();render()}
 
 /* ---------- login + ecosystem (Maha Hub compound) ---------- */
 let lgProvider=false,lgShift=null,lgTargetSys=null,lgPickAnim=null,fails=0,lockUntil=0;
-function suggestShift(){const h=new Date().getHours();return h>=6&&h<14?'Morning':h>=14&&h<22?'Afternoon':'Night'}
+function suggestShift(){const h=+tzp(Date.now(),dispZone()).h;return h>=6&&h<14?'Morning':h>=14&&h<22?'Afternoon':'Night'}
 function ecoSysLabel(kind){
   return ({hub:'Maha PMS',connect:'Maha Connect',book:'Maha Booking',reach:'Maha Reach',sales:'Maha Sales'}[kind])||'Maha Hub';
 }
@@ -5768,7 +5801,7 @@ VIEWS['fo.status']=el=>{
   $('#hsPr',el).onclick=()=>printPages(hotelStatusPrint(S,{mtdRev,todayRev,depBal,HK,acts,stl}),'Hotel Status');
 };
 function hotelStatusPrint(S,x){const bd=S.bd,now=new Date(),fit=a=>a.filter(b=>!S.grp(b)),gp=a=>a.filter(S.grp),d=(p,a)=>p-a===0?'-':p-a;
-  const head=(pg,n)=>`<div class="hpH"><div><b class="hpN">${esc(H.set.name)}</b><div class="hpT">HOTEL STATUS</div><div>Business date : ${fd(bd)}</div></div><div class="hpR">Page ${pg} of ${n}<br>Printed On : ${fd(iso(now))} ${tm(now)}<br>By : ${esc(user().name)}</div></div>`;
+  const head=(pg,n)=>`<div class="hpH"><div><b class="hpN">${esc(H.set.name)}</b><div class="hpT">HOTEL STATUS</div><div>Business date : ${fd(bd)}</div></div><div class="hpR">Page ${pg} of ${n}<br>Printed On : ${fd(dateOf(now))} ${tm(now)}<br>By : ${esc(user().name)}</div></div>`;
   const cards=[['Stay Over',S.stay],['Expect Arrival',S.arrPend],['Expect Departure',S.depPend],['Current In-house',S.ih],['Project Arrival',S.arrProj],['Project Departure',S.depProj],['Project Occupied Room',S.occProj]];
   const tr=(l,c,sub)=>`<tr class="${sub?'sb':''}"><td>${sub?'&nbsp;&nbsp;&nbsp;- '+l:l}</td>${c.map((v,i)=>`<td class="n ${i<2&&c.length===6?'var':''}">${v}</td>`).join('')}</tr>`;
   const tri=(l,A,P,nv)=>{const o=[tr(l,[nv?'-':d(P.length,A.length),nv?'-':d(pxOf(P),pxOf(A)),A.length,pxOf(A),P.length,pxOf(P)])];[['FIT',fit],['Group',gp]].forEach(([n,f])=>{const a=f(A),p=f(P);o.push(tr(n,[nv?'-':d(p.length,a.length),nv?'-':d(pxOf(p),pxOf(a)),a.length,pxOf(a),p.length,pxOf(p)],true))});return o.join('')};
@@ -6925,7 +6958,7 @@ function moneyTotals(box){const cur=H.set.curWord.charAt(0)+H.set.curWord.slice(
   const svc=H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(t.svc)}</td></tr>`:'';
   return `<table class="ivtot"><tr><td>Total Balance (${esc(cur)})</td><td class="n">${m2(box.balance)}</td></tr>${svc}<tr><td>Vatable</td><td class="n">${m2(r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(box.nonvat||0)}</td></tr><tr class="grand"><td>Total Amount (${esc(cur)})</td><td class="n">${m2(gross)}</td></tr></table><div class="ivw">${amountWords(gross)}</div>`}
 function hotelHead(){return `<div class="ivh"><div><b class="ivn">${esc(H.set.name)}</b><div class="ivl"><b>${esc(H.set.legal)}</b><br><b>${esc(H.set.branch)}</b><br>${esc(H.set.addr)}<br>Tel. : ${esc(H.set.phone)}${H.set.fax?' Fax. : '+esc(H.set.fax):''}<br>HOTEL TAX ID : ${esc(H.set.taxId)}<br>Website : ${esc(H.set.web)} | E-Mail : ${esc(H.set.email)}</div></div><img src="${docLogo()}" class="ivlogo" alt=""></div>`}
-function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spec.billTo,spec.billTo==='other'?spec.other:null),pages=chunkDoc(flattenDoc(spec.rows)),now=fd(iso(new Date()))+' '+tms(Date.now());
+function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spec.billTo,spec.billTo==='other'?spec.other:null),pages=chunkDoc(flattenDoc(spec.rows)),now=fd(todayZ())+' '+tms(Date.now());
   const sets=spec.copies==='copy'?['COPY']:spec.copies==='original'?['ORIGINAL']:['ORIGINAL','COPY'];
   const totals=moneyTotals(spec);const coName=companyLine(B,bt);
   const page=(chunk,pi,label)=>{const rows=chunk.slice();while(rows.length<DOC_ROWS)rows.push({t:'e'});
@@ -7246,7 +7279,7 @@ VIEWS['prov.perms']=el=>{
   $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}if(u.active!==false&&H.shifts.some(s=>s.userId===u.id&&s.status==='open')){toast('Close this person\'s open shift first.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
     $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
-      $('#auE',m).textContent='Creating the loginâ€¦';
+      $('#auE',m).textContent='Creating the login...';
       ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff'}).then(d=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast(d&&d.invitation_sent===false?'Login created, but the email could not be sent now. Use Reset password in a few minutes.':'Login created. A set-password email was sent.')},err=>{$('#auE',m).textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){$('#auE',m).textContent='The password needs at least 8 characters.';return}
       const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,p);nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;H.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render()}};
@@ -7323,7 +7356,7 @@ VIEWS['me.profile']=el=>{const se=DB.session;const u=H&&H.users.find(x=>x.id===s
   $('#mpCompact',el).onclick=()=>{applyDensity('compact');toast('Compact layout on');render()};
   $('#mpS',el).onclick=()=>{const e=$('#mpE',el).value.trim(),b=$('#mpB',el).value;
     if(e&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){$('#mpErr',el).textContent='Check the email address.';return}
-    if(b&&b>iso(new Date())){$('#mpErr',el).textContent='The date of birth cannot be in the future.';return}
+    if(b&&b>todayZ()){$('#mpErr',el).textContent='The date of birth cannot be in the future.';return}
     u.profile={fullName:$('#mpN',el).value.trim(),dob:b,gender:$('#mpG',el).value,phone:$('#mpP',el).value.trim(),email:e,nationality:$('#mpNa',el).value.trim(),at:Date.now()};
     log('Updated own profile');saveDB();$('#mpErr',el).textContent='';toast('Profile saved')};
 };
@@ -7419,7 +7452,7 @@ function fcTable(tab,D,ds){const T=H.roomTypes.filter(t=>!t.dummy);let head=[],r
   return {html,plain,tsv,title,head,rows}}
 function fcPrint(t,to,days){const now=new Date(),per=26,pages=[];for(let i=0;i<Math.max(1,t.rows.length);i+=per)pages.push(t.rows.slice(i,i+per));
   const isDate=v=>/^\d{4}-\d{2}-\d{2}$/.test(v);
-  return pages.map((rs,pi)=>`<div class="ppage land fcprt"><div class="hpH"><div><b class="hpN">${esc(H.set.name)}</b><div class="hpT">FORECAST – ${esc(t.title.toUpperCase())}</div><div>Date : ${fd(FC.from)} To ${fd(to)} (${days} days) · Tentative F.I.T ${FC.tentFit?'included':'excluded'}, Group ${FC.tentGrp?'included':'excluded'}</div></div><div class="hpR">Page ${pi+1} of ${pages.length}<br>Printed On : ${fd(iso(now))} ${tm(now)}<br>By : ${esc(user().name)}</div></div>
+  return pages.map((rs,pi)=>`<div class="ppage land fcprt"><div class="hpH"><div><b class="hpN">${esc(H.set.name)}</b><div class="hpT">FORECAST – ${esc(t.title.toUpperCase())}</div><div>Date : ${fd(FC.from)} To ${fd(to)} (${days} days) · Tentative F.I.T ${FC.tentFit?'included':'excluded'}, Group ${FC.tentGrp?'included':'excluded'}</div></div><div class="hpR">Page ${pi+1} of ${pages.length}<br>Printed On : ${fd(dateOf(now))} ${tm(now)}<br>By : ${esc(user().name)}</div></div>
    <table class="hpt"><tr>${t.head.map((h,i)=>`<th class="${i?'n':''}">${esc(h)}</th>`).join('')}</tr>${rs.map(r=>`<tr>${r.map((v,i)=>`<td class="${i?'n':''}">${esc(i===0&&isDate(v)?P(v).toLocaleDateString('en-US',{weekday:'short'})+' '+fd(v):v)}</td>`).join('')}</tr>`).join('')}</table><div class="hpF">Maha Hub PMS · ${VERSION}</div></div>`).join('')}
 function allotmentForm(){if(!need('setup'))return;
   const m=modal('Add allotment',`<div class="form2">${fld('Company / Agency',`<select id="alC">${H.companies.map(c=>opt(c.id,`(${c.type}) ${c.name}`)).join('')}</select>`,'span2')}${fld('Room type',`<select id="alT">${H.roomTypes.map(t=>opt(t.code,t.code+' – '+t.name)).join('')}</select>`)}${fld('Rooms per night',`<input type="number" id="alR" min="1" value="2">`)}
@@ -7562,8 +7595,8 @@ function roomPopup(no){const rm=RM(no),s=roomState(rm),E=can('hk')&&!user().prov
 /* ================= Provider console (the "backend" setup, prototype) ================= */
 const CUR_WORDS={THB:['BAHT','SATANG','Thailand'],MMK:['KYATS','PYAS','Myanmar'],USD:['US DOLLARS','CENTS',''],SGD:['SINGAPORE DOLLARS','CENTS','Singapore'],
   MYR:['RINGGIT','SEN','Malaysia'],VND:['DONG','XU','Vietnam'],LAK:['KIP','ATT','Laos'],KHR:['RIEL','SEN','Cambodia'],IDR:['RUPIAH','SEN','Indonesia'],PHP:['PESOS','CENTAVOS','Philippines']};
-function emptyHotel(o){const bd=o.bd||iso(new Date());const cw=CUR_WORDS[o.cur]||[o.cur,'',''];
-  return {code:o.code,active:false,createdAt:Date.now(),set:{name:o.name,legal:'',branch:'Head Office',addr:'',phone:'',fax:'',taxId:'',email:'',web:'',cur:o.cur,curWord:cw[0],subWord:cw[1],
+function emptyHotel(o){const bd=o.bd||todayZ();const cw=CUR_WORDS[o.cur]||[o.cur,'',''];
+  return {code:o.code,active:false,createdAt:Date.now(),set:{name:o.name,tz:o.tz||'Asia/Bangkok',legal:'',branch:'Head Office',addr:'',phone:'',fax:'',taxId:'',email:'',web:'',cur:o.cur,curWord:cw[0],subWord:cw[1],
       svc:o.svc??10,vat:o.vat??7,taxName:o.taxName||'VAT',country:o.country||cw[2],nat:o.nat||'',formCode:'',bd,lockedThrough:addD(bd,-1),checkIn:'14:00',checkOut:'12:00',
       nextRsv:1001,nextInternal:1001,nextInv:1,nextSys:1,nextProfile:1,building:'Non-Building',terms:null,payOff:{},codeVat:{},payLogos:{}},
     floors:[],floorPlans:{},roomTypes:[],rateCodes:[{code:'RO',desc:'Room Only',valid:bd,until:'2050-12-31',kind:'pct',v:0,meal:''},{code:'COMP',desc:'Complimentary',valid:bd,until:'2050-12-31',kind:'zero',v:0,meal:'',comp:'COMP'},{code:'HU',desc:'House Use',valid:bd,until:'2050-12-31',kind:'zero',v:0,meal:'',comp:'HOUSE'}],
@@ -7835,17 +7868,17 @@ VIEWS['prov.functions']=el=>{
 };
 function newPropertyForm(){if(!provOnly())return;
   const m=modal('Create new property',`<div class="form2">${fld('Hotel code (unique, e.g. BKK02)',`<input id="npC" autocapitalize="characters" autofocus>`)}${fld('Hotel name',`<input id="npN">`)}
-   ${fld('Currency',`<select id="npCur">${Object.keys(CUR_WORDS).map(c=>opt(c,c+(CUR_WORDS[c][2]?' – '+CUR_WORDS[c][2]:''),'THB')).join('')}</select>`)}${fld('First business date',`<input type="date" id="npBd" value="${iso(new Date())}">`)}
+   ${fld('Currency',`<select id="npCur">${Object.keys(CUR_WORDS).map(c=>opt(c,c+(CUR_WORDS[c][2]?' – '+CUR_WORDS[c][2]:''),'THB')).join('')}</select>`)}${fld('First business date',`<input type="date" id="npBd" value="${todayZ()}">`)}${fld('Time zone',`<select id="npTz">${tzOptions('Asia/Bangkok')}</select>`)}
    ${fld('Owner / manager username (unique across all hotels)',`<input id="npU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${MahaAuth.on()?fld('Owner / manager email (a set-password link is emailed)',`<input id="npP" type="email" autocapitalize="none">`):fld('Temporary password (8+ characters)',`<input id="npP">`)}</div>
    <div class="sub">The property starts empty. You then fill in its setup title by title and activate it when everything is ready.</div><div class="err" id="npE"></div><div class="btns"><button class="btn gold" id="npS">Create property</button></div>`,{w:640});
   $('#npS',m).onclick=()=>{const c=$('#npC',m).value.trim().toUpperCase(),n=$('#npN',m).value.trim(),u=$('#npU',m).value.trim().toLowerCase(),p=$('#npP',m).value,e=$('#npE',m);
     if(!/^[A-Z0-9]{3,10}$/.test(c)){e.textContent='Hotel code: 3 to 10 letters or numbers.';return}if(DB.hotels[c]){e.textContent='This hotel code already exists.';return}
     if(!n){e.textContent='Enter the hotel name.';return}if(!/^[a-z0-9._-]{3,20}$/.test(u)){e.textContent='Username: 3 to 20 letters, numbers, dot, dash or underscore.';return}
     if(usernameTaken(u)){e.textContent='This username is already used in another hotel.';return}if(MahaAuth.on()){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)){e.textContent='Enter a valid email address for the owner / manager.';return}
-      e.textContent='Creating the hotel and its loginâ€¦';
-      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value}).then(d=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');if(d&&d.invitation_sent===false){toast(c+' created, but the email could not be sent now. Use Reset password on the owner login in a few minutes.');return}toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
+      e.textContent='Creating the hotel and its login...';
+      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value}).then(d=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');if(d&&d.invitation_sent===false){toast(c+' created, but the email could not be sent now. Use Reset password on the owner login in a few minutes.');return}toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){e.textContent='The password needs at least 8 characters.';return}
-    const h=emptyHotel({code:c,name:n,cur:$('#npCur',m).value,bd:$('#npBd',m).value});h.users.push(mkUser('u'+uid(),u,'Owner','Manager',p));shapeHotel(h);DB.hotels[c]=h;
+    const h=emptyHotel({code:c,name:n,cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value});h.users.push(mkUser('u'+uid(),u,'Owner','Manager',p));shapeHotel(h);DB.hotels[c]=h;
     openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}
 
 /* ---------- Setup checks (activation) ---------- */
@@ -7895,12 +7928,12 @@ function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data
   box.querySelector('.lesave').onclick=()=>{if(!provOnly())return;const e=validate?validate(data):'';if(e){box.querySelector('.lee').textContent=e;return}save(data)}}
 const SEC={
  profile(box){const s=H.set;box.innerHTML=secHead('1. Hotel profile','Printed on the receipt / tax invoice, registration card, reservation confirmation and reports.')+`<div class="panel pad"><div class="form2">
-   ${[['name','Hotel name'],['legal','Legal company name (tax invoice)'],['branch','Branch (e.g. Head Office)'],['taxId','Tax ID'],['addr','Address'],['phone','Phone'],['fax','Fax'],['email','Email'],['web','Website'],['country','Country'],['nat','Local nationality (for government reports)']].map(([k,l])=>fld(l,`<input id="p_${k}" value="${esc(s[k]||'')}">`,k==='addr'||k==='legal'?'span2':'')).join('')}</div>
+   ${[['name','Hotel name'],['legal','Legal company name (tax invoice)'],['branch','Branch (e.g. Head Office)'],['taxId','Tax ID'],['addr','Address'],['phone','Phone'],['fax','Fax'],['email','Email'],['web','Website'],['country','Country'],['nat','Local nationality (for government reports)']].map(([k,l])=>fld(l,`<input id="p_${k}" value="${esc(s[k]||'')}">`,k==='addr'||k==='legal'?'span2':'')).join('')}${fld('Time zone (for times on logs, reports and documents)',`<select id="p_tz">${tzOptions(s.tz)}</select>`)}</div>
    <div class="mt"><h3>Hotel logo</h3><p class="sub">Shown on the reservation confirmation, registration card, receipt, guest folio and reports. If none is added, those documents use the Maha Hub mark. The sign-in screen keeps the Maha Hub mark.</p>
     ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:''}
     <div class="btns"><label class="btn ghost">Upload logo<input id="pLogo" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>${s.logo?'<button class="btn ghost" id="pLogoX" type="button">Remove</button>':''}</div></div>
    <div class="btns"><button class="btn gold" id="pS">Save</button></div></div>`;
-   $('#pS',box).onclick=()=>{if(!provOnly())return;['name','legal','branch','taxId','addr','phone','fax','email','web','country','nat'].forEach(k=>s[k]=$('#p_'+k,box).value.trim());if(!s.name){toast('The hotel name is needed.');return}provLog(`Profile saved for ${H.code}`);saved()};
+   $('#pS',box).onclick=()=>{if(!provOnly())return;['name','legal','branch','taxId','addr','phone','fax','email','web','country','nat'].forEach(k=>s[k]=$('#p_'+k,box).value.trim());s.tz=$('#p_tz',box).value||'Asia/Bangkok';if(!s.name){toast('The hotel name is needed.');return}provLog(`Profile saved for ${H.code}`);saved()};
    if($('#pLogo',box))$('#pLogo',box).onchange=e=>{if(!provOnly())return;applyLogoFile(e.target.files[0],()=>{provLog('Hotel logo saved for '+H.code);saved('Logo saved')})};
    if($('#pLogoX',box))$('#pLogoX',box).onclick=()=>{if(!provOnly())return;clearHotelLogo(()=>{provLog('Hotel logo removed for '+H.code);saved('Logo removed')})}},
  tax(box){const s=H.set;box.innerHTML=secHead('2. Currency, tax & service','All rates are inclusive. Service is worked out on the net amount; tax on net plus service.')+`<div class="panel pad"><div class="form3">
@@ -8158,8 +8191,8 @@ function renderProviderProfile(el){
      <h3 class="mt">Sign-in security</h3><div class="form2">${fld('Sign-in method',`<input value="Username and password, then a 6-digit authenticator code" disabled>`,'span2')}${fld('Two-step verification',`<input id="pfMfa" value="Checking..." disabled>`)}${fld('Last sign-in',`<input id="pfLast" value="Checking..." disabled>`)}</div>
      <p class="sub">The authenticator is registered once and works on every device. To move it to a new phone, remove the old one in the Supabase dashboard (Authentication, Users), then sign in and scan the new QR code once.</p>
      <div class="btns"><button class="btn ghost" id="pfReset">Email me a password reset link</button></div></div></div>
-   <div class="panel mt"><div class="ph">Recent sign-ins</div><div id="pfSignins">${signins.length?`<table class="grid"><tr><th>When</th><th>Event</th></tr>${signins.map(s=>`<tr><td>${fd(iso(new Date(s.at)))} ${tm(s.at)}</td><td>${esc(s.a)}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded on this device yet.</div>'}</div></div>
-   <div class="panel mt"><div class="ph">Activity log</div><div id="pfAct"><table class="grid"><tr><th>When</th><th>Hotel</th><th>Action</th></tr>${act.map(a=>`<tr><td>${fd(iso(new Date(a.at)))} ${tm(a.at)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' - '+esc(a.reason):''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No activity recorded on this device yet.</td></tr>'}</table></div>
+   <div class="panel mt"><div class="ph">Recent sign-ins</div><div id="pfSignins">${signins.length?`<table class="grid"><tr><th>When (BKK)</th><th>Event</th></tr>${signins.map(s=>`<tr><td>${fdt(s.at)}</td><td>${esc(s.a)}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded on this device yet.</div>'}</div></div>
+   <div class="panel mt"><div class="ph">Activity log</div><div id="pfAct"><table class="grid"><tr><th>When (BKK)</th><th>Hotel</th><th>Action</th></tr>${act.map(a=>`<tr><td>${fdt(a.at)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' - '+esc(a.reason):''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No activity recorded on this device yet.</td></tr>'}</table></div>
     <p class="sub pad" id="pfLogNote">This log lists the provider actions made from this browser. It is kept on this device only.</p></div>`;
   /* email, two-step status and last sign-in come from the sign-in service */
   (async()=>{
@@ -8170,7 +8203,7 @@ function renderProviderProfile(el){
       const f=(u.factors||[]).filter(x=>x.status==='verified');
       set('pfEmail',u.email||'');
       set('pfMfa',f.length?'On (registered '+fd(iso(new Date(f[0].created_at)))+')':'Not set up');
-      set('pfLast',u.last_sign_in_at?fd(iso(new Date(u.last_sign_in_at)))+' '+tm(Date.parse(u.last_sign_in_at)):'');
+      set('pfLast',u.last_sign_in_at?fdt(Date.parse(u.last_sign_in_at)):'');
     }catch(e){['pfEmail','pfMfa','pfLast'].forEach(id=>set(id,'Not available right now'))}
   })();
   /* the permanent log kept by the server (all provider actions and every sign-in, from every device) */
@@ -8179,12 +8212,12 @@ function renderProviderProfile(el){
       const rows=await MahaAuth.rpc('maha_recent_activity',{p_limit:300,p_property:null});
       if(!Array.isArray(rows))return;
       const lab={hotel_created:'Hotel created',hotel_create_failed:'Hotel creation failed',staff_added:'Staff login created',staff_add_failed:'Staff login not created',staff_enabled:'Login enabled',staff_disabled:'Login disabled',staff_status_failed:'Login change failed',password_reset_sent:'Password reset email',password_reset_failed:'Password reset failed',password_reset_requested:'Password reset requested by the user',username_changed:'Username changed',username_change_failed:'Username change failed',mfa_blocked:'Blocked: two-step sign-in needed'};
-      const when=r=>fd(iso(new Date(r.at)))+' '+tm(Date.parse(r.at));
+      const when=r=>fdt(Date.parse(r.at));
       const si=rows.filter(r=>r.event==='sign_in'||r.event==='sign_in_failed').slice(0,15);
       const ac=rows.filter(r=>r.event!=='sign_in'&&r.event!=='sign_in_failed').slice(0,100);
       const a=$('#pfSignins',el),b=$('#pfAct',el),n=$('#pfLogNote',el);
-      if(a)a.innerHTML=si.length?`<table class="grid"><tr><th>When</th><th>Who</th><th>Result</th></tr>${si.map(r=>`<tr><td>${when(r)}</td><td>${esc(r.actor_username||'')}</td><td>${r.ok?'Signed in':'Sign-in failed'}${r.detail?' ('+esc(r.detail)+')':''}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded yet.</div>';
-      if(b)b.innerHTML=`<table class="grid"><tr><th>When</th><th>By</th><th>Hotel</th><th>Action</th></tr>${ac.map(r=>`<tr><td>${when(r)}</td><td>${esc(r.actor_username||'')}</td><td>${esc(r.property_code||'')}</td><td>${esc(lab[r.event]||r.event)}${r.target&&!r.property_code?' - '+esc(r.target):''}${r.ok?'':' (failed)'}${r.detail?' - '+esc(r.detail):''}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No activity recorded yet.</td></tr>'}</table>`;
+      if(a)a.innerHTML=si.length?`<table class="grid"><tr><th>When (BKK)</th><th>Who</th><th>Result</th></tr>${si.map(r=>`<tr><td>${when(r)}</td><td>${esc(r.actor_username||'')}</td><td>${r.ok?'Signed in':'Sign-in failed'}${r.detail?' ('+esc(r.detail)+')':''}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded yet.</div>';
+      if(b)b.innerHTML=`<table class="grid"><tr><th>When (BKK)</th><th>By</th><th>Hotel</th><th>Action</th></tr>${ac.map(r=>`<tr><td>${when(r)}</td><td>${esc(r.actor_username||'')}</td><td>${esc(r.property_code||'')}</td><td>${esc(lab[r.event]||r.event)}${r.target&&!r.property_code?' - '+esc(r.target):''}${r.ok?'':' (failed)'}${r.detail?' - '+esc(r.detail):''}${esc(hotelTimeNote(r.property_code,Date.parse(r.at)))}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No activity recorded yet.</td></tr>'}</table>`;
       if(n)n.textContent='Kept permanently by the server: provider actions and every sign-in, from every device.';
     }catch(e){/* older server or offline: the local lists above stay */}
   })();
@@ -8610,7 +8643,7 @@ function reportPages(def,p){
     `<tr class="${r.t==='s'?'rs':r.t==='g'?'rgt':''}">${r.c.map((v,i)=>`<td class="${cols[i]?cols[i].a:''}">${esc(v)}</td>`).join('')}</tr>`;
   return {html:pages.map((pg,i)=>`<div class="rpage ${land?'land':'port'}"><div class="rph"><div><div class="rhn">${esc(H.set.name)}</div><div class="rht">${def.code} : ${esc(def.title.toUpperCase())}${audited?' (Audited)':''}</div>
      <div class="rhf">${filt?'Filter by : '+esc(filt):'&nbsp;'}</div><div class="rhd">Date : ${dateLine}</div><div class="rhd">Building : ${esc(H.set.building||'Non-Building')}</div></div>
-     <div class="rhr"><div>Page ${i+1} of ${pages.length}</div><div>Printed On : ${fd(iso(now))} ${tm(now)}</div><div>By : ${esc(by)}</div></div></div>
+     <div class="rhr"><div>Page ${i+1} of ${pages.length}</div><div>Printed On : ${fd(dateOf(now))} ${tm(now)}</div><div>By : ${esc(by)}</div></div></div>
     <table class="rt">${head}<tbody>${pg.map(tr).join('')||`<tr class="rn"><td colspan="${cols.length}">No data for this selection.</td></tr>`}</tbody></table>
     ${i===pages.length-1&&out.foot?`<div class="rfoot">${esc(out.foot)}</div>`:''}${i===pages.length-1&&out.footHtml?out.footHtml:''}<div class="rpf">Maha Hub PMS · ${VERSION}</div></div>`).join(''),n:pages.length,cols,rows};
 }
