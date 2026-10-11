@@ -845,8 +845,11 @@ tr.co-row td{background:#fff5f5}
 .sic.back small{font-size:9px;letter-spacing:.02em}
 .stl-vip{background:#d49a38;color:#1e1606;border-radius:3px;padding:1px 5px;font-size:10.5px;letter-spacing:.03em;min-width:0}
 .sic.cibig{width:40px;height:40px;border-radius:8px;background:#1f7a4a;color:#fff;border:1px solid #17603a;box-shadow:0 1px 3px rgba(0,0,0,.25)}.sic.cibig:hover{background:#17603a}.sic.cibig svg{width:22px;height:22px}
-.rsec{margin:16px 0 8px;padding:0 0 4px;font-size:13px;font-weight:700;color:#4b5963;border-bottom:1px solid var(--line);letter-spacing:.02em}.rsec:first-child{margin-top:0}
-.rednote{margin:10px 0 6px;padding:8px 10px;color:#b3261e;background:#fdecea;border-left:3px solid #d64541;border-radius:3px;font-size:13px;line-height:1.4}
+.rscreen .rfull{grid-column:1/-1}.rscreen .rfind{grid-column:1/-1;margin-top:2px}.rscreen .rfind input{width:100%}
+.depi{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#1f7a4a;color:#fff;font-size:12px;font-weight:800;margin-right:5px;vertical-align:middle}
+.rscreen .pnb>.sub.rfull{margin:0}
+.rscreen .pn>.sub{margin:0;padding:2px 16px 14px}
+.rednote{margin:2px 16px 10px;padding:8px 10px;color:#b3261e;background:#fdecea;border-left:3px solid #d64541;border-radius:3px;font-size:13px;line-height:1.4}
 tr.rblk td{background:#c3c8cd!important;color:#1f2a33}tr.rblk:hover td{background:#b7bdc3!important}
 .rline{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(130px,1.1fr) minmax(90px,.7fr) minmax(130px,1fr) 90px;gap:12px;align-items:end;padding:10px 0}.rline.withreason{grid-template-columns:minmax(150px,1.3fr) minmax(130px,1.1fr) minmax(90px,.7fr) minmax(130px,1fr) 90px minmax(170px,1.4fr)}
 .rline .rc{display:flex;flex-direction:column;gap:4px;min-width:0}.rline .rc>span{font-size:12px;color:#5a6a76;font-weight:600}.rline .rc>b{min-height:38px;display:flex;align-items:center;font-weight:600}
@@ -6365,31 +6368,24 @@ function newReservation(el,pre,walkin){
   const arr=pre.arr||H.set.bd,dep=addD(arr,1),type=pre.room?RM(pre.room).type:H.roomTypes[0].code;
   el.innerHTML=pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':'')+`<div class="rscreen"><div class="pn"><div class="pnh blue">Guest Details</div><div class="pnb g3">
     ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('First name',`<input id="nF">`)}${fld('Last name',`<input id="nL" autofocus>`)}
-    ${fld('Nationality',`<input id="nN" list="natList" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type a country or nationality"><datalist id="natList">${natOptions()}</datalist>`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}</div></div>
-   <div class="pn"><div class="pnh grey">Reservation Details</div><div class="pnb">
-    <h4 class="rsec">Booked through</h4><div class="g4">
+    ${fld('Nationality',`<input id="nN" list="natList" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type a country or nationality"><datalist id="natList">${natOptions()}</datalist>`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}
+    <div class="rfind"><input id="nG" list="nGl" aria-label="Find a returning guest" placeholder="Find a returning guest: type a name to search" autocomplete="off"><datalist id="nGl">${H.guests.map(g=>`<option value="${esc(gName(g))} #${g.profileId}">`).join('')}</datalist></div></div></div>
+   <div class="pn"><div class="pnh grey">Reservation Details</div><div class="pnb g4">
     ${fld('Company / T/A',`<select id="nCo">${H.companies.map(c=>opt(c.id,`(${c.type}) ${c.name}`,walkin?'c7':'c6')).join('')}</select>`,'span2')}${fld('Reference',`<input id="nRef">`)}
     ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
-    ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Remark',`<input id="nRem">`,'span2')}</div>
-    <h4 class="rsec">Stay and rate</h4><div class="g4">
+    ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`,'span2')}
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
     ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
     ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}
-    ${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}</div>
-    ${walkin?'':`<h4 class="rsec">Deposit</h4><div class="g4">
-    ${fld('Amount',`<input id="nDep" class="n" inputmode="decimal" value="0">`)}
-    ${fld('Payment',`<select id="nPay">${TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&payEnabled(c)).map(c=>opt(c.code,c.code+' – '+c.desc,'900')).join('')}</select>`)}
-    ${fld('Reference',`<input id="nPref" maxlength="60" placeholder="Optional">`,'span2')}</div>
-    <p class="sub">Leave the amount at 0 to post the deposit later from the reservation. A deposit is an advance: three lines, with the red receipt in Folio 4. Saving opens the deposit invoice.</p>`}</div></div>
-         <div class="pn"><div class="pnh orange">Billing Address</div><div class="pnb g4">
+    ${walkin?'':`${fld('<span class="depi">$</span> Deposit amount',`<input id="nDep" class="n" inputmode="decimal" value="0">`)}${fld('Deposit paid by',`<select id="nPay">${TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&payEnabled(c)).map(c=>opt(c.code,c.code+' – '+c.desc,'900')).join('')}</select>`)}${fld('Deposit reference',`<input id="nPref" maxlength="60" placeholder="Optional">`,'span2')}
+    <p class="sub rfull">Leave the amount at 0 to post the deposit later from the reservation. A deposit is an advance: three lines, with the red receipt in Folio 4. Saving opens the deposit invoice.</p>`}
+    ${fld('Remark',`<input id="nRem">`,'rfull')}</div></div>
+   <div class="pn"><div class="pnh orange">Billing Address</div><div class="pnb g4">
     ${fld('Bill to',`<select id="nBill">${opt('company','Company / agency')}${opt('guest','Guest profile')}${opt('other','Another address')}</select>`)}
     ${fld('Bill name',`<input id="nBn" placeholder="Another address">`)}${fld('Tax ID',`<input id="nBtx">`)}${fld('Branch',`<input id="nBbr">`)}
     ${fld('Address',`<input id="nBa" placeholder="Street, city">`,'span2')}</div>
     <p class="rednote"><b>Note for the user:</b> use <b>Another address</b> only for a tour or travel company that is not set up in the system, or when a third-party agent booked for the guest and wants the invoice in their own company name (for example for reimbursement).</p>
     <p class="sub">A company or agency is the bill-to when its code is not WIN or DIR. WIN and DIR, and a walk-in, use the guest. Another address is stored on this reservation and printed on the invoice.</p></div>
-   <div class="pn"><div class="pnh grey">Find a returning guest</div><div class="pnb g4">
-    ${fld('Search a guest who stayed before',`<input id="nG" list="nGl" placeholder="Type a name to search" autocomplete="off"><datalist id="nGl">${H.guests.map(g=>`<option value="${esc(gName(g))} #${g.profileId}">`).join('')}</datalist>`,'span2')}</div>
-    <p class="sub">Choose a guest and the title, name, nationality, phone and email above are filled in.</p></div>
    <div class="quote" id="nQ"></div><div class="err" id="nErr"></div>
    <div class="btns"><button class="btn gold" id="nSave">${walkin?'Save and check in':'Save reservation'}</button><button class="btn ghost" id="nX">Cancel</button></div></div>`;
   const q=s=>$(s,el);
