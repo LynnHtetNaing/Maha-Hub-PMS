@@ -8,7 +8,7 @@ let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
 const r2 = v => Math.round(v * 100) / 100;
 const m2 = v => v.toFixed(2);
-const X = new Function('r2', 'm2', 'rateFor', src.slice(a, b) + '\nreturn {commPct,commBasis,commCalc,commBoxes,resComm,nightRate,billedOf,billRate,commTotals,totalBoxes};')(r2, m2, () => 0);
+const X = new Function('r2', 'm2', 'rateFor', src.slice(a, b) + '\nreturn {commPct,commBasis,commCalc,commBoxes,resComm,nightRate,billRate,commTotals,totalBoxes};')(r2, m2, () => 0);
 
 const gross = { comm: 15, rateBasis: 'gross' }, net = { comm: 15, rateBasis: 'net' };
 T('15% of a 3,000 gross rate is 450, net 2,550', X.commCalc(3000, net).comm === 450 && X.commCalc(3000, net).net === 2550);
@@ -44,21 +44,15 @@ T('with nothing agreed yet and no standard rate it is 0 (the user must type one)
 rf = 1500;
 T('an older hotel that still has a stored base rate falls back to it only when nothing is agreed', Y.nightRate({}, { nightly: {} }) === 1500 && Y.nightRate({}, { nightly: { d: 900 } }) === 900);
 
-/* what is billed: folio postings, stay total, invoices and reports all read billRate */
-T('a Net agent is billed the net rate', X.billedOf(3000, net) === 2550);
-T('a Gross agent is billed the rate as typed', X.billedOf(3000, gross) === 3000);
-T('no commission is billed as typed (also when marked Net)', X.billedOf(3000, null) === 3000 && X.billedOf(3000, { comm: 0, rateBasis: 'net' }) === 3000);
+/* what is billed: always the rate the user typed, Gross or Net */
 const h2 = { companies: [{ id: 'n1', comm: 15, rateBasis: 'net' }, { id: 'g1', comm: 15, rateBasis: 'gross' }], reservations: [] };
-const bN = { nightly: { '2026-10-10': 2000, '2026-10-11': 3000 } }, bG = { nightly: { '2026-10-10': 2000 } }, bD = { nightly: { '2026-10-10': 1000 } };
-h2.reservations.push({ id: 'rN', companyId: 'n1', commPct: 15, commBasis: 'net', bookings: [bN] }, { id: 'rG', companyId: 'g1', bookings: [bG] }, { id: 'rD', companyId: 'zz', bookings: [bD] });
-T('nightly postings for a Net agent reservation: each night at its net rate, total auto-calculated',
-  X.billRate(bN, '2026-10-10', h2) === 1700 && X.billRate(bN, '2026-10-11', h2) === 2550 && X.billRate(bN, '2026-10-10', h2) + X.billRate(bN, '2026-10-11', h2) === 4250);
-T('Gross agent and direct reservations are posted as typed', X.billRate(bG, '2026-10-10', h2) === 2000 && X.billRate(bD, '2026-10-10', h2) === 1000);
+const bN = { nightly: { '2026-10-10': 1300, '2026-10-11': 1300 } }, bG = { nightly: { '2026-10-10': 1600 } }, bD = { nightly: { '2026-10-10': 1000 } };
+T('Net agent: typed 1300 is posted as 1300 every night', X.billRate(bN, '2026-10-10', h2) === 1300 && X.billRate(bN, '2026-10-11', h2) === 1300);
+T('Gross agent: typed 1600 is posted as 1600', X.billRate(bG, '2026-10-10', h2) === 1600);
+T('no commission: posted as typed', X.billRate(bD, '2026-10-10', h2) === 1000);
 T('a night with no rate bills 0', X.billRate(bN, '2026-12-01', h2) === 0);
-bN.nightly['2026-10-10'] = 2200;
-T('changing the typed rate changes what is billed for that night only', X.billRate(bN, '2026-10-10', h2) === 1870 && X.billRate(bN, '2026-10-11', h2) === 2550);
-h2.companies[0].comm = 30;
-T('a later change of the agent commission does not change a reservation made with the old terms', X.billRate(bN, '2026-10-10', h2) === 1870);
+T('the agent commission never changes the posted amount', (h2.companies[0].comm = 40, X.billRate(bN, '2026-10-10', h2) === 1300));
+T('the stay total is the sum of the typed nightly rates', X.billRate(bN, '2026-10-10', h2) + X.billRate(bN, '2026-10-11', h2) === 2600);
 /* totals for the whole stay: total rate, total commission, total net (or gross) rate */
 const three = [3000, 3000, 3000];
 let tt = X.totalBoxes(three, net);
@@ -69,7 +63,5 @@ tt = X.totalBoxes(three, null);
 T('no commission: total rate shown, a dash for commission and net/gross', tt.rVal === '9000.00' && tt.cVal === '-' && tt.nVal === '-');
 const odd = X.commTotals([1234.56, 999.99, 1000.01], { comm: 12.5, rateBasis: 'net' });
 T('totals add the nights the way each night is billed (no rounding drift)', odd.gross === 3234.56 && odd.comm === X.commCalc(1234.56, { comm: 12.5 }).comm + X.commCalc(999.99, { comm: 12.5 }).comm + X.commCalc(1000.01, { comm: 12.5 }).comm && odd.net === Math.round((odd.gross - odd.comm) * 100) / 100, JSON.stringify(odd));
-const bt = { nightly: { a: 1234.56, b: 999.99, c: 1000.01 } }, hh = { companies: [{ id: 'k', comm: 12.5, rateBasis: 'net' }], reservations: [{ companyId: 'k', commPct: 12.5, commBasis: 'net', bookings: [bt] }] };
-T('total net rate equals the sum of what is billed per night (so it matches the folio)', X.billRate(bt, 'a', hh) + X.billRate(bt, 'b', hh) + X.billRate(bt, 'c', hh) - odd.net < 0.005 && X.billRate(bt, 'a', hh) + X.billRate(bt, 'b', hh) + X.billRate(bt, 'c', hh) - odd.net > -0.005);
 T('no nights gives zero totals', X.totalBoxes([], net).rVal === '0.00');
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);

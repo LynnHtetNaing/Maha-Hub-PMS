@@ -2315,12 +2315,10 @@ function totalBoxes(rates,c){const t=commTotals(rates,c),none=!t.pct,net=t.basis
 const resComm=(h,r)=>r&&r.commPct!==undefined?{comm:r.commPct,rateBasis:r.commBasis}:((h.companies||[]).find(c=>c.id===(r&&r.companyId))||null);
 /* A new night of a stay follows the rate already agreed for that stay; there is no standard room-type rate any more. */
 function nightRate(h,B){const ks=Object.keys(B.nightly||{}).sort();for(let i=ks.length-1;i>=0;i--){const v=+B.nightly[ks[i]];if(v>0)return v}return rateFor(h,B.type,B.rateCode)}
-/* What is billed for a night. The user types the gross rate; a Net agent is billed the net rate, everyone else the rate as typed.
-   Folio postings, the stay total, invoices and revenue reports all read this one figure. */
-const billedOf=(rate,c)=>{const k=commCalc(rate,c);return k.basis==='net'?k.net:k.gross};
-const _resMap=new WeakMap();
-function resOfIn(h,B){let r=_resMap.get(B);if(!r||!r.bookings.includes(B)){r=(h.reservations||[]).find(x=>x.bookings.includes(B))||null;if(r)_resMap.set(B,r)}return r}
-function billRate(B,d,h,r){h=h||H;r=r||resOfIn(h,B);return billedOf((B.nightly&&B.nightly[d])||0,resComm(h,r))}
+/* What is billed for a night is always the rate the user typed, whether the agent is Gross or Net.
+   Folio postings, the stay total, invoices and revenue reports all read this one figure.
+   Commission and net/gross are shown beside it for information only; they never change what is posted. */
+const billRate=(B,d)=>r2(+(B.nightly&&B.nightly[d])||0);
 /* ---- end Agent commission ---- */
 function ensureDummyBooking(h){
   if(!h||!h.set)return null;
