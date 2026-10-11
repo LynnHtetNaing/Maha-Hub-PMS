@@ -11,6 +11,10 @@
 //   set_active       username, active (boolean)     - disables/enables sign-in immediately
 //   reset_password   username                       - emails a set-password link to the staff member
 //   rename_username  username, new_username
+//   delete_hotel     property_code                  - moves the hotel to the Recycle bin (30 days) and locks its staff out
+//   restore_hotel    property_code                  - brings it back (only within the 30 days)
+//   purge_hotel      property_code                  - erases a hotel that is in the Recycle bin, with its staff logins
+//   purge_expired    (nothing)                      - erases every hotel whose 30 days are over
 //
 // Account creation order (so a failure never leaves partial data or a stray email):
 //   1. create the auth user (confirmed, no email yet; fails if the email exists, so a pre-existing
@@ -104,7 +108,9 @@ Deno.serve(async (req) => {
       const ok = status < 400;
       const err = typeof b.error === "string" ? b.error : "";
       const property = str("property_code").toUpperCase() || null;
-      const target = action === "rename_username" ? `${username}>${str("new_username")}` : action === "create_hotel" ? property : username;
+      const target = action === "rename_username" ? `${username}>${str("new_username")}`
+        : ["create_hotel", "delete_hotel", "restore_hotel", "purge_hotel"].includes(action) ? property
+        : action === "purge_expired" ? null : username;
       let event = "";
       let detail = ok ? "" : err;
       if (action === "create_hotel") event = ok ? "hotel_created" : "hotel_create_failed";
@@ -112,6 +118,10 @@ Deno.serve(async (req) => {
       else if (action === "set_active") event = ok ? (b.active ? "staff_enabled" : "staff_disabled") : "staff_status_failed";
       else if (action === "reset_password") event = ok ? "password_reset_sent" : "password_reset_failed";
       else if (action === "rename_username") event = ok ? "username_changed" : "username_change_failed";
+      else if (action === "delete_hotel") event = ok ? "hotel_deleted" : "hotel_delete_failed";
+      else if (action === "restore_hotel") event = ok ? "hotel_restored" : "hotel_restore_failed";
+      else if (action === "purge_hotel") event = ok ? "hotel_purged" : "hotel_purge_failed";
+      else if (action === "purge_expired") event = ok ? "expired_hotels_purged" : "expired_purge_failed";
       if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
       if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
       if (event) track(audit(event, target, property, ok, detail || null));
@@ -256,6 +266,80 @@ Deno.serve(async (req) => {
       return respond({ error: error?.code === "23505" ? "username_taken" : "staff_not_found" }, error?.code === "23505" ? 409 : 404);
     }
     return respond({ ok: true, username: newUsername });
+  }
+
+  // ---------------------------------------------------------------- Recycle bin
+  if (action === "delete_hotel" || action === "restore_hotel" || action === "purge_hotel" || action === "purge_expired") {
+    const lockAccounts = async (ids: unknown, ban: boolean) => {
+      let failed = 0;
+      for (const id of Array.isArray(ids) ? ids : []) {
+        if (typeof id !== "string" || !UUID.test(id)) continue;
+        const { error } = await admin.auth.admin.updateUserById(id, { ban_duration: ban ? "876000h" : "none" });
+        if (error) failed++;
+      }
+      return failed;
+    };
+    const removeAccounts = async (ids: unknown) => {
+      let removed = 0;
+      let failed = 0;
+      for (const id of Array.isArray(ids) ? ids : []) {
+        if (typeof id !== "string" || !UUID.test(id)) continue;
+        const { error } = await admin.auth.admin.deleteUser(id);
+        if (error) failed++; else removed++;
+      }
+      return { removed, failed };
+    };
+    const recycleError = (e: { code?: string; message?: string } | null) => {
+      const m = String(e?.message ?? "");
+      if (m.includes("already-deleted")) return respond({ error: "already_deleted" }, 409);
+      if (m.includes("not-restorable")) return respond({ error: "not_restorable" }, 409);
+      if (m.includes("not-deleted")) return respond({ error: "not_deleted" }, 409);
+      if (e?.code === "42501") return respond({ error: "forbidden" }, 403);
+      return respond({ error: "recycle_failed" }, 502);
+    };
+
+    if (action === "purge_expired") {
+      const { data: expired, error: expiredError } = await admin.rpc("maha_recycle_expired", { p_owner: ownerId });
+      if (expiredError) return recycleError(expiredError);
+      let purged = 0;
+      let accountsFailed = 0;
+      for (const id of Array.isArray(expired) ? expired : []) {
+        if (typeof id !== "string" || !UUID.test(id)) continue;
+        const { data, error } = await admin.rpc("maha_purge_hotel", { p_owner: ownerId, p_property_id: id });
+        if (error || !data) continue;
+        purged++;
+        accountsFailed += (await removeAccounts((data as { orphan_user_ids?: unknown }).orphan_user_ids)).failed;
+      }
+      return respond({ ok: true, purged, cleanup_failed: accountsFailed > 0 ? true : undefined });
+    }
+
+    const code = str("property_code").toUpperCase();
+    if (!CODE.test(code)) return respond({ error: "invalid_fields" }, 400);
+    const { data: hotel } = await admin.from("maha_properties").select("id,organization_id")
+      .eq("property_code", code).maybeSingle();
+    if (!hotel) return respond({ error: "property_not_found" }, 404);
+    const { data: hotelOrg } = await admin.from("maha_organizations").select("owner_user_id")
+      .eq("id", hotel.organization_id).maybeSingle();
+    if (!hotelOrg || hotelOrg.owner_user_id !== ownerId) return respond({ error: "forbidden" }, 403);
+
+    if (action === "delete_hotel") {
+      const { data, error } = await admin.rpc("maha_recycle_hotel", { p_owner: ownerId, p_property_id: hotel.id, p_days: 30 });
+      if (error || !data) return recycleError(error);
+      const r = data as { purge_at?: string; staff_user_ids?: unknown };
+      // Database access is already cut for everyone. The ban also stops new sign-ins and token refresh.
+      const failed = await lockAccounts(r.staff_user_ids, true);
+      return respond({ ok: true, purge_at: r.purge_at, lockout_incomplete: failed > 0 ? true : undefined });
+    }
+    if (action === "restore_hotel") {
+      const { data, error } = await admin.rpc("maha_restore_hotel", { p_owner: ownerId, p_property_id: hotel.id });
+      if (error || !data) return recycleError(error);
+      const failed = await lockAccounts((data as { staff_user_ids?: unknown }).staff_user_ids, false);
+      return respond({ ok: true, unlock_incomplete: failed > 0 ? true : undefined });
+    }
+    const { data, error } = await admin.rpc("maha_purge_hotel", { p_owner: ownerId, p_property_id: hotel.id });
+    if (error || !data) return recycleError(error);
+    const gone = await removeAccounts((data as { orphan_user_ids?: unknown }).orphan_user_ids);
+    return respond({ ok: true, accounts_removed: gone.removed, cleanup_failed: gone.failed > 0 ? true : undefined });
   }
 
   return respond({ error: "unsupported_action" }, 400);

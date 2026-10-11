@@ -1292,6 +1292,9 @@ const MahaAuth={
       try{props=await this.properties(t2)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
       const st=await ProvSync.openAll(props);
       if(st.unavailable)return reject('unavailable','Not every hotel cloud copy could be loaded, so sign-in was stopped. Nothing was changed. Try again in a moment.');
+      /* The cloud is the only home of hotel data: a copy of a hotel that is not in the cloud (old demo data) is not kept in this browser. */
+      const inCloud=new Set(props.map(p=>p.code)),stale=Object.keys(DB.hotels||{}).filter(c=>!inCloud.has(c));
+      if(stale.length){await snapshotBeforeAdopt('the local copies of '+stale.join(', '));stale.forEach(c=>{delete DB.hotels[c]});try{saveDB({nocloud:true})}catch(e){}}
       MahaSync.stop();ProvSync.start();
       return {ok:true,provider:true,userId:r.tokens.user.id};
     }
@@ -1916,7 +1919,7 @@ const ProvSync={
 };
 /* Account administration is done only by the provider, on the server. */
 const ProvAdmin={
-  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.'},
+  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.',already_deleted:'This hotel is already in the Recycle bin.',not_restorable:'This hotel can no longer be restored.',not_deleted:'Only a hotel in the Recycle bin can be deleted permanently.',recycle_failed:'The server could not complete this. Nothing was changed. Try again.'},
   msg(e){return (e&&this.msgs[e.message])||'The server could not complete this. Nothing was changed. Try again.'},
   async call(body){
     const t=await MahaAuth.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -4937,7 +4940,7 @@ const MENU=[
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
 const PROV_MENU=[
  {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
- {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Revenue analysis','ai.revenue']]},
+ {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Recycle bin','prov.recycle'],['Revenue analysis','ai.revenue']]},
  {t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
@@ -5674,7 +5677,7 @@ const TITLE_ICON={
  'all properties':'bank','properties':'bank','property setup':'gear','systems':'wifi','systems (reach · connect · booking)':'wifi',
  'direct booking & google':'globe','edc card link':'cardp','stripe payments (3ds)':'cardp','system rules':'gear','system rules (per hotel)':'gear',
  'distribution (google hotels)':'globe','code catalog (all hotels)':'card','code catalog – all hotels':'card','security center':'lock',
- 'backup & migration':'upload','revenue analysis':'grid','amend records':'detail','amendment log':'log','my account & security':'user',
+ 'backup & migration':'upload','recycle bin':'trash','revenue analysis':'grid','amend records':'detail','amendment log':'log','my account & security':'user',
  'back to provider console':'left','provider history':'log','hotels':'bank','terms & conditions':'card'
 };
 function titleMark(label){
@@ -7314,18 +7317,76 @@ function bindPicker(el){const s=$('#pvH',el);if(s)s.onchange=()=>{H=DB.hotels[s.
 VIEWS['prov.hotels']=el=>{
   el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Status</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
    ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td><span class="hst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
-    <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-use="${h.code}">Work on this hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button></td></tr>`).join('')}</table></div>
+    <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-use="${h.code}">Work on this hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
    <p class="sub">Each hotel's data is kept apart. Staff sign in with only their username and password; the system opens the hotel their account belongs to. A new hotel stays Not active until you activate it, and its staff cannot sign in before that.</p>`;
   $$('[data-use]',el).forEach(b=>b.onclick=()=>{H=DB.hotels[b.dataset.use];DB.session.hotel=H.code;saveDB();renderShell();go('prov.perms')});
   $$('[data-act]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.act];const on=h.active!==false;if(on&&h.shifts.some(x=>x.status==='open')&&!confirm('Staff shifts are still open at '+h.code+'. Deactivate anyway? They will be signed out.'))return;if(!on&&(!h.set.legal||!h.rooms.length)){toast('Complete the hotel details and rooms before activating.');return}h.active=!on;if(h.active)h.activatedAt=Date.now();provLog((h.active?'Activated':'Deactivated')+' hotel '+h.code);saveDB();render();toast(h.active?h.code+' is active. Its staff can now sign in.':h.code+' is not active.')});
   $$('[data-unlock]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.unlock];const why=prompt(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
     const old=h.set.lockedThrough;h.set.lockedThrough=addD(old,-1);H=h;h.amend.unshift({at:Date.now(),user:user().name,what:`Unlocked closed day ${fd(old)}`,before:old,after:h.set.lockedThrough,reason:why.trim()});provLog(`Unlocked ${fd(old)}`,{reason:why.trim()});saveDB();render();toast('Day unlocked. Staff can change it until the next Close Day.')});
-  $('#pvNew',el).onclick=()=>{const m=modal('Add hotel',`<div class="form2">${fld('Hotel code',`<input id="nhC" placeholder="e.g. BKK02" autofocus>`)}${fld('Hotel name',`<input id="nhN">`)}${fld('Currency',`<select id="nhCur">${opt('THB')}${opt('MMK')}${opt('USD')}</select>`)}${fld('Country',`<input id="nhCo" value="Thailand">`)}
+  $$('[data-del]',el).forEach(b=>b.onclick=()=>deleteHotelFlow(b.dataset.del));
+  $('#pvNew',el).onclick=()=>{if(MahaAuth.on()){newPropertyForm();return}const m=modal('Add hotel',`<div class="form2">${fld('Hotel code',`<input id="nhC" placeholder="e.g. BKK02" autofocus>`)}${fld('Hotel name',`<input id="nhN">`)}${fld('Currency',`<select id="nhCur">${opt('THB')}${opt('MMK')}${opt('USD')}</select>`)}${fld('Country',`<input id="nhCo" value="Thailand">`)}
     ${fld('Service charge %',`<input type="number" id="nhS" value="10">`)}${fld('Tax %',`<input type="number" id="nhV" value="7">`)}${fld('Owner username (unique across all hotels)',`<input id="nhU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${fld('Owner password',`<input id="nhP" type="text" value="">`)}</div><div class="err" id="nhE"></div><div class="btns"><button class="btn gold" id="nhS2">Create hotel</button></div>`,{w:620});
     $('#nhS2',m).onclick=()=>{const c=$('#nhC',m).value.trim().toUpperCase(),n=$('#nhN',m).value.trim(),pw=$('#nhP',m).value;if(!/^[A-Z0-9]{3,8}$/.test(c)){$('#nhE',m).textContent='Hotel code: 3 to 8 letters or numbers.';return}if(DB.hotels[c]){$('#nhE',m).textContent='This hotel code is already used.';return}if(!n){$('#nhE',m).textContent='Enter the hotel name.';return}if(pw.length<8){$('#nhE',m).textContent='The owner password needs at least 8 characters.';return}const ou=$('#nhU',m).value.trim().toLowerCase();if(!/^[a-z0-9._-]{3,20}$/.test(ou)){$('#nhE',m).textContent='Owner username: 3 to 20 letters, numbers, dot, dash or underscore.';return}if(usernameTaken(ou)){$('#nhE',m).textContent='This username is already used in another hotel. Usernames must be unique across all hotels.';return}
       const cur=$('#nhCur',m).value,bd=iso(new Date());const h={code:c,set:{name:n,legal:n,branch:'Head Office',addr:'',phone:'',fax:'',taxId:'',email:'',web:'',cur,curWord:{THB:'BAHT',MMK:'KYATS',USD:'DOLLARS'}[cur],subWord:{THB:'SATANG',MMK:'PYAS',USD:'CENTS'}[cur],svc:+$('#nhS',m).value||0,vat:+$('#nhV',m).value||0,taxName:cur==='MMK'?'Commercial tax':'VAT',country:$('#nhCo',m).value.trim(),nat:'',formCode:cur==='THB'?'ร.ร.3':'',bd,lockedThrough:addD(bd,-1),checkIn:'14:00',checkOut:'12:00',nextRsv:1001,nextInternal:1001,nextInv:1,nextSys:1,nextProfile:1,building:'Non-Building'},
         roomTypes:[{code:'STD',name:'Standard',base:cur==='MMK'?45000:1000,max:2}],rateCodes:DB.hotels.PAD01?JSON.parse(JSON.stringify(DB.hotels.PAD01.rateCodes)):[],rooms:[{no:'101',type:'STD',floor:'1',hk:'clean',ooo:null}],guests:[],companies:[{id:'c6',code:'DIR',name:'Direct Reservation',type:'C',address:'',taxId:'',branch:'',comm:0},{id:'c7',code:'WIN',name:'WALK IN',type:'C',address:'',taxId:'',branch:'',comm:0}],reservations:[],shifts:[],logs:[],audits:[],invoices:[],amend:[],users:[mkUser('u1',ou,'Owner','Manager',pw)],active:false};
       shapeHotel(h);DB.hotels[c]=h;provLog('Created hotel '+c);saveDB();closeModal(m);render();toast(`Hotel ${c} created as Not active. Add its details, then press Activate.`)}};
+};
+/* ---- Recycle bin (cloud): a deleted hotel is kept for 30 days, then erased ---- */
+function recycleRows(list,now){
+  return (Array.isArray(list)?list:[]).map(r=>({code:String(r.property_code||''),name:String(r.name||r.property_code||''),deletedAt:Date.parse(r.deleted_at)||0,purgeAt:Date.parse(r.purge_at)||0,by:String(r.deleted_by||''),records:+r.records||0,staff:+r.staff||0}))
+    .map(r=>({...r,expired:r.purgeAt<=now,daysLeft:Math.max(0,Math.ceil((r.purgeAt-now)/864e5))})).sort((a,b)=>b.deletedAt-a.deletedAt);
+}
+/* ---- end Recycle bin (cloud) ---- */
+/* Delete a hotel in the cloud: two confirmations, then it goes to the Recycle bin for 30 days. */
+function deleteHotelFlow(code){
+  if(!(user().provider||user().isProv)||!MahaAuth.on())return;const h=DB.hotels[code];if(!h)return;
+  const c={reservations:(h.reservations||[]).length,guests:(h.guests||[]).length,invoices:(h.invoices||[]).length,rooms:(h.rooms||[]).filter(r=>!r.dummy).length,staff:(h.users||[]).length,open:(h.shifts||[]).filter(s=>s.status==='open').length};
+  const m1=modal('Delete hotel '+code+'?',`<p>You are about to delete <b>${esc(h.set.name)}</b> (${esc(code)}) from the cloud:</p>
+    <ul><li>${c.reservations} reservation(s), ${c.guests} guest profile(s), ${c.invoices} tax invoice(s)</li><li>${c.rooms} room(s) and ${c.staff} staff account(s)</li>${c.open?`<li><b>${c.open} shift(s) are still open</b></li>`:''}</ul>
+    <p class="sub">The hotel disappears for everyone at once and its staff can no longer sign in. It is kept in the Recycle bin for 30 days and you can restore it until then. After that it is erased permanently and cannot be recovered.</p>
+    <label class="chk"><input type="checkbox" id="dhOk"> I understand that this hotel will be removed for everyone</label>
+    <div class="btns"><button class="btn red" id="dhNext" disabled>Continue</button><button class="btn ghost" id="dhX">Cancel</button></div>`,{w:580});
+  $('#dhOk',m1).onchange=()=>{$('#dhNext',m1).disabled=!$('#dhOk',m1).checked};
+  $('#dhX',m1).onclick=()=>closeModal(m1);
+  $('#dhNext',m1).onclick=()=>{closeModal(m1);
+    const m2_=modal('Confirm again - delete '+code,`<p>To be sure this was not a mistake, type the hotel code <b>${esc(code)}</b> and press Delete.</p>
+      <div class="form2">${fld('Hotel code',`<input id="dhCode" autocomplete="off" autocapitalize="characters" autofocus>`)}</div><div class="err" id="dhErr"></div>
+      <div class="btns"><button class="btn red" id="dhGo" disabled>Delete hotel</button><button class="btn ghost" id="dhX2">Cancel</button></div>`,{w:520});
+    $('#dhCode',m2_).oninput=()=>{$('#dhGo',m2_).disabled=$('#dhCode',m2_).value.trim().toUpperCase()!==code};
+    $('#dhX2',m2_).onclick=()=>closeModal(m2_);
+    $('#dhGo',m2_).onclick=async()=>{if($('#dhCode',m2_).value.trim().toUpperCase()!==code)return;$('#dhGo',m2_).disabled=true;$('#dhErr',m2_).textContent='Deleting...';
+      try{await ProvAdmin.call({action:'delete_hotel',property_code:code})}catch(e){$('#dhErr',m2_).textContent=ProvAdmin.msg(e);$('#dhGo',m2_).disabled=false;return}
+      ProvSync.items.delete(code);ProvSync.remember();delete DB.hotels[code];
+      if(DB.session&&DB.session.hotel===code){const first=Object.keys(DB.hotels)[0];DB.session.hotel=first||undefined;DB.session.inHotel=false}
+      H=(DB.session&&DB.session.hotel&&DB.hotels[DB.session.hotel])||null;
+      provLog('Deleted hotel '+code+' (kept in the Recycle bin for 30 days)');saveDB({nocloud:true});closeModal(m2_);renderShell();render();toast('Hotel '+code+' moved to the Recycle bin. It is kept for 30 days.')}}}
+VIEWS['prov.recycle']=el=>{
+  if(!(user().provider||user().isProv)){el.innerHTML='<div class="empty">The Recycle bin is for the provider.</div>';return}
+  el.innerHTML=pageHead('Recycle bin')+`<div class="panel scroll" id="rbBox"><div class="pad sub">Loading...</div></div>
+    <p class="sub">A deleted hotel stays here for 30 days and is then erased permanently, together with its staff logins. Restore brings it back exactly as it was and its staff can sign in again. Hotel codes and usernames stay reserved while a hotel is here.</p>`;
+  const box=$('#rbBox',el);
+  const fetchRows=async()=>recycleRows(await MahaAuth.rpc('maha_recycle_list',{}),Date.now());
+  const paint=rows=>{
+    box.innerHTML=`<table class="grid"><tr><th>Code</th><th>Hotel</th><th>Deleted</th><th>By</th><th class="n">Records</th><th class="n">Staff</th><th class="n">Days left</th><th></th></tr>
+      ${rows.map(r=>`<tr><td><b>${esc(r.code)}</b></td><td>${esc(r.name)}</td><td>${fdt(r.deletedAt)}</td><td>${esc(r.by)}</td><td class="n">${r.records}</td><td class="n">${r.staff}</td><td class="n">${r.daysLeft}</td>
+        <td class="nowrap"><button class="btn sm gold" data-rs="${esc(r.code)}">Restore</button> <button class="btn sm red" data-rf="${esc(r.code)}">Delete permanently</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">The Recycle bin is empty.</td></tr>'}</table>`;
+    $$('[data-rs]',box).forEach(b=>b.onclick=async()=>{const code=b.dataset.rs;b.disabled=true;
+      try{await ProvAdmin.call({action:'restore_hotel',property_code:code})}catch(e){toast(ProvAdmin.msg(e));b.disabled=false;return}
+      try{const t=await MahaAuth.fresh();await ProvSync.openAll(await MahaAuth.properties(t));ProvSync.start()}catch(e){toast('Hotel '+code+' is restored. Sign out and in again to load it here.');load();return}
+      provLog('Restored hotel '+code);saveDB({nocloud:true});toast('Hotel '+code+' restored.');load()});
+    $$('[data-rf]',box).forEach(b=>b.onclick=()=>{const code=b.dataset.rf;
+      const m=modal('Delete '+code+' permanently?',`<p><b>This cannot be undone.</b> Every record of this hotel and all of its staff logins will be erased for good.</p><p>Type the hotel code <b>${esc(code)}</b> to confirm.</p><div class="form2">${fld('Hotel code',`<input id="rfCode" autocomplete="off" autocapitalize="characters" autofocus>`)}</div><div class="err" id="rfErr"></div>
+        <div class="btns"><button class="btn red" id="rfGo" disabled>Delete permanently</button><button class="btn ghost" id="rfX">Cancel</button></div>`,{w:520});
+      $('#rfCode',m).oninput=()=>{$('#rfGo',m).disabled=$('#rfCode',m).value.trim().toUpperCase()!==code};
+      $('#rfX',m).onclick=()=>closeModal(m);
+      $('#rfGo',m).onclick=async()=>{if($('#rfCode',m).value.trim().toUpperCase()!==code)return;$('#rfGo',m).disabled=true;$('#rfErr',m).textContent='Deleting...';
+        try{await ProvAdmin.call({action:'purge_hotel',property_code:code})}catch(e){$('#rfErr',m).textContent=ProvAdmin.msg(e);$('#rfGo',m).disabled=false;return}
+        provLog('Permanently deleted hotel '+code);saveDB({nocloud:true});closeModal(m);toast('Hotel '+code+' deleted permanently.');load()}})};
+  const load=async()=>{let rows;
+    try{rows=await fetchRows();if(rows.some(r=>r.expired)){try{await ProvAdmin.call({action:'purge_expired'});rows=await fetchRows()}catch(e){}}}
+    catch(e){box.innerHTML='<div class="pad sub">The Recycle bin could not be loaded. Sign out and in again, then try once more.</div>';return}
+    paint(rows)};
+  load();
 };
 VIEWS['prov.perms']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
@@ -7954,7 +8015,7 @@ function setupChecks(h){const s=h.set,g=s.google||{};
   {k:'floors',t:'Floors',ok:(h.floors||[]).length>0||new Set(rooms.map(r=>r.floor)).size>0},
   {k:'types',t:'Room types',ok:types.length>0},
   {k:'rooms',t:'Rooms',ok:rooms.length>0&&rooms.every(r=>r.type&&r.floor)},
-  {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&types.length>0&&types.every(t=>t.base>=1)},
+  {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&types.length>0},
   {k:'pay',t:'Payment methods',ok:TCODES.some(c=>c.type==='p'&&!c.refund&&!c.auto&&!(h.set.payOff||{})[c.code])},
   {k:'staff',t:'Staff & permissions',ok:h.users.some(u=>u.role==='Manager'&&u.active!==false)},
   {k:'terms',t:'Terms & Conditions',ok:true},
