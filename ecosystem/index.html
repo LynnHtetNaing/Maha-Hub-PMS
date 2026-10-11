@@ -2303,9 +2303,14 @@ const commBasis=c=>c&&c.rateBasis==='net'?'net':'gross';
 function commCalc(rate,c){const pct=commPct(c),g=r2(+rate||0),comm=pct?r2(g*pct/100):0;return {pct,basis:commBasis(c),gross:g,comm,net:r2(g-comm)}}
 /* What a reservation shows next to the rate the user typed (the rate typed is always the gross rate). A dash when there is no commission. */
 function commBoxes(rate,c){const k=commCalc(rate,c);
-  if(!k.pct)return {pct:0,cLabel:'Commission',cVal:'-',nLabel:'Net rate',nVal:'-',tip:''};
-  return {pct:k.pct,cLabel:'Commission '+k.pct+'%',cVal:m2(k.comm),nLabel:k.basis==='net'?'Net rate':'Gross rate',nVal:m2(k.basis==='net'?k.net:k.gross),
+  if(!k.pct)return {pct:0,cLabel:'Commission per night',cVal:'-',nLabel:'Net rate per night',nVal:'-',tip:''};
+  return {pct:k.pct,cLabel:'Commission per night '+k.pct+'%',cVal:m2(k.comm),nLabel:k.basis==='net'?'Net rate per night':'Gross rate per night',nVal:m2(k.basis==='net'?k.net:k.gross),
     tip:k.basis==='net'?'The agent already kept this commission. The hotel receives the net rate.':'The agent collected the full rate. The hotel pays this commission back.'}}
+/* Totals for the whole stay from the rate of each night: total rate, total commission, total net (or gross) rate. */
+function commTotals(rates,c){let g=0,cm=0,n=0;(rates||[]).forEach(v=>{const k=commCalc(v,c);g=r2(g+k.gross);cm=r2(cm+k.comm);n=r2(n+k.net)});return {pct:commPct(c),basis:commBasis(c),gross:g,comm:cm,net:n}}
+function totalBoxes(rates,c){const t=commTotals(rates,c),none=!t.pct,net=t.basis==='net';
+  return {rVal:m2(t.gross),cLabel:none?'Total commission':'Total commission '+t.pct+'%',cVal:none?'-':m2(t.comm),nLabel:net?'Total net rate':'Total gross rate',nVal:none?'-':m2(net?t.net:t.gross),
+    tip:none?'':net?'The agent already kept this commission. The hotel receives the total net rate.':'The agent collected the full rate. The hotel pays this commission back.'}}
 /* The commission terms a reservation was made with (kept on the reservation so a later change never rewrites old bills). */
 const resComm=(h,r)=>r&&r.commPct!==undefined?{comm:r.commPct,rateBasis:r.commBasis}:((h.companies||[]).find(c=>c.id===(r&&r.companyId))||null);
 /* A new night of a stay follows the rate already agreed for that stay; there is no standard room-type rate any more. */
@@ -6157,8 +6162,8 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Adult# / Child#',`<div class="two"><input type="number" id="bAd" min="1" value="${B.adults}" ${dis('b')}><input type="number" id="bCh" min="0" value="${B.children}" ${dis('b')}></div>`)}
        ${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
        ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
-       ${fld('<span id="bCmL">Commission</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Daily rate amt. (gross)</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
-       ${fld('<span class="blue">Stay total</span>',`<input value="${m2(stayTotal(B))}" disabled class="n">`)}
+       ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
+       ${fld('<span class="blue">Total rate</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
        ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Blocked: ${esc(B.roomBlock.reason)}. Clear the block before this room can change.</span>`:''}`)}
      </div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
@@ -6221,8 +6226,11 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
   if(q('#aMail'))q('#aMail').onclick=()=>{if(typeof confirmationLetter==='function')confirmationLetter(B)};
   q('#bTypeRm').onchange=()=>{if(B.roomBlock){q('#bTypeRm').value=B.type;toast(`Room ${B.room} is blocked: ${B.roomBlock.reason}. Clear the block before the room or room type can change.`);return}const t=q('#bTypeRm').value;q('#bRoom').innerHTML='<option value="">Assign later</option>'+H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>`<option value="${x.no}" ${!roomFree(x.no,q('#bArr').value,q('#bDep').value,B.id)?'disabled':''}>${x.no}</option>`).join('')};
   q('#bRc').onchange=()=>{const k=rateKindOf(q('#bRc').value),rcz=H.rateCodes.find(x=>x.code===q('#bRc').value);if(rcz&&rcz.kind==='zero')q('#bRate').value=0;else if(!(+q('#bRate').value>0))q('#bRate').value='';q('#bRate').disabled=k==='comp'||!(E('rate')&&can('rate'));cmUpd()};
-  const cmUpd=()=>{const rt=+q('#bRate').value||0,live=q('#rCo')&&q('#rCo').value!==(r.companyId||'')?CO(q('#rCo').value):resComm(H,r),cb=commBoxes(rt,live);q('#bCmL').textContent=cb.cLabel;q('#bCm').value=cb.cVal;q('#bNtL').textContent=cb.nLabel;q('#bNt').value=cb.nVal;q('#bCm').title=q('#bNt').title=cb.tip};
-  q('#bRate').addEventListener('input',cmUpd);if(q('#rCo'))q('#rCo').addEventListener('change',cmUpd);cmUpd();
+  const cmUpd=()=>{const rt=+q('#bRate').value||0,live=q('#rCo')&&q('#rCo').value!==(r.companyId||'')?CO(q('#rCo').value):resComm(H,r),cb=commBoxes(rt,live);q('#bCmL').textContent=cb.cLabel;q('#bCm').value=cb.cVal;q('#bNtL').textContent=cb.nLabel;q('#bNt').value=cb.nVal;q('#bCm').title=q('#bNt').title=cb.tip;
+    const a_=q('#bArr')?q('#bArr').value:B.arr,d_=q('#bDep')?q('#bDep').value:B.dep,typed=!q('#bRate').disabled&&q('#bRate').value!==''?+q('#bRate').value:null;
+    const list=d_>a_?dates(a_,d_).map(d=>typed!==null&&d>=H.set.bd&&!isLocked(d)?typed:(B.nightly[d]!==undefined?B.nightly[d]:(typed||0))):[];
+    const tb=totalBoxes(list,live);q('#bTot').value=tb.rVal;q('#bTcL').textContent=tb.cLabel;q('#bTc').value=tb.cVal;q('#bTnL').textContent=tb.nLabel;q('#bTn').value=tb.nVal;q('#bTc').title=q('#bTn').title=tb.tip};
+  q('#bRate').addEventListener('input',cmUpd);if(q('#rCo'))q('#rCo').addEventListener('change',cmUpd);['#bArr','#bDep'].forEach(i=>{if(q(i))q(i).addEventListener('change',cmUpd)});cmUpd();
   q('#aSave').onclick=()=>{
     const err=q('#rErr');err.textContent='';if(!DB.session||!curShift()){need();return}
     const ch=[];
@@ -6272,7 +6280,7 @@ function newReservation(el,pre,walkin){
     ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('Last name',`<input id="nL" autofocus>`)}${fld('First name',`<input id="nF">`)}${fld('Nationality',`<input id="nN" value="${esc(H.set.nat)}">`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}</div></div>
    <div class="pn"><div class="pnh grey">Stay</div><div class="pnb g4">
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
-    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Daily rate amt. (gross)',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate</span>',`<input id="nNt" disabled class="n">`)}
+    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
     ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}
     ${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}</div></div>
    <div class="pn"><div class="pnh lblue">Production</div><div class="pnb g4">
@@ -6296,7 +6304,7 @@ function newReservation(el,pre,walkin){
     q('#nRm').innerHTML=(walkin?'':'<option value="">Assign later</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
     const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
     const n=a&&d?diff(a,d):0,rt=+q('#nRate').value||0,free=H.rooms.filter(r=>r.type===t&&n>0&&roomFree(r.no,a,d)).length;
-    {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip}
+    {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip;const tb=totalBoxes(Array(Math.max(0,n)).fill(rt),CO(q('#nCo').value));q('#nTot').value=tb.rVal;q('#nTcL').textContent=tb.cLabel;q('#nTc').value=tb.cVal;q('#nTnL').textContent=tb.nLabel;q('#nTn').value=tb.nVal;q('#nTc').title=q('#nTn').title=tb.tip}
     q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${H.set.cur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
   ['nA','nD','nRt','nRc'].forEach(id=>q('#'+id).addEventListener('change',()=>{if(id!=='nA'&&id!=='nD')delete q('#nRate').dataset.touched;if(id==='nA'&&q('#nD').value<=q('#nA').value)q('#nD').value=addD(q('#nA').value,1);upd()}));
   q('#nRate').oninput=()=>{q('#nRate').dataset.touched=1;upd()};

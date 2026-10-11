@@ -8,7 +8,7 @@ let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
 const r2 = v => Math.round(v * 100) / 100;
 const m2 = v => v.toFixed(2);
-const X = new Function('r2', 'm2', 'rateFor', src.slice(a, b) + '\nreturn {commPct,commBasis,commCalc,commBoxes,resComm,nightRate,billedOf,billRate};')(r2, m2, () => 0);
+const X = new Function('r2', 'm2', 'rateFor', src.slice(a, b) + '\nreturn {commPct,commBasis,commCalc,commBoxes,resComm,nightRate,billedOf,billRate,commTotals,totalBoxes};')(r2, m2, () => 0);
 
 const gross = { comm: 15, rateBasis: 'gross' }, net = { comm: 15, rateBasis: 'net' };
 T('15% of a 3,000 gross rate is 450, net 2,550', X.commCalc(3000, net).comm === 450 && X.commCalc(3000, net).net === 2550);
@@ -16,9 +16,9 @@ T('amounts are rounded to 2 decimals', X.commCalc(1234.56, { comm: 12.5 }).comm 
 
 /* the two boxes next to the rate the user typed */
 let bx = X.commBoxes(3000, net);
-T('NET agent: commission box shows the amount, the next box shows the NET rate', bx.cLabel === 'Commission 15%' && bx.cVal === '450.00' && bx.nLabel === 'Net rate' && bx.nVal === '2550.00', JSON.stringify(bx));
+T('NET agent: commission box shows the amount, the next box shows the NET rate', bx.cLabel === 'Commission per night 15%' && bx.cVal === '450.00' && bx.nLabel === 'Net rate per night' && bx.nVal === '2550.00', JSON.stringify(bx));
 bx = X.commBoxes(3000, gross);
-T('GROSS agent: the next box shows the gross rate as typed, and the commission to pay back', bx.cVal === '450.00' && bx.nLabel === 'Gross rate' && bx.nVal === '3000.00', JSON.stringify(bx));
+T('GROSS agent: the next box shows the gross rate as typed, and the commission to pay back', bx.cVal === '450.00' && bx.nLabel === 'Gross rate per night' && bx.nVal === '3000.00', JSON.stringify(bx));
 for (const c of [null, undefined, {}, { comm: 0 }, { comm: '' }, { comm: -5 }, { comm: 100 }, { comm: 'abc' }]) {
   const d = X.commBoxes(3000, c);
   T('no commission (' + JSON.stringify(c) + ') shows a dash in both boxes', d.cVal === '-' && d.nVal === '-' && d.pct === 0);
@@ -59,4 +59,17 @@ bN.nightly['2026-10-10'] = 2200;
 T('changing the typed rate changes what is billed for that night only', X.billRate(bN, '2026-10-10', h2) === 1870 && X.billRate(bN, '2026-10-11', h2) === 2550);
 h2.companies[0].comm = 30;
 T('a later change of the agent commission does not change a reservation made with the old terms', X.billRate(bN, '2026-10-10', h2) === 1870);
+/* totals for the whole stay: total rate, total commission, total net (or gross) rate */
+const three = [3000, 3000, 3000];
+let tt = X.totalBoxes(three, net);
+T('NET agent, 3 nights at 3,000: total rate 9,000, total commission 1,350, total NET rate 7,650', tt.rVal === '9000.00' && tt.cLabel === 'Total commission 15%' && tt.cVal === '1350.00' && tt.nLabel === 'Total net rate' && tt.nVal === '7650.00', JSON.stringify(tt));
+tt = X.totalBoxes(three, gross);
+T('GROSS agent: the last box is the total gross rate; commission total is what the hotel pays back', tt.rVal === '9000.00' && tt.cVal === '1350.00' && tt.nLabel === 'Total gross rate' && tt.nVal === '9000.00');
+tt = X.totalBoxes(three, null);
+T('no commission: total rate shown, a dash for commission and net/gross', tt.rVal === '9000.00' && tt.cVal === '-' && tt.nVal === '-');
+const odd = X.commTotals([1234.56, 999.99, 1000.01], { comm: 12.5, rateBasis: 'net' });
+T('totals add the nights the way each night is billed (no rounding drift)', odd.gross === 3234.56 && odd.comm === X.commCalc(1234.56, { comm: 12.5 }).comm + X.commCalc(999.99, { comm: 12.5 }).comm + X.commCalc(1000.01, { comm: 12.5 }).comm && odd.net === Math.round((odd.gross - odd.comm) * 100) / 100, JSON.stringify(odd));
+const bt = { nightly: { a: 1234.56, b: 999.99, c: 1000.01 } }, hh = { companies: [{ id: 'k', comm: 12.5, rateBasis: 'net' }], reservations: [{ companyId: 'k', commPct: 12.5, commBasis: 'net', bookings: [bt] }] };
+T('total net rate equals the sum of what is billed per night (so it matches the folio)', X.billRate(bt, 'a', hh) + X.billRate(bt, 'b', hh) + X.billRate(bt, 'c', hh) - odd.net < 0.005 && X.billRate(bt, 'a', hh) + X.billRate(bt, 'b', hh) + X.billRate(bt, 'c', hh) - odd.net > -0.005);
+T('no nights gives zero totals', X.totalBoxes([], net).rVal === '0.00');
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
