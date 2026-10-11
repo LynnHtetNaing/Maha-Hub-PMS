@@ -2254,9 +2254,9 @@ function seedHotel(o){
     if(status==='noshow')B.statusDate=addD(bd,x.nsDate);
     res.bookings.push(B);h.reservations.push(res);made.push({r:res,b:B});
     if(status==='inhouse'||status==='out'){const end=status==='out'?dep:bd;
-      for(let dd=arr;dd<end;dd=addD(dd,1)){const s=seedShift(dd,'Night','Night Audit');addLine(h,B,{folio:1,code:'100',desc:'Room Charge',ref:B.room,amt:B.nightly[dd],kind:'room',night:dd,bd:dd,shift:s,user:'Night Audit',time:P(dd).getTime()+26*36e5})}}
+      for(let dd=arr;dd<end;dd=addD(dd,1)){const s=seedShift(dd,'Night','Night Audit');addLine(h,B,{folio:1,code:'100',desc:'Room Charge',ref:B.room,amt:billRate(B,dd,h,res),kind:'room',night:dd,bd:dd,shift:s,user:'Night Audit',time:P(dd).getTime()+26*36e5})}}
     if(x.dep){const s=seedShift(addD(arr,-3),'Morning');postPayment(h,B,x.dep[0],x.dep[1],{bd:addD(arr,-3),shift:s,user:'Front Desk',deposit:true,ref:'Deposit'})}
-    if(x.pay){const s=seedShift(arr,'Afternoon','Front Desk');let amt=x.pay[1];if(amt==='prepaid'||amt==='full')amt=sum(dates(arr,dep),dd=>B.nightly[dd]);postPayment(h,B,x.pay[0],amt,{bd:arr,shift:s,user:'Front Desk',ref:res.reference})}
+    if(x.pay){const s=seedShift(arr,'Afternoon','Front Desk');let amt=x.pay[1];if(amt==='prepaid'||amt==='full')amt=sum(dates(arr,dep),dd=>billRate(B,dd,h,res));postPayment(h,B,x.pay[0],amt,{bd:arr,shift:s,user:'Front Desk',ref:res.reference})}
     if(x.fb){const d1=addD(bd,-1),s=seedShift(d1,'Afternoon','Front Desk');addLine(h,B,{folio:1,code:'210',desc:'Restaurant',ref:'3',amt:248,kind:'post',bd:d1,shift:s,user:'Front Desk'});addLine(h,B,{folio:1,code:'300',desc:'Minibar',ref:B.room,amt:120,kind:'post',bd:d1,shift:s,user:'Front Desk'})}
     if(status==='out'){const s=seedShift(dep,'Morning','Front Desk');const due=bal(B);if(due>0)postPayment(h,B,comp==='c7'?'900':'905',due,{bd:dep,shift:s,user:'Front Desk',ref:'C/O'});
       h.invoices.push({no:h.set.nextInv++,bookingId:B.id,folio:1,bd:dep,at:B.checkoutTime,user:'Front Desk',shift:'Morning',prints:1,billTo:'guest',
@@ -2310,6 +2310,12 @@ function commBoxes(rate,c){const k=commCalc(rate,c);
 const resComm=(h,r)=>r&&r.commPct!==undefined?{comm:r.commPct,rateBasis:r.commBasis}:((h.companies||[]).find(c=>c.id===(r&&r.companyId))||null);
 /* A new night of a stay follows the rate already agreed for that stay; there is no standard room-type rate any more. */
 function nightRate(h,B){const ks=Object.keys(B.nightly||{}).sort();for(let i=ks.length-1;i>=0;i--){const v=+B.nightly[ks[i]];if(v>0)return v}return rateFor(h,B.type,B.rateCode)}
+/* What is billed for a night. The user types the gross rate; a Net agent is billed the net rate, everyone else the rate as typed.
+   Folio postings, the stay total, invoices and revenue reports all read this one figure. */
+const billedOf=(rate,c)=>{const k=commCalc(rate,c);return k.basis==='net'?k.net:k.gross};
+const _resMap=new WeakMap();
+function resOfIn(h,B){let r=_resMap.get(B);if(!r||!r.bookings.includes(B)){r=(h.reservations||[]).find(x=>x.bookings.includes(B))||null;if(r)_resMap.set(B,r)}return r}
+function billRate(B,d,h,r){h=h||H;r=r||resOfIn(h,B);return billedOf((B.nightly&&B.nightly[d])||0,resComm(h,r))}
 /* ---- end Agent commission ---- */
 function ensureDummyBooking(h){
   if(!h||!h.set)return null;
@@ -2428,7 +2434,7 @@ function visits(guestId){return allBookings().filter(b=>b.guestId===guestId&&['i
 const isLocked=d=>!!(d&&H.set.lockedThrough&&d<=H.set.lockedThrough);
 const closedBooking=B=>['out','cancelled','noshow'].includes(B.status)&&isLocked(B.statusDate);
 const firstNightClosed=B=>['inhouse','out'].includes(B.status)&&isLocked(B.arr);
-const stayTotal=B=>r2(sum(dates(B.arr,B.dep),d=>B.nightly[d]||0));
+const stayTotal=B=>r2(sum(dates(B.arr,B.dep),d=>billRate(B,d)));
 const rateLine=B=>`${B.type}/${B.rateCode}/${nights(B)}NT TTL @ ${m2(stayTotal(B))}/${H.set.cur}`;
 
 /* ---------- session ---------- */
@@ -7143,14 +7149,14 @@ const tonightIH=()=>allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b
 function markNoShow(B){if(!B||!need('res.cancel'))return false;const g=G(B.guestId);
   if(!confirm(`Mark ${gName(g)} as a no-show?`))return false;
   B.status='noshow';B.statusDate=H.set.bd;histB(B,'No-show');
-  const night=B.arr,fee=r2(B.nightly[night]??rateFor(H,B.type,B.rateCode));
+  const night=B.arr,fee=r2(B.nightly[night]!==undefined?billRate(B,night):rateFor(H,B.type,B.rateCode));
   if(fee>0&&!B.lines.some(l=>l.code==='160')&&confirm(`Post the no-show charge of ${m2(fee)} ${H.set.cur} for ${fd(night)}?`)){
     addLine(H,B,{...lineCtx(),folio:1,code:'160',desc:'No-show Charge',ref:B.room||String(resOf(B).no),amt:fee,kind:'post',remark:'No-show '+fd(night)});
     log('No-show charge '+m2(fee)+' RSVN '+resOf(B).no,B.id)}
   log('No-show RSVN '+resOf(B).no,B.id);return true}
 function bfEach(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return 0;return Math.max(0,+rc.bfAdult||+H.set.bfAdult||0)}
 function postRoom(){const bd=H.set.bd,s=curShift();let n=0;tonightIH().filter(b=>!roomPostedTonight(b)).forEach(b=>{
-    const full=r2(b.nightly[bd]??rateFor(H,b.type,b.rateCode));
+    const full=r2(b.nightly[bd]!==undefined?billRate(b,bd):rateFor(H,b.type,b.rateCode));
     let bf=r2(bfEach(b)*Math.max(0,+b.adults||0));if(bf>full)bf=full;const roomAmt=r2(full-bf);
     const dest=typeof chargeTarget==='function'?chargeTarget(b,'100'):b;
     addLine(H,dest,{bd,shift:s,user:user().name,folio:1,code:'100',desc:'Room Charge',ref:b.room,amt:roomAmt,kind:'room',night:bd});
@@ -7431,7 +7437,7 @@ function fcDay(d){const rows={};let occ=0,ooo=0,oi=0,held=0,tent=0;
     rows[t.code]={total:rms.length,oo,oi:ii,occ:used,tent:tn,held:h,avl:rms.length-oo-ii-used-h};occ+=used;ooo+=oo;oi+=ii;held+=h;tent+=tn});
   const tlrm=H.rooms.filter(r=>!r.dummy).length-oi,avl=sum(Object.values(rows),r=>r.avl);
   const arr=allBookings().filter(b=>!skipOcc(b)&&b.arr===d&&live(b)&&(b.status!=='tentative'||(isGrp(b)?FC.tentGrp:FC.tentFit))),dep=allBookings().filter(b=>!skipOcc(b)&&b.dep===d&&live(b)&&(b.status!=='tentative'||(isGrp(b)?FC.tentGrp:FC.tentFit)));
-  const rev=r2(sum(bk,b=>b.nightly[d]||0));
+  const rev=r2(sum(bk,b=>billRate(b,d)));
   return {d,rows,occ,ooo,oi,held,tent,tlrm,avl,occPct:tlrm?occ/tlrm*100:0,arr,dep,bk,pax:sum(bk,b=>b.adults+b.children),rev,adr:occ?rev/occ:0}}
 const dayBadge=d=>{const w=P(d).toLocaleDateString('en-US',{weekday:'short'}).toUpperCase();return `<span class="dbg ${w==='SAT'||w==='SUN'?'we':''}">${w}</span> ${fd(d)}`};
 
@@ -7489,7 +7495,7 @@ function fcTable(tab,D,ds){const T=H.roomTypes.filter(t=>!t.dummy);let head=[],r
     rows=T.map(t=>{const a=D.map(x=>x.rows[t.code].avl),o=sum(D,x=>x.rows[t.code].occ),cap=sum(D,x=>x.rows[t.code].total-x.rows[t.code].oi);return [`${t.code} – ${t.name}`,H.rooms.filter(r=>r.type===t.code).length,Math.min(...a),Math.max(...a),(sum(a)/a.length).toFixed(1),o,sum(a),pct(cap?o/cap*100:0)]});
     const a=D.map(x=>x.avl),o=sum(D,x=>x.occ),cap=sum(D,x=>x.tlrm);rows.push(['Total',H.rooms.filter(r=>!r.dummy).length,Math.min(...a),Math.max(...a),(sum(a)/a.length).toFixed(1),o,sum(a),pct(cap?o/cap*100:0)])}
   else if(tab==='prod'){const key={market:b=>b.market,channel:b=>b.channel,company:b=>(CO(resOf(b).companyId)||{name:'—'}).name,type:b=>b.type}[FC.prod];title='Production – '+{market:'Market',channel:'Channel',company:'Company / Agency',type:'Room Type'}[FC.prod];
-    const g={};D.forEach(x=>x.bk.forEach(b=>{const k=key(b);g[k]=g[k]||{rn:0,rev:0,pax:0};g[k].rn++;g[k].rev+=b.nightly[x.d]||0;g[k].pax+=b.adults+b.children}));
+    const g={};D.forEach(x=>x.bk.forEach(b=>{const k=key(b);g[k]=g[k]||{rn:0,rev:0,pax:0};g[k].rn++;g[k].rev+=billRate(b,x.d);g[k].pax+=b.adults+b.children}));
     const tot={rn:sum(Object.values(g),v=>v.rn),rev:sum(Object.values(g),v=>v.rev)};head=[title.replace('Production – ',''),'Room nights','% of room nights','Guest nights','Room revenue','% of revenue','ADR'];cls=['c-date','c-avl','c-occ','c-rt','c-rt','c-occ','c-rt'];
     rows=Object.entries(g).sort((a,b)=>b[1].rev-a[1].rev).map(([k,v])=>[k,v.rn,pct(tot.rn?v.rn/tot.rn*100:0),v.pax,m2(v.rev),pct(tot.rev?v.rev/tot.rev*100:0),m2(v.rn?v.rev/v.rn:0)]);
     rows.push(['Total',tot.rn,'100.00',sum(Object.values(g),v=>v.pax),m2(tot.rev),'100.00',m2(tot.rn?tot.rev/tot.rn:0)])}
@@ -8384,14 +8390,14 @@ let AIR={days:30,q:'',answer:''};
 function revenueFacts(days){const bd=H.set.bd,ds=dates(bd,addD(bd,days)),T=H.rooms.filter(r=>!r.dummy).length;
   const live=b=>['confirmed','inhouse','tentative'].includes(b.status)||(b.status==='out'&&false);
   const daily=ds.map(d=>{const bk=allBookings().filter(b=>['confirmed','inhouse','tentative'].includes(b.status)&&b.arr<=d&&d<b.dep);const ooo=H.rooms.filter(r=>r.ooo&&r.ooo.from<=d&&d<=r.ooo.to).length;
-    const rev=r2(sum(bk,b=>b.nightly[d]||0)),sold=bk.length,cap=T-ooo;return {d,sold,cap,occ:cap?sold/cap*100:0,rev,adr:sold?rev/sold:0,byType:Object.fromEntries(H.roomTypes.map(t=>[t.code,H.rooms.filter(r=>r.type===t.code).length-bk.filter(b=>b.type===t.code).length]))}});
+    const rev=r2(sum(bk,b=>billRate(b,d))),sold=bk.length,cap=T-ooo;return {d,sold,cap,occ:cap?sold/cap*100:0,rev,adr:sold?rev/sold:0,byType:Object.fromEntries(H.roomTypes.map(t=>[t.code,H.rooms.filter(r=>r.type===t.code).length-bk.filter(b=>b.type===t.code).length]))}});
   const rn=sum(daily,x=>x.sold),rev=r2(sum(daily,x=>x.rev)),cap=sum(daily,x=>x.cap);
   const recent=allBookings().filter(b=>{const r=resOf(b);return r.date>=addD(bd,-7)&&r.date<=bd&&live(b)});
   const pickRn=sum(recent,b=>nights(b)),pickRev=r2(sum(recent,stayTotal));
   const fut=allBookings().filter(b=>['confirmed','tentative','inhouse'].includes(b.status)&&b.dep>bd);
   const lead=fut.filter(b=>b.status!=='inhouse').map(b=>diff(resOf(b).date,b.arr)).filter(x=>x>=0);
   const canc=allBookings().filter(b=>b.status==='cancelled'&&b.statusDate>=addD(bd,-30)).length,ns=allBookings().filter(b=>b.status==='noshow'&&b.statusDate>=addD(bd,-30)).length;
-  const mix={};fut.forEach(b=>{const c=CO(resOf(b).companyId),k=c?c.name:'Direct';mix[k]=mix[k]||{rn:0,rev:0,comm:c?c.comm||0:0};const inR=dates(b.arr,b.dep).filter(d=>d>=bd&&d<addD(bd,days));mix[k].rn+=inR.length;mix[k].rev+=sum(inR,d=>b.nightly[d]||0)});
+  const mix={};fut.forEach(b=>{const c=CO(resOf(b).companyId),k=c?c.name:'Direct';mix[k]=mix[k]||{rn:0,rev:0,comm:c?c.comm||0:0};const inR=dates(b.arr,b.dep).filter(d=>d>=bd&&d<addD(bd,days));mix[k].rn+=inR.length;mix[k].rev+=sum(inR,d=>billRate(b,d))});
   const mixArr=Object.entries(mix).map(([k,v])=>({k,...v,commCost:r2(v.rev*v.comm/100)})).sort((a,b)=>b.rev-a.rev);
   const high=daily.filter(x=>x.occ>=80),low=daily.filter(x=>x.occ<=30);
   const tight=H.roomTypes.map(t=>({code:t.code,name:t.name,base:t.base,minAvl:Math.min(...daily.map(x=>x.byType[t.code])),soldOut:daily.filter(x=>x.byType[t.code]<=0).length,rooms:H.rooms.filter(r=>r.type===t.code).length}));
@@ -8547,11 +8553,11 @@ const REPORTS=[
    return {cols:[C('Time',7),C('RSVN#',8),C('Guest Name',20),C('Arr Date',10),C('Payment Type',16),C('Reference',16),C('Amount',11,'r'),C('User',12)],
     rows:ls.map(l=>{const x=bline(l);return {t:'r',c:[tm(l.time),x.r.no,gName(x.g),fd(x.b.arr),l.method,l.ref,m2(-l.amt),l.user]}}).concat([{t:'g',c:['GrandTotal','','','','','',m2(sum(ls,l=>-l.amt)),'']}])}}},
  {g:'Reservation',code:'RS_05',title:'Reservation Forecast with Actual Stay',mode:'range',run:p=>{const end=addD(p.to,1),items=allBookings().filter(b=>['confirmed','tentative','inhouse','out'].includes(b.status)&&overlaps(p.from,end,b.arr,b.dep)).sort((a,b)=>a.arr.localeCompare(b.arr));
-   const inR=b=>dates(b.arr,b.dep).filter(d=>d>=p.from&&d<end),rev=b=>sum(inR(b),d=>{if(d<H.set.bd){const l=b.lines.filter(x=>x.code==='100'&&x.night===d);return sum(l,x=>x.amt)}return b.nightly[d]||0});
+   const inR=b=>dates(b.arr,b.dep).filter(d=>d>=p.from&&d<end),rev=b=>sum(inR(b),d=>{if(d<H.set.bd){const l=b.lines.filter(x=>x.code==='100'&&x.night===d);return sum(l,x=>x.amt)}return billRate(b,d)});
    return {cols:[C('RSVN#',6),C('Guest Name',16),C('Room Type',6),C('Room#',5),C('Arr Date',8),C('Dep Date',8),C('Nts in range',6,'r'),C('Status',10),C('Company / TA',16),C('Room Revenue',11,'r')],
     rows:grp(items,b=>b.arr,k=>'Arrival Date : '+fd(k),b=>[resOf(b).no,gName(G(b.guestId)),b.type,b.room||'',fd(b.arr),fd(b.dep),inR(b).length,ST[b.status],coN(resOf(b)),m2(rev(b))],a=>['SubTotal','','','','','',sum(a,b=>inR(b).length),'','',m2(sum(a,rev))]),
     foot:'Past nights show the posted room charge; upcoming nights show the booked rate.'}}},
- {g:'Reservation',code:'RS_06',title:'Expected Reservation Forecast',mode:'futureRange',run:p=>{const ds=dates(p.from,addD(p.to,1)),roomsN=H.rooms.filter(r=>!r.dummy).length;const rows=ds.map(d=>{const o=occOn(d).filter(b=>b.status!=='out'),t=o.filter(b=>b.status==='tentative'),rev=sum(o,b=>b.nightly[d]||0),s=saleable(d);
+ {g:'Reservation',code:'RS_06',title:'Expected Reservation Forecast',mode:'futureRange',run:p=>{const ds=dates(p.from,addD(p.to,1)),roomsN=H.rooms.filter(r=>!r.dummy).length;const rows=ds.map(d=>{const o=occOn(d).filter(b=>b.status!=='out'),t=o.filter(b=>b.status==='tentative'),rev=sum(o,b=>billRate(b,d)),s=saleable(d);
      return {t:'r',c:[fd(d),P(d).toLocaleDateString('en-GB',{weekday:'short'}),roomsN,roomsN-s,s,o.length-t.length,t.length,(s?o.length/s*100:0).toFixed(2)+'%',allBookings().filter(b=>!skipOcc(b)&&b.arr===d&&live(b)&&b.status!=='out').length,allBookings().filter(b=>!skipOcc(b)&&b.dep===d&&['inhouse','confirmed','tentative'].includes(b.status)).length,sum(o,b=>b.adults+b.children),m2(rev),m2(o.length?rev/o.length:0)],_:{o:o.length,rev}}});
    return {cols:[C('Date',8),C('Day',5),C('Total Rooms',6,'r'),C('OOO',5,'r'),C('Available',6,'r'),C('Definite',6,'r'),C('Tentative',6,'r'),C('Occ %',7,'r'),C('Arrivals',6,'r'),C('Departures',7,'r'),C('Pax',5,'r'),C('Room Revenue',11,'r'),C('ADR',9,'r')],
     rows:rows.concat([{t:'g',c:['GrandTotal','','','','','','','','','','',m2(sum(rows,r=>r._.rev)),m2(sum(rows,r=>r._.o)?sum(rows,r=>r._.rev)/sum(rows,r=>r._.o):0)]}]),foot:'Forecast if every booking on the books stays as booked.'}}},
@@ -8964,7 +8970,7 @@ VIEWS['fo.dash']=el=>{
   const S=hotelStats(),bd=H.set.bd,sell=H.rooms.filter(r=>!r.dummy),ooo=sell.filter(r=>r.ooo&&r.ooo.from<=bd&&bd<=r.ooo.to).length;
   const sale=Math.max(0,sell.length-ooo);const occ=sale?S.ih.length/sale*100:0;const rev=r2(sum(allLinesH(H).filter(l=>l.bd===bd&&(l.kind==='room'||l.code==='100')),l=>l.amt));
   refreshCityItems(H);const cl=r2(sum((H.cityLedger||[]).filter(x=>x.status==='open'),x=>x.open));const pend=(H.approvals||[]).filter(a=>a.status==='pending').length;
-  const adr=S.ih.length?r2(sum(S.ih,b=>b.nightly[bd]||0)/S.ih.length):0;
+  const adr=S.ih.length?r2(sum(S.ih,b=>billRate(b,bd))/S.ih.length):0;
   el.innerHTML=pageHead('Manager Dashboard',`<span class="sub">${fdWide(bd)}</span>`)+`<div class="scards">
     <div class="scard c1"><div class="st1">Occupancy</div><div class="sn">${occ.toFixed(0)}%</div><div class="spx">${S.ih.length} in house</div></div>
     <div class="scard c2"><div class="st1">Arrivals</div><div class="sn">${S.arrPend.length}</div><div class="spx">${S.arrAct.length} already in</div></div>
