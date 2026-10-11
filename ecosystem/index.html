@@ -1676,7 +1676,11 @@ function msMerge3(base,mine,theirs){
   for(const k of keys){
     const b=msStable(base[k]),m=msStable(mine[k]),t=msStable(theirs[k]);
     let pick;
-    if(m===t)pick=mine;else if(m===b)pick=theirs;else if(t===b)pick=mine;else return null;
+    if(m===t)pick=mine;else if(m===b)pick=theirs;else if(t===b)pick=mine;
+    else{   /* both sides changed this value: if it is a settings group (for example the Functions list), merge it key by key */
+      const plain=x=>x&&typeof x==='object'&&!Array.isArray(x);
+      if(plain(base[k])&&plain(mine[k])&&plain(theirs[k])){const sub=msMerge3(base[k],mine[k],theirs[k]);if(sub===null)return null;out[k]=sub;continue}
+      return null}
     if(pick[k]!==undefined)out[k]=pick[k];
   }
   return out;
@@ -2595,8 +2599,13 @@ function bindPlanEditor(root){if(!root)return;root.dataset.chosen=(H.set&&H.set.
     H.set.features=Object.assign({},H.set.features||{},use);syncLegacyFeatures(H.set.features);H.set.plan=plan;
     if($('#ftSig',root)){H.set.signature=$('#ftSig',root).value.trim();H.set.confirmTpl=$('#ftTpl',root).value}
     const titles=allFunctionKeys().filter(k=>k!=='confirm');const hidden=titles.filter(k=>H.set.features[k]===false);
-    provLog(`Functions & plan for ${H.code}: ${planName(H)}`);saveDB();renderShell();
+    provLog(`Functions & plan for ${H.code}: ${planName(H)}`);saveDB();renderShell();verifySettingSaved(H.code,h=>Object.keys(use).every(k=>h.set.features[k]===use[k]),'The Functions & plan change');
     toast(hidden.length===titles.length?`Saved. Every title is hidden for ${H.code}. Setup → Functions stays visible.`:`Saved. ${planName(H)} for ${H.code}.`);render()}}
+/* After a settings save: give the cloud a moment, then check the change is still there. If another device changed the same thing at the same moment and its copy won, say so instead of leaving a false "Saved". */
+async function verifySettingSaved(code,check,what){
+  try{if(!MahaAuth.on())return;const s=ProvSync.items.get(code);if(!s)return;
+    await s.syncOnce();const h=DB.hotels[code];
+    if(h&&!check(h)){toast(what+' was NOT kept: it was changed on another device at the same time. The newest cloud copy is shown. Please check it and save again.');if(typeof render==='function')render()}}catch(e){}}
 function needNight(){if(!need())return false;if(ruleOn(H,'closeDayNightOnly')&&!onNightShift()){toast(`Close Day can only be run on the Night shift. You are on the ${curShift()?curShift().name:''} shift.`);return false}return true}
 function need(perm){
   if(!DB.session){showLogin();return false}

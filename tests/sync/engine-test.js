@@ -138,5 +138,21 @@ const open=async(d,code,pid)=>{const r=await d.sync.open(code,pid);if(r&&r.recor
   const GL=device(S,'GL');GL.api.getDB().hotels.H1=newHotel();GL.api.getDB().hotels.H1.set.gaplessInvoices=true;GL.sync.reset('H1','pid');
   const leaseBefore=S.counters.get('nextInv');
   await GL.sync.ensureLeases(true);
-  T('gapless hotel leases every counter except the invoice number',GL.sync.leases.nextRsv&&GL.sync.leases.nextProfile&&!GL.sync.leases.nextInv&&S.counters.get('nextInv')===leaseBefore,JSON.stringify(Object.keys(GL.sync.leases)));  console.log(fails?('\n'+fails+' FAILED'):'\nALL PASSED');process.exit(fails?1:0);
+  T('gapless hotel leases every counter except the invoice number',GL.sync.leases.nextRsv&&GL.sync.leases.nextProfile&&!GL.sync.leases.nextInv&&S.counters.get('nextInv')===leaseBefore,JSON.stringify(Object.keys(GL.sync.leases)));
+  /* settings groups (e.g. the Functions list) merge key by key: two devices changing different functions at the same time both keep their change */
+  {const S2=makeServer();const FA=device(S2,'FA'),FB=device(S2,'FB');
+   const fh=newHotel();fh.set.features={city:true,petty:true,roster:true,'fn.fo.roster':true,'fn.cd.petty':true,'fn.ai.guest':true,'fn.bill.city':true};fh.set.plan='full';
+   FA.api.getDB().hotels.H1=fh;FA.sync.reset('H1','pid');await FA.sync.firstCopy();FB.api.getDB().hotels={};await open(FB,'H1','pid');
+   FA.api.getDB().hotels.H1.set.features={...FA.api.getDB().hotels.H1.set.features,'fn.ai.guest':false};
+   FB.api.getDB().hotels.H1.set.features={...FB.api.getDB().hotels.H1.set.features,'fn.bill.city':false};
+   await FA.sync.syncOnce();await FB.sync.syncOnce();await FA.sync.syncOnce();await FB.sync.syncOnce();
+   const xa=FA.api.getDB().hotels.H1.set.features,xb=FB.api.getDB().hotels.H1.set.features;
+   T('two devices unticking DIFFERENT functions at the same time: both changes are kept on both devices',xa['fn.ai.guest']===false&&xa['fn.bill.city']===false&&JSON.stringify(xa)===JSON.stringify(xb),JSON.stringify(xa));
+   FA.api.getDB().hotels.H1.set.features={...FA.api.getDB().hotels.H1.set.features,'fn.cd.petty':false};
+   FB.api.getDB().hotels.H1.set.features={...FB.api.getDB().hotels.H1.set.features,'fn.cd.petty':true,'fn.fo.roster':false};
+   await FA.sync.syncOnce();await FB.sync.syncOnce();await FA.sync.syncOnce();await FB.sync.syncOnce();
+   const ya=FA.api.getDB().hotels.H1.set.features,yb=FB.api.getDB().hotels.H1.set.features;
+   T('the SAME function changed differently on two devices is a real conflict: one value wins on both, the rest is kept',ya['fn.cd.petty']===yb['fn.cd.petty']&&ya['fn.fo.roster']===yb['fn.fo.roster']&&JSON.stringify(ya)===JSON.stringify(yb),JSON.stringify([ya['fn.cd.petty'],ya['fn.fo.roster']]));
+  }
+  console.log(fails?('\n'+fails+' FAILED'):'\nALL PASSED');process.exit(fails?1:0);
 })().catch(e=>{console.log('HARNESS ERROR',e);process.exit(2)});
