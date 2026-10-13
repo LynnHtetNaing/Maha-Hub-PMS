@@ -1353,7 +1353,7 @@ const MahaAuth={
       return {ok:true,h,u:userOf(h)||userOf(probe)};
     }
     if(emptyCand&&!unavailable&&!invalid){
-      const go=confirm('No cloud copy exists yet for hotel '+emptyCand.code+'.\n\nUse the hotel data stored on THIS device as the first cloud copy? A backup file of it will download first.\n\nChoose Cancel if this is a new device, or if the data here is demo or test data.');
+      const go=await dlgConfirm('No cloud copy exists yet for hotel '+emptyCand.code+'.\n\nUse the hotel data stored on THIS device as the first cloud copy? A backup file of it will download first.\n\nChoose Cancel if this is a new device, or if the data here is demo or test data.');
       if(!go)return reject('cancelled','Sign-in cancelled. Nothing was saved to the cloud.');
       try{downloadHotelBackup(emptyCand.code)}catch(e){}
       MahaSync.reset(emptyCand.code,emptyCand.id);
@@ -1924,7 +1924,7 @@ const ProvSync={
       if(res==='resumed')continue;
       if(res==='empty'){
         const lh=DB.hotels&&DB.hotels[p.code];
-        if(lh&&confirm('Hotel '+p.code+' has no cloud copy yet.\n\nUse the data stored on THIS device as its first cloud copy? A backup file downloads first.\n\nChoose Cancel to skip this hotel.')){
+        if(lh&&await dlgConfirm('Hotel '+p.code+' has no cloud copy yet.\n\nUse the data stored on THIS device as its first cloud copy? A backup file downloads first.\n\nChoose Cancel to skip this hotel.')){
           try{downloadHotelBackup(p.code)}catch(e){}
           let ok=false;try{ok=await s.firstCopy()}catch(e){ok=false}
           if(!ok)this.items.delete(p.code);
@@ -2136,7 +2136,7 @@ function tenantCloudConflict(code,cloud){
   MahaAuth.conflict=true;
   setTimeout(async()=>{
     if(cloud&&cloud.payload&&tenantPayloadOk(cloud.payload,code)&&
-       confirm('This hotel was changed on another device.\n\nLoad the latest cloud copy now? Unsaved changes on this screen will be replaced.\n\nCancel keeps this screen, but cloud saving stays paused until you reload.')){
+       await dlgConfirm('This hotel was changed on another device.\n\nLoad the latest cloud copy now? Unsaved changes on this screen will be replaced.\n\nCancel keeps this screen, but cloud saving stays paused until you reload.')){
       await snapshotBeforeAdopt(code);
       adoptTenantHotel(code,cloud.payload);tcvSet(code,cloud.version);MahaAuth.conflict=false;
       renderShell();render();toast('Loaded the latest cloud copy. Your previous screen was saved as a snapshot in Settings > Backup.');return;
@@ -2672,9 +2672,12 @@ function dlgOpen(title,body,buttons,w){return new Promise(res=>{let done=false;c
   const m=modal(esc(title),`<div class="dlgbody">${body}</div><div class="btns end dlgbtns">${buttons.map((b,i)=>`<button class="btn ${b.cls||''}" data-dl="${i}">${esc(b.t)}</button>`).join('')}</div>`,{w:w||460,cls:'dlg'});
   m._wrap._onclose=()=>fin(buttons.length&&buttons[0].cancel!==undefined?buttons[0].cancel:null);
   buttons.forEach((b,i)=>{const el=m.querySelector(`[data-dl="${i}"]`);el.onclick=()=>{const v=b.get?b.get(m):b.v;if(v===undefined)return;fin(v);closeModal(m)}});
+  const inp=m.querySelector('input.dlgin');if(inp)inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const last=m.querySelector('[data-dl="'+(buttons.length-1)+'"]');last&&last.click()}};
   setTimeout(()=>{const f=m.querySelector('input,textarea,.btn:last-child');f&&f.focus()},60)})}
 const dlgAlert=(msg,title)=>dlgOpen(title||'Notice',`<p class="dlgmsg">${dlgText(msg)}</p>`,[{t:'OK',cls:'gold',v:true}],440);
-const dlgConfirm=(msg,o={})=>dlgOpen(o.title||'Please confirm',`<p class="dlgmsg">${dlgText(msg)}</p>`,[{t:o.no||'Cancel',cls:'ghost',v:false,cancel:false},{t:o.yes||'Confirm',cls:o.danger?'red':'gold',v:true}],o.w||460).then(v=>v===true);
+const dlgConfirm=(msg,o={})=>dlgOpen(o.title||'Please confirm',`<p class="dlgmsg">${dlgText(msg)}</p>`,[{t:o.no||'Cancel',cls:'ghost',v:false,cancel:false},{t:o.yes||'Confirm',cls:(o.danger===undefined?DLG_RED.test(String(msg)):o.danger)?'red':'gold',v:true}],o.w||460).then(v=>v===true);
+const DLG_RED=/\b(delete|remove|purge|erase|clear|wipe|replace|reset|permanent|deactivate|unlock|for good)/i;
+const dlgAsk=(msg,def,o)=>{const t=String(msg);return dlgPrompt(t,Object.assign({value:def==null?'':String(def),long:/reason|why|note/i.test(t),type:/password|passphrase/i.test(t)?'password':undefined},o||{}))};
 const dlgPrompt=(msg,o={})=>dlgOpen(o.title||'Please answer',`<p class="dlgmsg">${dlgText(msg)}</p>${o.long===false?`<input class="dlgin" id="dlgIn" value="${esc(o.value||'')}" ${o.type?`type="${o.type}"`:''} placeholder="${esc(o.placeholder||'')}">`:`<textarea class="dlgin" id="dlgIn" rows="3" placeholder="${esc(o.placeholder||'')}">${esc(o.value||'')}</textarea>`}<div class="err" id="dlgErr"></div>`,
   [{t:o.no||'Cancel',cls:'ghost',v:null,cancel:null},{t:o.yes||'OK',cls:'gold',get:m=>{const v=m.querySelector('#dlgIn').value.trim();if(o.required&&!v){m.querySelector('#dlgErr').textContent=o.required===true?'Please fill this in.':o.required;return undefined}return v}}],o.w||520);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MODALS.length&&!MODALS[MODALS.length-1].dataset.lock)closeModal()});
@@ -5723,8 +5726,8 @@ function doLogin(){
     s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:Math.max(0,+$('#lgCash').value||0),status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Opened ${s.name} shift`)}
   else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
   writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}}
-function signOut(silent){
-  if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!curShift().noShift&&!confirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
+async function signOut(silent){
+  if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!curShift().noShift&&!await dlgConfirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   if(DB.session){if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});else log('Signed out')}
   if(MahaAuth.on())MahaAuth.signOut();
   DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
@@ -5873,7 +5876,7 @@ function checkIn(B,express){
   if(B.arr>H.set.bd&&ruleOn(H,'blockFutureArrivalCheckIn')){toast(`Arrival is ${fd(B.arr)}. Change the arrival date to check in early.`);return false}
   if(!B.room){const r=autoRoom(B);if(!r){const any=H.rooms.some(rm=>rm.type===B.type&&!rm.dummy&&roomFree(rm.no,B.arr,B.dep,B.id));
     toast(any?`No vacant clean (VC) ${RT(B.type).name} is free. Housekeeping must mark a room VC before check-in.`:`No ${RT(B.type).name} room is free. Assign a room in the reservation.`);return false}
-    if(!express&&!confirm(`Assign vacant clean room ${r.no} and check in?`))return false;B.room=r.no}
+    B.room=r.no}
   if(!roomFree(B.room,H.set.bd,B.dep,B.id)){toast(`Room ${B.room} is not free. Choose another room.`);return false}
   if(ruleOn(H,'requireVCForCheckIn')){const why=vcBlock(RM(B.room),B.id);if(why){toast(why);return false}}
   if(B.arr<H.set.bd){const fbn=nightRate(H,B);B.arr=H.set.bd;if(B.dep<=B.arr)B.dep=addD(B.arr,1);B.nightly={};dates(B.arr,B.dep).forEach(d=>B.nightly[d]=fbn)}
@@ -5881,12 +5884,14 @@ function checkIn(B,express){
   const rm=RM(B.room);if(rm)rm.hkOcc='occ';
   histB(B,'Checked in to room '+B.room);log(`Checked in RSVN ${res.no} room ${B.room}`,B.id);saveDB();
   toast(`${gName(G(B.guestId))} checked in (I) to room ${B.room}`);showNotifs(res,'Check-in');return true}
-function checkOut(B){
+/* the screens that check a guest in without a chosen room ask first, in the white box */
+async function checkInUI(B){if(!can('checkin')||B.room||!['confirmed','tentative'].includes(B.status))return checkIn(B,true);const r=autoRoom(B);if(r&&!(B.arr>H.set.bd&&ruleOn(H,'blockFutureArrivalCheckIn'))&&!await dlgConfirm(`Assign vacant clean room ${r.no} and check in?`,{title:'Check in',yes:'Check in',no:'Cancel',danger:false}))return false;return checkIn(B,true)}
+async function checkOut(B){
   if(!need('checkout'))return false;const res=resOf(B);
   if(B.status!=='inhouse'){toast('Only in-house guests can be checked out.');return false}
   showNotifs(res,'Check-out');
   const b=bal(B);if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(b)>0.004){toast(`Outstanding ${m2(b)} ${H.set.cur}. Settle the folio to 0.00 before check-out.`);return false}
-  if(B.dep>H.set.bd){if(!confirm(`Departure is ${fd(B.dep)}. Check out early today?`))return false;B.earlyOut=true;const nd=H.set.bd>B.arr?H.set.bd:addD(B.arr,1);dates(nd,B.dep).forEach(d=>delete B.nightly[d]);B.dep=nd}
+  if(B.dep>H.set.bd){if(!await dlgConfirm(`Departure is ${fd(B.dep)}. Check out early today?`))return false;B.earlyOut=true;const nd=H.set.bd>B.arr?H.set.bd:addD(B.arr,1);dates(nd,B.dep).forEach(d=>delete B.nightly[d]);B.dep=nd}
   B.status='out';B.statusDate=H.set.bd;B.checkoutTime=Date.now();const rm=RM(B.room);if(rm){rm.hk='dirty';rm.hkOcc='vac';rm.hkNote='Vacant dirty after check-out'}
   histB(B,'Checked out – room vacant dirty (VD)');log(`Checked out RSVN ${res.no} room ${B.room} (vacant dirty)`,B.id);saveDB();toast(`Checked out (O). Room ${B.room} is vacant dirty (VD).`);return true}
 function canCheckBack(B){return !!(B&&B.status==='out'&&B.statusDate===H.set.bd&&!isLocked(B.statusDate)&&ruleOn(H,'allowCheckBackSameDay'))}
@@ -6038,9 +6043,9 @@ function bindSide(el,mode,rerender){
   $$('[data-sort]',el).forEach(h=>h.onclick=()=>{const k=h.dataset.sort;LSORT=LSORT.k===k?{k,d:-LSORT.d}:{k,d:1};rerender()});
   $$('[data-prc]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();if(need('print'))printRegCard(bookingById(b.dataset.prc))});
   $$('[data-back]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();if(checkBackIn(bookingById(b.dataset.back)))rerender()});
-  $$('[data-ci]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();if(checkIn(bookingById(b.dataset.ci),false))rerender()});
+  $$('[data-ci]',el).forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await checkInUI(bookingById(b.dataset.ci)))rerender()});
   $$('[data-exp]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();if(checkIn(bookingById(b.dataset.exp),true))rerender()});
-  $$('[data-co2]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();const B=bookingById(b.dataset.co2);if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(checkOut(B))rerender()});
+  $$('[data-co2]',el).forEach(b=>b.onclick=async e=>{e.stopPropagation();const B=bookingById(b.dataset.co2);if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(await checkOut(B))rerender()});
 }
 
 /* ---------- shared search + filter side panel (Billing, Arrivals, Departures) ---------- */
@@ -6153,7 +6158,7 @@ VIEWS['fo.departures2']=(el,id)=>{
   const B=DS.sel&&bookingById(DS.sel);const box=$('#arDetail',el);
   if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}">Balance <b>${m2(bb)} ${H.set.cur}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}<span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
     reservationScreen($('#dRes',box),resOf(B),B,{compact:true});
-    $('#dFol',box).onclick=()=>go('bill.open',B.id);$('#dCo',box).onclick=()=>{if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(checkOut(B))re()};
+    $('#dFol',box).onclick=()=>go('bill.open',B.id);$('#dCo',box).onclick=async()=>{if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(await checkOut(B))re()};
     showNotifs(resOf(B),'Check-out')}else box.innerHTML='<div class="panel empty">No departure selected.</div>';
 };
 
@@ -6345,7 +6350,7 @@ function reservationScreen(box,r,B,o={}){
   q('#gOpen').onclick=q('#aProf').onclick=()=>guestProfile(g.id,reopen);
   q('#aRate').onclick=()=>advanceRate(B,reopen);
   q('#aNotif').onclick=()=>notifForm(r);
-  if(q('#aPDel'))q('#aPDel').onclick=()=>{const why=prompt(`Delete booking RSVN ${r.no} (${gName(g)}) and all its folio lines for good?
+  if(q('#aPDel'))q('#aPDel').onclick=async ()=>{const why=await dlgAsk(`Delete booking RSVN ${r.no} (${gName(g)}) and all its folio lines for good?
 Reason (kept in the provider history):`);if(!why||!why.trim())return;
     r.bookings=r.bookings.filter(b=>b!==B);if(!r.bookings.length)H.reservations=H.reservations.filter(x=>x!==r);const w=`Deleted booking RSVN ${r.no} ${gName(g)} (${B.lines.length} folio lines, ${m2(bal(B))} balance)`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:r.no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();go('res.list');toast('Booking deleted and recorded')};
   q('#aReg').onclick=()=>{if(!need('print'))return;printRegCard(B)};
@@ -6354,10 +6359,10 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
   if(q('#aFol'))q('#aFol').onclick=()=>go('bill.open',B.id);
   q('#aCopy').onclick=()=>{if(!need('res.create'))return;const nb=copyReservation(B);go('res.open',nb.id);toast('Copied to a new reservation. Choose the room and dates for the extension, then save.')};
   q('#aAdd').onclick=()=>{if(!need('res.create'))return;const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:B.arr,dep:B.dep,rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr});r.bookings.push(nb);histB(nb,'Room added to reservation');log('Added room to RSVN '+r.no);reservationScreen(box,r,nb,o);saveDB()};
-  if(q('#aCI'))q('#aCI').onclick=()=>{if(checkIn(B,false))reopen()};
-  if(q('#aCan'))q('#aCan').onclick=()=>{if(!need('res.cancel'))return;if(B.lines.some(l=>isCharge(l))){toast('Charges are already posted. Correct them before cancelling.');return}if(Math.abs(bal(B))>0.004){toast('This booking holds a deposit. Refund or move it before cancelling.');return}
-    if(!confirm(`Cancel RSVN ${r.no} for ${gName(g)}?`))return;B.status='cancelled';B.statusDate=H.set.bd;histB(B,'Cancelled');log('Cancelled RSVN '+r.no);reopen()};
-  if(q('#aNS'))q('#aNS').onclick=()=>{if(markNoShow(B))reopen()};
+  if(q('#aCI'))q('#aCI').onclick=async()=>{if(await checkInUI(B))reopen()};
+  if(q('#aCan'))q('#aCan').onclick=async ()=>{if(!need('res.cancel'))return;if(B.lines.some(l=>isCharge(l))){toast('Charges are already posted. Correct them before cancelling.');return}if(Math.abs(bal(B))>0.004){toast('This booking holds a deposit. Refund or move it before cancelling.');return}
+    if(!await dlgConfirm(`Cancel RSVN ${r.no} for ${gName(g)}?`))return;B.status='cancelled';B.statusDate=H.set.bd;histB(B,'Cancelled');log('Cancelled RSVN '+r.no);reopen()};
+  if(q('#aNS'))q('#aNS').onclick=async()=>{if(await markNoShow(B))reopen()};
   if(q('#aRecall'))q('#aRecall').onclick=()=>{if(!need('res.cancel'))return;if(B.statusDate!==H.set.bd){toast('This no-show is locked by Close Day.');return}
     if(B.arr<H.set.bd){const keep=B.nightly,fbk=nightRate(H,B);B.arr=H.set.bd;B.nightly={};dates(B.arr,B.dep).forEach(d=>B.nightly[d]=keep[d]??fbk)}
     if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'No-show recalled');log('Recalled no-show RSVN '+r.no);reopen();toast('No-show recalled. The guest is expected today.')};
@@ -6796,12 +6801,12 @@ function folioPane(el,id,onRe){
   $('#fView',el).onclick=()=>{folSel=null;reopen()};
   $('#fPost',el).onclick=()=>postModal(B,reopen,actNow());$('#fPay',el).onclick=()=>payModal(B,reopen,actNow(),'pay');$('#fAdv',el).onclick=()=>payModal(B,reopen,actNow(),'adv');
   $('#fSplit',el).onclick=()=>splitLine(B,curLine(),reopen);$('#fOff',el).onclick=()=>offsetLine(B,curLine(),reopen);
-  $('#fLock',el).onclick=()=>{if(!need('post'))return;const a=actNow();B.locks=B.locks||{};const on=!B.locks[a];if(on&&!confirm(`Lock Folio ${a}? Nothing can be posted, paid, moved, split or changed in it until it is unlocked.`))return;B.locks[a]=on;histB(B,(on?'Locked':'Unlocked')+' folio '+a);log(`${on?'Locked':'Unlocked'} folio ${a} RSVN ${r.no}`,B.id);reopen();toast(on?`Folio ${a} locked`:`Folio ${a} unlocked`)};
+  $('#fLock',el).onclick=async ()=>{if(!need('post'))return;const a=actNow();B.locks=B.locks||{};const on=!B.locks[a];if(on&&!await dlgConfirm(`Lock Folio ${a}? Nothing can be posted, paid, moved, split or changed in it until it is unlocked.`))return;B.locks[a]=on;histB(B,(on?'Locked':'Unlocked')+' folio '+a);log(`${on?'Locked':'Unlocked'} folio ${a} RSVN ${r.no}`,B.id);reopen();toast(on?`Folio ${a} locked`:`Folio ${a} unlocked`)};
   $('#fMove',el).onclick=()=>moveToRoom(B,curLine(),reopen);
   $('#fDet',el).onclick=()=>{const m=modal('Guest information','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=reopen;reservationScreen($('#rdB',m),r,B,{compact:false})};
   $('#fRate',el).onclick=()=>advanceRate(B,reopen);$('#fInv',el).onclick=()=>invoiceChooser(B);$('#fReg',el).onclick=()=>{if(need('print'))printRegCard(B)};
   $('#fNot',el).onclick=()=>notifForm(r);$('#fLog',el).onclick=()=>folioLogs(B);
-  $('#fOut',el).onclick=()=>{if(checkOut(B)){reopen();if(can('print')&&confirm('Print this folio now? A red receipt, or the advance credit on Folio 1, prints a tax invoice with the card and remark. With no receipt line selected, this prints a guest folio.'))invoiceChooser(B)}};
+  $('#fOut',el).onclick=async()=>{if(await checkOut(B)){reopen();if(can('print')&&await dlgConfirm('Print this folio now? A red receipt, or the advance credit on Folio 1, prints a tax invoice with the card and remark. With no receipt line selected, this prints a guest folio.'))invoiceChooser(B)}};
   if($('#fBack',el))$('#fBack',el).onclick=()=>{if(checkBackIn(B))reopen()};
   if($('#fCCI',el))$('#fCCI',el).onclick=async()=>{if(await cancelCheckIn(B))go('res.open',B.id)};
   $$('[data-ps]',el).forEach(b=>b.onclick=()=>psEntry(B,b.dataset.ps,reopen));if($('#fCN',el))$('#fCN',el).onclick=()=>psCreditList(B,reopen);
@@ -6983,9 +6988,9 @@ VIEWS['bill.edclinks']=el=>{
     };
   };
   $$('[data-copy]',el).forEach(b=>b.onclick=()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.copy);if(!p)return;shareLink(p)});
-  $$('[data-cancel]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.cancel);if(!p||p.status!=='waiting')return;if(!confirm('Cancel link '+p.id+'?'))return;p.status='cancelled';edcBridgePut(Object.assign({},p,{hotel:H.code}));try{await edcCloudPut(p)}catch(e){}log('Cancelled link '+p.id);saveDB();render()});
+  $$('[data-cancel]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.cancel);if(!p||p.status!=='waiting')return;if(!await dlgConfirm('Cancel link '+p.id+'?'))return;p.status='cancelled';edcBridgePut(Object.assign({},p,{hotel:H.code}));try{await edcCloudPut(p)}catch(e){}log('Cancelled link '+p.id);saveDB();render()});
   $$('[data-view]',el).forEach(b=>b.onclick=()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.view);showEdcKeyIn(p,refresh)});
-  $$('[data-wipe]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.wipe);if(!p||!p.card)return;if(!confirm('Permanently remove full card number for '+p.id+'?'))return;
+  $$('[data-wipe]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.wipe);if(!p||!p.card)return;if(!await dlgConfirm('Permanently remove full card number for '+p.id+'?'))return;
     p.card.pan='';p.card.cvc='';edcBridgePut(Object.assign({},p,{hotel:H.code}));
     const cld=cloudCfg();if(cld&&cld.pass){try{await edcCloudRpc('maha_edc_wipe',{pass:cld.pass,id:p.id})}catch(e){}}
     log('Wiped EDC PAN '+p.id);saveDB();toast('Card number wiped');render()});
@@ -7130,8 +7135,8 @@ function splitLine(B,l,after){if(!need('post'))return;if(!l){toast('Select a lin
     log(`Split line ${l.sys} (${m2(sg*tot)}) into ${parts.length+1} RSVN ${resOf(B).no}`,B.id);folSel=null;closeModal(m);after();toast(`Split into ${parts.length+1} lines`)}}
 
 /* ---------- Offset transaction: permanently freezes the line (no new line is added) ---------- */
-function offsetLine(B,l,after){if(!need('corrpost'))return;if(!l){toast('Select a line first.');return}if(l.fixed||payLocked(l)||l.settled){toast(lineBlock(B,l)||'This line cannot be offset.');return}if(lineBlock(B,l)){toast(lineBlock(B,l));return}
-  const why=prompt(`Offset ${l.code} ${l.desc} ${m2(l.amt)}?\nThe transaction will be frozen for good: no move, transfer, split, edit or correction afterwards. No new line is added.\n\nReason:`);if(!why||!why.trim()){toast('An offset needs a reason.');return}
+async function offsetLine(B,l,after){if(!need('corrpost'))return;if(!l){toast('Select a line first.');return}if(l.fixed||payLocked(l)||l.settled){toast(lineBlock(B,l)||'This line cannot be offset.');return}if(lineBlock(B,l)){toast(lineBlock(B,l));return}
+  const why=await dlgAsk(`Offset ${l.code} ${l.desc} ${m2(l.amt)}?\nThe transaction will be frozen for good: no move, transfer, split, edit or correction afterwards. No new line is added.\n\nReason:`);if(!why||!why.trim()){toast('An offset needs a reason.');return}
   l.offset=true;l.offsetAt=Date.now();l.offsetBy=user().name;l.offsetWhy=why.trim();
   l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Offset (frozen): '+why.trim()});log(`Offset (frozen) line ${l.sys} ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why.trim()}`,B.id);folSel=null;after();toast('Offset done. The transaction is now frozen.')}
 
@@ -7196,8 +7201,8 @@ function transactionPopup(B,l,after){if(!l)return;
     $('#tPL',m).onclick=()=>toast(TCODES.find(c=>c.code===l.code&&c.dept==='F&B')?'No POS is connected yet; this charge was posted at the front desk.':'This line did not come from a POS.');
     if($('#tCardFull',m))$('#tCardFull',m).onclick=()=>{const v=(DB.cardVault||[]).find(x=>x.id===l.card.vault);if(!v){toast('Card details not found.');return}provLog(`Viewed full card number for RSVN ${resOf(B).no} (…${l.card.last4})`);saveDB();$('#tCardFull',m).outerHTML=`<code class="seckey">${v.pan.replace(/(.{4})/g,'$1 ').trim()}</code>`};
     if($('#tPE',m))$('#tPE',m).onclick=()=>provEditLine(B,l,()=>{closeModal(m);after()});
-    if($('#tPD',m))$('#tPD',m).onclick=()=>{const why=prompt(`Delete line ${l.sys} (${l.code} ${l.desc} ${m2(l.amt)}) for good?\nReason (kept in the provider history):`);if(!why||!why.trim())return;
-      const gone=l.group&&['pay','payrec','payoff','corrpay'].includes(l.kind)?B.lines.filter(x=>x.group===l.group):[l];if(gone.length>1&&!confirm(`This payment has ${gone.length} linked lines. Delete all of them?`))return;
+    if($('#tPD',m))$('#tPD',m).onclick=async ()=>{const why=await dlgAsk(`Delete line ${l.sys} (${l.code} ${l.desc} ${m2(l.amt)}) for good?\nReason (kept in the provider history):`);if(!why||!why.trim())return;
+      const gone=l.group&&['pay','payrec','payoff','corrpay'].includes(l.kind)?B.lines.filter(x=>x.group===l.group):[l];if(gone.length>1&&!await dlgConfirm(`This payment has ${gone.length} linked lines. Delete all of them?`))return;
       B.lines=B.lines.filter(x=>!gone.includes(x));if(typeof refreshCityItems==='function')refreshCityItems(H);const w=`Deleted ${gone.map(x=>x.sys+' '+x.code+' '+m2(x.amt)).join(', ')} from RSVN ${resOf(B).no}`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:resOf(B).no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();closeModal(m);after();toast('Line deleted and recorded')};
     if($('#tSave',m))$('#tSave',m).onclick=()=>{if(!need())return;if(lineBlock(B,l)){toast(lineBlock(B,l));return}if(isLocked(l.bd)){toast('This day is closed.');return}const s=curShift(),ch=[];
       const ref=$('#tRef',m).value.trim(),rem=$('#tRm',m).value.trim();
@@ -7207,17 +7212,17 @@ function transactionPopup(B,l,after){if(!l)return;
         if(v!==old){if(isPay){if(!can('corrpay')){toast('You do not have permission to change payment amounts.');return}grp.forEach(x=>x.amt=x.amt<0?-v:v)}else l.amt=l.amt<0?-v:v;ch.push(`amount ${m2(old)} → ${m2(v)}`)}}
       if(!ch.length){toast('Nothing changed.');return}(isPay?grp:[l]).forEach(x=>x.hist.push({at:Date.now(),user:user().name,shift:s.name,a:'Edited: '+ch.join(', ')}));
       log(`Edited line ${l.sys} RSVN ${resOf(B).no}: ${ch.join(', ')}`,B.id);closeModal(m);after();toast('Transaction updated')};
-    if($('#tCP',m))$('#tCP',m).onclick=()=>{if(!need('corrpost'))return;const why=prompt('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
+    if($('#tCP',m))$('#tCP',m).onclick=async ()=>{if(!need('corrpost'))return;const why=await dlgAsk('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
       const c=addLine(H,B,{...lineCtx(),folio:l.folio,code:l.code,desc:'Correct - '+l.desc,ref:l.ref,amt:-l.amt,kind:'corrpost',link:l.id,vat:l.vat,remark:why.trim()});
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Corrected by line '+c.sys+': '+why});log(`Correct post ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();toast('Correct post added. The charge now nets to 0.')};
-    if($('#tCY',m))$('#tCY',m).onclick=()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is corrected by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Correct payment is only for a payment taken today, before Close Day.');return}const why=prompt('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
+    if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is corrected by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Correct payment is only for a payment taken today, before Close Day.');return}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
       const fol=B.lines.some(x=>x.group===l.group&&x.kind==='payrec')?4:l.folio;
       const c=addLine(H,B,{...lineCtx(),folio:fol,code:l.code,desc:'Correct Payment - '+(l.method||l.desc),ref:l.ref,amt:-l.amt,kind:'corrpay',group:l.group,method:l.method,vat:false,remark:why.trim()});
       releaseSettled(B,l.group,'Opened again because the payment was corrected');
       if(typeof refreshCityItems==='function')refreshCityItems(H);
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Correct payment line '+c.sys+': '+why});log(`Correct payment ${l.method} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();
       toast(fol===l.folio?'Correction posted on the same folio. The payment now nets to 0.':'Green correction line added on Folio 4. Move lines so the pair nets to 0, then post the right payment.')};
-    if($('#tVoid',m))$('#tVoid',m).onclick=()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is voided by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Void payment is only for a payment taken today. A payment from a closed day is refunded.');return}const why=prompt('Reason for voiding this payment:');if(!why||!why.trim()){toast('A void needs a reason.');return}
+    if($('#tVoid',m))$('#tVoid',m).onclick=async ()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is voided by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Void payment is only for a payment taken today. A payment from a closed day is refunded.');return}const why=await dlgAsk('Reason for voiding this payment:');if(!why||!why.trim()){toast('A void needs a reason.');return}
       if(typeof needsApproval==='function'&&needsApproval('voidPay')){queueApproval({action:'void',kind:'voidPay',bookingId:B.id,lineId:l.id,title:`Void ${l.method||l.desc} ${m2(Math.abs(l.amt))}`,reason:why.trim()});closeModal(m);after();return}
       applyVoid(B,l,why.trim());closeModal(m);after();toast('Payment voided.')};
     if($('#tReb',m))$('#tReb',m).onclick=()=>{closeModal(m);psEntry(B,'rebate',after,l.code+'|'+(l.vat?1:0))};
@@ -7407,10 +7412,10 @@ VIEWS['cd.shift']=el=>{
     <div class="btns"><button class="btn gold" id="csGo">Close my shift and sign out</button><button class="btn ghost" id="csRep">Shift report</button></div></div></div>
    ${others.length?`<div class="panel mt"><div class="ph">Other open shifts</div><table class="grid"><tr><th>User</th><th>Shift</th><th>Opened</th><th></th></tr>${others.map(o=>`<tr><td>${esc(o.userName)}</td><td>${o.name}</td><td>${fd(o.bd)} ${tm(o.openAt)}</td><td>${can('closeothers')?`<button class="btn sm ghost" data-cls="${o.id}">Close this shift</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
   $('#csRep',el).onclick=()=>{openReportsTab();toast('Open "Shift by Shift Cashier" under Cashier & Billing.')};
-  $('#csGo',el).onclick=()=>{const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);
-    if(v!==0&&!confirm(`Cash variance ${m2(v)}. Close the shift with this variance?`))return;
+  $('#csGo',el).onclick=async ()=>{const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);
+    if(v!==0&&!await dlgConfirm(`Cash variance ${m2(v)}. Close the shift with this variance?`))return;
     Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:cnt,variance:v,note:$('#csN',el).value.trim()});log(`Closed ${s.name} shift, variance ${m2(v)}`);saveDB();signOut(true)};
-  $$('[data-cls]',el).forEach(b=>b.onclick=()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cls);const tt=shiftTotals(o);const c=prompt(`Cash counted for ${o.userName} (${o.name}). Expected ${m2(tt.expected)}:`,m2(tt.expected).replace(/,/g,''));if(c===null)return;
+  $$('[data-cls]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cls);const tt=shiftTotals(o);const c=await dlgAsk(`Cash counted for ${o.userName} (${o.name}). Expected ${m2(tt.expected)}:`,m2(tt.expected).replace(/,/g,''));if(c===null)return;
     Object.assign(o,{status:'closed',closeAt:Date.now(),expected:tt.expected,counted:r2(+c),variance:r2(+c-tt.expected),closedBy:user().name});log(`Closed ${o.userName}'s ${o.name} shift`);refresh()});
 };
 
@@ -7418,11 +7423,11 @@ VIEWS['cd.shift']=el=>{
 let cdTab='guest';
 function roomPostedTonight(B){return B.lines.some(l=>l.kind==='room'&&l.night===H.set.bd)}
 const tonightIH=()=>allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.arr<=H.set.bd&&b.dep>H.set.bd);
-function markNoShow(B){if(!B||!need('res.cancel'))return false;const g=G(B.guestId);
-  if(!confirm(`Mark ${gName(g)} as a no-show?`))return false;
+async function markNoShow(B){if(!B||!need('res.cancel'))return false;const g=G(B.guestId);
+  if(!await dlgConfirm(`Mark ${gName(g)} as a no-show?`))return false;
   B.status='noshow';B.statusDate=H.set.bd;histB(B,'No-show');
   const night=B.arr,fee=r2(B.nightly[night]!==undefined?billRate(B,night):rateFor(H,B.type,B.rateCode));
-  if(fee>0&&!B.lines.some(l=>l.code==='160')&&confirm(`Post the no-show charge of ${m2(fee)} ${H.set.cur} for ${fd(night)}?`)){
+  if(fee>0&&!B.lines.some(l=>l.code==='160')&&await dlgConfirm(`Post the no-show charge of ${m2(fee)} ${H.set.cur} for ${fd(night)}?`)){
     addLine(H,B,{...lineCtx(),folio:1,code:'160',desc:'No-show Charge',ref:B.room||String(resOf(B).no),amt:fee,kind:'post',remark:'No-show '+fd(night)});
     log('No-show charge '+m2(fee)+' RSVN '+resOf(B).no,B.id)}
   log('No-show RSVN '+resOf(B).no,B.id);return true}
@@ -7483,19 +7488,19 @@ VIEWS['cd.close']=el=>{
    <div class="cdnote"><div>If there is a Data conflict, fix it first.</div><div>If there is a Room discrepancy, check with housekeeping, then close it (reopen if needed).</div><div>Post room adds tonight's room charge (code 100) to Folio 1. On an RB rate, adult breakfast is deducted from that room charge, shown on Folio 2, and posted once as F&amp;B revenue on dummy room D999.</div><div>When every check is done, Close Day locks ${fd(bd)}, moves the hotel to ${fd(addD(bd,1))} and signs you out. Sign in again with the new shift and run the reports.</div></div>`;
   saveDB();
   $$('[data-ct]',el).forEach(b=>b.onclick=()=>{cdTab=b.dataset.ct;render()});$$('[data-ores]',el).forEach(b=>b.onclick=()=>go('res.open',b.dataset.ores));
-  $$('[data-cdci]',el).forEach(b=>b.onclick=()=>{if(checkIn(bookingById(b.dataset.cdci),false))render()});
-  $$('[data-cdns]',el).forEach(b=>b.onclick=()=>{if(markNoShow(bookingById(b.dataset.cdns)))refresh()});
+  $$('[data-cdci]',el).forEach(b=>b.onclick=async()=>{if(await checkInUI(bookingById(b.dataset.cdci)))render()});
+  $$('[data-cdns]',el).forEach(b=>b.onclick=async()=>{if(await markNoShow(bookingById(b.dataset.cdns)))refresh()});
   $$('[data-cdfo]',el).forEach(b=>b.onclick=()=>go('fo.departures2',b.dataset.cdfo));
   $$('[data-cdrate]',el).forEach(b=>b.onclick=()=>advanceRate(bookingById(b.dataset.cdrate),render));
   $$('[data-cdpost]',el).forEach(b=>b.onclick=()=>$('#cdP',el).click());
-  $$('[data-cdsh]',el).forEach(b=>b.onclick=()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cdsh),tt=shiftTotals(o);const c=prompt(`Counted cash for ${o.userName} (expected ${m2(tt.expected)}):`,tt.expected);if(c===null)return;
+  $$('[data-cdsh]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cdsh),tt=shiftTotals(o);const c=await dlgAsk(`Counted cash for ${o.userName} (expected ${m2(tt.expected)}):`,tt.expected);if(c===null)return;
     Object.assign(o,{status:'closed',closeAt:Date.now(),expected:tt.expected,counted:r2(+c||0),variance:r2((+c||0)-tt.expected),closedBy:user().name});log(`Closed ${o.userName}'s ${o.name} shift`);refresh()});
-  $$('[data-dcl]',el).forEach(b=>b.onclick=()=>{if(!needNight())return;const n=prompt(`Room ${b.dataset.dcl}: what did housekeeping confirm?`,'Checked with housekeeping');if(n===null)return;Object.assign(H.disc[b.dataset.dcl],{status:'closed',user:user().name,note:n.trim(),closedAt:Date.now()});log(`Room discrepancy ${b.dataset.dcl} closed`);refresh()});
+  $$('[data-dcl]',el).forEach(b=>b.onclick=async ()=>{if(!needNight())return;const n=await dlgAsk(`Room ${b.dataset.dcl}: what did housekeeping confirm?`,'Checked with housekeeping');if(n===null)return;Object.assign(H.disc[b.dataset.dcl],{status:'closed',user:user().name,note:n.trim(),closedAt:Date.now()});log(`Room discrepancy ${b.dataset.dcl} closed`);refresh()});
   $$('[data-dro]',el).forEach(b=>b.onclick=()=>{if(!needNight())return;Object.assign(H.disc[b.dataset.dro],{status:'open',user:'',note:''});log(`Room discrepancy ${b.dataset.dro} reopened`);refresh()});
   $('#cdR',el).onclick=()=>{render();toast('Refreshed')};$('#cdC',el).onclick=()=>{cdTab='guest';render();toast('Rates that differ from the rate code are highlighted.')};
   $('#cdP',el).onclick=()=>{if(!needNight())return;const n=postRoom();saveDB();cdTab='logs';render();toast(n?`${n} room charge(s) posted`:'All room charges are already posted for tonight.')};
-  $('#cdGo',el).onclick=()=>{if(!needNight())return;if(!cdReady().ok){render();toast('Finish every check first.');return}
-    if(!confirm(`Close Day for ${fd(bd)}?\n\n• ${fd(bd)} will be locked\n• The business date moves to ${fd(addD(bd,1))}\n• Your shift closes and you are signed out`))return;runCloseDay()};
+  $('#cdGo',el).onclick=async ()=>{if(!needNight())return;if(!cdReady().ok){render();toast('Finish every check first.');return}
+    if(!await dlgConfirm(`Close Day for ${fd(bd)}?\n\n• ${fd(bd)} will be locked\n• The business date moves to ${fd(addD(bd,1))}\n• Your shift closes and you are signed out`))return;runCloseDay()};
 };
 /* Close Day run: progress steps, data log, lock, next business date, sign out */
 function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
@@ -7580,8 +7585,8 @@ VIEWS['prov.hotels']=el=>{
     <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-use="${h.code}">Work on this hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
    <p class="sub">Each hotel's data is kept apart. Staff sign in with only their username and password; the system opens the hotel their account belongs to. A new hotel stays Not active until you activate it, and its staff cannot sign in before that.</p>`;
   $$('[data-use]',el).forEach(b=>b.onclick=()=>{H=DB.hotels[b.dataset.use];DB.session.hotel=H.code;saveDB();renderShell();go('prov.perms')});
-  $$('[data-act]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.act];const on=h.active!==false;if(on&&h.shifts.some(x=>x.status==='open')&&!confirm('Staff shifts are still open at '+h.code+'. Deactivate anyway? They will be signed out.'))return;if(!on&&(!h.set.legal||!h.rooms.length)){toast('Complete the hotel details and rooms before activating.');return}h.active=!on;if(h.active)h.activatedAt=Date.now();provLog((h.active?'Activated':'Deactivated')+' hotel '+h.code);saveDB();render();toast(h.active?h.code+' is active. Its staff can now sign in.':h.code+' is not active.')});
-  $$('[data-unlock]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.unlock];const why=prompt(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
+  $$('[data-act]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.act];const on=h.active!==false;if(on&&h.shifts.some(x=>x.status==='open')&&!await dlgConfirm('Staff shifts are still open at '+h.code+'. Deactivate anyway? They will be signed out.'))return;if(!on&&(!h.set.legal||!h.rooms.length)){toast('Complete the hotel details and rooms before activating.');return}h.active=!on;if(h.active)h.activatedAt=Date.now();provLog((h.active?'Activated':'Deactivated')+' hotel '+h.code);saveDB();render();toast(h.active?h.code+' is active. Its staff can now sign in.':h.code+' is not active.')});
+  $$('[data-unlock]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.unlock];const why=await dlgAsk(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
     const old=h.set.lockedThrough;h.set.lockedThrough=addD(old,-1);H=h;h.amend.unshift({at:Date.now(),user:user().name,what:`Unlocked closed day ${fd(old)}`,before:old,after:h.set.lockedThrough,reason:why.trim()});provLog(`Unlocked ${fd(old)}`,{reason:why.trim()});saveDB();render();toast('Day unlocked. Staff can change it until the next Close Day.')});
   $$('[data-del]',el).forEach(b=>b.onclick=()=>deleteHotelFlow(b.dataset.del));
   if(MahaAuth.on())ChainInfo.load().then(info=>$$('[data-chain]',el).forEach(td=>{const c=chainOfHotel(info,td.dataset.chain);td.textContent=c?chainLabel(c):'-'}),()=>{})
@@ -7756,7 +7761,7 @@ VIEWS['prov.perms']=el=>{
   $$('[data-su]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
   $$('[data-pu]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();render()});
   $$('[data-pre]',el).forEach(s=>s.onchange=()=>{if(!s.value)return;const u=H.users.find(x=>x.id===s.dataset.pre);u.perms=[...PRESET[s.value]];u.role=s.value;provLog(`Applied preset ${s.value} to ${u.username}`);saveDB();render()});
-  $$('[data-rp]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{if(d&&d.invitation_sent===false){toast('The email could not be sent now. Try again in a few minutes.');return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=prompt(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
+  $$('[data-rp]',el).forEach(b=>b.onclick=async ()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{if(d&&d.invitation_sent===false){toast('The email could not be sent now. Try again in a few minutes.');return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=await dlgAsk(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
   $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}if(u.active!==false&&H.shifts.some(s=>s.userId===u.id&&s.status==='open')){toast('Close this person\'s open shift first.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
     $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
@@ -7801,7 +7806,7 @@ VIEWS['prov.terms']=el=>{const t=termsOf(H);
     $$('[data-tcl]',el).forEach(a=>{const v=lines(a.value);if(v.length)man[a.dataset.tcl]=v;else delete man[a.dataset.tcl]});
     const my=lines($('#tcMy',el).value);H.set.terms={en,my:my.length?my:null,manual:man,at:Date.now(),by:user().name};provLog(`Terms & Conditions updated at ${H.code}`);saveDB();return true};
   $('#tcS',el).onclick=()=>{if(save()){render();toast('Saved. Translations updated.')}};
-  $('#tcR',el).onclick=()=>{if(!confirm('Reset the terms to the default text?'))return;H.set.terms=null;provLog(`Terms reset to default at ${H.code}`);saveDB();render()};
+  $('#tcR',el).onclick=async ()=>{if(!await dlgConfirm('Reset the terms to the default text?'))return;H.set.terms=null;provLog(`Terms reset to default at ${H.code}`);saveDB();render()};
   $$('[data-tcm]',el).forEach(b=>b.onclick=()=>{const k=b.dataset.tcm,T=termsOf(H);H.set.terms=H.set.terms||{en:T.en,my:T.my,manual:{}};H.set.terms.manual=H.set.terms.manual||{};
     if(H.set.terms.manual[k])delete H.set.terms.manual[k];else H.set.terms.manual[k]=T[k]?T[k].slice():T.en.map(e=>(TC_MEMORY[e]&&TC_MEMORY[e][k])||e);saveDB();render()});
   $('#tcP',el).onclick=()=>{if(!save())return;const bl=termsBlocks(H);printPages(`<div class="ppage port regb"><div class="rbhead"><img src="${ICON}" alt=""><div><b>${esc(H.set.name)}</b><div class="rbt">TERMS AND CONDITIONS</div></div></div><div class="terms">${bl.map(b=>`<section class="tl tl-${b.k}"><h4>${esc(b.title)}</h4><ol>${b.lines.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section>`).join('')}</div><div class="rbsign"><div><span></span>Guest's Signature</div><div><span></span>Date</div></div></div>`,'Terms & Conditions')};
@@ -7902,7 +7907,7 @@ VIEWS['inq.forecast']=el=>{
     if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,()=>fallback());else fallback();
     function fallback(){const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done()}catch(e){toast('Copy is not allowed in this browser.')}ta.remove()}};
   if($('#fcAddA',el))$('#fcAddA',el).onclick=()=>allotmentForm();
-  $$('[data-adel]',el).forEach(b=>b.onclick=()=>{if(!need('setup'))return;const a=H.allotments.find(x=>x.id===b.dataset.adel);if(!confirm(`Remove the allotment for ${(CO(a.companyId)||{}).name} (${a.type})?`))return;H.allotments=H.allotments.filter(x=>x!==a);log('Allotment removed');refresh()});
+  $$('[data-adel]',el).forEach(b=>b.onclick=async ()=>{if(!need('setup'))return;const a=H.allotments.find(x=>x.id===b.dataset.adel);if(!await dlgConfirm(`Remove the allotment for ${(CO(a.companyId)||{}).name} (${a.type})?`))return;H.allotments=H.allotments.filter(x=>x!==a);log('Allotment removed');refresh()});
 };
 /* builds the table for a tab: html (screen), plain (export), tsv (copy), title, cols/rows for print */
 function fcTable(tab,D,ds){const T=H.roomTypes.filter(t=>!t.dummy);let head=[],rows=[],title='',cls=[];
@@ -8041,8 +8046,8 @@ VIEWS['rm.hkstatus']=el=>{
       if(!need('hk'))return;const rm=RM(no);if(rm.hk===HKF.mode){toast(`Room ${no} is already ${HKF.mode}.`);return}const was=rm.hk;rm.hk=HKF.mode;log(`Room ${no}: ${was} → ${HKF.mode}`);saveDB();const y=window.scrollY;HKF.hi=no;render();window.scrollTo(0,y);
       const occ=allBookings().some(x=>x.room===no&&x.status==='inhouse');toast(`Room ${no} marked ${HKF.mode} (${occ?'occupied':'vacant'})`)}});
 };
-function closeDiscrepancy(no,after){const rm=RM(no),s=roomState(rm);if(!s.dtype){toast(`Room ${no} has no open discrepancy.`);return}if(!need('hk'))return;
-  const note=prompt(`Close the ${s.dtype} discrepancy on room ${no}?\n${s.dtype==='Sleep'?'Front office shows vacant but housekeeping found it occupied.':'Front office shows occupied but housekeeping found it vacant.'}\n\nWhat was confirmed?`,'Checked with housekeeping');if(note===null)return;
+async function closeDiscrepancy(no,after){const rm=RM(no),s=roomState(rm);if(!s.dtype){toast(`Room ${no} has no open discrepancy.`);return}if(!need('hk'))return;
+  const note=await dlgAsk(`Close the ${s.dtype} discrepancy on room ${no}?\n${s.dtype==='Sleep'?'Front office shows vacant but housekeeping found it occupied.':'Front office shows occupied but housekeeping found it vacant.'}\n\nWhat was confirmed?`,'Checked with housekeeping');if(note===null)return;
   H.disc=H.disc||{};H.disc[no]={type:s.dtype,status:'closed',bd:H.set.bd,at:Date.now(),user:user().name,note:note.trim(),closedAt:Date.now()};log(`Room discrepancy ${no} (${s.dtype}) closed: ${note.trim()}`);saveDB();toast(`Discrepancy on room ${no} closed`);after&&after()}
 function roomPopup(no){const rm=RM(no),s=roomState(rm),E=can('hk')&&!user().provider;const d=E?'':'disabled';
   const g=s.occ?G(s.occ.guestId):s.arr?G(s.arr.guestId):null;
@@ -8190,7 +8195,7 @@ VIEWS['prov.systems']=el=>{
     provLog(`${h.set.google.enabled?'Enabled':'Disabled'} Maha Booking for ${h.code}`);saveDB();render();toast(h.set.google.enabled?`Maha Booking enabled for ${h.code}.`:`Maha Booking disabled for ${h.code}.`)});
   $$('[data-pub]',el).forEach(b=>b.onclick=async()=>{
     const h=DB.hotels[b.dataset.pub];if(!h)return;
-    if(!connectOn(h)){if(!confirm('Connect is Closed for '+h.code+'. Publish anyway for setup?'))return;shapeHotel(h);h.set.systems.connect=true;saveDB()}
+    if(!connectOn(h)){if(!await dlgConfirm('Connect is Closed for '+h.code+'. Publish anyway for setup?'))return;shapeHotel(h);h.set.systems.connect=true;saveDB()}
     const host=(($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||connectHost());
     localStorage.setItem('maha.connectHost',host);
     b.disabled=true;toast('Publishing snapshot to Maha Connect…');
@@ -8223,7 +8228,7 @@ VIEWS['prov.rules']=el=>{
   $('#rlHotel',el).onchange=()=>{openHotel($('#rlHotel',el).value);paint()};
   $('#rlSave',el).onclick=()=>{if(!H)return;shapeHotel(H);RULE_META.forEach(r=>{H.set.rules[r.k]=!!$('[data-rule="'+r.k+'"]',el).checked});
     provLog('Updated system rules for '+H.code);saveDB();toast('Rules saved for '+H.code);paint()};
-  $('#rlReset',el).onclick=()=>{if(!H||!confirm('Restore default rules for '+H.code+'?'))return;H.set.rules=Object.assign({},DEFAULT_RULES);provLog('Reset system rules for '+H.code);saveDB();paint();toast('Defaults restored')};
+  $('#rlReset',el).onclick=async ()=>{if(!H||!await dlgConfirm('Restore default rules for '+H.code+'?'))return;H.set.rules=Object.assign({},DEFAULT_RULES);provLog('Reset system rules for '+H.code);saveDB();paint();toast('Defaults restored')};
   $('#rlSystems',el).onclick=()=>go('prov.systems');
 };
 
@@ -8427,7 +8432,7 @@ const SEC={
    const q=()=>{const sv=+$('#t_svc',box).value||0,v=+$('#t_vat',box).value||0,net=1000/(1+sv/100)/(1+v/100);$('#t_q',box).innerHTML=`Example: 1,000.00 inclusive = net ${m2(net)} + service ${m2(net*sv/100)} + ${esc($('#t_tn',box).value)} ${m2((net*(1+sv/100))*v/100)}`};
    ['t_svc','t_vat','t_tn'].forEach(id=>$('#'+id,box).oninput=q);q();
    $('#t_cur',box).onchange=()=>{const w=CUR_WORDS[$('#t_cur',box).value];if(w){$('#t_cw',box).value=w[0];$('#t_sw',box).value=w[1]}};
-   $('#tS',box).onclick=()=>{if(!provOnly())return;if(H.active!==false&&$('#t_cur',box).value!==s.cur&&!confirm('This hotel is active. Changing the currency affects every amount. Continue?'))return;
+   $('#tS',box).onclick=async ()=>{if(!provOnly())return;if(H.active!==false&&$('#t_cur',box).value!==s.cur&&!await dlgConfirm('This hotel is active. Changing the currency affects every amount. Continue?'))return;
      Object.assign(s,{cur:$('#t_cur',box).value,curWord:$('#t_cw',box).value.trim().toUpperCase(),subWord:$('#t_sw',box).value.trim().toUpperCase(),svc:+$('#t_svc',box).value||0,taxName:$('#t_tn',box).value.trim()||'Tax',vat:+$('#t_vat',box).value||0});provLog(`Tax setup saved for ${H.code}`);saved()}},
  bd(box){const s=H.set,live=H.active!==false;box.innerHTML=secHead('3. Business date & times')+`<div class="panel pad"><div class="form3">
    ${fld('Business date',`<input type="date" id="b_bd" value="${s.bd}" ${live?'disabled':''}>`)}${fld('Check-in time',`<input type="time" id="b_ci" value="${esc(s.checkIn)}">`)}${fld('Check-out time',`<input type="time" id="b_co" value="${esc(s.checkOut)}">`)}</div>
@@ -8528,7 +8533,7 @@ const SEC={
    <div class="btns">${H.active!==false?`<button class="btn red" id="acOff">Deactivate hotel</button>`:`<button class="btn gold" id="acOn" ${all?'':'disabled'}>Activate hotel</button>`}</div>${all||H.active!==false?'':'<p class="sub">Finish every item to activate. Staff and direct booking open under Setup.</p>'}</div>`;
    $$('[data-fix]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.fix;if(k==='staff'){go('prov.perms');return}if(k==='google'){go('prov.google');return}SET_SEC=k;render()});
    if($('#acOn',box))$('#acOn',box).onclick=()=>{if(!provOnly())return;H.active=true;H.activatedAt=Date.now();provLog(`Activated ${H.code}`);saved(`${H.code} is active. Its staff can now sign in.`)};
-   if($('#acOff',box))$('#acOff',box).onclick=()=>{if(!provOnly())return;if(!confirm('Deactivate this hotel? Its staff will not be able to sign in.'))return;H.active=false;provLog(`Deactivated ${H.code}`);saved()}}
+   if($('#acOff',box))$('#acOff',box).onclick=async ()=>{if(!provOnly())return;if(!await dlgConfirm('Deactivate this hotel? Its staff will not be able to sign in.'))return;H.active=false;provLog(`Deactivated ${H.code}`);saved()}}
 };
 VIEWS['prov.google']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
@@ -8594,7 +8599,7 @@ function floorPlanEditor(box){const fl=floorsList();if(!fl.length){box.innerHTML
   paint();
   $('#fpFac',box).onchange=e=>{const k=e.target.value;if(!k)return;plan.feat.push({t:'fac',kind:k,x:1,y:1,w:12,h:10,label:''});FPE.sel='feat:'+(plan.feat.length-1);e.target.value='';paint()};
   $$('[data-add]',box).forEach(b=>b.onclick=()=>{const t=b.dataset.add,sz={stairs:[10,12],lift:[10,12],exit:[4,3],corridor:[plan.W,4],block:[4,4]}[t];plan.feat.push({t,x:0,y:0,w:sz[0],h:sz[1]});FPE.sel='feat:'+(plan.feat.length-1);paint()});
-  $('#fpReset',box).onclick=()=>{if(!provOnly())return;if(!confirm('Remove this floor plan and go back to the automatic layout?'))return;delete H.floorPlans[f];saved('Floor plan reset')};
+  $('#fpReset',box).onclick=async ()=>{if(!provOnly())return;if(!await dlgConfirm('Remove this floor plan and go back to the automatic layout?'))return;delete H.floorPlans[f];saved('Floor plan reset')};
   $('#fpSave',box).onclick=()=>{if(!provOnly())return;H.floorPlans[f]=plan;provLog(`Floor plan saved for ${H.code} ${floorName(f)}`);saved('Floor plan saved')};
 }
 
@@ -8610,7 +8615,7 @@ VIEWS['prov.catalog']=el=>{applyCatalog();const cat=DB.catalog;
      <td class="nowrap"><button class="btn sm ghost" data-hide="${c.code}">${c.hidden?'Show':'Hide'}</button>${c.custom?` <button class="btn sm red" data-cdel="c|${c.code}">Delete</button>`:''}</td></tr>`).join('')}</table></div>`;
   const used=code=>Object.values(DB.hotels).some(h=>allLinesH(h).some(l=>l.code===code||l.code===code+'R'));
   $$('[data-hide]',el).forEach(b=>b.onclick=()=>{const k=b.dataset.hide,on=!cat.hidden[k];if(on)cat.hidden[k]=true;else delete cat.hidden[k];provLog(`${on?'Hid':'Showed'} code ${k} for all hotels`);applyCatalog();saveDB();render()});
-  $$('[data-cdel]',el).forEach(b=>b.onclick=()=>{const[t,k]=b.dataset.cdel.split('|');if(used(k)){toast('This code is used in folios. Hide it instead.');return}if(!confirm(`Delete code ${k} for all hotels?`))return;
+  $$('[data-cdel]',el).forEach(b=>b.onclick=async ()=>{const[t,k]=b.dataset.cdel.split('|');if(used(k)){toast('This code is used in folios. Hide it instead.');return}if(!await dlgConfirm(`Delete code ${k} for all hotels?`))return;
     if(t==='p')cat.payments=cat.payments.filter(x=>x.code!==k);else cat.charges=cat.charges.filter(x=>x.code!==k);delete cat.hidden[k];provLog(`Deleted code ${k} from the catalog`);applyCatalog();saveDB();render()});
   $$('[data-clx]',el).forEach(b=>b.onclick=()=>{delete DB.payLogos[b.dataset.clx];provLog(`Removed logo of ${b.dataset.clx}`);saveDB();render()});
   $$('[data-clg]',el).forEach(inp=>inp.onchange=e=>{const file=e.target.files[0];if(!file)return;if(file.size>2e6){toast('Choose an image under 2 MB.');return}const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
@@ -8734,8 +8739,8 @@ VIEWS['prov.account']=el=>{if(MahaAuth.on()){renderProviderProfile(el);return}co
   const mb=$('#mfaBox',el);
   const paintMfa=()=>{if(m.enabled){mb.innerHTML=`<div class="mfaon">✓ On since ${fd(iso(new Date(m.at)))}. A 6-digit code is needed at every provider sign-in.</div>
       <p class="sub">Recovery codes left: <b>${(p.recovery||[]).length}</b></p><div class="btns"><button class="btn ghost" id="mfNewRec">New recovery codes</button><button class="btn ghost" id="mfReset">Move to a new phone</button></div><div id="mfOut"></div>`;
-      $('#mfNewRec',mb).onclick=()=>{const pw=prompt('Enter your current password to create new recovery codes:');if(pw===null)return;if(p.hash!==pwHash(p.salt,pw)){toast('Password is not correct.');return}const codes=newRecoveryCodes(p);provLog('New recovery codes created');saveDB();showCodes(codes)};
-      $('#mfReset',mb).onclick=()=>{const pw=prompt('Enter your current password to move Google Authenticator to a new phone:');if(pw===null)return;if(p.hash!==pwHash(p.salt,pw)){toast('Password is not correct.');return}setup(true)}}
+      $('#mfNewRec',mb).onclick=async ()=>{const pw=await dlgAsk('Enter your current password to create new recovery codes:');if(pw===null)return;if(p.hash!==pwHash(p.salt,pw)){toast('Password is not correct.');return}const codes=newRecoveryCodes(p);provLog('New recovery codes created');saveDB();showCodes(codes)};
+      $('#mfReset',mb).onclick=async ()=>{const pw=await dlgAsk('Enter your current password to move Google Authenticator to a new phone:');if(pw===null)return;if(p.hash!==pwHash(p.salt,pw)){toast('Password is not correct.');return}setup(true)}}
     else setup(false)};
   const showCodes=codes=>{$('#mfOut',mb)?$('#mfOut',mb).innerHTML='':0;const html=`<div class="reccodes"><b>Recovery codes – save them somewhere safe now</b><p class="sub">Each code works once if you lose your phone. They are shown only this time.</p><div class="rcgrid">${codes.map(c=>`<code>${c}</code>`).join('')}</div><div class="btns"><button class="btn ghost sm" id="rcCopy">Copy codes</button></div></div>`;
     const tgt=$('#mfOut',mb)||mb;tgt.insertAdjacentHTML('beforeend',html);$('#rcCopy',mb).onclick=()=>{const t=codes.join('\n');if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('Copied'),()=>{});}};
@@ -9285,13 +9290,13 @@ VIEWS['set.backup']=el=>{
    <div class="panel"><div class="ph">Recovery points</div><div id="bkSn" class="pad sub">Loading…</div></div></div>`;
   $('#bkDl',el).onclick=()=>{downloadBackup();toast('Backup downloaded')};
   if($('#bkEnc',el))$('#bkEnc',el).onclick=()=>downloadEncrypted();
-  $('#bkUp',el).onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{let obj;try{obj=JSON.parse(rd.result)}catch(err){toast('That file could not be read.');return}
-    if(obj&&obj.k==='AES-GCM'){const pass=prompt('Passphrase for this encrypted backup:');if(!pass)return;try{obj=await decryptBackup(obj,pass)}catch(err){toast('The passphrase did not open this backup.');return}}
-    if(!confirm('Replace all hotels on this device with this backup?'))return;applyRestore(obj)};rd.readAsText(f)};
-  if($('#bkReset',el))$('#bkReset',el).onclick=()=>{if(!confirm('Replace every hotel with the original demo data? Download a backup first if you need the current file.'))return;DB=seedDB();DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Demo hotels restored')};
+  $('#bkUp',el).onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{let obj;try{obj=JSON.parse(rd.result)}catch(err){toast('That file could not be read.');return}
+    if(obj&&obj.k==='AES-GCM'){const pass=await dlgAsk('Passphrase for this encrypted backup:');if(!pass)return;try{obj=await decryptBackup(obj,pass)}catch(err){toast('The passphrase did not open this backup.');return}}
+    if(!await dlgConfirm('Replace all hotels on this device with this backup?'))return;applyRestore(obj)};rd.readAsText(f)};
+  if($('#bkReset',el))$('#bkReset',el).onclick=async ()=>{if(!await dlgConfirm('Replace every hotel with the original demo data? Download a backup first if you need the current file.'))return;DB=seedDB();DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Demo hotels restored')};
   listSnaps().then(sn=>{const box=$('#bkSn');if(!box)return;if(!sn.length){box.textContent='No recovery point yet. One is kept the first time you save on a new day.';return}
     box.innerHTML=`<table class="grid"><tr><th>When</th><th>Business day key</th><th></th></tr>${sn.map(s=>`<tr><td>${esc(fdt(s.at))}</td><td>${esc(s.day||'')}</td><td><button class="btn sm ghost" data-snap="${s.at}">Restore</button></td></tr>`).join('')}</table>`;
-    $$('[data-snap]',box).forEach(b=>b.onclick=()=>{const s=sn.find(x=>String(x.at)===b.dataset.snap);if(!s)return;if(!confirm('Restore this recovery point? Current data on this device will be replaced.'))return;applyRestore(s.db)})}).catch(()=>{const box=$('#bkSn');if(box)box.textContent='Recovery points need IndexedDB, which this browser blocked. Download a file backup instead.'});
+    $$('[data-snap]',box).forEach(b=>b.onclick=async ()=>{const s=sn.find(x=>String(x.at)===b.dataset.snap);if(!s)return;if(!await dlgConfirm('Restore this recovery point? Current data on this device will be replaced.'))return;applyRestore(s.db)})}).catch(()=>{const box=$('#bkSn');if(box)box.textContent='Recovery points need IndexedDB, which this browser blocked. Download a file backup instead.'});
 };
 
 /* ================= Operations: security, roster, groups, tax, help ================= */
@@ -9299,7 +9304,7 @@ function bytesToB64(buf){const u=buf instanceof Uint8Array?buf:new Uint8Array(bu
 function b64ToBytes(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
 async function backupKey(pass,salt){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:120000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
-async function downloadEncrypted(){const pass=prompt('Passphrase for this encrypted backup (at least 8 characters):');if(!pass)return;if(pass.length<8){toast('Use at least 8 characters.');return}
+async function downloadEncrypted(){const pass=await dlgAsk('Passphrase for this encrypted backup (at least 8 characters):');if(!pass)return;if(pass.length<8){toast('Use at least 8 characters.');return}
   const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await backupKey(pass,salt);const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(DB)));
   const blob=JSON.stringify({v:1,k:'AES-GCM',salt:bytesToB64(salt),iv:bytesToB64(iv),ct:bytesToB64(ct)});
@@ -9465,7 +9470,7 @@ VIEWS['tax.copies']=el=>{
   el.innerHTML=pageHead('Tax copies',`<span class="sub">${rows.length} kept · ${old.length} older than 5 years</span>`)+`<div class="panel scroll"><table class="grid"><tr><th>Invoice</th><th>Date</th><th>Guest</th><th>Bill to</th><th class="n">Amount</th><th>Age</th></tr>
     ${rows.map(x=>`<tr><td>${x.no}</td><td>${fd(x.bd)}</td><td>${esc(x.guest||'')}</td><td>${esc(x.billName||'')}</td><td class="n">${m2(x.amount||0)}</td><td>${diff(x.bd,H.set.bd)>365*5?'<span class="pill r">Over 5 years</span>':'<span class="pill g">Within 5 years</span>'}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">A copy is stored each time a tax invoice is printed.</td></tr>'}</table></div>
     ${old.length&&canApprove()?`<div class="btns"><button class="btn red" id="txPurge">Remove copies older than 5 years (${old.length})</button></div>`:''}<p class="sub">Copies inside five years stay. Only those older than five years can be removed, and only after you confirm.</p>`;
-  if($('#txPurge',el))$('#txPurge',el).onclick=()=>{if(!confirm(`Remove ${old.length} tax ${old.length===1?'copy':'copies'} older than 5 years?`))return;const keep=new Set(old);H.taxCopies=H.taxCopies.filter(x=>!keep.has(x));log('Purged tax copies older than 5 years');refresh();toast('Old tax copies removed')};
+  if($('#txPurge',el))$('#txPurge',el).onclick=async ()=>{if(!await dlgConfirm(`Remove ${old.length} tax ${old.length===1?'copy':'copies'} older than 5 years?`))return;const keep=new Set(old);H.taxCopies=H.taxCopies.filter(x=>!keep.has(x));log('Purged tax copies older than 5 years');refresh();toast('Old tax copies removed')};
 };
 const HELP=[
  {id:'pay',en:{t:'Payments',b:'An advance or a deposit is three lines. The red receipt stays in Folio 4. A normal payment is one red line on the folio you are settling. The card number is not written in Reference. The invoice shows the card brand and the last 4 digits under that payment. A remark typed on a room or other charge does not print. A remark on a payment does.'},
@@ -9598,7 +9603,7 @@ VIEWS['prov.stripe']=el=>{
     provLog('Stripe account settings saved for '+H.code+(connectAccountId?' · Connect '+connectAccountId:'')+(H.set.stripe.secret?' · own secret':''));
     saved('Stripe for '+H.code+' saved');
   };
-  if($('#stHClear',el))$('#stHClear',el).onclick=()=>{if(!provOnly()||!H)return;if(!confirm('Clear Stripe keys for '+H.code+'?'))return;H.set.stripe={publishable:'',secret:'',connectAccountId:'',label:''};provLog('Cleared Stripe settings for '+H.code);saved('Hotel Stripe cleared')};
+  if($('#stHClear',el))$('#stHClear',el).onclick=async ()=>{if(!provOnly()||!H)return;if(!await dlgConfirm('Clear Stripe keys for '+H.code+'?'))return;H.set.stripe={publishable:'',secret:'',connectAccountId:'',label:''};provLog('Cleared Stripe settings for '+H.code);saved('Hotel Stripe cleared')};
   $$('[data-sthotel]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sthotel);go('prov.stripe')});
 };
 /* ---- Backup & migration (provider): take one hotel's data out, bring another system's data in. ---- */
@@ -9710,7 +9715,7 @@ VIEWS['prov.backup']=el=>{
    <p class="sub mt">Reservations and folios from another system are not imported yet. Send arrivals and in-house guests through the Guests and Companies files, and enter open reservations in the system.</p>`;
   bindPicker(el);
   const stamp=()=>iso(new Date());
-  $('#mbJson',el).onclick=()=>{if(!provOnly()||!H)return;if(!confirm('Download the full backup of '+H.code+'? It contains guest personal data. Keep the file safe.'))return;
+  $('#mbJson',el).onclick=async ()=>{if(!provOnly()||!H)return;if(!await dlgConfirm('Download the full backup of '+H.code+'? It contains guest personal data. Keep the file safe.'))return;
     downloadText('mahahub-'+H.code+'-backup-'+stamp()+'.json',JSON.stringify(hotelBackupObject(H)),'application/json');provLog('Downloaded full backup of '+H.code);saveDB();toast('Backup downloaded')};
   $$('[data-ex]',el).forEach(b=>b.onclick=()=>{if(!provOnly()||!H)return;const k=b.dataset.ex;
     downloadText('mahahub-'+H.code+'-'+k+'-'+stamp()+'.csv','﻿'+migExportCsv(H,k),'text/csv');provLog('Downloaded '+MIG_EXPORTS[k].label+' of '+H.code);saveDB();toast(MIG_EXPORTS[k].label+' downloaded')});
@@ -9727,7 +9732,7 @@ VIEWS['prov.backup']=el=>{
         ${errs.length?`<ul class="sub">${errs.map(x=>`<li>Line ${x.line}: ${esc(x.msg)}</li>`).join('')}${plan.err.length>errs.length?'<li>...and more</li>':''}</ul>`:''}
         <div class="btns"><button class="btn gold" id="mbGo" ${plan.add.length?'':'disabled'}>Add ${plan.add.length} to ${esc(H.code)}</button></div>
         <p class="sub">Rows with problems are left out. Fix them in the file and load it again.</p>`;
-      const go=$('#mbGo',box);if(go)go.onclick=()=>{if(!provOnly())return;if(!confirm('Add '+plan.add.length+' '+d.label.toLowerCase()+' to '+H.code+'?'))return;
+      const go=$('#mbGo',box);if(go)go.onclick=async ()=>{if(!provOnly())return;if(!await dlgConfirm('Add '+plan.add.length+' '+d.label.toLowerCase()+' to '+H.code+'?'))return;
         migApply(k,H,plan);provLog('Imported '+plan.add.length+' '+d.label.toLowerCase()+' into '+H.code);saveDB();box.innerHTML='<p><b>Done.</b> '+plan.add.length+' added.</p>';toast(plan.add.length+' added')};
     };rd.readAsText(f)};
 };
@@ -9747,9 +9752,9 @@ VIEWS['prov.security']=el=>{
     $('#secIdleS',box).onclick=()=>{H.set.idleMin=Math.max(0,+$('#secIdle',box).value||0);provLog('Auto-lock '+H.set.idleMin+' min for '+H.code);saveDB();toast('Auto-lock saved')};
     $('#secAp',box).onclick=()=>{H.set.approvals=H.set.approvals||{};$$('[data-ap]',box).forEach(c=>{H.set.approvals[c.dataset.ap]=c.checked});provLog('Approval switches saved for '+H.code);saveDB();toast('Approvals saved')};
     $$('[data-re]',box).forEach(b=>b.onclick=()=>{const s=H.shifts.find(x=>x.id===b.dataset.re);if(!s)return;s.reopenOk=true;provLog('Allowed reopen of '+s.userName+' '+s.name+' '+s.bd+' at '+H.code);saveDB();paint();toast('That shift may be opened again')});
-    const purge=g=>{if(!confirm(`Purge personal data for ${gName(g)}? Folio amounts stay. This is not undone.`))return false;purgeGuest(g);provLog('Purged guest data '+g.profileId+' at '+H.code);return true};
-    $$('[data-pg]',box).forEach(b=>b.onclick=()=>{const g=H.guests.find(x=>x.id===b.dataset.pg);if(g&&purge(g)){saveDB();paint()}});
-    if($('#secAll',box))$('#secAll',box).onclick=()=>{if(!confirm(`Purge personal data for ${due.length} guests? Folio amounts stay.`))return;due.forEach(x=>purgeGuest(x.g));provLog('Purged '+due.length+' guest profiles at '+H.code);saveDB();paint();toast('Listed guests purged')};
+    const purge=async g=>{if(!await dlgConfirm(`Purge personal data for ${gName(g)}? Folio amounts stay. This is not undone.`))return false;purgeGuest(g);provLog('Purged guest data '+g.profileId+' at '+H.code);return true};
+    $$('[data-pg]',box).forEach(b=>b.onclick=async()=>{const g=H.guests.find(x=>x.id===b.dataset.pg);if(g&&await purge(g)){saveDB();paint()}});
+    if($('#secAll',box))$('#secAll',box).onclick=async ()=>{if(!await dlgConfirm(`Purge personal data for ${due.length} guests? Folio amounts stay.`))return;due.forEach(x=>purgeGuest(x.g));provLog('Purged '+due.length+' guest profiles at '+H.code);saveDB();paint();toast('Listed guests purged')};
     $$('[data-apy]',box).forEach(b=>b.onclick=()=>{const a=H.approvals.find(x=>x.id===b.dataset.apy);if(!a)return;if(applyApproval(a)){a.status='approved';a.decidedAt=Date.now();a.decidedBy=user().name;provLog('Approved '+a.title);saveDB();paint()}});
     $$('[data-apn]',box).forEach(b=>b.onclick=()=>{const a=H.approvals.find(x=>x.id===b.dataset.apn);if(!a)return;a.status='rejected';a.decidedAt=Date.now();a.decidedBy=user().name;provLog('Rejected '+a.title);saveDB();paint()});
   };
