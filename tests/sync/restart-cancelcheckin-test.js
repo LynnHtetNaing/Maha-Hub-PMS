@@ -6,7 +6,7 @@ const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b); if (i < 0 
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
 const R = new Function(cut('/* ---- Restart rule:', '/* ---- end Restart rule') + '\nreturn {RESTART_MS,restartDue};')();
-const C = new Function(cut('/* ---- Cancel check-in:', 'function cancelCheckIn(B)') + '\nreturn {CCI_BLOCK_MSG,cancelCheckInBlock,applyCancelCheckIn};')();
+const C = new Function(cut('/* ---- Cancel check-in:', 'async function cancelCheckIn(B)') + '\nreturn {CCI_BLOCK_MSG,cancelCheckInBlock,applyCancelCheckIn};')();
 const H1 = 3600000, now = 1e12;
 
 T('the restart limit is exactly 1 hour', R.RESTART_MS === H1);

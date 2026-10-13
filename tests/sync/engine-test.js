@@ -50,7 +50,7 @@ const newHotel=()=>({code:'H1',set:{name:'Hotel One',bd:'2026-10-09',nextRsv:120
   invoices:[],amend:[],audits:[],pettyFloat:0,cardVault:[{pan:'4111'}],session:{u:1}});
 let fails=0;const T=(n,ok,x)=>{console.log((ok?'PASS ':'FAIL ')+n+(x?' | '+x:''));if(!ok)fails++};
 const strip=h=>{const o=JSON.parse(JSON.stringify(h));MahaStrip(o);return o};
-const MahaStrip=o=>{['nextRsv','nextInv','nextInternal','nextSys','nextProfile','nextRef'].forEach(k=>delete o.set[k]);delete o.cardVault;delete o.session;(o.users||[]).forEach(u=>{delete u.hash;delete u.salt});if(o.set.stripe)delete o.set.stripe.secret};
+const MahaStrip=o=>{['nextRsv','nextInv','nextInternal','nextSys','nextProfile','nextRef','nextCN'].forEach(k=>delete o.set[k]);delete o.cardVault;delete o.session;(o.users||[]).forEach(u=>{delete u.hash;delete u.salt});if(o.set.stripe)delete o.set.stripe.secret};
 const sorted=h=>{const o=JSON.parse(JSON.stringify(h));for(const k of Object.keys(o))if(Array.isArray(o[k])&&o[k].length===0)delete o[k];for(const k of Object.keys(o))if(Array.isArray(o[k])&&!['logs','amend'].includes(k))o[k].sort((x,y)=>JSON.stringify(x)<JSON.stringify(y)?-1:1);return o};
 const same=(x,y)=>(()=>{const kx=o=>JSON.stringify(o,Object.keys(o).sort());const norm=v=>JSON.parse(JSON.stringify(v,(k,val)=>val&&typeof val==='object'&&!Array.isArray(val)?Object.keys(val).sort().reduce((a,c)=>(a[c]=val[c],a),{}):val));return JSON.stringify(norm(sorted(x)))===JSON.stringify(norm(sorted(y)))})();
 const open=async(d,code,pid)=>{const r=await d.sync.open(code,pid);if(r&&r.records){d.api.getDB().hotels[code]=d.api.getDB().hotels[code]||{};d.sync.install(r)}return r};
