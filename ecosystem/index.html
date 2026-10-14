@@ -1734,10 +1734,10 @@ function msReconcile(t,s){
     return t}
   return s}
 function msNewSync(){return {
-  code:null,pid:null,base:new Map(),baseData:new Map(),cursor:0,leases:{},busy:false,again:false,timer:null,poll:null,
+  code:null,pid:null,cleanAt:null,fullAt:0,persistDue:false,base:new Map(),baseData:new Map(),cursor:0,leases:{},busy:false,again:false,timer:null,poll:null,
   offline:false,lastError:null,conflicts:[],onRemote:null,onState:null,
   skey(){return 'maha.sync.'+this.code},
-  reset(code,pid){this.code=code;this.pid=pid;this.base=new Map();this.baseData=new Map();this.cursor=0;this.leases={};this.conflicts=[];this.lastError=null},
+  reset(code,pid){this.cleanAt=null;this.fullAt=0;this.code=code;this.pid=pid;this.base=new Map();this.baseData=new Map();this.cursor=0;this.leases={};this.conflicts=[];this.lastError=null},
   persist(){try{localStorage.setItem(this.skey(),JSON.stringify({pid:this.pid,cursor:this.cursor,leases:this.leases,base:[...this.base]}))}catch(e){}},
   restore(){
     try{const s=JSON.parse(localStorage.getItem(this.skey())||'null');
@@ -1756,7 +1756,7 @@ function msNewSync(){return {
   async rpc(name,body){return MahaAuth.rpc(name,body)},
   /* ---- applying cloud records to the live hotel ---- */
   applyRecords(records){
-    const h=this.hotel();if(!h)return {applied:0,lost:[]};
+    const h=this.hotel();if(!h||!records.length)return {applied:0,lost:[]};      /* nothing arrived: do not read the whole hotel */
     const local=msExplode(h);let applied=0;const lost=[];
     const setBase=(id,rec,data)=>{this.base.set(id,{v:rec.version,h:rec.deleted?null:msHash(msStable(data)),tomb:!!rec.deleted});
       if(rec.deleted)this.baseData.delete(id);else this.baseData.set(id,JSON.stringify(data))};
@@ -1770,7 +1770,7 @@ function msNewSync(){return {
       }
       let data=r.data;
       if(L&&!dirty&&L.hash===msHash(msStable(r.data))){setBase(id,r,r.data);continue}   /* already the same here: nothing to change, nothing to announce */
-      if(L&&dirty){
+      if(L&&dirty){this.cleanAt=null;                                   /* my edit is still to be sent */
         const bd=this.baseData.has(id)?JSON.parse(this.baseData.get(id)):null;
         const merged=bd?msMerge3(bd,L.data,r.data):null;
         if(merged&&msStable(merged)!==msStable(L.data)){data=merged}
@@ -1836,6 +1836,9 @@ function msNewSync(){return {
     return changes;
   },
   async push(){
+    const stamp=(typeof DB!=='undefined'&&DB)?DB.savedAt:undefined,now=Date.now();
+    /* nothing was saved on this device since the last full check (which is repeated every minute as a safety): there is nothing to send */
+    if(typeof stamp==='number'&&this.cleanAt===stamp&&now-this.fullAt<60000)return {pushed:0,conflicts:[]};
     const changes=this.diff();let pushed=0,conflicts=[];
     for(let i=0;i<changes.length;i+=200){
       const chunk=changes.slice(i,i+200);
@@ -1848,22 +1851,23 @@ function msNewSync(){return {
       });
       (r.conflicts||[]).forEach(c=>conflicts.push({collection:c.collection,key:c.key,version:c.version,deleted:!!c.deleted,data:c.data}));
     }
+    if(!conflicts.length&&typeof stamp==='number'){this.cleanAt=stamp;this.fullAt=now}
     return {pushed,conflicts};
   },
   /* Pull what others changed, push what I changed, repeat if a push raced someone. Safe to call any time. */
   async syncOnce(){
     if(!this.code||!this.pid)return 'off';
     if(this.busy){this.again=true;return 'busy'}
-    this.busy=true;let remote=0;const lost=[];
+    this.busy=true;let remote=0,sent=0;const lost=[],cur0=this.cursor;
     try{
       for(let round=0;round<4;round++){
         const p=await this.pull();remote+=p.applied;lost.push(...p.lost);
-        const q=await this.push();
+        const q=await this.push();sent+=q.pushed;
         if(q.conflicts.length){const a=this.applyRecords(q.conflicts.map(c=>({collection:c.collection,key:c.key,version:c.version,deleted:c.deleted,data:c.data})));remote+=a.applied;lost.push(...a.lost);continue}
         break;
       }
       await this.ensureLeases();
-      this.persist();this.offline=false;this.lastError=null;
+      if(remote||sent||this.cursor!==cur0||this.persistDue){this.persist();this.persistDue=false}this.offline=false;this.lastError=null;
       if(lost.length){this.conflicts.push(...lost);if(typeof toast==='function')toast('Another device changed '+lost.length+' record'+(lost.length>1?'s':'')+' you also edited. The latest cloud copy was kept.')}
       if(remote&&this.onRemote)this.onRemote(remote);
       return 'ok';
@@ -1892,7 +1896,7 @@ function msNewSync(){return {
       const need=force||!ls||cur<ls.start||cur>ls.end-MS_LOW;
       if(!need)continue;
       const r=await this.rpc('maha_lease_numbers',{target_property:this.pid,counter_name:c,floor_value:Math.max(cur,1),block_size:MS_BLOCK});
-      this.leases[c]={start:+r.start,end:+r.end};
+      this.leases[c]={start:+r.start,end:+r.end};this.persistDue=true;
       if(cur<+r.start||cur>+r.end){h.set[c]=+r.start;changed=true}
     }
     if(changed&&typeof saveDB==='function')saveDB({keepTime:true,nocloud:true});
@@ -2792,7 +2796,7 @@ const tb=(id,icon,title,dis)=>`<button class="tbtn" id="${id}" title="${esc(titl
 function findStaff(un){for(const h of Object.values(DB.hotels)){const u=h.users.find(x=>x.username.toLowerCase()===un);if(u)return {h,u}}return null}
 function usernameTaken(un){return !!findStaff(un.toLowerCase())||DB.providers.some(p=>p.username===un.toLowerCase())}
 const LOGO=()=>`<img src="${ICON_BAR}" class="tblogo" alt="Maha Hub">`;
-const LOGO_TILE=()=>`<img src="/brand/pms/lockup-tile.png" class="eco-lockup eco-tile" alt="Maha Hub">`;
+const LOGO_TILE=()=>`<img src="/brand/pms/lockup-tile.jpg" class="eco-lockup eco-tile" alt="Maha Hub">`;
 const LOGO_FULL=()=>`<img src="${LOGO_LOCKUP}" class="eco-lockup" alt="Maha Hub">`;
 const ECO_SOON=[
   {name:'Maha HR',blurb:'Team, attendance and payroll.'},
