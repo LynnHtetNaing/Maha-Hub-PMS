@@ -67,7 +67,11 @@ T('the window of an in-house advance is titled Advance Payment, a reservation de
 T('its button says Post advance payment for an advance and Post deposit for a deposit', /adv\?\(deposit\?'Post deposit':'Post advance payment'\):'Post payment'/.test(src));
 T('the reservation page icon is the $ Reservation Deposit', /tb\('aDep','dollar','Reservation Deposit'/.test(src));
 
-T('the deposit invoice reads Reservation Deposit - (payment type)', /rows:\[\{bd,desc:'Reservation Deposit - '\+method,ref,amt,card,remark,note:'ROOM RENTAL '\+rentalSpan\(B\)\}\]/.test(src));
-T('a deposit has no invoice of its own on the folio: the Deposit invoice button of the reservation prints it', /if\(depSelected\(B\)\)\{dlgAlert\(DEP_PRINT_MSG\);return\}/.test(src) && /id=\"aDinv\"/.test(src));
+T('the deposit invoice line reads Reservation Deposit - (payment type)', /rows:\[\{bd,desc:'Reservation Deposit - '\+method,ref,amt,card,remark\}\]/.test(src));
+T('the deposit invoice is the same as any other invoice: no "Reservation Deposit TAX INVOICE" heading and the normal Room Number / Folio No. boxes', !/Reservation Deposit TAX INVOICE/.test(src) && !/const (left|right)=spec\.deposit\?/.test(src) && /<b>TAX INVOICE NO\. \$\{spec\.inv\.no\} \(\$\{label\}\)<\/b>/.test(src));
+T('the system writes no "ROOM RENTAL" line on an invoice', !/ROOM RENTAL/.test(src) && !/note:'ROOM/.test(src));
+T('a deposit taken with a new reservation carries no automatic remark', /ref:q\('#nPref'\)\.value\.trim\(\),remark:''\}/.test(src));
+T('a remark typed by a person is shown in the same italic style as the old automatic line, without a star', /<tr class="ivrm"><td colspan="4">\$\{esc\(c\.x\.remark\)\}<\/td><\/tr>/.test(src) && /\.inv \.ivrm td\{font-style:italic/.test(src));
+T('the $ Deposit button of the reservation is shown only before arrival (in house it would post an Advance Payment)', /\$\{\['confirmed','tentative'\]\.includes\(B\.status\)\?tb\('aDep','dollar','Reservation Deposit',!can\('pay'\)\):''\}/.test(src) && /if\(q\('#aDep'\)\)q\('#aDep'\)\.onclick/.test(src));T('a deposit has no invoice of its own on the folio: the Deposit invoice button of the reservation prints it', /if\(depSelected\(B\)\)\{dlgAlert\(DEP_PRINT_MSG\);return\}/.test(src) && /id=\"aDinv\"/.test(src));
 T('saving a reservation with a deposit does not open an invoice by itself', !/if\(depN>0&&can\('print'\)\)printDeposit\(B\)/.test(src));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
