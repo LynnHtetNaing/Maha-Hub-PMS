@@ -22,13 +22,11 @@ let B = { lines: [] };
 X.postPayment({}, B, '900', 500, { deposit: true, adv: true, folio: 1 });
 let f1 = B.lines.filter(l => l.folio === 1), f4 = B.lines.filter(l => l.folio === 4);
 T('Folio 1 has ONE line: Reservation Deposit - Cash', f1.length === 1 && f1[0].desc === 'Reservation Deposit - Cash' && f1[0].amt === -500, show(B));
-T('Folio 4 has TWO lines (the advance posting) with the SAME wording as Folio 1', f4.length === 2 && f4.some(l => l.kind === 'payoff' && l.desc === 'Reservation Deposit - Cash' && l.amt === 500) && f4.some(l => l.kind === 'payrec' && l.desc === 'Reservation Deposit - Cash' && l.amt === -500), show(B));
-T('all three lines read exactly the same', new Set(B.lines.map(l => l.desc)).size === 1 && B.lines.length === 3);
-T('the payment method is kept on every line (reports use it)', B.lines.every(l => l.method === 'Cash'));
-
+T('Folio 4 gets nothing: a reservation deposit is only one line', f4.length === 0 && B.lines.length === 1, show(B));
+T('the payment method is kept on the line (reports use it)', B.lines.every(l => l.method === 'Cash'));
 /* another payment method */
 B = { lines: [] }; X.postPayment({}, B, '905', 1200, { deposit: true, adv: true, folio: 1 });
-T('with a card it reads Reservation Deposit - Visa Card', B.lines.find(l => l.folio === 1).desc === 'Reservation Deposit - Visa Card');
+T('with a card it reads Reservation Deposit - Visa Card', B.lines.length === 1 && B.lines[0].desc === 'Reservation Deposit - Visa Card');
 
 /* an advance taken once the guest is in house is NOT a reservation deposit */
 B = { lines: [] }; X.postPayment({}, B, '900', 300, { adv: true, folio: 1 });
@@ -46,23 +44,30 @@ T('a normal payment is a single plain line', B.lines.length === 1 && B.lines[0].
 
 /* deposits already saved with the old wording are corrected when the hotel opens */
 const oldLines = [
-  { kind: 'pay', folio: 1, deposit: true, adv: true, method: 'Cash', desc: 'Cash - Advance Payment', amt: -500 },
-  { kind: 'payoff', folio: 4, deposit: true, adv: true, method: 'Cash', desc: 'Advance Payment - Cash', amt: 500 },
-  { kind: 'payrec', folio: 4, deposit: true, adv: true, method: 'Cash', desc: 'Cash - Advance Payment', amt: -500 },
+  { kind: 'pay', folio: 1, deposit: true, group: 'g1', adv: true, method: 'Cash', desc: 'Cash - Advance Payment', amt: -500 },
+  { kind: 'payoff', folio: 4, deposit: true, group: 'g1', adv: true, method: 'Cash', desc: 'Advance Payment - Cash', amt: 500 },
+  { kind: 'payrec', folio: 4, deposit: true, group: 'g1', adv: true, method: 'Cash', desc: 'Cash - Advance Payment', amt: -500 },
   { kind: 'pay', folio: 1, deposit: false, adv: true, method: 'Visa Card', desc: 'Visa Card - Advance Payment', amt: -100 },
 ];
 const hotel = { reservations: [{ bookings: [{ lines: oldLines }] }] };
 X.retitleAdvanceLines(hotel);
-T('an old reservation deposit on Folio 1 now reads Reservation Deposit - Cash', oldLines[0].desc === 'Reservation Deposit - Cash');
-T('its two Folio 4 lines now read the same', oldLines[1].desc === 'Reservation Deposit - Cash' && oldLines[2].desc === 'Reservation Deposit - Cash');
-T('an in-house advance payment is left as an advance payment', oldLines[3].desc === 'Visa Card - Advance Payment');
+const kept = hotel.reservations[0].bookings[0].lines;
+T('an old three-line reservation deposit becomes ONE line: Reservation Deposit - Cash', kept.filter(l => l.deposit).length === 1 && kept.find(l => l.deposit).desc === 'Reservation Deposit - Cash' && kept.find(l => l.deposit).folio === 1 && kept.find(l => l.deposit).kind === 'pay');
+T('an in-house advance payment is left as an advance payment', kept.some(l => l.desc === 'Visa Card - Advance Payment'));
 X.retitleAdvanceLines(hotel);
-T('running it again changes nothing', oldLines[0].desc === 'Reservation Deposit - Cash' && oldLines[1].desc === 'Reservation Deposit - Cash' && oldLines[3].desc === 'Visa Card - Advance Payment');
-
+T('running it again changes nothing', hotel.reservations[0].bookings[0].lines.length === 2);
+const mixed = [
+  { kind: 'pay', folio: 1, deposit: true, adv: true, method: 'Cash', group: 'x', desc: 'a', amt: -500 }, { kind: 'payoff', folio: 4, deposit: true, adv: true, method: 'Cash', group: 'x', desc: 'a', amt: 500 }, { kind: 'payrec', folio: 4, deposit: true, adv: true, method: 'Cash', group: 'x', desc: 'a', amt: -500 },
+  { kind: 'corrpay', folio: 4, deposit: true, method: 'Cash', group: 'x', desc: 'c', amt: 500, corr: true }];
+const h2 = { reservations: [{ bookings: [{ lines: mixed }] }] }; X.retitleAdvanceLines(h2);
+T('a deposit that was already corrected keeps all its lines (nothing is lost)', h2.reservations[0].bookings[0].lines.length === 4);
 /* the names on the screens: the Billing / Folio keeps ADVANCE PAYMENT; only a reservation deposit is called Reservation Deposit */
 T('the folio toolbar button is still Advance payment', /tb\('fAdv','wallet','Advance payment/.test(src));
 T('the window of an in-house advance is titled Advance Payment, a reservation deposit Reservation Deposit', /modal\(adv\?\(deposit\?'Reservation Deposit':'Advance Payment'\):'Payment'/.test(src));
 T('its button says Post advance payment for an advance and Post deposit for a deposit', /adv\?\(deposit\?'Post deposit':'Post advance payment'\):'Post payment'/.test(src));
 T('the reservation page icon is the $ Reservation Deposit', /tb\('aDep','dollar','Reservation Deposit'/.test(src));
 
+T('the deposit invoice reads Reservation Deposit - (payment type)', /rows:\[\{bd,desc:'Reservation Deposit - '\+method,ref,amt,card,remark,note:'ROOM RENTAL '\+rentalSpan\(B\)\}\]/.test(src));
+T('a deposit has no invoice of its own on the folio: the Deposit invoice button of the reservation prints it', /if\(depSelected\(B\)\)\{dlgAlert\(DEP_PRINT_MSG\);return\}/.test(src) && /id=\"aDinv\"/.test(src));
+T('saving a reservation with a deposit does not open an invoice by itself', !/if\(depN>0&&can\('print'\)\)printDeposit\(B\)/.test(src));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
