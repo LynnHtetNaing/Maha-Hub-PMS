@@ -13,7 +13,7 @@ export function createStore(filePath) {
   function empty() {
     return {
       version: 1,
-      organizations: [{ id: 'org_padauk', name: 'Padauk Hospitality', status: 'active' }],
+      organizations: [{ id: 'org_padauk', name: 'Maha Hub Group of Companies Limited', status: 'active' }],
       properties: [],
       roomTypes: [],
       ratePlans: [],
