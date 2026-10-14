@@ -894,7 +894,7 @@ tr.rblk td{background:#c3c8cd!important;color:#1f2a33}tr.rblk:hover td{backgroun
 .toolbar{background:#e3eee9;border-color:#c3d6cc}.tsep{background:#b3cbc0}
 .tbtn{border-color:#b8cfc5;color:var(--accent)}.tbtn:hover{background:#f7f3e3;border-color:var(--gold-muted)}
 .cdbar{background:#e3eee9;border-bottom:2px solid var(--accent)}
-.modal.dlg .mbody{background:#fff;color:#1a272f}.dlgbody{padding:2px 2px 4px}.dlgmsg{margin:6px 0 10px;font-size:15px;line-height:1.5}.dlgbtns{margin-top:14px;gap:10px}.dlgin{width:100%;margin-top:4px}.psrow{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:5px;margin:4px 0;cursor:pointer;background:#fff}.psrow input{width:auto;padding:0}.psamt{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}</style>
+.modal.dlg .mbody{background:#fff;color:#1a272f}.dlgbody{padding:2px 2px 4px}.dlgmsg{margin:6px 0 10px;font-size:15px;line-height:1.5}.dlgbtns{margin-top:14px;gap:10px}.dlgin{width:100%;margin-top:4px}.psbar{display:flex;align-items:center;gap:8px;padding:10px 16px 0;flex-wrap:wrap}.nimodal .psbar{padding:8px 16px 0}.psrow{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:5px;margin:4px 0;cursor:pointer;background:#fff}.psrow input{width:auto;padding:0}.psamt{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}</style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 </head><body><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="/brand/pms/mark-256.png";
@@ -6325,7 +6325,7 @@ function reservationScreen(box,r,B,o={}){
     B.status==='noshow'?`<div class="lockbar">No-show recorded for business date ${fd(B.statusDate)}. It can be recalled only on that business date.</div>`:'';
   box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
    <div class="toolbar">${tb('aSave','save','Save changes',!(canEd||GE))}${tb('aProf','idc','Guest profile')}${tb('aRate','cal','Advance rate setup')}${tb('aNotif','bell','Notifications')}${tb('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tb('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
-     ${tb('aReg','card','Print registration card',!can('print'))}${tb('aDep','dollar','Reservation Deposit',!can('pay')||['out','cancelled','noshow'].includes(B.status))}${['confirmed','tentative'].includes(B.status)?psBtn(B,'refund'):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
+     ${tb('aReg','card','Print registration card',!can('print'))}${tb('aDep','dollar','Reservation Deposit',!can('pay')||['out','cancelled','noshow'].includes(B.status))}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
      ${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="sp"></span>${stBadge(B)}</div>
    ${lockNote}
    <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input id="rContact" value="${esc(r.contact)}" ${dis('res')}>`,'w2')}
@@ -6388,7 +6388,6 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
     r.bookings=r.bookings.filter(b=>b!==B);if(!r.bookings.length)H.reservations=H.reservations.filter(x=>x!==r);const w=`Deleted booking RSVN ${r.no} ${gName(g)} (${B.lines.length} folio lines, ${m2(bal(B))} balance)`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:r.no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();go('res.list');toast('Booking deleted and recorded')};
   q('#aReg').onclick=()=>{if(!need('print'))return;printRegCard(B)};
   q('#aDep').onclick=()=>payModal(B,reopen,1,'adv');
-  $$('[data-ps]',box).forEach(b=>b.onclick=()=>psEntry(B,b.dataset.ps,reopen));
   if(q('#aDinv'))q('#aDinv').onclick=()=>{if(need('print'))printDeposit(B)};
   if(q('#aFol'))q('#aFol').onclick=()=>go('bill.open',B.id);
   q('#aCopy').onclick=()=>{if(!need('res.create'))return;const nb=copyReservation(B);go('res.open',nb.id);toast('Copied to a new reservation. Choose the room and dates for the extension, then save.')};
@@ -6778,10 +6777,10 @@ function folioPane(el,id,onRe){
   const B=bookingById(id);if(!B){el.innerHTML='<div class="empty">Folio not found.</div>';return}
   const r=resOf(B),g=G(B.guestId),co=CO(r.companyId),total=bal(B),closed=closedBooking(B),back=canCheckBack(B);
   const sel=folSel&&B.lines.find(l=>l.id===folSel);const act=folAct[B.id]||1;
-  el.innerHTML=`<div class="toolbar ftb">${tb('fView','grid','Folio view')}${tb('fPost','plus','Post new transaction',closed||!can('post')||B.status!=='inhouse')}${tb('fMove','move','Transfer selected line to another room',closed||!can('move')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel)||folLocked(B,sel.folio))}
-    ${tb('fDet','detail','Reservation detail')}${tb('fRate','cal','Advance rate setup')}${tb('fPay','pay','Payment – freezes this folio and posts one red receipt line',closed||!can('pay')||['cancelled','noshow'].includes(B.status))}${tb('fAdv','wallet','Advance payment – credit on this folio, grey (+) and red receipt (−) on Folio 4',closed||!can('pay')||['cancelled','noshow','out'].includes(B.status))}
+  el.innerHTML=`<div class="toolbar ftb">${tb('fView','grid','Folio view')}${tb('fPost','plus','Post new transaction. After check-out: Rebate or Adjust (+)',B.status==='inhouse'?(closed||!can('post')):B.status!=='out')}${tb('fMove','move','Transfer selected line to another room',closed||!can('move')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel)||folLocked(B,sel.folio))}
+    ${tb('fDet','detail','Reservation detail')}${tb('fRate','cal','Advance rate setup')}${tb('fPay','pay','Payment – freezes this folio and posts one red receipt line. Also Refund',(B.status==='out'?false:(closed||!can('pay')))||['cancelled','noshow'].includes(B.status))}${tb('fAdv','wallet','Advance payment – credit on this folio, grey (+) and red receipt (−) on Folio 4',closed||!can('pay')||['cancelled','noshow','out'].includes(B.status))}
     ${tb('fSplit','split','Split selected transaction',closed||!can('post')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel))}${tb('fOff','offset','Offset (freeze) selected transaction',closed||!can('corrpost')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel)||folLocked(B,sel.folio))}${tb('fLock',folLocked(B,act)?'unlock':'lock',folLocked(B,act)?'Unlock Folio '+act:'Lock Folio '+act,closed||!can('post'))}${tb('fInv','print','Print the red receipt, a one-line guest folio for the advance credit, or a guest folio of this folio',!can('print'))}
-    ${tb('fReg','card','Print registration card',!can('print'))}${tb('fNot','bell','Notifications')}${tb('fLog','log','User logs of this folio')}${back?tb('fBack','left','Check back in (Auto)',!can('checkin')):''}${B.status==='inhouse'?(cancelCheckInBlock(B)?`<button class="tbtn blocked" id="fCCI" title="Cancel Check-In – blocked: ${esc(CCI_BLOCK_MSG)}" aria-label="Cancel Check-In (blocked)" aria-disabled="true">${ic('undo',22)}</button>`:tb('fCCI','undo','Cancel Check-In – back to Reservation, room becomes VD',!can('checkin'))):''}${['inhouse','out'].includes(B.status)?psButtons(B):''}${tb('fOut','out','Check out',!can('checkout')||B.status!=='inhouse')}</div>
+    ${tb('fReg','card','Print registration card',!can('print'))}${tb('fNot','bell','Notifications')}${tb('fLog','log','User logs of this folio')}${back?tb('fBack','left','Check back in (Auto)',!can('checkin')):''}${B.status==='inhouse'?(cancelCheckInBlock(B)?`<button class="tbtn blocked" id="fCCI" title="Cancel Check-In – blocked: ${esc(CCI_BLOCK_MSG)}" aria-label="Cancel Check-In (blocked)" aria-disabled="true">${ic('undo',22)}</button>`:tb('fCCI','undo','Cancel Check-In – back to Reservation, room becomes VD',!can('checkin'))):''}${tb('fOut','out','Check out',!can('checkout')||B.status!=='inhouse')}</div>
    <div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <button class="pnic" id="fProf" title="Guest profile">${ic('idc',18)}</button> <b>#${B.internal}</b> <a class="gname" id="fName">${esc(gName(g))}${B.copyOf?'(Copy)':''}</a>
       RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio" title="${esc(stayMark(B).label)}">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div>
       <div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b></div>
@@ -6833,7 +6832,7 @@ function folioPane(el,id,onRe){
   $$('[data-mv]',el).forEach(b=>b.onclick=ev=>{ev.stopPropagation();moveLine(+b.dataset.mv)});
   $('#fProf',el).onclick=$('#fName',el).onclick=()=>guestProfile(g.id,reopen);
   $('#fView',el).onclick=()=>{folSel=null;reopen()};
-  $('#fPost',el).onclick=()=>postModal(B,reopen,actNow());$('#fPay',el).onclick=()=>payModal(B,reopen,actNow(),'pay');$('#fAdv',el).onclick=()=>payModal(B,reopen,actNow(),'adv');
+  $('#fPost',el).onclick=()=>{if(B.status==='out'){psOpenPost(B,reopen);return}postModal(B,reopen,actNow())};$('#fPay',el).onclick=()=>{if(B.status==='out'&&(closed||!B.lines.some(l=>l.folio===actNow()&&isCharge(l)&&!l.settled&&!l.offset))){psEntry(B,'refund',reopen);return}payModal(B,reopen,actNow(),'pay')};$('#fAdv',el).onclick=()=>payModal(B,reopen,actNow(),'adv');
   $('#fSplit',el).onclick=()=>splitLine(B,curLine(),reopen);$('#fOff',el).onclick=()=>offsetLine(B,curLine(),reopen);
   $('#fLock',el).onclick=async ()=>{if(!need('post'))return;const a=actNow();B.locks=B.locks||{};const on=!B.locks[a];if(on&&!await dlgConfirm(`Lock Folio ${a}? Nothing can be posted, paid, moved, split or changed in it until it is unlocked.`))return;B.locks[a]=on;histB(B,(on?'Locked':'Unlocked')+' folio '+a);log(`${on?'Locked':'Unlocked'} folio ${a} RSVN ${r.no}`,B.id);reopen();toast(on?`Folio ${a} locked`:`Folio ${a} unlocked`)};
   $('#fMove',el).onclick=()=>moveToRoom(B,curLine(),reopen);
@@ -6843,7 +6842,7 @@ function folioPane(el,id,onRe){
   $('#fOut',el).onclick=async()=>{if(await checkOut(B)){reopen();if(can('print')&&await dlgConfirm('Print this folio now? A red receipt, or the advance credit on Folio 1, prints a tax invoice with the card and remark. With no receipt line selected, this prints a guest folio.'))invoiceChooser(B)}};
   if($('#fBack',el))$('#fBack',el).onclick=()=>{if(checkBackIn(B))reopen()};
   if($('#fCCI',el))$('#fCCI',el).onclick=async()=>{if(await cancelCheckIn(B))go('res.open',B.id)};
-  $$('[data-ps]',el).forEach(b=>b.onclick=()=>psEntry(B,b.dataset.ps,reopen));if($('#fCN',el))$('#fCN',el).onclick=()=>psCreditList(B,reopen);
+
   showNotifs(r,'Billing / Folio');
 };
 
@@ -6863,11 +6862,10 @@ function psCreditList(B,after){const list=(H.creditNotes||[]).filter(c=>c.bookin
 /* three buttons on the folio of a checked-out booking: seen by every staff member, blocked for anyone without the permission or with nothing to do */
 const PS_ICON={refund:'refund',rebate:'rebate',adjust:'swap'};
 const PS_TIP={refund:'Refund – give money back to the guest',rebate:'Rebate – reduce a charge',adjust:'Adjust (+) – keep an overpayment as revenue'};
-function psBtn(B,k){const why=psCheck(B,k,can(k));return `<button class="tbtn${why?' blocked':''}" data-ps="${k}" title="${esc(PS_TIP[k]+(why?' – '+why:''))}" aria-label="${esc(PS_NAME[k])}"${why?' aria-disabled="true"':''}>${ic(PS_ICON[k],22)}</button>`}
-function psButtons(B){const has=(H.creditNotes||[]).some(c=>c.bookingId===B.id);
-  return ['refund','rebate','adjust'].map(k=>psBtn(B,k)).join('')
-    +(has?`<button class="tbtn" id="fCN" title="Credit notes of this booking" aria-label="Credit notes">${ic('detail',22)}</button>`:'')}
-function psEntry(B,kind,after,presetKey){if(!can(kind)){dlgAlert(PS_MSG.perm);return}const why=psCheck(B,kind,true);if(why){dlgAlert(why);return}psModal(B,kind,after,presetKey)}
+/* after check-out the Post icon opens this: a guest who has left is not charged any more, only corrected */
+function psOpenPost(B,after){const has=(H.creditNotes||[]).some(c=>c.bookingId===B.id);
+  const m=modal('Rebate or Adjust (+)',`<p class="sub">This guest has checked out, so nothing new is charged. Use these for a correction.</p><div class="btns"><button class="btn gold" data-psk="rebate">${ic('rebate',16)} Rebate</button><button class="btn" data-psk="adjust">${ic('swap',16)} Adjust (+)</button>${has?'<button class="btn ghost" data-psk="cn">Credit notes</button>':''}</div>`,{w:560});
+  $$('[data-psk]',m).forEach(b=>b.onclick=()=>{closeModal(m);if(b.dataset.psk==='cn')psCreditList(B,after);else psEntry(B,b.dataset.psk,after)})}function psEntry(B,kind,after,presetKey){if(!can(kind)){dlgAlert(PS_MSG.perm);return}const why=psCheck(B,kind,true);if(why){dlgAlert(why);return}psModal(B,kind,after,presetKey)}
 function psModal(B,kind,after,presetKey){
   let intro='',fields='',okLabel='Post';
   if(kind==='refund'){const max=psPaid(B),codes=TCODES.filter(c=>c.refund&&payEnabled(c)).sort((a,b)=>String(a.ptab).localeCompare(String(b.ptab))||String(a.desc).localeCompare(String(b.desc)));
@@ -7037,9 +7035,10 @@ let postTab='MISC.';
 function postModal(B,after,folio){if(!need('post'))return;if(B.status!=='inhouse'){toast('Charges can be posted to in-house guests only.');return}
   let pf=folio||1,cur=null;
   const m=modal('New Item Folio','<div id="niB"></div>',{w:1240,cls:'nimodal'});
+  m.addEventListener('click',e=>{const b=e.target.closest('[data-psb]');if(b){closeModal(m);psEntry(B,b.dataset.psb,after)}});
   const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden);
   const paint=()=>{const list=codes().filter(c=>c.tab===postTab);
-    $('#niB',m).innerHTML=`<div class="nitabs">${POST_TABS.map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    $('#niB',m).innerHTML=`<div class="psbar"><span class="sub">A correction:</span><button type="button" class="btn sm ghost" data-psb="rebate">${ic('rebate',14)} Rebate</button><button type="button" class="btn sm ghost" data-psb="adjust">${ic('swap',14)} Adjust (+)</button></div><div class="nitabs">${POST_TABS.map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
     <div class="nimain"><div class="nitiles" id="niTiles">${list.map(c=>`<button class="nitile ${cur&&cur.code===c.code?'on':''}" data-nc="${c.code}">${ic('copy',40)}<b>${c.code}</b><span>${esc(c.desc)}</span><em class="rg ${chargeVat(c)?'':'nv'}">${chargeVat(c)?'VAT':'Non-VAT'}</em></button>`).join('')||'<div class="empty">No codes in this group.</div>'}</div>
      <div class="niform">${fld('Post to folio',`<div class="segs fseg">${[1,2,3,4].map(x=>`<button type="button" data-pf="${x}" aria-pressed="${x===pf}">Folio ${x}</button>`).join('')}</div>`)}
       ${fld('Code',`<div class="row gap"><input id="niC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="niSrch" title="Search codes">${ic('search',15)}</button></div><div id="niHits"></div>`)}
@@ -7097,11 +7096,12 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   showNotifs(resOf(B),'Cashier');
   const g=G(B.guestId);let cur=null;const deposit=adv&&B.status!=='inhouse';
   const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):'Payment','<div id="pyB"></div>',{w:1240,cls:'nimodal'});
+  m.addEventListener('click',e=>{if(e.target.closest('[data-psb]')){closeModal(m);psEntry(B,'refund',after)}});
   const codes=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&payEnabled(c));
   const defAmt=()=>{const fb=folioBal(B,folio);if(cur&&cur.refund)return fb<0?m2(-fb):'';return fb>0?m2(fb):''};
   const paint=()=>{const inTab=codes().filter(c=>c.ptab===payTab),nPay=inTab.filter(c=>!c.refund).length,nRef=inTab.filter(c=>c.refund).length;if(adv)payRef=false;const list=inTab.filter(c=>!!c.refund===payRef);const card=g.card;const cardCode=card&&codes().find(c=>c.card===card.type&&!c.refund);
     $('#pyB',m).innerHTML=`<div class="nitabs">${PAY_TABS.map(t=>`<button class="${t===payTab?'on':''}" data-pt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
-    <div class="nimain"><div class="nileft">${adv?'':`<div class="segs refseg"><button type="button" id="pyPayT" aria-pressed="${!payRef}">Payment types (${nPay})</button><button type="button" id="pyRefT" aria-pressed="${payRef}">Refund types (${nRef})</button></div>`}
+    <div class="nimain"><div class="nileft"><div class="psbar"><span class="sub">Give money back:</span><button type="button" class="btn sm ghost" data-psb="refund">${ic('refund',14)} Refund</button></div>
      <div class="nitiles">${list.map(c=>`<button class="nitile ptile ${c.refund?'rf':''} ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
      <div class="niform"><div class="defpay"><div class="dph">DEFAULT PAYMENT</div>${card?`<button class="dpc" id="pyDef">${ic('cardp',30)}<span>Credit card# •••• ${esc(card.last4)} · Exp. ${esc(card.exp||'')}</span></button>`:'<div class="sub pad">No card on file in the guest profile.</div>'}</div>
       <div class="sub">${adv?(deposit?'Reservation deposit. One credit (−) on this folio. Folio 4 gets a grey moveable (+) and a red receipt (−), and Folio 4 stays 0. Printing the credit or the red line makes the receipt / tax invoice, with the card and remark.':'Advance payment. Same three lines. Printing the credit or the red line makes the receipt / tax invoice, with the card and remark. If this folio still has an amount to pay, the amount below is that balance, so the folio comes back to 0.'):`Payment on Folio ${folio}: outstanding ${m2(folioBal(B,folio))}. Every post and advance line already on this folio freezes until a correct payment, and stays frozen after Close Day. One red line is posted. Print that line for the receipt / tax invoice. A charge remark is not printed. The advance credit keeps its card and remark on that invoice. A refund is only for a payment from a closed day.`}</div>
@@ -7371,9 +7371,9 @@ function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[onl
   const ch=ls.filter(isCharge),base=r2(sum(ch.filter(l=>l.vat),l=>l.amt)),nonvat=r2(sum(ch.filter(l=>!l.vat),l=>l.amt));
   openMoneyDoc(B,{guest:true,deposit:false,paid:false,folio:fol,rows,balance:r2(sum(ls,l=>l.amt)),base,nonvat,billTo,other,copies:copies||'both'},only?'Guest folio':'Guest folio '+B.internal+' · folio '+f)}
 function invoiceChooser(B){if(!need('print'))return;const fs=[1,2,3,4].filter(f=>B.lines.some(l=>l.folio===f));if(!fs.length){toast('This folio has no lines to print.');return}
-  {const sel=folSel&&B.lines.find(x=>x.id===folSel),cn=sel&&sel.kind==='corrpay'&&sel.cn?(H.creditNotes||[]).find(c=>c.no===sel.cn):null;
+  {const sel=folSel&&B.lines.find(x=>x.id===folSel),cn=sel&&sel.cn?(H.creditNotes||[]).find(c=>c.no===sel.cn):null;
     if(cn){const bf=billFields(B);const m=modal('Print Credit Note '+esc(cn.no),`<div class="form2">${bf.html}${fld('Print',`<select id="ivC">${opt('both','Original & Copy (2 sets)','both')}${opt('original','Original only')}${opt('copy','Copy only')}</select>`)}</div>
-      <div class="sub">The soft green correction on Folio ${sel.folio} is selected. This prints the Credit Note: the first payment and the correct payment, with the tax taken back. No remark is printed.</div><div class="btns"><button class="btn gold" id="ivGo">Preview</button></div>`,{w:680});
+      <div class="sub">The line on Folio ${sel.folio} is selected. This prints its Credit Note. No remark is printed.</div><div class="btns"><button class="btn gold" id="ivGo">Preview</button></div>`,{w:680});
       $('#ivGo',m).onclick=()=>{const o=readBill(m);closeModal(m);printCreditNote(B,cn,{bill:o.bill,other:o.other,copies:o.copies})};return}}
   const pay=selectedReceiptLine(B),credit=pay?null:selectedAdvanceCredit(B),bf=billFields(B),act=folAct[B.id]||(pay&&pay.folio)||(credit&&credit.folio)||1;
   const note=pay?`The red receipt on Folio ${pay.folio} is selected. This prints a receipt / tax invoice. Card details and the remark print under that payment. A remark on a charge does not.`

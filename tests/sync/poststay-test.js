@@ -74,7 +74,12 @@ T('adjust (+) posts +500 to the adjust code, flagged, and the folio comes to 0',
 
 /* wiring in the app */
 T('the three permissions exist', /\['refund','Refund money/.test(src) && /\['rebate','Rebate \(reduce\)/.test(src) && /\['adjust','Adjust \(\+\)/.test(src));
-T('every staff member sees the buttons: a blocked button still opens the "not eligible" box', /psButtons\(B\)/.test(src) && /function psEntry\(B,kind,after,presetKey\)\{if\(!can\(kind\)\)\{dlgAlert\(PS_MSG\.perm\)/.test(src));
+T('a click without the permission opens the "not eligible" box, for everybody who can see the button', /function psEntry\(B,kind,after,presetKey\)\{if\(!can\(kind\)\)\{dlgAlert\(PS_MSG\.perm\)/.test(src));
+T('the folio toolbar has no Refund / Rebate / Adjust icons of its own', !/psButtons|psBtn\(/.test(src) && !/id="fCN"/.test(src));
+T('Rebate and Adjust (+) are inside the Post window (and the Post icon after check-out)', /data-psb="rebate"/.test(src) && /data-psb="adjust"/.test(src) && /function psOpenPost\(B,after\)/.test(src) && /if\(B\.status==='out'\)\{psOpenPost\(B,reopen\)/.test(src));
+T('Refund is inside the Payment / Advance Payment window (and the Payment icon after check-out)', /data-psb="refund"/.test(src) && /psEntry\(B,'refund',after\)/.test(src) && /psEntry\(B,'refund',reopen\)/.test(src));
+T('the old Refund types switch is gone from the Payment window', !/id="pyRefT"/.test(src));
+T('the Print icon makes the Credit Note of any line that has one', /cn=sel&&sel\.cn\?/.test(src));
 T('the credit note is a money document titled CREDIT NOTE, printed original and copy', /spec\.credit\?'CREDIT NOTE'/.test(src) && /copies:o\.copies\|\|'both'/.test(cut('function printCreditNote', 'function psAfterPost')));
 T('the number block for credit notes is leased like the others', /'nextRef','nextCN'\]/.test(src));
 T('the Post window refuses a rebate code when there is nothing to rebate', /if\(base\.rebate\)\{const net=/.test(src));

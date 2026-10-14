@@ -71,6 +71,6 @@ T('payment a, then its correct payment c right under it, then the others in time
 
 /* D. the screens */
 T('there is no separate Void payment button any more (Correct payment does the same work)', !/id="tVoid" \$\{!can\('corrpay'\)/.test(src));
-T('clicking the soft green line prints the Credit Note (bill-to and copies are chosen first)', /sel\.kind==='corrpay'&&sel\.cn/.test(src) && /printCreditNote\(B,cn,\{bill:o\.bill,other:o\.other,copies:o\.copies\}\)/.test(src));
+T('clicking the soft green line prints the Credit Note (bill-to and copies are chosen first)', /cn=sel&&sel\.cn\?/.test(src) && /printCreditNote\(B,cn,\{bill:o\.bill,other:o\.other,copies:o\.copies\}\)/.test(src));
 T('the credit note document has no remark line (rows are built without remark or card)', !/rows:cn\.rows\.map\(x=>\(\{bd:cn\.bd,desc:x\.desc,ref:x\.ref\|\|'',amt:x\.amt,remark/.test(src));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
