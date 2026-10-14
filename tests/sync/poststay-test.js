@@ -75,7 +75,7 @@ T('adjust (+) posts +500 to the adjust code, flagged, and the folio comes to 0',
 /* wiring in the app */
 T('the three permissions exist', /\['refund','Refund money/.test(src) && /\['rebate','Rebate \(reduce\)/.test(src) && /\['adjust','Adjust \(\+\)/.test(src));
 T('every staff member sees the buttons: a blocked button still opens the "not eligible" box', /psButtons\(B\)/.test(src) && /function psEntry\(B,kind,after,presetKey\)\{if\(!can\(kind\)\)\{dlgAlert\(PS_MSG\.perm\)/.test(src));
-T('the credit note is a money document titled CREDIT NOTE, printed original and copy', /spec\.credit\?'CREDIT NOTE'/.test(src) && /copies:'both'/.test(cut('function printCreditNote', 'function psAfterPost')));
+T('the credit note is a money document titled CREDIT NOTE, printed original and copy', /spec\.credit\?'CREDIT NOTE'/.test(src) && /copies:o\.copies\|\|'both'/.test(cut('function printCreditNote', 'function psAfterPost')));
 T('the number block for credit notes is leased like the others', /'nextRef','nextCN'\]/.test(src));
 T('the Post window refuses a rebate code when there is nothing to rebate', /if\(base\.rebate\)\{const net=/.test(src));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
