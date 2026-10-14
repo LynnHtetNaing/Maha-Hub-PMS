@@ -76,8 +76,10 @@ T('adjust (+) posts +500 to the adjust code, flagged, and the folio comes to 0',
 T('the three permissions exist', /\['refund','Refund money/.test(src) && /\['rebate','Rebate \(reduce\)/.test(src) && /\['adjust','Adjust \(\+\)/.test(src));
 T('a click without the permission opens the "not eligible" box, for everybody who can see the button', /function psEntry\(B,kind,after,presetKey\)\{if\(!can\(kind\)\)\{dlgAlert\(PS_MSG\.perm\)/.test(src));
 T('the folio toolbar has no Refund / Rebate / Adjust icons of its own', !/psButtons|psBtn\(/.test(src) && !/id="fCN"/.test(src));
-T('Rebate and Adjust (+) are inside the Post window (and the Post icon after check-out)', /data-psb="rebate"/.test(src) && /data-psb="adjust"/.test(src) && /function psOpenPost\(B,after\)/.test(src) && /if\(B\.status==='out'\)\{psOpenPost\(B,reopen\)/.test(src));
-T('Refund is inside the Payment / Advance Payment window (and the Payment icon after check-out)', /data-psb="refund"/.test(src) && /psEntry\(B,'refund',after\)/.test(src) && /psEntry\(B,'refund',reopen\)/.test(src));
+T('Rebate and Adjust (+) are tiles of the Post window with their own icons, like every other code', /ic\(isRb\(c\)\?'rebate':isAd\(c\)\?'swap':'copy',40\)/.test(src) && !/data-psb="rebate"/.test(src) && !/psOpenPost/.test(src));
+T('after check-out the Post window shows only the Rebate and Adjust codes, and choosing one opens the correction window', /const gone=B\.status==='out'/.test(src) && /\(!gone\|\|c\.rebFor\|\|c\.adjFor\)/.test(src) && /psEntry\(B,isRb\(c\)\?'rebate':'adjust',after/.test(src));
+T('Refund types are tiles of the Payment window (refund icon), and choosing one opens the refund window', /const list=inTab;/.test(src) && /if\(c0&&c0\.refund\)\{if\(!can\('refund'\)\)\{dlgAlert\(PS_MSG\.perm\);return\}closeModal\(m\);psEntry\(B,'refund',after,c0\.code\)/.test(src) && !/data-psb="refund"/.test(src));
+T('staff without the permission get the not-eligible message when they choose a Rebate or Adjust code', /isRb\(c\)&&!can\('rebate'\)\|\|isAd\(c\)&&!can\('adjust'\)\)\{dlgAlert\(PS_MSG\.perm\)/.test(src));
 T('the old Refund types switch is gone from the Payment window', !/id="pyRefT"/.test(src));
 T('the Print icon makes the Credit Note of any line that has one', /cn=sel&&sel\.cn\?/.test(src));
 T('the credit note is a money document titled CREDIT NOTE, printed original and copy', /spec\.credit\?'CREDIT NOTE'/.test(src) && /copies:o\.copies\|\|'both'/.test(cut('function printCreditNote', 'function psAfterPost')));

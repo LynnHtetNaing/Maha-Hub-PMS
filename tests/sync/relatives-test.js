@@ -31,5 +31,5 @@ T('a new code gets both, flagged custom', added.length === 2 && added.some(c => 
 const hidden = { '210': true }; TCODES.forEach(c => { c.hidden = !!hidden[c.refFor || c.rebFor || c.adjFor || c.code]; });
 T('hiding the code hides its Rebate and Adjust together', TCODES.find(t => t.code === '210').hidden && r.hidden && a.hidden && !TCODES.find(t => t.code === '100').hidden);
 T('the wiring uses the same rule in the app', /c\.hidden=!!cat\.hidden\[c\.refFor\|\|c\.rebFor\|\|c\.adjFor\|\|c\.code\]/.test(src));
-T('relatives are not tiles in the Post window nor rows in the code lists', /c\.type==='c'&&!c\.auto&&!c\.hidden&&!c\.rel/.test(src) && /!c\.auto&&!c\.rel\),py=/.test(src));
+T('Rebate and Adjust (+) are listed as codes of their own in the hotel code list and are tiles in the Post window', /\(!c\.auto\|\|c\.code==='100'\)\)\.map/.test(src) && /ic\(isRb\(c\)\?'rebate'/.test(src) && !/&&!c\.rel\)\.map\(c=><tr><td>\$\{c\.code\}/.test(src));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
