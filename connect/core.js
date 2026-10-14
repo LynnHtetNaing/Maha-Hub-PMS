@@ -188,7 +188,7 @@ export function propertyFromHubSnapshot(hub, orgId = 'org_padauk') {
   }));
   const today = isoDate(new Date());
   return {
-    org: { id: orgId, name: 'Padauk Hospitality', status: 'active' },
+    org: { id: orgId, name: 'Maha Hub Group of Companies Limited', status: 'active' },
     property: {
       id: propertyId,
       orgId,

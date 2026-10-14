@@ -266,6 +266,6 @@ export function statusJson(catalog) {
     hotelsEnabled: (catalog.hotels || []).filter(h => h.bookEnabled && h.active !== false).length,
     hotelsTotal: (catalog.hotels || []).length,
     updatedAt: catalog.updatedAt || null,
-    note: 'Feeds can be downloaded for preparation. Google Search / Maps will not show Maha links until Padauk completes Google approval and Hotel Center certification.'
+    note: 'Feeds can be downloaded for preparation. Google Search / Maps will not show Maha links until Maha Hub completes Google approval and Hotel Center certification.'
   };
 }
