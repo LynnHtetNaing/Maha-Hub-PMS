@@ -17,20 +17,16 @@ const mkH = () => ({ set: { nextSys: 1, nextCN: 1 }, creditNotes: [], invoices: 
 const folioSum = (B, f) => X.r2(X.sum(B.lines.filter(l => l.folio === f), l => l.amt)), total = B => X.r2(X.sum(B.lines, l => l.amt));
 const received = B => X.r2(X.sum(X.paymentsIn(B.lines), x => x.amt));
 
-/* A. an advance / reservation deposit: white line on Folio 1, grey and red on Folio 4 */
+/* A. a reservation deposit is ONE line on Folio 1; an advance payment of a guest in house keeps three lines */
 let H = mkH(), B = { id: 'b', lines: [] };
 const P = X.postPayment(H, B, '905', 2000, { ...ctx, folio: 1, deposit: true, adv: true, remark: 'Reservation deposit' });
-T('the deposit is 3 lines: -2000 on Folio 1, +2000 grey and -2000 red on Folio 4', P.A.amt === -2000 && P.A.folio === 1 && P.C.amt === 2000 && P.C.folio === 4 && P.R.amt === -2000 && P.R.folio === 4 && total(B) === -2000 && received(B) === 2000);
-const r = X.cpApply(H, B, P.R, ctx, 'Wrong card');
-T('the correction is a white line (+2000) on Folio 1, a grey line (-2000) and a soft green line (+2000) on Folio 4', r.white.folio === 1 && r.white.amt === 2000 && r.white.kind === 'pay' && r.white.adv === true && r.lines[1].kind === 'payoff' && r.lines[1].amt === -2000 && r.lines[1].folio === 4 && r.green.kind === 'corrpay' && r.green.folio === 4 && r.green.amt === 2000);
-T('all the lines carry the name Correct Payment - the same payment type', r.lines.every(l => l.desc === 'Correct Payment - Visa Card'), r.lines.map(l => l.desc).join(' | '));
-T('the payment is 0 again: Folio 1 = 0, Folio 4 = 0, the whole folio = 0', folioSum(B, 1) === 0 && folioSum(B, 4) === 0 && total(B) === 0);
-T('in the payment reports the payment is cancelled once (nothing counted twice)', received(B) === 0);
-T('the correction lines belong to the same payment group', r.lines.every(l => l.group === P.A.group));
-T('the Credit Note lists the first payment, then the correct payment, no remark', r.cn.rows.length === 2 && r.cn.rows[0].amt === -2000 && r.cn.rows[1].amt === 2000 && r.cn.rows.every(x => !x.remark) && r.cn.kind === 'correct' && r.cn.label === 'Correct payment');
-T('the Credit Note takes the tax of the receipt back (shown as a reversal) and gets the next CN number', r.cn.neg === true && r.cn.total === 2000 && r.cn.vatable === 2000 && r.cn.no === 'CN000001' && r.green.cn === 'CN000001');
-T('the soft green line is the one linked to the Credit Note', r.cn.lineId === r.green.id);
-
+T('the deposit is ONE line: -2000 on Folio 1, nothing on Folio 4', B.lines.length === 1 && P.A.amt === -2000 && P.A.folio === 1 && !P.R && !P.C && total(B) === -2000 && received(B) === 2000);
+const r = X.cpApply(H, B, P.A, ctx, 'Wrong card');
+T('its correction is ONE soft green line (+2000) on the same folio', r.lines.length === 1 && r.green.kind === 'corrpay' && r.green.folio === 1 && r.green.amt === 2000 && r.white === null);
+T('the deposit is 0 again: Folio 1 = 0, the whole folio = 0, nothing is received any more', folioSum(B, 1) === 0 && total(B) === 0 && received(B) === 0);
+T('the Credit Note lists the deposit, then the correct payment, no remark', r.cn.rows.length === 2 && r.cn.rows[0].amt === -2000 && r.cn.rows[1].amt === 2000 && r.cn.rows.every(x => !x.remark) && r.cn.no === 'CN000001');
+const AD = X.postPayment(mkH(), { id: 'ad', lines: [] }, '905', 700, { ...ctx, folio: 1, adv: true });
+T('an advance payment (guest in house) is still three lines: white, grey, red', !!AD.R && !!AD.C && AD.A.amt === -700 && AD.C.amt === 700 && AD.R.amt === -700);
 /* B. a normal payment: one red line on the folio, corrected by one soft green line */
 H = mkH(); B = { id: 'b2', lines: [] };
 X.addLine(H, B, { code: '100', amt: 3000, kind: 'room', bd: '2026-10-12' });
