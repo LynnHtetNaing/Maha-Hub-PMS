@@ -2475,6 +2475,25 @@ function psIssue(h,B,kind,l,reason,o){if(!(h.set.nextCN>=1))h.set.nextCN=1;h.cre
     rows:[{desc:l.desc,amt,ref:l.ref||''}],vatable:vat?amt:0,nonvat:vat?0:amt,total:amt,prints:0};
   h.creditNotes.push(cn);l.cn=cn.no;return cn}
 /* ---- end Post-stay ---- */
+/* ---- Correct payment: reverses a payment taken today in the same style it was posted, and makes a Credit Note ---- */
+const cpGroup=(B,l)=>l.group?B.lines.filter(x=>x.group===l.group):[l];
+function cpApply(h,B,l,ctx,why){
+  const grp=cpGroup(B,l),A=grp.find(x=>x.kind==='pay'),C=grp.find(x=>x.kind==='payoff'),R=grp.find(x=>x.kind==='payrec'),orig=A||R||l;
+  const sp=typeof receiptSpec==='function'?receiptSpec(B,R||A||l):{base:0,nonvat:0,key:''};      /* the tax of the original receipt, read before anything changes */
+  const tag='Correct Payment - '+(orig.method||orig.desc);
+  const mk=(src,o)=>{const x=addLine(h,B,Object.assign({bd:ctx.bd,shift:ctx.shift,user:ctx.user,folio:src.folio,code:src.code,desc:tag,ref:src.ref,amt:-src.amt,group:src.group,method:src.method,vat:false,remark:why||''},o));x.corr=true;return x};
+  const made=[];let white=null,green;
+  if(A&&C&&R){                                                      /* advance / deposit: white line on its folio, grey pair and soft green line on Folio 4, like the payment itself */
+    white=mk(A,{kind:'pay',adv:A.adv,deposit:A.deposit});made.push(white);
+    made.push(mk(C,{kind:'payoff',adv:C.adv,deposit:C.deposit}));
+    green=mk(R,{kind:'corrpay'});made.push(green)}
+  else{green=mk(orig,{kind:'corrpay'});made.push(green)}            /* a normal payment is one red line, so its correction is one soft green line on the same folio */
+  if(!(h.set.nextCN>=1))h.set.nextCN=1;h.creditNotes=h.creditNotes||[];const n=h.set.nextCN++,base=r2(sp.base||0),nv=r2(sp.nonvat||0),second=white||green;
+  const taxed=!!(sp.key&&(h.invoices||[]).some(i=>i.bookingId===B.id&&i.key===sp.key));
+  const cn={id:'cn'+uid(),n,no:psCNo(n),kind:'correct',label:'Correct payment',neg:true,reason:why||'',bookingId:B.id,bd:ctx.bd,at:Date.now(),user:ctx.user||'',shift:ctx.shift?ctx.shift.name:'',folio:orig.folio||1,lineId:green.id,
+    rows:[{desc:orig.desc,amt:orig.amt,ref:orig.ref||''},{desc:second.desc,amt:second.amt,ref:second.ref||''}],vatable:base,nonvat:nv,total:r2(base+nv),taxed,prints:0};
+  h.creditNotes.push(cn);made.forEach(x=>x.cn=cn.no);return {lines:made,white,green,cn}}
+/* ---- end Correct payment ---- */
 const bal=B=>r2(sum(B.lines,l=>l.amt));
 const isCharge=l=>['post','room','corrpost'].includes(l.kind);
 const charges=B=>r2(sum(B.lines.filter(isCharge),l=>l.amt));
@@ -6813,12 +6832,12 @@ function folioPane(el,id,onRe){
   showNotifs(r,'Billing / Folio');
 };
 
-function creditTotals(spec){const cur=H.set.curWord.charAt(0)+H.set.curWord.slice(1).toLowerCase(),c=spec.cn,t=taxSplit(c.vatable,true);
+function creditTotals(spec){const cur=H.set.curWord.charAt(0)+H.set.curWord.slice(1).toLowerCase(),c=spec.cn,sg=c.neg?-1:1,t=taxSplit(Math.abs(c.vatable),true);
   const svc=H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(t.svc)}</td></tr>`:'';
-  return `<table class="ivtot"><tr><td>Credit amount (${esc(cur)})</td><td class="n">${m2(c.total)}</td></tr>${svc}<tr><td>Vatable</td><td class="n">${m2(r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(c.nonvat||0)}</td></tr><tr class="grand"><td>Total Credit (${esc(cur)})</td><td class="n">${m2(c.total)}</td></tr></table><div class="ivw">${amountWords(c.total)}</div>`}
+  return `<table class="ivtot"><tr><td>Credit amount (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr>${H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(sg*t.svc)}</td></tr>`:''}<tr><td>Vatable</td><td class="n">${m2(sg*r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(sg*t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(sg*(c.nonvat||0))}</td></tr><tr class="grand"><td>Total Credit (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr></table><div class="ivw">${amountWords(sg*c.total)}</div>`}
 /* Credit Note: the money document with the title CREDIT NOTE, printed as ORIGINAL and COPY (2 papers) */
-function printCreditNote(B,cn){if(!need('print'))return;const spec={credit:true,cn,deposit:false,guest:false,paid:false,folio:cn.folio||1,
-    rows:cn.rows.map(x=>({bd:cn.bd,desc:x.desc,ref:x.ref||'',amt:x.amt,remark:''})),balance:cn.total,base:cn.vatable,nonvat:cn.nonvat,billTo:B.billTo||defaultBillTo(resOf(B)),other:B.bill||{},copies:'both',inv:{no:cn.no,bd:cn.bd}};
+function printCreditNote(B,cn,o){if(!need('print'))return;o=o||{};const spec={credit:true,cn,deposit:false,guest:false,paid:false,folio:cn.folio||1,
+    rows:cn.rows.map(x=>({bd:cn.bd,desc:x.desc,ref:x.ref||'',amt:x.amt})),balance:cn.neg?0:cn.total,base:cn.vatable,nonvat:cn.nonvat,billTo:o.bill||B.billTo||defaultBillTo(resOf(B)),other:o.other||B.bill||{},copies:o.copies||'both',inv:{no:cn.no,bd:cn.bd}};
   const built=moneyDocHtml(B,spec),r=resOf(B),g=G(B.guestId);cn.prints=(cn.prints||0)+1;log('Credit note '+cn.no+' printed RSVN '+r.no,B.id);saveDB();
   printPages(built.html,'Credit note '+cn.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Credit note '+cn.no+' · '+H.set.name})}
 function psAfterPost(B,cn){if(!cn||!can('print'))return;dlgConfirm(`Credit Note ${cn.no} (${cn.label} ${m2(cn.total)}) is ready.\nPrint it now? It prints two papers: the original and a copy.`,{title:'Credit Note',yes:'Print',no:'Not now'}).then(v=>{if(v)printCreditNote(B,cn)})}
@@ -7180,8 +7199,8 @@ function transactionPopup(B,l,after){if(!l)return;
   const canRef=!blk&&!prov&&!locked&&(l.kind==='post'||isPay||l.kind==='room')&&can('post');const canRem=!blk&&!prov&&!locked;
   const acts=[];
   if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id))acts.push(`<button class="btn" id="tCP" ${locked||!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`);
-  const sameDay=(l.kind==='pay'||l.kind==='payrec')&&l.bd===H.set.bd&&!locked&&!corrected;
-  if(!blk&&sameDay)acts.push(`<button class="btn" id="tCY" ${!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button><button class="btn" id="tVoid" ${!can('corrpay')?'disabled':''}>${ic('offset',15)} Void payment</button>`);
+  const sameDay=(l.kind==='pay'||l.kind==='payrec')&&!l.refund&&l.bd===H.set.bd&&!locked&&!corrected;
+  if(!blk&&sameDay)acts.push(`<button class="btn" id="tCY" ${!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`);
   if(!blk&&isCharge(l)&&locked)acts.push(`<button class="btn" id="tReb">${ic('rebate',15)} Rebate</button>`);
   let tab='post';
   const m=modal('Transaction','<div id="tB"></div>',{w:980,cls:'txmodal'});
@@ -7216,12 +7235,11 @@ function transactionPopup(B,l,after){if(!l)return;
       const c=addLine(H,B,{...lineCtx(),folio:l.folio,code:l.code,desc:'Correct - '+l.desc,ref:l.ref,amt:-l.amt,kind:'corrpost',link:l.id,vat:l.vat,remark:why.trim()});
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Corrected by line '+c.sys+': '+why});log(`Correct post ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();toast('Correct post added. The charge now nets to 0.')};
     if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is corrected by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Correct payment is only for a payment taken today, before Close Day.');return}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
-      const fol=B.lines.some(x=>x.group===l.group&&x.kind==='payrec')?4:l.folio;
-      const c=addLine(H,B,{...lineCtx(),folio:fol,code:l.code,desc:'Correct Payment - '+(l.method||l.desc),ref:l.ref,amt:-l.amt,kind:'corrpay',group:l.group,method:l.method,vat:false,remark:why.trim()});
+      const res=cpApply(H,B,l,{...lineCtx()},why.trim());
       releaseSettled(B,l.group,'Opened again because the payment was corrected');
       if(typeof refreshCityItems==='function')refreshCityItems(H);
-      l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Correct payment line '+c.sys+': '+why});log(`Correct payment ${l.method} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();
-      toast(fol===l.folio?'Correction posted on the same folio. The payment now nets to 0.':'Green correction line added on Folio 4. Move lines so the pair nets to 0, then post the right payment.')};
+      l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Correct payment '+res.lines.map(x=>x.sys).join(', ')+' · '+res.cn.no+': '+why});log(`Correct payment ${l.method||l.desc} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no} · ${res.cn.no}: ${why}`,B.id);saveDB();closeModal(m);after();
+      toast('Correct payment posted. The payment is 0 again and the posts it settled are open again.');psAfterPost(B,res.cn)};
     if($('#tVoid',m))$('#tVoid',m).onclick=async ()=>{if(!need('corrpay'))return;if(curShift().noShift){toast('A payment is voided by a cashier who signs in with a shift.');return}if(l.bd!==H.set.bd||isLocked(l.bd)){toast('Void payment is only for a payment taken today. A payment from a closed day is refunded.');return}const why=await dlgAsk('Reason for voiding this payment:');if(!why||!why.trim()){toast('A void needs a reason.');return}
       if(typeof needsApproval==='function'&&needsApproval('voidPay')){queueApproval({action:'void',kind:'voidPay',bookingId:B.id,lineId:l.id,title:`Void ${l.method||l.desc} ${m2(Math.abs(l.amt))}`,reason:why.trim()});closeModal(m);after();return}
       applyVoid(B,l,why.trim());closeModal(m);after();toast('Payment voided.')};
@@ -7334,6 +7352,10 @@ function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[onl
   const ch=ls.filter(isCharge),base=r2(sum(ch.filter(l=>l.vat),l=>l.amt)),nonvat=r2(sum(ch.filter(l=>!l.vat),l=>l.amt));
   openMoneyDoc(B,{guest:true,deposit:false,paid:false,folio:fol,rows,balance:r2(sum(ls,l=>l.amt)),base,nonvat,billTo,other,copies:copies||'both'},only?'Guest folio':'Guest folio '+B.internal+' · folio '+f)}
 function invoiceChooser(B){if(!need('print'))return;const fs=[1,2,3,4].filter(f=>B.lines.some(l=>l.folio===f));if(!fs.length){toast('This folio has no lines to print.');return}
+  {const sel=folSel&&B.lines.find(x=>x.id===folSel),cn=sel&&sel.kind==='corrpay'&&sel.cn?(H.creditNotes||[]).find(c=>c.no===sel.cn):null;
+    if(cn){const bf=billFields(B);const m=modal('Print Credit Note '+esc(cn.no),`<div class="form2">${bf.html}${fld('Print',`<select id="ivC">${opt('both','Original & Copy (2 sets)','both')}${opt('original','Original only')}${opt('copy','Copy only')}</select>`)}</div>
+      <div class="sub">The soft green correction on Folio ${sel.folio} is selected. This prints the Credit Note: the first payment and the correct payment, with the tax taken back. No remark is printed.</div><div class="btns"><button class="btn gold" id="ivGo">Preview</button></div>`,{w:680});
+      $('#ivGo',m).onclick=()=>{const o=readBill(m);closeModal(m);printCreditNote(B,cn,{bill:o.bill,other:o.other,copies:o.copies})};return}}
   const pay=selectedReceiptLine(B),credit=pay?null:selectedAdvanceCredit(B),bf=billFields(B),act=folAct[B.id]||(pay&&pay.folio)||(credit&&credit.folio)||1;
   const note=pay?`The red receipt on Folio ${pay.folio} is selected. This prints a receipt / tax invoice. Card details and the remark print under that payment. A remark on a charge does not.`
     :credit?`The advance on Folio ${credit.folio} is selected. This prints its receipt / tax invoice. The card and the remark from that line print on the invoice. They stay off a guest folio.`
@@ -8932,7 +8954,7 @@ function psSec(title,ls,rowFn,totFn){if(!ls.length)return [];return [{t:'h',text
 const psIn=(flag,f,t)=>allLinesH(H).filter(l=>l[flag]&&l.bd>=f&&l.bd<=t);
 function psPeriodRows(T,M,Y,lead){lead=lead||[];const v=(flag,[f,t],neg)=>{const a=r2(sum(psIn(flag,f,t),l=>l.amt));return m2(neg?-a:a)};
   return [['Refunds (money given back)','refund',true],['Rebates (charges reduced)','rebate',false],['Adjust (+) (overpayment kept)','adjust',false]].map(([n,f,neg])=>({t:'r',c:lead.concat([n,v(f,T,neg),v(f,M,neg),v(f,Y,neg)])}))}
-const psCNs=p=>(H.creditNotes||[]).filter(c=>c.kind==='rebate'&&c.bd>=p.from&&c.bd<=p.to).sort((a,b)=>a.n-b.n);
+const psCNs=p=>(H.creditNotes||[]).filter(c=>(c.kind==='rebate'||(c.kind==='correct'&&c.taxed))&&c.bd>=p.from&&c.bd<=p.to).sort((a,b)=>a.n-b.n);
 function psCNSum(p){let net=0,vat=0;const a=psCNs(p);a.forEach(c=>{const t=taxSplit(c.vatable,true);net+=t.net+t.svc;vat+=t.vat});return {net:r2(net),vat:r2(vat),nv:r2(sum(a,c=>c.nonvat)),tot:r2(sum(a,c=>c.total))}}
 const REPORTS=[
  /* ---------- Front Office ---------- */
@@ -9032,7 +9054,7 @@ const REPORTS=[
    const rs=iv.map(i=>({i,x:row(i)})).filter(z=>z.x);
    return {cols:[C('Tax Inv No.',8),C('Date',8),C('Bill To',22),C('Tax ID',11),C('Room#',6),C('Vatable',11,'r'),C(H.set.taxName,10,'r'),C('Non VAT',10,'r'),C('Total',12,'r')],
     rows:rs.map(z=>({t:'r',c:[z.i.no,fd(z.i.bd),z.x.bt,z.x.tax,z.x.b.room||'',m2(z.x.t.net+z.x.t.svc),m2(z.x.t.vat),m2(z.x.nv),m2(z.x.va+z.x.nv)]}))
-      .concat(psCNs(p).length?[{t:'h',text:'Credit notes (rebates) - the tax is taken back'}].concat(psCNs(p).map(c=>{const b=bookingById(c.bookingId),t=taxSplit(c.vatable,true),co=b?CO(resOf(b).companyId):null;return {t:'r',c:['CN '+c.no,fd(c.bd),b?gName(G(b.guestId)):'',co?co.taxId:'',b?b.room||'':'',m2(-(t.net+t.svc)),m2(-t.vat),m2(-c.nonvat),m2(-c.total)]}})):[])
+      .concat(psCNs(p).length?[{t:'h',text:'Credit notes (rebates and corrected payments) - the tax is taken back'}].concat(psCNs(p).map(c=>{const b=bookingById(c.bookingId),t=taxSplit(c.vatable,true),co=b?CO(resOf(b).companyId):null;return {t:'r',c:['CN '+c.no,fd(c.bd),b?gName(G(b.guestId)):'',co?co.taxId:'',b?b.room||'':'',m2(-(t.net+t.svc)),m2(-t.vat),m2(-c.nonvat),m2(-c.total)]}})):[])
       .concat([{t:'g',c:['GrandTotal (after credit notes)','','','','',m2(sum(rs,z=>z.x.t.net+z.x.t.svc)-psCNSum(p).net),m2(sum(rs,z=>z.x.t.vat)-psCNSum(p).vat),m2(sum(rs,z=>z.x.nv)-psCNSum(p).nv),m2(sum(rs,z=>z.x.va+z.x.nv)-psCNSum(p).tot)]}]),foot:'Invoices are numbered when first printed; reprints are marked COPY. A credit note (rebate) takes tax back.'}}},
  {g:'Accounting',code:'AC_05',title:'AP & AR Report',mode:'range',run:p=>{refreshCityItems(H);
    const ar=(H.cityLedger||[]).filter(x=>x.status!=='void'&&x.bd>=p.from&&x.bd<=p.to),ap=(H.purchases||[]).filter(x=>x.bd>=p.from&&x.bd<=p.to);
