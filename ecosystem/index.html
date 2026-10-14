@@ -1007,13 +1007,13 @@ const PRESET={
 const TCODES=[
  {code:'100',desc:'Room Charge',type:'c',vat:true,dept:'Room',tab:'ROOM',auto:true},{code:'104',desc:'Room Upgrade Charge (Upselling)',type:'c',vat:true,dept:'Room',tab:'ROOM'},
  {code:'110',desc:'Early Check-In',type:'c',vat:true,dept:'Room',tab:'ROOM'},{code:'120',desc:'Late Check-Out',type:'c',vat:true,dept:'Room',tab:'ROOM'},
- {code:'160',desc:'No-show Charge',type:'c',vat:true,dept:'Room',tab:'ROOM'},{code:'128',desc:'Adjust - Room Charge (+)',type:'c',vat:true,dept:'Room',tab:'ROOM'},
+ {code:'160',desc:'No-show Charge',type:'c',vat:true,dept:'Room',tab:'ROOM'},{code:'128',desc:'Adjust - Room Charge (+)',type:'c',vat:true,dept:'Room',tab:'ROOM',adjFor:'100'},
  {code:'150',desc:'Extra Bed',type:'c',vat:true,dept:'Room',tab:'ROOM'},{code:'109',desc:'Extra Person Charge',type:'c',vat:true,dept:'Room',tab:'MISC.'},
  {code:'200',desc:'Breakfast (ABF)',type:'c',vat:true,dept:'F&B',outlet:'Breakfast',tab:'F&B'},{code:'210',desc:'Restaurant',type:'c',vat:true,dept:'F&B',outlet:'Restaurant',tab:'F&B'},
  {code:'220',desc:'Lobby Bar',type:'c',vat:true,dept:'F&B',outlet:'Lobby Bar',tab:'F&B'},{code:'230',desc:'Room Service',type:'c',vat:true,dept:'F&B',outlet:'Room Service',tab:'F&B'},
  {code:'250',desc:'Banquet Food',type:'c',vat:true,dept:'F&B',outlet:'Banquet',tab:'BANQUET'},{code:'251',desc:'Banquet Beverage',type:'c',vat:true,dept:'F&B',outlet:'Banquet',tab:'BANQUET'},
  {code:'252',desc:'Banquet Room Rental',type:'c',vat:true,dept:'Other',tab:'BANQUET'},
- {code:'300',desc:'Minibar',type:'c',vat:true,dept:'Minibar',tab:'MINIBAR'},{code:'398',desc:'Adjust - Minibar (+)',type:'c',vat:true,dept:'Minibar',tab:'MINIBAR'},
+ {code:'300',desc:'Minibar',type:'c',vat:true,dept:'Minibar',tab:'MINIBAR'},{code:'398',desc:'Adjust - Minibar (+)',type:'c',vat:true,dept:'Minibar',tab:'MINIBAR',adjFor:'300'},
  {code:'310',desc:'Laundry',type:'c',vat:true,dept:'Other',tab:'LAUNDRY'},{code:'311',desc:'Dry Cleaning',type:'c',vat:true,dept:'Other',tab:'LAUNDRY'},{code:'312',desc:'Pressing',type:'c',vat:true,dept:'Other',tab:'LAUNDRY'},
  {code:'320',desc:'Car Parking',type:'c',vat:true,dept:'Other',tab:'CAR PARKING'},
  {code:'330',desc:'Printing & Copy',type:'c',vat:true,dept:'Other',tab:'BUSINESS CENTRE'},{code:'331',desc:'Meeting Room',type:'c',vat:true,dept:'Other',tab:'BUSINESS CENTRE'},
@@ -1025,7 +1025,7 @@ const TCODES=[
  {code:'702',desc:'Baby Sitter',type:'c',vat:true,dept:'Other',tab:'MISC.'},{code:'703',desc:'Breakage Charges',type:'c',vat:true,dept:'Other',tab:'MISC.'},
  {code:'704',desc:'In Room Item & Amenity Charge',type:'c',vat:true,dept:'Other',tab:'MISC.'},{code:'720',desc:'Equipment Rental',type:'c',vat:true,dept:'Other',tab:'MISC.'},
  {code:'722',desc:'In Room Entertainment',type:'c',vat:true,dept:'Other',tab:'MISC.'},{code:'721',desc:'Cash Over Earn',type:'c',vat:false,dept:'Other',tab:'MISC.'},
- {code:'728',desc:'Adjust - Misc. (VAT)',type:'c',vat:true,dept:'Other',tab:'MISC.'},{code:'729',desc:'Rebate - Misc. (VAT)',type:'c',vat:true,dept:'Other',tab:'MISC.',rebate:true},
+ {code:'728',desc:'Adjust - Misc. (VAT)',type:'c',vat:true,dept:'Other',tab:'MISC.',adjFor:'701'},{code:'729',desc:'Rebate - Misc. (VAT)',type:'c',vat:true,dept:'Other',tab:'MISC.',rebate:true,rebFor:'701'},
  {code:'730',desc:'Miscellaneous (Non VAT)',type:'c',vat:false,dept:'Other',tab:'MISC.'},{code:'490',desc:'Miscellaneous',type:'c',vat:true,dept:'Other',tab:'MISC.'},
  {code:'600',desc:'Paid Out',type:'c',vat:false,dept:'Paid Out',tab:'PAID OUT'},{code:'610',desc:'Security Deposit Refund',type:'c',vat:false,dept:'Deposit',tab:'PAID OUT'},
  {code:'900',desc:'Cash',type:'p',ptab:'CASH',pic:'cash'},
@@ -1113,10 +1113,19 @@ const TCODES=[
 const payLogo=t=>{const k=t.refFor||t.code;return (DB&&DB.payLogos&&DB.payLogos[k])||(H&&H.set&&H.set.payLogos&&H.set.payLogos[k])||''};
 function payLogoSource(t){const k=t.refFor||t.code;if(DB&&DB.payLogos&&DB.payLogos[k])return 'auto';if(H&&H.set&&H.set.payLogos&&H.set.payLogos[k])return 'hotel';return ''}
 /* VAT / Non-VAT is opened or closed by the provider, per hotel, per charge code. A missing override keeps the code's own setting. */
-function chargeVat(c,h){h=h||H;const code=typeof c==='string'?c:(c&&c.code)||'';const tc=(c&&typeof c==='object'&&c.type)?c:(typeof TCODES!=='undefined'&&TCODES.find(x=>x.code===code))||{};if(tc.type&&tc.type!=='c')return false;const map=h&&h.set&&h.set.codeVat;if(map&&Object.prototype.hasOwnProperty.call(map,code))return !!map[code];return tc.vat!==false}
+function chargeVat(c,h){h=h||H;const code=typeof c==='string'?c:(c&&c.code)||'';const tc=(c&&typeof c==='object'&&c.type)?c:(typeof TCODES!=='undefined'&&TCODES.find(x=>x.code===code))||{};if(tc.type&&tc.type!=='c')return false;const map=h&&h.set&&h.set.codeVat,bc=tc.rebFor||tc.adjFor||code;if(map&&Object.prototype.hasOwnProperty.call(map,bc))return !!map[bc];return tc.vat!==false}
 const payIcon=(t,s)=>{const lg=payLogo(t);return lg?`<span class="plogo${t.refund?' rf':''}"><img src="${lg}" alt="${esc(t.desc)} logo">${t.refund?`<i>${ic('refund',14)}</i>`:''}</span>`:ic(t.pic||'pay',s)};
 /* every payment type gets a matching refund option */
 (()=>{const have=new Set(TCODES.filter(t=>t.refFor).map(t=>t.refFor));TCODES.filter(t=>t.type==='p'&&!t.refund&&!t.auto&&!have.has(t.code)).forEach(t=>TCODES.push({code:t.code+'R',desc:'Refund - '+t.desc,type:'p',ptab:t.ptab,pic:'refund',refund:true,refFor:t.code}))})();
+/* every charge code gets a matching Rebate and Adjust (+) code, as every payment type gets a Refund. They follow the code they belong to
+   (opened, hidden, VAT) and never show as tiles of their own. */
+function addChargeRelatives(list,flag){const hasR=new Set(TCODES.filter(t=>t.rebFor).map(t=>t.rebFor)),hasA=new Set(TCODES.filter(t=>t.adjFor).map(t=>t.adjFor)),out=[];
+  list.filter(t=>t.type==='c'&&!t.rel&&!t.rebFor&&!t.adjFor&&!t.rebate&&!/^(Rebate|Adjust)\b/i.test(t.desc)&&!['Paid Out','Deposit'].includes(t.dept)).forEach(t=>{
+    if(!hasR.has(t.code))out.push(Object.assign({code:t.code+'B',desc:'Rebate - '+t.desc,type:'c',vat:t.vat,dept:t.dept,tab:t.tab,rebate:true,rebFor:t.code,rel:true},flag));
+    if(!hasA.has(t.code))out.push(Object.assign({code:t.code+'A',desc:'Adjust - '+t.desc+' (+)',type:'c',vat:t.vat,dept:t.dept,tab:t.tab,adjFor:t.code,rel:true},flag))});
+  return out}
+TCODES.push(...addChargeRelatives(TCODES.slice(),{}));
+const chBase=code=>{const t=TCODES.find(x=>x.code===code);return t&&(t.rebFor||t.adjFor)?(t.rebFor||t.adjFor):code};
 const PAY_TABS=['CASH','CREDIT CARD','E-WALLET','BANK / QR','CITY LEDGER','OTHER'];
 const POST_TABS=['ROOM','F&B','MINIBAR','LAUNDRY','CAR PARKING','BUSINESS CENTRE','TRANSPORTATION','SPORT & RECREATION','SPA & MASSAGE','MISC.','BANQUET','PAID OUT'];
 
@@ -2448,7 +2457,8 @@ const psBase=code=>{const t=TCODES.find(c=>c.code===code);return t&&t.refFor?t.r
 const psPaid=B=>r2(sum(paymentsIn(B.lines),x=>x.amt));
 /* charges still standing, grouped by code and VAT: one rebate post per group, "for the total nights" */
 function psPools(B){const m=new Map();
-  B.lines.filter(l=>isCharge(l)&&!l.pkgSplit).forEach(l=>{const k=l.code+'|'+(l.vat?1:0);let p=m.get(k);if(!p){const t=TCODES.find(c=>c.code===l.code)||{};p={key:k,code:l.code,vat:!!l.vat,folio:l.folio||1,desc:t.desc||l.desc,n:0,amt:0};m.set(k,p)}p.amt=r2(p.amt+l.amt);if(l.amt>0)p.n++});
+  const baseOf=code=>{const t=TCODES.find(c=>c.code===code);return t&&t.rebFor?t.rebFor:code};      /* a rebate counts against the charge it reduces */
+  B.lines.filter(l=>isCharge(l)&&!l.pkgSplit).forEach(l=>{const bc=baseOf(l.code),k=bc+'|'+(l.vat?1:0);let p=m.get(k);if(!p){const t=TCODES.find(c=>c.code===bc)||{};p={key:k,code:bc,vat:!!l.vat,folio:l.folio||1,desc:t.desc||l.desc,n:0,amt:0};m.set(k,p)}p.amt=r2(p.amt+l.amt);if(l.amt>0)p.n++});
   return [...m.values()].filter(p=>p.amt>0.004).sort((a,b)=>a.code.localeCompare(b.code))}
 const psCredit=B=>{const b=r2(sum(B.lines,l=>l.amt));return b<-0.004?r2(-b):0};
 /* '' when allowed, otherwise the message to show */
@@ -2462,7 +2472,7 @@ function psAmountError(max,v){if(!(v>0))return 'Enter an amount above 0.';if(v>m
 function psRefund(h,B,o){const tc=TCODES.find(c=>c.code===o.code)||{},base=TCODES.find(c=>c.code===(tc.refFor||tc.code))||tc;
   const l=addLine(h,B,{bd:o.bd,shift:o.shift,user:o.user,folio:o.folio||1,code:o.code,desc:'Refund - '+base.desc,ref:o.ref||'',amt:Math.abs(o.amt),kind:'pay',method:base.desc,group:'pg'+uid(),vat:false,remark:o.remark||''});
   l.refund=true;l.postStay=true;return l}
-function psRebate(h,B,pool,amt,o){const l=addLine(h,B,{bd:o.bd,shift:o.shift,user:o.user,folio:pool.folio,code:pool.code,desc:'Rebate - '+pool.desc,ref:o.ref||'',amt:-Math.abs(amt),kind:'post',vat:pool.vat,remark:o.remark||''});
+function psRebate(h,B,pool,amt,o){const rel=TCODES.find(c=>c.rebFor===pool.code),l=addLine(h,B,{bd:o.bd,shift:o.shift,user:o.user,folio:pool.folio,code:rel?rel.code:pool.code,desc:'Rebate - '+pool.desc,ref:o.ref||'',amt:-Math.abs(amt),kind:'post',vat:pool.vat,remark:o.remark||''});
   l.rebate=true;l.postStay=true;return l}
 function psAdjust(h,B,code,amt,o){const tc=TCODES.find(c=>c.code===code)||{};
   const l=addLine(h,B,{bd:o.bd,shift:o.shift,user:o.user,folio:o.folio||1,code,desc:tc.desc||'Adjust (+)',ref:o.ref||'',amt:Math.abs(amt),kind:'post',remark:o.remark||''});
@@ -6874,7 +6884,7 @@ function psModal(B,kind,after,presetKey){
   else if(kind==='rebate'){const pools=psPools(B),first=pools.find(p=>p.key===presetKey)||pools[0];
     intro=`Reduce a charge after check-out. Choose the charge, and the amount (it can be part of it). The tax is reversed in the same way as the charge. It is posted today (${fd(H.set.bd)}), and a Credit Note is made.`;okLabel='Post rebate';
     fields=`<div class="span2"><div class="sub">Charge to rebate</div>${pools.map(p=>`<label class="psrow"><input type="radio" name="psP" value="${esc(p.key)}" ${p.key===first.key?'checked':''}> <b>${esc(p.code)}</b> ${esc(p.desc)}${p.vat?'':' (non-VAT)'} <span class="sub">· ${p.n} post(s)</span> <span class="psamt">${m2(p.amt)}</span></label>`).join('')}</div>${fld('Amount to rebate',`<input id="psA" class="n" inputmode="decimal" value="${first.amt}">`)}${fld('Reference',`<input id="psR" maxlength="60" placeholder="Optional">`)}`}
-  else{const credit=psCredit(B),codes=TCODES.filter(c=>c.type==='c'&&/^Adjust/i.test(c.desc));
+  else{const credit=psCredit(B),codes=TCODES.filter(c=>c.type==='c'&&c.adjFor&&!c.hidden).sort((a,b)=>String(a.tab).localeCompare(String(b.tab))||a.desc.localeCompare(b.desc));
     intro=`The guest paid more than was charged (credit balance ${m2(credit)}). Adjust (+) posts that amount as revenue so the folio comes to 0. It is posted today (${fd(H.set.bd)}).`;okLabel='Post adjust';
     fields=`${fld('Credit balance',`<input disabled value="${m2(credit)}">`)}${fld('Adjust to',`<select id="psC">${codes.map(c=>opt(c.code,c.desc,'128')).join('')}</select>`)}${fld('Amount',`<input id="psA" class="n" inputmode="decimal" value="${credit}">`)}${fld('Reference',`<input id="psR" maxlength="60" placeholder="Optional">`)}`}
   const m=modal(PS_NAME[kind]+' after check-out',`<p class="sub">${esc(intro)}</p><div class="form2">${fields}${fld('Reason (printed and kept in the log)',`<textarea id="psM" rows="3" placeholder="Why is this needed?"></textarea>`,'span2')}</div><div class="err" id="psE"></div><div class="btns end"><button class="btn ghost" id="psX">Cancel</button><button class="btn gold" id="psOk">${okLabel}</button></div>`,{w:700,cls:'psmodal'});
@@ -7036,7 +7046,7 @@ function postModal(B,after,folio){if(!need('post'))return;if(B.status!=='inhouse
   let pf=folio||1,cur=null;
   const m=modal('New Item Folio','<div id="niB"></div>',{w:1240,cls:'nimodal'});
   m.addEventListener('click',e=>{const b=e.target.closest('[data-psb]');if(b){closeModal(m);psEntry(B,b.dataset.psb,after)}});
-  const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden);
+  const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&!c.rel);
   const paint=()=>{const list=codes().filter(c=>c.tab===postTab);
     $('#niB',m).innerHTML=`<div class="psbar"><span class="sub">A correction:</span><button type="button" class="btn sm ghost" data-psb="rebate">${ic('rebate',14)} Rebate</button><button type="button" class="btn sm ghost" data-psb="adjust">${ic('swap',14)} Adjust (+)</button></div><div class="nitabs">${POST_TABS.map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
     <div class="nimain"><div class="nitiles" id="niTiles">${list.map(c=>`<button class="nitile ${cur&&cur.code===c.code?'on':''}" data-nc="${c.code}">${ic('copy',40)}<b>${c.code}</b><span>${esc(c.desc)}</span><em class="rg ${chargeVat(c)?'':'nv'}">${chargeVat(c)?'VAT':'Non-VAT'}</em></button>`).join('')||'<div class="empty">No codes in this group.</div>'}</div>
@@ -7591,7 +7601,7 @@ function systemMatrix(users,editable){const rows=hotelSystems(H);return `<div cl
   ${rows.map(s=>`<tr><td><b>${esc(s.name)}</b><div class="sub">${s.hotel?'Open for this hotel':'Closed for this hotel'}</div></td>${users.map(u=>{const on=userHasSystem(u,s.kind);return `<td class="c">${editable?`<button class="tog sm ${on?'on':''}" data-su="${u.id}" data-sk="${s.kind}">${on?'Open':'Locked'}</button>`:(on?'<span class="pill g">Open</span>':'<span class="pill k">Locked</span>')}</td>`}).join('')}</tr>`).join('')}</table></div>`}
 VIEWS['set.users']=el=>{el.innerHTML=pageHead('Staff & Permissions',`<span class="sub">Only the provider can open or lock systems and permissions</span>`)+`<h3>Systems for each person</h3><p class="sub">A system shows on the switch icon when it is open for the hotel and open for this person.</p><div class="panel">${systemMatrix(H.users,false)}</div><h3 class="mt">PMS permissions</h3><div class="panel">${permMatrix(H.users,false)}</div>`};
 VIEWS['set.codes']=el=>{
-  el.innerHTML=pageHead('Transaction Codes')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Type</th><th>Group</th><th>Tax</th><th>Logo</th></tr>${TCODES.filter(c=>!c.auto||c.code==='100').map(c=>`<tr><td>${c.code}</td><td>${esc(c.desc)}</td><td>${c.type==='c'?'Charge (+)':c.refund?'Refund':'Payment (−)'}</td><td>${esc(c.type==='c'?c.tab||c.dept||'':c.ptab||'')}</td><td>${c.type==='c'?(chargeVat(c)?'Service + '+esc(H.set.taxName)+' inclusive':'Non-VAT'):'—'}</td>
+  el.innerHTML=pageHead('Transaction Codes')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Type</th><th>Group</th><th>Tax</th><th>Logo</th></tr>${TCODES.filter(c=>(!c.auto||c.code==='100')&&!c.rel).map(c=>`<tr><td>${c.code}</td><td>${esc(c.desc)}</td><td>${c.type==='c'?'Charge (+)':c.refund?'Refund':'Payment (−)'}</td><td>${esc(c.type==='c'?c.tab||c.dept||'':c.ptab||'')}</td><td>${c.type==='c'?(chargeVat(c)?'Service + '+esc(H.set.taxName)+' inclusive':'Non-VAT'):'—'}</td>
    <td class="nowrap">${c.type==='p'?(c.refund?`<span class="sub">uses ${c.refFor} logo</span>`:(!payEnabled(c)?'<span class="sub">Closed for this hotel</span>':`${payLogo(c)?`<img class="plthumb" src="${payLogo(c)}" alt="">${payLogoSource(c)==='auto'?' <span class="autoadd">Auto Added</span>':''}`:'<span class="sub">icon</span>'}`)):''}</td></tr>`).join('')}</table></div>
   <p class="sub">This list is view-only. Only the provider opens or closes VAT for each post, and opens or closes each payment method. A logo marked Auto Added is the one stored for every hotel, and it shows here when that method is open for this hotel.</p>`;
   $$('[data-lg]',el).forEach(inp=>inp.onchange=e=>{if(!need('setup'))return;const file=e.target.files[0];if(!file)return;if(file.size>2e6){toast('Choose an image under 2 MB.');return}const code=inp.dataset.lg,rd=new FileReader();
@@ -8134,11 +8144,12 @@ function emptyHotel(o){const bd=o.bd||todayZ();const cw=CUR_WORDS[o.cur]||[o.cur
 let _catApplied=[];function applyCatalog(){const cat=DB.catalog||(DB.catalog={charges:[],payments:[],hidden:{}});
   _catApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_catApplied=[];
   cat.charges.forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){const o={...c,type:'c',custom:true};TCODES.push(o);_catApplied.push(o)}});
+  addChargeRelatives(_catApplied.filter(o=>o.type==='c'),{custom:true}).forEach(o=>{TCODES.push(o);_catApplied.push(o)});
   cat.payments.forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){const o={...c,type:'p',custom:true};TCODES.push(o);_catApplied.push(o);
     const rf={code:c.code+'R',desc:'Refund - '+c.desc,type:'p',ptab:c.ptab,pic:'refund',refund:true,refFor:c.code,custom:true};TCODES.push(rf);_catApplied.push(rf)}});
-  TCODES.forEach(c=>{c.hidden=!!cat.hidden[c.refFor||c.code]})}
+  TCODES.forEach(c=>{c.hidden=!!cat.hidden[c.refFor||c.rebFor||c.adjFor||c.code]})}
 function migratePerms(){Object.values(DB.hotels).forEach(h=>{if(h._aiMig)return;h.users.forEach(u=>{if(u.role==='Manager'){['ai.guest','ai.revenue'].forEach(p=>{if(!u.perms.includes(p))u.perms.push(p)})}else if(u.role==='Front desk'&&!u.perms.includes('ai.guest'))u.perms.push('ai.guest')});h._aiMig=true})}
-let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_extraApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_extraApplied=[];if(!H)return;(H.extraCodes||[]).forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){TCODES.push(c);_extraApplied.push(c)}})}
+let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_extraApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_extraApplied=[];if(!H)return;(H.extraCodes||[]).forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){TCODES.push(c);_extraApplied.push(c)}});addChargeRelatives(_extraApplied.filter(c=>c.type==='c'||c.type===undefined),{custom:true}).forEach(c=>{TCODES.push(c);_extraApplied.push(c)})}
 const payEnabled=c=>!c.hidden&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
 function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
 function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
@@ -8509,7 +8520,7 @@ const SEC={
     blank:()=>({code:'',desc:'',kind:'pct',v:0,meal:'',comp:'',valid:H.set.bd,until:'2050-12-31'}),
     validate:d=>{if(d.some(r=>!r.code||!r.desc))return 'Every rate code needs a code and a description.';if(new Set(d.map(r=>String(r.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(r=>r.kind==='zero'&&!r.comp))return 'A zero rate must be Complimentary or House use.';if(d.some(r=>r.kind!=='zero'&&r.comp))return 'Only zero-rate codes can be Complimentary or House use.';if(!d.some(r=>r.kind!=='zero'))return 'Keep at least one paid rate code.';return ''},
     save:d=>{const prev={};H.rateCodes.forEach(r=>prev[r.code]=r);H.rateCodes=d.map(r=>{const code=String(r.code).toUpperCase(),o=prev[code]||{};return {code,desc:r.desc,kind:r.kind,v:+r.v||0,meal:r.meal||'',comp:r.comp||undefined,valid:r.valid,until:r.until,bfAdult:o.bfAdult}});provLog(`Rate codes saved for ${H.code}`);saved()}})},
- charges(box){shapeHotel(H);const own=new Set(_extraApplied.map(c=>c.code));const list=TCODES.filter(c=>c.type==='c');
+ charges(box){shapeHotel(H);const own=new Set(_extraApplied.map(c=>c.code));const list=TCODES.filter(c=>c.type==='c'&&!c.rel);
    box.innerHTML=secHead('9. Charge codes','Only the provider can open or close VAT for each post, and only for this hotel. Staff see VAT or Non-VAT when they post and cannot change it. A new post uses the button you set. Lines already on a folio keep the tax they were posted with.')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Tab</th><th>Where</th><th>VAT</th></tr>${list.map(c=>{const on=chargeVat(c);return `<tr><td>${c.code}</td><td>${esc(c.desc)}</td><td>${esc(c.tab||'')}</td><td>${own.has(c.code)?'This hotel':'Standard'}</td><td><button type="button" class="tog sm ${on?'on':''}" data-vat="${esc(c.code)}">${on?'VAT':'Non-VAT'}</button></td></tr>`}).join('')}</table></div><h3 class="mt">This hotel's own codes</h3><p class="sub">Add a code, save, then set VAT or Non-VAT with the button in the list above. It appears in the New Item Folio tab you choose.</p>`;
    listEditor(box,{rows:(H.extraCodes||[]).map(c=>({...c,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'desc',h:'Description'},{k:'tab',h:'Tab',opts:POST_TABS.map(t=>[t,t])}],
     blank:()=>({code:'',desc:'',tab:'MISC.',vat:true}),
@@ -8646,15 +8657,15 @@ function floorPlanEditor(box){const fl=floorsList();if(!fl.length){box.innerHTML
 
 /* ---------- Code catalog (all hotels) ---------- */
 VIEWS['prov.catalog']=el=>{applyCatalog();const cat=DB.catalog;
-  const ch=TCODES.filter(c=>c.type==='c'&&!c.auto),py=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto);
-  el.innerHTML=pageHead('Code catalog – all hotels')+`<p class="sub">Codes here are available to every hotel. Hide a code to remove it from every hotel's posting and payment screens (old records keep it). Your own codes can be deleted. A payment logo uploaded here is Auto Added for every hotel, and each hotel shows it when that method is open. VAT or Non-VAT for each post is opened or closed on the hotel, under Charge codes. Every change is recorded in the provider history.</p>
+  const ch=TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.rel),py=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto);
+  el.innerHTML=pageHead('Code catalog – all hotels')+`<p class="sub">Codes here are available to every hotel. Hide a code to remove it from every hotel's posting and payment screens (old records keep it). Every charge code also has its own Rebate and Adjust (+), and every payment method its Refund. They are added by themselves and open or hide together with their code. Your own codes can be deleted. A payment logo uploaded here is Auto Added for every hotel, and each hotel shows it when that method is open. VAT or Non-VAT for each post is opened or closed on the hotel, under Charge codes. Every change is recorded in the provider history.</p>
    <div class="panel mt"><div class="ph">Payment methods</div><div class="btns pad"><button class="btn gold sm" id="ctAddP">${ic('plus',13)} Add payment method</button></div><table class="grid"><tr><th>Logo</th><th>Code</th><th>Name</th><th>Tab</th><th>Region</th><th>Status</th><th></th></tr>
     ${py.map(c=>`<tr class="${c.hidden?'muted':''}"><td>${payIcon(c,24)}${(DB.payLogos&&DB.payLogos[c.code])?'<div class="autoadd">Auto Added</div>':''}</td><td>${c.code}</td><td>${esc(c.desc)}${c.custom?' <span class="pill b">own</span>':''}</td><td>${c.ptab}</td><td>${esc(c.region||'')}</td><td>${c.hidden?'<span class="pill r">Hidden</span>':'<span class="pill g">Available</span>'}</td>
      <td class="nowrap"><label class="btn sm ghost">${ic('upload',13)} Logo<input type="file" accept="image/*" data-clg="${c.code}" hidden></label>${payLogo(c)?` <button class="btn sm ghost" data-clx="${c.code}">No logo</button>`:''} <button class="btn sm ghost" data-hide="${c.code}">${c.hidden?'Show':'Hide'}</button>${c.custom?` <button class="btn sm red" data-cdel="p|${c.code}">Delete</button>`:''}</td></tr>`).join('')}</table></div>
    <div class="panel mt"><div class="ph">Charge codes</div><div class="btns pad"><button class="btn gold sm" id="ctAddC">${ic('plus',13)} Add charge code</button></div><table class="grid"><tr><th>Code</th><th>Description</th><th>Tab</th><th>Tax</th><th>Status</th><th></th></tr>
     ${ch.map(c=>`<tr class="${c.hidden?'muted':''}"><td>${c.code}</td><td>${esc(c.desc)}${c.custom?' <span class="pill b">own</span>':''}</td><td>${esc(c.tab||'')}</td><td>${c.vat?'Service + tax':'Non-VAT'} <span class="sub">default</span></td><td>${c.hidden?'<span class="pill r">Hidden</span>':'<span class="pill g">Available</span>'}</td>
      <td class="nowrap"><button class="btn sm ghost" data-hide="${c.code}">${c.hidden?'Show':'Hide'}</button>${c.custom?` <button class="btn sm red" data-cdel="c|${c.code}">Delete</button>`:''}</td></tr>`).join('')}</table></div>`;
-  const used=code=>Object.values(DB.hotels).some(h=>allLinesH(h).some(l=>l.code===code||l.code===code+'R'));
+  const used=code=>Object.values(DB.hotels).some(h=>allLinesH(h).some(l=>l.code===code||l.code===code+'R'||l.code===code+'B'||l.code===code+'A'));
   $$('[data-hide]',el).forEach(b=>b.onclick=()=>{const k=b.dataset.hide,on=!cat.hidden[k];if(on)cat.hidden[k]=true;else delete cat.hidden[k];provLog(`${on?'Hid':'Showed'} code ${k} for all hotels`);applyCatalog();saveDB();render()});
   $$('[data-cdel]',el).forEach(b=>b.onclick=async ()=>{const[t,k]=b.dataset.cdel.split('|');if(used(k)){toast('This code is used in folios. Hide it instead.');return}if(!await dlgConfirm(`Delete code ${k} for all hotels?`))return;
     if(t==='p')cat.payments=cat.payments.filter(x=>x.code!==k);else cat.charges=cat.charges.filter(x=>x.code!==k);delete cat.hidden[k];provLog(`Deleted code ${k} from the catalog`);applyCatalog();saveDB();render()});
@@ -9143,7 +9154,7 @@ const REPORTS=[
  {g:'F&B',code:'FB_02',title:'F&B Posting Journal Details',mode:'pastOne',run:p=>{const ls=chargeLines(p.to,p.to).filter(l=>tcOf(l.code).dept==='F&B');
    return {cols:[C('Time',7),C('Room#',7),C('Guest Name',18),C('Code',6),C('Outlet',14),C('Reference#',12),C('Amount',12,'r'),C('User',14),C('Shift',10)],
     rows:ls.map(l=>{const x=bline(l);return {t:'r',c:[tm(l.time),x.b.room||'',gName(x.g),l.code,tcOf(l.code).outlet||'',l.ref,m2(l.amt),l.user,l.shiftName]}}).concat([{t:'g',c:['GrandTotal','','','','','',m2(sum(ls,l=>l.amt)),'','']}]),foot:'F&B charged to rooms only. Outlet POS is not connected yet.'}}},
- {g:'F&B',code:'FB_03',title:'Outlet Report',mode:'pastOne',run:p=>{const d=p.to,outs=TCODES.filter(c=>c.outlet);const v=(c,f,t)=>r2(sum(chargeLines(f,t).filter(l=>l.code===c),l=>l.amt));
+ {g:'F&B',code:'FB_03',title:'Outlet Report',mode:'pastOne',run:p=>{const d=p.to,outs=TCODES.filter(c=>c.outlet);const v=(c,f,t)=>r2(sum(chargeLines(f,t).filter(l=>chBase(l.code)===c),l=>l.amt));
    return {cols:[C('Outlet',30),C('Today',23,'r'),C('Month to Date',23,'r'),C('Year to Date',24,'r')],rows:outs.map(c=>({t:'r',c:[c.outlet,m2(v(c.code,d,d)),m2(v(c.code,monthStart(d),d)),m2(v(c.code,yearStart(d),d))]}))}}},
  {g:'F&B',code:'FB_04',title:'F&B Revenue Report',mode:'range',run:p=>{const ls=chargeLines(p.from,p.to).filter(l=>tcOf(l.code).dept==='F&B');const rows=[];
    dates(p.from,addD(p.to,1)).forEach(d=>{const a=ls.filter(l=>l.bd===d);if(!a.length)return;const am=sum(a,l=>l.amt),s=taxOfLines(a);rows.push({t:'r',c:[fd(d),a.length,m2(s.net),m2(s.svc),m2(s.vat),m2(am)]})});
