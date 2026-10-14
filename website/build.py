@@ -12,8 +12,8 @@ SITE = "https://maha-hub.com"
 EMAIL = "hello@maha-hub.com"
 SUPPORT_EMAIL = "support@maha-hub.com"   # PMS support (existing customers)
 LOGO = "https://maha-hub.com/icons/maha-hub-logo.png"
-SIGN_IN = "https://maha-hub.com/ecosystem/"
-APP = "https://maha-hub.com/ecosystem/"     # live product apps: APP + "PMS", "Booking", "Connect", "Reach"
+SIGN_IN = "https://maha-hub.com/solutions"
+APP = "https://maha-hub.com/solutions"     # live product apps: APP + "PMS", "Booking", "Connect", "Reach"
 HERO = "assets/maha-hub-hero.jpg"
 HERO_SM = "assets/maha-hub-hero-sm.jpg"
 UPDATED = "8 October 2026"
@@ -96,7 +96,7 @@ def badge(p):
     c, t = STATUS[p["status"]]
     return f'<span class="badge {c}">{t}</span>'
 
-NAV = [("index.html", "Home"), ("products.html", "Products"), ("solutions.html", "Solutions"),
+NAV = [("index.html", "Home"), ("products.html", "Products"), ("our-solutions.html", "Solutions"),
        ("about.html", "About Maha"), ("pricing.html", "Pricing"), ("security.html", "Security"), ("contact.html", "Contact")]
 
 def page(fname, title, desc, body, current=None):
@@ -156,7 +156,7 @@ def page(fname, title, desc, body, current=None):
       <p>Smarter hospitality / Better tomorrow. One ecosystem for hotel operations: PMS, channel distribution, direct booking, guest engagement and sales.</p>
     </div>
     <div><h4>Products</h4><ul>{foot_products}<li><a href="products.html">All products</a></li></ul></div>
-    <div><h4>Company</h4><ul><li><a href="solutions.html">Solutions</a></li><li><a href="about.html">About</a></li><li><a href="pricing.html">Pricing</a></li><li><a href="security.html">Security</a></li><li><a href="contact.html">Contact</a></li></ul></div>
+    <div><h4>Company</h4><ul><li><a href="our-solutions.html">Solutions</a></li><li><a href="about.html">About</a></li><li><a href="pricing.html">Pricing</a></li><li><a href="security.html">Security</a></li><li><a href="contact.html">Contact</a></li></ul></div>
     <div><h4>Support</h4><ul><li><a href="mailto:{EMAIL}">{EMAIL}</a></li><li><a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a></li><li><a href="{SITE}">maha-hub.com</a></li><li><a href="{SIGN_IN}">Customer sign in</a></li></ul>
       <h4 style="margin-top:1.4rem">Legal</h4><ul><li><a href="privacy.html">Privacy Policy</a></li><li><a href="terms.html">Terms of Service</a></li><li><a href="refund.html">Refund Policy</a></li></ul></div>
   </div>
@@ -218,7 +218,7 @@ def prod_card(p):
     caps = "".join(f"<li>{esc(c)}</li>" for c in p["caps"][:4])
     g = p.get("grad")
     style = f' style="--g1:{g[0]};--g2:{g[1]}"' if g else ""
-    signin = f'<a class="more" href="{APP}{p["app"]}">Sign in</a>' if p["status"] == LIVE else ""
+    signin = f'<a class="more" href="{app_url(p["app"])}">Sign in</a>' if p["status"] == LIVE else ""
     return f'''<article class="prod{' dev' if p['status'] == DEV else ' live'}"{style} data-reveal>
   <div class="prod-top"><h3><a href="products.html#{p['id']}">{esc(p['name'])}</a></h3>{badge(p)}</div>
   <p>{esc(p['line'])}</p>
@@ -360,9 +360,9 @@ def home():
       <div class="label-line">{ORN}</div>
       <h2>Solutions for every hotel</h2>
       <p class="why2-text">From independent hotels to multi-property groups, Maha scales with your business.</p>
-      <a class="textlink" href="solutions.html">See all solutions {ARROW}</a>
+      <a class="textlink" href="our-solutions.html">See all solutions {ARROW}</a>
     </div>
-    <ul class="sol2-icons" data-reveal>{"".join(f'<li><a href="solutions.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">{SOL_ICONS[k]}</svg><span>{t}</span></a></li>' for k, t, d in SOLUTIONS)}</ul>
+    <ul class="sol2-icons" data-reveal>{"".join(f'<li><a href="our-solutions.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">{SOL_ICONS[k]}</svg><span>{t}</span></a></li>' for k, t, d in SOLUTIONS)}</ul>
   </div>
 </section>
 
@@ -424,7 +424,7 @@ def products():
     for p in PRODUCTS:
         feats = "".join(f"<li>{CHECK}{esc(c)}</li>" for c in p["caps"])
         q = esc(p["name"]).replace(" ", "%20")
-        cta = (f'<a class="btn btn-green" href="contact.html?product={q}">Request a demo</a><a class="btn btn-line" href="{APP}{p["app"]}">Sign in to {esc(p["name"])}</a>' if p["status"] == LIVE
+        cta = (f'<a class="btn btn-green" href="contact.html?product={q}">Request a demo</a><a class="btn btn-line" href="{app_url(p["app"])}">Sign in to {esc(p["name"])}</a>' if p["status"] == LIVE
                else f'<a class="btn btn-line" href="contact.html?product={q}">Register interest</a>')
         note = "" if p["status"] == LIVE else '<p style="font-size:.9rem;color:var(--mut)">This product is coming soon and is not available yet.</p>'
         g = p.get("grad")
@@ -447,7 +447,7 @@ def solutions():
   {SCALE}
 </div></section>
 <section class="section cta"><div class="wrap cta-in"><div><h2>Find the right setup</h2><p>Tell us about your properties and we will recommend where to start.</p></div><div class="actions"><a class="btn btn-green" href="contact.html">Talk to Maha</a></div></div></section>'''
-    return page("solutions.html", "Solutions", "Maha solutions for independent hotels, resorts, boutique hotels, serviced apartments, hotel groups and multi-property operators.", body)
+    return page("our-solutions.html", "Solutions", "Maha solutions for independent hotels, resorts, boutique hotels, serviced apartments, hotel groups and multi-property operators.", body)
 
 def about():
     body = page_hero("About Maha", "About Maha Hub", "A hospitality technology platform for hotels and accommodation businesses.") + f'''
@@ -519,7 +519,7 @@ def contact():
   <aside class="side">
     <div class="blk"><h3>Email</h3><p><a href="mailto:{EMAIL}">{EMAIL}</a></p></div>
     <div class="blk"><h3>Website</h3><p><a href="{SITE}">maha-hub.com</a></p></div>
-    <div class="blk"><h3>Existing customers</h3><p>Sign in at <a href="{SIGN_IN}">maha-hub.com/ecosystem</a> and use Contact Support, or email <a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a>.</p></div>
+    <div class="blk"><h3>Existing customers</h3><p>Sign in at <a href="{SIGN_IN}">maha-hub.com/solutions</a> and use Contact Support, or email <a href="mailto:{SUPPORT_EMAIL}">{SUPPORT_EMAIL}</a>.</p></div>
     <div class="blk"><h3>Billing questions</h3><p>See the <a href="refund.html">Refund and Cancellation Policy</a>, or email us with your business name.</p></div>
   </aside>
 </div></section>'''
@@ -658,7 +658,7 @@ def sitemap(files):
 
 if __name__ == "__main__":
     out = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-    pages = {"index.html": home(), "products.html": products(), "solutions.html": solutions(), "about.html": about(),
+    pages = {"index.html": home(), "products.html": products(), "our-solutions.html": solutions(), "about.html": about(),
              "pricing.html": pricing(), "contact.html": contact(), "security.html": security(),
              "privacy.html": privacy(), "terms.html": terms(), "refund.html": refund()}
     for f, h in pages.items():
