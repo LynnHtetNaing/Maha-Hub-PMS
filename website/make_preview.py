@@ -2,7 +2,7 @@
 Every menu item, title and link opens the right page inside the same file."""
 import os, re, base64, html
 SITE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')) + '/'
-PAGES = ["index", "products", "solutions", "about", "pricing", "security", "contact", "privacy", "terms", "refund"]
+PAGES = ["index", "products", "our-solutions", "about", "pricing", "security", "contact", "privacy", "terms", "refund"]
 css = open(SITE + 'assets/styles.css').read()
 js = open(SITE + 'assets/site.js').read()
 shell = open(SITE + 'index.html').read()

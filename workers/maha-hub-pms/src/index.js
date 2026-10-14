@@ -1,18 +1,34 @@
-/** Maha Hub Worker — serves the static Hub through the Assets binding.
- *  /ecosystem/ is the sign-in. /ecosystem/PMS|Reach|Connect|Booking|Sales are the systems that already exist.
+/** Maha Hub Worker - serves the static Hub through the Assets binding.
+ *  /solutions is the Main page and sign-in. /solutions-PMS is the PMS. /ecosystem/Reach|Connect|Booking|Sales are the other systems.
+ *  The old /ecosystem/ and /ecosystem/PMS addresses move to the new ones.
  */
+const APP_FILE = '/ecosystem/index.html';
 const SYSTEM_DOC = {
-  pms: { file: '/ecosystem/index.html' },
+  pms: { file: APP_FILE },
   reach: { file: '/reach/index.html', base: '/reach/' },
   connect: { file: '/connect/index.html', base: '/connect/' },
   booking: { file: '/book/index.html', base: '/book/' },
   sales: { file: '/sales/index.html', base: '/sales/' },
 };
+const NAMES = { pms: 'PMS', reach: 'Reach', connect: 'Connect', booking: 'Booking', sales: 'Sales' };
 
-function systemDoc(pathname) {
-  const path = pathname.replace(/\/index\.html?$/i, '').replace(/\/+$/, '');
-  const m = path.match(/\/ecosystem\/(pms|reach|connect|booking|sales)$/i);
-  return m ? SYSTEM_DOC[m[1].toLowerCase()] : null;
+function cleanPath(pathname) {
+  return pathname.replace(/\/index\.html?$/i, '').replace(/\.html?$/i, '').replace(/\/+$/, '') || '/';
+}
+
+/* what to serve for a path, or where to send the visitor */
+function route(pathname) {
+  const path = cleanPath(pathname);
+  const low = path.toLowerCase();
+  if (low === '/solutions') return { doc: { file: APP_FILE } };
+  let m = low.match(/^\/solutions-(pms|reach|connect|booking|sales)$/);
+  if (m) return { doc: SYSTEM_DOC[m[1]] };
+  if (low === '/ecosystem') return { to: '/solutions' };
+  m = low.match(/^\/ecosystem\/(pms)$/);
+  if (m) return { to: '/solutions-PMS' };
+  m = low.match(/^\/ecosystem\/(reach|connect|booking|sales)$/);
+  if (m) return { doc: SYSTEM_DOC[m[1]] };
+  return null;
 }
 
 export default {
@@ -25,10 +41,17 @@ export default {
     const url = new URL(request.url);
     const bare = url.pathname.replace(/\/+$/, '') || '/';
     if (bare === '/' || bare.toLowerCase() === '/index.html') {
-      return Response.redirect(new URL('/ecosystem/', url), 302);
+      return Response.redirect(new URL('/solutions', url), 302);
     }
-    const doc = systemDoc(url.pathname);
-    if (!doc) return env.ASSETS.fetch(request);
+    const r = route(url.pathname);
+    if (!r) return env.ASSETS.fetch(request);
+    if (r.to) {
+      const dest = new URL(r.to, url);
+      dest.search = url.search;
+      dest.hash = url.hash;
+      return Response.redirect(dest, 302);
+    }
+    const doc = r.doc;
     const assetUrl = new URL(request.url);
     assetUrl.pathname = doc.file;
     const res = await env.ASSETS.fetch(new Request(assetUrl, request));

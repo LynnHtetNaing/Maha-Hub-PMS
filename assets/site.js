@@ -150,7 +150,7 @@
   } else { rv.forEach(function (el) { el.classList.add('in'); }); }
 
   /* =========== Page-change curtain (traditional gold and lacquer, modern motion) =========== */
-  var NAMES = { 'index': 'Home', 'products': 'Products', 'solutions': 'Solutions', 'about': 'About Maha', 'pricing': 'Pricing',
+  var NAMES = { 'index': 'Home', 'products': 'Products', 'our-solutions': 'Solutions', 'about': 'About Maha', 'pricing': 'Pricing',
     'security': 'Security', 'contact': 'Contact', 'privacy': 'Privacy Policy', 'terms': 'Terms of Service', 'refund': 'Refund Policy' };
   var MARK = 'https://maha-hub.com/icons/maha-mark-sq.png';
   var ORN = '<svg class="orn" viewBox="0 0 240 28" aria-hidden="true"><path d="M2 14h70M168 14h70" stroke="currentColor" stroke-width="1"/><path d="M72 14c9 0 13-9 22-9 7 0 9 7 3 9-5 2-8-3-4-5M168 14c-9 0-13-9-22-9-7 0-9 7-3 9 5 2 8-3 4-5M80 14c8 0 12 7 20 7 5 0 6-4 2-5M160 14c-8 0-12 7-20 7-5 0-6-4-2-5" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M120 2c7 6 9 11 0 23-9-12-7-17 0-23z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="108" cy="14" r="1.6" fill="none" stroke="currentColor"/><circle cx="132" cy="14" r="1.6" fill="none" stroke="currentColor"/></svg>';
