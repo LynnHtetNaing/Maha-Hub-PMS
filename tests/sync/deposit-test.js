@@ -59,4 +59,10 @@ T('an in-house advance payment is left as an advance payment', oldLines[3].desc 
 X.retitleAdvanceLines(hotel);
 T('running it again changes nothing', oldLines[0].desc === 'Reservation Deposit - Cash' && oldLines[1].desc === 'Reservation Deposit - Cash' && oldLines[3].desc === 'Visa Card - Advance Payment');
 
+/* the names on the screens: the Billing / Folio keeps ADVANCE PAYMENT; only a reservation deposit is called Reservation Deposit */
+T('the folio toolbar button is still Advance payment', /tb\('fAdv','wallet','Advance payment/.test(src));
+T('the window of an in-house advance is titled Advance Payment, a reservation deposit Reservation Deposit', /modal\(adv\?\(deposit\?'Reservation Deposit':'Advance Payment'\):'Payment'/.test(src));
+T('its button says Post advance payment for an advance and Post deposit for a deposit', /adv\?\(deposit\?'Post deposit':'Post advance payment'\):'Post payment'/.test(src));
+T('the reservation page icon is the $ Reservation Deposit', /tb\('aDep','dollar','Reservation Deposit'/.test(src));
+
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);

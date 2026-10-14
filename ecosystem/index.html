@@ -6779,7 +6779,7 @@ function folioPane(el,id,onRe){
   const r=resOf(B),g=G(B.guestId),co=CO(r.companyId),total=bal(B),closed=closedBooking(B),back=canCheckBack(B);
   const sel=folSel&&B.lines.find(l=>l.id===folSel);const act=folAct[B.id]||1;
   el.innerHTML=`<div class="toolbar ftb">${tb('fView','grid','Folio view')}${tb('fPost','plus','Post new transaction',closed||!can('post')||B.status!=='inhouse')}${tb('fMove','move','Transfer selected line to another room',closed||!can('move')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel)||folLocked(B,sel.folio))}
-    ${tb('fDet','detail','Reservation detail')}${tb('fRate','cal','Advance rate setup')}${tb('fPay','pay','Payment – freezes this folio and posts one red receipt line',closed||!can('pay')||['cancelled','noshow'].includes(B.status))}${tb('fAdv','dollar','Deposit – credit on this folio, grey (+) and red receipt (−) on Folio 4',closed||!can('pay')||['cancelled','noshow','out'].includes(B.status))}
+    ${tb('fDet','detail','Reservation detail')}${tb('fRate','cal','Advance rate setup')}${tb('fPay','pay','Payment – freezes this folio and posts one red receipt line',closed||!can('pay')||['cancelled','noshow'].includes(B.status))}${tb('fAdv','wallet','Advance payment – credit on this folio, grey (+) and red receipt (−) on Folio 4',closed||!can('pay')||['cancelled','noshow','out'].includes(B.status))}
     ${tb('fSplit','split','Split selected transaction',closed||!can('post')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel))}${tb('fOff','offset','Offset (freeze) selected transaction',closed||!can('corrpost')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel)||folLocked(B,sel.folio))}${tb('fLock',folLocked(B,act)?'unlock':'lock',folLocked(B,act)?'Unlock Folio '+act:'Lock Folio '+act,closed||!can('post'))}${tb('fInv','print','Print the red receipt, a one-line guest folio for the advance credit, or a guest folio of this folio',!can('print'))}
     ${tb('fReg','card','Print registration card',!can('print'))}${tb('fNot','bell','Notifications')}${tb('fLog','log','User logs of this folio')}${back?tb('fBack','left','Check back in (Auto)',!can('checkin')):''}${B.status==='inhouse'?(cancelCheckInBlock(B)?`<button class="tbtn blocked" id="fCCI" title="Cancel Check-In – blocked: ${esc(CCI_BLOCK_MSG)}" aria-label="Cancel Check-In (blocked)" aria-disabled="true">${ic('undo',22)}</button>`:tb('fCCI','undo','Cancel Check-In – back to Reservation, room becomes VD',!can('checkin'))):''}${['inhouse','out'].includes(B.status)?psButtons(B):''}${tb('fOut','out','Check out',!can('checkout')||B.status!=='inhouse')}</div>
    <div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <button class="pnic" id="fProf" title="Guest profile">${ic('idc',18)}</button> <b>#${B.internal}</b> <a class="gname" id="fName">${esc(gName(g))}${B.copyOf?'(Copy)':''}</a>
@@ -7091,12 +7091,12 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   folio=folio||1;const adv=mode==='adv';payRef=false;
   if(folLocked(B,folio)){toast(`Folio ${folio} is locked. Unlock it first.`);return}
   if(adv&&B.status==='out'){toast('The guest has checked out. Use Payment instead.');return}
-  if(!adv&&!['inhouse','out'].includes(B.status)){toast('There is no bill yet. Use Deposit for a reservation deposit.');return}
+  if(!adv&&!['inhouse','out'].includes(B.status)){toast('There is no bill yet. Use Advance Payment for a reservation deposit.');return}
   if(!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset)){toast(`There is no open bill in Folio ${folio}. A payment needs a bill.`);return}
   if(adv&&folLocked(B,4)){toast('Folio 4 is locked. An advance writes its red receipt there, so unlock it first.');return}
   showNotifs(resOf(B),'Cashier');
   const g=G(B.guestId);let cur=null;const deposit=adv&&B.status!=='inhouse';
-  const m=modal(adv?(deposit?'Reservation Deposit':'Deposit'):'Payment','<div id="pyB"></div>',{w:1240,cls:'nimodal'});
+  const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):'Payment','<div id="pyB"></div>',{w:1240,cls:'nimodal'});
   const codes=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&payEnabled(c));
   const defAmt=()=>{const fb=folioBal(B,folio);if(cur&&cur.refund)return fb<0?m2(-fb):'';return fb>0?m2(fb):''};
   const paint=()=>{const inTab=codes().filter(c=>c.ptab===payTab),nPay=inTab.filter(c=>!c.refund).length,nRef=inTab.filter(c=>c.refund).length;if(adv)payRef=false;const list=inTab.filter(c=>!!c.refund===payRef);const card=g.card;const cardCode=card&&codes().find(c=>c.card===card.type&&!c.refund);
@@ -7110,7 +7110,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
       ${fld('Reference#',`<input id="pyR" maxlength="60" placeholder="Reference info (max 60 characters)">`)}
       ${fld('Amount',`<div class="amtrow"><input id="pyA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${defAmt()}"><button class="btn ghost sm" id="pyCalc" title="Calculator">${ic('grid',20)}</button></div><div id="pyPad"></div>`)}
       ${fld('Remark',`<textarea id="pyM" rows="3"></textarea>`)}<div class="err" id="pyE"></div>
-      <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?'Post deposit':'Post payment'}</button></div></div></div>`;
+      <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?(deposit?'Post deposit':'Post advance payment'):'Post payment'}</button></div></div></div>`;
     if(m._v)['pyR','pyA','pyM'].forEach(id=>{if(m._v[id]!=null&&m._v[id]!=='')$('#'+id,m).value=m._v[id]});
     const pick=code=>{save();cur=TCODES.find(c=>c.code===code);payTab=cur.ptab;payRef=!!cur.refund;if(m._v)m._v.pyA='';paint();$('#pyA',m).focus()};
     $$('[data-pt]',m).forEach(b=>b.onclick=()=>{save();payTab=b.dataset.pt;paint()});
@@ -7126,7 +7126,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   const save=()=>{m._v={};['pyR','pyA','pyM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value})};
   const doPay=()=>noShiftGate('payment',sh=>doPay0(sh));const doPay0=sh=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a=r2(+String($('#pyA',m).value).replace(/,/g,''));
     if(!(a>0)){e.textContent='Enter an amount above 0.';return}
-    if(cur.refund&&adv){e.textContent='Refunds are made with Payment, not Deposit.';return}
+    if(cur.refund&&adv){e.textContent='Refunds are made with Payment, not Advance Payment.';return}
     if(cur.refund){const prior=B.lines.filter(l=>(l.kind==='pay'||l.kind==='payrec')&&l.code===(cur.refFor||l.code)&&isLocked(l.bd)&&l.amt<0);
       if(!prior.length){e.textContent='A refund is for a payment from a closed day. For today, use Correct payment or Void payment on the transaction.';return}
       if(typeof needsApproval==='function'&&needsApproval('refund')){queueApproval({action:'refund',kind:'refund',bookingId:B.id,title:`Refund ${cur.desc} ${m2(a)}`,code:cur.code,amt:a,folio,remark:$('#pyM',m).value.trim(),ref:$('#pyR',m).value.trim(),desc:$('#pyD',m).value.trim()||cur.desc});closeModal(m);after();return}}
