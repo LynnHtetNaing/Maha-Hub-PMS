@@ -10,7 +10,7 @@ const TCODES = [{ code: '100', desc: 'Room Charge', type: 'c', vat: true, dept: 
 let seq = 0; const uid = () => 'u' + (++seq); const chargeVat = c => true;
 /* the tax of the original receipt is read from the real receiptSpec in the app; here a simple stand-in with the same shape */
 const receiptSpec = (B, line) => { const a = Math.abs(line.amt); return { key: 'pay:' + line.group, base: a, nonvat: 0 }; };
-const code = cut('const r2=', '\n') + '\n' + cut('const sum=', '\n') + '\n' + cut('const isCharge=', '\n') + '\n' + cut('function paymentsIn(', 'function payCodeOf') + '\n' + cut('function addLine(', '/* Advance and deposit keep three lines') + '\n' + cut('function postPayment(', '/* Folio text for an advance') + '\n' + cut('/* ---- Post-stay:', '/* ---- end Post-stay ---- */') + '\n' + cut('/* ---- Correct payment:', '/* ---- end Correct payment ---- */') + '\nreturn {postPayment,cpApply,paymentsIn,addLine,r2,sum};';
+const code = cut('const r2=', '\n') + '\n' + cut('const sum=', '\n') + '\n' + cut('const isCharge=', '\n') + '\n' + cut('function paymentsIn(', 'function payCodeOf') + '\n' + cut('function addLine(', '/* Advance and deposit keep three lines') + '\n' + cut('function postPayment(', '/* Folio text for an advance') + '\n' + cut('/* ---- Post-stay:', '/* ---- end Post-stay ---- */') + '\n' + cut('/* ---- Correct payment:', '/* ---- end Correct payment ---- */') + '\n' + cut('function psPayCmp(', 'const psSorted') + '\nreturn {postPayment,cpApply,cpCheck,CP_MSG,psPayCmp,paymentsIn,addLine,r2,sum};';
 const X = new Function('TCODES', 'uid', 'chargeVat', 'receiptSpec', code)(TCODES, uid, chargeVat, receiptSpec);
 const ctx = { bd: '2026-10-13', shift: { id: 's1', name: 'Morning' }, user: 'Cashier' };
 const mkH = () => ({ set: { nextSys: 1, nextCN: 1 }, creditNotes: [], invoices: [] });
@@ -44,6 +44,30 @@ T('the Credit Note rows are the first payment (-3000) and the correct payment (+
 /* C. the credit notes of a hotel are numbered one after the other */
 const r3 = X.cpApply(H, B, X.postPayment(H, B, '900', 100, { ...ctx, folio: 1 }).A, ctx, 'x');
 T('the next Credit Note gets the next number', r3.cn.no === 'CN000002' && H.set.nextCN === 3);
+
+/* E. who may correct a payment */
+const today = '2026-10-13', shiftMN = { id: 'sMN', name: 'Morning', status: 'open' }, shiftAF = { id: 'sAF', name: 'Afternoon', status: 'open' };
+const env = (o) => Object.assign({ bd: today, isLocked: d => d < today, resDate: '2026-10-01', shift: shiftMN, shifts: [shiftMN, shiftAF] }, o);
+const pay = (o) => Object.assign({ kind: 'pay', bd: today, shiftId: 'sMN', shiftName: 'Morning', group: 'g', amt: -1000 }, o);
+const bk = (o) => Object.assign({ lines: [], checkinDate: today }, o);
+T('a payment taken today in your own shift can be corrected', X.cpCheck(bk(), pay(), env()) === '');
+T('another shift: the box says to sign in again to the same shift (cash drop would not balance)', /Morning shift/.test(X.cpCheck(bk(), pay(), env({ shift: shiftAF }))) && /sign in again to the same Morning shift/.test(X.cpCheck(bk(), pay(), env({ shift: shiftAF }))) && /cash drop/.test(X.cpCheck(bk(), pay(), env({ shift: shiftAF }))));
+T('the shift that took it is closed: use Refund', X.cpCheck(bk(), pay(), env({ shift: shiftAF, shifts: [{ ...shiftMN, status: 'closed' }, shiftAF] })) === X.CP_MSG.closed);
+T('a payment of an earlier day (after Close Day) cannot be corrected: Refund', X.cpCheck(bk(), pay({ bd: '2026-10-12' }), env()) === X.CP_MSG.day);
+T('a no-shift sign-in cannot correct a payment', X.cpCheck(bk(), pay(), env({ shift: { id: 'ns', noShift: true } })) === X.CP_MSG.noshift);
+T('a refund line cannot be corrected', X.cpCheck(bk(), pay({ refund: true }), env()) === 'This line cannot be corrected.');
+const dep = (o) => pay(Object.assign({ deposit: true, adv: true }, o));
+T('a deposit posted today, reservation made today and checked in today: Correct payment is allowed', X.cpCheck(bk(), dep(), env({ resDate: today })) === '');
+T('a deposit of a reservation made on an earlier day: Refund only', X.cpCheck(bk(), dep(), env({ resDate: '2026-10-10' })) === X.CP_MSG.dep);
+T('a deposit of a reservation not checked in: Refund only', X.cpCheck(bk({ checkinDate: undefined }), dep(), env({ resDate: today })) === X.CP_MSG.dep);
+T('a deposit of an earlier day: nothing can be done but Refund', X.cpCheck(bk(), dep({ bd: '2026-10-12' }), env({ resDate: today })) === X.CP_MSG.day);
+T('the red line of a deposit (payrec) follows the same deposit rule through its group', X.cpCheck({ lines: [dep({ kind: 'pay', group: 'gx' }), pay({ kind: 'payrec', group: 'gx', deposit: true })], checkinDate: undefined }, pay({ kind: 'payrec', group: 'gx', deposit: true }), env({ resDate: today })) === X.CP_MSG.dep);
+
+/* F. in the reports a correct payment is a separate line right under its own payment */
+const L = (id, group, kind, time, room) => ({ id, group, kind, time, room });
+const items = [L('a', 'g1', 'payrec', 100, '204'), L('b', 'g2', 'payrec', 200, '204'), L('c', 'g1', 'corrpay', 300, '204'), L('d', 'g3', 'payrec', 150, '305')];
+const sorted = items.slice().sort(X.psPayCmp(items, x => x)).map(x => x.id).join('');
+T('payment a, then its correct payment c right under it, then the others in time order', sorted === 'acdb', sorted);
 
 /* D. the screens */
 T('there is no separate Void payment button any more (Correct payment does the same work)', !/id="tVoid" \$\{!can\('corrpay'\)/.test(src));
