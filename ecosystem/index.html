@@ -5200,7 +5200,12 @@ function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book
 function sysFromPath(){const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
 function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low.indexOf('/ecosystem'),low.indexOf('/solutions')].filter(x=>x>=0).sort((a,b)=>a-b)[0];return location.origin+(at>=0?path.slice(0,at):'')}
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}
-function sysUrl(kind,h){const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
+/* Entry ticket: Maha Connect, Reach and Sales open only from the signed-in Main page. The page leaves a ticket here (12 hours, removed at sign-out);
+   those systems look for it and send everybody else to the sign-in page. */
+const ENTRY_KINDS=['connect','reach','sales'];
+function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||''}))}catch(e){}}
+function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
+function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
 function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const want=!kind?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
   const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=seg?('maha-hub / solutions / '+seg):'maha-hub / solutions'}
 function edcB64url(str){
@@ -5876,12 +5881,12 @@ async function signOut(silent){
   if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!curShift().noShift&&!await dlgConfirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   if(DB.session){if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});else log('Signed out')}
   if(MahaAuth.on())MahaAuth.signOut();
-  DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
+  clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin(silent?'Your shift is closed. Sign in to open a new shift.':'')}
 /* Supabase mode: if the sign-in can no longer be refreshed, return to the sign-in screen (shifts stay open). */
 function supabaseSessionExpired(){
   if(!DB||!DB.session||DB.session.provider)return;
   log('Signed out (sign-in expired)');MahaAuth.write(null);
-  DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin('Your sign-in has expired. Please sign in again.')}
+  clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin('Your sign-in has expired. Please sign in again.')}
 setInterval(()=>{if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return;MahaAuth.fresh().then(t=>{if(!t)supabaseSessionExpired()})},60000);
 
 /* ---------- reports open in their own tab (4.6) ---------- */
@@ -9963,7 +9968,7 @@ const RESTART_MS=60*60*1000;
 const restartDue=(anchor,now,limit)=>{const l=limit==null?RESTART_MS:limit;return !!(l>0&&anchor>0&&now-anchor>=l)};
 /* ---- end Restart rule ---- */
 function endLiveSession(){
-  DB.session=null;H=null;clearLiveSession();
+  clearEntryTickets();DB.session=null;H=null;clearLiveSession();
   const lock=document.getElementById('idleLock');if(lock)lock.remove();
   saveDB();showLogin('Your session ended. Sign in again.');
 }
@@ -9972,7 +9977,7 @@ function restartToMain(){
   if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out (1 hour without activity)'});else log('Signed out (1 hour without activity)');
   const lock=document.getElementById('idleLock');if(lock)lock.remove();
   if(MahaAuth.on())MahaAuth.signOut();
-  DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);
+  clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);
   showLogin('You were signed out after 1 hour without activity. Choose your system and sign in again. Your shift stays open.')}
 function screenRuleCheck(){
   if(!DB||!DB.session)return;
