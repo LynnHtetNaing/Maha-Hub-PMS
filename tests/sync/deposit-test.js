@@ -63,7 +63,7 @@ const h2 = { reservations: [{ bookings: [{ lines: mixed }] }] }; X.retitleAdvanc
 T('a deposit that was already corrected keeps all its lines (nothing is lost)', h2.reservations[0].bookings[0].lines.length === 4);
 /* the names on the screens: the Billing / Folio keeps ADVANCE PAYMENT; only a reservation deposit is called Reservation Deposit */
 T('the folio toolbar button is still Advance payment', /tb\('fAdv','wallet','Advance payment/.test(src));
-T('the window of an in-house advance is titled Advance Payment, a reservation deposit Reservation Deposit', /modal\(adv\?\(deposit\?'Reservation Deposit':'Advance Payment'\):'Payment'/.test(src));
+T('the window of an in-house advance is titled Advance Payment, a reservation deposit Reservation Deposit', /modal\(adv\?\(deposit\?'Reservation Deposit':'Advance Payment'\):\(noBill0\?'Refund':'Payment'\)/.test(src));
 T('its button says Post advance payment for an advance and Post deposit for a deposit', /adv\?\(deposit\?'Post deposit':'Post advance payment'\):'Post payment'/.test(src));
 T('the reservation page icon is the $ Reservation Deposit', /tb\('aDep','dollar','Reservation Deposit'/.test(src));
 
