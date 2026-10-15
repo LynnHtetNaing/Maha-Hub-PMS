@@ -27,7 +27,7 @@ begin
   if p_ym is null or p_ym !~ '^[0-9]{4}-(0[1-9]|1[0-2])$' then
     raise exception 'invalid-month' using errcode = '22023';
   end if;
-  month_counter := 'invoice_m_' || p_ym;
+  month_counter := 'invoice_m_' || replace(p_ym, '-', '');   -- counter names allow only letters, digits and _
 
   -- overall number (same counter and register as maha_issue_invoice_no)
   insert into public.maha_counters(property_id, counter, next_value)
