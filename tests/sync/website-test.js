@@ -8,7 +8,7 @@ const pages = ['index', 'about', 'maha-hub-solutions', 'products', 'pricing', 's
 const html = n => fs.readFileSync(path.join(root, n + '.html'), 'utf8');
 T('all pages exist', pages.every(p => fs.existsSync(path.join(root, p + '.html'))));
 /* addresses the site or the apps answer to */
-const known = new Set(['/', '/solutions', '/solutions-PMS', '/ecosystem/Connect/', '/ecosystem/Booking/', '/ecosystem/Reach/', '/ecosystem/Sales/']);
+const known = new Set(['/', '/favicon.ico', '/solutions', '/solutions-PMS', '/ecosystem/Connect/', '/ecosystem/Booking/', '/ecosystem/Reach/', '/ecosystem/Sales/']);
 const exists = href => { const p = href.split('#')[0].split('?')[0]; if (!p || known.has(p)) return true; if (/^\/(assets|brand|icons)\//.test(p)) return fs.existsSync(path.join(root, p)); return fs.existsSync(path.join(root, p.replace(/^\//, '') + '.html')); };
 const broken = [];
 for (const p of pages) for (const m of html(p).matchAll(/(?:href|src)="(\/[^"]*)"/g)) if (!exists(m[1])) broken.push(p + ': ' + m[1]);
@@ -18,7 +18,8 @@ for (const p of pages) { const t = html(p); const ids = new Set([...t.matchAll(/
 T('every in-page link (#...) has its place', anchors.length === 0, anchors.slice(0, 5).join(' ; '));
 const all = pages.map(html).join('\n').replace(/<script[\s\S]*?<\/script>/g, '');   /* the words people read, not program code */
 T('the company name is Maha Hub Group of Companies Limited and nothing says Padauk', /Maha Hub Group of Companies Limited/.test(all) && !/Padauk/.test(all));
-T('both brands are on the home page', /Maha Hub Solutions/.test(html('index')) && /Maha Hub Academy/.test(html('index')));
+T('both brands are on the home page, named Maha Solutions and Maha Academy (the group name is only the parent company)', /Maha Solutions/.test(html('index')) && /Maha Academy/.test(html('index')) && !/Maha Hub Solutions|Maha Hub Academy/.test(pages.map(html).join('\n')));
+T('the old logo is gone from the search-engine icons: favicon.ico exists and is the 48px new logo, linked first; the old icon files hold the new logo', fs.existsSync(path.join(root, 'favicon.ico')) && fs.readFileSync(path.join(root, 'favicon.ico')).readUInt16LE(2) === 1 && /rel="icon" href="\/favicon.ico" sizes="48x48"/.test(html('index')) && ['apple-touch-icon', 'favicon-32', 'favicon-48', 'icon-192', 'icon-512', 'pwa-192', 'maha-mark-sq'].every(n => fs.existsSync(path.join(root, 'icons', n + '.png'))) && fs.readFileSync(path.join(root, 'icons', 'icon-512.png')).readUInt32BE(16) === 512);
 T('every Sign in goes to the Main sign-in page /solutions (the systems are never linked from the website)', /href="\/solutions"/.test(html('index')) && /href="\/solutions">Sign in<\/a>/.test(html('products')) && !/href="\/(solutions-PMS|ecosystem\/)/.test(html('products')));
 T('every page has a title, a description and a canonical address', pages.every(p => /<title>.+<\/title>/.test(html(p)) && /name="description"/.test(html(p)) && /rel="canonical"/.test(html(p))));
 T('the password page keeps its working script and stays out of search', /maha_auth|supabase\.co/.test(html('reset-password')) && /noindex/.test(html('reset-password')) && /id="rp-form"/.test(html('reset-password')));
