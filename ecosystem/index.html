@@ -7823,10 +7823,15 @@ VIEWS['prov.recycle']=el=>{
 /* Chain / Group line of the hotel profile (provider only). Everything is saved in the cloud. */
 function chainBlock(el){
   if(!el||!MahaAuth.on())return;
-  const paint=info=>{const cur=chainOfHotel(info,H.code);
+  const paint=info=>{const cur=chainOfHotel(info,H.code),sc=cur&&cur.invoice_scope==='chain'?'chain':'hotel';
     el.innerHTML=`<h3>Chain / Group</h3><p class="sub">${cur?`This hotel belongs to <b>${esc(cur.name)}</b> (${esc(cur.chain_code)}). People you approve can switch between the hotels of this chain from their Profile menu.`:'This hotel is not in a chain.'}</p>
       <div class="form2">${fld('Chain / Group',`<select id="chSel"><option value="">None (stand-alone hotel)</option>${info.chains.map(c=>opt(c.chain_code,chainLabel(c),cur?cur.chain_code:'')).join('')}<option value="__new">+ New chain...</option></select>`)}</div>
-      <div class="btns"><button class="btn" id="chGo">Save chain</button></div><div class="err" id="chErr"></div>`;
+      <div class="btns"><button class="btn" id="chGo">Save chain</button></div><div class="err" id="chErr"></div>${cur?`<div class="form2">${fld('Tax invoice numbers',`<select id="isSel">${opt('hotel','One series per hotel',sc)}${opt('chain','One series for the whole chain',sc)}</select>`)}</div>
+      <p class="sub">One series per hotel: each hotel numbers its own tax invoices, for example TIV-H1-2026-10-0001 and TIV-H2-2026-10-0001. One series for the whole chain: all hotels of the chain share one running number each month, for example TIV-H1-2026-10-0001 then TIV-H2-2026-10-0002, with no gaps and no repeats. It applies to hotels that have gapless invoice numbers switched on. Numbers already issued are never changed.</p>
+      <div class="btns"><button class="btn" id="isGo">Save invoice numbers</button></div><div class="err" id="isErr"></div>`:''}`;
+    if($('#isGo',el))$('#isGo',el).onclick=async()=>{if(!provOnly())return;const v=$('#isSel',el).value,err=$('#isErr',el);if(v===sc)return;
+      err.textContent='Saving...';try{await ProvAdmin.call({action:'set_invoice_scope',chain_code:cur.chain_code,scope:v})}catch(e){err.textContent=ProvAdmin.msg(e);return}
+      provLog('Tax invoice numbers of chain '+cur.chain_code+': '+(v==='chain'?'one series for the whole chain':'one series per hotel'));toast(v==='chain'?'All hotels of the chain now share one invoice number series.':'Each hotel now has its own invoice number series.');ChainInfo.load(true).then(paint)};
     $('#chGo',el).onclick=async()=>{if(!provOnly())return;const sel=$('#chSel',el).value,err=$('#chErr',el);
       const move=async code=>{err.textContent='Saving...';try{await ProvAdmin.call({action:'move_hotel',property_code:H.code,chain_code:code})}catch(e){err.textContent=ProvAdmin.msg(e);return false}
         provLog('Hotel '+H.code+' moved to '+(code||'no chain'));saveDB();toast(code?'Hotel moved to the chain.':'Hotel is now stand-alone.');ChainInfo.load(true).then(paint);return true};

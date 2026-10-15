@@ -19,6 +19,7 @@
 //   rename_chain     chain_code, chain_name
 //   move_hotel       property_code, chain_code      - into a chain; an empty chain_code makes the hotel stand-alone
 //   set_access       username, property_code, allowed (boolean), role - which hotels one person may open (same chain only)
+//   set_invoice_scope chain_code, scope ("hotel" = one tax-invoice series per hotel, "chain" = one series for the whole chain)
 //   (create_hotel also accepts chain_code: the new hotel joins that chain)
 //
 // Account creation order (so a failure never leaves partial data or a stray email):
@@ -115,7 +116,7 @@ Deno.serve(async (req) => {
       const property = str("property_code").toUpperCase() || null;
       const target = action === "rename_username" ? `${username}>${str("new_username")}`
         : ["create_hotel", "delete_hotel", "restore_hotel", "purge_hotel"].includes(action) ? property
-        : ["create_chain", "rename_chain"].includes(action) ? str("chain_code").toUpperCase()
+        : ["create_chain", "rename_chain", "set_invoice_scope"].includes(action) ? str("chain_code").toUpperCase()
         : action === "move_hotel" ? property
         : action === "set_access" ? `${username}@${property ?? ""}`
         : action === "purge_expired" ? null : username;
@@ -133,9 +134,11 @@ Deno.serve(async (req) => {
       else if (action === "create_chain") event = ok ? "chain_created" : "chain_create_failed";
       else if (action === "rename_chain") event = ok ? "chain_renamed" : "chain_rename_failed";
       else if (action === "move_hotel") event = ok ? "hotel_moved" : "hotel_move_failed";
+      else if (action === "set_invoice_scope") event = ok ? "invoice_series_changed" : "invoice_series_change_failed";
       else if (action === "set_access") event = ok ? (b.allowed ? "hotel_access_granted" : "hotel_access_removed") : "hotel_access_failed";
       if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
       if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
+      if (ok && action === "set_invoice_scope") detail = b.invoice_scope === "chain" ? "one series for the whole chain" : "one series per hotel";
       if (ok && action === "move_hotel") detail = "to " + (str("chain_code").toUpperCase() || "stand-alone");
       if (event) track(audit(event, target, property, ok, detail || null));
     } catch { /* logging must never break the request */ }
@@ -363,11 +366,11 @@ Deno.serve(async (req) => {
   }
 
   // ---------------------------------------------------------------- Chains (groups of hotels)
-  if (action === "create_chain" || action === "rename_chain" || action === "move_hotel" || action === "set_access") {
+  if (action === "create_chain" || action === "rename_chain" || action === "move_hotel" || action === "set_access" || action === "set_invoice_scope") {
     const chainError = (e: { code?: string; message?: string } | null) => {
       const m = String(e?.message ?? "");
       if (e?.code === "23505") return respond({ error: "chain_code_taken" }, 409);
-      if (m.includes("invalid-chain")) return respond({ error: "invalid_fields" }, 400);
+      if (m.includes("invalid-chain") || m.includes("invalid-scope")) return respond({ error: "invalid_fields" }, 400);
       if (m.includes("chain-not-found")) return respond({ error: "chain_not_found" }, 404);
       if (m.includes("shared-staff")) return respond({ error: "staff_shared" }, 409);
       if (m.includes("same-chain")) return respond({ error: "already_there" }, 409);
@@ -406,6 +409,15 @@ Deno.serve(async (req) => {
       const { data, error } = await admin.rpc("maha_rename_chain", { p_owner: ownerId, p_org: org, p_name: name });
       if (error || !data) return chainError(error);
       return respond({ ok: true });
+    }
+    if (action === "set_invoice_scope") {
+      const scope = str("scope");
+      if (!CHAIN.test(chainCode) || (scope !== "hotel" && scope !== "chain")) return respond({ error: "invalid_fields" }, 400);
+      const org = await chainOf(chainCode);
+      if (!org) return respond({ error: "chain_not_found" }, 404);
+      const { data, error } = await admin.rpc("maha_set_invoice_scope", { p_owner: ownerId, p_org: org, p_scope: scope });
+      if (error || !data) return chainError(error);
+      return respond({ ok: true, invoice_scope: scope });
     }
     if (action === "move_hotel") {
       const code = str("property_code").toUpperCase();
