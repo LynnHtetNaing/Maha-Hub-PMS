@@ -8925,7 +8925,8 @@ function qrSvg(text,size){try{const q=qrcode(0,'M');q.addData(text);q.make();con
 const isDefaultProvider=p=>(p.username==='mahaadmin'&&p.hash===pwHash(p.salt,'Maha@2026'))||(p.username==='provider'&&p.hash===pwHash(p.salt,'Padauk@2026'));
 const curProvider=()=>DB.providers.find(x=>x.id===DB.session.userId);
 function newRecoveryCodes(p){const codes=[...Array(8)].map(()=>{const a=newTotpSecret().slice(0,8).toLowerCase();return a.slice(0,4)+'-'+a.slice(4)});p.recSalt=newSalt();p.recovery=codes.map(c=>pwHash(p.recSalt,c));return codes}
-function pwProblem(pw,un){if(pw.length<10)return 'Use at least 10 characters.';if(!/[A-Za-z]/.test(pw)||!/\d/.test(pw))return 'Use letters and numbers.';if(un&&pw.toLowerCase().includes(un.toLowerCase()))return 'Do not include the username in the password.';if(pw==='Padauk@2026'||pw==='Maha@2026')return 'Choose a new password, not the starting one.';return ''}
+/* New passwords: at least 6 characters with one capital letter, one small letter, one special character and two numbers. Passwords made before this rule keep working; it is only checked when a password is set. */
+function pwProblem(pw,un){if(pw.length<6)return 'Use at least 6 characters.';const miss=[];if(!/[A-Z]/.test(pw))miss.push('one capital letter');if(!/[a-z]/.test(pw))miss.push('one small letter');if(!/[!-\/:-@\[-`{-~]/.test(pw))miss.push('one special character, for example ! @ # $ %');if((pw.match(/\d/g)||[]).length<2)miss.push('two numbers');if(miss.length)return 'Add '+miss.join(', ')+'.';if(un&&pw.toLowerCase().includes(un.toLowerCase()))return 'Do not include the username in the password.';if(pw==='Padauk@2026'||pw==='Maha@2026')return 'Choose a new password, not the starting one.';return ''}
 
 /* ---- second step at sign-in ---- */
 function providerSecondStep(p,done){const box=$('#lform');
@@ -9003,7 +9004,7 @@ VIEWS['prov.account']=el=>{if(MahaAuth.on()){renderProviderProfile(el);return}co
      ${fld('Username',`<input id="acU" value="${esc(p.username)}" autocomplete="username">`)}${fld('Display name (shown in the provider log)',`<input id="acN" value="${esc(p.name)}">`)}
      ${fld('New password (leave empty to keep the current one)',`<input id="acP1" type="password" autocomplete="new-password">`)}${fld('Repeat new password',`<input id="acP2" type="password" autocomplete="new-password">`)}
      ${fld('Current password (required to save)',`<input id="acP0" type="password" autocomplete="current-password">`)}
-     <p class="sub">At least 10 characters with letters and numbers.${p.pwChangedAt?` Last changed ${fd(iso(new Date(p.pwChangedAt)))}.`:''}</p><div class="err" id="acE"></div><div class="btns"><button class="btn gold" id="acS">Save sign-in details</button></div></section>
+     <p class="sub">At least 6 characters with one capital letter, one small letter, one special character (for example ! @ # $) and two numbers. Your current password keeps working until you change it.${p.pwChangedAt?` Last changed ${fd(iso(new Date(p.pwChangedAt)))}.`:''}</p><div class="err" id="acE"></div><div class="btns"><button class="btn gold" id="acS">Save sign-in details</button></div></section>
     <section class="panel pad"><h3>${ic('lock',17)} Google Authenticator</h3><div id="mfaBox"></div></section>
     <section class="panel pad"><h3>${ic('mail',17)} Email</h3>
      ${fld('Email address',`<input id="acM" type="email" value="${esc(p.email||'')}" autocomplete="email" placeholder="you@example.com">`)}

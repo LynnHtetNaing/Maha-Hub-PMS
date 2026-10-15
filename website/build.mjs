@@ -494,7 +494,7 @@ add('reset-password.html', '', { title: 'Set your password | Maha Hub', desc: 'S
     <p id="rp-who" class="note" style="grid-column:1/-1"></p>
     <div class="field full"><label for="rp-new">New password</label>
       <input id="rp-new" type="password" autocomplete="new-password" required>
-      <span class="err" id="rp-new-err">Use at least 10 characters, with letters and numbers.</span></div>
+      <span class="err" id="rp-new-err">Use at least 6 characters, with one capital letter, one small letter, one special character and two numbers.</span></div>
     <div class="field full"><label for="rp-again">Type it again</label>
       <input id="rp-again" type="password" autocomplete="new-password" required>
       <span class="err" id="rp-again-err">The two passwords are not the same.</span></div>
