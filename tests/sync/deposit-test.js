@@ -68,7 +68,7 @@ T('its button says Post advance payment for an advance and Post deposit for a de
 T('the reservation page icon is the $ Reservation Deposit', /tb\('aDep','dollar','Reservation Deposit'/.test(src));
 
 T('the deposit invoice line reads Reservation Deposit - (payment type)', /rows:\[\{bd,desc:'Reservation Deposit - '\+method,ref,amt,card,remark\}\]/.test(src));
-T('the deposit invoice is the same as any other invoice: no "Reservation Deposit TAX INVOICE" heading and the normal Room Number / Folio No. boxes', !/Reservation Deposit TAX INVOICE/.test(src) && !/const (left|right)=spec\.deposit\?/.test(src) && /<b>TAX INVOICE NO\. \$\{spec\.inv\.no\} \(\$\{label\}\)<\/b>/.test(src));
+T('the deposit invoice is the same as any other invoice: no "Reservation Deposit TAX INVOICE" heading and the normal Room Number / Folio No. boxes', !/Reservation Deposit TAX INVOICE/.test(src) && !/const (left|right)=spec\.deposit\?/.test(src) && /<b>TAX INVOICE NO\. \$\{invRef\(spec\.inv\)\} \(\$\{label\}\)<\/b>/.test(src));
 T('the system writes no "ROOM RENTAL" line on an invoice', !/ROOM RENTAL/.test(src) && !/note:'ROOM/.test(src));
 T('a deposit taken with a new reservation carries no automatic remark', /ref:q\('#nPref'\)\.value\.trim\(\),remark:''\}/.test(src));
 T('a remark typed by a person is shown in the same italic style as the old automatic line, without a star', /<tr class="ivrm"><td colspan="4">\$\{esc\(c\.x\.remark\)\}<\/td><\/tr>/.test(src) && /\.inv \.ivrm td\{font-style:italic/.test(src));

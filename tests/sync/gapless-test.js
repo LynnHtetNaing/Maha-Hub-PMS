@@ -11,7 +11,7 @@ let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
 
 /* fake server: one counter per property, taken atomically; can be switched offline or to an error */
-const server = { counters: new Map(), register: [], mode: 'ok' };
+const server = { counters: new Map(), months: new Map(), register: [], mode: 'ok' };
 function issue(property, floor) {
   if (server.mode === 'offline') throw new TypeError('Failed to fetch');
   if (server.mode === 'denied') { const e = new Error('property-write-denied'); e.status = 403; throw e; }
@@ -23,7 +23,7 @@ function issue(property, floor) {
 
 function device(hotelCode, pid, hotelSet) {
   const ctx = { saved: 0, H: { code: hotelCode, set: Object.assign({ nextInv: 101, bd: '2026-10-10' }, hotelSet), invoices: [] } };
-  const MahaSync = { code: hotelCode, pid, rpc: async (name, body) => { if (name !== 'maha_issue_invoice_no') throw new Error('rpc ' + name); return issue(body.target_property, body.floor_value); } };
+  const MahaSync = { code: hotelCode, pid, rpc: async (name, body) => { if (name === 'maha_issue_invoice_ref') { const r = issue(body.target_property, body.floor_no), k = body.target_property + body.p_ym, cur = Math.max(server.months.get(k) || 0, body.floor_seq || 1, 1); server.months.set(k, cur + 1); return { no: r.no, seq: cur, ym: body.p_ym }; } if (name !== 'maha_issue_invoice_no') throw new Error('rpc ' + name); return issue(body.target_property, body.floor_value); } };
   const ProvSync = { items: new Map() };
   const body = `
     let H=ctx.H;const MahaAuth={on:()=>true};
