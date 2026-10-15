@@ -139,7 +139,7 @@ begin
   end if;
 
   return jsonb_build_object('no', n, 'mseq', s, 'ym', p_ym, 'scope', v_scope, 'mode', 'manual',
-    'ref', v_prefix || lpad(s::text, v_min, '0'));
+    'ref', v_prefix || case when length(s::text) >= v_min then s::text else lpad(s::text, v_min, '0') end);   -- lpad would cut a longer number
 end;
 $$;
 
