@@ -5894,7 +5894,7 @@ function openReportsTab(){if(!can('reports')){toast('You do not have permission 
 function globalSearch(){
   const m=modal('Search',`<div class="row gap"><input id="gsq" placeholder="Name, reservation, room, folio, invoice, phone or reference" style="flex:1" autofocus><button class="btn" id="gsgo">Search</button></div><div id="gsr" class="mt"></div>`,{w:860});
   const run=()=>{const q=$('#gsq',m).value.trim().toLowerCase();if(!q)return;const hits=[];
-    H.reservations.forEach(r=>r.bookings.forEach(b=>{const g=G(b.guestId);const inv=(H.invoices||[]).filter(i=>i.bookingId===b.id).map(i=>i.no).join(' ');
+    H.reservations.forEach(r=>r.bookings.forEach(b=>{const g=G(b.guestId);const inv=(H.invoices||[]).filter(i=>i.bookingId===b.id).map(invRef).join(' ');
       const hay=(gName(g)+' '+r.no+' '+(b.room||'')+' '+(r.reference||'')+' '+b.internal+' '+(g.phone||'')+' '+(r.phone||'')+' '+inv).toLowerCase();
       if(hay.includes(q))hits.push({r,b,g})}));
     $('#gsr',m).innerHTML=hits.length?`<table class="grid"><tr><th>RSVN#</th><th>Guest</th><th>Room</th><th>Arrival</th><th>Departure</th><th>Status</th><th></th></tr>${hits.slice(0,40).map(x=>`<tr><td>${x.r.no}</td><td>${esc(gName(x.g))}</td><td>${esc(x.b.room||'')}</td><td>${fd(x.b.arr)}</td><td>${fd(x.b.dep)}</td><td>${stBadge(x.b)}</td>
@@ -7345,7 +7345,7 @@ function transactionPopup(B,l,after){if(!l)return;
      <div class="ttabs"><button class="${tab==='post'?'on':''}" data-tt="post">Posting Information</button><button class="${tab==='bill'?'on':''}" data-tt="bill">Billing setup transfer</button></div>
      ${tab==='post'?`<div class="pinfo"><div><p>User Name: <b class="c1">*${esc(l.user)}</b></p><p>Date: <b class="c1">${fd(l.bd)}</b> Time: <b class="c1">${tm(l.time)}</b></p><p>Org. Date: <b class="c1">${fd(l.orgDate)}</b></p><p>Shift No.: <b class="c1">${esc(l.shiftName||'')}</b></p><p>System Ref#: <b class="c2">${l.sys} / ${B.internal}</b></p><p>Folio No: <span class="pillg">${l.folio}</span></p>${l.card?`<p>Card: <b>${esc(l.card.brand)} **** **** **** ${esc(l.card.last4)}</b> · exp ${esc(l.card.exp)} · ${esc(l.card.holder)}${user().isProv&&l.card.vault?' <button class="btn sm ghost" id="tCardFull">Show full number</button>':''}</p>`:'<p>Utility No.:</p>'}</div>
        <div><p>Original Amount: <b class="c2">${m2(l.amt)}</b> <span class="c3">(${m2(sign*t.net)})</span></p><p>Service Charge: <b class="c4">${m2(sign*t.svc)}</b></p><p>${esc(H.set.taxName)} Amount: <b class="c4">${m2(sign*t.vat)}</b></p><p>Additional Tax: <b class="c4">0.00</b></p><p>Tax Code: ${l.vat?esc(H.set.taxName)+' '+H.set.vat+'%':'NON VAT'}</p><p>Tax Type: ${l.vat?'Inclusive':'—'}</p>
-       <p>Tax Inv.: <span class="pillg">${inv?inv.no:0}</span> CR. note: <span class="pillg">0</span> <span class="c1">Folio Seq#:</span> <span class="pillg">${B.lines.filter(x=>x.folio===l.folio).indexOf(l)+1}</span></p></div></div>`:
+       <p>Tax Inv.: <span class="pillg">${inv?invRef(inv):0}</span> CR. note: <span class="pillg">0</span> <span class="c1">Folio Seq#:</span> <span class="pillg">${B.lines.filter(x=>x.folio===l.folio).indexOf(l)+1}</span></p></div></div>`:
       `<div class="pinfo one"><p>Posted to Folio ${l.folio}${l.origBooking&&l.origBooking!==B.id?' · transferred from another room':''}. ${l.deposit?'Taken as a reservation deposit.':''}</p><p>Billing setup: default folios (charges to Folio 1; payment record pair to Folio 4).</p></div>`}
      ${blk?`<div class="lockbar sm">${esc(blk)}</div>`:locked?'<div class="sub">This line belongs to a closed day. Reference, amount and remark are locked. It can still be moved between folios and rooms; only the provider can change it.</div>':'<div class="sub">Posted wrong? Reference, amount and remark can be changed until Close Day. A wrong code or description needs a Correct post.</div>'}
      <div class="txbtns">${acts.join('')}${canAmt||canRef||canRem?'<button class="btn gold" id="tSave">Save changes</button>':''}${user().isProv?'<button class="btn purple" id="tPE">Provider: edit anything</button><button class="btn red" id="tPD">Provider: delete line</button>':''}<button class="btn txclose" id="tX">Close</button><button class="btn txlog" id="tUL">${ic('log',15)} User Logs</button><button class="btn txlog" id="tPL">${ic('detail',15)} POS LOG</button></div></div>`;
@@ -7414,6 +7414,12 @@ function selectedReceiptLine(B){const l=folSel&&B.lines.find(x=>x.id===folSel);i
 function selectedAdvanceCredit(B){const l=folSel&&B.lines.find(x=>x.id===folSel);return l&&l.kind==='pay'&&receiptTwin(B,l)?l:null}
 /* ---- Gapless tax-invoice numbers (optional, per hotel). The number comes from the server one at a time, in this
    hotel's own sequence, so there are no gaps. It needs an internet connection at the moment an invoice is made. ---- */
+/* The number printed on a tax invoice: TIV-(hotel code)-year-month-4 digits, e.g. TIV-H1-2026-10-0001. Each hotel has its own series and the 4-digit
+   number starts again at 0001 every month (year and month = the business date it was made). Older invoices (no ref) keep showing their plain number. */
+function invYM(bd){return String(bd||'').slice(0,7)}
+function invRefFor(code,ym,seq){return 'TIV-'+String(code||'').toUpperCase()+'-'+String(ym).slice(0,4)+'-'+String(ym).slice(5,7)+'-'+String(Math.max(0,+seq||0)).padStart(4,'0')}
+function invRef(i){return i?(i.ref||String(i.no)):''}
+function nextMonthSeq(h,ym){return (h.invoices||[]).reduce((m,i)=>i.ym===ym?Math.max(m,+i.seq||0):m,0)+1}
 function gaplessOn(h){return !!(h&&h.set&&h.set.gaplessInvoices&&MahaAuth.on())}
 function syncOfHotel(code){if(MahaSync.code===code&&MahaSync.pid)return MahaSync;const s=ProvSync.items.get(code);return s&&s.pid?s:null}
 function invoiceExists(h,B,key){return h.invoices.some(i=>i.bookingId===B.id&&i.key===key)}
@@ -7422,13 +7428,15 @@ async function reserveInvoice(B,key,amount,billTo,folio){
   const h=H;if(invoiceExists(h,B,key))return;
   const sy=syncOfHotel(h.code);if(!sy)throw new Error('GAPLESS_OFFLINE');
   const floor=Math.max(+h.set.nextInv||1,h.invoices.reduce((m,i)=>Math.max(m,+i.no||0),0)+1);
-  const r=await sy.rpc('maha_issue_invoice_no',{target_property:sy.pid,floor_value:floor});
+  const ym=invYM(h.set.bd);let r;
+  try{r=await sy.rpc('maha_issue_invoice_ref',{target_property:sy.pid,p_ym:ym,floor_no:floor,floor_seq:nextMonthSeq(h,ym)})}
+  catch(e){if(!e||e.status!==404)throw e;const o=await sy.rpc('maha_issue_invoice_no',{target_property:sy.pid,floor_value:floor});r={no:o.no,seq:nextMonthSeq(h,ym)}}   /* a server that does not have the month series yet */
   if(invoiceExists(h,B,key))return;
-  h.invoices.push({no:+r.no,bookingId:B.id,folio:folio||1,key,bd:h.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount});
+  h.invoices.push({no:+r.no,ym,seq:+r.seq,ref:invRefFor(h.code,ym,+r.seq),bookingId:B.id,folio:folio||1,key,bd:h.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount});
   h.set.nextInv=Math.max(+h.set.nextInv||1,+r.no+1);
   saveDB();
 }
-function taxInvoiceFor(B,key,amount,billTo,folio){let inv=H.invoices.find(i=>i.bookingId===B.id&&i.key===key);if(!inv){if(gaplessOn(H))throw new Error('GAPLESS_NEEDS_NUMBER');inv={no:H.set.nextInv++,bookingId:B.id,folio:folio||1,key,bd:H.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount};H.invoices.push(inv)}inv.prints++;inv.amount=amount;inv.billTo=billTo;return inv}
+function taxInvoiceFor(B,key,amount,billTo,folio){let inv=H.invoices.find(i=>i.bookingId===B.id&&i.key===key);if(!inv){if(gaplessOn(H))throw new Error('GAPLESS_NEEDS_NUMBER');const n=H.set.nextInv++,ym=invYM(H.set.bd),sq=nextMonthSeq(H,ym);inv={no:n,ym,seq:sq,ref:invRefFor(H.code,ym,sq),bookingId:B.id,folio:folio||1,key,bd:H.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount};H.invoices.push(inv)}inv.prints++;inv.amount=amount;inv.billTo=billTo;return inv}
 function companyLine(B,bt){const r=resOf(B),co=r&&CO(r.companyId),g=gName(G(B.guestId));if(co&&co.code!=='WIN'&&co.code!=='DIR')return co.name;return bt&&bt.name&&bt.name!==g?bt.name:''}
 function billFields(B){const r=resOf(B),co=CO(r.companyId),billable=co&&co.code!=='WIN'&&co.code!=='DIR',def=B.billTo||(billable?'company':'guest'),b=B.bill||{};
   const coLabel=co?(co.type==='T'?'Agency':'Company')+' · '+co.name:'';
@@ -7448,7 +7456,7 @@ function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spe
   const sets=spec.copies==='copy'?['COPY']:spec.copies==='original'?['ORIGINAL']:['ORIGINAL','COPY'];
   const totals=spec.credit?creditTotals(spec):moneyTotals(spec);const coName=companyLine(B,bt);
   const page=(chunk,pi,label)=>{const rows=chunk.slice();while(rows.length<DOC_ROWS)rows.push({t:'e'});
-    const head=spec.guest?`<b>Folio ${spec.folio}</b>`:spec.credit?`<b>CREDIT NOTE NO. ${spec.inv.no} (${label})</b>`:`<b>TAX INVOICE NO. ${spec.inv.no} (${label})</b>`;
+    const head=spec.guest?`<b>Folio ${spec.folio}</b>`:spec.credit?`<b>CREDIT NOTE NO. ${spec.inv.no} (${label})</b>`:`<b>TAX INVOICE NO. ${invRef(spec.inv)} (${label})</b>`;
     const left=`<tr><td colspan="2">${head}</td></tr><tr><td>Guest Name</td><td>: ${esc(gName(g))}</td></tr><tr><td>Room Number</td><td>: ${esc(B.room||'')}</td></tr>${spec.credit?`<tr><td>Credit for</td><td>: ${esc(spec.cn.label)} (RSVN ${r.no})</td></tr><tr><td>Reason</td><td>: ${esc(spec.cn.reason)}</td></tr>`:''}<tr><td>Company</td><td>: ${esc(coName)}</td></tr><tr><td>Tax ID/Gst Pass</td><td>: ${esc(bt.tax||'')}</td></tr><tr><td>Address</td><td>: ${esc(bt.addr||'')}</td></tr>`;
     const right=`<tr><td>Page#</td><td>: ${pi+1} / ${pages.length}</td></tr><tr><td>Folio No.</td><td>: ${B.internal}</td></tr><tr><td>Arrival</td><td>: ${fd(B.arr)}</td></tr><tr><td>Departure</td><td>: ${fd(B.dep)}</td></tr><tr><td>No. of guest</td><td>: ${B.adults+B.children}</td></tr><tr><td>Printed Date/Time</td><td>: ${now}</td></tr><tr><td>${spec.guest?'Folio Date':spec.credit?'Credit Note Date':'Tax Invoice Date'}</td><td>: ${fd(spec.guest?H.set.bd:spec.inv.bd)}</td></tr>`;
     return `<div class="ppage port inv">${hotelHead()}<div class="ivtitlebar"><div class="ivtitle${spec.guest?' guest':''}">${spec.guest?'GUEST FOLIO':spec.credit?'CREDIT NOTE':'RECEIPT / TAX INVOICE'}</div></div>
@@ -7478,7 +7486,7 @@ function openMoneyDoc(B,spec,title){const built=moneyDocHtml(B,spec);const r=res
 function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line);spec.billTo=billTo;spec.other=other;spec.copies=copies||'both';spec.guest=false;
   if(gaplessOn(H)&&!invoiceExists(H,B,spec.key)){reserveInvoice(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio).then(()=>printReceipt(B,line,billTo,other,copies),e=>toast(gaplessMsg(e)));return}
   spec.inv=taxInvoiceFor(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio);
-  openMoneyDoc(B,spec,(spec.deposit?'Reservation deposit':'Receipt / Tax invoice')+' '+spec.inv.no)}
+  openMoneyDoc(B,spec,(spec.deposit?'Reservation deposit':'Receipt / Tax invoice')+' '+invRef(spec.inv))}
 function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[only]:B.lines.filter(l=>l.folio===f)).slice().sort((a,b)=>a.time-b.time);if(!ls.length){toast('This folio has no lines to print.');return}const fol=only?only.folio:f;const payKind=k=>['pay','payrec','payoff','corrpay'].includes(k);
   const folioExtra=l=>payKind(l.kind)&&!(l.kind==='pay'&&(l.adv||l.deposit));
   let rows=ls.map(l=>({bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}));
@@ -8655,7 +8663,7 @@ const SEC={
     blank:()=>({id:'a'+uid(),companyId:H.companies[0]&&H.companies[0].id,type:H.roomTypes[0]&&H.roomTypes[0].code,rooms:1,from:H.set.bd,to:addD(H.set.bd,30),cutoff:7}),
     validate:d=>{if(d.some(a=>!a.companyId||!a.type))return 'Choose the company and room type.';if(d.some(a=>!a.from||!a.to||a.to<a.from))return 'Check the dates.';if(d.some(a=>!(+a.rooms>=1)))return 'At least 1 room.';return ''},
     save:d=>{H.allotments=d.map(a=>({id:a.id||'a'+uid(),companyId:a.companyId,type:a.type,rooms:+a.rooms,from:a.from,to:a.to,cutoff:+a.cutoff||0}));provLog(`Allotments saved for ${H.code}`);saved()}})},
- docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}${fld('Next tax invoice number',`<input type="number" id="d_inv" value="${s.nextInv}" ${H.active!==false?'disabled':''}>`)}</div>
+ docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}${fld('Next tax invoice number (overall counter; the printed TIV number restarts at 0001 each month)',`<input type="number" id="d_inv" value="${s.nextInv}" ${H.active!==false?'disabled':''}>`)}</div>
    <label class="rpchk mt"><input type="checkbox" id="d_gl" ${s.gaplessInvoices?'checked':''}><span><b>Gapless tax-invoice numbers (this hotel only)</b><br><small>Each number comes from the server, one at a time, in this hotel's own sequence, with no gaps. An internet connection is needed when an invoice is made. Leave off for the normal numbering.</small></span></label>
    <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 14).</p><div class="btns"><button class="btn ghost" id="dAudit" type="button">Check invoice numbers</button><button class="btn gold" id="dS">Save</button></div></div>`;
    $('#dAudit',box).onclick=async()=>{try{const sy=syncOfHotel(H.code);if(!sy)throw new Error('x');const r=await sy.rpc('maha_invoice_audit',{target_property:sy.pid});
@@ -9194,7 +9202,7 @@ const REPORTS=[
      return {b,c,va,nv,t,bt:i.billTo==='company'&&c?c.name:gName(G(b.guestId)),tax:i.billTo==='company'&&c?c.taxId:''}};
    const rs=iv.map(i=>({i,x:row(i)})).filter(z=>z.x);
    return {cols:[C('Tax Inv No.',8),C('Date',8),C('Bill To',22),C('Tax ID',11),C('Room#',6),C('Vatable',11,'r'),C(H.set.taxName,10,'r'),C('Non VAT',10,'r'),C('Total',12,'r')],
-    rows:rs.map(z=>({t:'r',c:[z.i.no,fd(z.i.bd),z.x.bt,z.x.tax,z.x.b.room||'',m2(z.x.t.net+z.x.t.svc),m2(z.x.t.vat),m2(z.x.nv),m2(z.x.va+z.x.nv)]}))
+    rows:rs.map(z=>({t:'r',c:[invRef(z.i),fd(z.i.bd),z.x.bt,z.x.tax,z.x.b.room||'',m2(z.x.t.net+z.x.t.svc),m2(z.x.t.vat),m2(z.x.nv),m2(z.x.va+z.x.nv)]}))
       .concat(psCNs(p).length?[{t:'h',text:'Credit notes (rebates and corrected payments) - the tax is taken back'}].concat(psCNs(p).map(c=>{const b=bookingById(c.bookingId),t=taxSplit(c.vatable,true),co=b?CO(resOf(b).companyId):null;return {t:'r',c:['CN '+c.no,fd(c.bd),b?gName(G(b.guestId)):'',co?co.taxId:'',b?b.room||'':'',m2(-(t.net+t.svc)),m2(-t.vat),m2(-c.nonvat),m2(-c.total)]}})):[])
       .concat([{t:'g',c:['GrandTotal (after credit notes)','','','','',m2(sum(rs,z=>z.x.t.net+z.x.t.svc)-psCNSum(p).net),m2(sum(rs,z=>z.x.t.vat)-psCNSum(p).vat),m2(sum(rs,z=>z.x.nv)-psCNSum(p).nv),m2(sum(rs,z=>z.x.va+z.x.nv)-psCNSum(p).tot)]}]),foot:'Invoices are numbered when first printed; reprints are marked COPY. A credit note (rebate) takes tax back.'}}},
  {g:'Accounting',code:'AC_05',title:'AP & AR Report',mode:'range',run:p=>{refreshCityItems(H);
@@ -9624,9 +9632,9 @@ VIEWS['tax.tm30']=el=>{
 VIEWS['tax.etax']=el=>{
   const rows=(H.invoices||[]).map(i=>{const B=bookingById(i.bookingId);const r=B&&resOf(B);const co=r&&CO(r.companyId);const copy=(H.taxCopies||[]).find(c=>c.no===i.no&&c.folio===i.folio);return {i,B,name:copy?copy.billName:(i.billTo==='company'&&co?co.name:B?gName(G(B.guestId)):''),tax:copy?copy.billTax:(i.billTo==='company'&&co?co.taxId:''),vat:copy?copy.vat:'',amount:copy?copy.amount:i.amount}});
   el.innerHTML=pageHead('e-Tax file',`<button class="btn" id="txCsv">Download CSV</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Invoice</th><th>Date</th><th>Bill to</th><th>Tax ID</th><th class="n">VAT</th><th class="n">Amount</th></tr>
-    ${rows.map(x=>`<tr><td>${x.i.no}</td><td>${fd(x.i.bd)}</td><td>${esc(x.name||'')}</td><td>${esc(x.tax||'')}</td><td class="n">${x.vat===''?'':m2(x.vat)}</td><td class="n">${m2(x.amount||0)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Print a tax invoice to add it here.</td></tr>'}</table></div>
+    ${rows.map(x=>`<tr><td>${invRef(x.i)}</td><td>${fd(x.i.bd)}</td><td>${esc(x.name||'')}</td><td>${esc(x.tax||'')}</td><td class="n">${x.vat===''?'':m2(x.vat)}</td><td class="n">${m2(x.amount||0)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Print a tax invoice to add it here.</td></tr>'}</table></div>
     <p class="sub">The CSV is the e-Tax data for this hotel: invoice number, date, buyer, tax ID, VAT and amount. Filing it with the Revenue Department stays outside Maha Hub.</p>`;
-  $('#txCsv',el).onclick=()=>{const csv=[['Invoice','Date','BillTo','TaxID','VAT','Amount']].concat(rows.map(x=>[x.i.no,x.i.bd,x.name||'',x.tax||'',x.vat,x.amount])).map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  $('#txCsv',el).onclick=()=>{const csv=[['Invoice','Date','BillTo','TaxID','VAT','Amount']].concat(rows.map(x=>[invRef(x.i),x.i.bd,x.name||'',x.tax||'',x.vat,x.amount])).map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`eTax_${H.code}_${H.set.bd}.csv`;a.click();toast('e-Tax file downloaded')};
 };
 VIEWS['tax.copies']=el=>{
@@ -9809,7 +9817,7 @@ const MIG_EXPORTS={
   folio:{label:'Folio postings',cols:['rsvn_no','room','folio','business_date','code','description','amount','kind','method','reference'],
     rows:h=>{const out=[];(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.type==='DUM')return;(b.lines||[]).forEach(l=>out.push([r.no,b.room,l.folio,l.bd,l.code,l.desc,l.amt,l.kind,l.method,l.ref]))}));return out}},
   invoices:{label:'Tax invoices',cols:['invoice_no','date','rsvn_no','bill_to','amount'],
-    rows:h=>(h.invoices||[]).map(i=>{let no='';(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.id===i.bookingId)no=r.no}));return [i.no,i.bd,no,i.billTo,i.amount]})},
+    rows:h=>(h.invoices||[]).map(i=>{let no='';(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(b.id===i.bookingId)no=r.no}));return [invRef(i),i.bd,no,i.billTo,i.amount]})},
   rooms:{label:'Rooms and room types',cols:['room_no','room_type','floor','type_name','base_rate'],
     rows:h=>(h.rooms||[]).filter(r=>!r.dummy).map(r=>{const t=(h.roomTypes||[]).find(x=>x.code===r.type)||{};return [r.no,r.type,r.floor,t.name,t.base]})},
   companies:{label:'Companies and agents',cols:['code','name','type','address','tax_id','branch','commission_pct','rate_typed_as'],

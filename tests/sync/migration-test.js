@@ -12,7 +12,7 @@ const commCode = src.slice(ca, cb);
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
 let n = 0;
-const X = new Function('uid', 'r2', 'm2', 'rateFor', commCode + '\n' + code + '\nreturn {toCsv,parseCsv,csvObjects,hotelBackupObject,migExportCsv,MIG_EXPORTS,migPlan,migApply};')(() => 'x' + (++n), v => Math.round(v * 100) / 100, v => String(v), () => 0);
+const X = new Function('uid', 'r2', 'm2', 'rateFor', 'function invRef(i){return i?(i.ref||String(i.no)):""}\n' + commCode + '\n' + code + '\nreturn {toCsv,parseCsv,csvObjects,hotelBackupObject,migExportCsv,MIG_EXPORTS,migPlan,migApply};')(() => 'x' + (++n), v => Math.round(v * 100) / 100, v => String(v), () => 0);
 
 const hotel = () => ({
   code: 'H1', set: { name: 'Hotel One', nextProfile: 5 }, floors: [],
