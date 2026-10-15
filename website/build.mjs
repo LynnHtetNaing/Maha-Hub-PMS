@@ -37,19 +37,19 @@ const I = {
 
 /* ---------- products ---------- */
 const PRODUCTS = [
-  { id: 'pms', name: 'Maha PMS', kind: 'Property management system', live: true, app: '/solutions-PMS', blurb: 'Manage your property, rooms, rates and reservations.',
+  { id: 'pms', name: 'Maha PMS', kind: 'Property management system', live: true, blurb: 'Manage your property, rooms, rates and reservations.',
     long: 'The core of Maha Hub Solutions: property, rooms, rates, reservations, front office and billing in one connected workspace.',
     features: ['Property and rooms', 'Rates', 'Reservations', 'Front office', 'Folio and billing', 'Guest profiles', 'Housekeeping', 'Reports', 'User roles'] },
-  { id: 'connect', name: 'Maha Connect', kind: 'Channel distribution', live: true, app: '/ecosystem/Connect/', blurb: 'Distribute your inventory across global channels.',
+  { id: 'connect', name: 'Maha Connect', kind: 'Channel distribution', live: true, blurb: 'Distribute your inventory across global channels.',
     long: 'Channel distribution for your hotel, keeping your rooms and rates in step across the channels you sell on.',
     features: ['Inventory distribution', 'Rates across channels', 'Connected to Maha PMS'] },
-  { id: 'booking', name: 'Maha Booking', kind: 'Direct booking', live: true, app: '/ecosystem/Booking/', blurb: 'Let guests book directly on your website.',
+  { id: 'booking', name: 'Maha Booking', kind: 'Direct booking', live: true, blurb: 'Let guests book directly on your website.',
     long: 'A direct booking engine for your own website, so guests can reserve with you instead of through a third party.',
     features: ['Direct bookings on your website', 'Rooms and rates from Maha PMS', 'Reservations created in Maha PMS'] },
-  { id: 'reach', name: 'Maha Reach', kind: 'Marketing and guest engagement', live: true, app: '/ecosystem/Reach/', blurb: 'Boost your brand with marketing and guest engagement.',
+  { id: 'reach', name: 'Maha Reach', kind: 'Marketing and guest engagement', live: true, blurb: 'Boost your brand with marketing and guest engagement.',
     long: 'Marketing and guest engagement for hotels, so you can stay in touch with guests and grow your brand.',
     features: ['Marketing', 'Campaigns', 'Guest engagement'] },
-  { id: 'sales', name: 'Maha Sales', kind: 'Sales', live: true, app: '/ecosystem/Sales/', blurb: 'Hotel leads, follow-ups and quotations.',
+  { id: 'sales', name: 'Maha Sales', kind: 'Sales', live: true, blurb: 'Hotel leads, follow-ups and quotations.',
     long: 'Leads, follow-ups and quotations for hotel sales teams, opened from the same Maha sign-in.',
     features: ['Leads', 'Follow-ups', 'Quotations'] },
   { id: 'hr', name: 'Maha HR', kind: 'People', live: false, blurb: 'Team, attendance and payroll.', long: 'People management for hotel teams: team records, attendance and payroll.', features: ['Team', 'Attendance', 'Payroll'] },
@@ -351,7 +351,7 @@ add('maha-hub-solutions.html', 'solutions', {
     <div class="card reveal"><div class="ico">${I.life}</div><h3>Onboarding and support</h3><p>We help you get started and stay available afterwards. <a href="/pricing">See how buying works</a>.</p></div>
   </div>
 </section>
-${ctaBand('Find the right setup for your property.', 'Tell us about your hotel and we will recommend where to start.', '<a class="btn btn-line" href="/solutions-PMS">Sign in to Maha PMS</a>')}`);
+${ctaBand('Find the right setup for your property.', 'Tell us about your hotel and we will recommend where to start.', '<a class="btn btn-line" href="/solutions">Sign in</a>')}`);
 
 /* ===================================================== PRODUCTS ===================================================== */
 const prodBlock = (p, i) => `<article class="split ${i % 2 ? 'rev' : ''}" id="${p.id}" style="padding:44px 0;border-top:1px solid var(--line)">
@@ -360,7 +360,7 @@ const prodBlock = (p, i) => `<article class="split ${i % 2 ? 'rev' : ''}" id="${
     <p class="lead" style="font-size:18px">${p.long}</p>
     ${p.live ? '' : '<p class="note">This product is coming soon and is not available yet.</p>'}
     <div class="hero-cta" style="margin-top:18px">${p.live
-      ? `<a class="btn btn-green" href="/contact?interest=${encodeURIComponent(p.name)}">Request a demo</a><a class="btn btn-line-dark" href="${p.app}">Sign in to ${p.name}</a>`
+      ? `<a class="btn btn-green" href="/contact?interest=${encodeURIComponent(p.name)}">Request a demo</a><a class="btn btn-line-dark" href="/solutions">Sign in</a>`
       : `<a class="btn btn-line-dark" href="/contact?interest=${encodeURIComponent(p.name + ' (in development)')}">Register interest</a>`}</div></div>
   <div class="reveal"><div class="card"><h4 style="margin-bottom:14px">What it covers</h4><ul class="ticks" style="margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">${p.features.map(f => `<li>${f}</li>`).join('')}</ul></div></div>
 </article>`;
