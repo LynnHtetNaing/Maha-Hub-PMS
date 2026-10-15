@@ -1283,19 +1283,73 @@ const MahaAuth={
   conflict:false,   /* true while a stale-version conflict is waiting for the user's decision */
   write(t){try{if(!t){try{MahaSync.stop()}catch(e){}try{ProvSync.stop()}catch(e){}try{PlatSet.stop()}catch(e){}sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
   keep(d){return {access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000,user:{id:d.user&&d.user.id}}},
-  /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config',message} */
+  /* A random id for this browser. The server keeps only its hash, to remember which browsers already typed
+     the emailed sign-in code (trusted devices). */
+  deviceId(){
+    const ok=v=>/^[A-Za-z0-9_-]{16,64}$/.test(v||'');
+    try{const v=localStorage.getItem('maha.deviceId');if(ok(v))return v}catch(e){}
+    let v=this._dev;
+    if(!ok(v)){const a=new Uint8Array(24);crypto.getRandomValues(a);v=btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');this._dev=v}
+    try{localStorage.setItem('maha.deviceId',v)}catch(e){}
+    return v;
+  },
+  codeMsg(e){return e==='code_rate_limited'?'A code was sent a moment ago. Wait one minute, then sign in again.':e==='code_expired'?'That code has expired. Sign in again to get a new code.':e==='code_locked'?'Too many wrong codes. Sign in again to get a new code.':'The sign-in code could not be sent. Try again in a moment.'},
+  /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config'|'code'|'cancelled',message}.
+     On a new device, and again every 30 days, the server emails a 6-digit code before it hands out a session. */
   async signIn(username,password){
     if(!this.configured())return {ok:false,reason:'config',message:'Supabase sign-in is not configured on this page yet.'};
     let res;
     try{
       res=await fetch(this.base()+'/functions/v1/username-auth',{method:'POST',
         headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},
-        body:JSON.stringify({action:'login',username,password})});
+        body:JSON.stringify({action:'login',username,password,device_id:this.deviceId()})});
     }catch(e){return {ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}
-    if(res.status===401||res.status===400)return {ok:false,reason:'invalid'};
+    if(res.status===409)return {ok:false,reason:'unavailable',message:'This page is out of date. Reload it (Ctrl+F5) and sign in again.'};
     let d=null;try{d=await res.json()}catch(e){d=null}
+    if(res.status===401||res.status===400)return {ok:false,reason:'invalid'};
+    if(res.status===429||(res.status===503&&d&&/^code_/.test(d.error||'')))return {ok:false,reason:'code',message:this.codeMsg(d&&d.error)};
+    if(res.ok&&d&&d.needs_code&&d.challenge)return this.codeStep(username,password,d);
     if(!res.ok||!d||!d.access_token||!d.user||!d.user.id)return {ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'};
     return {ok:true,tokens:this.keep(d)};
+  },
+  /* The password was right; now the person types the code from the email (5 tries, then they start again). */
+  async codeStep(username,password,d){
+    let again='';
+    for(let i=0;i<5;i++){
+      const a=await this.askEmailCode({sentTo:d.sent_to},again);
+      if(!a)return {ok:false,reason:'cancelled',message:'Sign-in was cancelled.'};
+      if(a.resend)return this.signIn(username,password);
+      let res;
+      try{
+        res=await fetch(this.base()+'/functions/v1/username-auth',{method:'POST',
+          headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},
+          body:JSON.stringify({action:'verify_code',username,challenge:d.challenge,code:a.code,remember:!!a.remember,device_id:this.deviceId()})});
+      }catch(e){return {ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}
+      let v=null;try{v=await res.json()}catch(e){v=null}
+      if(res.ok&&v&&v.access_token&&v.user&&v.user.id)return {ok:true,tokens:this.keep(v)};
+      if(res.status===401&&v&&v.error==='code_wrong'){again='That code is not correct. Use the newest code from the email.';continue}
+      if(res.status===401||res.status===503)return {ok:false,reason:'code',message:this.codeMsg(v&&v.error)};
+      return {ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'};
+    }
+    return {ok:false,reason:'code',message:this.codeMsg('code_locked')};
+  },
+  /* Asks for the emailed 6-digit code. Resolves {code,remember}, {resend:true}, or null when the box is closed. Replaced in tests. */
+  askEmailCode(info,again){
+    return new Promise(resolve=>{
+      const body=`<p class="sub">It appears this is your first time signing in on this device, or it is time for the monthly check. To keep your account safe, we sent a 6-digit code to <b>${esc(info.sentTo||'your email')}</b>. It is valid for 10 minutes.</p>`
+        +`<div class="form2">${fld('When you receive the code, type it here',`<input id="emCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus>`)}</div>`
+        +`<label class="chk" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px"><input type="checkbox" id="emRemember" checked style="margin-top:3px"><span>Register this device and do not ask for a code again for 30 days</span></label>`
+        +`<div class="err" id="emErr">${again?esc(again):''}</div>`
+        +`<p class="sub">The email should arrive within a minute. Please check your spam or junk folder if it does not.</p>`
+        +`<div class="btns"><button class="btn gold" id="emGo">Yes, this is me</button><button class="btn" id="emNo">Cancel</button><button type="button" class="linkbtn" id="emAgain">Send a new code</button></div>`;
+      const m=modal('Identity verification code required',body,{w:520});
+      let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
+      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Enter the 6 digits from the email.';return}finish({code:v,remember:$('#emRemember',m).checked})};
+      $('#emCode',m).onkeydown=e=>{if(e.key==='Enter')$('#emGo',m).onclick()};
+      $('#emNo',m).onclick=()=>finish(null);
+      $('#emAgain',m).onclick=()=>finish({resend:true});
+      m._wrap._onclose=()=>finish(null);
+    });
   },
   async rest(path,t){
     const res=await fetch(this.base()+'/rest/v1/'+path,{headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token,'Accept':'application/json'}});
