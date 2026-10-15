@@ -16,4 +16,4 @@ Not part of the website, do not overwrite: /solutions (the PMS sign-in page), /s
 other systems), /reach/, /connect/, /book/, /sales/, /edc-link/, /brand/, /icons/, /sw.js.
 
 Colours (from the logo): green #113732, gold #C9A55A, ivory #F1E5C9.
-Brands: Maha Hub Solutions (technology) and Maha Hub Academy (education), under Maha Hub Group of Companies Limited.
+Brands: Maha Solutions (technology) and Maha Academy (education), under Maha Hub Group of Companies Limited.
