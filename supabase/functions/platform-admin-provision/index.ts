@@ -20,6 +20,8 @@
 //   move_hotel       property_code, chain_code      - into a chain; an empty chain_code makes the hotel stand-alone
 //   set_access       username, property_code, allowed (boolean), role - which hotels one person may open (same chain only)
 //   set_invoice_scope chain_code, scope ("hotel" = one tax-invoice series per hotel, "chain" = one series for the whole chain)
+//   set_invoice_format property_code, mode ("standard"|"manual"), and for manual: prefix, start, min_digits, unlimited - the Tax Invoice Reference of one hotel
+//                    (for a hotel in a chain with one series the format is kept for the whole chain)
 //   change_staff_email username, new_email - the sign-in code and password-reset emails go to the new address; forgets trusted devices
 //   forget_devices    username                       - the person is asked for a new sign-in code on every device
 //   staff_signin_list property_code                  - staff of one hotel: masked email and the date of the last code check
@@ -118,7 +120,7 @@ Deno.serve(async (req) => {
       const err = typeof b.error === "string" ? b.error : "";
       const property = str("property_code").toUpperCase() || null;
       const target = action === "rename_username" ? `${username}>${str("new_username")}`
-        : ["create_hotel", "delete_hotel", "restore_hotel", "purge_hotel"].includes(action) ? property
+        : ["create_hotel", "delete_hotel", "restore_hotel", "purge_hotel", "set_invoice_format"].includes(action) ? property
         : ["create_chain", "rename_chain", "set_invoice_scope"].includes(action) ? str("chain_code").toUpperCase()
         : action === "move_hotel" ? property
         : action === "set_access" ? `${username}@${property ?? ""}`
@@ -138,12 +140,14 @@ Deno.serve(async (req) => {
       else if (action === "rename_chain") event = ok ? "chain_renamed" : "chain_rename_failed";
       else if (action === "move_hotel") event = ok ? "hotel_moved" : "hotel_move_failed";
       else if (action === "set_invoice_scope") event = ok ? "invoice_series_changed" : "invoice_series_change_failed";
+      else if (action === "set_invoice_format") event = ok ? "invoice_format_changed" : "invoice_format_change_failed";
       else if (action === "set_access") event = ok ? (b.allowed ? "hotel_access_granted" : "hotel_access_removed") : "hotel_access_failed";
       else if (action === "change_staff_email") event = ok ? "staff_email_changed" : "staff_email_change_failed";   // the address itself is never logged
       else if (action === "forget_devices") event = ok ? "trusted_devices_reset" : "trusted_devices_reset_failed";
       if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
       if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
       if (ok && action === "set_invoice_scope") detail = b.invoice_scope === "chain" ? "one series for the whole chain" : "one series per hotel";
+      if (ok && action === "set_invoice_format") detail = b.invoice_mode === "manual" ? "Manual" : "Standard";
       if (ok && action === "move_hotel") detail = "to " + (str("chain_code").toUpperCase() || "stand-alone");
       if (event) track(audit(event, target, property, ok, detail || null));
     } catch { /* logging must never break the request */ }
@@ -502,6 +506,34 @@ Deno.serve(async (req) => {
     });
     if (error || !data) return chainError(error);
     return respond({ ok: true, allowed: body.allowed, hotels: (data as { hotels?: unknown }).hotels });
+  }
+
+  // ---------------------------------------------------------------- Tax Invoice Reference (Standard or Manual)
+  if (action === "set_invoice_format") {
+    const code = str("property_code").toUpperCase();
+    const mode = str("mode");
+    const prefix = typeof body.prefix === "string" ? body.prefix : "";
+    const start = Number(body.start);
+    const minDigits = Number(body.min_digits);
+    if (!CODE.test(code) || (mode !== "standard" && mode !== "manual")) return respond({ error: "invalid_fields" }, 400);
+    if (mode === "manual" && (!/^[A-Za-z0-9_/.-]{0,20}$/.test(prefix) || !Number.isInteger(start) || start < 1 || !Number.isInteger(minDigits) || minDigits < 1 || minDigits > 12 || typeof body.unlimited !== "boolean")) {
+      return respond({ error: "invalid_fields" }, 400);
+    }
+    const { data: hotel } = await admin.from("maha_properties").select("id").eq("property_code", code).maybeSingle();
+    if (!hotel) return respond({ error: "property_not_found" }, 404);
+    const { data, error } = await admin.rpc("maha_set_invoice_format", {
+      p_owner: ownerId, p_property: hotel.id as string, p_mode: mode,
+      p_prefix: mode === "manual" ? prefix : null, p_start: mode === "manual" ? start : null,
+      p_min_digits: mode === "manual" ? minDigits : null, p_unlimited: mode === "manual" ? body.unlimited === true : null,
+    });
+    if (error || !data) {
+      const m = String(error?.message ?? "");
+      if (m.includes("start-too-low")) return respond({ error: "start_too_low" }, 409);
+      if (m.includes("invalid-format")) return respond({ error: "invalid_fields" }, 400);
+      if (error?.code === "42501") return respond({ error: "forbidden" }, 403);
+      return respond({ error: "invoice_format_failed" }, 502);
+    }
+    return respond({ ok: true, invoice_mode: mode });
   }
 
   return respond({ error: "unsupported_action" }, 400);

@@ -2066,7 +2066,7 @@ const ChainInfo={data:null,loading:null,
   clear(){this.data=null}};
 /* Account administration is done only by the provider, on the server. */
 const ProvAdmin={
-  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.',already_deleted:'This hotel is already in the Recycle bin.',not_restorable:'This hotel can no longer be restored.',not_deleted:'Only a hotel in the Recycle bin can be deleted permanently.',recycle_failed:'The server could not complete this. Nothing was changed. Try again.',chain_code_taken:'This chain code is already used.',chain_not_found:'That chain was not found.',staff_shared:'Some people work at this hotel and at another hotel of its chain. Remove their access to one of them first.',already_there:'The hotel is already there.',hotel_deleted:'This hotel is in the Recycle bin.',different_chain:'This person works in another chain. A person can only open hotels of one chain.',chain_failed:'The server could not complete this. Nothing was changed. Try again.'},
+  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.',already_deleted:'This hotel is already in the Recycle bin.',not_restorable:'This hotel can no longer be restored.',not_deleted:'Only a hotel in the Recycle bin can be deleted permanently.',recycle_failed:'The server could not complete this. Nothing was changed. Try again.',chain_code_taken:'This chain code is already used.',chain_not_found:'That chain was not found.',staff_shared:'Some people work at this hotel and at another hotel of its chain. Remove their access to one of them first.',already_there:'The hotel is already there.',hotel_deleted:'This hotel is in the Recycle bin.',different_chain:'This person works in another chain. A person can only open hotels of one chain.',chain_failed:'The server could not complete this. Nothing was changed. Try again.',start_too_low:'The starting number cannot be lower than the highest number already issued.',invoice_format_failed:'The server could not save the tax invoice reference. Nothing was changed. Try again.'},
   msg(e){return (e&&this.msgs[e.message])||'The server could not complete this. Nothing was changed. Try again.'},
   async call(body){
     const t=await MahaAuth.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -5223,7 +5223,7 @@ const MENU=[
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
 const PROV_MENU=[
  {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
- {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Recycle bin','prov.recycle'],['Revenue analysis','ai.revenue']]},
+ {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Chains / Groups','prov.chains'],['Recycle bin','prov.recycle'],['Revenue analysis','ai.revenue']]},
  {t:'Records',items:[['Amend records','prov.amend'],['Amendment log','prov.log']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
@@ -7464,19 +7464,33 @@ function invYM(bd){return String(bd||'').slice(0,7)}
 function invRefFor(code,ym,seq){return 'TIV-'+String(code||'').toUpperCase()+'-'+String(ym).slice(0,4)+'-'+String(ym).slice(5,7)+'-'+String(Math.max(0,+seq||0)).padStart(4,'0')}
 function invRef(i){return i?(i.ref||String(i.no)):''}
 function nextMonthSeq(h,ym){return (h.invoices||[]).reduce((m,i)=>i.ym===ym?Math.max(m,+i.seq||0):m,0)+1}
-function gaplessOn(h){return !!(h&&h.set&&h.set.gaplessInvoices&&MahaAuth.on())}
+/* Manual tax invoice reference (set once by the provider in Tax Invoice Reference): prefix + number padded to the minimum digits, e.g. INV-000123.
+   The number comes from the server (strictly consecutive, for the hotel or for the whole chain) and the page keeps the ref it was given. */
+function invManual(h){return !!(h&&h.set&&h.set.invMode==='manual')}
+function invManualRef(prefix,n,min){return String(prefix==null?'':prefix)+String(Math.max(0,+n||0)).padStart(Math.max(1,Math.min(12,+min||1)),'0')}
+function nextManualSeq(h){return (h.invoices||[]).reduce((m,i)=>Math.max(m,+i.mseq||0),0)+1}
+function invFormatCheck(f){const p=String(f.prefix==null?'':f.prefix);
+  if(p.length>20)return 'The prefix can have at most 20 characters.';
+  if(!/^[A-Za-z0-9_\/.-]*$/.test(p))return 'The prefix can have only letters, numbers and - _ / . (no spaces).';
+  if(!(Number.isInteger(+f.minDigits)&&+f.minDigits>=1&&+f.minDigits<=12))return 'Minimum digits must be a whole number from 1 to 12.';
+  if(!(Number.isInteger(+f.start)&&+f.start>=1))return 'The starting number must be a whole number, 1 or more.';
+  if(f.issued!=null&&+f.start<+f.issued)return 'The starting number cannot be lower than the highest number already issued ('+f.issued+').';
+  return ''}
+function gaplessOn(h){return !!(h&&h.set&&(h.set.invMode==='manual'||(h.set.gaplessInvoices&&MahaAuth.on())))}
 function syncOfHotel(code){if(MahaSync.code===code&&MahaSync.pid)return MahaSync;const s=ProvSync.items.get(code);return s&&s.pid?s:null}
 function invoiceExists(h,B,key){return h.invoices.some(i=>i.bookingId===B.id&&i.key===key)}
-function gaplessMsg(e){return (e&&e.message==='GAPLESS_OFFLINE')||!(e&&e.status)?'This hotel uses gapless invoice numbers, which need an internet connection. Nothing was printed. Try again when you are online.':'The invoice number could not be reserved. Nothing was printed. Try again.'}
+function gaplessMsg(e){if(e&&/invoice-numbers-used-up/.test(e.message||''))return 'Tax invoice numbers are used up - ask Maha Hub. Nothing was printed.';if(e&&/invoice-format-missing/.test(e.message||''))return 'The tax invoice number format is not set yet. Ask Maha Hub. Nothing was printed.';return (e&&e.message==='GAPLESS_OFFLINE')||!(e&&e.status)?'This hotel uses gapless invoice numbers, which need an internet connection. Nothing was printed. Try again when you are online.':'The invoice number could not be reserved. Nothing was printed. Try again.'}
 async function reserveInvoice(B,key,amount,billTo,folio){
   const h=H;if(invoiceExists(h,B,key))return;
   const sy=syncOfHotel(h.code);if(!sy)throw new Error('GAPLESS_OFFLINE');
   const floor=Math.max(+h.set.nextInv||1,h.invoices.reduce((m,i)=>Math.max(m,+i.no||0),0)+1);
-  const ym=invYM(h.set.bd);let r;
-  try{r=await sy.rpc('maha_issue_invoice_ref',{target_property:sy.pid,p_ym:ym,floor_no:floor,floor_seq:nextMonthSeq(h,ym)})}
-  catch(e){if(!e||e.status!==404)throw e;const o=await sy.rpc('maha_issue_invoice_no',{target_property:sy.pid,floor_value:floor});r={no:o.no,seq:nextMonthSeq(h,ym)}}   /* a server that does not have the month series yet */
+  const ym=invYM(h.set.bd),manual=invManual(h);let r;
+  try{r=manual?await sy.rpc('maha_issue_invoice_number',{target_property:sy.pid,p_ym:ym,floor_no:floor,floor_seq:nextManualSeq(h)}):await sy.rpc('maha_issue_invoice_ref',{target_property:sy.pid,p_ym:ym,floor_no:floor,floor_seq:nextMonthSeq(h,ym)})}
+  catch(e){if(!e||e.status!==404||manual)throw e;const o=await sy.rpc('maha_issue_invoice_no',{target_property:sy.pid,floor_value:floor});r={no:o.no,seq:nextMonthSeq(h,ym)}}   /* a server that does not have the month series yet */
   if(invoiceExists(h,B,key))return;
-  h.invoices.push({no:+r.no,ym,seq:+r.seq,ref:invRefFor(h.code,ym,+r.seq),bookingId:B.id,folio:folio||1,key,bd:h.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount});
+  const inv={no:+r.no,ym,seq:+r.seq,ref:r.ref||invRefFor(h.code,ym,+r.seq),bookingId:B.id,folio:folio||1,key,bd:h.set.bd,at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',prints:0,billTo,amount};
+  if(r.mseq!=null){delete inv.seq;inv.mseq=+r.mseq}   /* a Manual reference: the server's own number, not the month series */
+  h.invoices.push(inv);
   h.set.nextInv=Math.max(+h.set.nextInv||1,+r.no+1);
   saveDB();
 }
@@ -7803,7 +7817,7 @@ VIEWS['prov.hotels']=el=>{
   $('#pvNew',el).onclick=()=>{if(MahaAuth.on()){newPropertyForm();return}const m=modal('Add hotel',`<div class="form2">${fld('Hotel code',`<input id="nhC" placeholder="e.g. BKK02" autofocus>`)}${fld('Hotel name',`<input id="nhN">`)}${fld('Currency',`<select id="nhCur">${opt('THB')}${opt('MMK')}${opt('USD')}</select>`)}${fld('Country',`<input id="nhCo" value="Thailand">`)}
     ${fld('Service charge %',`<input type="number" id="nhS" value="10">`)}${fld('Tax %',`<input type="number" id="nhV" value="7">`)}${fld('Owner username (unique across all hotels)',`<input id="nhU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${fld('Owner password',`<input id="nhP" type="text" value="">`)}</div><div class="err" id="nhE"></div><div class="btns"><button class="btn gold" id="nhS2">Create hotel</button></div>`,{w:620});
     $('#nhS2',m).onclick=()=>{const c=$('#nhC',m).value.trim().toUpperCase(),n=$('#nhN',m).value.trim(),pw=$('#nhP',m).value;if(!/^[A-Z0-9]{3,8}$/.test(c)){$('#nhE',m).textContent='Hotel code: 3 to 8 letters or numbers.';return}if(DB.hotels[c]){$('#nhE',m).textContent='This hotel code is already used.';return}if(!n){$('#nhE',m).textContent='Enter the hotel name.';return}if(pw.length<8){$('#nhE',m).textContent='The owner password needs at least 8 characters.';return}const ou=$('#nhU',m).value.trim().toLowerCase();if(!/^[a-z0-9._-]{3,20}$/.test(ou)){$('#nhE',m).textContent='Owner username: 3 to 20 letters, numbers, dot, dash or underscore.';return}if(usernameTaken(ou)){$('#nhE',m).textContent='This username is already used in another hotel. Usernames must be unique across all hotels.';return}
-      const cur=$('#nhCur',m).value,bd=iso(new Date());const h={code:c,set:{name:n,legal:n,branch:'Head Office',addr:'',phone:'',fax:'',taxId:'',email:'',web:'',cur,curWord:{THB:'BAHT',MMK:'KYATS',USD:'DOLLARS'}[cur],subWord:{THB:'SATANG',MMK:'PYAS',USD:'CENTS'}[cur],svc:+$('#nhS',m).value||0,vat:+$('#nhV',m).value||0,taxName:cur==='MMK'?'Commercial tax':'VAT',country:$('#nhCo',m).value.trim(),nat:'',formCode:cur==='THB'?'ร.ร.3':'',bd,lockedThrough:addD(bd,-1),checkIn:'14:00',checkOut:'12:00',nextRsv:1001,nextInternal:1001,nextInv:1,nextSys:1,nextProfile:1,building:'Non-Building'},
+      const cur=$('#nhCur',m).value,bd=iso(new Date());const h={code:c,set:{name:n,legal:n,branch:'Head Office',addr:'',phone:'',fax:'',taxId:'',email:'',web:'',cur,curWord:{THB:'BAHT',MMK:'KYATS',USD:'DOLLARS'}[cur],subWord:{THB:'SATANG',MMK:'PYAS',USD:'CENTS'}[cur],svc:+$('#nhS',m).value||0,vat:+$('#nhV',m).value||0,taxName:cur==='MMK'?'Commercial tax':'VAT',country:$('#nhCo',m).value.trim(),nat:'',formCode:cur==='THB'?'ร.ร.3':'',bd,lockedThrough:addD(bd,-1),checkIn:'14:00',checkOut:'12:00',nextRsv:1001,nextInternal:1001,nextInv:1,gaplessInvoices:true,nextSys:1,nextProfile:1,building:'Non-Building'},
         roomTypes:[{code:'STD',name:'Standard',base:cur==='MMK'?45000:1000,max:2}],rateCodes:DB.hotels.PAD01?JSON.parse(JSON.stringify(DB.hotels.PAD01.rateCodes)):[],rooms:[{no:'101',type:'STD',floor:'1',hk:'clean',ooo:null}],guests:[],companies:[{id:'c6',code:'DIR',name:'Direct Reservation',type:'C',address:'',taxId:'',branch:'',comm:0},{id:'c7',code:'WIN',name:'WALK IN',type:'C',address:'',taxId:'',branch:'',comm:0}],reservations:[],shifts:[],logs:[],audits:[],invoices:[],amend:[],users:[mkUser('u1',ou,'Owner','Manager',pw)],active:false};
       shapeHotel(h);DB.hotels[c]=h;provLog('Created hotel '+c);saveDB();closeModal(m);render();toast(`Hotel ${c} created as Not active. Add its details, then press Activate.`)}};
 };
@@ -7864,18 +7878,13 @@ VIEWS['prov.recycle']=el=>{
     paint(rows)};
   load();
 };
-/* Chain / Group line of the hotel profile (provider only). Everything is saved in the cloud. */
+/* Chain / Group panel of the provider page Chains / Groups (provider only). Everything is saved in the cloud. */
 function chainBlock(el){
   if(!el||!MahaAuth.on())return;
   const paint=info=>{const cur=chainOfHotel(info,H.code),sc=cur&&cur.invoice_scope==='chain'?'chain':'hotel';
     el.innerHTML=`<h3>Chain / Group</h3><p class="sub">${cur?`This hotel belongs to <b>${esc(cur.name)}</b> (${esc(cur.chain_code)}). People you approve can switch between the hotels of this chain from their Profile menu.`:'This hotel is not in a chain.'}</p>
       <div class="form2">${fld('Chain / Group',`<select id="chSel"><option value="">None (stand-alone hotel)</option>${info.chains.map(c=>opt(c.chain_code,chainLabel(c),cur?cur.chain_code:'')).join('')}<option value="__new">+ New chain...</option></select>`)}</div>
-      <div class="btns"><button class="btn" id="chGo">Save chain</button></div><div class="err" id="chErr"></div>${cur?`<div class="form2">${fld('Tax invoice numbers',`<select id="isSel">${opt('hotel','One series per hotel',sc)}${opt('chain','One series for the whole chain',sc)}</select>`)}</div>
-      <p class="sub">One series per hotel: each hotel numbers its own tax invoices, for example TIV-H1-2026-10-0001 and TIV-H2-2026-10-0001. One series for the whole chain: all hotels of the chain share one running number each month, for example TIV-H1-2026-10-0001 then TIV-H2-2026-10-0002, with no gaps and no repeats. It applies to hotels that have gapless invoice numbers switched on. Numbers already issued are never changed.</p>
-      <div class="btns"><button class="btn" id="isGo">Save invoice numbers</button></div><div class="err" id="isErr"></div>`:''}`;
-    if($('#isGo',el))$('#isGo',el).onclick=async()=>{if(!provOnly())return;const v=$('#isSel',el).value,err=$('#isErr',el);if(v===sc)return;
-      err.textContent='Saving...';try{await ProvAdmin.call({action:'set_invoice_scope',chain_code:cur.chain_code,scope:v})}catch(e){err.textContent=ProvAdmin.msg(e);return}
-      provLog('Tax invoice numbers of chain '+cur.chain_code+': '+(v==='chain'?'one series for the whole chain':'one series per hotel'));toast(v==='chain'?'All hotels of the chain now share one invoice number series.':'Each hotel now has its own invoice number series.');ChainInfo.load(true).then(paint)};
+      <div class="btns"><button class="btn" id="chGo">Save chain</button></div><div class="err" id="chErr"></div>${cur?`<p class="sub">Tax invoice numbers of this chain: <b>${sc==='chain'?'one series for the whole chain':'one series per hotel'}</b>. You change this in the hotel settings, under 14. Tax Invoice Reference. Numbers already issued are never changed.</p>`:''}`;
     $('#chGo',el).onclick=async()=>{if(!provOnly())return;const sel=$('#chSel',el).value,err=$('#chErr',el);
       const move=async code=>{err.textContent='Saving...';try{await ProvAdmin.call({action:'move_hotel',property_code:H.code,chain_code:code})}catch(e){err.textContent=ProvAdmin.msg(e);return false}
         provLog('Hotel '+H.code+' moved to '+(code||'no chain'));saveDB();toast(code?'Hotel moved to the chain.':'Hotel is now stand-alone.');ChainInfo.load(true).then(paint);return true};
@@ -8301,7 +8310,7 @@ const CUR_WORDS={THB:['BAHT','SATANG','Thailand'],MMK:['KYATS','PYAS','Myanmar']
 function emptyHotel(o){const bd=o.bd||todayZ();const cw=CUR_WORDS[o.cur]||[o.cur,'',''];
   return {code:o.code,active:false,createdAt:Date.now(),set:{name:o.name,tz:o.tz||'Asia/Bangkok',legal:'',branch:'Head Office',addr:'',phone:'',fax:'',taxId:'',email:'',web:'',cur:o.cur,curWord:cw[0],subWord:cw[1],
       svc:o.svc??10,vat:o.vat??7,taxName:o.taxName||'VAT',country:o.country||cw[2],nat:o.nat||'',formCode:'',bd,lockedThrough:addD(bd,-1),checkIn:'14:00',checkOut:'12:00',
-      nextRsv:1001,nextInternal:1001,nextInv:1,nextSys:1,nextProfile:1,building:'Non-Building',terms:null,payOff:{},codeVat:{},payLogos:{}},
+      nextRsv:1001,nextInternal:1001,nextInv:1,gaplessInvoices:true,nextSys:1,nextProfile:1,building:'Non-Building',terms:null,payOff:{},codeVat:{},payLogos:{}},
     floors:[],floorPlans:{},roomTypes:[],rateCodes:[{code:'RO',desc:'Room Only',valid:bd,until:'2050-12-31',kind:'pct',v:0,meal:''},{code:'COMP',desc:'Complimentary',valid:bd,until:'2050-12-31',kind:'zero',v:0,meal:'',comp:'COMP'},{code:'HU',desc:'House Use',valid:bd,until:'2050-12-31',kind:'zero',v:0,meal:'',comp:'HOUSE'}],
     rooms:[],guests:[],companies:[{id:'c'+uid(),code:'DIR',name:'Direct Reservation',type:'C',address:'',taxId:'',branch:'',comm:0},{id:'c'+uid(),code:'WIN',name:'WALK IN',type:'C',address:'',taxId:'',branch:'',comm:0}],
     reservations:[],shifts:[],logs:[],audits:[],invoices:[],amend:[],allotments:[],extraCodes:[],users:[]}}
@@ -8604,7 +8613,7 @@ function propertyChecks(h){return setupChecks(h).filter(c=>c.k!=='staff'&&c.k!==
 let SET_SEC='profile';
 const SET_SECTIONS=[['profile','1','Hotel profile'],['tax','2','Currency, tax & service'],['bd','3','Business date & times'],['floors','4','Floors'],['types','5','Room types'],['rooms','6','Rooms'],
   ['plan','7','Floor plan'],['rates','8','Rate codes'],['charges','9','Charge codes'],['pay','10','Payment methods'],['companies','11','Companies & agents'],['allot','12','Allotments'],
-  ['docs','13','Registration card & invoice'],['terms','14','Terms & Conditions'],['activate','15','Review & activate']];
+  ['docs','13','Registration card & invoice'],['tiref','14','Tax Invoice Reference'],['terms','15','Terms & Conditions'],['activate','16','Review & activate']];
 VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
   el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · property setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
    <div class="su"><nav class="sunav">${SET_SECTIONS.map(s=>{const st=ok(s[0]);return `<button class="${SET_SEC===s[0]?'on':''}" data-sec="${s[0]}"><span class="sun">${s[1]}</span>${s[2]}${st===true?'<i class="ok">✓</i>':st===false?'<i class="no">•</i>':''}</button>`}).join('')}</nav>
@@ -8632,13 +8641,11 @@ function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data
 const SEC={
  profile(box){const s=H.set;box.innerHTML=secHead('1. Hotel profile','Printed on the receipt / tax invoice, registration card, reservation confirmation and reports.')+`<div class="panel pad"><div class="form2">
    ${[['name','Hotel name'],['legal','Legal company name (tax invoice)'],['branch','Branch (e.g. Head Office)'],['taxId','Tax ID'],['addr','Address'],['phone','Phone'],['fax','Fax'],['email','Email'],['web','Website'],['country','Country'],['nat','Local nationality (for government reports)']].map(([k,l])=>fld(l,`<input id="p_${k}" value="${esc(s[k]||'')}">`,k==='addr'||k==='legal'?'span2':'')).join('')}${fld('Time zone (for times on logs, reports and documents)',`<select id="p_tz">${tzOptions(s.tz)}</select>`)}</div>
-   <div class="mt" id="chainBox"></div>
    <div class="mt"><h3>Hotel logo</h3><p class="sub">Shown on the reservation confirmation, registration card, receipt, guest folio and reports. If none is added, those documents use the Maha Hub mark. The sign-in screen keeps the Maha Hub mark.</p>
     ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:''}
     <div class="btns"><label class="btn ghost">Upload logo<input id="pLogo" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>${s.logo?'<button class="btn ghost" id="pLogoX" type="button">Remove</button>':''}</div></div>
    <div class="btns"><button class="btn gold" id="pS">Save</button></div></div>`;
    $('#pS',box).onclick=()=>{if(!provOnly())return;['name','legal','branch','taxId','addr','phone','fax','email','web','country','nat'].forEach(k=>s[k]=$('#p_'+k,box).value.trim());s.tz=$('#p_tz',box).value||'Asia/Bangkok';if(!s.name){toast('The hotel name is needed.');return}provLog(`Profile saved for ${H.code}`);saved()};
-   chainBlock($('#chainBox',box));
    if($('#pLogo',box))$('#pLogo',box).onchange=e=>{if(!provOnly())return;applyLogoFile(e.target.files[0],()=>{provLog('Hotel logo saved for '+H.code);saved('Logo saved')})};
    if($('#pLogoX',box))$('#pLogoX',box).onclick=()=>{if(!provOnly())return;clearHotelLogo(()=>{provLog('Hotel logo removed for '+H.code);saved('Logo removed')})}},
  tax(box){const s=H.set;box.innerHTML=secHead('2. Currency, tax & service','All rates are inclusive. Service is worked out on the net amount; tax on net plus service.')+`<div class="panel pad"><div class="form3">
@@ -8712,13 +8719,55 @@ const SEC={
     blank:()=>({id:'a'+uid(),companyId:H.companies[0]&&H.companies[0].id,type:H.roomTypes[0]&&H.roomTypes[0].code,rooms:1,from:H.set.bd,to:addD(H.set.bd,30),cutoff:7}),
     validate:d=>{if(d.some(a=>!a.companyId||!a.type))return 'Choose the company and room type.';if(d.some(a=>!a.from||!a.to||a.to<a.from))return 'Check the dates.';if(d.some(a=>!(+a.rooms>=1)))return 'At least 1 room.';return ''},
     save:d=>{H.allotments=d.map(a=>({id:a.id||'a'+uid(),companyId:a.companyId,type:a.type,rooms:+a.rooms,from:a.from,to:a.to,cutoff:+a.cutoff||0}));provLog(`Allotments saved for ${H.code}`);saved()}})},
- docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}${fld('Next tax invoice number (overall counter; the printed TIV number restarts at 0001 each month)',`<input type="number" id="d_inv" value="${s.nextInv}" ${H.active!==false?'disabled':''}>`)}</div>
-   <label class="rpchk mt"><input type="checkbox" id="d_gl" ${s.gaplessInvoices?'checked':''}><span><b>Gapless tax-invoice numbers (this hotel only)</b><br><small>Each number comes from the server, one at a time, in this hotel's own sequence, with no gaps. An internet connection is needed when an invoice is made. Leave off for the normal numbering.</small></span></label>
-   <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 14).</p><div class="btns"><button class="btn ghost" id="dAudit" type="button">Check invoice numbers</button><button class="btn gold" id="dS">Save</button></div></div>`;
+ docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}</div>
+   <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 15). The tax invoice numbers are set in section 14, Tax Invoice Reference.</p><div class="btns"><button class="btn gold" id="dS">Save</button></div></div>`;
+   $('#dS',box).onclick=()=>{if(!provOnly())return;s.formCode=$('#d_fc',box).value.trim();s.building=$('#d_bl',box).value.trim();provLog(`Documents saved for ${H.code}`);saved()}},
+ tiref(box){const s=H.set,cloud=MahaAuth.on(),live=H.active!==false,man0=s.invMode==='manual',f0=s.invFmt||{};
+   box.innerHTML=secHead('14. Tax Invoice Reference','The one place for the tax invoice numbers of this hotel. Set the format once, before the hotel goes live. After that the numbers run by themselves, one after the other, with no gaps.')+`<div class="panel pad">
+   <div class="form2">${fld('Tax invoice reference',`<select id="ti_mode" ${live?'disabled':''}><option value="standard" ${man0?'':'selected'}>Standard Tax Invoice Ref</option><option value="manual" ${man0?'selected':''} ${cloud||man0?'':'disabled'}>Manual</option></select>`)}${fld('Next tax invoice number (overall counter, used for the audit list)',`<input type="number" id="d_inv" value="${s.nextInv}" ${live?'disabled':''}>`)}</div>
+   <div id="tiStd" class="mt"><p class="sub">Standard: TIV-(hotel code)-year-month-4 digits. The 4 digits start again at 0001 every month. Example: <b>${esc(invRefFor(H.code,invYM(s.bd),1))}</b></p></div>
+   <div id="tiMan" class="mt"><h3>Manual format</h3><div class="form3">${fld('Prefix (up to 20 characters)',`<input id="ti_pre" maxlength="20" autocomplete="off" value="${esc(f0.prefix||'')}" placeholder="e.g. INV- or TAX/2026/" ${live?'disabled':''}>`)}${fld('Starting number',`<input type="number" id="ti_start" min="1" value="${esc(f0.start||'')}" ${live?'disabled':''}>`)}${fld('Minimum digits (1 to 12)',`<input type="number" id="ti_min" min="1" max="12" value="${esc(f0.min||6)}" ${live?'disabled':''}>`)}</div>
+    <label class="rpchk mt"><input type="checkbox" id="ti_unl" ${f0.unl===false?'':'checked'} ${live?'disabled':''}><span><b>Unlimited increasing of the digits</b><br><small>On: the number simply gets longer when it passes the minimum digits. Off: the width is fixed, and when the numbers are used up no more invoices can be made until you ask Maha Hub.</small></span></label>
+    <p class="sub">Example: <b id="ti_ex"></b></p><p class="sub" id="tiNote"></p></div>
+   <div id="tiScope" class="mt"></div>
+   <label class="rpchk mt"><input type="checkbox" id="d_gl" ${s.gaplessInvoices||man0?'checked':''}><span><b>Gapless tax-invoice numbers</b><br><small>Each number comes from the server, one at a time, with no gaps. An internet connection is needed when an invoice is made. Manual always uses this.</small></span></label>
+   ${live?'<p class="sub">This hotel is active, so the reference format and the starting number are locked. To correct them, deactivate the hotel first (section 16).</p>':'<p class="sub">Once the hotel is active, nobody types invoice numbers any more and these fields are locked.</p>'}
+   <div class="err" id="tiErr"></div><div class="btns"><button class="btn ghost" id="dAudit" type="button">Check invoice numbers</button><button class="btn gold" id="tiSave">Save</button></div></div>`;
+   let scopeNow='hotel',scopeSel='hotel',inChain=false,issued=null;
+   const mode=()=>$('#ti_mode',box).value;
+   const pick=()=>({prefix:$('#ti_pre',box).value,start:$('#ti_start',box).value===''?NaN:+$('#ti_start',box).value,minDigits:$('#ti_min',box).value===''?NaN:+$('#ti_min',box).value,unlimited:$('#ti_unl',box).checked});
+   const sync=()=>{const m=mode()==='manual';$('#tiStd',box).hidden=m;$('#tiMan',box).hidden=!m;
+     if(m){$('#d_gl',box).checked=true}$('#d_gl',box).disabled=m;
+     const p=pick();$('#ti_ex',box).textContent=Number.isInteger(p.start)&&p.start>=1&&Number.isInteger(p.minDigits)&&p.minDigits>=1?invManualRef(p.prefix,p.start,p.minDigits):'-'};
+   ['ti_mode','ti_pre','ti_start','ti_min','ti_unl'].forEach(id=>{$('#'+id,box).oninput=sync;$('#'+id,box).onchange=sync});
+   sync();
+   const note=()=>{$('#tiNote',box).textContent=inChain&&scopeSel==='chain'?'The prefix, starting number and digits are typed once for the whole chain. All hotels of the chain share this one running number.':''};
+   const paintScope=cur=>{inChain=!!cur;scopeNow=scopeSel=cur&&cur.invoice_scope==='chain'?'chain':'hotel';
+     $('#tiScope',box).innerHTML=cur?`<div class="form2">${fld('Series',`<select id="ti_scope" ${live?'disabled':''}>${opt('hotel','Individual hotel: its own series',scopeNow)}${opt('chain','Chain: one series for all hotels of '+cur.name+' ('+cur.chain_code+')',scopeNow)}</select>`)}</div><p class="sub">Individual hotel: each hotel numbers its own invoices. Chain: all hotels of the chain share one running number with no gaps and no repeats. It works for Standard and for Manual.</p>`:'<p class="sub">This hotel is not in a chain, so it has its own series.</p>';
+     if($('#ti_scope',box))$('#ti_scope',box).onchange=e=>{scopeSel=e.target.value;note()};note()};
+   if(cloud){ChainInfo.load().then(info=>paintScope(chainOfHotel(info,H.code)),()=>{$('#tiScope',box).innerHTML='<p class="sub">The chain could not be loaded now.</p>'});
+     const sy=syncOfHotel(H.code);
+     if(sy)MahaAuth.rpc('maha_invoice_format_of',{p_property:sy.pid}).then(f=>{if(!f)return;issued=+f.issued||0;
+       if(f.start&&f.mode==='manual'){$('#ti_pre',box).value=f.prefix||'';$('#ti_start',box).value=f.start;$('#ti_min',box).value=f.min_digits;$('#ti_unl',box).checked=f.unlimited!==false;sync()}
+       if(f.mode==='manual'&&f.next_number)$('#tiNote',box).textContent=($('#tiNote',box).textContent+' Next number: '+invManualRef(f.prefix,f.next_number,f.min_digits)+'.').trim()},()=>{})}
+   else $('#tiScope',box).innerHTML='<p class="sub">Without the cloud this hotel has its own series, and the Standard reference is used.</p>';
    $('#dAudit',box).onclick=async()=>{try{const sy=syncOfHotel(H.code);if(!sy)throw new Error('x');const r=await sy.rpc('maha_invoice_audit',{target_property:sy.pid});
      modal('Invoice number check',`<p class="sub">Numbers issued by the server for <b>${esc(H.code)}</b>: <b>${r.issued||0}</b>${r.first?` (from ${r.first} to ${r.last})`:''}.</p><p class="sub">Issued but with no invoice record: <b>${esc((r.issued_without_invoice_record||[]).join(', ')||'none')}</b></p><p class="sub">Missing from the sequence: <b>${esc((r.missing_from_sequence||[]).join(', ')||'none')}</b></p>`,{w:520})}catch(e){toast('The check is not available right now.')}};
-   $('#dS',box).onclick=()=>{if(!provOnly())return;s.formCode=$('#d_fc',box).value.trim();s.building=$('#d_bl',box).value.trim();s.gaplessInvoices=$('#d_gl',box).checked;if(H.active===false)s.nextInv=Math.max(1,+$('#d_inv',box).value||1);provLog(`Documents saved for ${H.code}`);saved()}},
- terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('14. Terms & Conditions'))},
+   $('#tiSave',box).onclick=async()=>{if(!provOnly())return;const err=$('#tiErr',box),m=mode(),p=pick();err.textContent='';
+     if(!live){
+       if(m==='manual'){const bad=invFormatCheck({...p,issued});if(bad){err.textContent=bad;return}if(!cloud){err.textContent='Manual needs the cloud. Sign in with the hotel in the cloud first.';return}}
+       if(!Number.isInteger(+$('#d_inv',box).value)||+$('#d_inv',box).value<1){err.textContent='The next tax invoice number must be 1 or more.';return}
+       if(cloud&&(m==='manual'||m!==(s.invMode||'standard')||scopeSel!==scopeNow)){
+         err.textContent='Saving...';
+         try{if(inChain&&scopeSel!==scopeNow){const cur=chainOfHotel(await ChainInfo.load(),H.code);await ProvAdmin.call({action:'set_invoice_scope',chain_code:cur.chain_code,scope:scopeSel});provLog('Tax invoice numbers of chain '+cur.chain_code+': '+(scopeSel==='chain'?'one series for the whole chain':'one series per hotel'))}
+           await ProvAdmin.call({action:'set_invoice_format',property_code:H.code,mode:m,prefix:m==='manual'?p.prefix:undefined,start:m==='manual'?p.start:undefined,min_digits:m==='manual'?p.minDigits:undefined,unlimited:m==='manual'?p.unlimited:undefined})}
+         catch(e){err.textContent=ProvAdmin.msg(e);return}
+         err.textContent=''}
+       s.invMode=m;if(m==='manual')s.invFmt={prefix:p.prefix,start:p.start,min:p.minDigits,unl:p.unlimited};
+       s.nextInv=Math.max(1,+$('#d_inv',box).value||1)}
+     s.gaplessInvoices=(s.invMode==='manual')||$('#d_gl',box).checked;
+     provLog(`Tax Invoice Reference saved for ${H.code}: ${s.invMode==='manual'?'Manual '+invManualRef(s.invFmt.prefix,s.invFmt.start,s.invFmt.min)+(s.invFmt.unl?' (unlimited digits)':' (fixed width)'):'Standard'}${s.gaplessInvoices?', gapless':''}`);saved()}},
+ terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
  google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly'];
    box.innerHTML=secHead('Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
    <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
@@ -8745,7 +8794,7 @@ const SEC={
      provLog(`Direct booking / Google metadata saved for ${H.code}`);saved()};
    $('#gOpen',box).onclick=()=>{const base=($('#g_base',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')}},
  activate(box){const ck=setupChecks(H),all=ck.every(c=>c.ok);
-   box.innerHTML=secHead('15. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
+   box.innerHTML=secHead('16. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
    <div class="btns">${H.active!==false?`<button class="btn red" id="acOff">Deactivate hotel</button>`:`<button class="btn gold" id="acOn" ${all?'':'disabled'}>Activate hotel</button>`}</div>${all||H.active!==false?'':'<p class="sub">Finish every item to activate. Staff and direct booking open under Setup.</p>'}</div>`;
    $$('[data-fix]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.fix;if(k==='staff'){go('prov.perms');return}if(k==='google'){go('prov.google');return}SET_SEC=k;render()});
    if($('#acOn',box))$('#acOn',box).onclick=()=>{if(!provOnly())return;H.active=true;H.activatedAt=Date.now();provLog(`Activated ${H.code}`);saved(`${H.code} is active. Its staff can now sign in.`)};
@@ -8759,6 +8808,16 @@ VIEWS['prov.google']=el=>{
   if(!H){el.innerHTML=pageHead('Direct booking & Google')+'<div class="empty">Create a property first.</div>';return}
   el.innerHTML=pageHead('Direct booking & Google',provHotelPicker())+`<div id="gBody"></div>`;
   bindPicker(el);SEC.google($('#gBody',el));
+};
+/* Chains / Groups (provider): which chain the selected hotel belongs to. The tax invoice series of a chain is chosen in the hotel's Tax Invoice Reference. */
+VIEWS['prov.chains']=el=>{
+  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
+  if(DB.session.inHotel){el.innerHTML=pageHead('Chains / Groups')+`<div class="panel pad"><p>Leave the hotel first. Chains are set from the provider console.</p><button class="btn" id="pgLeave">Back to provider console</button></div>`;
+    $('#pgLeave',el).onclick=()=>go('prov.exit');return}
+  if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
+  if(!H){el.innerHTML=pageHead('Chains / Groups')+'<div class="empty">Create a property first.</div>';return}
+  el.innerHTML=pageHead('Chains / Groups',provHotelPicker())+`<div class="panel pad" id="chainBox">${MahaAuth.on()?'':'<p class="sub">Chains need the cloud. Sign in with the hotels in the cloud first.</p>'}</div>`;
+  bindPicker(el);chainBlock($('#chainBox',el));
 };
 function allBookingsH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>o.push(b)));return o}
 
