@@ -6385,7 +6385,7 @@ function reservationScreen(box,r,B,o={}){
     B.status==='noshow'?`<div class="lockbar">No-show recorded for business date ${fd(B.statusDate)}. It can be recalled only on that business date.</div>`:'';
   box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
    <div class="toolbar">${tb('aSave','save','Save changes',!(canEd||GE))}${tb('aProf','idc','Guest profile')}${tb('aRate','cal','Advance rate setup')}${tb('aNotif','bell','Notifications')}${tb('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tb('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
-     ${tb('aReg','card','Print registration card',!can('print'))}${['confirmed','tentative'].includes(B.status)?tb('aDep','dollar','Reservation Deposit',!can('pay')):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
+     ${tb('aReg','card','Print registration card',!can('print'))}${['confirmed','tentative'].includes(B.status)?tb('aDep','dollar','Reservation Deposit',!can('pay')):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tb('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
      ${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="sp"></span>${stBadge(B)}</div>
    ${lockNote}
    <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input id="rContact" value="${esc(r.contact)}" ${dis('res')}>`,'w2')}
@@ -6448,6 +6448,7 @@ Reason (kept in the provider history):`);if(!why||!why.trim())return;
     r.bookings=r.bookings.filter(b=>b!==B);if(!r.bookings.length)H.reservations=H.reservations.filter(x=>x!==r);const w=`Deleted booking RSVN ${r.no} ${gName(g)} (${B.lines.length} folio lines, ${m2(bal(B))} balance)`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:r.no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();go('res.list');toast('Booking deleted and recorded')};
   q('#aReg').onclick=()=>{if(!need('print'))return;printRegCard(B)};
   if(q('#aDep'))q('#aDep').onclick=()=>payModal(B,reopen,1,'adv');
+  if(q('#aRef'))q('#aRef').onclick=()=>payModal(B,reopen,1,'pay');
   if(q('#aDinv'))q('#aDinv').onclick=()=>{if(need('print'))printDeposit(B)};
   if(q('#aFol'))q('#aFol').onclick=()=>go('bill.open',B.id);
   q('#aCopy').onclick=()=>{if(!need('res.create'))return;const nb=copyReservation(B);go('res.open',nb.id);toast('Copied to a new reservation. Choose the room and dates for the extension, then save.')};
@@ -7145,16 +7146,17 @@ function calcPad(box,input,after){if(box.innerHTML){box.innerHTML='';return}
 
 /* ---------- Payment / Advance payment pop-up (photo style, 3 lines each) ---------- */
 let payTab='CASH',payRef=false;
-function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','noshow'].includes(B.status)){toast('This booking is not active.');return}
+function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','noshow'].includes(B.status)&&(mode==='adv'||psPaid(B)<=0.004)){toast('This booking is not active.');return}
   folio=folio||1;const adv=mode==='adv';payRef=false;
   if(folLocked(B,folio)){toast(`Folio ${folio} is locked. Unlock it first.`);return}
   if(adv&&B.status==='out'){toast('The guest has checked out. Use Payment instead.');return}
-  if(!adv&&!['inhouse','out'].includes(B.status)){toast('There is no bill yet. Use Advance Payment for a reservation deposit.');return}
+  if(!adv&&!['inhouse','out'].includes(B.status)&&psPaid(B)<=0.004){toast('There is no bill yet. Use Advance Payment for a reservation deposit.');return}
   if(!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset)&&psPaid(B)<=0.004){toast(`There is no open bill in Folio ${folio}, and no payment to give back. A payment needs a bill.`);return}
   if(adv&&folLocked(B,4)){toast('Folio 4 is locked. An advance writes its red receipt there, so unlock it first.');return}
   showNotifs(resOf(B),'Cashier');
   const g=G(B.guestId);let cur=null;const deposit=adv&&B.status!=='inhouse';
-  const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):'Payment','<div id="pyB"></div>',{w:1240,cls:'nimodal'});
+  const noBill0=!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);
+  const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):(noBill0?'Refund':'Payment'),'<div id="pyB"></div>',{w:1240,cls:'nimodal'});
   const noBill=!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);   /* nothing to pay: only a refund is possible */
   payRef=noBill;
   const allP=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&payEnabled(c));
