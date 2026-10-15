@@ -53,10 +53,6 @@ begin
   if (r5->>'seq')::int <> 4 then raise exception 'lower floor rewound: %', r5; end if;
   r5 := public.maha_issue_invoice_ref(p, '2026-10', 1, 40);
   if (r5->>'seq')::int <> 40 then raise exception 'higher floor not used: %', r5; end if;
-  -- every overall number is in the audit register exactly once
-  if (select count(*) from public.maha_invoice_register where property_id = p) <> 6 then
-    raise exception 'register does not list every number';
-  end if;
   -- bad month text is refused
   begin
     perform public.maha_issue_invoice_ref(p, '2026-13', 1, 1);
@@ -71,6 +67,15 @@ begin
 end
 $$;
 reset role;
+
+-- every overall number is in the audit register exactly once (browsers cannot read the register, so this is checked as the owner)
+do $$
+begin
+  if (select count(*) from public.maha_invoice_register r join public.maha_properties p on p.id = r.property_id where p.property_code = 'MSA01') <> 6 then
+    raise exception 'register does not list every number';
+  end if;
+end
+$$;
 
 -- Hotel B has its own series; the hotels never share or interrupt each other.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a03', false);
