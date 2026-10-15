@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = 'https://maha-hub.com';
 const COMPANY = 'Maha Hub Group of Companies Limited';
+const ADDRESS = '222/B Min Ye Kyaw Swar 3rd Street, Yangon 11091, Myanmar (Burma)';   /* registered address (parent company) */
+const PHONE = '+95 9 450 015 567', PHONE_TEL = '+959450015567';
 const EMAIL = 'hello@maha-hub.com';
 const SUPPORT = 'support@maha-hub.com';
 const content = n => fs.readFileSync(path.join(ROOT, 'website', 'content', n), 'utf8');
@@ -125,6 +127,7 @@ const footer = () => `</main>
     <div class="foot-brand">
       <a class="logo" href="/"><img src="/brand/pms/bar-mark.png" alt="" width="54" height="54" loading="lazy"><span><b>MAHA HUB</b><small>GROUP OF COMPANIES</small></span></a>
       <p>${COMPANY}. Technology and education for modern hospitality.</p>
+      <p style="margin-top:12px">${ADDRESS}<br>Tel <a href="tel:${PHONE_TEL}" style="color:inherit">${PHONE}</a></p>
     </div>
     <div><h4>Our brands</h4><ul><li><a href="/maha-hub-solutions">Maha Solutions</a></li><li><a href="/products">Products</a></li><li><a href="/pricing">Pricing</a></li><li><a href="/maha-hub-academy">Maha Academy</a></li></ul></div>
     <div><h4>Company</h4><ul><li><a href="/about">About the Group</a></li><li><a href="/security">Security</a></li><li><a href="/contact">Contact</a></li><li><a href="/solutions">Customer sign in</a></li></ul></div>
@@ -156,7 +159,8 @@ const pageHero = ({ crumb, eyebrow, h1, lead, img, pos = '50% 50%' }) => `<secti
 </section>`;
 
 const orgLd = `<script type="application/ld+json">${JSON.stringify({
-  '@context': 'https://schema.org', '@type': 'Organization', name: COMPANY, url: SITE, logo: SITE + '/brand/pms/icon-512.png', email: EMAIL,
+  '@context': 'https://schema.org', '@type': 'Organization', name: COMPANY, url: SITE, logo: SITE + '/brand/pms/icon-512.png', email: EMAIL, telephone: PHONE_TEL,
+  address: { '@type': 'PostalAddress', streetAddress: '222/B Min Ye Kyaw Swar 3rd Street', addressLocality: 'Yangon', postalCode: '11091', addressCountry: 'MM' },
   brand: [{ '@type': 'Brand', name: 'Maha Solutions' }, { '@type': 'Brand', name: 'Maha Academy' }],
 })}</script>`;
 
@@ -295,7 +299,8 @@ add('about.html', 'about', {
     <div class="prose reveal" style="max-width:820px"><table>
       <tr><th style="width:34%">Company</th><td>${COMPANY}</td></tr>
       <tr><th>Brands</th><td>Maha Solutions &middot; Maha Academy</td></tr>
-      <tr><th>Registered address</th><td><span class="fill">[To be added]</span></td></tr>
+      <tr><th>Registered address</th><td>${ADDRESS}</td></tr>
+      <tr><th>Telephone</th><td><a href="tel:${PHONE_TEL}">${PHONE}</a></td></tr>
       <tr><th>General enquiries</th><td><a href="mailto:${EMAIL}">${EMAIL}</a></td></tr>
       <tr><th>Customer support</th><td><a href="mailto:${SUPPORT}">${SUPPORT}</a></td></tr>
       <tr><th>Website</th><td>maha-hub.com</td></tr>
@@ -477,6 +482,8 @@ add('contact.html', 'contact', {
       <li>${I.mail}<div><b>General enquiries</b><a href="mailto:${EMAIL}">${EMAIL}</a></div></li>
       <li>${I.life}<div><b>Customer support</b><a href="mailto:${SUPPORT}">${SUPPORT}</a></div></li>
       <li>${I.key}<div><b>Existing customers</b>Sign in at <a href="/solutions">maha-hub.com/solutions</a> and use Contact Support, or email us.</div></li>
+      <li>${I.globe}<div><b>Registered office</b>${ADDRESS}</div></li>
+      <li>${I.life}<div><b>Telephone</b><a href="tel:${PHONE_TEL}">${PHONE}</a></div></li>
       <li>${I.globe}<div><b>Website</b>maha-hub.com</div></li>
     </ul>
     <p class="note" style="margin-top:26px">Billing questions: see the <a href="/refund">Refund and Cancellation Policy</a>, or email us with your business name.</p>
