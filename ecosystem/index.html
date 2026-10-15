@@ -2085,6 +2085,45 @@ const ProvAdmin={
     return d;
   }
 };
+/* ---- Sign-in security (provider): change a staff email, see who is asked for a code, forget trusted devices ---- */
+const SignInSec={
+  cache:{},   /* hotel code -> staff list as the server has it (masked email, last code check) */
+  msgs:{email_taken:'This email address is already used by another login.',invalid_email:'This is not a valid email address.',forbidden:'You are not allowed to change this person.',staff_not_found:'That person was not found in the cloud.',property_not_found:'That hotel is not in the cloud yet.',email_update_failed:'The change could not be finished. Nothing was changed. Try again.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.'},
+  msg(e){return (e&&this.msgs[e.message])||'The server could not complete this. Nothing was changed. Try again.'},
+  emailOk(s){s=String(s||'').trim();return s.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)},
+  /* both boxes must hold the same, valid address; returns the sentence to show, or '' when all is right */
+  check(a,b){if(!this.emailOk(a))return 'Enter a valid email address.';if(String(a).trim().toLowerCase()!==String(b||'').trim().toLowerCase())return 'The two addresses are not the same.';return ''},
+  async load(call,code,force){if(this.cache[code]&&!force)return this.cache[code];const d=await call({action:'staff_signin_list',property_code:code});this.cache[code]=(d&&d.staff)||[];return this.cache[code]},
+  find(code,username){return (this.cache[code]||[]).find(x=>x.username===username)||null},
+  async change(call,code,username,a,b){const e=this.check(a,b);if(e)return {error:e};
+    try{const d=await call({action:'change_staff_email',username,new_email:String(a).trim().toLowerCase()});delete this.cache[code];return {ok:true,masked:(d&&d.masked_email)||''}}catch(err){return {error:this.msg(err)}}},
+  async forget(call,code,username){try{await call({action:'forget_devices',username});delete this.cache[code];return {ok:true}}catch(err){return {error:this.msg(err)}}}
+};
+/* ---- end Sign-in security ---- */
+/* The "Change email" window, shared by Staff & permissions and the Security Center. */
+function signinEmailDialog(code,username,after){
+  const cur=SignInSec.find(code,username);
+  const m=modal('Change email – '+username,`<p class="sub">Now: <b>${esc((cur&&cur.masked_email)||'not shown')}</b></p><p class="sub">The sign-in code and password-reset emails will go to the new address. This person will be asked for a new code on every device.</p><div class="form2">${fld('New email',`<input id="ceA" type="email" autocapitalize="none" autofocus>`)}${fld('New email again',`<input id="ceB" type="email" autocapitalize="none">`)}</div><div class="err" id="ceE"></div><div class="btns"><button class="btn gold" id="ceS">Save</button></div>`,{w:520});
+  $('#ceS',m).onclick=async()=>{const btn=$('#ceS',m),err=$('#ceE',m);
+    const bad=SignInSec.check($('#ceA',m).value,$('#ceB',m).value);if(bad){err.textContent=bad;return}
+    btn.disabled=true;err.textContent='Saving...';
+    const r=await SignInSec.change(ProvAdmin.call.bind(ProvAdmin),code,username,$('#ceA',m).value,$('#ceB',m).value);
+    if(r.error){err.textContent=r.error;btn.disabled=false;return}
+    provLog('Email changed for '+username);saveDB();closeModal(m);toast('Email changed. Codes now go to '+(r.masked||'the new address')+'.');if(after)after()}
+}
+/* Security Center panel: who must type a code, and the two support buttons. */
+function signinPanel(box,code){
+  if(!box)return;
+  box.innerHTML=`<div class="ph">Sign-in security</div><div class="pad"><p class="sub">On a new device, and again every 30 days, a 6-digit code is emailed to the person. If someone cannot use their device or mailbox, reset it here.</p><p class="sub" id="siL">Loading...</p></div>`;
+  SignInSec.load(ProvAdmin.call.bind(ProvAdmin),code,true).then(list=>{
+    if(!box.isConnected||!H||H.code!==code)return;
+    const day=s=>s?fd(String(s).slice(0,10)):'No code typed yet';
+    box.innerHTML=`<div class="ph">Sign-in security</div><div class="pad"><p class="sub">On a new device, and again every 30 days, a 6-digit code is emailed to the person. If someone cannot use their device or mailbox, reset it here.</p></div><div class="scroll"><table class="grid"><tr><th>Username</th><th>Email</th><th>Last code check</th><th></th></tr>${list.map(s=>`<tr><td>${esc(s.username)}</td><td>${esc(s.masked_email||'')}</td><td>${day(s.last_verified_at)}</td><td class="nowrap"><button class="btn sm ghost" data-sf="${esc(s.username)}">Forget trusted devices</button> <button class="btn sm ghost" data-sc="${esc(s.username)}">Change email</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No staff login in the cloud for this hotel yet.</td></tr>'}</table></div>`;
+    $$('[data-sf]',box).forEach(b=>b.onclick=async()=>{const un=b.dataset.sf;if(!await dlgConfirm('Forget the trusted devices of '+un+'? A new code will be asked on the next sign-in.'))return;
+      const r=await SignInSec.forget(ProvAdmin.call.bind(ProvAdmin),code,un);if(r.error){toast(r.error);return}provLog('Trusted devices forgotten for '+un);saveDB();toast('Done. '+un+' will be asked for a new code.');signinPanel(box,code)});
+    $$('[data-sc]',box).forEach(b=>b.onclick=()=>signinEmailDialog(code,b.dataset.sc,()=>signinPanel(box,code)));
+  },err=>{const l=box.querySelector('#siL');if(l)l.textContent=ProvAdmin.msg(err)});
+}
 function enterProvider(un,uid){
   let pv=DB.providers.find(x=>x.supabaseId===uid)||DB.providers.find(x=>x.username===un);
   if(!pv){pv=mkUser('pa'+String(uid).replace(/-/g,'').slice(0,10),un,'Platform administrator','Provider',randomSecret());pv.email='';DB.providers.push(pv)}
@@ -2669,7 +2708,7 @@ const rateLine=B=>`${B.type}/${B.rateCode}/${nights(B)}NT TTL @ ${m2(stayTotal(B
 
 /* ---------- session ---------- */
 function user(){const se=DB&&DB.session;if(!se)return {name:'Signed out',perms:[]};if(se.provider){const p=DB.providers.find(x=>x.id===se.userId);
-    /* inside a hotel the provider works as a full-permission user; every action is also copied to the provider history */
+    /* inside a hotel the provider works as a full-permission user; every action is also copied to the amendment log */
     if(se.inHotel)return {id:se.userId,name:p?p.username:'provider',username:p?p.username:'provider',role:'Provider',position:'Provider',perms:PERMS.map(x=>x[0]),provider:false,isProv:true};
     return {id:se.userId,name:p?p.name:'Provider',role:'Provider',perms:PERMS.map(x=>x[0]),provider:true}}
   const u=H&&H.users.find(u=>u.id===se.userId);if(!u)return {name:'Unknown',perms:[]};
@@ -5613,7 +5652,7 @@ function renderShell(){
   if($('#tbProf'))$('#tbProf').onclick=e=>{e.stopPropagation();openAccountMenu($('#tbProf'))};
   const tick=()=>{const c=$('#rtClock');if(c){const n=new Date();c.textContent=fd(iso(n));c.title='System date · '+VERSION}};tick();clearInterval(window._rtc);window._rtc=setInterval(tick,20000);
   const providerConsole=!!(DB.session.provider&&!DB.session.inHotel);
-  const raw=DB.session.provider?(DB.session.inHotel?MENU.concat([{t:'Provider',items:[['Back to provider console','prov.exit'],['EDC Card Link','prov.edc'],['Provider history','prov.log'],['Revenue analysis','ai.revenue']]}]):PROV_MENU):MENU;
+  const raw=DB.session.provider?(DB.session.inHotel?MENU.concat([{t:'Provider',items:[['Back to provider console','prov.exit'],['EDC Card Link','prov.edc'],['Amendment log','prov.log'],['Revenue analysis','ai.revenue']]}]):PROV_MENU):MENU;
   const hide=providerConsole?[]:['Tax','Help','AI','Setup'];
   const menu=raw.filter(m=>!hide.includes(m.t));
   const nav=$('#menubar');
@@ -5931,7 +5970,7 @@ const TITLE_ICON={
  'direct booking & google':'globe','edc card link':'cardp','stripe payments (3ds)':'cardp','system rules':'gear','system rules (per hotel)':'gear',
  'distribution (google hotels)':'globe','code catalog (all hotels)':'card','code catalog – all hotels':'card','security center':'lock',
  'backup & migration':'upload','recycle bin':'trash','revenue analysis':'grid','amend records':'detail','amendment log':'log','my account & security':'user',
- 'back to provider console':'left','provider history':'log','hotels':'bank','terms & conditions':'card'
+ 'back to provider console':'left','hotels':'bank','terms & conditions':'card'
 };
 function titleMark(label){
   const raw=String(label||'');
@@ -6498,7 +6537,7 @@ function reservationScreen(box,r,B,o={}){
   q('#aRate').onclick=()=>advanceRate(B,reopen);
   q('#aNotif').onclick=()=>notifForm(r);
   if(q('#aPDel'))q('#aPDel').onclick=async ()=>{const why=await dlgAsk(`Delete booking RSVN ${r.no} (${gName(g)}) and all its folio lines for good?
-Reason (kept in the provider history):`);if(!why||!why.trim())return;
+Reason (kept in the amendment log):`);if(!why||!why.trim())return;
     r.bookings=r.bookings.filter(b=>b!==B);if(!r.bookings.length)H.reservations=H.reservations.filter(x=>x!==r);const w=`Deleted booking RSVN ${r.no} ${gName(g)} (${B.lines.length} folio lines, ${m2(bal(B))} balance)`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:r.no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();go('res.list');toast('Booking deleted and recorded')};
   q('#aReg').onclick=()=>{if(!need('print'))return;printRegCard(B)};
   if(q('#aDep'))q('#aDep').onclick=()=>payModal(B,reopen,1,'adv');
@@ -7356,7 +7395,7 @@ function transactionPopup(B,l,after){if(!l)return;
     $('#tPL',m).onclick=()=>toast(TCODES.find(c=>c.code===l.code&&c.dept==='F&B')?'No POS is connected yet; this charge was posted at the front desk.':'This line did not come from a POS.');
     if($('#tCardFull',m))$('#tCardFull',m).onclick=()=>{const v=(DB.cardVault||[]).find(x=>x.id===l.card.vault);if(!v){toast('Card details not found.');return}provLog(`Viewed full card number for RSVN ${resOf(B).no} (…${l.card.last4})`);saveDB();$('#tCardFull',m).outerHTML=`<code class="seckey">${v.pan.replace(/(.{4})/g,'$1 ').trim()}</code>`};
     if($('#tPE',m))$('#tPE',m).onclick=()=>provEditLine(B,l,()=>{closeModal(m);after()});
-    if($('#tPD',m))$('#tPD',m).onclick=async ()=>{const why=await dlgAsk(`Delete line ${l.sys} (${l.code} ${l.desc} ${m2(l.amt)}) for good?\nReason (kept in the provider history):`);if(!why||!why.trim())return;
+    if($('#tPD',m))$('#tPD',m).onclick=async ()=>{const why=await dlgAsk(`Delete line ${l.sys} (${l.code} ${l.desc} ${m2(l.amt)}) for good?\nReason (kept in the amendment log):`);if(!why||!why.trim())return;
       const gone=l.group&&['pay','payrec','payoff','corrpay'].includes(l.kind)?B.lines.filter(x=>x.group===l.group):[l];if(gone.length>1&&!await dlgConfirm(`This payment has ${gone.length} linked lines. Delete all of them?`))return;
       B.lines=B.lines.filter(x=>!gone.includes(x));if(typeof refreshCityItems==='function')refreshCityItems(H);const w=`Deleted ${gone.map(x=>x.sys+' '+x.code+' '+m2(x.amt)).join(', ')} from RSVN ${resOf(B).no}`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:resOf(B).no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();closeModal(m);after();toast('Line deleted and recorded')};
     if($('#tSave',m))$('#tSave',m).onclick=()=>{if(!need())return;if(lineBlock(B,l)){toast(lineBlock(B,l));return}if(isLocked(l.bd)){toast('This day is closed.');return}const s=curShift(),ch=[];
@@ -7922,12 +7961,14 @@ VIEWS['prov.perms']=el=>{
   if(!H){el.innerHTML=pageHead('Staff & permissions')+'<div class="empty">Create a property first.</div>';return}
   el.innerHTML=pageHead('Staff & permissions',provHotelPicker()+`<button class="btn gold" id="pvU">Add staff</button>`)+`<p class="sub">Access for people at <b>${esc(H.set.name)}</b>. This is not part of the hotel file. Open or lock each system per person, then set PMS permissions. A closed hotel system stays hidden even when this person is Open.</p><h3>Systems for each person</h3><div class="panel">${systemMatrix(H.users,true)}</div><h3 class="mt">PMS permissions</h3><div class="panel">${permMatrix(H.users,true)}</div>
    <div class="panel mt" id="chAcc" hidden></div>
-   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th title="Signs in without opening a shift">No shift</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.active===false?'Inactive':'Active'}</td><td><input type="checkbox" data-ns="${u.id}" ${u.noShift?'checked':''} aria-label="No shift for ${esc(u.username)}"></td>
-    <td class="nowrap"><button class="btn sm ghost" data-rp="${u.id}">Reset password</button> <button class="btn sm ghost" data-act="${u.id}">${u.active===false?'Activate':'Deactivate'}</button> <select data-pre="${u.id}"><option value="">Apply preset…</option>${Object.keys(PRESET).map(k=>opt(k)).join('')}</select></td></tr>`).join('')}</table><datalist id="posList">${['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'].map(x=>`<option value="${x}">`).join('')}</datalist></div>`;
+   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username / email</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th title="Signs in without opening a shift">No shift</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}<div class="sub" data-em="${esc(u.username)}"></div></td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.active===false?'Inactive':'Active'}</td><td><input type="checkbox" data-ns="${u.id}" ${u.noShift?'checked':''} aria-label="No shift for ${esc(u.username)}"></td>
+    <td class="nowrap">${MahaAuth.on()?`<button class="btn sm ghost" data-ce="${u.id}">Change email</button> `:''}<button class="btn sm ghost" data-rp="${u.id}">Reset password</button> <button class="btn sm ghost" data-act="${u.id}">${u.active===false?'Activate':'Deactivate'}</button> <select data-pre="${u.id}"><option value="">Apply preset…</option>${Object.keys(PRESET).map(k=>opt(k)).join('')}</select></td></tr>`).join('')}</table><datalist id="posList">${['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'].map(x=>`<option value="${x}">`).join('')}</datalist></div>`;
   bindPicker(el);
   $$('[data-ns]',el).forEach(c=>c.onchange=()=>{const u=H.users.find(x=>x.id===c.dataset.ns);if(!u)return;u.noShift=c.checked||undefined;
     H.amend.unshift({at:Date.now(),user:user().name,what:`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`,reason:'Provider setting'});provLog(`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`);saveDB();toast(c.checked?'This person now signs in without a shift.':'This person signs in with a shift again.')});
   hotelAccessPanel($('#chAcc',el));
+  if(MahaAuth.on()){const hc=H.code;SignInSec.load(ProvAdmin.call.bind(ProvAdmin),hc,true).then(()=>{$$('[data-em]',el).forEach(d=>{const r=SignInSec.find(hc,d.dataset.em);d.textContent=(r&&r.masked_email)||''})}).catch(()=>{})}
+  $$('[data-ce]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.ce);if(u)signinEmailDialog(H.code,u.username,()=>render())});
   $$('[data-pos]',el).forEach(i=>i.onchange=()=>{const u=H.users.find(x=>x.id===i.dataset.pos),v=i.value.trim();if(!v){i.value=u.position||u.role;toast('Enter a position title.');return}const old=u.position||u.role;u.position=v;H.amend.unshift({at:Date.now(),user:user().name,what:`Position of ${u.username}: ${old} → ${v}`,reason:'Position change'});provLog(`Position of ${u.username}: ${old} → ${v}`);saveDB();toast('Position saved')});
   $$('[data-su]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
   $$('[data-pu]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();render()});
@@ -7983,7 +8024,7 @@ VIEWS['prov.terms']=el=>{const t=termsOf(H);
   $('#tcP',el).onclick=()=>{if(!save())return;const bl=termsBlocks(H);printPages(`<div class="ppage port regb"><div class="rbhead"><img src="${ICON}" alt=""><div><b>${esc(H.set.name)}</b><div class="rbt">TERMS AND CONDITIONS</div></div></div><div class="terms">${bl.map(b=>`<section class="tl tl-${b.k}"><h4>${esc(b.title)}</h4><ol>${b.lines.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section>`).join('')}</div><div class="rbsign"><div><span></span>Guest's Signature</div><div><span></span>Date</div></div></div>`,'Terms & Conditions')};
 };
 VIEWS['prov.log']=el=>{
-  el.innerHTML=pageHead('Amendment Log',provHotelPicker())+`<div class="panel scroll"><table class="grid"><tr><th>When</th><th>By</th><th>RSVN#</th><th>What</th><th>Before</th><th>After</th><th>Reason</th></tr>
+  el.innerHTML=pageHead('Amendment log',provHotelPicker())+`<div class="panel scroll"><table class="grid"><tr><th>When</th><th>By</th><th>RSVN#</th><th>What</th><th>Before</th><th>After</th><th>Reason</th></tr>
    ${H.amend.map(a=>`<tr><td>${fdt(a.at)}</td><td>${esc(a.user)}</td><td>${a.rsvn||''}</td><td>${esc(a.what)}</td><td>${esc(a.before||'')}</td><td>${esc(a.after||'')}</td><td>${esc(a.reason||'')}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No amendments for this hotel.</td></tr>'}</table></div>
    <div class="panel mt"><div class="ph">Provider activity</div><table class="grid"><tr><th>When</th><th>By</th><th>Hotel</th><th>Action</th></tr>${DB.provLog.slice(0,100).map(a=>`<tr><td>${fdt(a.at)}</td><td>${esc(a.user)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' – '+esc(a.reason):''}</td></tr>`).join('')}</table></div>`;bindPicker(el);
 };
@@ -8300,7 +8341,6 @@ VIEWS['prov.systems']=el=>{
            <a class="btn ghost" href="${esc(connectStaticUrl(first))}" target="_blank" rel="noopener">Static UI</a>
          </div>
          <p class="sub mt">Server: <input id="cxHost" value="${esc(cHost)}" style="min-width:180px"> <button class="btn sm ghost" id="cxSaveHost" type="button">Save</button></p>
-         <p class="sub">Run <code>node connect/server.mjs</code> on port 8782 for live data / publish.</p>
        </div>
        <div class="panel pad" style="background:#faf7f0">
          <b>Maha Booking</b><div class="sub">Direct booking engine · needs Booking server</div>
@@ -8309,7 +8349,6 @@ VIEWS['prov.systems']=el=>{
            <a class="btn ghost" href="${esc(hubBaseUrl()+'book/'+(first?'?hotel='+encodeURIComponent(first.code):''))}" target="_blank" rel="noopener">Static UI</a>
          </div>
          <p class="sub mt">Server: <input id="bkHost" value="${esc(bHost)}" style="min-width:180px"> <button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></p>
-         <p class="sub">Run <code>node book/server.mjs</code> on port 8781 for catalog / rates.</p>
        </div>
      </div>
      <div class="panel pad mt" style="background:#f3f6f4">
@@ -8378,7 +8417,7 @@ VIEWS['prov.systems']=el=>{
       provLog(`Published ${h.code} to Maha Connect (${j.roomTypes||0} room types)`);
       toast(`Published ${h.code} to Connect · ${j.roomTypes||0} room types · ${j.inventoryDays||0} inventory days.`);
       render();
-    }catch(e){toast('Publish failed: '+(e.message||e)+'. Start Connect with: node connect/server.mjs')}
+    }catch(e){toast('Publish failed: '+(e.message||e)+'. Check the Connect server address on the Systems page.')}
     finally{b.disabled=false}
   });
   $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
@@ -8476,14 +8515,14 @@ VIEWS['prov.distribution']=el=>{
   $('#dxOpen',el).onclick=()=>window.open(host()+'/book/','_blank');
   $('#dxPing',el).onclick=async()=>{const st=$('#dxSt',el);st.textContent='Checking…';
     try{const r=await fetch(host()+'/api/status');const j=await r.json();st.textContent=`Server OK · googleLive=${j.googleLive} · hotels enabled ${j.hotelsEnabled}/${j.hotelsTotal}. ${j.note||''}`}
-    catch(e){st.textContent='Booking server not reachable. Run: node book/server.mjs'}};
+    catch(e){st.textContent='Booking server not reachable. Check its address above.'}};
   $('#dxDl',el).onclick=()=>{downloadText('maha-public-catalog.json',JSON.stringify(catalog(),null,2),'application/json');toast('Catalog downloaded (public fields only)')};
   $('#dxPub',el).onclick=async()=>{const st=$('#dxSt',el);st.textContent='Publishing…';
     try{const r=await fetch(host()+'/api/catalog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(catalog())});const j=await r.json();
       st.textContent=j.message||'Published.';toast(j.ok?'Catalog published to Maha Booking':'Publish failed');provLog('Published public catalog to Maha Booking')}
-    catch(e){st.textContent='Publish failed. Is node book/server.mjs running?';toast('Publish failed')}};
-  $('#dxList',el).onclick=async()=>{try{const r=await fetch(host()+'/feeds/hotel-list.xml');downloadText('hotel-list.xml',await r.text(),'application/xml');toast('hotel-list.xml downloaded')}catch(e){toast('Start book/server.mjs first')}};
-  $('#dxPos',el).onclick=async()=>{try{const r=await fetch(host()+'/feeds/landing-pages.xml');downloadText('landing-pages.xml',await r.text(),'application/xml');toast('landing-pages.xml downloaded')}catch(e){toast('Start book/server.mjs first')}};
+    catch(e){st.textContent='Publish failed. Check the booking server address above.';toast('Publish failed')}};
+  $('#dxList',el).onclick=async()=>{try{const r=await fetch(host()+'/feeds/hotel-list.xml');downloadText('hotel-list.xml',await r.text(),'application/xml');toast('hotel-list.xml downloaded')}catch(e){toast('The booking server is not reachable. Check its address.')}};
+  $('#dxPos',el).onclick=async()=>{try{const r=await fetch(host()+'/feeds/landing-pages.xml');downloadText('landing-pages.xml',await r.text(),'application/xml');toast('landing-pages.xml downloaded')}catch(e){toast('The booking server is not reachable. Check its address.')}};
   $$('[data-setup]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.setup);go('prov.google')});
   $$('[data-book]',el).forEach(b=>b.onclick=()=>window.open(`${host()}/book/?hotel=${encodeURIComponent(b.dataset.book)}`,'_blank'));
   $$('[data-ari]',el).forEach(b=>b.onclick=()=>{const id=b.dataset.ari,box=$('#dxAri',el),base=host();
@@ -8778,7 +8817,7 @@ function floorPlanEditor(box){const fl=floorsList();if(!fl.length){box.innerHTML
 /* ---------- Code catalog (all hotels) ---------- */
 VIEWS['prov.catalog']=el=>{applyCatalog();const cat=DB.catalog;
   const ch=TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.rel),py=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto);
-  el.innerHTML=pageHead('Code catalog – all hotels')+`<p class="sub">Codes here are available to every hotel. Hide a code to remove it from every hotel's posting and payment screens (old records keep it). Every charge code also has its own Rebate and Adjust (+), and every payment method its Refund. They are added by themselves and open or hide together with their code. Your own codes can be deleted. A payment logo uploaded here is Auto Added for every hotel, and each hotel shows it when that method is open. VAT or Non-VAT for each post is opened or closed on the hotel, under Charge codes. Every change is recorded in the provider history.</p>
+  el.innerHTML=pageHead('Code catalog – all hotels')+`<p class="sub">Codes here are available to every hotel. Hide a code to remove it from every hotel's posting and payment screens (old records keep it). Every charge code also has its own Rebate and Adjust (+), and every payment method its Refund. They are added by themselves and open or hide together with their code. Your own codes can be deleted. A payment logo uploaded here is Auto Added for every hotel, and each hotel shows it when that method is open. VAT or Non-VAT for each post is opened or closed on the hotel, under Charge codes. Every change is recorded in the amendment log.</p>
    <div class="panel mt"><div class="ph">Payment methods</div><div class="btns pad"><button class="btn gold sm" id="ctAddP">${ic('plus',13)} Add payment method</button></div><table class="grid"><tr><th>Logo</th><th>Code</th><th>Name</th><th>Tab</th><th>Region</th><th>Status</th><th></th></tr>
     ${py.map(c=>`<tr class="${c.hidden?'muted':''}"><td>${payIcon(c,24)}${(DB.payLogos&&DB.payLogos[c.code])?'<div class="autoadd">Auto Added</div>':''}</td><td>${c.code}</td><td>${esc(c.desc)}${c.custom?' <span class="pill b">own</span>':''}</td><td>${c.ptab}</td><td>${esc(c.region||'')}</td><td>${c.hidden?'<span class="pill r">Hidden</span>':'<span class="pill g">Available</span>'}</td>
      <td class="nowrap"><label class="btn sm ghost">${ic('upload',13)} Logo<input type="file" accept="image/*" data-clg="${c.code}" hidden></label>${payLogo(c)?` <button class="btn sm ghost" data-clx="${c.code}">No logo</button>`:''} <button class="btn sm ghost" data-hide="${c.code}">${c.hidden?'Show':'Hide'}</button>${c.custom?` <button class="btn sm red" data-cdel="p|${c.code}">Delete</button>`:''}</td></tr>`).join('')}</table></div>
@@ -9917,7 +9956,7 @@ VIEWS['prov.security']=el=>{
   el.innerHTML=pageHead('Security Center',provHotelPicker())+`<div id="secB"></div>`;
   const paint=()=>{const box=$('#secB',el);if(!box||!H)return;const own=(H.users||[]).filter(u=>u.owner||u.protected);const due=(H.guests||[]).filter(g=>!g.purged).map(g=>({g,end:lastStayEnd(g)})).filter(x=>x.end&&diff(x.end,H.set.bd)>365*2);
     const closed=(H.shifts||[]).filter(s=>s.status==='closed').slice(-12).reverse();
-    box.innerHTML=`<div class="cols2"><div class="panel pad"><h3>Auto-lock</h3><p class="sub">After this many quiet minutes the screen asks for the password. The shift stays open. 0 turns it off.</p>
+    box.innerHTML=`${MahaAuth.on()?'<div class="panel" id="siBox"></div>':''}<div class="cols2${MahaAuth.on()?' mt':''}"><div class="panel pad"><h3>Auto-lock</h3><p class="sub">After this many quiet minutes the screen asks for the password. The shift stays open. 0 turns it off.</p>
       ${fld('Minutes',`<input id="secIdle" class="n" value="${H.set.idleMin==null?15:H.set.idleMin}">`)}<button class="btn" id="secIdleS">Save</button>
       <h3 class="mt">Approvals for this hotel</h3><div class="featgrid">${[['vatRebate','VAT rebate'],['nonVatRebate','Non-VAT rebate'],['refund','Refund'],['voidPay','Void payment']].map(([k,l])=>`<label class="chk"><input type="checkbox" data-ap="${k}" ${needsApproval(k)?'checked':''}> ${l}</label>`).join('')}</div><button class="btn mt" id="secAp">Save approvals</button></div>
       <div class="panel pad"><h3>Owner account</h3>${own.map(u=>`<p><b>${esc(u.username)}</b> · ${esc(u.position||u.role)} · protected</p>`).join('')||'<p class="sub">No owner is marked yet. The first manager is protected when the hotel file is opened.</p>'}
@@ -9926,6 +9965,7 @@ VIEWS['prov.security']=el=>{
       <div class="panel mt"><div class="ph">Guest data older than 2 years</div><div class="scroll"><table class="grid"><tr><th>Guest</th><th>Last stay ended</th><th></th></tr>${due.map(x=>`<tr><td>${esc(gName(x.g))}</td><td>${fd(x.end)}</td><td><button class="btn sm ghost" data-pg="${x.g.id}">Purge</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">No guest is past the 2-year keep. Active stays and the two years after the last stay are kept.</td></tr>'}</table></div>
       ${due.length?`<div class="btns"><button class="btn red" id="secAll">Purge all listed</button></div>`:''}</div>
       <div class="panel mt"><div class="ph">Waiting approvals</div>${approvalTable((H.approvals||[]).filter(a=>a.status==='pending'),true)}</div>`;
+    if($('#siBox',box))signinPanel($('#siBox',box),H.code);
     $('#secIdleS',box).onclick=()=>{H.set.idleMin=Math.max(0,+$('#secIdle',box).value||0);provLog('Auto-lock '+H.set.idleMin+' min for '+H.code);saveDB();toast('Auto-lock saved')};
     $('#secAp',box).onclick=()=>{H.set.approvals=H.set.approvals||{};$$('[data-ap]',box).forEach(c=>{H.set.approvals[c.dataset.ap]=c.checked});provLog('Approval switches saved for '+H.code);saveDB();toast('Approvals saved')};
     $$('[data-re]',box).forEach(b=>b.onclick=()=>{const s=H.shifts.find(x=>x.id===b.dataset.re);if(!s)return;s.reopenOk=true;provLog('Allowed reopen of '+s.userName+' '+s.name+' '+s.bd+' at '+H.code);saveDB();paint();toast('That shift may be opened again')});
