@@ -22,6 +22,9 @@
 //   set_invoice_scope chain_code, scope ("hotel" = one tax-invoice series per hotel, "chain" = one series for the whole chain)
 //   set_invoice_format property_code, mode ("standard"|"manual"), and for manual: prefix, start, min_digits, unlimited - the Tax Invoice Reference of one hotel
 //                    (for a hotel in a chain with one series the format is kept for the whole chain)
+//   change_staff_email username, new_email - the sign-in code and password-reset emails go to the new address; forgets trusted devices
+//   forget_devices    username                       - the person is asked for a new sign-in code on every device
+//   staff_signin_list property_code                  - staff of one hotel: masked email and the date of the last code check
 //   (create_hotel also accepts chain_code: the new hotel joins that chain)
 //
 // Account creation order (so a failure never leaves partial data or a stray email):
@@ -139,6 +142,8 @@ Deno.serve(async (req) => {
       else if (action === "set_invoice_scope") event = ok ? "invoice_series_changed" : "invoice_series_change_failed";
       else if (action === "set_invoice_format") event = ok ? "invoice_format_changed" : "invoice_format_change_failed";
       else if (action === "set_access") event = ok ? (b.allowed ? "hotel_access_granted" : "hotel_access_removed") : "hotel_access_failed";
+      else if (action === "change_staff_email") event = ok ? "staff_email_changed" : "staff_email_change_failed";   // the address itself is never logged
+      else if (action === "forget_devices") event = ok ? "trusted_devices_reset" : "trusted_devices_reset_failed";
       if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
       if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
       if (ok && action === "set_invoice_scope") detail = b.invoice_scope === "chain" ? "one series for the whole chain" : "one series per hotel";
@@ -293,6 +298,59 @@ Deno.serve(async (req) => {
       return respond({ error: error?.code === "23505" ? "username_taken" : "staff_not_found" }, error?.code === "23505" ? 409 : 404);
     }
     return respond({ ok: true, username: newUsername });
+  }
+
+  // ---------------------------------------------------------------- Sign-in security (all owner-scoped)
+  if (action === "change_staff_email" || action === "forget_devices" || action === "staff_signin_list") {
+    const signinError = (e: { code?: string; message?: string } | null) => {
+      const m = String(e?.message ?? "");
+      if (m.includes("invalid-email")) return respond({ error: "invalid_email" }, 400);
+      if (m.includes("email-taken") || e?.code === "23505") return respond({ error: "email_taken" }, 409);
+      if (m.includes("staff-not-found") || e?.code === "P0002") return respond({ error: "staff_not_found" }, 404);
+      if (m.includes("property-not-owned") || m.includes("not-allowed") || e?.code === "42501") return respond({ error: "forbidden" }, 403);
+      return respond({ error: "signin_failed" }, 502);
+    };
+
+    if (action === "staff_signin_list") {
+      const code = str("property_code").toUpperCase();
+      if (!CODE.test(code)) return respond({ error: "invalid_fields" }, 400);
+      const { data: hotel } = await admin.from("maha_properties").select("id").eq("property_code", code).maybeSingle();
+      if (!hotel) return respond({ error: "property_not_found" }, 404);
+      const { data, error } = await admin.rpc("maha_staff_signin_overview", { p_owner: ownerId, p_property_id: hotel.id });
+      if (error) return signinError(error);
+      return respond({ ok: true, staff: Array.isArray(data) ? data : [] });
+    }
+
+    if (!USERNAME.test(username)) return respond({ error: "invalid_fields" }, 400);
+
+    if (action === "forget_devices") {
+      const { data: staff, error: staffError } = await admin.rpc("maha_owned_staff", { p_owner: ownerId, p_username: username });
+      const staffId = (staff as { user_id?: string } | null)?.user_id;
+      if (staffError || !staffId) return signinError(staffError ?? { message: "staff-not-found" });
+      const { data: forgotten, error } = await admin.rpc("maha_reset_trusted_devices", { p_user: staffId });
+      if (error) return signinError(error);
+      return respond({ ok: true, devices_forgotten: Number(forgotten) || 0 });
+    }
+
+    // change_staff_email
+    const newEmail = str("new_email").toLowerCase();
+    if (!EMAIL.test(newEmail) || newEmail.length > 254) return respond({ error: "invalid_email" }, 400);
+    // 1. the database checks everything and, in one transaction, writes the new address, forgets the trusted devices and ends the sessions
+    const { data: changed, error: changeError } = await admin.rpc("maha_change_staff_email", {
+      p_owner: ownerId, p_username: username, p_new_email: newEmail,
+    });
+    if (changeError || !changed) return signinError(changeError);
+    const done = changed as { user_id: string; old_email: string; masked_new: string };
+    // 2. the sign-in account (Supabase Auth) gets the same address; if that fails the old address is put back, so nothing stays half-changed
+    const { error: authError } = await admin.auth.admin.updateUserById(done.user_id, { email: newEmail, email_confirm: true });
+    if (authError) {
+      const { error: revertError } = await admin.rpc("maha_change_staff_email", {
+        p_owner: ownerId, p_username: username, p_new_email: done.old_email,
+      });
+      const taken = String((authError as { code?: string }).code ?? "") === "email_exists";
+      return respond({ error: taken ? "email_taken" : "email_update_failed", reverted: revertError ? false : true }, taken ? 409 : 502);
+    }
+    return respond({ ok: true, masked_email: done.masked_new });
   }
 
   // ---------------------------------------------------------------- Recycle bin

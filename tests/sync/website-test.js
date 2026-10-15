@@ -19,7 +19,7 @@ T('every in-page link (#...) has its place', anchors.length === 0, anchors.slice
 const all = pages.map(html).join('\n').replace(/<script[\s\S]*?<\/script>/g, '');   /* the words people read, not program code */
 T('the company name is Maha Hub Group of Companies Limited and nothing says Padauk', /Maha Hub Group of Companies Limited/.test(all) && !/Padauk/.test(all));
 T('both brands are on the home page', /Maha Hub Solutions/.test(html('index')) && /Maha Hub Academy/.test(html('index')));
-T('the sign-in goes to /solutions and the PMS to /solutions-PMS', /href="\/solutions"/.test(html('index')) && /href="\/solutions-PMS"/.test(html('products')));
+T('every Sign in goes to the Main sign-in page /solutions (the systems are never linked from the website)', /href="\/solutions"/.test(html('index')) && /href="\/solutions">Sign in<\/a>/.test(html('products')) && !/href="\/(solutions-PMS|ecosystem\/)/.test(html('products')));
 T('every page has a title, a description and a canonical address', pages.every(p => /<title>.+<\/title>/.test(html(p)) && /name="description"/.test(html(p)) && /rel="canonical"/.test(html(p))));
 T('the password page keeps its working script and stays out of search', /maha_auth|supabase\.co/.test(html('reset-password')) && /noindex/.test(html('reset-password')) && /id="rp-form"/.test(html('reset-password')));
 T('the sitemap lists the new pages and not the old ones', (s => /maha-hub-academy/.test(s) && /maha-hub-solutions/.test(s) && !/our-solutions/.test(s))(fs.readFileSync(path.join(root, 'sitemap.xml'), 'utf8')));

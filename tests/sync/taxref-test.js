@@ -244,13 +244,13 @@ T('starting number is never lower than the highest number already issued', /high
   T('the hotel profile no longer holds the Chain / Group panel', !/chainBox|chainBlock/.test(profile));
 
   /* ---------------- 4. the server side ---------------- */
-  const mig = fs.readFileSync('supabase/migrations/20261016_020_invoice_manual_format.sql', 'utf8');
+  const mig = fs.readFileSync('supabase/migrations/20261016_021_invoice_manual_format.sql', 'utf8');
   T('migration 020 is additive: new columns, new functions, the old ones are not replaced', /add column if not exists invoice_mode/.test(mig) && !/create or replace function public\.maha_issue_invoice_ref/.test(mig) && !/create or replace function public\.maha_issue_invoice_no/.test(mig) && /maha_issue_invoice_number/.test(mig) && /maha_set_invoice_format/.test(mig));
   T('the format can only be set by the trusted function (service role), the number only by signed-in users', /revoke all on function public\.maha_set_invoice_format[^;]*from public, anon, authenticated/.test(mig) && /grant execute on function public\.maha_set_invoice_format[^;]*to service_role/.test(mig) && /grant execute on function public\.maha_issue_invoice_number[^;]*to authenticated/.test(mig));
   const fn = fs.readFileSync('supabase/functions/platform-admin-provision/index.ts', 'utf8');
   T('the provider function has set_invoice_format, checks the values and logs it', /action === "set_invoice_format"/.test(fn) && /maha_set_invoice_format/.test(fn) && /invoice_format_changed/.test(fn) && /start < 1/.test(fn) && /minDigits > 12/.test(fn) && /\{0,20\}/.test(fn));
   const wf = fs.readFileSync('.github/workflows/tenant-cloud-storage-tests.yml', 'utf8');
-  T('CI applies migration 020 and runs the new SQL and page tests', /20261016_020_invoice_manual_format\.sql/.test(wf) && /invoice_manual_format_test\.sql/.test(wf) && /taxref-test\.js/.test(wf));
+  T('CI applies migration 020 and runs the new SQL and page tests', /20261016_021_invoice_manual_format\.sql/.test(wf) && /invoice_manual_format_test\.sql/.test(wf) && /taxref-test\.js/.test(wf));
 
   console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1) });
