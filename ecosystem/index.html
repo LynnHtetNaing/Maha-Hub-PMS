@@ -1336,15 +1336,14 @@ const MahaAuth={
   /* Asks for the emailed 6-digit code. Resolves {code,remember}, {resend:true}, or null when the box is closed. Replaced in tests. */
   askEmailCode(info,again){
     return new Promise(resolve=>{
-      const body=`<p class="sub">It appears this is your first time signing in on this device, or it is time for the monthly check. To keep your account safe, we sent a 6-digit code to <b>${esc(info.sentTo||'your email')}</b>. It is valid for 10 minutes.</p>`
+      const body=`<p class="sub">It appears this is your first time signing in, or it is time for the monthly check. To keep your account safe, we sent a 6-digit code to <b>${esc(info.sentTo||'your email')}</b>. It is valid for 10 minutes. You will not be asked again on any device for 30 days.</p>`
         +`<div class="form2">${fld('When you receive the code, type it here',`<input id="emCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus>`)}</div>`
-        +`<label class="chk" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px"><input type="checkbox" id="emRemember" checked style="margin-top:3px"><span>Register this device and do not ask for a code again for 30 days</span></label>`
         +`<div class="err" id="emErr">${again?esc(again):''}</div>`
         +`<p class="sub">The email should arrive within a minute. Please check your spam or junk folder if it does not.</p>`
         +`<div class="btns"><button class="btn gold" id="emGo">Yes, this is me</button><button class="btn" id="emNo">Cancel</button><button type="button" class="linkbtn" id="emAgain">Send a new code</button></div>`;
       const m=modal('Identity verification code required',body,{w:760});
       let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
-      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Enter the 6 digits from the email.';return}finish({code:v,remember:$('#emRemember',m).checked})};
+      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Enter the 6 digits from the email.';return}finish({code:v,remember:true})};
       $('#emCode',m).onkeydown=e=>{if(e.key==='Enter')$('#emGo',m).onclick()};
       $('#emNo',m).onclick=()=>finish(null);
       $('#emAgain',m).onclick=()=>finish({resend:true});
