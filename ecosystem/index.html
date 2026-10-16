@@ -134,7 +134,8 @@ table.grid tr.click{cursor:pointer}table.grid tr.click:hover td{background:#f4f9
 .scard.c1{background:#3aa0d8}.scard.c2{background:#e59a2f}.scard.c3{background:#d6534b}.scard.c4{background:#2e9a62}.scard.c5{background:#7c5cc2}.scard.rev{background:#fff;color:var(--ink);border:1px solid var(--line)}.scard.rev .sn{font-size:22px;color:var(--green)}
 .cols2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.qa{display:grid;gap:6px;padding:10px}
 /* arrivals split */
-.split{display:grid;grid-template-columns:330px minmax(0,1fr);gap:12px;align-items:start}.split:has(#bfLeft){grid-template-columns:320px minmax(0,1fr)}.alist{max-height:calc(100vh - 170px);overflow:auto}.arow{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #e6edf1;cursor:pointer}.arow.on{background:var(--select);box-shadow:inset 3px 0 var(--gold)}
+.split{display:grid;grid-template-columns:330px minmax(0,1fr);gap:12px;align-items:start}.split:has(#bfLeft){grid-template-columns:320px minmax(0,1fr)}
+.bfsplit{grid-template-columns:370px minmax(0,1fr)!important;grid-template-rows:auto auto 1fr auto;align-items:stretch;column-gap:12px;row-gap:0}.bfsplit>#bfPane{display:contents}.bfsplit>.bfleft{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;min-height:0;overflow:hidden;margin-bottom:8px}.bfsplit>.bfleft .ssList{flex:1;min-height:0;overflow:auto}.bfsplit .ftb{grid-column:2;grid-row:1;margin-bottom:8px}.bfsplit .fhead{grid-column:2;grid-row:2;margin-bottom:8px}.bfsplit .folios{grid-column:1/-1;grid-row:3;height:max(470px,calc(100vh - 400px));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.bfsplit .folio{height:auto;min-height:0}.bfsplit>p.sub,.bfsplit>.panel.empty{grid-column:1/-1}.alist{max-height:calc(100vh - 170px);overflow:auto}.arow{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #e6edf1;cursor:pointer}.arow.on{background:var(--select);box-shadow:inset 3px 0 var(--gold)}
 .arow .t{display:flex;flex-direction:column;flex:1}.arow .t span{font-size:11.5px;color:var(--mut)}.pinb{background:#eaf4ee;border:1px solid #a9c8b7;color:var(--green);border-radius:50%;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;flex:none}.pinb:hover{background:var(--gold);color:#1e1606;border-color:#b07e20}
 /* toolbar */
 .toolbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#d7e7f3;border:1px solid #b9d0e1;border-radius:5px;padding:4px 6px;margin-bottom:8px}.toolbar.in{margin:0;background:none;border:0;padding:0}
@@ -6251,7 +6252,7 @@ function sideMatch(st,b,q){q=(q||'').toLowerCase().trim();if(!q)return true;cons
    case 'arr':return fd(b.checkinDate||b.arr).includes(q)||(b.checkinDate||b.arr).includes(q);case 'dep':return fd(b.dep).includes(q)||b.dep.includes(q)}return true}
 /* cfg: {title, st:{by,q,sel}, rows:()=>bookings, mode, keep:booking to keep while no search, pick:id=>void, rerender:()=>void} */
 function sideSearch(host,cfg){const st=cfg.st,f=SIDE_FILTERS.find(x=>x[0]===st.by)||SIDE_FILTERS[0];
-  host.innerHTML=`<div class="bfh">${titleMark(cfg.title)}${esc(cfg.title)}</div>
+  host.innerHTML=`${cfg.noTitle?'':`<div class="bfh">${titleMark(cfg.title)}${esc(cfg.title)}</div>`}
    <div class="bfsearch"><input class="ssQ" value="${esc(st.q)}" placeholder="${esc(f[2])}" autocomplete="off" aria-label="Search"><div class="bfdd"><button class="bfbtn ssDD" title="Choose filter" aria-haspopup="true">▾</button><div class="bfmenu" hidden>${SIDE_FILTERS.map(x=>`<button data-sf="${x[0]}" class="${x[0]===st.by?'on':''}">${x[1]}</button>`).join('')}</div></div><button class="bfbtn ssGo" title="Search">${ic('search',16)}</button></div>
    <div class="bffilt">${ic('search',11)} Filter by : <b>${f[1]}</b></div><div class="ssList"></div>`;
   const box=$('.ssList',host),q=$('.ssQ',host),menu=$('.bfmenu',host);
@@ -6888,8 +6889,8 @@ function billingSplit(el,id){
   if(id)BF.sel=id;const extra=BF.sel&&bookingById(BF.sel);const keep=extra&&extra.status!=='inhouse'?extra:null;
   const rowsF=()=>{const a=allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b)));return keep?[keep].concat(a.filter(b=>b.id!==keep.id)):a};
   if(BF.sel&&!rowsF().find(b=>b.id===BF.sel))BF.sel=null;
-  el.innerHTML=`<div class="split"><div class="panel bfleft" id="bfLeft"></div><div id="bfPane"></div></div>`;
-  sideSearch($('#bfLeft',el),{title:'BILLING / FOLIO / FOLIO',st:BF,rows:rowsF,mode:'fol',keep,only:true,pick:x=>{BF.sel=x;billingSplit(el)},rerender:()=>billingSplit(el)});
+  el.innerHTML=`${pageHead('Billing / Folio')}<div class="split bfsplit"><div class="panel bfleft" id="bfLeft"></div><div id="bfPane"></div></div>`;
+  sideSearch($('#bfLeft',el),{title:'',noTitle:true,st:BF,rows:rowsF,mode:'fol',keep,only:true,pick:x=>{BF.sel=x;billingSplit(el)},rerender:()=>billingSplit(el)});
   const pane=$('#bfPane',el);if(BF.sel)folioPane(pane,BF.sel,()=>billingSplit(el));else pane.innerHTML='<div class="panel empty">Search a room or a guest, then open that folio.</div>';
 }
 VIEWS['bill.folio']=(el,id)=>billingSplit(el,id);
@@ -6930,7 +6931,7 @@ const lineOrder=(a,b)=>{
   return (a.time||0)-(b.time||0);
 };
 
-let folSel=null,folAct={},folClickT=null,folSetOpen={};
+let folSel=null,folAct={},folClickT=null;
 const folLocked=(B,f)=>!!(B.locks&&B.locks[f]);
 const frozen=l=>!!l.offset;
 const payLocked=l=>!!(l&&l.kind==='pay'&&l.fixed&&!l.adv&&!l.deposit);
@@ -6948,10 +6949,10 @@ function folioPane(el,id,onRe){
       <div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b></div>
       ${closed?'<div class="lockbar sm">Closed by Close Day. This folio is read-only. A rebate, refund or void needs approval.</div>':B.status==='out'?'<div class="lockbar sm">Checked out (O). The room is vacant dirty (VD). The Auto button checks the guest back in after housekeeping marks the room vacant clean (VC), until Close Day.</div>':''}</div>
     <div class="fhr"><div class="rmk">Remark <span>${ic('detail',12)}</span></div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div>
-   <div class="folios">${[1,2,3,4].map(f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f),nSet=ls.filter(l=>l.settled).length,setOpen=!!folSetOpen[B.id+'|'+f];
-     return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Select Folio ${f}. To print it, use the print icon above."><span>Folio ${f}${f===act?' ✱':''}${folLocked(B,f)?' '+ic('lock',13)+' Locked':''}</span><span class="fcnt">${ls.length?ls.length+(ls.length===1?' line':' lines'):''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
+   <div class="folios">${[1,2,3,4].map(f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
+     return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Select Folio ${f}. To print it, use the print icon above."><span>Folio ${f}${f===act?' ✱':''}${folLocked(B,f)?' '+ic('lock',13)+' Locked':''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
       <div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>
-      ${nSet?`<tr class="sumrow" data-sr="${f}"><td colspan="5">${setOpen?'▲ Hide ':'▼ '}${nSet} settled line${nSet===1?'':'s'}${setOpen?'':' (frozen) · click to show'}</td></tr>`:''}${ls.filter(l=>setOpen||!l.settled).map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
+      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
    <p class="sub">Single-click a line to select it and show the folio numbers that move it. Double-click a line to open it. Click a folio bar to make it the active folio. To print a Guest Folio, click the print icon in the toolbar. The grey (+) on Folio 4 can move. The red (−) on Folio 4, and the advance credit (−) on this folio, each print a receipt / tax invoice with the card and remark. A charge remark stays in the transaction window. A normal payment freezes the lines already on that folio and posts one red receipt line.</p>`;
   const reopen=()=>{saveDB();onRe?onRe():folioPane(el,id)};
   const actNow=()=>folAct[B.id]||1;
@@ -6976,7 +6977,6 @@ function folioPane(el,id,onRe){
     set('fSplit',closed||!can('post')||!l||l.fixed||frozen(l)||l.settled||payLocked(l));
     set('fOff',closed||!can('corrpost')||blocked);
   };
-  $$('[data-sr]',el).forEach(r=>r.addEventListener('click',e=>{e.stopPropagation();const k=B.id+'|'+r.dataset.sr;folSetOpen[k]=!folSetOpen[k];folSel=null;reopen()}));
   $$('.fh',el).forEach(head=>head.addEventListener('click',e=>{
     e.stopPropagation();
     const f=+head.closest('[data-fa]').dataset.fa;
