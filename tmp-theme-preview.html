@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Size preview</title>
+<style>
+  :root{--g:#184D3A;--gold:#D49A38}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Arial,sans-serif;background:#f2efe6;color:#1a272f}
+  header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff;border-bottom:3px solid var(--gold);flex-wrap:wrap}
+  header b{color:var(--g);font-size:15px;margin-right:6px}
+  header button{border:1px solid #c9c3b2;background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+  header button.on{background:var(--g);color:#fff;border-color:var(--g)}
+  header .lab{font-size:12px;color:#6a6256;margin-left:8px}
+  .sp{flex:1}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px;height:calc(100vh - 70px)}
+  .col{display:flex;flex-direction:column;min-width:0}
+  .col h2{margin:0 0 6px;font-size:14px}
+  .col h2 span{font-weight:400;color:#6a6256}
+  iframe{flex:1;width:100%;border:1px solid #c9c3b2;border-radius:10px;background:#fff}
+</style></head>
+<body>
+<header><b>Size preview (colours unchanged)</b>
+  <button data-v="inq" class="on">Inquiry</button><button data-v="res">Reservation</button><button data-v="bill">Folio</button>
+  <span class="lab">Right side:</span>
+  <button data-m="slim" class="on">Slimmer title + icons</button><button data-m="compact">App's own Compact mode</button>
+  <span class="sp"></span></header>
+<div class="grid">
+  <div class="col"><h2>Now <span>(title band 48 px, buttons 46 px, icons 38 px)</span></h2><iframe id="fa" title="now"></iframe></div>
+  <div class="col"><h2 id="rt">Slimmer <span>(title band 34 px, buttons 36 px, icons 32 px; everything else the same)</span></h2><iframe id="fb" title="option"></iframe></div>
+</div>
+<script>
+const APP='/ecosystem/index.html';
+const fa=document.getElementById('fa'),fb=document.getElementById('fb');
+const SLIM=`.phead h1{min-height:34px!important;padding:6px 14px!important;font-size:14px!important;letter-spacing:.2px!important}
+.phead h1 svg,.hsh svg,.fch svg,.bfh svg,.hkh svg{width:17px!important;height:17px!important}.phead h1 .thic{margin-right:8px!important}
+.phead.withact .pact .btn,.hsbtn{height:36px!important;font-size:14px!important;padding-top:0!important;padding-bottom:0!important}
+html:not(.compact) .tbtn,.tbtn{width:32px!important;height:30px!important}.tbtn svg{width:16px;height:16px}
+.toolbar{padding:3px 5px!important;gap:3px!important}.tsep{height:20px!important}
+.phead{margin-bottom:8px!important}`;
+let view='inq',mode='slim';
+function demoSetup(w){return w.eval(`(function(){H=DB.hotels.PAD01;const u=H.users.find(x=>x.username==='manager');let s=H.shifts.find(x=>x.status==='open'&&x.userId===u.id);
+  if(!s){s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:'Afternoon',bd:H.set.bd,openAt:Date.now(),openCash:0,status:'open'};H.shifts.push(s)}
+  DB.session=stampSession({hotel:'PAD01',userId:u.id,shiftId:s.id});writeLiveSession(DB.session);saveDB();return true})()`)}
+function show(w,v){try{demoSetup(w);w.eval(`(function(){H=DB.hotels.PAD01;const B=H.reservations.flatMap(r=>r.bookings).find(b=>b.status==='inhouse'&&!b.groupMaster&&b.room&&b.room[0]!=='D');
+  applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();
+  ${v==='res'?"go('res.open',B.id)":v==='bill'?"go('bill.open',B.id)":"go(firstHotelView())"}})()`)}catch(e){console.log(e)}}
+function applyMode(){const d=fb.contentDocument;if(!d||!d.head)return;
+  let st=d.getElementById('dens');if(!st){st=d.createElement('style');st.id='dens';d.head.appendChild(st)}
+  st.textContent=mode==='slim'?SLIM:'';
+  d.documentElement.classList.toggle('compact',mode==='compact');d.body&&d.body.classList.toggle('compact',mode==='compact');
+  document.getElementById('rt').innerHTML=mode==='slim'?'Slimmer <span>(title band 34 px, buttons 36 px, icons 32 px; everything else the same)</span>':'The app\'s own Compact mode <span>(smaller text, tighter rows and spacing everywhere)</span>'}
+let faReady=false,fbReady=false;
+fa.addEventListener('load',()=>{if(faReady)return;faReady=true;demoSetup(fa.contentWindow);fb.src=APP+'?r='+(Date.now()+1)});
+fb.addEventListener('load',()=>{if(fbReady)return;fbReady=true;applyMode();setTimeout(()=>{show(fa.contentWindow,view);show(fb.contentWindow,view);applyMode()},400)});
+document.querySelectorAll('header button[data-v]').forEach(b=>b.onclick=()=>{view=b.dataset.v;document.querySelectorAll('header button[data-v]').forEach(x=>x.classList.toggle('on',x===b));show(fa.contentWindow,view);show(fb.contentWindow,view);applyMode()});
+document.querySelectorAll('header button[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll('header button[data-m]').forEach(x=>x.classList.toggle('on',x===b));applyMode();show(fb.contentWindow,view);applyMode()});
+fa.src=APP+'?r='+Date.now();
+</script>
+</body></html>
