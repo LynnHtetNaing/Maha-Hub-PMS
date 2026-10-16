@@ -1021,7 +1021,7 @@ const TCODES=[
  {code:'110',desc:'Early Check-In',type:'c',vat:true,dept:'Room',tab:'ROOM'},{code:'120',desc:'Late Check-Out',type:'c',vat:true,dept:'Room',tab:'ROOM'},
  {code:'160',desc:'No-show Charge',type:'c',vat:true,dept:'Room',tab:'ROOM'},{code:'128',desc:'Adjust - Room Charge (+)',type:'c',vat:true,dept:'Room',tab:'ROOM',adjFor:'100'},
  {code:'150',desc:'Extra Bed',type:'c',vat:true,dept:'Room',tab:'ROOM'},{code:'109',desc:'Extra Person Charge',type:'c',vat:true,dept:'Room',tab:'MISC.'},
- {code:'200',desc:'Breakfast (ABF)',type:'c',vat:true,dept:'F&B',outlet:'Breakfast',tab:'F&B'},{code:'210',desc:'Restaurant',type:'c',vat:true,dept:'F&B',outlet:'Restaurant',tab:'F&B'},
+ {code:'200',desc:'Breakfast (ABF)',type:'c',vat:true,dept:'F&B',outlet:'Breakfast',tab:'F&B'},{code:'201',desc:'ABF - Adult',type:'c',vat:true,dept:'F&B',outlet:'Breakfast',tab:'F&B',auto:true},{code:'202',desc:'ABF - Child',type:'c',vat:true,dept:'F&B',outlet:'Breakfast',tab:'F&B',auto:true},{code:'203',desc:'ABF - Revenue',type:'c',vat:true,dept:'F&B',outlet:'Breakfast',tab:'F&B'},{code:'210',desc:'Restaurant',type:'c',vat:true,dept:'F&B',outlet:'Restaurant',tab:'F&B'},
  {code:'220',desc:'Lobby Bar',type:'c',vat:true,dept:'F&B',outlet:'Lobby Bar',tab:'F&B'},{code:'230',desc:'Room Service',type:'c',vat:true,dept:'F&B',outlet:'Room Service',tab:'F&B'},
  {code:'250',desc:'Banquet Food',type:'c',vat:true,dept:'F&B',outlet:'Banquet',tab:'BANQUET'},{code:'251',desc:'Banquet Beverage',type:'c',vat:true,dept:'F&B',outlet:'Banquet',tab:'BANQUET'},
  {code:'252',desc:'Banquet Room Rental',type:'c',vat:true,dept:'Other',tab:'BANQUET'},
@@ -2484,7 +2484,7 @@ function newBooking(h,o){
   const B={id:'b'+uid(),internal:h.set.nextInternal++,guestId:o.guestId,shares:[],type:o.type,room:o.room||null,arr:o.arr,dep:o.dep,adults:o.adults||2,children:o.children||0,
     bkType:o.status==='tentative'?'FT':'FD',rateCode:o.rateCode||'RO',nightly:{},market:o.market||'FIT',bkCountry:o.bkCountry||h.set.country.slice(0,3).toUpperCase(),channel:o.channel||'EML',source:o.source||'DIRECT',
     salesMgr:o.salesMgr||'FOD',gstType:'',eta:o.eta||'14:00',etd:o.etd||'12:00',flightArr:'',flightArrTime:'',flightDep:'',flightDepTime:'',confirmDep:false,meal:'',services:'',upgFrom:'',view:'',
-    remark:o.remark||'',cm:!!o.cm,status:o.status||'confirmed',statusDate:o.statusDate||h.set.bd,checkinDate:null,checkinTime:null,checkinUser:'',checkoutTime:null,copyOf:null,lines:[],hist:[],comp:''};
+    remark:o.remark||'',abfAdult:o.abfAdult==null?null:+o.abfAdult,abfChild:+o.abfChild||0,cm:!!o.cm,status:o.status||'confirmed',statusDate:o.statusDate||h.set.bd,checkinDate:null,checkinTime:null,checkinUser:'',checkoutTime:null,copyOf:null,lines:[],hist:[],comp:''};
   const rc=h.rateCodes.find(r=>r.code===B.rateCode);if(rc&&rc.meal)B.meal=rc.meal;if(rc&&rc.comp)B.comp=rc.comp;
   dates(B.arr,B.dep).forEach(d=>B.nightly[d]=rateFor(h,B.type,B.rateCode));
   return B;
@@ -6499,7 +6499,7 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Arrival',`<input type="date" id="bArr" value="${B.arr}" ${dis('arr')}>`)}${fld('Departure',`<input type="date" id="bDep" value="${B.dep}" ${dis('dep')}>`)}
        ${fld('Room nights',`<input value="${nights(B)}" disabled id="bNts">`)}${fld('# of room',`<input value="1" disabled>`)}
        ${fld('Adult# / Child#',`<div class="two"><input type="number" id="bAd" min="1" value="${B.adults}" ${dis('b')}><input type="number" id="bCh" min="0" value="${B.children}" ${dis('b')}></div>`)}
-       ${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
+       ${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="bAbA" min="0" value="${abfPax(B).a}" ${dis('b')}><input type="number" id="bAbC" min="0" value="${abfPax(B).c}" ${dis('b')}></div>`)}${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
        ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
        ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
        ${fld('<span class="blue">Total rate</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
@@ -6588,6 +6588,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
       if(mode==='full'){const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
         const setIf=(k,v)=>{if(String(B[k])!==String(v)){B[k]=v;ch.push(k)}};
         setIf('bkType',q('#bType').value);setIf('adults',Math.max(1,+q('#bAd').value||1));setIf('children',Math.max(0,+q('#bCh').value||0));
+        {const ba=Math.max(0,+q('#bAbA').value||0),bc=Math.max(0,+q('#bAbC').value||0),adn=Math.max(1,+q('#bAd').value||1),na=ba===adn?null:ba;if(String(B.abfAdult==null?'':B.abfAdult)!==String(na==null?'':na)){B.abfAdult=na;ch.push('abfAdult')}if((+B.abfChild||0)!==bc){B.abfChild=bc;ch.push('abfChild')}}
         const typeCh=type!==B.type,rcCh=rcd!==B.rateCode;setIf('type',type);setIf('rateCode',rcd);setIf('room',room);
         ['market:#bMkt','bkCountry:#bBkc','channel:#bCh2','source:#bSrc','salesMgr:#bSm','gstType:#bGt','upgFrom:#bUpg','view:#bView','eta:#bEta','etd:#bEtd','flightArr:#bFa','flightArrTime:#bFat','flightDep:#bFd','flightDepTime:#bFdt','services:#bSvc','remark:#bRemark','meal:#bMeal'].forEach(p=>{const[k,s]=p.split(':');setIf(k,q(s).value.trim())});
         setIf('confirmDep',q('#bConfDep').checked);if(rco)B.comp=rco.comp||'';
@@ -6692,7 +6693,7 @@ function newReservation(el,pre,walkin){
     ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
     ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
-    ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}
+    ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="nAbA" value="2" min="0"><input type="number" id="nAbC" value="0" min="0"></div>`,'nabf')}
     ${walkin?'':`${fld('<span class="depi">$</span> Deposit amount',`<input id="nDep" class="n" inputmode="decimal" value="0">`)}${fld('Deposit paid by',`<select id="nPay">${TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&payEnabled(c)).map(c=>opt(c.code,c.code+' – '+c.desc,'900')).join('')}</select>`)}${fld('Deposit reference',`<input id="nPref" maxlength="60" placeholder="Optional">`,'span2')}
     <p class="sub rfull">Leave the amount at 0 to post the deposit later from the reservation. A deposit is posted as one line in Folio 1: Reservation Deposit - (payment type). For its receipt / tax invoice, open the reservation and click Deposit invoice.</p>`}
     ${fld('Remark',`<input id="nRem">`,'rfull')}</div></div>
@@ -6709,12 +6710,14 @@ function newReservation(el,pre,walkin){
   attachCombo(q('#nG'),()=>H.guests.filter(g=>g.profileId&&g.profileId!=='GROUP').map(g=>({value:gName(g)+' #'+g.profileId,label:g.nationality||''})));
   const upd=()=>{const a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value;const cur=q('#nRm').value||pre.room;
     q('#nRm').innerHTML=(walkin?'':'<option value="">Assign later</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
-    const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
+    {const rcb=H.rateCodes.find(x=>x.code===q('#nRc').value),on=!!(rcb&&rcb.meal==='ABF'),bx=el.querySelector('.nabf');if(bx)bx.style.display=on?'':'none'}const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
     const n=a&&d?diff(a,d):0,rt=+q('#nRate').value||0,free=H.rooms.filter(r=>r.type===t&&n>0&&roomFree(r.no,a,d)).length;
     {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip;const tb=totalBoxes(Array(Math.max(0,n)).fill(rt),CO(q('#nCo').value));q('#nTot').value=tb.rVal;q('#nTcL').textContent=tb.cLabel;q('#nTc').value=tb.cVal;q('#nTnL').textContent=tb.nLabel;q('#nTn').value=tb.nVal;q('#nTc').title=q('#nTn').title=tb.tip}
     q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${H.set.cur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
   ['nA','nD','nRt','nRc'].forEach(id=>q('#'+id).addEventListener('change',()=>{if(id!=='nA'&&id!=='nD')delete q('#nRate').dataset.touched;if(id==='nA'&&q('#nD').value<=q('#nA').value)q('#nD').value=addD(q('#nA').value,1);upd()}));
   q('#nRate').oninput=()=>{q('#nRate').dataset.touched=1;upd()};
+  ['nAbA','nAbC'].forEach(i=>q('#'+i).addEventListener('input',()=>{q('#nAbA').dataset.touched='1'}));
+  ['nAd','nCh'].forEach(i=>q('#'+i).addEventListener('input',()=>{if(q('#nAbA').dataset.touched)return;q('#nAbA').value=Math.max(0,+q('#nAd').value||0);q('#nAbC').value=Math.max(0,+q('#nCh').value||0)}));
   const syncBill=()=>{if(q('#nBill').dataset.touched)return;const co=CO(q('#nCo').value);q('#nBill').value=co&&co.code!=='WIN'&&co.code!=='DIR'?'company':'guest'};
   const syncRef=()=>{const auto=refIsAuto(CO(q('#nCo').value)),rf=q('#nRef');if(auto){rf.value=refNo(H.code,H.set.nextRef);rf.disabled=true;rf.title='Automatic reference, given by the system'}else{if(rf.disabled)rf.value='';rf.disabled=false;rf.title=''}};
   q('#nCo').addEventListener('change',()=>{syncBill();syncRef();upd()});q('#nBill').addEventListener('change',()=>{q('#nBill').dataset.touched='1'});
@@ -6732,7 +6735,7 @@ function newReservation(el,pre,walkin){
     const finish=sh=>{let g=q('#nG').dataset.gid&&H.guests.find(x=>x.id===q('#nG').dataset.gid);
     if(!g||g.last!==last){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:q('#nT').value,last,first:q('#nF').value.trim(),middle:'',other:'',jobTitle:'',company:'',nationality:natResolve(q('#nN').value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:q('#nE').value.trim(),phone:q('#nP').value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(g)}
     const r={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.last+', '+g.first,reference:q('#nRef').value.trim(),phone:g.phone,fax:'',email:g.email,confirmation:'0',companyId:q('#nCo').value,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};{const c_=CO(q('#nCo').value);r.commPct=commPct(c_);r.commBasis=commBasis(c_)}stampHotelNumbers(H,r);
-    const B=newBooking(H,{guestId:g.id,type:t,room,arr:a,dep:d,rateCode:rcd,status:q('#nBt').value==='FT'?'tentative':'confirmed',market:q('#nMk').value,channel:q('#nChn').value,source:q('#nSrc').value,adults:+q('#nAd').value||1,children:+q('#nCh').value||0,remark:q('#nRem').value.trim()});
+    const B=newBooking(H,{guestId:g.id,type:t,room,arr:a,dep:d,rateCode:rcd,status:q('#nBt').value==='FT'?'tentative':'confirmed',market:q('#nMk').value,channel:q('#nChn').value,source:q('#nSrc').value,adults:+q('#nAd').value||1,children:+q('#nCh').value||0,abfAdult:(rco&&rco.meal==='ABF'&&(+q('#nAbA').value||0)!==(+q('#nAd').value||1))?Math.max(0,+q('#nAbA').value||0):null,abfChild:(rco&&rco.meal==='ABF')?Math.max(0,+q('#nAbC').value||0):0,remark:q('#nRem').value.trim()});
     Object.keys(B.nightly).forEach(k=>B.nightly[k]=rt);B.bkType=q('#nBt').value;
     B.billTo=q('#nBill').value;r.billTo=B.billTo;B.bill={name:q('#nBn').value.trim(),addr:q('#nBa').value.trim(),tax:q('#nBtx').value.trim(),branch:q('#nBbr').value.trim()};
     r.bookings.push(B);H.reservations.push(r);histB(B,'Reservation created');log(`Created RSVN ${r.no}`,B.id);saveDB();
@@ -7192,7 +7195,7 @@ let postTab='MISC.';
 function postModal(B,after,folio){if(!need('post'))return;const gone=B.status==='out';if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
   let pf=folio||1,cur=null;
   const m=modal('New Item Folio','<div id="niB"></div>',{w:1240,cls:'nimodal'});
-  const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&(!gone||c.rebFor||c.adjFor));
+  const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor));
   const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c);
   /* a correction code is chosen like any other; after check-out it opens the correction window (reason, credit note, who may do it) */
   const allowed=c=>{if(isRb(c)&&!can('rebate')||isAd(c)&&!can('adjust')){dlgAlert(PS_MSG.perm);return false}if(gone&&corr(c)){closeModal(m);psEntry(B,isRb(c)?'rebate':'adjust',after,isRb(c)?(c.rebFor||c.code):c.code);return false}return true};
@@ -7208,6 +7211,7 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
       <div class="quote" id="niQ"></div><div class="err" id="niE"></div>
       <div class="btns end"><button class="btn red" id="niX">Close</button><button class="btn purple" id="niP">Post</button></div></div></div>`;
     const keep=['niR','niA','niM'].map(id=>[id,m._v&&m._v[id]]);keep.forEach(([id,v])=>{if(v!=null)$('#'+id,m).value=v});
+    if(cur&&cur.code==='203'&&houseAccount(B)&&!$('#niA',m).value){const need=-folioBal(B,pf);if(need>0.004)$('#niA',m).value=String(r2(need))}
     $$('[data-nt]',m).forEach(b=>b.onclick=()=>{save();postTab=b.dataset.nt;paint()});
     $$('[data-nc]',m).forEach(b=>b.onclick=()=>{const c=TCODES.find(x=>x.code===b.dataset.nc);if(!allowed(c))return;save();cur=c;paint();$('#niA',m).focus()});
     $$('[data-pf]',m).forEach(b=>b.onclick=()=>{save();pf=+b.dataset.pf;paint()});
@@ -7656,16 +7660,20 @@ async function markNoShow(B){if(!B||!need('res.cancel'))return false;const g=G(B
     addLine(H,B,{...lineCtx(),folio:1,code:'160',desc:'No-show Charge',ref:B.room||String(resOf(B).no),amt:fee,kind:'post',remark:'No-show '+fd(night)});
     log('No-show charge '+m2(fee)+' RSVN '+resOf(B).no,B.id)}
   log('No-show RSVN '+resOf(B).no,B.id);return true}
+function bfPrices(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return {a:0,c:0};return {a:Math.max(0,+rc.bfAdult||+H.set.bfAdult||0),c:Math.max(0,+rc.bfChild||0)}}
+const abfPax=B=>({a:B.abfAdult==null?Math.max(0,+B.adults||0):Math.max(0,+B.abfAdult||0),c:Math.max(0,+B.abfChild||0)});
 function bfEach(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return 0;return Math.max(0,+rc.bfAdult||+H.set.bfAdult||0)}
 function postRoom(){const bd=H.set.bd,s=curShift();let n=0;tonightIH().filter(b=>!roomPostedTonight(b)).forEach(b=>{
     const full=r2(b.nightly[bd]!==undefined?billRate(b,bd):rateFor(H,b.type,b.rateCode));
-    let bf=r2(bfEach(b)*Math.max(0,+b.adults||0));if(bf>full)bf=full;const roomAmt=r2(full-bf);
+    const px=bfPrices(b),pax=abfPax(b);let bA=r2(px.a*pax.a),bC=r2(px.c*pax.c);if(bA+bC>full){const k=full/(bA+bC);bA=r2(bA*k);bC=r2(full-bA)}
+    const bf=r2(bA+bC),roomAmt=r2(full-bf);
     const dest=typeof chargeTarget==='function'?chargeTarget(b,'100'):b;
     addLine(H,dest,{bd,shift:s,user:'Auto-Post',folio:1,code:'100',desc:'Room Charge',ref:b.room,amt:roomAmt,kind:'room',night:bd});
     if(bf>0.004){
-      addLine(H,b,{bd,shift:s,user:'Auto-Post',folio:2,code:'200',desc:'Breakfast (ABF)',ref:b.room,amt:bf,kind:'post',remark:'',pkgSplit:true});
       const D=ensureDummyBooking(H);
-      if(D)addLine(H,D,{bd,shift:s,user:'Auto-Post',folio:1,code:'200',desc:'F&B revenue – breakfast',ref:b.room,amt:bf,kind:'post'});
+      [[bA,'201','ABF - Adult',pax.a],[bC,'202','ABF - Child',pax.c]].forEach(([amt,code,desc,n])=>{if(amt<=0.004)return;
+        addLine(H,b,{bd,shift:s,user:'Auto-Post',folio:2,code,desc,ref:b.room,amt,kind:'post',remark:n+' pax',pkgSplit:true});
+        if(D)addLine(H,D,{bd,shift:s,user:'Auto-Post',folio:1,code,desc,ref:b.room,amt:-amt,kind:'post',remark:'Room '+b.room+', '+n+' pax'})});
     }
     n++});if(n)log(`Post room: ${n} room charge(s) posted`);return n}
 /* Room discrepancy: front office status vs the occupancy housekeeping reports (Skip = FO occupied / HK vacant, Sleep = FO vacant / HK occupied) */
@@ -8688,10 +8696,10 @@ const SEC={
      if(H.floors&&H.floors.length&&!H.floors.some(z=>z.id===fl))H.floors.push({id:fl,name:'Floor '+fl,order:H.floors.length+1});provLog(`Added ${n} rooms to ${H.code}`);saved(`${n} room(s) added`)}},
  plan(box){floorPlanEditor(box)},
  rates(box){box.innerHTML=secHead('8. Rate codes','Rules: % on the base rate, fixed amount on the base rate, or zero (Complimentary is always 0; House use may be 0).');
-   listEditor(box,{rows:H.rateCodes.map(r=>({...r,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'desc',h:'Description'},{k:'kind',h:'Rule',opts:[['pct','% on base'],['amt','+ amount on base'],['zero','Zero rate']]},{k:'v',h:'Value',type:'number',w:'90px'},{k:'meal',h:'Meal',w:'70px'},{k:'comp',h:'Zero type',opts:[['','—'],['COMP','Complimentary'],['HOUSE','House use']]},{k:'valid',h:'Valid from',type:'date'},{k:'until',h:'Until',type:'date'}],
+   listEditor(box,{rows:H.rateCodes.map(r=>({...r,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'desc',h:'Description'},{k:'kind',h:'Rule',opts:[['pct','% on base'],['amt','+ amount on base'],['zero','Zero rate']]},{k:'v',h:'Value',type:'number',w:'90px'},{k:'meal',h:'Meal',w:'70px'},{k:'bfAdult',h:'Breakfast adult',type:'number',w:'110px'},{k:'bfChild',h:'Breakfast child',type:'number',w:'110px'},{k:'comp',h:'Zero type',opts:[['','—'],['COMP','Complimentary'],['HOUSE','House use']]},{k:'valid',h:'Valid from',type:'date'},{k:'until',h:'Until',type:'date'}],
     blank:()=>({code:'',desc:'',kind:'pct',v:0,meal:'',comp:'',valid:H.set.bd,until:'2050-12-31'}),
     validate:d=>{if(d.some(r=>!r.code||!r.desc))return 'Every rate code needs a code and a description.';if(new Set(d.map(r=>String(r.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(r=>r.kind==='zero'&&!r.comp))return 'A zero rate must be Complimentary or House use.';if(d.some(r=>r.kind!=='zero'&&r.comp))return 'Only zero-rate codes can be Complimentary or House use.';if(!d.some(r=>r.kind!=='zero'))return 'Keep at least one paid rate code.';return ''},
-    save:d=>{const prev={};H.rateCodes.forEach(r=>prev[r.code]=r);H.rateCodes=d.map(r=>{const code=String(r.code).toUpperCase(),o=prev[code]||{};return {code,desc:r.desc,kind:r.kind,v:+r.v||0,meal:r.meal||'',comp:r.comp||undefined,valid:r.valid,until:r.until,bfAdult:o.bfAdult}});provLog(`Rate codes saved for ${H.code}`);saved()}})},
+    save:d=>{const prev={};H.rateCodes.forEach(r=>prev[r.code]=r);H.rateCodes=d.map(r=>{const code=String(r.code).toUpperCase(),o=prev[code]||{};return {code,desc:r.desc,kind:r.kind,v:+r.v||0,meal:r.meal||'',comp:r.comp||undefined,valid:r.valid,until:r.until,bfAdult:(r.bfAdult===''||r.bfAdult==null)?o.bfAdult:Math.max(0,+r.bfAdult||0),bfChild:(r.bfChild===''||r.bfChild==null)?(o.bfChild||0):Math.max(0,+r.bfChild||0)}});provLog(`Rate codes saved for ${H.code}`);saved()}})},
  charges(box){shapeHotel(H);const own=new Set(_extraApplied.map(c=>c.code));const list=TCODES.filter(c=>c.type==='c'&&!c.rel);
    box.innerHTML=secHead('9. Charge codes','Only the provider can open or close VAT for each post, and only for this hotel. Staff see VAT or Non-VAT when they post and cannot change it. A new post uses the button you set. Lines already on a folio keep the tax they were posted with.')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Tab</th><th>Where</th><th>VAT</th></tr>${list.map(c=>{const on=chargeVat(c);return `<tr><td>${c.code}</td><td>${esc(c.desc)}</td><td>${esc(c.tab||'')}</td><td>${own.has(c.code)?'This hotel':'Standard'}</td><td><button type="button" class="tog sm ${on?'on':''}" data-vat="${esc(c.code)}">${on?'VAT':'Non-VAT'}</button></td></tr>`}).join('')}</table></div><h3 class="mt">This hotel's own codes</h3><p class="sub">Add a code, save, then set VAT or Non-VAT with the button in the list above. It appears in the New Item Folio tab you choose.</p>`;
    listEditor(box,{rows:(H.extraCodes||[]).map(c=>({...c,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'desc',h:'Description'},{k:'tab',h:'Tab',opts:POST_TABS.map(t=>[t,t])}],
