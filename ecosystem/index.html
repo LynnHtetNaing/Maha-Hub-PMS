@@ -2661,7 +2661,7 @@ const bal=B=>r2(sum(B.lines,l=>l.amt));
 const isCharge=l=>['post','room','corrpost'].includes(l.kind);
 const charges=B=>r2(sum(B.lines.filter(isCharge),l=>l.amt));
 const folioBal=(B,f)=>r2(sum(B.lines.filter(l=>l.folio===f),l=>l.amt));
-function allLinesH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>b.lines.forEach(l=>o.push(l))));return o}
+function allLinesH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>b.lines.forEach(l=>o.push(l))));(h.dummyHist||[]).forEach(e=>(e.lines||[]).forEach(l=>o.push(l)));return o}
 /* Payment received, from the fixed record line (payrec) minus any correct-payment line in the same group */
 function paymentsIn(lines){const out=[],rec=new Set();lines.forEach(l=>{if(l.kind==='payrec'){out.push({l,amt:-l.amt});if(l.group)rec.add(l.group)}});
   lines.forEach(l=>{if(l.kind==='corrpay')out.push({l,amt:-l.amt});else if(l.kind==='pay'&&!(l.group&&rec.has(l.group)))out.push({l,amt:-l.amt})});return out}
@@ -6903,11 +6903,19 @@ VIEWS['bill.inquiry']=el=>{
   ${list.map(b=>{const r=resOf(b),ro=closedBooking(b);return `<tr class="co-row"><td>${stBadge(b)}</td><td>${r.no}</td><td>${b.internal}</td><td>${esc(gName(G(b.guestId)))}</td><td>${esc(b.room||'')}</td><td>${fd(b.statusDate)}</td><td class="n">${m2(bal(b))}</td><td>${ro?'<span class="pill r">Read-only</span>':canCheckBack(b)?'<span class="pill y">Can check back in</span>':'<span class="pill g">Open today</span>'}</td><td class="nowrap"><button class="btn sm" data-fol="${b.id}">Open</button>${canCheckBack(b)?` <button class="btn sm gold" data-back="${b.id}" title="Check back in (Auto)">${ic('left',14)} Auto</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="9" class="empty">No checked-out folios yet.</td></tr>'}</table></div>`;
   $$('[data-fol]',el).forEach(b=>b.onclick=()=>go('bill.open',b.dataset.fol));
   $$('[data-back]',el).forEach(b=>b.onclick=()=>{if(checkBackIn(bookingById(b.dataset.back)))render()});
+  const dh=(H.dummyHist||[]).slice().sort((a,b)=>b.bd.localeCompare(a.bd));
+  el.insertAdjacentHTML('beforeend',`<h3 class="mt">Dummy account history</h3><p class="sub">A dummy account (such as D999) moves here three closed days after ABF - Revenue brings it back to 0.00. Open a line to see its folios. History only; nothing can be changed.</p><div class="panel scroll"><table class="grid"><tr><th>Cleared on</th><th>Room</th><th>Period</th><th class="n">Lines</th><th class="n">Balance</th><th></th></tr>${dh.map(e=>`<tr><td>${fd(e.bd)}</td><td>${esc(e.room)}</td><td>${fd(e.from)} - ${fd(e.to)}</td><td class="n">${e.lines.length}</td><td class="n">${m2(sum(e.lines,l=>l.amt))}</td><td><button class="btn sm" data-dh="${e.id}">Open</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No history yet.</td></tr>'}</table></div>`);
+  $$('[data-dh]',el).forEach(b=>b.onclick=()=>dummyHistModal(b.dataset.dh));
 };
+function dummyHistModal(id){const e=(H.dummyHist||[]).find(x=>x.id===id);if(!e)return;
+  const box=f=>{const L=e.lines.filter(l=>l.folio===f).sort((a,b)=>a.time-b.time),b=r2(sum(L,l=>l.amt));
+    return `<div class="folio" style="height:300px"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${b!==0?'red':''}">${L.length?m2(b):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Reference#</th><th>Description</th><th class="n">Amount</th></tr>${L.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.ref)}</td><td>${esc(l.desc)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`};
+  modal('Dummy account history: room '+e.room+' · cleared '+fd(e.bd),`<p class="sub">${fd(e.from)} - ${fd(e.to)} · ${e.lines.length} lines · history only</p><div class="folios" style="margin-top:8px">${[1,2,3,4].map(box).join('')}</div>`,{w:1240})}
 let TIq={by:'guest',q:''};
 VIEWS['bill.trans']=(el,arg)=>{
   const f=(arg&&arg.f)||H.set.bd,t=(arg&&arg.t)||H.set.bd,q=TIq.q.trim().toLowerCase();
   const rows=[];H.reservations.forEach(r=>r.bookings.forEach(b=>b.lines.forEach(l=>{if(l.bd<f||l.bd>t||l.kind==='payoff')return;if(q){const g=G(b.guestId);const hay={room:b.room||'',guest:gName(g),code:l.code||'',desc:l.desc||'',ref:l.ref||'',user:l.user||''}[TIq.by]||'';if(!String(hay).toLowerCase().includes(q))return}rows.push({r,b,l})})));
+  (H.dummyHist||[]).forEach(e=>e.lines.forEach(l=>{if(l.bd<f||l.bd>t||l.kind==='payoff')return;if(q){const hay={room:e.room||'',guest:'Dummy, Breakfast',code:l.code||'',desc:l.desc||'',ref:l.ref||'',user:l.user||''}[TIq.by]||'';if(!String(hay).toLowerCase().includes(q))return}rows.push({r:null,b:{room:e.room,guestId:'gD999'},l})}));
   rows.sort((a,b)=>a.l.time-b.l.time);
   el.innerHTML=pageHead('Transaction Inquiry',`<label class="ufl">From date ${ufDate('tiF',f)}</label><label class="ufl">To date ${ufDate('tiT',t)}</label><label class="ufl">Search by <select id="tiBy">${[['guest','Guest'],['room','Room'],['code','Code'],['desc','Description'],['ref','Reference'],['user','User']].map(([k,l])=>`<option value="${k}" ${TIq.by===k?'selected':''}>${l}</option>`).join('')}</select></label><label class="ufl">Find <input id="tiq" class="ufq" value="${esc(TIq.q)}" placeholder="Type here"></label><button class="btn" id="tiGo">Search</button>`,'under')+`<div class="panel scroll"><table class="grid">
   <tr><th>Date</th><th>Time</th><th>Room</th><th>Guest</th><th>Folio</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th><th>User</th><th>Shift</th><th>Sys ref#</th></tr>
@@ -7660,6 +7668,15 @@ async function markNoShow(B){if(!B||!need('res.cancel'))return false;const g=G(B
     addLine(H,B,{...lineCtx(),folio:1,code:'160',desc:'No-show Charge',ref:B.room||String(resOf(B).no),amt:fee,kind:'post',remark:'No-show '+fd(night)});
     log('No-show charge '+m2(fee)+' RSVN '+resOf(B).no,B.id)}
   log('No-show RSVN '+resOf(B).no,B.id);return true}
+/* A dummy account (D999) is cleared when ABF - Revenue brings its balance back to 0. Three closed days later that settled block leaves the dummy billing view and goes to Folio Inquiry as history. */
+function archiveDummyLines(h){h=h||H;if(!h||!h.set||!h.set.lockedThrough)return 0;h.dummyHist=h.dummyHist||[];let moved=0;
+  allBookingsH(h).filter(b=>b.masterDummy||(b.room&&((h.rooms.find(r=>r.no===b.room)||{}).dummy))).forEach(B=>{
+    const ls=B.lines.slice().sort((a,b)=>a.time-b.time);let run=0,cur=[];const blocks=[];
+    ls.forEach(l=>{run=r2(run+l.amt);cur.push(l);if(l.code==='203'&&Math.abs(run)<0.005){blocks.push(cur);cur=[]}});
+    blocks.forEach(bl=>{const end=bl[bl.length-1].bd;if(h.set.lockedThrough<addD(end,3))return;
+      const ids=new Set(bl.map(l=>l.id));B.lines=B.lines.filter(l=>!ids.has(l.id));
+      h.dummyHist.push({id:'dh'+uid(),bookingId:B.id,room:B.room||'D999',bd:end,from:bl.reduce((m,l)=>l.bd<m?l.bd:m,bl[0].bd),to:end,archivedOn:h.set.lockedThrough,lines:bl});moved+=bl.length})});
+  return moved}
 function bfPrices(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return {a:0,c:0};return {a:Math.max(0,+rc.bfAdult||+H.set.bfAdult||0),c:Math.max(0,+rc.bfChild||0)}}
 const abfPax=B=>({a:B.abfAdult==null?Math.max(0,+B.adults||0):Math.max(0,+B.abfAdult||0),c:Math.max(0,+B.abfChild||0)});
 function bfEach(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return 0;return Math.max(0,+rc.bfAdult||+H.set.bfAdult||0)}
@@ -7745,7 +7762,7 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
   const work=[()=>{if(!cdReady().ok)throw new Error('Checks failed')},
     ()=>{const ls=allLinesH(H).filter(l=>l.night===bd&&l.kind==='room');H.audits.push({date:bd,at:Date.now(),user:user().name,rooms:ls.length,rev:r2(sum(ls,l=>l.amt)),ns:allBookings().filter(b=>b.status==='noshow'&&b.statusDate===bd).length,shifts:H.shifts.filter(x=>x.bd===bd).length,variance:r2(sum(H.shifts.filter(x=>x.bd===bd),x=>x.variance||0)),inhouse:tonightIH().length,discClosed:Object.values(H.disc||{}).filter(d=>d.bd===bd&&d.status==='closed').length})},
     ()=>{const s=curShift();if(s){const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'})}},
-    ()=>{H.set.lockedThrough=bd},()=>{log(`Close Day ${fd(bd)} done`)},()=>{H.set.bd=nd;saveDB()}];
+    ()=>{H.set.lockedThrough=bd;archiveDummyLines(H)},()=>{log(`Close Day ${fd(bd)} done`)},()=>{H.set.bd=nd;saveDB()}];
   let i=0;const tick=()=>{try{work[i]()}catch(e){m.querySelector('#cdMsg').textContent='Close Day stopped: '+e.message;return}mark(i);i++;
     if(i<work.length)setTimeout(tick,CD_DELAY);else{m.querySelector('#cdMsg').innerHTML=`<b>Close Day complete.</b> The business date is now ${fd(nd)}. Signing out…`;setTimeout(()=>{closeModal(m);signOut(true)},CD_DELAY*3)}};
   setTimeout(tick,CD_DELAY);
