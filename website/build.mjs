@@ -148,7 +148,7 @@ const ctaBand = (h = 'Let’s talk about your hotel, your team or a partnership.
   <div class="hero-cta" style="margin:0"><a class="btn btn-gold" href="${primary[0]}">${primary[1]} ${I.arr}</a>${extra || '<a class="btn btn-line" href="/solutions">Customer sign in</a>'}</div>
 </div></section>`;
 
-const pageHero = ({ crumb, eyebrow, h1, lead, img, pos = '50% 50%' }) => `<section class="page-hero">
+const pageHero = ({ crumb, eyebrow, h1, lead, img, pos = '50% 50%', cls = '' }) => `<section class="page-hero ${cls}">
   <div class="ph-bg"><img src="${img}" alt="" aria-hidden="true" style="object-position:${pos}" fetchpriority="high"></div>
   <div class="wrap">
     <p class="crumb"><a href="/">Home</a> / ${crumb}</p>
@@ -173,7 +173,7 @@ add('index.html', 'home', {
   desc: 'Maha Hub Group of Companies Limited: Maha Solutions, connected software for hotels, and Maha Academy, practical education for hospitality.',
   canon: '/', ld: orgLd,
 }, `<section class="hero">
-  <div class="hero-bg"><picture><source media="(max-width:700px)" srcset="/assets/maha-hub-hero-sm.jpg"><img src="/assets/maha-hub-hero.jpg" alt="" aria-hidden="true" fetchpriority="high"></picture></div>
+  <div class="hero-bg"><picture><source media="(max-width:700px)" srcset="/assets/hero-home-sm.webp" type="image/webp"><img src="/assets/hero-home.webp" alt="" aria-hidden="true" fetchpriority="high"></picture></div>
   <div class="wrap hero-in">
     <div>
       <p class="eyebrow">${COMPANY}</p>
@@ -181,7 +181,6 @@ add('index.html', 'home', {
       <p class="lead">One group, two brands. Maha Solutions builds connected software for hotels. Maha Academy prepares the people who run them.</p>
       <div class="hero-cta"><a class="btn btn-gold" href="/maha-hub-solutions">Explore Maha Solutions ${I.arr}</a><a class="btn btn-line" href="/maha-hub-academy">Explore Maha Academy</a></div>
     </div>
-    <div class="hero-art"><img src="/brand/pms/lockup.png" alt="Maha Hub" width="470" height="304"></div>
   </div>
   <div class="hero-strip"><div class="wrap"><span>Hospitality</span><span>Technology</span><span>Education</span><span>Connected</span></div></div>
 </section>
@@ -314,7 +313,7 @@ add('maha-hub-solutions.html', 'solutions', {
   title: 'Maha Solutions | Connected software for hotels',
   desc: 'Maha Solutions: Maha PMS, Maha Connect, Maha Booking, Maha Reach and Maha Sales, connected software for hotels and accommodation businesses.',
   canon: '/maha-hub-solutions',
-}, `${pageHero({ crumb: 'Maha Solutions', eyebrow: 'Technology', h1: 'Maha Solutions', lead: 'Connected software for hotels and accommodation businesses. Every product works from the same hotel data, so teams stop typing the same thing twice.', img: '/assets/maha-hub-hero.jpg', pos: '60% 50%' })}
+}, `${pageHero({ crumb: 'Maha Solutions', eyebrow: 'Technology', h1: 'Maha Solutions', lead: 'Connected software for hotels and accommodation businesses. Every product works from the same hotel data, so teams stop typing the same thing twice.', img: '/assets/hero-solutions.webp', pos: '50% 72%', cls: 'ph-light' })}
 <section class="section">
   <div class="wrap">
     <div class="sec-head center reveal"><p class="eyebrow">One booking, followed through the hotel</p><h2>Data moves from one product to the next.</h2><p class="lead">This is how a single guest booking travels through Maha Solutions.</p></div>
@@ -361,6 +360,7 @@ add('maha-hub-solutions.html', 'solutions', {
 ${ctaBand('Find the right setup for your property.', 'Tell us about your hotel and we will recommend where to start.', '<a class="btn btn-line" href="/solutions">Sign in</a>')}`);
 
 /* ===================================================== PRODUCTS ===================================================== */
+const deviceFrame = `<div class="devices" aria-label="Maha PMS on a laptop and a tablet (demo data)"><div class="dev-laptop"><div class="dev-screen"><img src="/assets/pms-laptop.webp" width="1600" height="833" alt="Maha PMS room grid showing bookings across two weeks (demo data)" loading="lazy"></div><div class="dev-base"></div></div><div class="dev-tablet"><div class="dev-screen"><img src="/assets/pms-tablet.webp" width="1000" height="593" alt="Maha PMS reservation list on a tablet (demo data)" loading="lazy"></div></div><p class="dev-note">Real screens from Maha PMS, shown with demo data.</p></div>`;
 const prodBlock = (p, i) => `<article class="split ${i % 2 ? 'rev' : ''}" id="${p.id}" style="padding:44px 0;border-top:1px solid var(--line)">
   <div class="reveal"><span class="tag ${p.live ? 'on' : 'soon'}">${p.live ? 'Available now' : 'Coming soon'}</span>
     <h2 style="font-size:clamp(28px,3vw,40px)">${p.name}</h2><p class="kind" style="color:var(--gold-3);font-weight:600;margin:-4px 0 12px">${p.kind}</p>
@@ -369,7 +369,7 @@ const prodBlock = (p, i) => `<article class="split ${i % 2 ? 'rev' : ''}" id="${
     <div class="hero-cta" style="margin-top:18px">${p.live
       ? `<a class="btn btn-green" href="/contact?interest=${encodeURIComponent(p.name)}">Request a demo</a><a class="btn btn-line-dark" href="/solutions">Sign in</a>`
       : `<a class="btn btn-line-dark" href="/contact?interest=${encodeURIComponent(p.name + ' (in development)')}">Register interest</a>`}</div></div>
-  <div class="reveal"><div class="card"><h4 style="margin-bottom:14px">What it covers</h4><ul class="ticks" style="margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">${p.features.map(f => `<li>${f}</li>`).join('')}</ul></div></div>
+  <div class="reveal"><div class="card"><h4 style="margin-bottom:14px">What it covers</h4><ul class="ticks" style="margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">${p.features.map(f => `<li>${f}</li>`).join('')}</ul></div>${p.id === 'pms' ? deviceFrame : ''}</div>
 </article>`;
 add('products.html', 'solutions', {
   title: 'Products | Maha Solutions', desc: 'Maha PMS, Maha Connect, Maha Booking, Maha Reach and Maha Sales are available now. Maha HR, Account, Manage, POS and Stock are coming soon.', canon: '/products',
@@ -417,7 +417,7 @@ docPage('refund.html', '', 'Refund Policy', 'Refund and Cancellation Policy', 'H
 add('maha-hub-academy.html', 'academy', {
   title: 'Maha Academy | Practical education for hospitality',
   desc: 'Maha Academy: practical hospitality education for people starting a career, hotel teams and managers. Programmes opening soon.', canon: '/maha-hub-academy',
-}, `${pageHero({ crumb: 'Maha Academy', eyebrow: 'Education', h1: 'Maha Academy', lead: 'Practical hospitality education for people starting a career, for hotel teams and for managers. Programmes are opening soon.', img: '/assets/banners/golden.jpg', pos: '50% 35%' })}
+}, `${pageHero({ crumb: 'Maha Academy', eyebrow: 'Education', h1: 'Maha Academy', lead: 'Practical hospitality education for people starting a career, for hotel teams and for managers. Programmes are opening soon.', img: '/assets/hero-academy.webp', pos: '50% 42%', cls: 'ph-light' })}
 <section class="section">
   <div class="wrap split">
     <div class="reveal">

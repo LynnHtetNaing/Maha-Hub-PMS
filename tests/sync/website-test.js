@@ -12,6 +12,7 @@ const known = new Set(['/', '/favicon.ico', '/solutions', '/solutions-PMS', '/ec
 const exists = href => { const p = href.split('#')[0].split('?')[0]; if (!p || known.has(p)) return true; if (/^\/(assets|brand|icons)\//.test(p)) return fs.existsSync(path.join(root, p)); return fs.existsSync(path.join(root, p.replace(/^\//, '') + '.html')); };
 const broken = [];
 for (const p of pages) for (const m of html(p).matchAll(/(?:href|src)="(\/[^"]*)"/g)) if (!exists(m[1])) broken.push(p + ': ' + m[1]);
+T('photos and PMS screens exist and are used', ['hero-home','hero-home-sm','hero-solutions','hero-solutions-sm','pms-laptop','pms-tablet'].every(n => fs.existsSync(path.join(root, 'assets', n + '.webp'))) && /hero-home\.webp/.test(html('index')) && /hero-solutions\.webp/.test(html('maha-hub-solutions')) && /pms-laptop\.webp/.test(html('products')));
 T('every inside link and picture leads somewhere', broken.length === 0, broken.slice(0, 5).join(' ; '));
 const anchors = [];
 for (const p of pages) { const t = html(p); const ids = new Set([...t.matchAll(/id="([^"]+)"/g)].map(m => m[1])); for (const m of t.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) anchors.push(p + '#' + m[1]); }
