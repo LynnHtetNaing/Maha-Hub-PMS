@@ -181,7 +181,6 @@ add('index.html', 'home', {
       <p class="lead">One group, two brands. Maha Solutions builds connected software for hotels. Maha Academy prepares the people who run them.</p>
       <div class="hero-cta"><a class="btn btn-gold" href="/maha-hub-solutions">Explore Maha Solutions ${I.arr}</a><a class="btn btn-line" href="/maha-hub-academy">Explore Maha Academy</a></div>
     </div>
-    <div class="hero-art"><img src="/brand/pms/lockup.png" alt="Maha Hub" width="470" height="304"></div>
   </div>
   <div class="hero-strip"><div class="wrap"><span>Hospitality</span><span>Technology</span><span>Education</span><span>Connected</span></div></div>
 </section>
