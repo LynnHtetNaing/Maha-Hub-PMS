@@ -417,7 +417,7 @@ docPage('refund.html', '', 'Refund Policy', 'Refund and Cancellation Policy', 'H
 add('maha-hub-academy.html', 'academy', {
   title: 'Maha Academy | Practical education for hospitality',
   desc: 'Maha Academy: practical hospitality education for people starting a career, hotel teams and managers. Programmes opening soon.', canon: '/maha-hub-academy',
-}, `${pageHero({ crumb: 'Maha Academy', eyebrow: 'Education', h1: 'Maha Academy', lead: 'Practical hospitality education for people starting a career, for hotel teams and for managers. Programmes are opening soon.', img: '/assets/banners/golden.jpg', pos: '50% 35%' })}
+}, `${pageHero({ crumb: 'Maha Academy', eyebrow: 'Education', h1: 'Maha Academy', lead: 'Practical hospitality education for people starting a career, for hotel teams and for managers. Programmes are opening soon.', img: '/assets/hero-academy.webp', pos: '50% 42%', cls: 'ph-light' })}
 <section class="section">
   <div class="wrap split">
     <div class="reveal">
