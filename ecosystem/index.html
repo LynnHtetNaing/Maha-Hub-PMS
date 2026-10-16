@@ -135,7 +135,7 @@ table.grid tr.click{cursor:pointer}table.grid tr.click:hover td{background:#f4f9
 .cols2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.qa{display:grid;gap:6px;padding:10px}
 /* arrivals split */
 .split{display:grid;grid-template-columns:330px minmax(0,1fr);gap:12px;align-items:start}.split:has(#bfLeft){grid-template-columns:320px minmax(0,1fr)}
-.bfsplit{grid-template-columns:370px minmax(0,1fr)!important;grid-template-rows:auto auto 1fr auto;align-items:stretch;column-gap:12px;row-gap:0}.bfsplit>#bfPane{display:contents}.bfsplit>.bfleft{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;min-height:0;overflow:hidden;margin-bottom:8px}.bfsplit>.bfleft .ssList{flex:1;min-height:0;overflow:auto}.bfsplit .ftb{grid-column:2;grid-row:1;margin-bottom:8px}.bfsplit .fhead{grid-column:2;grid-row:2;margin-bottom:8px}.bfsplit .folios{grid-column:1/-1;grid-row:3;height:max(470px,calc(100vh - 400px));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.bfsplit .folio{height:auto;min-height:0}.bfsplit>p.sub,.bfsplit>.panel.empty{grid-column:1/-1}.alist{max-height:calc(100vh - 170px);overflow:auto}.arow{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #e6edf1;cursor:pointer}.arow.on{background:var(--select);box-shadow:inset 3px 0 var(--gold)}
+.bsrch{position:relative;display:flex;align-items:center;gap:8px}.bsrch .bsQ{height:38px;min-width:260px;padding:0 12px;border:1px solid #b9c6cf;border-radius:4px;font-size:14px;box-sizing:border-box}.bsrch .bsBy{height:38px;border:1px solid #b9c6cf;border-radius:4px;padding:0 8px;font-size:14px;background:#fff;box-sizing:border-box}.phead.withact .pact .bsrch .btn{height:38px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.bsList{position:absolute;top:44px;right:0;z-index:30;min-width:340px;background:#fff;border:1px solid var(--line);border-radius:5px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:300px;overflow:auto}.bsList div{padding:9px 12px;border-bottom:1px solid #eef2f5;cursor:pointer}.bsList div:hover{background:#fdf1d4}.bsMsg{position:absolute;top:44px;right:0;z-index:30;font-size:12.5px;color:#c0271d;background:#fff;border:1px solid var(--line);border-radius:4px;padding:4px 10px;white-space:nowrap}.bfpane .folios{height:max(420px,calc(100vh - 420px));grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.bfpane .folio{height:auto;min-height:0}.alist{max-height:calc(100vh - 170px);overflow:auto}.arow{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid #e6edf1;cursor:pointer}.arow.on{background:var(--select);box-shadow:inset 3px 0 var(--gold)}
 .arow .t{display:flex;flex-direction:column;flex:1}.arow .t span{font-size:11.5px;color:var(--mut)}.pinb{background:#eaf4ee;border:1px solid #a9c8b7;color:var(--green);border-radius:50%;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;flex:none}.pinb:hover{background:var(--gold);color:#1e1606;border-color:#b07e20}
 /* toolbar */
 .toolbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#d7e7f3;border:1px solid #b9d0e1;border-radius:5px;padding:4px 6px;margin-bottom:8px}.toolbar.in{margin:0;background:none;border:0;padding:0}
@@ -6886,12 +6886,29 @@ VIEWS['profile.rates']=el=>{
 /* Billing / Folio: left search list (shared with Arrivals / Departures) + folio on the right */
 let BF={by:'room',q:'',sel:null};
 function billingSplit(el,id){
-  if(id)BF.sel=id;const extra=BF.sel&&bookingById(BF.sel);const keep=extra&&extra.status!=='inhouse'?extra:null;
+  if(id){BF.sel=id;const bb=bookingById(id);if(bb&&bb.room){BF.by='room';BF.q=bb.room}}
+  const extra=BF.sel&&bookingById(BF.sel);const keep=extra&&extra.status!=='inhouse'?extra:null;
   const rowsF=()=>{const a=allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b)));return keep?[keep].concat(a.filter(b=>b.id!==keep.id)):a};
   if(BF.sel&&!rowsF().find(b=>b.id===BF.sel))BF.sel=null;
-  el.innerHTML=`${pageHead('Billing / Folio')}<div class="split bfsplit"><div class="panel bfleft" id="bfLeft"></div><div id="bfPane"></div></div>`;
-  sideSearch($('#bfLeft',el),{title:'',noTitle:true,st:BF,rows:rowsF,mode:'fol',keep,only:true,pick:x=>{BF.sel=x;billingSplit(el)},rerender:()=>billingSplit(el)});
-  const pane=$('#bfPane',el);if(BF.sel)folioPane(pane,BF.sel,()=>billingSplit(el));else pane.innerHTML='<div class="panel empty">Search a room or a guest, then open that folio.</div>';
+  el.innerHTML=pageHead('Billing / Folio','<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';
+  bfSearchBar($('#bfSearch',el),rowsF,x=>{BF.sel=x;billingSplit(el)});
+  const pane=$('#bfPane',el);if(BF.sel)folioPane(pane,BF.sel,()=>billingSplit(el));else pane.innerHTML='<div class="panel empty">Type a room number or guest name above, then press Search.</div>';
+}
+/* Billing / Folio search: box, filter and a Search button in the title bar. One match opens its folio; several matches show a short pick-list. */
+function bfSearchBar(host,rows,pick){
+  const st=BF,cur=()=>SIDE_FILTERS.find(x=>x[0]===st.by)||SIDE_FILTERS[0];
+  host.innerHTML=`<input class="bsQ" value="${esc(st.q)}" placeholder="${esc(cur()[2])}" autocomplete="off" aria-label="Search"><select class="bsBy" aria-label="Filter by">${SIDE_FILTERS.map(x=>`<option value="${x[0]}" ${x[0]===st.by?'selected':''}>${x[1]}</option>`).join('')}</select><button type="button" class="btn gold bsGo">${ic('search',16)} Search</button><div class="bsList" hidden></div><div class="bsMsg" hidden></div>`;
+  const q=$('.bsQ',host),by=$('.bsBy',host),list=$('.bsList',host),msg=$('.bsMsg',host);
+  const hide=()=>{list.hidden=true;msg.hidden=true};
+  const go1=()=>{st.q=q.value;hide();if(!st.q.trim()){msg.textContent='Type something to search.';msg.hidden=false;return}
+    const m=rows().filter(b=>sideMatch(st,b,st.q));
+    if(!m.length){msg.textContent='No in-house folio found.';msg.hidden=false;return}
+    if(m.length===1){pick(m[0].id);return}
+    list.innerHTML=m.map(b=>{const g=G(b.guestId);return `<div data-id="${b.id}"><b>${esc(b.room||'—')}</b> · ${esc(g.last.toUpperCase())}${g.first?', '+esc(g.first):''} <small>RSVN# ${resOf(b).no}</small></div>`}).join('');
+    list.hidden=false;$$('[data-id]',list).forEach(d=>d.onclick=()=>{hide();pick(d.dataset.id)})};
+  $('.bsGo',host).onclick=go1;q.onkeydown=e=>{if(e.key==='Enter')go1()};q.oninput=()=>{st.q=q.value;msg.hidden=true};
+  by.onchange=()=>{st.by=by.value;q.placeholder=cur()[2];hide();q.focus()};
+  document.addEventListener('click',function h(e){if(!host.isConnected){document.removeEventListener('click',h);return}if(!e.target.closest('.bsList')&&!e.target.closest('.bsGo'))list.hidden=true});
 }
 VIEWS['bill.folio']=(el,id)=>billingSplit(el,id);
 VIEWS['bill.open']=(el,id)=>billingSplit(el,id);
