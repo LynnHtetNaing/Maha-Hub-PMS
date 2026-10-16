@@ -40,11 +40,11 @@ begin
   -- a device nobody registered is not trusted
   if public.maha_device_trusted(ua, dev1, 30) then raise exception 'unknown device trusted'; end if;
 
-  -- a right code WITHOUT "register this device" does not trust it
+  -- a right code always remembers the person for 30 days (the tick box no longer matters)
   c1 := public.maha_login_challenge_new(ua, dev1);
   if public.maha_login_challenge_try(c1, ua, dev1) <> 'ok' then raise exception 'first try refused'; end if;
   perform public.maha_login_challenge_done(c1, false);
-  if public.maha_device_trusted(ua, dev1, 30) then raise exception 'device trusted without being registered'; end if;
+  if not public.maha_device_trusted(ua, dev1, 30) then raise exception 'person not remembered after a right code'; end if;
   if public.maha_login_challenge_try(c1, ua, dev1) <> 'invalid' then raise exception 'a finished attempt can be used again'; end if;
 
   -- the attempt belongs to one person and one device
@@ -52,10 +52,10 @@ begin
   if public.maha_login_challenge_try(c1, ub, dev1) <> 'invalid' then raise exception 'another person used this attempt'; end if;
   if public.maha_login_challenge_try(c1, ua, dev2) <> 'invalid' then raise exception 'another device used this attempt'; end if;
 
-  -- a right code WITH "register this device" trusts it for 30 days, only for that person and device
+  -- trusted for 30 days on ANY device of that person, never for another person
   perform public.maha_login_challenge_done(c1, true);
   if not public.maha_device_trusted(ua, dev1, 30) then raise exception 'registered device not trusted'; end if;
-  if public.maha_device_trusted(ua, dev2, 30) then raise exception 'other device trusted'; end if;
+  if not public.maha_device_trusted(ua, dev2, 30) then raise exception 'second device of the same person asked for a code again'; end if;
   if public.maha_device_trusted(ub, dev1, 30) then raise exception 'other person trusted'; end if;
 
   -- after 30 days a new code is needed
