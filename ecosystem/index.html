@@ -6946,10 +6946,10 @@ function folioPane(el,id,onRe){
       ${closed?'<div class="lockbar sm">Closed by Close Day. This folio is read-only. A rebate, refund or void needs approval.</div>':B.status==='out'?'<div class="lockbar sm">Checked out (O). The room is vacant dirty (VD). The Auto button checks the guest back in after housekeeping marks the room vacant clean (VC), until Close Day.</div>':''}</div>
     <div class="fhr"><div class="rmk">Remark <span>${ic('detail',12)}</span></div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div>
    <div class="folios">${[1,2,3,4].map(f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
-     return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Print a Guest Folio of every line on Folio ${f}"><span>Folio ${f}${f===act?' ✱':''}${folLocked(B,f)?' '+ic('lock',13)+' Locked':''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
+     return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Select Folio ${f}. To print it, use the print icon above."><span>Folio ${f}${f===act?' ✱':''}${folLocked(B,f)?' '+ic('lock',13)+' Locked':''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
       <div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>
-      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${l.settled?' <span class="offtag">SETTLED</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
-   <p class="sub">Single-click a line to select it and show the folio numbers that move it. Double-click a line to open it. Click the folio bar to print a Guest Folio of every line on that folio. The grey (+) on Folio 4 can move. The red (−) on Folio 4, and the advance credit (−) on this folio, each print a receipt / tax invoice with the card and remark. A charge remark stays in the transaction window. A normal payment freezes the lines already on that folio and posts one red receipt line.</p>`;
+      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
+   <p class="sub">Single-click a line to select it and show the folio numbers that move it. Double-click a line to open it. Click a folio bar to make it the active folio. To print a Guest Folio, click the print icon in the toolbar. The grey (+) on Folio 4 can move. The red (−) on Folio 4, and the advance credit (−) on this folio, each print a receipt / tax invoice with the card and remark. A charge remark stays in the transaction window. A normal payment freezes the lines already on that folio and posts one red receipt line.</p>`;
   const reopen=()=>{saveDB();onRe?onRe():folioPane(el,id)};
   const actNow=()=>folAct[B.id]||1;
   const curLine=()=>folSel&&B.lines.find(l=>l.id===folSel);
@@ -6977,9 +6977,6 @@ function folioPane(el,id,onRe){
     e.stopPropagation();
     const f=+head.closest('[data-fa]').dataset.fa;
     folAct[B.id]=f;folSel=null;clearTimeout(folClickT);paintSel();
-    if(!B.lines.some(l=>l.folio===f)){toast('This folio has no lines to print.');return}
-    if(!need('print'))return;
-    printGuestFolio(B,f,B.billTo||defaultBillTo(resOf(B)),'detail',B.bill||{},'both');
   }));
   $$('[data-fa]',el).forEach(p=>p.addEventListener('click',e=>{if(e.target.closest('tr[data-l]')||e.target.closest('.fh'))return;const f=+p.dataset.fa;if(folAct[B.id]!==f){folAct[B.id]=f;paintSel()}}));
   $$('tr[data-l]',el).forEach(tr=>{
