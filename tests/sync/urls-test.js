@@ -22,7 +22,7 @@ T('the other systems keep their addresses', env('/ecosystem/Reach/').sysFromPath
 T('entering the PMS gives www.maha-hub.com/solutions-PMS', e.sysUrl('hub', { code: 'PAD01' }) === 'https://maha-hub.com/solutions-PMS?hotel=PAD01' && e.sysUrl('hub') === 'https://maha-hub.com/solutions-PMS');
 T('Reach, Connect, Booking and Sales still go to /ecosystem/<System>/', e.sysUrl('reach') === 'https://maha-hub.com/ecosystem/Reach/' && e.sysUrl('book', { code: 'X' }) === 'https://maha-hub.com/ecosystem/Booking/?hotel=X');
 e = env('/ecosystem/'); e.applySysPath('hub');
-T('from the old address the bar moves to /solutions-PMS', e.hist.to === '/solutions-PMS' && e.doc.title === 'maha-hub / solutions / PMS');
+T('from the old address the bar moves to /solutions-PMS', e.hist.to === '/solutions-PMS' && e.doc.title === 'Maha PMS');
 e = env('/solutions-PMS'); e.applySysPath(null);
 T('back to the Main page the address is /solutions', e.hist.to === '/solutions' && e.doc.title === 'maha-hub / solutions');
 e = env('/solutions/'); e.applySysPath(null);
