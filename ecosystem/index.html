@@ -1165,8 +1165,16 @@ function ensureMasterProvider(){
   if(changed) saveDB();
 }
 function defaultFeatures(){return {city:true,petty:true,buy:true,roster:true,groups:true,tax:true,help:true,ai:true,dashboard:true,confirm:true}}
+/* Breakfast posted before ABF - Adult / ABF - Child existed: the room line becomes ABF - Adult (+) and the D999 line becomes ABF - Adult (-). Done once per hotel. */
+function migrateAbfLines(h){if(!h||!h.set||h.set.abfSplitDone||!Array.isArray(h.reservations))return 0;let n=0;
+  h.reservations.forEach(r=>(r.bookings||[]).forEach(b=>(b.lines||[]).forEach(l=>{if(l.code!=='200')return;
+    const dummy=!!(b.masterDummy||((h.rooms||[]).find(x=>x.no===b.room)||{}).dummy);
+    if(!dummy&&l.desc==='Breakfast (ABF)'&&l.pkgSplit){l.code='201';l.desc='ABF - Adult';n++}
+    else if(dummy&&/^F&B revenue/.test(l.desc||'')&&l.amt>0){l.code='201';l.desc='ABF - Adult';l.amt=-l.amt;n++}})));
+  h.set.abfSplitDone=1;return n}
 function shapeHotel(h){
   if(!h||!h.set)return;
+  migrateAbfLines(h);
   if(!h.set.tz)h.set.tz='Asia/Bangkok';      /* hotels made before time zones existed */
   h.cityLedger=Array.isArray(h.cityLedger)?h.cityLedger:[];
   h.petty=Array.isArray(h.petty)?h.petty:[];
