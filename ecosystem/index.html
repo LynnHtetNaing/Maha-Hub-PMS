@@ -7243,17 +7243,18 @@ VIEWS['bill.edclinks']=el=>{
 };
 
 /* ---------- post new transaction: "New Item Folio" (7.x) ---------- */
-let postTab='MISC.';
+let postTab='MISC.',postKind='c';   /* postKind: c charge types, adj Adjust types, reb Rebate types */
 function postModal(B,after,folio){if(!need('post'))return;const gone=B.status==='out';if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
   let pf=folio||1,cur=null;
+  if(gone&&postKind==='c')postKind='adj';
   const m=modal('New Item Folio','<div id="niB"></div>',{w:1240,cls:'nimodal'});
   const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor));
-  const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c);
+  const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c),kindOf=c=>isRb(c)?'reb':isAd(c)?'adj':'c';
   /* a correction code is chosen like any other; after check-out it opens the correction window (reason, credit note, who may do it) */
   const allowed=c=>{if(isRb(c)&&!can('rebate')||isAd(c)&&!can('adjust')){dlgAlert(PS_MSG.perm);return false}if(gone&&corr(c)){closeModal(m);psEntry(B,isRb(c)?'rebate':'adjust',after,isRb(c)?(c.rebFor||c.code):c.code);return false}return true};
-  const paint=()=>{const list=codes().filter(c=>c.tab===postTab);
+  const paint=()=>{const nOf=k=>codes().filter(c=>c.tab===postTab&&kindOf(c)===k).length,list=codes().filter(c=>c.tab===postTab&&kindOf(c)===postKind);
     $('#niB',m).innerHTML=`<div class="nitabs">${POST_TABS.map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
-    <div class="nimain"><div class="nitiles" id="niTiles">${list.map(c=>`<button class="nitile ${cur&&cur.code===c.code?'on':''}" data-nc="${c.code}">${ic(isRb(c)?'rebate':isAd(c)?'swap':'copy',40)}<b>${c.code}</b><span>${esc(c.desc)}</span><em class="rg ${chargeVat(c)?'':'nv'}">${chargeVat(c)?'VAT':'Non-VAT'}</em></button>`).join('')||'<div class="empty">No codes in this group.</div>'}</div>
+    <div class="nimain"><div class="nileft"><div class="segs refseg"><button type="button" id="niKc" aria-pressed="${postKind==='c'}" ${gone?'disabled title="After check-out only Adjust and Rebate are possible"':''}>Charge types (${nOf('c')})</button><button type="button" id="niKa" aria-pressed="${postKind==='adj'}">Adjust types (${nOf('adj')})</button><button type="button" id="niKr" aria-pressed="${postKind==='reb'}">Rebate types (${nOf('reb')})</button></div><div class="nitiles" id="niTiles">${list.map(c=>`<button class="nitile ${cur&&cur.code===c.code?'on':''}" data-nc="${c.code}">${ic(isRb(c)?'rebate':isAd(c)?'swap':'copy',40)}<b>${c.code}</b><span>${esc(c.desc)}</span><em class="rg ${chargeVat(c)?'':'nv'}">${chargeVat(c)?'VAT':'Non-VAT'}</em></button>`).join('')||'<div class="empty">No codes in this group.</div>'}</div></div>
      <div class="niform">${fld('Post to folio',`<div class="segs fseg">${[1,2,3,4].map(x=>`<button type="button" data-pf="${x}" aria-pressed="${x===pf}">Folio ${x}</button>`).join('')}</div>`)}
       ${fld('Code',`<div class="row gap"><input id="niC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="niSrch" title="Search codes">${ic('search',15)}</button></div><div id="niHits"></div>`)}
       ${fld('Description',`<input id="niD" value="${cur?esc(cur.desc):''}">`)}
@@ -7265,12 +7266,13 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
     const keep=['niR','niA','niM'].map(id=>[id,m._v&&m._v[id]]);keep.forEach(([id,v])=>{if(v!=null)$('#'+id,m).value=v});
     if(cur&&cur.code==='203'&&houseAccount(B)&&!$('#niA',m).value){const need=-folioBal(B,pf);if(need>0.004)$('#niA',m).value=String(r2(need))}
     $$('[data-nt]',m).forEach(b=>b.onclick=()=>{save();postTab=b.dataset.nt;paint()});
+    if($('#niKc',m)){$('#niKc',m).onclick=()=>{if(gone)return;save();postKind='c';paint()};$('#niKa',m).onclick=()=>{save();postKind='adj';paint()};$('#niKr',m).onclick=()=>{save();postKind='reb';paint()}}
     $$('[data-nc]',m).forEach(b=>b.onclick=()=>{const c=TCODES.find(x=>x.code===b.dataset.nc);if(!allowed(c))return;save();cur=c;paint();$('#niA',m).focus()});
     $$('[data-pf]',m).forEach(b=>b.onclick=()=>{save();pf=+b.dataset.pf;paint()});
     const findCode=q=>{q=q.trim().toLowerCase();return q?codes().filter(c=>c.code.startsWith(q)||c.desc.toLowerCase().includes(q)).slice(0,8):[]};
-    $('#niC',m).oninput=()=>{const q=$('#niC',m).value.trim();const exact=codes().find(c=>c.code===q);if(exact){if(!allowed(exact))return;save();cur=exact;postTab=exact.tab;paint();$('#niA',m).focus();return}
+    $('#niC',m).oninput=()=>{const q=$('#niC',m).value.trim();const exact=codes().find(c=>c.code===q);if(exact){if(!allowed(exact))return;save();cur=exact;postTab=exact.tab;postKind=kindOf(exact);paint();$('#niA',m).focus();return}
       const hits=findCode(q);$('#niHits',m).innerHTML=hits.length?`<div class="nihits">${hits.map(c=>`<button data-hit="${c.code}"><b>${c.code}</b> ${esc(c.desc)}</button>`).join('')}</div>`:'';
-      $$('[data-hit]',m).forEach(b=>b.onclick=()=>{const c=TCODES.find(x=>x.code===b.dataset.hit);if(!allowed(c))return;save();cur=c;postTab=cur.tab;paint();$('#niA',m).focus()})};
+      $$('[data-hit]',m).forEach(b=>b.onclick=()=>{const c=TCODES.find(x=>x.code===b.dataset.hit);if(!allowed(c))return;save();cur=c;postTab=cur.tab;postKind=kindOf(c);paint();$('#niA',m).focus()})};
     $('#niSrch',m).onclick=()=>$('#niC',m).dispatchEvent(new Event('input'));
     $('#niCalc',m).onclick=()=>calcPad($('#niPad',m),$('#niA',m),upd);
     $('#niA',m).oninput=upd;$('#niX',m).onclick=()=>closeModal(m);$('#niP',m).onclick=doPost;upd();
