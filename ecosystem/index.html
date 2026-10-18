@@ -7435,11 +7435,11 @@ function transactionPopup(B,l,after){if(!l)return;
   const blk=lineBlock(B,l),prov=user().provider;
   const canAmt=!blk&&!prov&&!locked&&!corrected&&(((l.kind==='pay'||l.kind==='payrec')&&can('corrpay'))||((l.kind==='post'||l.kind==='room')&&can('post')));
   const canRef=!blk&&!prov&&!locked&&(l.kind==='post'||isPay||l.kind==='room')&&can('post');const canRem=!blk&&!prov&&!locked;
-  const acts=[];let blockNote='';
-  if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCP" ${locked||!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`);if(locked)blockNote='Correct post is blocked. This post belongs to a closed day (Close Day has run). A post from a closed day cannot be corrected: use Rebate to take an amount off, or Adjust (+) to add.'}
+  const acts=[];
+  if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCP" ${locked?'aria-disabled="true"':!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`)}
   {const env=cpEnvOf(B),payOnly=l.kind==='pay'&&payLocked(l)&&!frozen(l)&&!l.settled&&!folLocked(B,l.folio);
     const isPayLine=(l.kind==='pay'||l.kind==='payrec')&&!l.refund&&!corrected&&(!blk||payOnly);
-    if(isPayLine&&cpDepositOk(B,l,env)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCY" ${locked||!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`);if(locked)blockNote='Correct payment is blocked. This payment belongs to a closed day (Close Day has run). A payment from a closed day cannot be corrected: use Refund to pay it back.'}
+    if(isPayLine&&cpDepositOk(B,l,env)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCY" ${locked?'aria-disabled="true"':!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`)}
     else if(isPayLine)acts.push(`<span class="sub">A reservation deposit is refunded, not corrected. Use Refund.</span>`)}
   if(!blk&&isCharge(l)&&locked)acts.push(`<button class="btn" id="tReb">${ic('rebate',15)} Rebate</button>`);
   let tab='post';
@@ -7451,7 +7451,6 @@ function transactionPopup(B,l,after){if(!l)return;
        <div><p>Original Amount: <b class="c2">${m2(l.amt)}</b> <span class="c3">(${m2(sign*t.net)})</span></p><p>Service Charge: <b class="c4">${m2(sign*t.svc)}</b></p><p>${esc(H.set.taxName)} Amount: <b class="c4">${m2(sign*t.vat)}</b></p><p>Additional Tax: <b class="c4">0.00</b></p><p>Tax Code: ${l.vat?esc(H.set.taxName)+' '+H.set.vat+'%':'NON VAT'}</p><p>Tax Type: ${l.vat?'Inclusive':'—'}</p>
        <p>Tax Inv.: <span class="pillg">${inv?invRef(inv):0}</span> CR. note: <span class="pillg">0</span> <span class="c1">Folio Seq#:</span> <span class="pillg">${B.lines.filter(x=>x.folio===l.folio).indexOf(l)+1}</span></p></div></div>`:
       `<div class="pinfo one"><p>Posted to Folio ${l.folio}${l.origBooking&&l.origBooking!==B.id?' · transferred from another room':''}. ${l.deposit?'Taken as a reservation deposit.':''}</p><p>Billing setup: default folios (charges to Folio 1; payment record pair to Folio 4).</p></div>`}
-     ${blockNote?`<div class="lockbar sm">${esc(blockNote)}</div>`:''}
      ${blk?`<div class="lockbar sm">${esc(blk)}</div>`:locked?'<div class="sub">This line belongs to a closed day. Reference, amount and remark are locked. It can still be moved between folios and rooms; only the provider can change it.</div>':'<div class="sub">Posted wrong? Reference, amount and remark can be changed until Close Day. A wrong code or description needs a Correct post.</div>'}
      <div class="txbtns">${acts.join('')}${canAmt||canRef||canRem?'<button class="btn gold" id="tSave">Save changes</button>':''}${user().isProv?'<button class="btn purple" id="tPE">Provider: edit anything</button><button class="btn red" id="tPD">Provider: delete line</button>':''}<button class="btn txclose" id="tX">Close</button><button class="btn txlog" id="tUL">${ic('log',15)} User Logs</button><button class="btn txlog" id="tPL">${ic('detail',15)} POS LOG</button></div></div>`;
     $$('[data-tt]',m).forEach(b=>b.onclick=()=>{tab=b.dataset.tt;paint()});
@@ -7472,10 +7471,10 @@ function transactionPopup(B,l,after){if(!l)return;
         if(v!==old){if(isPay){if(!can('corrpay')){toast('You do not have permission to change payment amounts.');return}grp.forEach(x=>x.amt=x.amt<0?-v:v)}else l.amt=l.amt<0?-v:v;ch.push(`amount ${m2(old)} → ${m2(v)}`)}}
       if(!ch.length){toast('Nothing changed.');return}(isPay?grp:[l]).forEach(x=>x.hist.push({at:Date.now(),user:user().name,shift:s.name,a:'Edited: '+ch.join(', ')}));
       log(`Edited line ${l.sys} RSVN ${resOf(B).no}: ${ch.join(', ')}`,B.id);closeModal(m);after();toast('Transaction updated')};
-    if($('#tCP',m))$('#tCP',m).onclick=async ()=>{if(!need('corrpost'))return;const why=await dlgAsk('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
+    if($('#tCP',m))$('#tCP',m).onclick=async ()=>{if(locked){dlgAlert('This post belongs to a closed day, so it cannot be corrected.\nUse Rebate to take an amount off, or Adjust (+) to add.','Correct post is blocked');return}if(!need('corrpost'))return;const why=await dlgAsk('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
       const c=addLine(H,B,{...lineCtx(),folio:l.folio,code:l.code,desc:'Correct - '+l.desc,ref:l.ref,amt:-l.amt,kind:'corrpost',link:l.id,vat:l.vat,remark:why.trim()});
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Corrected by line '+c.sys+': '+why});log(`Correct post ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();toast('Correct post added. The charge now nets to 0.')};
-    if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(!need('corrpay'))return;{const w0=cpCheck(B,l,cpEnvOf(B));if(w0){dlgAlert(w0);return}}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
+    if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(locked){dlgAlert('This payment belongs to a closed day, so it cannot be corrected.\nUse Refund to pay it back.','Correct payment is blocked');return}if(!need('corrpay'))return;{const w0=cpCheck(B,l,cpEnvOf(B));if(w0){dlgAlert(w0);return}}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
       const res=cpApply(H,B,l,{...lineCtx()},why.trim());
       releaseSettled(B,l.group,'Opened again because the payment was corrected');
       if(typeof refreshCityItems==='function')refreshCityItems(H);
