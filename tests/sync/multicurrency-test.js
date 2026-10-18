@@ -6,7 +6,7 @@ const a = src.indexOf('/* ---- Multi-currency:'), b = src.indexOf('/* ---- end M
 if (a < 0 || b < 0) throw new Error('code not found');
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
-const X = new Function('H', 'user', 'can', src.slice(a, b) + '\nreturn {CUR_LIST,curName,curMain,curOthers,curMulti,curList,curUserOn,bCur,bForeign,bRate,curInfo,curToMain,curApply,curLineCur,curLineAmt,curLineEq,curPanelCalc};');
+const X = new Function('H', 'user', 'can', src.slice(a, b) + '\nreturn {CUR_LIST,curName,curMain,curOthers,curMulti,curList,curUserOn,bCur,bForeign,bRate,curInfo,curToMain,curApply,curLineCur,curLineAmt,curLineEq,curPanelCalc,curViewHotel};');
 
 const hotel = (extra) => ({ code: 'PAD01', set: Object.assign({ cur: 'THB', curWord: 'BAHT', subWord: 'SATANG', bfAdult: 150 }, extra || {}) });
 let H = hotel(), U = { name: 'staff', perms: [] };
@@ -102,4 +102,37 @@ T('an empty amount gives nothing and no error', (() => { const q = m.curPanelCal
 /* what a line says about itself */
 T('a line without a record of its own is in the reservation currency', m.curLineCur(usdRes, { amt: 100 }) === 'USD' && m.curLineAmt(usdRes, { amt: 100 }) === 100 && m.curLineEq(usdRes, { amt: 100 }) === 3550 && m.curLineEq(thbRes, { amt: 100 }) === 100);
 T('a line with its own record reports that currency, amount and equivalent', (() => { const l = { amt: -1775, fc: 'USD', fa: -50, fr: 35.5, eq: -1775 }; return m.curLineCur(thbRes, l) === 'USD' && m.curLineAmt(thbRes, l) === -50 && m.curLineEq(thbRes, l) === -1775 })());
+/* the report view of the hotel */
+const mkH = () => ({
+  set: { cur: 'THB' }, rooms: [{ no: '101' }, { no: '201' }, { no: 'D999', dummy: true }],
+  audits: [{ date: '2026-10-19', rev: 7100, revCur: { THB: 3000, USD: 100 } }],
+  creditNotes: [{ id: 'n1', bookingId: 'b2', rows: [{ amt: 10 }], vatable: 10, nonvat: 0, total: 10 }],
+  reservations: [
+    { id: 'r1', bookings: [{ id: 'b1', room: '101', nightly: { '2026-10-20': 2000 }, lines: [
+      { id: 'a', amt: 2000, kind: 'post', code: '104' }, { id: 'b', amt: -1775, kind: 'pay', code: '900', fc: 'USD', fa: -50, fr: 35.5, eq: -1775 }] }] },
+    { id: 'r2', bookings: [{ id: 'b2', room: '201', cur: 'USD', curRate: 35.5, nightly: { '2026-10-20': 100 }, lines: [
+      { id: 'c', amt: 200, kind: 'post', code: '104' }, { id: 'd', amt: -200, kind: 'pay', code: '900', fc: 'THB', fa: -7200, fr: 1, eq: -7200 }] }] },
+    { id: 'rD', bookings: [{ id: 'bD', room: 'D999', masterDummy: true, nightly: {}, lines: [
+      { id: 'e', amt: -355, kind: 'post', code: '201', fc: 'USD', fa: -10, fr: 35.5, eq: -355 }, { id: 'f', amt: -300, kind: 'post', code: '201' }] }] }
+  ] });
+const H0 = mkH(), snap = JSON.stringify(H0);
+const book = (v, id) => v.reservations.flatMap(r => r.bookings).find(b => b.id === id);
+let V = m.curViewHotel(H0, 'ALL', 'folio');
+T('converted view: a USD reservation is in the main currency, its lines at the typed equivalents', book(V, 'b2').lines.map(l => l.amt).join() === '7100,-7200' && book(V, 'b2').nightly['2026-10-20'] === 3550 && !book(V, 'b2').cur);
+T('converted view: a main-currency reservation keeps its amounts, and the USD payment is already in THB', book(V, 'b1').lines.map(l => l.amt).join() === '2000,-1775');
+T('converted view: no foreign-currency fields are left for the reports to trip over', V.reservations.flatMap(r => r.bookings).every(b => b.lines.every(l => l.fc === undefined && l.fa === undefined && l.eq === undefined)));
+T('converted view: a credit note of a USD reservation is converted too', V.creditNotes[0].total === 355 && V.creditNotes[0].rows[0].amt === 355);
+T('the real hotel is never touched by a view', JSON.stringify(H0) === snap);
+V = m.curViewHotel(H0, 'USD', 'folio');
+T('USD folio view: only the USD reservation, lines as stored, plus the USD part of the house account', !book(V, 'b1') && book(V, 'b2').lines.map(l => l.amt).join() === '200,-200' && book(V, 'bD').lines.map(l => l.amt).join() === '-10');
+T('USD view: the audit shows the USD room revenue', V.audits[0].rev === 100);
+V = m.curViewHotel(H0, 'THB', 'folio');
+T('THB folio view: the THB reservation only, the USD payment shown at its THB value, the THB part of the house account', book(V, 'b1').lines.map(l => l.amt).join() === '2000,-1775' && !book(V, 'b2') && book(V, 'bD').lines.map(l => l.amt).join() === '-300');
+T('THB view: the audit shows the THB room revenue', V.audits[0].rev === 3000);
+V = m.curViewHotel(H0, 'USD', 'cash');
+T('USD cash view: the USD payment taken on a THB folio appears with its own USD amount', book(V, 'b1') && book(V, 'b1').lines.map(l => l.amt).join() === '-50' && book(V, 'b1').nightly['2026-10-20'] === 0);
+T('USD cash view: the THB payment on the USD reservation is not a USD line', book(V, 'b2').lines.map(l => l.amt).join() === '200');
+V = m.curViewHotel(H0, 'THB', 'cash');
+T('THB cash view: the THB payment taken on a USD folio appears as THB 7,200, the USD payment does not', book(V, 'b2') && book(V, 'b2').lines.map(l => l.amt).join() === '-7200' && book(V, 'b1').lines.map(l => l.amt).join() === '2000');
+T('a currency nobody used gives an empty view', m.curViewHotel(H0, 'EUR', 'cash').reservations.length === 0 && m.curViewHotel(H0, 'EUR', 'folio').reservations.length === 0);
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
