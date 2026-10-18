@@ -347,6 +347,8 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 .curpick{position:relative;display:flex;align-items:center;gap:10px;min-height:40px}.curbtn{font-weight:700}.curbtn.on{border-color:#3b9ae1;color:#1d4f8a;background:#e8f2fb}.curmenu{position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:#fff;border:1px solid #cfd8de;border-radius:10px;box-shadow:0 10px 26px rgba(0,0,0,.2);min-width:260px;padding:6px}.curmenu button{display:flex;gap:8px;align-items:center;width:100%;background:none;border:0;padding:8px 10px;border-radius:6px;text-align:left;font-size:13.5px;cursor:pointer;color:#26323b}.curmenu button:hover,.curmenu button.on{background:#e8f2fb;color:#1d4f8a}.curmenu small{margin-left:auto;color:#7a8791}
 .mcrate{display:flex;align-items:center;gap:10px;margin:10px 0;padding:12px 14px;background:#f3f8fb;border:1px solid #cfe0ec;border-radius:10px;font-weight:600}.mcrate input{width:130px;text-align:right;font-size:16px;font-weight:700}
 .curtag{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;background:#e8f2fb;color:#1d4f8a;font-weight:700;font-size:12px;border:1px solid #3b9ae1}
+.mcp{background:#f3f8fb;border:1px solid #cfe0ec;border-radius:10px;padding:12px 14px;margin:4px 0;display:flex;flex-direction:column;gap:8px}.mcp-top{display:flex;align-items:center;gap:10px}.mc-btn{display:inline-flex;align-items:center;background:#fff;border:1px solid #3b9ae1;color:#1d4f8a;font-weight:700;border-radius:8px;padding:7px 14px;font-size:14px;cursor:pointer}.mcp-menu[hidden]{display:none}.mcp-menu{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid #cfd8de;border-radius:8px;padding:4px}.mcp-menu button{display:flex;gap:8px;align-items:center;background:none;border:0;padding:7px 10px;border-radius:6px;text-align:left;font-size:13.5px;cursor:pointer;color:#26323b}.mcp-menu button:hover,.mcp-menu button.on{background:#e8f2fb;color:#1d4f8a}.mcp-menu small{margin-left:auto;color:#7a8791}.mc-rate{display:flex;align-items:center;gap:8px;font-weight:600;color:#26323b;flex-wrap:wrap}.mc-rate input{width:120px;text-align:right;padding:7px 9px;font-size:15px;font-weight:700}.mc-eq{display:flex;flex-direction:column;gap:3px;font-size:13px;color:#44525c;border-top:1px dashed #b9cfde;padding-top:6px}.mc-eq:empty{display:none}.mc-note{font-size:12px;color:#7a8791}.fxtag{display:block;font-size:11px;color:#2b6cb0;font-weight:600;white-space:nowrap}
+.nimc .nimain{grid-template-columns:1fr 540px;min-height:min(720px,calc(96vh - 150px));max-height:calc(96vh - 150px)}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -1090,13 +1092,42 @@ const curToMain=(amt,rate)=>Math.round((+amt||0)*(+rate>0?+rate:1)*100)/100;
 function curApply(amt,pc,rp,rc,rr,main){const a=Math.round((+amt||0)*100)/100;pc=pc||rc;const same=pc===rc;
   const rpv=pc===main?1:(+rp>0?+rp:(same&&+rr>0?+rr:0)),rrv=rc===main?1:(+rr>0?+rr:0);
   if(!rpv||!rrv)return {error:'Type the rate (1 '+(!rpv?pc:rc)+' = ? '+main+').',main:0,folio:0,same};
-  const m=Math.round(a*rpv*100)/100,f=same?a:Math.round(m/rrv*100)/100;return {main:m,folio:f,same}}/* ---- end Multi-currency ---- */
+  const m=Math.round(a*rpv*100)/100,f=same?a:Math.round(m/rrv*100)/100;return {main:m,folio:f,same}}/* per line: the currency it was typed in, the amount typed, and its value in the main currency (a line with no record of its own is in the reservation currency) */
+const curLineCur=(B,l)=>(l&&l.fc)||bCur(B);
+const curLineAmt=(B,l)=>l&&l.fa!=null?l.fa:(l?l.amt:0);
+const curLineEq=(B,l)=>l&&l.eq!=null?l.eq:curToMain(l?l.amt:0,bRate(B));
+/* The currency block of the Post and Payment windows. st = {cur, rp, rr}: the currency chosen, the rate typed for it, and the rate of the day for the reservation currency. */
+function curPanelCalc(B,st,typed){const main=curMain(),rc=bCur(B),cur=st.cur||rc,a=Math.round((+typed||0)*100)/100;
+  const rp=cur===main?1:(+st.rp>0?+st.rp:(cur===rc&&bRate(B)>0?bRate(B):0));
+  const rr=rc===main?1:(cur===rc?bRate(B):(+st.rr>0?+st.rr:0));
+  const none={error:'',main:0,folio:0,same:cur===rc,fx:null,cur,rp,rr};
+  if(!(a>0))return none;
+  const c=curApply(a,cur,cur===main?0:rp,rc,rr,main);if(c.error)return Object.assign(none,{error:c.error});
+  return {error:'',main:c.main,folio:c.folio,same:c.same,fx:(cur===rc&&rc===main)?null:{fc:cur,fa:a,fr:cur===main?1:rp,eq:c.main},cur,rp,rr}}
+/* ---- end Multi-currency ---- */
 /* The alert shown when a currency other than the main one is chosen: the user types the rate (1 unit = X main currency). Returns the rate, or null when cancelled. */
 function curRateAlert(code,rate0,note){const main=curMain();
   return dlgOpen('Check the actual rate',`<p class="dlgmsg"><b>Please check the actual exchange rate before you continue.</b><br>The system does not look up or convert rates. You type the final rate, and every amount you enter is in ${esc(code)}.</p>
    <div class="mcrate">1 ${esc(code)} = <input class="dlgin n" id="mcRate" inputmode="decimal" value="${rate0?esc(String(rate0)):''}" placeholder="0.00"> ${esc(main)}</div>
    ${note?`<p class="sub">${esc(note)}</p>`:''}<div class="err" id="dlgErr"></div>`,
    [{t:'Cancel',cls:'ghost',v:null,cancel:null},{t:'I checked the rate - continue',cls:'purple',get:m=>{const v=+String(m.querySelector('#mcRate').value).replace(/,/g,'');if(!(v>0)){m.querySelector('#dlgErr').textContent='Type the rate: how many '+main+' is 1 '+code+'.';return undefined}return Math.round(v*1e6)/1e6}}],580)}
+
+/* The currency block shown in the Post and Payment windows (only for people who may choose a currency in a hotel with extra currencies). */
+function curPanelHtml(B,st){const main=curMain(),rc=bCur(B),cur=st.cur,needRp=cur!==main,needRr=rc!==main&&cur!==rc;
+  return `<div class="mcp"><div class="mcp-top"><div class="mc-btn" id="mcpB">${esc(cur)} &#9662;</div><span class="sub">Currency of this amount${cur===rc?' (the reservation currency)':''}</span></div>
+   <div class="mcp-menu" id="mcpM" hidden>${curList(H).map(c=>`<button type="button" data-mcp="${c}" class="${c===cur?'on':''}"><b>${c}</b> ${esc(curName(c))}${c===main?' <small>main</small>':''}${c===rc?' <small>reservation</small>':''}</button>`).join('')}</div>
+   ${needRp?`<div class="mc-rate">1 ${esc(cur)} = <input id="mcpRp" class="n" inputmode="decimal" value="${esc(st.rp)}" placeholder="${cur===rc?String(bRate(B)):'0.00'}"> ${esc(main)}</div>`:''}
+   ${needRr?`<div class="mc-rate">1 ${esc(rc)} (this reservation) = <input id="mcpRr" class="n" inputmode="decimal" value="${esc(st.rr)}" placeholder="0.00"> ${esc(main)} <span class="sub">rate of the day</span></div>`:''}
+   <div class="mc-eq" id="mcpQ"></div><div class="mc-note">Check the actual rate. You type the final rate; the system never looks one up.</div></div>`}
+/* wires the block; returns the function that refreshes its quote. balNow = the folio balance now, dir = +1 for a charge, -1 for a payment. */
+function curPanelBind(host,B,st,typedGet,balNow,dir,repaint){const q=s=>host.querySelector(s),main=curMain(),rc=bCur(B);
+  const quote=()=>{const box=q('#mcpQ');if(!box)return;const t=+String(typedGet()).replace(/,/g,'')||0;if(!(t>0)){box.innerHTML='';return}const r=curPanelCalc(B,st,t);
+    box.innerHTML=r.error?`<span class="bad">${esc(r.error)}</span>`:`<span>Amount <b>${esc(st.cur)} ${m2(t)}</b></span>${st.cur!==main?`<span>Equivalent in ${esc(main)} <b>${m2(r.main)}</b></span>`:''}${st.cur!==rc?`<span>${dir<0?'Reduces':'Adds to'} the folio by <b>${esc(rc)} ${m2(r.folio)}</b></span>`:''}<span>Folio balance after <b>${esc(rc)} ${m2(balNow+dir*r.folio)}</b></span>`};
+  q('#mcpB').onclick=()=>{q('#mcpM').hidden=!q('#mcpM').hidden};
+  host.querySelectorAll('[data-mcp]').forEach(b=>b.onclick=()=>{const c=b.dataset.mcp;if(c!==st.cur){st.cur=c;st.rp='';st.rr=bForeign(B)?String(B.curRate):''}repaint()});
+  if(q('#mcpRp'))q('#mcpRp').oninput=e=>{st.rp=e.target.value;quote()};
+  if(q('#mcpRr'))q('#mcpRr').oninput=e=>{st.rr=e.target.value;quote()};
+  quote();return quote}
 /* a room added to a reservation, or a copy of it, keeps the currency, the rate and the nightly rate typed for it */
 function curInherit(nb,B){if(!bForeign(B))return nb;nb.cur=B.cur;nb.curRate=B.curRate;const v=nightRate(H,B);Object.keys(nb.nightly).forEach(k=>nb.nightly[k]=v);return nb}
 
@@ -2667,6 +2698,7 @@ function addLine(h,B,o){
     amt:r2(o.amt),kind:o.kind||'post',method:o.method||'',group:o.group||null,link:o.link||null,night:o.night||null,fixed:!!o.fixed,deposit:!!o.deposit,adv:!!o.adv,
     vat:o.vat!==undefined?o.vat:(tc.type==='c'?chargeVat(tc.code||o.code,h):false),user:o.user||'',shiftId:o.shift?o.shift.id:null,shiftName:o.shift?o.shift.name:'',
     remark:o.remark||'',pkgSplit:!!o.pkgSplit,hist:[{at:o.time||Date.now(),user:o.user||'',shift:o.shift?o.shift.name:'',a:'Posted to folio '+(o.folio||1)}],origBooking:B.id};
+  if(o.fx){const sg=l.amt<0?-1:1;l.fc=o.fx.fc;l.fa=r2(sg*Math.abs(o.fx.fa));l.fr=o.fx.fr;l.eq=r2(sg*Math.abs(o.fx.eq))}
   B.lines.push(l);return l;
 }
 /* Advance and deposit keep three lines.
@@ -2676,7 +2708,7 @@ function addLine(h,B,o){
 function postPayment(h,B,code,amt,o={}){
   const tc=TCODES.find(c=>c.code===code),g='pg'+uid(),codeDesc=tc?tc.desc:'Payment';
   const typed=String(o.desc||codeDesc).replace(/\s*-\s*Advance (Payment|Deposit)$/i,'').replace(/^(Advance (Payment|Deposit)|Reservation Deposit)\s*-\s*/i,'').trim()||codeDesc;
-  const base={code,method:typed,group:g,bd:o.bd,shift:o.shift,user:o.user,ref:o.ref||'',deposit:!!o.deposit,remark:o.remark||'',vat:false,time:o.time};
+  const base={code,method:typed,group:g,bd:o.bd,shift:o.shift,user:o.user,ref:o.ref||'',deposit:!!o.deposit,remark:o.remark||'',vat:false,time:o.time,fx:o.fx};
   const s=tc&&tc.refund?-1:1,label=o.label||(o.adv?'Advance Payment':o.deposit?'Advance Deposit':tc&&tc.refund?'Refund':'Payment');
   const three=!!(o.adv&&!o.deposit);      /* a reservation deposit is one line on Folio 1; its receipt / tax invoice comes from the Deposit invoice button on the reservation */
   const guestDesc=o.deposit?'Reservation Deposit - '+typed:three?typed+' - '+label:(o.desc||codeDesc);   /* the deposit line reads Reservation Deposit - (payment type) */
@@ -2749,7 +2781,7 @@ function cpApply(h,B,l,ctx,why){
   const grp=cpGroup(B,l),A=grp.find(x=>x.kind==='pay'),C=grp.find(x=>x.kind==='payoff'),R=grp.find(x=>x.kind==='payrec'),orig=A||R||l;
   const sp=typeof receiptSpec==='function'?receiptSpec(B,R||A||l):{base:0,nonvat:0,key:''};      /* the tax of the original receipt, read before anything changes */
   const tag='Correct Payment - '+(orig.method||orig.desc);
-  const mk=(src,o)=>{const x=addLine(h,B,Object.assign({bd:ctx.bd,shift:ctx.shift,user:ctx.user,folio:src.folio,code:src.code,desc:tag,ref:src.ref,amt:-src.amt,group:src.group,method:src.method,vat:false,remark:why||''},o));x.corr=true;return x};
+  const mk=(src,o)=>{const x=addLine(h,B,Object.assign({bd:ctx.bd,shift:ctx.shift,user:ctx.user,folio:src.folio,code:src.code,desc:tag,ref:src.ref,amt:-src.amt,group:src.group,method:src.method,vat:false,remark:why||''},o));x.corr=true;if(src.fc){x.fc=src.fc;x.fa=r2(-(+src.fa||0));x.fr=src.fr;x.eq=r2(-(+src.eq||0))}return x};
   const made=[];let white=null,green;
   if(A&&C&&R){                                                      /* advance / deposit: white line on its folio, grey pair and soft green line on Folio 4, like the payment itself */
     white=mk(A,{kind:'pay',adv:A.adv,deposit:A.deposit});made.push(white);
@@ -7122,7 +7154,7 @@ let FI={by:'name',q:''};
 function inquiryFolios(B){
   const r=resOf(B),g=G(B.guestId),co=CO(r.companyId),total=bal(B);
   const box=f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
-    return `<div class="folio"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>${ls.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`};
+    return `<div class="folio"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>${ls.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}${l.fc?`<span class="fxtag">${esc(l.fc)} ${m2(l.fa)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:''}</td></tr>`).join('')}</table></div></div>`};
   return `<div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <span class="pnic" style="cursor:default">${ic('idc',18)}</span> <b>#${B.internal}</b> <span class="gname" style="cursor:default;text-decoration:none">${esc(gName(g))}${B.copyOf?'(Copy)':''}</span> RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div><div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''} <button type="button" class="btn sm ghost" id="biOpen" style="margin-left:18px">Open in Billing / Folio</button></div></div><div class="fhr"><div class="rmk">Remark</div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div><div class="folios">${[1,2,3,4].map(box).join('')}</div>`;
 }
 VIEWS['bill.inquiry']=el=>{
@@ -7142,7 +7174,7 @@ VIEWS['bill.inqfolio']=(el,id)=>{const B=bookingById(id);if(!B){go('bill.inquiry
   $('#fiBack',el).onclick=()=>go('bill.inquiry');if($('#biOpen',el))$('#biOpen',el).onclick=()=>go('bill.open',B.id)};
 function dummyHistModal(id){const e=(H.dummyHist||[]).find(x=>x.id===id);if(!e)return;
   const box=f=>{const L=e.lines.filter(l=>l.folio===f).sort((a,b)=>a.time-b.time),b=r2(sum(L,l=>l.amt));
-    return `<div class="folio" style="height:300px"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${b!==0?'red':''}">${L.length?m2(b):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Reference#</th><th>Description</th><th class="n">Amount</th></tr>${L.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.ref)}</td><td>${esc(l.desc)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`};
+    return `<div class="folio" style="height:300px"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${b!==0?'red':''}">${L.length?m2(b):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Reference#</th><th>Description</th><th class="n">Amount</th></tr>${L.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.ref)}</td><td>${esc(l.desc)}</td><td class="n">${m2(l.amt)}${l.fc?`<span class="fxtag">${esc(l.fc)} ${m2(l.fa)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:''}</td></tr>`).join('')}</table></div></div>`};
   modal('Dummy account history: room '+e.room+' · cleared '+fd(e.bd),`<p class="sub">${fd(e.from)} - ${fd(e.to)} · ${e.lines.length} lines · history only</p><div class="folios" style="margin-top:8px">${[1,2,3,4].map(box).join('')}</div>`,{w:1240})}
 let TIq={by:'guest',q:''};
 VIEWS['bill.trans']=(el,arg)=>{
@@ -7195,7 +7227,7 @@ function folioPane(el,id,onRe){
    <div class="folios">${[1,2,3,4].map(f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
      return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Select Folio ${f}. To print it, use the print icon above."><span>Folio ${f}${f===act?' ✱':''}${folLocked(B,f)?' '+ic('lock',13)+' Locked':''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
       <div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>
-      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
+      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}${l.fc?`<span class="fxtag">${esc(l.fc)} ${m2(l.fa)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:''}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
    <p class="sub">Single-click a line to select it and show the folio numbers that move it. Double-click a line to open it. Click a folio bar to make it the active folio. To print a Guest Folio, click the print icon in the toolbar. The grey (+) on Folio 4 can move. The red (−) on Folio 4, and the advance credit (−) on this folio, each print a receipt / tax invoice with the card and remark. A charge remark stays in the transaction window. A normal payment freezes the lines already on that folio and posts one red receipt line.</p>`;
   const reopen=()=>{saveDB();onRe?onRe():folioPane(el,id)};
   const actNow=()=>folAct[B.id]||1;
@@ -7435,7 +7467,8 @@ let postTab='MISC.',postKind='c';   /* postKind: c charge types, adj Adjust type
 function postModal(B,after,folio){if(!need('post'))return;const gone=B.status==='out';if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
   let pf=folio||1,cur=null;
   if(gone&&postKind==='c')postKind='adj';
-  const m=modal('New Item Folio','<div id="niB"></div>',{w:1240,cls:'nimodal'});
+  const cs=curUserOn()?{cur:bCur(B),rp:'',rr:bForeign(B)?String(B.curRate):''}:null;let Pq=null;
+  const m=modal('New Item Folio','<div id="niB"></div>',{w:cs?1440:1240,cls:'nimodal'+(cs?' nimc':'')});
   const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor));
   const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c),kindOf=c=>isRb(c)?'reb':isAd(c)?'adj':'c';
   /* a correction code is chosen like any other; after check-out it opens the correction window (reason, credit note, who may do it) */
@@ -7447,7 +7480,7 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
       ${fld('Code',`<div class="row gap"><input id="niC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="niSrch" title="Search codes">${ic('search',15)}</button></div><div id="niHits"></div>`)}
       ${fld('Description',`<input id="niD" value="${cur?esc(cur.desc):''}">`)}
       ${fld('Reference#',`<input id="niR" maxlength="60" placeholder="Reference info (max 60 characters)">`)}
-      ${fld('Amount',`<div class="amtrow"><input id="niA" class="n niamt" inputmode="decimal" placeholder="0.00"><button class="btn ghost sm" id="niCalc" title="Calculator">${ic('grid',20)}</button></div><div id="niPad"></div>`)}
+      ${fld('Amount',`<div class="amtrow"><input id="niA" class="n niamt" inputmode="decimal" placeholder="0.00"><button class="btn ghost sm" id="niCalc" title="Calculator">${ic('grid',20)}</button></div><div id="niPad"></div>`)}${cs?'<div id="niCur"></div>':''}
       ${fld('Remark',`<textarea id="niM" rows="3"></textarea>`)}
       <div class="quote" id="niQ"></div><div class="err" id="niE"></div>
       <div class="btns end"><button class="btn red" id="niX">Close</button><button class="btn purple" id="niP">Post</button></div></div></div>`;
@@ -7463,22 +7496,23 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
       $$('[data-hit]',m).forEach(b=>b.onclick=()=>{const c=TCODES.find(x=>x.code===b.dataset.hit);if(!allowed(c))return;save();cur=c;postTab=cur.tab;postKind=kindOf(c);paint();$('#niA',m).focus()})};
     $('#niSrch',m).onclick=()=>$('#niC',m).dispatchEvent(new Event('input'));
     $('#niCalc',m).onclick=()=>calcPad($('#niPad',m),$('#niA',m),upd);
+    if(cs){const h=$('#niCur',m);h.innerHTML=curPanelHtml(B,cs);Pq=curPanelBind(h,B,cs,()=>$('#niA',m).value,folioBal(B,pf),1,()=>{save();if(m._v)m._v.niA='';paint()})}
     $('#niA',m).oninput=upd;$('#niX',m).onclick=()=>closeModal(m);$('#niP',m).onclick=doPost;upd();
   };
   const save=()=>{m._v={};['niR','niA','niM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value});if(cur&&$('#niD',m))cur={...cur,desc:$('#niD',m).value.trim()||cur.desc}};
-  const upd=()=>{const a=+String($('#niA',m).value).replace(/,/g,'')||0;if(!cur||!a){$('#niQ',m).innerHTML=cur?'':'Choose a code on the left or type it.';return}const vOn=chargeVat(cur),t=taxSplit(a,vOn);
+  const upd=()=>{let a=+String($('#niA',m).value).replace(/,/g,'')||0;if(cs){const r=curPanelCalc(B,cs,a);Pq&&Pq();a=r.error?0:r.folio}if(!cur||!a){$('#niQ',m).innerHTML=cur?'':'Choose a code on the left or type it.';return}const vOn=chargeVat(cur),t=taxSplit(a,vOn);
     $('#niQ',m).innerHTML=`${cur.rebate?'Rebate: posts as −'+m2(a)+'. ':''}Net ${m2(t.net)} + service ${m2(t.svc)} + ${esc(H.set.taxName)} ${m2(t.vat)} = <b>${m2(a)}</b>${vOn?'':' (non-VAT)'} → Folio ${pf}`};
-  const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}const a=r2(+String($('#niA',m).value).replace(/,/g,''));
-    if(!(a>0)){e.textContent='Enter an amount above 0.';return}if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
+  const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}const a0=r2(+String($('#niA',m).value).replace(/,/g,''));
+    if(!(a0>0)){e.textContent='Enter an amount above 0.';return}const FX=cs?curPanelCalc(B,cs,a0):null;if(FX&&FX.error){e.textContent=FX.error;return}const a=FX?FX.folio:a0;if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
     const adj=/^Adjust/i.test(base.desc)||base.code==='398'||base.code==='728';
     if(adj&&bal(B)>=-0.004){e.textContent='Adjust (+) is only for an overpayment. The folio balance must be below zero.';return}
     if(base.rebate){const net=r2(sum(B.lines.filter(isCharge),l=>l.amt));if(net<=0.004){e.textContent=PS_MSG.rebate;return}if(a>net+0.004){e.textContent='A rebate cannot be more than the charges on this folio ('+m2(net)+').';return}}
     const desc=$('#niD',m).value.trim()||base.desc,ref=$('#niR',m).value.trim()||B.room,rem=$('#niM',m).value.trim(),amt=base.rebate?-a:a;
-    const dest=typeof chargeTarget==='function'?chargeTarget(B,cur.code):B;const vOn=chargeVat(base);
+    const dest=typeof chargeTarget==='function'?chargeTarget(B,cur.code):B;const vOn=chargeVat(base);if(FX&&dest!==B&&bCur(dest)!==bCur(B)){e.textContent='This charge is routed to a folio in another currency. Ask the manager.';return}
     if(base.rebate&&typeof needsApproval==='function'&&needsApproval(vOn?'vatRebate':'nonVatRebate')){
       queueApproval({action:'rebate',kind:vOn?'vatRebate':'nonVatRebate',bookingId:dest.id,title:`Rebate ${cur.code} ${m2(a)}`,code:cur.code,desc:'Rebate - '+desc,ref,amt,folio:pf,remark:rem,vat:vOn});
       closeModal(m);after();return}
-    const l=addLine(H,dest,{...lineCtx(),folio:pf,code:cur.code,desc,ref,amt,kind:'post',remark:rem,vat:vOn});
+    const l=addLine(H,dest,{...lineCtx(),folio:pf,code:cur.code,desc,ref,amt,kind:'post',remark:rem,vat:vOn,fx:FX&&FX.fx});
     log(`Posted ${cur.code} ${m2(l.amt)} to RSVN ${resOf(dest).no} folio ${pf}`,dest.id);closeModal(m);after();toast(`Posted ${m2(l.amt)} to folio ${pf}`)};
   paint();setTimeout(()=>$('#niC',m).focus(),50);
 }
@@ -7501,7 +7535,8 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   showNotifs(resOf(B),'Cashier');
   const g=G(B.guestId);let cur=null;const deposit=adv&&B.status!=='inhouse';
   const noBill0=!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);
-  const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):(noBill0?'Refund':'Payment'),'<div id="pyB"></div>',{w:1240,cls:'nimodal'});
+  const cs=curUserOn()?{cur:bCur(B),rp:'',rr:bForeign(B)?String(B.curRate):''}:null;
+  const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):(noBill0?'Refund':'Payment'),'<div id="pyB"></div>',{w:cs?1440:1240,cls:'nimodal'+(cs?' nimc':'')});
   const noBill=!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);   /* nothing to pay: only a refund is possible */
   payRef=noBill;
   const allP=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&payEnabled(c));
@@ -7516,7 +7551,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
       ${fld('Tran code',`<div class="row gap"><input id="pyC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="pySr" title="Search">${ic('search',15)}</button></div><div id="pyHits"></div>`)}
       ${fld('Description',`<input id="pyD" value="${cur?esc(cur.desc):''}">`)}${cur&&cur.ptab==='CREDIT CARD'&&!cur.refund?`<div class="cardbox"><div class="cbh">${ic('cardp',16)} Card details <span class="sub">– only the last 4 digits are shown after saving</span></div><div class="form2">${fld('Card number',`<input id="cdN" inputmode="numeric" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="23">`,'span2')}${fld('Expiry (MM/YY)',`<input id="cdE" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5">`)}${fld('CVC',`<input id="cdC" type="password" inputmode="numeric" autocomplete="cc-csc" placeholder="•••" maxlength="4">`)}${fld('Card holder name',`<input id="cdH" autocomplete="cc-name" placeholder="As printed on the card">`,'span2')}</div></div>`:''}
       ${fld('Reference#',`<input id="pyR" maxlength="60" placeholder="Reference info (max 60 characters)">`)}
-      ${fld('Amount',`<div class="amtrow"><input id="pyA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${defAmt()}"><button class="btn ghost sm" id="pyCalc" title="Calculator">${ic('grid',20)}</button></div><div id="pyPad"></div>`)}
+      ${fld('Amount',`<div class="amtrow"><input id="pyA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${cs&&cs.cur!==bCur(B)?'':defAmt()}"><button class="btn ghost sm" id="pyCalc" title="Calculator">${ic('grid',20)}</button></div><div id="pyPad"></div>`)}${cs?'<div id="pyCur"></div>':''}
       ${fld('Remark',`<textarea id="pyM" rows="3"></textarea>`)}<div class="err" id="pyE"></div>
       <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?(deposit?'Post deposit':'Post advance payment'):'Post payment'}</button></div></div></div>`;
     if(m._v)['pyR','pyA','pyM'].forEach(id=>{if(m._v[id]!=null&&m._v[id]!=='')$('#'+id,m).value=m._v[id]});
@@ -7530,10 +7565,12 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
       $('#pyHits',m).innerHTML=hits.length?`<div class="nihits">${hits.map(c=>`<button data-ph="${c.code}"><b>${c.code}</b> ${esc(c.desc)}</button>`).join('')}</div>`:'';$$('[data-ph]',m).forEach(b=>b.onclick=()=>pick(b.dataset.ph))};
     $('#pySr',m).onclick=()=>$('#pyC',m).dispatchEvent(new Event('input'));
     if($('#cdN',m)){$('#cdN',m).oninput=e=>{const v=e.target.value.replace(/\D/g,'').slice(0,19);e.target.value=v.replace(/(.{4})/g,'$1 ').trim()};$('#cdE',m).oninput=e=>{let v=e.target.value.replace(/\D/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);e.target.value=v};$('#cdC',m).oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)}}
+    if(cs){const h=$('#pyCur',m);h.innerHTML=curPanelHtml(B,cs);const Pq=curPanelBind(h,B,cs,()=>$('#pyA',m).value,folioBal(B,folio),-1,()=>{save();if(m._v)m._v.pyA='';paint()});$('#pyA',m).addEventListener('input',Pq)}
     $('#pyCalc',m).onclick=()=>calcPad($('#pyPad',m),$('#pyA',m));$('#pyX',m).onclick=()=>closeModal(m);$('#pyP',m).onclick=doPay};
   const save=()=>{m._v={};['pyR','pyA','pyM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value})};
-  const doPay=()=>noShiftGate('payment',sh=>doPay0(sh));const doPay0=sh=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a=r2(+String($('#pyA',m).value).replace(/,/g,''));
-    if(!(a>0)){e.textContent='Enter an amount above 0.';return}
+  const doPay=()=>noShiftGate('payment',sh=>doPay0(sh));const doPay0=sh=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a0=r2(+String($('#pyA',m).value).replace(/,/g,''));
+    if(!(a0>0)){e.textContent='Enter an amount above 0.';return}
+    const FX=cs&&!cur.refund?curPanelCalc(B,cs,a0):null;if(FX&&FX.error){e.textContent=FX.error;return}const a=FX?FX.folio:a0;
     if(cur.refund&&adv){e.textContent='Refunds are made with Payment, not Advance Payment.';return}
     if(cur.refund){const prior=B.lines.filter(l=>(l.kind==='pay'||l.kind==='payrec')&&l.code===(cur.refFor||l.code)&&isLocked(l.bd)&&l.amt<0);
       if(!prior.length){e.textContent='A refund is for a payment from a closed day. For today, use Correct payment or Void payment on the transaction.';return}
@@ -7549,7 +7586,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     const refIn=$('#pyR',m).value.trim();
     const openBills=B.lines.filter(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);
     if(!adv&&!cur.refund&&!openBills.length){e.textContent='There is no open bill in this folio. A payment needs a bill.';return}
-    const P_=postPayment(H,B,cur.code,a,{...lineCtx(sh),folio,ref:refIn,remark:$('#pyM',m).value.trim(),deposit,adv,desc:$('#pyD',m).value.trim()||cur.desc});
+    const P_=postPayment(H,B,cur.code,a,{...lineCtx(sh),folio,ref:refIn,remark:$('#pyM',m).value.trim(),deposit,adv,desc:$('#pyD',m).value.trim()||cur.desc,fx:FX&&FX.fx});
     const refNo=refIn||String(P_.A.sys).padStart(6,'0');
     if(!refIn)[P_.A,P_.R,P_.C].filter(Boolean).forEach(x=>x.ref=refNo);
     if(card)[P_.A,P_.R,P_.C].filter(Boolean).forEach(x=>{x.card={brand:card.brand,last4:card.last4,exp:card.exp,holder:card.holder,vault:card.vault}});
@@ -7574,8 +7611,8 @@ function splitLine(B,l,after){if(!need('post'))return;if(!l){toast('Select a lin
   $('#spA',m).oninput=()=>{$('#spN',m).value='';upd()};$('#spN',m).onchange=upd;$('#spCalc',m).onclick=()=>calcPad($('#spPad',m),$('#spA',m),upd);$('#spX',m).onclick=()=>closeModal(m);
   $('#spGo',m).onclick=()=>{if(!need('post'))return;const n=+$('#spN',m).value;let parts;
     if(n){const each=Math.floor(tot/n*100)/100;parts=Array(n-1).fill(each);}else{const a=r2(+String($('#spA',m).value).replace(/,/g,''));if(!(a>0&&a<tot)){$('#spE',m).textContent=`Enter an amount between 0 and ${m2(tot)}.`;return}parts=[a]}
-    const s=curShift();parts.forEach(a=>{const nl=JSON.parse(JSON.stringify(l));Object.assign(nl,{id:'l'+uid(),sys:H.set.nextSys++,amt:r2(sg*a),splitOf:l.sys,time:Date.now(),hist:[{at:Date.now(),user:user().name,shift:s.name,a:`Split from line ${l.sys}`}]});B.lines.push(nl)});
-    const taken=r2(sum(parts));l.amt=r2(sg*(tot-taken));l.hist.push({at:Date.now(),user:user().name,shift:s.name,a:`Split: ${m2(sg*tot)} → ${m2(l.amt)} + ${parts.map(p=>m2(sg*p)).join(' + ')}`});
+    const s=curShift(),fa0=l.fa,eq0=l.eq,amt0=l.amt;parts.forEach(a=>{const nl=JSON.parse(JSON.stringify(l));Object.assign(nl,{id:'l'+uid(),sys:H.set.nextSys++,amt:r2(sg*a),splitOf:l.sys,time:Date.now(),hist:[{at:Date.now(),user:user().name,shift:s.name,a:`Split from line ${l.sys}`}]});if(fa0!=null&&amt0){nl.fa=r2(fa0*nl.amt/amt0);nl.eq=r2(eq0*nl.amt/amt0)}B.lines.push(nl)});
+    const taken=r2(sum(parts));l.amt=r2(sg*(tot-taken));if(fa0!=null&&amt0){l.fa=r2(fa0*l.amt/amt0);l.eq=r2(eq0*l.amt/amt0)}l.hist.push({at:Date.now(),user:user().name,shift:s.name,a:`Split: ${m2(sg*tot)} → ${m2(l.amt)} + ${parts.map(p=>m2(sg*p)).join(' + ')}`});
     log(`Split line ${l.sys} (${m2(sg*tot)}) into ${parts.length+1} RSVN ${resOf(B).no}`,B.id);folSel=null;closeModal(m);after();toast(`Split into ${parts.length+1} lines`)}}
 
 /* ---------- Offset transaction: permanently freezes the line (no new line is added) ---------- */
@@ -7601,7 +7638,7 @@ function moveToRoom(B,l,after){if(!need('move'))return;if(!l){toast('Select a li
      <div class="segs fseg mt">${[1,2,3,4].map(x=>`<button type="button" data-tf="${x}" aria-pressed="${x===pf}">Folio ${x}<small>${m2(folioBal(pick,x))}</small></button>`).join('')}</div>
      <div class="btns end"><button class="btn ghost" id="trX">Cancel</button><button class="btn gold" id="trGo">Transfer</button></div></div>`;
     $$('[data-tf]',bx).forEach(b=>b.onclick=()=>{pf=+b.dataset.tf;paintPick()});$('#trX',bx).onclick=()=>closeModal(m);
-    $('#trGo',bx).onclick=()=>{if(!need('move'))return;const T=pick;if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}B.lines=B.lines.filter(x=>x!==l);l.folio=pf;
+    $('#trGo',bx).onclick=()=>{if(!need('move'))return;const T=pick;if(bCur(T)!==bCur(B)){toast('This line is in '+bCur(B)+' and that room is in '+bCur(T)+'. A line cannot move between reservations in different currencies.');return}if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}B.lines=B.lines.filter(x=>x!==l);l.folio=pf;
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:`Transferred from room ${B.room} to room ${T.room} folio ${pf}`});T.lines.push(l);log(`Transferred line ${l.sys} from room ${B.room} to ${T.room} folio ${pf}`,B.id);folSel=null;closeModal(m);after();toast(`Moved to room ${T.room}, folio ${pf}`)}};
   $('#trQ',m).oninput=()=>{pick=null;paintPick();run()};
 }

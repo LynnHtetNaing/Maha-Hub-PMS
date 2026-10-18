@@ -6,7 +6,7 @@ const a = src.indexOf('/* ---- Multi-currency:'), b = src.indexOf('/* ---- end M
 if (a < 0 || b < 0) throw new Error('code not found');
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
-const X = new Function('H', 'user', 'can', src.slice(a, b) + '\nreturn {CUR_LIST,curName,curMain,curOthers,curMulti,curList,curUserOn,bCur,bForeign,bRate,curInfo,curToMain,curApply};');
+const X = new Function('H', 'user', 'can', src.slice(a, b) + '\nreturn {CUR_LIST,curName,curMain,curOthers,curMulti,curList,curUserOn,bCur,bForeign,bRate,curInfo,curToMain,curApply,curLineCur,curLineAmt,curLineEq,curPanelCalc};');
 
 const hotel = (extra) => ({ code: 'PAD01', set: Object.assign({ cur: 'THB', curWord: 'BAHT', subWord: 'SATANG', bfAdult: 150 }, extra || {}) });
 let H = hotel(), U = { name: 'staff', perms: [] };
@@ -77,4 +77,29 @@ r = m.curApply(100, 'THB', 0, 'USD', 0, 'THB');
 T('a foreign folio needs the rate of that day for a payment in the main currency', !!r.error);
 T('rounding is to 2 decimals and never produces NaN', (() => { const q = m.curApply('abc', 'USD', 35.5, 'THB', 1, 'THB'); return q.main === 0 && q.folio === 0 && !Number.isNaN(q.main) })());
 
+/* the Post / Payment block: what a line stores and what it does to the folio */
+H = hotel({ curAllow: ['USD', 'EUR'] }); m = mk();
+const thbRes = { id: 'b1' };                      /* a reservation in the main currency */
+const usdRes = { id: 'b2', cur: 'USD', curRate: 35.5 };
+let c = m.curPanelCalc(thbRes, { cur: 'THB' }, 2000);
+T('main reservation paid in main currency: nothing stored, nothing changes', !c.fx && c.folio === 2000 && !c.error, JSON.stringify(c));
+c = m.curPanelCalc(thbRes, { cur: 'USD', rp: '35.5' }, 50);
+T('main reservation paid USD 50 at 35.50: the folio goes down by THB 1,775.00 and the line remembers USD 50 at 35.5', c.folio === 1775 && c.fx.fc === 'USD' && c.fx.fa === 50 && c.fx.fr === 35.5 && c.fx.eq === 1775, JSON.stringify(c));
+c = m.curPanelCalc(thbRes, { cur: 'USD', rp: '' }, 50);
+T('a foreign payment with no rate is refused', !!c.error && !c.fx, JSON.stringify(c));
+c = m.curPanelCalc(usdRes, { cur: 'USD' }, 200);
+T('USD reservation paid in USD: folio USD 200, equivalent at the reservation rate', c.folio === 200 && c.main === 7100 && c.fx && c.fx.eq === 7100, JSON.stringify(c));
+c = m.curPanelCalc(usdRes, { cur: 'USD', rp: '36' }, 200);
+T('the cashier types that day\'s rate: only the equivalent changes', c.folio === 200 && c.main === 7200, JSON.stringify(c));
+c = m.curPanelCalc(usdRes, { cur: 'THB', rr: '36' }, 7200);
+T('USD reservation paid THB 7,200 when 1 USD = 36: exactly USD 200 off the folio', c.folio === 200 && c.main === 7200 && c.fx.fc === 'THB' && c.fx.fr === 1, JSON.stringify(c));
+c = m.curPanelCalc(usdRes, { cur: 'THB', rr: '' }, 7200);
+T('a payment in the main currency on a foreign folio needs the rate of the day', !!c.error, JSON.stringify(c));
+c = m.curPanelCalc(usdRes, { cur: 'EUR', rp: '38.2', rr: '36' }, 100);
+T('EUR on a USD folio needs both rates', c.folio === 106.11 && c.main === 3820, JSON.stringify(c));
+T('an empty amount gives nothing and no error', (() => { const q = m.curPanelCalc(usdRes, { cur: 'THB', rr: '36' }, 0); return !q.error && q.folio === 0 && !q.fx })());
+
+/* what a line says about itself */
+T('a line without a record of its own is in the reservation currency', m.curLineCur(usdRes, { amt: 100 }) === 'USD' && m.curLineAmt(usdRes, { amt: 100 }) === 100 && m.curLineEq(usdRes, { amt: 100 }) === 3550 && m.curLineEq(thbRes, { amt: 100 }) === 100);
+T('a line with its own record reports that currency, amount and equivalent', (() => { const l = { amt: -1775, fc: 'USD', fa: -50, fr: 35.5, eq: -1775 }; return m.curLineCur(thbRes, l) === 'USD' && m.curLineAmt(thbRes, l) === -50 && m.curLineEq(thbRes, l) === -1775 })());
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
