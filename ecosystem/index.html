@@ -343,6 +343,15 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 @media (max-width:1100px){.hx-grid,.hx-grid2,.hx-two2{grid-template-columns:1fr}.hx-tiles{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:700px){.hx-tiles{grid-template-columns:1fr 1fr}.hx-anh{flex-wrap:wrap}.hx-seg{margin-left:0}}
 
+.curgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin:10px 0}.curchk{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;font-size:13px}.curchk.on{border-color:#0e8a82;background:#e6f4f3}
+.curpick{position:relative;display:flex;align-items:center;gap:10px;min-height:40px}.curbtn{font-weight:700}.curbtn.on{border-color:#3b9ae1;color:#1d4f8a;background:#e8f2fb}.curmenu{position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:#fff;border:1px solid #cfd8de;border-radius:10px;box-shadow:0 10px 26px rgba(0,0,0,.2);min-width:260px;padding:6px}.curmenu button{display:flex;gap:8px;align-items:center;width:100%;background:none;border:0;padding:8px 10px;border-radius:6px;text-align:left;font-size:13.5px;cursor:pointer;color:#26323b}.curmenu button:hover,.curmenu button.on{background:#e8f2fb;color:#1d4f8a}.curmenu small{margin-left:auto;color:#7a8791}
+.mcrate{display:flex;align-items:center;gap:10px;margin:10px 0;padding:12px 14px;background:#f3f8fb;border:1px solid #cfe0ec;border-radius:10px;font-weight:600}.mcrate input{width:130px;text-align:right;font-size:16px;font-weight:700}
+.curtag{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;background:#e8f2fb;color:#1d4f8a;font-weight:700;font-size:12px;border:1px solid #3b9ae1}
+.mcp{background:#f3f8fb;border:1px solid #cfe0ec;border-radius:10px;padding:12px 14px;margin:4px 0;display:flex;flex-direction:column;gap:8px}.mcp-top{display:flex;align-items:center;gap:10px}.mc-btn{display:inline-flex;align-items:center;background:#fff;border:1px solid #3b9ae1;color:#1d4f8a;font-weight:700;border-radius:8px;padding:7px 14px;font-size:14px;cursor:pointer}.mcp-menu[hidden]{display:none}.mcp-menu{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid #cfd8de;border-radius:8px;padding:4px}.mcp-menu button{display:flex;gap:8px;align-items:center;background:none;border:0;padding:7px 10px;border-radius:6px;text-align:left;font-size:13.5px;cursor:pointer;color:#26323b}.mcp-menu button:hover,.mcp-menu button.on{background:#e8f2fb;color:#1d4f8a}.mcp-menu small{margin-left:auto;color:#7a8791}.mc-rate{display:flex;align-items:center;gap:8px;font-weight:600;color:#26323b;flex-wrap:wrap}.mc-rate input{width:120px;text-align:right;padding:7px 9px;font-size:15px;font-weight:700}.mc-eq{display:flex;flex-direction:column;gap:3px;font-size:13px;color:#44525c;border-top:1px dashed #b9cfde;padding-top:6px}.mc-eq:empty{display:none}.mc-note{font-size:12px;color:#7a8791}.fxtag{display:block;font-size:11px;color:#2b6cb0;font-weight:600;white-space:nowrap}
+.nimc .nimain{grid-template-columns:1fr 540px;min-height:min(720px,calc(96vh - 150px));max-height:calc(96vh - 150px)}
+.hrs{text-align:center;font-size:12px;color:#6b7882;padding:0 8px 6px;margin-top:-8px}
+.hx-anh .hx-sel+.hx-sel{margin-left:8px}
+.ivq{margin-top:4px;font-size:12px;color:#44525c;text-align:right}.ivfx{display:inline-block;margin-left:6px;font-size:11px;color:#2b6cb0;font-weight:600}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -1054,6 +1063,101 @@ const m2=n=>r2(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractio
 const uid=()=>Math.random().toString(36).slice(2,10);
 const dates=(a,b)=>{const o=[];for(let d=a;d<b;d=addD(d,1))o.push(d);return o};
 const sum=(a,f=x=>x)=>a.reduce((s,x)=>s+(+f(x)||0),0);
+/* ---- Multi-currency: the provider opens extra currencies for a hotel; a reservation keeps one currency until check-out. Nothing here runs unless the provider ticked an extra currency. ---- */
+const CUR_LIST=[['USD','US Dollar','US DOLLARS','CENTS'],['EUR','Euro','EUROS','CENTS'],['GBP','Pound Sterling','POUNDS STERLING','PENCE'],['JPY','Japanese Yen','YEN','SEN'],['CNY','Chinese Yuan','YUAN','FEN'],
+  ['HKD','Hong Kong Dollar','HONG KONG DOLLARS','CENTS'],['TWD','New Taiwan Dollar','NEW TAIWAN DOLLARS','CENTS'],['KRW','South Korean Won','WON','JEON'],['SGD','Singapore Dollar','SINGAPORE DOLLARS','CENTS'],
+  ['THB','Thai Baht','BAHT','SATANG'],['MMK','Myanmar Kyat','KYATS','PYAS'],['MYR','Malaysian Ringgit','RINGGIT','SEN'],['VND','Vietnamese Dong','DONG','XU'],['LAK','Lao Kip','KIP','ATT'],
+  ['KHR','Cambodian Riel','RIEL','SEN'],['IDR','Indonesian Rupiah','RUPIAH','SEN'],['PHP','Philippine Peso','PESOS','CENTAVOS'],['INR','Indian Rupee','RUPEES','PAISE'],['PKR','Pakistani Rupee','RUPEES','PAISA'],
+  ['BDT','Bangladeshi Taka','TAKA','POISHA'],['LKR','Sri Lankan Rupee','RUPEES','CENTS'],['NPR','Nepalese Rupee','RUPEES','PAISA'],['AUD','Australian Dollar','AUSTRALIAN DOLLARS','CENTS'],
+  ['NZD','New Zealand Dollar','NEW ZEALAND DOLLARS','CENTS'],['CAD','Canadian Dollar','CANADIAN DOLLARS','CENTS'],['CHF','Swiss Franc','SWISS FRANCS','RAPPEN'],['SEK','Swedish Krona','KRONOR','ORE'],
+  ['NOK','Norwegian Krone','KRONER','ORE'],['DKK','Danish Krone','KRONER','ORE'],['AED','UAE Dirham','DIRHAMS','FILS'],['SAR','Saudi Riyal','RIYALS','HALALAS'],['QAR','Qatari Riyal','RIYALS','DIRHAMS'],
+  ['KWD','Kuwaiti Dinar','DINARS','FILS'],['ILS','Israeli Shekel','SHEKELS','AGOROT'],['TRY','Turkish Lira','LIRA','KURUS'],['RUB','Russian Ruble','ROUBLES','KOPECKS'],['ZAR','South African Rand','RAND','CENTS'],
+  ['BRL','Brazilian Real','REAIS','CENTAVOS'],['MXN','Mexican Peso','PESOS','CENTAVOS'],['EGP','Egyptian Pound','EGYPTIAN POUNDS','PIASTRES']];
+const curName=c=>{const x=CUR_LIST.find(a=>a[0]===c);return x?x[1]:c};
+const curMain=h=>{h=h||H;return (h&&h.set&&h.set.cur)||''};
+/* the extra currencies the provider opened (never the main one) */
+const curOthers=h=>{h=h||H;const a=h&&h.set&&h.set.curAllow;return Array.isArray(a)?[...new Set(a.filter(c=>c&&c!==h.set.cur))]:[]};
+const curMulti=h=>curOthers(h).length>0;
+const curList=h=>[curMain(h),...curOthers(h)];
+/* may the signed-in person choose a currency? the provider can always; hotel staff only when the provider allowed it and gave them the permission */
+const curUserOn=()=>{if(!H||!curMulti(H))return false;const u=user();return !!(u.isProv||u.provider||(H.set.curUsers&&can('currency')))};
+const bCur=B=>(B&&B.cur)||curMain();
+const bForeign=B=>!!(B&&B.cur&&B.cur!==curMain());
+/* 1 unit of the reservation currency = this many units of the main currency (1 when it is the main currency) */
+const bRate=B=>bForeign(B)&&+B.curRate>0?+B.curRate:1;
+const curInfo=(h,c)=>{h=h||H;const s=h.set||{};if(!c||c===s.cur)return {word:s.curWord||'',sub:s.subWord||'',bfA:+s.bfAdult||0,bfC:0};
+  const i=(s.curInfo&&s.curInfo[c])||{},x=CUR_LIST.find(a=>a[0]===c)||[];return {word:i.word||x[2]||c,sub:i.sub!=null&&i.sub!==''?i.sub:(x[3]||''),bfA:+i.bfA||0,bfC:+i.bfC||0}};
+/* amounts */
+const curToMain=(amt,rate)=>Math.round((+amt||0)*(+rate>0?+rate:1)*100)/100;
+/* One payment or posting typed in currency pc (rp = 1 pc in main currency; left empty when pc is the main currency).
+   The folio is in the reservation currency rc (rr = 1 rc in main currency, the rate of that day when rc differs from pc).
+   Returns main = the amount in the main currency and folio = what the folio goes up or down by (in rc). Same currency: the folio gets exactly the amount typed. */
+function curApply(amt,pc,rp,rc,rr,main){const a=Math.round((+amt||0)*100)/100;pc=pc||rc;const same=pc===rc;
+  const rpv=pc===main?1:(+rp>0?+rp:(same&&+rr>0?+rr:0)),rrv=rc===main?1:(+rr>0?+rr:0);
+  if(!rpv||!rrv)return {error:'Type the rate (1 '+(!rpv?pc:rc)+' = ? '+main+').',main:0,folio:0,same};
+  const m=Math.round(a*rpv*100)/100,f=same?a:Math.round(m/rrv*100)/100;return {main:m,folio:f,same}}/* per line: the currency it was typed in, the amount typed, and its value in the main currency (a line with no record of its own is in the reservation currency) */
+const curLineCur=(B,l)=>(l&&l.fc)||bCur(B);
+const curLineAmt=(B,l)=>l&&l.fa!=null?l.fa:(l?l.amt:0);
+const curLineEq=(B,l)=>l&&l.eq!=null?l.eq:curToMain(l?l.amt:0,bRate(B));
+/* The currency block of the Post and Payment windows. st = {cur, rp, rr}: the currency chosen, the rate typed for it, and the rate of the day for the reservation currency. */
+function curPanelCalc(B,st,typed){const main=curMain(),rc=bCur(B),cur=st.cur||rc,a=Math.round((+typed||0)*100)/100;
+  const rp=cur===main?1:(+st.rp>0?+st.rp:(cur===rc&&bRate(B)>0?bRate(B):0));
+  const rr=rc===main?1:(cur===rc?bRate(B):(+st.rr>0?+st.rr:0));
+  const none={error:'',main:0,folio:0,same:cur===rc,fx:null,cur,rp,rr};
+  if(!(a>0))return none;
+  const c=curApply(a,cur,cur===main?0:rp,rc,rr,main);if(c.error)return Object.assign(none,{error:c.error});
+  return {error:'',main:c.main,folio:c.folio,same:c.same,fx:(cur===rc&&rc===main)?null:{fc:cur,fa:a,fr:cur===main?1:rp,eq:c.main},cur,rp,rr}}
+/* A copy of the hotel for the Reports page, so every report runs unchanged on it.
+   mode 'ALL': every amount converted to the main currency with the rates staff typed.
+   mode = a currency code: only that currency. kind 'folio' keeps whole reservations of that currency as they are; kind 'cash' splits every posted line by the currency it was typed in (a USD payment on a THB folio is a USD line). */
+function curViewHotel(h,mode,kind){const c=JSON.parse(JSON.stringify(h)),main=c.set.cur,r2_=v=>Math.round((+v||0)*100)/100;
+  const isF=b=>!!(b.cur&&b.cur!==main),rate=b=>isF(b)&&+b.curRate>0?+b.curRate:1,own=b=>isF(b)?b.cur:main;
+  const eq=(b,l)=>l.eq!=null?+l.eq:r2_((+l.amt||0)*rate(b)),strip=l=>{delete l.fc;delete l.fa;delete l.fr;delete l.eq};
+  const dummyOf=b=>!!(b.masterDummy||((c.rooms||[]).find(x=>x.no===b.room)||{}).dummy);
+  if(mode==='ALL'){
+    const rmap={};(c.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{if(isF(b))rmap[b.id]=rate(b)}));
+    (c.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{const fg=isF(b),rt=rate(b);
+      (b.lines||[]).forEach(l=>{if(fg)l.amt=eq(b,l);strip(l)});
+      if(fg){Object.keys(b.nightly||{}).forEach(d=>b.nightly[d]=r2_(b.nightly[d]*rt));delete b.cur;delete b.curRate}}));
+    (c.dummyHist||[]).forEach(e=>(e.lines||[]).forEach(strip));
+    (c.creditNotes||[]).forEach(n=>{const f=rmap[n.bookingId]||1;if(f!==1){(n.rows||[]).forEach(w=>w.amt=r2_(w.amt*f));['vatable','nonvat','total'].forEach(x=>{if(n[x]!=null)n[x]=r2_(n[x]*f)})}});
+  }else{
+    (c.reservations||[]).forEach(r=>{r.bookings=(r.bookings||[]).filter(b=>{const o=own(b)===mode,dm=dummyOf(b),lc=l=>l.fc||own(b);
+      if(kind==='cash'||dm){b.lines=(b.lines||[]).filter(l=>lc(l)===mode).map(l=>{if(l.fa!=null)l.amt=+l.fa;strip(l);return l});if(!o)Object.keys(b.nightly||{}).forEach(d=>b.nightly[d]=0);}
+      else (b.lines||[]).forEach(strip);
+      if(o){delete b.cur;delete b.curRate}
+      return dm?b.lines.length>0:(kind==='cash'?(o||b.lines.length>0):o)})});
+    c.reservations=(c.reservations||[]).filter(r=>(r.bookings||[]).length);
+    (c.dummyHist||[]).forEach(e=>{e.lines=(e.lines||[]).filter(l=>(l.fc||main)===mode).map(l=>{if(l.fa!=null)l.amt=+l.fa;strip(l);return l})});
+    (c.audits||[]).forEach(a=>{if(a.revCur)a.rev=a.revCur[mode]!=null?a.revCur[mode]:0;else if(mode!==main)a.rev=0});
+  }
+  return c}
+/* ---- end Multi-currency ---- */
+/* The alert shown when a currency other than the main one is chosen: the user types the rate (1 unit = X main currency). Returns the rate, or null when cancelled. */
+function curRateAlert(code,rate0,note){const main=curMain();
+  return dlgOpen('Check the actual rate',`<p class="dlgmsg"><b>Please check the actual exchange rate before you continue.</b><br>The system does not look up or convert rates. You type the final rate, and every amount you enter is in ${esc(code)}.</p>
+   <div class="mcrate">1 ${esc(code)} = <input class="dlgin n" id="mcRate" inputmode="decimal" value="${rate0?esc(String(rate0)):''}" placeholder="0.00"> ${esc(main)}</div>
+   ${note?`<p class="sub">${esc(note)}</p>`:''}<div class="err" id="dlgErr"></div>`,
+   [{t:'Cancel',cls:'ghost',v:null,cancel:null},{t:'I checked the rate - continue',cls:'purple',get:m=>{const v=+String(m.querySelector('#mcRate').value).replace(/,/g,'');if(!(v>0)){m.querySelector('#dlgErr').textContent='Type the rate: how many '+main+' is 1 '+code+'.';return undefined}return Math.round(v*1e6)/1e6}}],580)}
+
+/* The currency block shown in the Post and Payment windows (only for people who may choose a currency in a hotel with extra currencies). */
+function curPanelHtml(B,st){const main=curMain(),rc=bCur(B),cur=st.cur,needRp=cur!==main,needRr=rc!==main&&cur!==rc;
+  return `<div class="mcp"><div class="mcp-top"><div class="mc-btn" id="mcpB">${esc(cur)} &#9662;</div><span class="sub">Currency of this amount${cur===rc?' (the reservation currency)':''}</span></div>
+   <div class="mcp-menu" id="mcpM" hidden>${curList(H).map(c=>`<button type="button" data-mcp="${c}" class="${c===cur?'on':''}"><b>${c}</b> ${esc(curName(c))}${c===main?' <small>main</small>':''}${c===rc?' <small>reservation</small>':''}</button>`).join('')}</div>
+   ${needRp?`<div class="mc-rate">1 ${esc(cur)} = <input id="mcpRp" class="n" inputmode="decimal" value="${esc(st.rp)}" placeholder="${cur===rc?String(bRate(B)):'0.00'}"> ${esc(main)}</div>`:''}
+   ${needRr?`<div class="mc-rate">1 ${esc(rc)} (this reservation) = <input id="mcpRr" class="n" inputmode="decimal" value="${esc(st.rr)}" placeholder="0.00"> ${esc(main)} <span class="sub">rate of the day</span></div>`:''}
+   <div class="mc-eq" id="mcpQ"></div><div class="mc-note">Check the actual rate. You type the final rate; the system never looks one up.</div></div>`}
+/* wires the block; returns the function that refreshes its quote. balNow = the folio balance now, dir = +1 for a charge, -1 for a payment. */
+function curPanelBind(host,B,st,typedGet,balNow,dir,repaint){const q=s=>host.querySelector(s),main=curMain(),rc=bCur(B);
+  const quote=()=>{const box=q('#mcpQ');if(!box)return;const t=+String(typedGet()).replace(/,/g,'')||0;if(!(t>0)){box.innerHTML='';return}const r=curPanelCalc(B,st,t);
+    box.innerHTML=r.error?`<span class="bad">${esc(r.error)}</span>`:`<span>Amount <b>${esc(st.cur)} ${m2(t)}</b></span>${st.cur!==main?`<span>Equivalent in ${esc(main)} <b>${m2(r.main)}</b></span>`:''}${st.cur!==rc?`<span>${dir<0?'Reduces':'Adds to'} the folio by <b>${esc(rc)} ${m2(r.folio)}</b></span>`:''}<span>Folio balance after <b>${esc(rc)} ${m2(balNow+dir*r.folio)}</b></span>`};
+  q('#mcpB').onclick=()=>{q('#mcpM').hidden=!q('#mcpM').hidden};
+  host.querySelectorAll('[data-mcp]').forEach(b=>b.onclick=()=>{const c=b.dataset.mcp;if(c!==st.cur){st.cur=c;st.rp='';st.rr=bForeign(B)?String(B.curRate):''}repaint()});
+  if(q('#mcpRp'))q('#mcpRp').oninput=e=>{st.rp=e.target.value;quote()};
+  if(q('#mcpRr'))q('#mcpRr').oninput=e=>{st.rr=e.target.value;quote()};
+  quote();return quote}
+/* a room added to a reservation, or a copy of it, keeps the currency, the rate and the nightly rate typed for it */
+function curInherit(nb,B){if(!bForeign(B))return nb;nb.cur=B.cur;nb.curRate=B.curRate;const v=nightRate(H,B);Object.keys(nb.nightly).forEach(k=>nb.nightly[k]=v);return nb}
 
 /* ---------- password hashing (SHA-256 + salt, stored only on this device) ---------- */
 function sha256(ascii){function rr(v,a){return(v>>>a)|(v<<(32-a))}var mp=Math.pow,maxWord=mp(2,32),result='',words=[],len=ascii.length*8,hash=[],k=[],pc=0,isC={};
@@ -1076,7 +1180,7 @@ const PERMS=[
  ['corrpost','Correct post'],['corrpay','Correct payment and edit payment amount'],['move','Move lines between folios and rooms'],
  ['rate','Change nightly rates (advance rate setup)'],['print','Print invoices and registration cards'],['hk','Change housekeeping status'],
  ['notif','Create notifications'],['profile','Edit guest profiles'],['docs','View guest documents and ID numbers'],
- ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['setup','Hotel setup']];
+ ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['currency','Choose a reservation currency (only when the provider opened more currencies)'],['setup','Hotel setup']];
 const PRESET={
  Manager:PERMS.map(p=>p[0]),
  'Front desk':['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','move','rate','print','hk','notif','profile','docs','reports','ai.guest'],
@@ -2614,14 +2718,15 @@ function ensureDummyBooking(h){
 }
 /* Rate rules: Complimentary is always 0; House use may be 0; every other rate is at least 1 (hotel currency). */
 const rateKindOf=code=>{const rc=H&&H.rateCodes.find(x=>x.code===code);return rc&&rc.comp==='COMP'?'comp':rc&&rc.comp==='HOUSE'?'house':'normal'};
-function rateError(v,kind){if(kind==='comp')return v===0?'':'Complimentary rates are always 0.';if(isNaN(v)||v<0)return 'Enter a rate of 0 or more.';
-  if(kind==='normal'&&v<1)return `The rate must be at least 1 ${H.set.cur}. Only Complimentary (always 0) and House use can be 0.`;return ''}
+function rateError(v,kind,cur){if(kind==='comp')return v===0?'':'Complimentary rates are always 0.';if(isNaN(v)||v<0)return 'Enter a rate of 0 or more.';
+  if(kind==='normal'&&v<1)return `The rate must be at least 1 ${cur||H.set.cur}. Only Complimentary (always 0) and House use can be 0.`;return ''}
 function addLine(h,B,o){
   const tc=TCODES.find(c=>c.code===o.code)||{};
   const l={id:'l'+uid(),sys:h.set.nextSys++,folio:o.folio||1,bd:o.bd||h.set.bd,orgDate:o.bd||h.set.bd,time:o.time||Date.now(),code:o.code,desc:o.desc||tc.desc||'',ref:o.ref||'',
     amt:r2(o.amt),kind:o.kind||'post',method:o.method||'',group:o.group||null,link:o.link||null,night:o.night||null,fixed:!!o.fixed,deposit:!!o.deposit,adv:!!o.adv,
     vat:o.vat!==undefined?o.vat:(tc.type==='c'?chargeVat(tc.code||o.code,h):false),user:o.user||'',shiftId:o.shift?o.shift.id:null,shiftName:o.shift?o.shift.name:'',
     remark:o.remark||'',pkgSplit:!!o.pkgSplit,hist:[{at:o.time||Date.now(),user:o.user||'',shift:o.shift?o.shift.name:'',a:'Posted to folio '+(o.folio||1)}],origBooking:B.id};
+  if(o.fx){const sg=l.amt<0?-1:1;l.fc=o.fx.fc;l.fa=r2(sg*Math.abs(o.fx.fa));l.fr=o.fx.fr;l.eq=r2(sg*Math.abs(o.fx.eq))}
   B.lines.push(l);return l;
 }
 /* Advance and deposit keep three lines.
@@ -2631,7 +2736,7 @@ function addLine(h,B,o){
 function postPayment(h,B,code,amt,o={}){
   const tc=TCODES.find(c=>c.code===code),g='pg'+uid(),codeDesc=tc?tc.desc:'Payment';
   const typed=String(o.desc||codeDesc).replace(/\s*-\s*Advance (Payment|Deposit)$/i,'').replace(/^(Advance (Payment|Deposit)|Reservation Deposit)\s*-\s*/i,'').trim()||codeDesc;
-  const base={code,method:typed,group:g,bd:o.bd,shift:o.shift,user:o.user,ref:o.ref||'',deposit:!!o.deposit,remark:o.remark||'',vat:false,time:o.time};
+  const base={code,method:typed,group:g,bd:o.bd,shift:o.shift,user:o.user,ref:o.ref||'',deposit:!!o.deposit,remark:o.remark||'',vat:false,time:o.time,fx:o.fx};
   const s=tc&&tc.refund?-1:1,label=o.label||(o.adv?'Advance Payment':o.deposit?'Advance Deposit':tc&&tc.refund?'Refund':'Payment');
   const three=!!(o.adv&&!o.deposit);      /* a reservation deposit is one line on Folio 1; its receipt / tax invoice comes from the Deposit invoice button on the reservation */
   const guestDesc=o.deposit?'Reservation Deposit - '+typed:three?typed+' - '+label:(o.desc||codeDesc);   /* the deposit line reads Reservation Deposit - (payment type) */
@@ -2704,7 +2809,7 @@ function cpApply(h,B,l,ctx,why){
   const grp=cpGroup(B,l),A=grp.find(x=>x.kind==='pay'),C=grp.find(x=>x.kind==='payoff'),R=grp.find(x=>x.kind==='payrec'),orig=A||R||l;
   const sp=typeof receiptSpec==='function'?receiptSpec(B,R||A||l):{base:0,nonvat:0,key:''};      /* the tax of the original receipt, read before anything changes */
   const tag='Correct Payment - '+(orig.method||orig.desc);
-  const mk=(src,o)=>{const x=addLine(h,B,Object.assign({bd:ctx.bd,shift:ctx.shift,user:ctx.user,folio:src.folio,code:src.code,desc:tag,ref:src.ref,amt:-src.amt,group:src.group,method:src.method,vat:false,remark:why||''},o));x.corr=true;return x};
+  const mk=(src,o)=>{const x=addLine(h,B,Object.assign({bd:ctx.bd,shift:ctx.shift,user:ctx.user,folio:src.folio,code:src.code,desc:tag,ref:src.ref,amt:-src.amt,group:src.group,method:src.method,vat:false,remark:why||''},o));x.corr=true;if(src.fc){x.fc=src.fc;x.fa=r2(-(+src.fa||0));x.fr=src.fr;x.eq=r2(-(+src.eq||0))}return x};
   const made=[];let white=null,green;
   if(A&&C&&R){                                                      /* advance / deposit: white line on its folio, grey pair and soft green line on Folio 4, like the payment itself */
     white=mk(A,{kind:'pay',adv:A.adv,deposit:A.deposit});made.push(white);
@@ -2752,7 +2857,7 @@ function numWords(n){const a=['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN'
   t=['','','TWENTY','THIRTY','FORTY','FIFTY','SIXTY','SEVENTY','EIGHTY','NINETY'];
   const h=x=>{let s='';if(x>=100){s+=a[Math.floor(x/100)]+' HUNDRED';x%=100;if(x)s+=' '}if(x>=20){s+=t[Math.floor(x/10)];if(x%10)s+=' '+a[x%10]}else if(x)s+=a[x];return s};
   if(n===0)return 'ZERO';const parts=[];[[1e9,'BILLION'],[1e6,'MILLION'],[1e3,'THOUSAND']].forEach(([v,w])=>{if(n>=v){parts.push(h(Math.floor(n/v))+' '+w);n%=v}});if(n)parts.push(h(n));return parts.join(' ')}
-function amountWords(x){const neg=x<0;x=Math.abs(r2(x));const i=Math.floor(x),c=Math.round((x-i)*100);let w=numWords(i)+' '+H.set.curWord;if(c)w+=' AND '+numWords(c)+' '+H.set.subWord;return '*** '+(neg?'MINUS ':'')+w+' ONLY ***'}
+function amountWords(x,B){const neg=x<0;x=Math.abs(r2(x));const i=Math.floor(x),c=Math.round((x-i)*100),ci=B&&bForeign(B)?curInfo(H,B.cur):{word:H.set.curWord,sub:H.set.subWord};let w=numWords(i)+' '+ci.word;if(c)w+=' AND '+numWords(c)+' '+ci.sub;return '*** '+(neg?'MINUS ':'')+w+' ONLY ***'}
 
 /* ---------- lookups ---------- */
 function allBookings(){const o=[];H.reservations.forEach(r=>r.bookings.forEach(b=>o.push(b)));return o}
@@ -2781,7 +2886,7 @@ const isLocked=d=>!!(d&&H.set.lockedThrough&&d<=H.set.lockedThrough);
 const closedBooking=B=>['out','cancelled','noshow'].includes(B.status)&&isLocked(B.statusDate);
 const firstNightClosed=B=>['inhouse','out'].includes(B.status)&&isLocked(B.arr);
 const stayTotal=B=>r2(sum(dates(B.arr,B.dep),d=>billRate(B,d)));
-const rateLine=B=>`${B.type}/${B.rateCode}/${nights(B)}NT TTL @ ${m2(stayTotal(B))}/${H.set.cur}`;
+const rateLine=B=>`${B.type}/${B.rateCode}/${nights(B)}NT TTL @ ${m2(stayTotal(B))}/${bCur(B)}`;
 
 /* ---------- session ---------- */
 function user(){const se=DB&&DB.session;if(!se)return {name:'Signed out',perms:[]};if(se.provider){const p=DB.providers.find(x=>x.id===se.userId);
@@ -6168,7 +6273,7 @@ async function checkOut(B){
   if(!need('checkout'))return false;const res=resOf(B);
   if(B.status!=='inhouse'){toast('Only in-house guests can be checked out.');return false}
   showNotifs(res,'Check-out');
-  const b=bal(B);if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(b)>0.004){toast(`Outstanding ${m2(b)} ${H.set.cur}. Settle the folio to 0.00 before check-out.`);return false}
+  const b=bal(B);if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(b)>0.004){toast(`Outstanding ${m2(b)} ${bCur(B)}. Settle the folio to 0.00 before check-out.`);return false}
   if(B.dep>H.set.bd){if(!await dlgConfirm(`Departure is ${fd(B.dep)}. Check out early today?`))return false;B.earlyOut=true;const nd=H.set.bd>B.arr?H.set.bd:addD(B.arr,1);dates(nd,B.dep).forEach(d=>delete B.nightly[d]);B.dep=nd}
   B.status='out';B.statusDate=H.set.bd;B.checkoutTime=Date.now();const rm=RM(B.room);if(rm){rm.hk='dirty';rm.hkOcc='vac';rm.hkNote='Vacant dirty after check-out'}
   histB(B,'Checked out – room vacant dirty (VD)');log(`Checked out RSVN ${res.no} room ${B.room} (vacant dirty)`,B.id);saveDB();toast(`Checked out (O). Room ${B.room} is vacant dirty (VD).`);return true}
@@ -6235,12 +6340,12 @@ const hxDonut=(parts,size,thick,cb,cs)=>{const R=size/2-thick/2,C=2*Math.PI*R,to
 /* ---- per-day numbers used by the analysis chart and the tiles ---- */
 const hxDay=d=>{const bk=(HXAB||allBookings()).filter(b=>!skipOcc(b)&&b.arr<=d&&d<b.dep&&(['confirmed','inhouse'].includes(b.status)||(b.status==='out'&&d<b.statusDate)));
   const rms=H.rooms.filter(r=>!r.dummy),cap=rms.length-rms.filter(r=>r.ooo&&r.ooo.from<=d&&d<=r.ooo.to).length;
-  const rev=r2(sum(bk,b=>billRate(b,d))),los=sum(bk,b=>diff(b.arr,b.dep)),arr=(HXAB||allBookings()).filter(b=>!skipOcc(b)&&b.arr===d&&['confirmed','inhouse','out'].includes(b.status)).length;
-  return {d,occ:bk.length,cap,rev,los,n:bk.length,arr}};
+  const fb=HX.cv==='ALL'?bk:bk.filter(b=>bCur(b)===HX.cv),rev=r2(sum(fb,b=>billRate(b,d)*(HX.cv==='ALL'?bRate(b):1))),los=sum(bk,b=>diff(b.arr,b.dep)),arr=(HXAB||allBookings()).filter(b=>!skipOcc(b)&&b.arr===d&&['confirmed','inhouse','out'].includes(b.status)).length;
+  return {d,occ:bk.length,occC:fb.length,cap,rev,los,n:bk.length,arr}};
 const HXTYPES=[['occ','Type : Occupancy %'],['adr','Type : ADR'],['rn','Type : Room nights'],['rev','Type : Revenue'],['los','Type : Avg. length of stay']];
-const hxVal=(t,a)=>t==='occ'?(a.cap?a.occ/a.cap*100:0):t==='adr'?(a.occ?a.rev/a.occ:0):t==='rn'?a.occ:t==='rev'?a.rev:(a.n?a.los/a.n:0);
-const hxAgg=list=>list.reduce((a,x)=>({occ:a.occ+x.occ,cap:a.cap+x.cap,rev:a.rev+x.rev,los:a.los+x.los,n:a.n+x.n,arr:a.arr+x.arr}),{occ:0,cap:0,rev:0,los:0,n:0,arr:0});
-let HXAB=null;const HX={range:'day',type:'occ'};
+const hxVal=(t,a)=>t==='occ'?(a.cap?a.occ/a.cap*100:0):t==='adr'?(a.occC?a.rev/a.occC:0):t==='rn'?a.occ:t==='rev'?a.rev:(a.n?a.los/a.n:0);
+const hxAgg=list=>list.reduce((a,x)=>({occ:a.occ+x.occ,occC:a.occC+x.occC,cap:a.cap+x.cap,rev:a.rev+x.rev,los:a.los+x.los,n:a.n+x.n,arr:a.arr+x.arr}),{occ:0,occC:0,cap:0,rev:0,los:0,n:0,arr:0});
+let HXAB=null;const HX={range:'day',type:'occ',cv:'ALL'};
 function hxBuckets(bd){const out=[];
   if(HX.range==='day'){for(let i=-7;i<=22;i++){const d=addD(bd,i);out.push({lab:[String(P(d).getDate()),P(d).toLocaleDateString('en-GB',{month:'short'})],list:[hxDay(d)],fut:i>0,now:i===0})}}
   else if(HX.range==='week'){const ws=d=>{const x=P(d);const k=(x.getDay()+6)%7;return addD(d,-k)};const s0=ws(bd);for(let i=-1;i<=4;i++){const s=addD(s0,i*7);const list=[...Array(7)].map((_,k)=>hxDay(addD(s,k)));out.push({lab:[String(P(s).getDate()),P(s).toLocaleDateString('en-GB',{month:'short'})],list,fut:i>0,now:i===0})}}
@@ -6270,9 +6375,11 @@ VIEWS['fo.status']=el=>{
   const fit=a=>a.filter(b=>!S.grp(b)),gp=a=>a.filter(S.grp);
   const card=(k,t,a,cls,icon)=>`<button class="hscard" data-hs="${k}" title="Click to see these guests"><div class="hct"><span class="hci ${cls}">${ic(icon,15)}</span>${t}</div><div class="hcn">${a.length}</div><div class="hcp ${cls}">Total Pax <span>${ic('user',12)} ${pxOf(a)}</span></div></button>`;
   const lines=allLinesH(H);
-  const mtdRev=r2(sum(lines.filter(l=>isCharge(l)&&l.bd>=bd.slice(0,8)+'01'&&l.bd<=bd),l=>l.amt)),todayRev=r2(sum(lines.filter(l=>isCharge(l)&&l.bd===bd),l=>l.amt));
-  const depBal=r2(sum(S.depPend,bal));
-  const T0=hxDay(bd),adr=T0.occ?T0.rev/T0.occ:0,revpar=T0.cap?T0.rev/T0.cap:0;
+  const multi=curMulti(H),rvFn=(f,to)=>{const rows=allBookings().flatMap(b=>b.lines.filter(l=>isCharge(l)&&l.bd>=f&&l.bd<=to).map(l=>({c:bCur(b),a:l.amt,e:curLineEq(b,l)})));return {conv:r2(sum(rows,x=>x.e)),by:rows.reduce((o,x)=>{o[x.c]=r2((o[x.c]||0)+x.a);return o},{})}};
+  const mtdO=multi?rvFn(bd.slice(0,8)+'01',bd):null,todayO=multi?rvFn(bd,bd):null;
+  const mtdRev=multi?mtdO.conv:r2(sum(lines.filter(l=>isCharge(l)&&l.bd>=bd.slice(0,8)+'01'&&l.bd<=bd),l=>l.amt)),todayRev=multi?todayO.conv:r2(sum(lines.filter(l=>isCharge(l)&&l.bd===bd),l=>l.amt));
+  const depBal=curMulti(H)?r2(sum(S.depPend,b=>curToMain(bal(b),bRate(b)))):r2(sum(S.depPend,bal));
+  const T0=hxDay(bd),adr=T0.occC?T0.rev/T0.occC:0,revpar=T0.cap?T0.rev/T0.cap:0;
   const hk=(occ,s)=>H.rooms.filter(rm=>!rm.dummy&&!rm.ooo&&(!!S.ih.find(b=>b.room===rm.no))===occ&&(s==='dirty'?rm.hk==='dirty':s==='inspected'?rm.hk==='inspected':rm.hk==='clean')).length;
   const HK={ooo:S.ooi,vc:hk(false,'clean'),vd:hk(false,'dirty'),oc:hk(true,'clean')+hk(true,'inspected'),od:hk(true,'dirty'),ins:hk(false,'inspected')};
   const tent=S.tent,occIncl=S.occProj.length+tent.length;
@@ -6298,7 +6405,7 @@ VIEWS['fo.status']=el=>{
   el.innerHTML=`<div class="hsbar"><span class="hsh">${titleMark('INQUIRY / HOTEL STATUS')}INQUIRY / HOTEL STATUS</span><button class="btn ghost hsbtn" id="hsRef">${ic('log',16)} Process</button><button class="btn ghost hsbtn" id="hsDet" title="Variance, tentative and occupancy tables">${ic('log',16)} Details</button><button class="btn ghost hsbtn" id="hsPr">${ic('print',16)} Print</button><button class="btn gold hsbtn" id="hsCD" title="${onNightShift()?'Open Close Day':'Close Day runs on the Night shift'}">${ic('log',16)} Close Day</button><span class="sp"></span><span class="sub">Business date ${fd(bd)}</span></div>
   <div class="hscards">${card('stay','Stay Over',S.stay,'c-blue','bed')}${card('arr','Expect Arrival',S.arrPend,'c-green','pin')}${card('dep','Expect Departure',S.depPend,'c-red','out')}${card('ih','Current In-house',S.ih,'c-navy','user')}
    ${card('parr','Project Arrival',S.arrProj,'c-green','pin')}${card('pdep','Project Departure',S.depProj,'c-red','out')}${card('pocc','Project Occupied Room',S.occProj,'c-purple','bed')}
-   <div class="hsrev"><div class="hrn">${m2(mtdRev)}</div><div class="hrl">${ic('cash',16)} Revenue month to date (${esc(H.set.cur)})</div></div></div>
+   <div class="hsrev"><div class="hrn">${m2(mtdRev)}</div>${multi?`<div class="hrs">${Object.entries(mtdO.by).map(([c,v])=>esc(c)+' '+m2(v)).join(' · ')||'&nbsp;'}</div>`:''}<div class="hrl">${ic('cash',16)} Revenue month to date (${esc(H.set.cur)}${multi?', all currencies converted':''})</div></div></div>
   <div class="hx-grid">
    <div class="hxp"><div class="hxh">${ic('bed',15)} Occupancy <span class="sub">${S.sal} salable rooms</span></div>
     <div class="hx-occ">${occDonut}<div class="hx-leg"><span><i style="background:#2f7fcf"></i>FIT<b>${fitN}</b></span><span><i style="background:#8b7cf6"></i>Group<b>${gpN}</b></span><span><i style="background:#e3e9ee"></i>Vacant<b>${Math.max(0,S.sal-S.occAct.length)}</b></span><div class="proj">End of day <b>${occEnd.toFixed(0)}%</b> incl. ${tent.length} tentative</div></div></div>
@@ -6306,15 +6413,16 @@ VIEWS['fo.status']=el=>{
     ${prog('Departures',S.depAct.length,S.depProj.length,pxOf(S.depAct),pxOf(S.depProj),S.depPend.length+' to go','r','#e0645c')}
     ${prog('Occupied',S.occAct.length,S.occProj.length,pxOf(S.occAct),pxOf(S.occProj),(net>0?'+':'')+net+' by end','o','#2f7fcf')}</div>
    <div class="hxp hx-kv"><div class="hxh">${ic('cash',15)} Revenue <span class="sub">Actual</span></div>
-    <div class="kvr"><span>Revenue today</span><b>${m2(todayRev)}</b></div><div class="kvr"><span>Departure today balance</span><b>${m2(depBal)}</b></div>
+    <div class="kvr"><span>Revenue today${multi?' ('+esc(curMain())+', converted)':''}</span><b>${m2(todayRev)}</b></div>${multi?Object.entries(todayO.by).map(([c,v])=>`<div class="kvr"><span>&middot; ${esc(c)}</span><b>${m2(v)}</b></div>`).join(''):''}<div class="kvr"><span>Departure today balance${multi?' ('+esc(curMain())+', converted)':''}</span><b>${m2(depBal)}</b></div>
     <div class="hx-kpi2"><div><small>ADR</small><b>${m2(adr)}</b></div><div><small>RevPAR</small><b>${m2(revpar)}</b></div></div></div>
    <div class="hxp"><div class="hxh">${ic('bed',15)} Housekeeping</div>${[['Out of Order',HK.ooo,'r'],['Vacant Clean',HK.vc,'b'],['Vacant Dirty',HK.vd,'b'],['Occupied Clean',HK.oc,'b'],['Occupied Dirty',HK.od,'b'],['Inspected',HK.ins,'b'],['Skip',roomDiscrepancies().filter(d=>d.type==='Skip').length,'b'],['Sleep',roomDiscrepancies().filter(d=>d.type==='Sleep').length,'b']].map(x=>`<div class="kvr"><span>${x[0]}</span><i class="pill ${x[2]}">${x[1]}</i></div>`).join('')}</div>
   </div>
-  <div class="hx-two2"><div class="hxp"><div class="hxh">${ic('user',15)} Guest mix <span class="sub">in-house</span></div><div class="hx-chips">${mix.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div><div class="hxp"><div class="hxh">${ic('pin',15)} Today's exceptions</div><div class="hx-chips">${excep.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div></div><div class="hx-an"><div class="hx-anh"><h3>Summary (7 days back, today and next 22 days)</h3><div class="hx-seg" id="hxSeg">${['day','week','month','year'].map(r=>`<button data-r="${r}" class="${HX.range===r?'on':''}">${r[0].toUpperCase()+r.slice(1)}</button>`).join('')}</div><div class="hx-sel" id="hxSel">${HXTYPES.find(t=>t[0]===HX.type)[1]}</div></div><div id="hxChart">${hxChartSvg(bd)}</div></div>
+  <div class="hx-two2"><div class="hxp"><div class="hxh">${ic('user',15)} Guest mix <span class="sub">in-house</span></div><div class="hx-chips">${mix.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div><div class="hxp"><div class="hxh">${ic('pin',15)} Today's exceptions</div><div class="hx-chips">${excep.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div></div><div class="hx-an"><div class="hx-anh"><h3>Summary (7 days back, today and next 22 days)</h3><div class="hx-seg" id="hxSeg">${['day','week','month','year'].map(r=>`<button data-r="${r}" class="${HX.range===r?'on':''}">${r[0].toUpperCase()+r.slice(1)}</button>`).join('')}</div><div class="hx-sel" id="hxSel">${HXTYPES.find(t=>t[0]===HX.type)[1]}</div>${multi?`<div class="hx-sel" id="hxCv" title="Revenue and ADR: all currencies converted, or one currency">Currency : ${HX.cv==='ALL'?'All \u2192 '+esc(curMain()):esc(HX.cv)}</div>`:''}</div><div id="hxChart">${hxChartSvg(bd)}</div></div>
   <div class="hx-tiles">${rows.map(r=>mets.map(m=>tile(m,r)).join('')).join('')}</div>
   </div>`;
-  $('#hsPr',el).onclick=()=>printPages(hxPrintHtml(S,{mtdRev,todayRev,depBal,adr,revpar,HK,occNow,occEnd,mix,excep}),'Hotel Status');
+  $('#hsPr',el).onclick=()=>printPages(hxPrintHtml(S,{mtdRev,todayRev,depBal,adr,revpar,HK,occNow,occEnd,mix,excep,multi:multi?{today:todayO.by,mtd:mtdO.by}:null}),'Hotel Status');
   $$('#hxSeg button',el).forEach(b=>b.onclick=()=>{HX.range=b.dataset.r;$$('#hxSeg button',el).forEach(x=>x.classList.toggle('on',x===b));$('#hxChart',el).innerHTML=hxChartSvg(bd)});
+  if($('#hxCv',el))$('#hxCv',el).onclick=()=>{const L=['ALL',...curList(H)],i=(L.indexOf(HX.cv)+1)%L.length;HX.cv=L[i];render()};
   $('#hxSel',el).onclick=()=>{const i=(HXTYPES.findIndex(t=>t[0]===HX.type)+1)%HXTYPES.length;HX.type=HXTYPES[i][0];$('#hxSel',el).textContent=HXTYPES[i][1];$('#hxChart',el).innerHTML=hxChartSvg(bd)};
   const lists={stay:['Stay Over',S.stay],arr:['Expect Arrival',S.arrPend],dep:['Expect Departure',S.depPend],ih:['Current In-house',S.ih],parr:['Project Arrival',S.arrProj],pdep:['Project Departure',S.depProj],pocc:['Project Occupied Room',S.occProj]};
   $$('[data-hs]',el).forEach(b=>b.onclick=()=>{const[t,l]=lists[b.dataset.hs];statusList(t,l)});
@@ -6335,7 +6443,7 @@ function hxPrintHtml(S,x){HXAB=allBookings();const bd=S.bd,now=new Date(),fitF=a
   const p1=`<div class="ppage land hsprt">${head(1)}
    <table class="hpcards"><tr>${cards.map(c=>`<td><div class="hpcl">${c[0]}</div><div class="hpcn">${c[1].length}</div><div class="hpcp">Total Pax ${pxOf(c[1])}</div></td>`).join('')}<td class="rev"><div class="hpcl">Revenue month to date (${esc(H.set.cur)})</div><div class="hpcn">${m2(x.mtdRev)}</div></td></tr></table>
    <div class="hpcols"><div>${kv('Occupancy',[['Occupied now',x.occNow.toFixed(1)+'% ('+S.occAct.length+' of '+S.sal+' rooms)'],['End of day incl. tentative',x.occEnd.toFixed(1)+'%'],['FIT / Group in-house',fitF(S.occAct).length+' / '+gp(S.occAct).length],['Arrivals so far / expected',S.arrAct.length+' / '+S.arrProj.length+'  ('+S.arrPend.length+' to come)'],['Departures so far / expected',S.depAct.length+' / '+S.depProj.length+'  ('+S.depPend.length+' to go)'],['Occupied now / end of day',S.occAct.length+' / '+S.occProj.length]])}
-    ${kv('Revenue (actual)',[['Revenue today',m2(x.todayRev)],['Departure today balance',m2(x.depBal)],['ADR',m2(x.adr)],['RevPAR',m2(x.revpar)]])}</div>
+    ${kv('Revenue (actual)',[['Revenue today',m2(x.todayRev)],['Departure today balance',m2(x.depBal)],['ADR',m2(x.adr)],['RevPAR',m2(x.revpar)],...(x.multi?[...Object.entries(x.multi.today).map(([c,v])=>['Revenue today '+c,m2(v)]),...Object.entries(x.multi.mtd).map(([c,v])=>['Revenue month to date '+c,m2(v)])]:[])])}</div>
     <div>${kv('Housekeeping',[['Out of Order',x.HK.ooo],['Vacant Clean',x.HK.vc],['Vacant Dirty',x.HK.vd],['Occupied Clean',x.HK.oc],['Occupied Dirty',x.HK.od],['Inspected',x.HK.ins]])}
     ${kv('Guest mix and exceptions',[...x.mix,...x.excep])}</div></div>
    <table class="hpt mt"><tr><th colspan="7">Last three days</th></tr><tr><th></th><th class="n">Occupancy</th><th class="n">ADR</th><th class="n">Room nights</th><th class="n">Revenue</th><th class="n">Avg. length of stay</th><th class="n">Arrivals</th></tr>${tile}</table>
@@ -6498,7 +6606,7 @@ VIEWS['fo.departures2']=(el,id)=>{
   $('#toFull',el).onclick=()=>go('fo.departures');
   sideSearch($('#sideL',el),{title:'FRONT OFFICE / DEPARTURES',st:DS,rows:departuresDue,mode:'dep',pick:x=>{DS.sel=x;re()},rerender:re});
   const B=DS.sel&&bookingById(DS.sel);const box=$('#arDetail',el);
-  if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}">Balance <b>${m2(bb)} ${H.set.cur}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}<span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
+  if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}">Balance <b>${m2(bb)} ${bCur(B)}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}<span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
     reservationScreen($('#dRes',box),resOf(B),B,{compact:true});
     $('#dFol',box).onclick=()=>go('bill.open',B.id);$('#dCo',box).onclick=async()=>{if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(await checkOut(B))re()};
     showNotifs(resOf(B),'Check-out')}else box.innerHTML='<div class="panel empty">No departure selected.</div>';
@@ -6649,8 +6757,8 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Adult# / Child#',`<div class="two"><input type="number" id="bAd" min="1" value="${B.adults}" ${dis('b')}><input type="number" id="bCh" min="0" value="${B.children}" ${dis('b')}></div>`)}
        ${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="bAbA" min="0" value="${abfPax(B).a}" ${dis('b')}><input type="number" id="bAbC" min="0" value="${abfPax(B).c}" ${dis('b')}></div>`)}${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
        ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
-       ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
-       ${fld('<span class="blue">Total rate</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
+       ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
+       ${fld('<span class="blue">Total rate'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
        ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Blocked: ${esc(B.roomBlock.reason)}. Clear the block before this room can change.</span>`:''}`)}
      </div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
@@ -6701,7 +6809,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
   if(q('#aDinv'))q('#aDinv').onclick=()=>{if(need('print'))printDeposit(B)};
   if(q('#aFol'))q('#aFol').onclick=()=>go('bill.open',B.id);
   q('#aCopy').onclick=()=>{if(!need('res.create'))return;const nb=copyReservation(B);go('res.open',nb.id);toast('Copied to a new reservation. Choose the room and dates for the extension, then save.')};
-  q('#aAdd').onclick=()=>{if(!need('res.create'))return;const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:B.arr,dep:B.dep,rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr});r.bookings.push(nb);histB(nb,'Room added to reservation');log('Added room to RSVN '+r.no);reservationScreen(box,r,nb,o);saveDB()};
+  q('#aAdd').onclick=()=>{if(!need('res.create'))return;const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:B.arr,dep:B.dep,rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr});curInherit(nb,B);r.bookings.push(nb);histB(nb,'Room added to reservation');log('Added room to RSVN '+r.no);reservationScreen(box,r,nb,o);saveDB()};
   if(q('#aCI'))q('#aCI').onclick=async()=>{if(await checkInUI(B))reopen()};
   if(q('#aCan'))q('#aCan').onclick=async ()=>{if(!need('res.cancel'))return;if(B.lines.some(l=>isCharge(l))){toast('Charges are already posted. Correct them before cancelling.');return}if(Math.abs(bal(B))>0.004){toast('This booking holds a deposit. Refund or move it before cancelling.');return}
     if(!await dlgConfirm(`Cancel RSVN ${r.no} for ${gName(g)}?`))return;B.status='cancelled';B.statusDate=H.set.bd;histB(B,'Cancelled');log('Cancelled RSVN '+r.no);reopen()};
@@ -6763,7 +6871,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
 function copyReservation(B){const r=resOf(B);const start=B.status==='inhouse'||B.status==='out'?(B.dep>H.set.bd?B.dep:H.set.bd):B.dep;
   const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:r.contact,reference:r.reference,phone:r.phone,fax:r.fax,email:r.email,confirmation:'0',companyId:r.companyId,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};stampHotelNumbers(H,nr);
   const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:start,dep:addD(start,1),rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr,adults:B.adults});
-  nb.copyOf=B.id;nb.remark='Copy of RSVN '+r.no+' (extension)';nr.bookings.push(nb);H.reservations.push(nr);histB(nb,'Created by copy from RSVN '+r.no);log(`Copied RSVN ${r.no} to ${nr.no}`,nb.id);saveDB();return nb}
+  curInherit(nb,B);nb.copyOf=B.id;nb.remark='Copy of RSVN '+r.no+' (extension)';nr.bookings.push(nb);H.reservations.push(nr);histB(nb,'Created by copy from RSVN '+r.no);log(`Copied RSVN ${r.no} to ${nr.no}`,nb.id);saveDB();return nb}
 
 /* ---------- new reservation / walk-in ---------- */
 /* ---- Nationalities: type a country or a nationality, the matching nationality is chosen ---- */
@@ -6840,9 +6948,9 @@ function newReservation(el,pre,walkin){
     ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
     ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
-    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
+    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${curUserOn()?fld('Currency',`<div class="curpick"><button type="button" class="btn ghost curbtn" id="nCurB">${esc(curMain())} &#9662;</button><div class="curmenu" id="nCurM" hidden></div><span class="sub" id="nCurR"></span></div>`):''}${fld('<span id="nRateL">Rate per night</span>',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
     ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="nAbA" value="2" min="0"><input type="number" id="nAbC" value="0" min="0"></div>`,'nabf')}
-    ${walkin?'':`${fld('<span class="depi">$</span> Deposit amount',`<input id="nDep" class="n" inputmode="decimal" value="0">`)}${fld('Deposit paid by',`<select id="nPay">${TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&payEnabled(c)).map(c=>opt(c.code,c.code+' – '+c.desc,'900')).join('')}</select>`)}${fld('Deposit reference',`<input id="nPref" maxlength="60" placeholder="Optional">`,'span2')}
+    ${walkin?'':`${fld('<span class="depi">$</span> <span id="nDepL">Deposit amount</span>',`<input id="nDep" class="n" inputmode="decimal" value="0">`)}${fld('Deposit paid by',`<select id="nPay">${TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&payEnabled(c)).map(c=>opt(c.code,c.code+' – '+c.desc,'900')).join('')}</select>`)}${fld('Deposit reference',`<input id="nPref" maxlength="60" placeholder="Optional">`,'span2')}
     <p class="sub rfull">Leave the amount at 0 to post the deposit later from the reservation. A deposit is posted as one line in Folio 1: Reservation Deposit - (payment type). For its receipt / tax invoice, open the reservation and click Deposit invoice.</p>`}
     ${fld('Remark',`<input id="nRem">`,'rfull')}</div></div>
    <div class="pn"><div class="pnh orange">Billing Address</div><div class="pnb g4">
@@ -6853,7 +6961,7 @@ function newReservation(el,pre,walkin){
     <p class="sub">A company or agency is the bill-to when its code is not WIN or DIR. WIN and DIR, and a walk-in, use the guest. Another address is stored on this reservation and printed on the invoice.</p></div>
    <div class="quote" id="nQ"></div><div class="err" id="nErr"></div>
    <div class="btns"><button class="btn gold" id="nSave">${walkin?'Save and check in':'Save reservation'}</button><button class="btn ghost" id="nX">Cancel</button></div></div>`;
-  const q=s=>$(s,el);
+  const q=s=>$(s,el);let selCur=curMain(),selRate=1;
   attachCombo(q('#nN'),()=>NATION_ITEMS);
   attachCombo(q('#nG'),()=>H.guests.filter(g=>g.profileId&&g.profileId!=='GROUP').map(g=>({value:gName(g)+' #'+g.profileId,label:g.nationality||''})));
   const upd=()=>{const a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value;const cur=q('#nRm').value||pre.room;
@@ -6861,9 +6969,17 @@ function newReservation(el,pre,walkin){
     {const rcb=H.rateCodes.find(x=>x.code===q('#nRc').value),on=!!(rcb&&rcb.meal==='ABF'),bx=el.querySelector('.nabf');if(bx)bx.style.display=on?'':'none'}const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
     const n=a&&d?diff(a,d):0,rt=+q('#nRate').value||0,free=H.rooms.filter(r=>r.type===t&&n>0&&roomFree(r.no,a,d)).length;
     {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip;const tb=totalBoxes(Array(Math.max(0,n)).fill(rt),CO(q('#nCo').value));q('#nTot').value=tb.rVal;q('#nTcL').textContent=tb.cLabel;q('#nTc').value=tb.cVal;q('#nTnL').textContent=tb.nLabel;q('#nTn').value=tb.nVal;q('#nTc').title=q('#nTn').title=tb.tip}
-    q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${H.set.cur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
+    if(q('#nRateL'))q('#nRateL').textContent='Rate per night'+(selCur!==curMain()?' ('+selCur+')':'');if(q('#nDepL'))q('#nDepL').textContent='Deposit amount'+(selCur!==curMain()?' ('+selCur+')':'');
+    q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${selCur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
   ['nA','nD','nRt','nRc'].forEach(id=>q('#'+id).addEventListener('change',()=>{if(id!=='nA'&&id!=='nD')delete q('#nRate').dataset.touched;if(id==='nA'&&q('#nD').value<=q('#nA').value)q('#nD').value=addD(q('#nA').value,1);upd()}));
   q('#nRate').oninput=()=>{q('#nRate').dataset.touched=1;upd()};
+  if(q('#nCurB')){const paintCur=()=>{q('#nCurB').innerHTML=esc(selCur)+' &#9662;';q('#nCurB').classList.toggle('on',selCur!==curMain());q('#nCurR').textContent=selCur!==curMain()?'1 '+selCur+' = '+selRate+' '+curMain():'';$$('[data-cu]',el).forEach(x=>x.classList.toggle('on',x.dataset.cu===selCur))};
+    q('#nCurM').innerHTML=curList(H).map(c=>`<button type="button" data-cu="${c}"><b>${c}</b> ${esc(curName(c))}${c===curMain()?' <small>main</small>':''}</button>`).join('');
+    q('#nCurB').onclick=e=>{e.stopPropagation();q('#nCurM').hidden=!q('#nCurM').hidden};el.addEventListener('click',()=>{if(q('#nCurM'))q('#nCurM').hidden=true});
+    $$('[data-cu]',el).forEach(b=>b.onclick=async()=>{const c=b.dataset.cu;q('#nCurM').hidden=true;if(c===selCur)return;
+      if(c===curMain()){selCur=c;selRate=1}
+      else{const r=await curRateAlert(c,0,'This reservation stays in '+c+' until check-out, including its folio and bill. The Post and Payment windows can still use another allowed currency.');if(r==null)return;selCur=c;selRate=r}
+      delete q('#nRate').dataset.touched;q('#nRate').value='';paintCur();upd()});paintCur()}
   ['nAbA','nAbC'].forEach(i=>q('#'+i).addEventListener('input',()=>{q('#nAbA').dataset.touched='1'}));
   ['nAd','nCh'].forEach(i=>q('#'+i).addEventListener('input',()=>{if(q('#nAbA').dataset.touched)return;q('#nAbA').value=Math.max(0,+q('#nAd').value||0);q('#nAbC').value=Math.max(0,+q('#nCh').value||0)}));
   const syncBill=()=>{if(q('#nBill').dataset.touched)return;const co=CO(q('#nCo').value);q('#nBill').value=co&&co.code!=='WIN'&&co.code!=='DIR'?'company':'guest'};
@@ -6878,13 +6994,14 @@ function newReservation(el,pre,walkin){
     if(!last){err.textContent='Enter the guest last name.';q('#nL').focus();return}if(!a||!d||d<=a){err.textContent='Departure must be after arrival.';return}if(a<H.set.bd){err.textContent='Arrival cannot be before the business date.';return}
     if(walkin&&!room){err.textContent='Choose a vacant clean (VC) room for the walk-in guest.';return}if(room&&!roomFree(room,a,d)){err.textContent=`Room ${room} is not free for these dates.`;return}
     if(walkin&&!roomIsVC(RM(room))){err.textContent='A walk-in checks in only to a vacant clean (VC) room.';return}
-    const re_=rateError(rt,rateKindOf(rcd));if(re_){err.textContent=re_;return}
+    const re_=rateError(rt,rateKindOf(rcd),selCur);if(re_){err.textContent=re_;return}
     const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0){err.textContent='The deposit cannot be below 0.';return}
     const finish=sh=>{let g=q('#nG').dataset.gid&&H.guests.find(x=>x.id===q('#nG').dataset.gid);
     if(!g||g.last!==last){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:q('#nT').value,last,first:q('#nF').value.trim(),middle:'',other:'',jobTitle:'',company:'',nationality:natResolve(q('#nN').value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:q('#nE').value.trim(),phone:q('#nP').value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(g)}
     const r={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.last+', '+g.first,reference:q('#nRef').value.trim(),phone:g.phone,fax:'',email:g.email,confirmation:'0',companyId:q('#nCo').value,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};{const c_=CO(q('#nCo').value);r.commPct=commPct(c_);r.commBasis=commBasis(c_)}stampHotelNumbers(H,r);
     const B=newBooking(H,{guestId:g.id,type:t,room,arr:a,dep:d,rateCode:rcd,status:q('#nBt').value==='FT'?'tentative':'confirmed',market:q('#nMk').value,channel:q('#nChn').value,source:q('#nSrc').value,adults:+q('#nAd').value||1,children:+q('#nCh').value||0,abfAdult:(rco&&rco.meal==='ABF'&&(+q('#nAbA').value||0)!==(+q('#nAd').value||1))?Math.max(0,+q('#nAbA').value||0):null,abfChild:(rco&&rco.meal==='ABF')?Math.max(0,+q('#nAbC').value||0):0,remark:q('#nRem').value.trim()});
     Object.keys(B.nightly).forEach(k=>B.nightly[k]=rt);B.bkType=q('#nBt').value;
+    if(selCur!==curMain()){B.cur=selCur;B.curRate=selRate;histB(B,'Currency '+selCur+' at 1 '+selCur+' = '+selRate+' '+curMain())}
     B.billTo=q('#nBill').value;r.billTo=B.billTo;B.bill={name:q('#nBn').value.trim(),addr:q('#nBa').value.trim(),tax:q('#nBtx').value.trim(),branch:q('#nBbr').value.trim()};
     r.bookings.push(B);H.reservations.push(r);histB(B,'Reservation created');log(`Created RSVN ${r.no}`,B.id);saveDB();
     if(depN>0){postPayment(H,B,q('#nPay').value,depN,{...lineCtx(sh),folio:1,deposit:true,adv:true,ref:q('#nPref').value.trim(),remark:''});histB(B,'Reservation deposit '+m2(depN));log('Reservation deposit '+m2(depN)+' RSVN '+r.no,B.id);saveDB()}
@@ -7068,8 +7185,8 @@ let FI={by:'name',q:''};
 function inquiryFolios(B){
   const r=resOf(B),g=G(B.guestId),co=CO(r.companyId),total=bal(B);
   const box=f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
-    return `<div class="folio"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>${ls.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`};
-  return `<div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <span class="pnic" style="cursor:default">${ic('idc',18)}</span> <b>#${B.internal}</b> <span class="gname" style="cursor:default;text-decoration:none">${esc(gName(g))}${B.copyOf?'(Copy)':''}</span> RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div><div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b> <button type="button" class="btn sm ghost" id="biOpen" style="margin-left:18px">Open in Billing / Folio</button></div></div><div class="fhr"><div class="rmk">Remark</div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div><div class="folios">${[1,2,3,4].map(box).join('')}</div>`;
+    return `<div class="folio"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>${ls.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}${l.fc?`<span class="fxtag">${esc(l.fc)} ${m2(l.fa)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:''}</td></tr>`).join('')}</table></div></div>`};
+  return `<div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <span class="pnic" style="cursor:default">${ic('idc',18)}</span> <b>#${B.internal}</b> <span class="gname" style="cursor:default;text-decoration:none">${esc(gName(g))}${B.copyOf?'(Copy)':''}</span> RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div><div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''} <button type="button" class="btn sm ghost" id="biOpen" style="margin-left:18px">Open in Billing / Folio</button></div></div><div class="fhr"><div class="rmk">Remark</div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div><div class="folios">${[1,2,3,4].map(box).join('')}</div>`;
 }
 VIEWS['bill.inquiry']=el=>{
   const list=allBookings().filter(b=>b.status==='out'&&!b.masterDummy&&sideMatch(FI,b,FI.q)).sort((a,b)=>b.statusDate.localeCompare(a.statusDate)||(a.room||'').localeCompare(b.room||''));
@@ -7088,7 +7205,7 @@ VIEWS['bill.inqfolio']=(el,id)=>{const B=bookingById(id);if(!B){go('bill.inquiry
   $('#fiBack',el).onclick=()=>go('bill.inquiry');if($('#biOpen',el))$('#biOpen',el).onclick=()=>go('bill.open',B.id)};
 function dummyHistModal(id){const e=(H.dummyHist||[]).find(x=>x.id===id);if(!e)return;
   const box=f=>{const L=e.lines.filter(l=>l.folio===f).sort((a,b)=>a.time-b.time),b=r2(sum(L,l=>l.amt));
-    return `<div class="folio" style="height:300px"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${b!==0?'red':''}">${L.length?m2(b):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Reference#</th><th>Description</th><th class="n">Amount</th></tr>${L.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.ref)}</td><td>${esc(l.desc)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`};
+    return `<div class="folio" style="height:300px"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${b!==0?'red':''}">${L.length?m2(b):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Reference#</th><th>Description</th><th class="n">Amount</th></tr>${L.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.ref)}</td><td>${esc(l.desc)}</td><td class="n">${m2(l.amt)}${l.fc?`<span class="fxtag">${esc(l.fc)} ${m2(l.fa)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:''}</td></tr>`).join('')}</table></div></div>`};
   modal('Dummy account history: room '+e.room+' · cleared '+fd(e.bd),`<p class="sub">${fd(e.from)} - ${fd(e.to)} · ${e.lines.length} lines · history only</p><div class="folios" style="margin-top:8px">${[1,2,3,4].map(box).join('')}</div>`,{w:1240})}
 let TIq={by:'guest',q:''};
 VIEWS['bill.trans']=(el,arg)=>{
@@ -7135,13 +7252,13 @@ function folioPane(el,id,onRe){
     ${tb('fReg','card','Print registration card',!can('print'))}${tb('fNot','bell','Notifications')}${tb('fLog','log','User logs of this folio')}${back?tb('fBack','left','Check back in (Auto)',!can('checkin')):''}${B.status==='inhouse'?(cancelCheckInBlock(B)?`<button class="tbtn blocked" id="fCCI" title="Cancel Check-In – blocked: ${esc(CCI_BLOCK_MSG)}" aria-label="Cancel Check-In (blocked)" aria-disabled="true">${ic('undo',22)}</button>`:tb('fCCI','undo','Cancel Check-In – back to Reservation, room becomes VD',!can('checkin'))):''}${tb('fOut','out','Check out',!can('checkout')||B.status!=='inhouse')}</div>
    <div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <button class="pnic" id="fProf" title="Guest profile">${ic('idc',18)}</button> <b>#${B.internal}</b> <a class="gname" id="fName">${esc(gName(g))}${B.copyOf?'(Copy)':''}</a>
       RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio" title="${esc(stayMark(B).label)}">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div>
-      <div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b></div>
+      <div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''}</div>
       ${closed?'<div class="lockbar sm">Closed by Close Day. This folio is read-only. A rebate, refund or void needs approval.</div>':B.status==='out'?'<div class="lockbar sm">Checked out (O). The room is vacant dirty (VD). Check in back returns the guest to the same room while it is still vacant, until Close Day.</div>':''}</div>
     <div class="fhr"><div class="rmk">Remark <span>${ic('detail',12)}</span></div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div>
    <div class="folios">${[1,2,3,4].map(f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
      return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Select Folio ${f}. To print it, use the print icon above."><span>Folio ${f}${f===act?' ✱':''}${folLocked(B,f)?' '+ic('lock',13)+' Locked':''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
       <div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>
-      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
+      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}${l.fc?`<span class="fxtag">${esc(l.fc)} ${m2(l.fa)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:''}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
    <p class="sub">Single-click a line to select it and show the folio numbers that move it. Double-click a line to open it. Click a folio bar to make it the active folio. To print a Guest Folio, click the print icon in the toolbar. The grey (+) on Folio 4 can move. The red (−) on Folio 4, and the advance credit (−) on this folio, each print a receipt / tax invoice with the card and remark. A charge remark stays in the transaction window. A normal payment freezes the lines already on that folio and posts one red receipt line.</p>`;
   const reopen=()=>{saveDB();onRe?onRe():folioPane(el,id)};
   const actNow=()=>folAct[B.id]||1;
@@ -7195,9 +7312,9 @@ function folioPane(el,id,onRe){
   showNotifs(r,'Billing / Folio');
 };
 
-function creditTotals(spec){const cur=H.set.curWord.charAt(0)+H.set.curWord.slice(1).toLowerCase(),c=spec.cn,sg=c.neg?-1:1,t=taxSplit(Math.abs(c.vatable),true);
+function creditTotals(spec,B){const cur=docCurWord(B),c=spec.cn,sg=c.neg?-1:1,t=taxSplit(Math.abs(c.vatable),true);
   const svc=H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(t.svc)}</td></tr>`:'';
-  return `<table class="ivtot"><tr><td>Credit amount (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr>${H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(sg*t.svc)}</td></tr>`:''}<tr><td>Vatable</td><td class="n">${m2(sg*r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(sg*t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(sg*(c.nonvat||0))}</td></tr><tr class="grand"><td>Total Credit (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr></table><div class="ivw">${amountWords(sg*c.total)}</div>`}
+  return `<table class="ivtot"><tr><td>Credit amount (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr>${H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(sg*t.svc)}</td></tr>`:''}<tr><td>Vatable</td><td class="n">${m2(sg*r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(sg*t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(sg*(c.nonvat||0))}</td></tr><tr class="grand"><td>Total Credit (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr></table><div class="ivw">${amountWords(sg*c.total,B)}</div>${docEquiv(B,Math.abs(c.total))}`}
 /* Credit Note: the money document with the title CREDIT NOTE, printed as ORIGINAL and COPY (2 papers) */
 function printCreditNote(B,cn,o){if(!need('print'))return;o=o||{};const spec={credit:true,cn,deposit:false,guest:false,paid:false,folio:cn.folio||1,
     rows:cn.rows.map(x=>({bd:cn.bd,desc:x.desc,ref:x.ref||'',amt:x.amt})),balance:cn.neg?0:cn.total,base:cn.vatable,nonvat:cn.nonvat,billTo:o.bill||B.billTo||defaultBillTo(resOf(B)),other:o.other||B.bill||{},copies:o.copies||'both',inv:{no:cn.no,bd:cn.bd}};
@@ -7381,7 +7498,8 @@ let postTab='MISC.',postKind='c';   /* postKind: c charge types, adj Adjust type
 function postModal(B,after,folio){if(!need('post'))return;const gone=B.status==='out';if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
   let pf=folio||1,cur=null;
   if(gone&&postKind==='c')postKind='adj';
-  const m=modal('New Item Folio','<div id="niB"></div>',{w:1240,cls:'nimodal'});
+  const cs=curUserOn()?{cur:bCur(B),rp:'',rr:bForeign(B)?String(B.curRate):''}:null;let Pq=null;
+  const m=modal('New Item Folio','<div id="niB"></div>',{w:cs?1440:1240,cls:'nimodal'+(cs?' nimc':'')});
   const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor));
   const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c),kindOf=c=>isRb(c)?'reb':isAd(c)?'adj':'c';
   /* a correction code is chosen like any other; after check-out it opens the correction window (reason, credit note, who may do it) */
@@ -7393,7 +7511,7 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
       ${fld('Code',`<div class="row gap"><input id="niC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="niSrch" title="Search codes">${ic('search',15)}</button></div><div id="niHits"></div>`)}
       ${fld('Description',`<input id="niD" value="${cur?esc(cur.desc):''}">`)}
       ${fld('Reference#',`<input id="niR" maxlength="60" placeholder="Reference info (max 60 characters)">`)}
-      ${fld('Amount',`<div class="amtrow"><input id="niA" class="n niamt" inputmode="decimal" placeholder="0.00"><button class="btn ghost sm" id="niCalc" title="Calculator">${ic('grid',20)}</button></div><div id="niPad"></div>`)}
+      ${fld('Amount',`<div class="amtrow"><input id="niA" class="n niamt" inputmode="decimal" placeholder="0.00"><button class="btn ghost sm" id="niCalc" title="Calculator">${ic('grid',20)}</button></div><div id="niPad"></div>`)}${cs?'<div id="niCur"></div>':''}
       ${fld('Remark',`<textarea id="niM" rows="3"></textarea>`)}
       <div class="quote" id="niQ"></div><div class="err" id="niE"></div>
       <div class="btns end"><button class="btn red" id="niX">Close</button><button class="btn purple" id="niP">Post</button></div></div></div>`;
@@ -7409,22 +7527,23 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
       $$('[data-hit]',m).forEach(b=>b.onclick=()=>{const c=TCODES.find(x=>x.code===b.dataset.hit);if(!allowed(c))return;save();cur=c;postTab=cur.tab;postKind=kindOf(c);paint();$('#niA',m).focus()})};
     $('#niSrch',m).onclick=()=>$('#niC',m).dispatchEvent(new Event('input'));
     $('#niCalc',m).onclick=()=>calcPad($('#niPad',m),$('#niA',m),upd);
+    if(cs){const h=$('#niCur',m);h.innerHTML=curPanelHtml(B,cs);Pq=curPanelBind(h,B,cs,()=>$('#niA',m).value,folioBal(B,pf),1,()=>{save();if(m._v)m._v.niA='';paint()})}
     $('#niA',m).oninput=upd;$('#niX',m).onclick=()=>closeModal(m);$('#niP',m).onclick=doPost;upd();
   };
   const save=()=>{m._v={};['niR','niA','niM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value});if(cur&&$('#niD',m))cur={...cur,desc:$('#niD',m).value.trim()||cur.desc}};
-  const upd=()=>{const a=+String($('#niA',m).value).replace(/,/g,'')||0;if(!cur||!a){$('#niQ',m).innerHTML=cur?'':'Choose a code on the left or type it.';return}const vOn=chargeVat(cur),t=taxSplit(a,vOn);
+  const upd=()=>{let a=+String($('#niA',m).value).replace(/,/g,'')||0;if(cs){const r=curPanelCalc(B,cs,a);Pq&&Pq();a=r.error?0:r.folio}if(!cur||!a){$('#niQ',m).innerHTML=cur?'':'Choose a code on the left or type it.';return}const vOn=chargeVat(cur),t=taxSplit(a,vOn);
     $('#niQ',m).innerHTML=`${cur.rebate?'Rebate: posts as −'+m2(a)+'. ':''}Net ${m2(t.net)} + service ${m2(t.svc)} + ${esc(H.set.taxName)} ${m2(t.vat)} = <b>${m2(a)}</b>${vOn?'':' (non-VAT)'} → Folio ${pf}`};
-  const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}const a=r2(+String($('#niA',m).value).replace(/,/g,''));
-    if(!(a>0)){e.textContent='Enter an amount above 0.';return}if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
+  const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}const a0=r2(+String($('#niA',m).value).replace(/,/g,''));
+    if(!(a0>0)){e.textContent='Enter an amount above 0.';return}const FX=cs?curPanelCalc(B,cs,a0):null;if(FX&&FX.error){e.textContent=FX.error;return}const a=FX?FX.folio:a0;if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
     const adj=/^Adjust/i.test(base.desc)||base.code==='398'||base.code==='728';
     if(adj&&bal(B)>=-0.004){e.textContent='Adjust (+) is only for an overpayment. The folio balance must be below zero.';return}
     if(base.rebate){const net=r2(sum(B.lines.filter(isCharge),l=>l.amt));if(net<=0.004){e.textContent=PS_MSG.rebate;return}if(a>net+0.004){e.textContent='A rebate cannot be more than the charges on this folio ('+m2(net)+').';return}}
     const desc=$('#niD',m).value.trim()||base.desc,ref=$('#niR',m).value.trim()||B.room,rem=$('#niM',m).value.trim(),amt=base.rebate?-a:a;
-    const dest=typeof chargeTarget==='function'?chargeTarget(B,cur.code):B;const vOn=chargeVat(base);
+    const dest=typeof chargeTarget==='function'?chargeTarget(B,cur.code):B;const vOn=chargeVat(base);if(FX&&dest!==B&&bCur(dest)!==bCur(B)){e.textContent='This charge is routed to a folio in another currency. Ask the manager.';return}
     if(base.rebate&&typeof needsApproval==='function'&&needsApproval(vOn?'vatRebate':'nonVatRebate')){
       queueApproval({action:'rebate',kind:vOn?'vatRebate':'nonVatRebate',bookingId:dest.id,title:`Rebate ${cur.code} ${m2(a)}`,code:cur.code,desc:'Rebate - '+desc,ref,amt,folio:pf,remark:rem,vat:vOn});
       closeModal(m);after();return}
-    const l=addLine(H,dest,{...lineCtx(),folio:pf,code:cur.code,desc,ref,amt,kind:'post',remark:rem,vat:vOn});
+    const l=addLine(H,dest,{...lineCtx(),folio:pf,code:cur.code,desc,ref,amt,kind:'post',remark:rem,vat:vOn,fx:FX&&FX.fx});
     log(`Posted ${cur.code} ${m2(l.amt)} to RSVN ${resOf(dest).no} folio ${pf}`,dest.id);closeModal(m);after();toast(`Posted ${m2(l.amt)} to folio ${pf}`)};
   paint();setTimeout(()=>$('#niC',m).focus(),50);
 }
@@ -7447,7 +7566,8 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   showNotifs(resOf(B),'Cashier');
   const g=G(B.guestId);let cur=null;const deposit=adv&&B.status!=='inhouse';
   const noBill0=!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);
-  const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):(noBill0?'Refund':'Payment'),'<div id="pyB"></div>',{w:1240,cls:'nimodal'});
+  const cs=curUserOn()?{cur:bCur(B),rp:'',rr:bForeign(B)?String(B.curRate):''}:null;
+  const m=modal(adv?(deposit?'Reservation Deposit':'Advance Payment'):(noBill0?'Refund':'Payment'),'<div id="pyB"></div>',{w:cs?1440:1240,cls:'nimodal'+(cs?' nimc':'')});
   const noBill=!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);   /* nothing to pay: only a refund is possible */
   payRef=noBill;
   const allP=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&payEnabled(c));
@@ -7462,7 +7582,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
       ${fld('Tran code',`<div class="row gap"><input id="pyC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="pySr" title="Search">${ic('search',15)}</button></div><div id="pyHits"></div>`)}
       ${fld('Description',`<input id="pyD" value="${cur?esc(cur.desc):''}">`)}${cur&&cur.ptab==='CREDIT CARD'&&!cur.refund?`<div class="cardbox"><div class="cbh">${ic('cardp',16)} Card details <span class="sub">– only the last 4 digits are shown after saving</span></div><div class="form2">${fld('Card number',`<input id="cdN" inputmode="numeric" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="23">`,'span2')}${fld('Expiry (MM/YY)',`<input id="cdE" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5">`)}${fld('CVC',`<input id="cdC" type="password" inputmode="numeric" autocomplete="cc-csc" placeholder="•••" maxlength="4">`)}${fld('Card holder name',`<input id="cdH" autocomplete="cc-name" placeholder="As printed on the card">`,'span2')}</div></div>`:''}
       ${fld('Reference#',`<input id="pyR" maxlength="60" placeholder="Reference info (max 60 characters)">`)}
-      ${fld('Amount',`<div class="amtrow"><input id="pyA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${defAmt()}"><button class="btn ghost sm" id="pyCalc" title="Calculator">${ic('grid',20)}</button></div><div id="pyPad"></div>`)}
+      ${fld('Amount',`<div class="amtrow"><input id="pyA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${cs&&cs.cur!==bCur(B)?'':defAmt()}"><button class="btn ghost sm" id="pyCalc" title="Calculator">${ic('grid',20)}</button></div><div id="pyPad"></div>`)}${cs?'<div id="pyCur"></div>':''}
       ${fld('Remark',`<textarea id="pyM" rows="3"></textarea>`)}<div class="err" id="pyE"></div>
       <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?(deposit?'Post deposit':'Post advance payment'):'Post payment'}</button></div></div></div>`;
     if(m._v)['pyR','pyA','pyM'].forEach(id=>{if(m._v[id]!=null&&m._v[id]!=='')$('#'+id,m).value=m._v[id]});
@@ -7476,10 +7596,12 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
       $('#pyHits',m).innerHTML=hits.length?`<div class="nihits">${hits.map(c=>`<button data-ph="${c.code}"><b>${c.code}</b> ${esc(c.desc)}</button>`).join('')}</div>`:'';$$('[data-ph]',m).forEach(b=>b.onclick=()=>pick(b.dataset.ph))};
     $('#pySr',m).onclick=()=>$('#pyC',m).dispatchEvent(new Event('input'));
     if($('#cdN',m)){$('#cdN',m).oninput=e=>{const v=e.target.value.replace(/\D/g,'').slice(0,19);e.target.value=v.replace(/(.{4})/g,'$1 ').trim()};$('#cdE',m).oninput=e=>{let v=e.target.value.replace(/\D/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);e.target.value=v};$('#cdC',m).oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)}}
+    if(cs){const h=$('#pyCur',m);h.innerHTML=curPanelHtml(B,cs);const Pq=curPanelBind(h,B,cs,()=>$('#pyA',m).value,folioBal(B,folio),-1,()=>{save();if(m._v)m._v.pyA='';paint()});$('#pyA',m).addEventListener('input',Pq)}
     $('#pyCalc',m).onclick=()=>calcPad($('#pyPad',m),$('#pyA',m));$('#pyX',m).onclick=()=>closeModal(m);$('#pyP',m).onclick=doPay};
   const save=()=>{m._v={};['pyR','pyA','pyM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value})};
-  const doPay=()=>noShiftGate('payment',sh=>doPay0(sh));const doPay0=sh=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a=r2(+String($('#pyA',m).value).replace(/,/g,''));
-    if(!(a>0)){e.textContent='Enter an amount above 0.';return}
+  const doPay=()=>noShiftGate('payment',sh=>doPay0(sh));const doPay0=sh=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a0=r2(+String($('#pyA',m).value).replace(/,/g,''));
+    if(!(a0>0)){e.textContent='Enter an amount above 0.';return}
+    const FX=cs&&!cur.refund?curPanelCalc(B,cs,a0):null;if(FX&&FX.error){e.textContent=FX.error;return}const a=FX?FX.folio:a0;
     if(cur.refund&&adv){e.textContent='Refunds are made with Payment, not Advance Payment.';return}
     if(cur.refund){const prior=B.lines.filter(l=>(l.kind==='pay'||l.kind==='payrec')&&l.code===(cur.refFor||l.code)&&isLocked(l.bd)&&l.amt<0);
       if(!prior.length){e.textContent='A refund is for a payment from a closed day. For today, use Correct payment or Void payment on the transaction.';return}
@@ -7495,7 +7617,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     const refIn=$('#pyR',m).value.trim();
     const openBills=B.lines.filter(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);
     if(!adv&&!cur.refund&&!openBills.length){e.textContent='There is no open bill in this folio. A payment needs a bill.';return}
-    const P_=postPayment(H,B,cur.code,a,{...lineCtx(sh),folio,ref:refIn,remark:$('#pyM',m).value.trim(),deposit,adv,desc:$('#pyD',m).value.trim()||cur.desc});
+    const P_=postPayment(H,B,cur.code,a,{...lineCtx(sh),folio,ref:refIn,remark:$('#pyM',m).value.trim(),deposit,adv,desc:$('#pyD',m).value.trim()||cur.desc,fx:FX&&FX.fx});
     const refNo=refIn||String(P_.A.sys).padStart(6,'0');
     if(!refIn)[P_.A,P_.R,P_.C].filter(Boolean).forEach(x=>x.ref=refNo);
     if(card)[P_.A,P_.R,P_.C].filter(Boolean).forEach(x=>{x.card={brand:card.brand,last4:card.last4,exp:card.exp,holder:card.holder,vault:card.vault}});
@@ -7520,8 +7642,8 @@ function splitLine(B,l,after){if(!need('post'))return;if(!l){toast('Select a lin
   $('#spA',m).oninput=()=>{$('#spN',m).value='';upd()};$('#spN',m).onchange=upd;$('#spCalc',m).onclick=()=>calcPad($('#spPad',m),$('#spA',m),upd);$('#spX',m).onclick=()=>closeModal(m);
   $('#spGo',m).onclick=()=>{if(!need('post'))return;const n=+$('#spN',m).value;let parts;
     if(n){const each=Math.floor(tot/n*100)/100;parts=Array(n-1).fill(each);}else{const a=r2(+String($('#spA',m).value).replace(/,/g,''));if(!(a>0&&a<tot)){$('#spE',m).textContent=`Enter an amount between 0 and ${m2(tot)}.`;return}parts=[a]}
-    const s=curShift();parts.forEach(a=>{const nl=JSON.parse(JSON.stringify(l));Object.assign(nl,{id:'l'+uid(),sys:H.set.nextSys++,amt:r2(sg*a),splitOf:l.sys,time:Date.now(),hist:[{at:Date.now(),user:user().name,shift:s.name,a:`Split from line ${l.sys}`}]});B.lines.push(nl)});
-    const taken=r2(sum(parts));l.amt=r2(sg*(tot-taken));l.hist.push({at:Date.now(),user:user().name,shift:s.name,a:`Split: ${m2(sg*tot)} → ${m2(l.amt)} + ${parts.map(p=>m2(sg*p)).join(' + ')}`});
+    const s=curShift(),fa0=l.fa,eq0=l.eq,amt0=l.amt;parts.forEach(a=>{const nl=JSON.parse(JSON.stringify(l));Object.assign(nl,{id:'l'+uid(),sys:H.set.nextSys++,amt:r2(sg*a),splitOf:l.sys,time:Date.now(),hist:[{at:Date.now(),user:user().name,shift:s.name,a:`Split from line ${l.sys}`}]});if(fa0!=null&&amt0){nl.fa=r2(fa0*nl.amt/amt0);nl.eq=r2(eq0*nl.amt/amt0)}B.lines.push(nl)});
+    const taken=r2(sum(parts));l.amt=r2(sg*(tot-taken));if(fa0!=null&&amt0){l.fa=r2(fa0*l.amt/amt0);l.eq=r2(eq0*l.amt/amt0)}l.hist.push({at:Date.now(),user:user().name,shift:s.name,a:`Split: ${m2(sg*tot)} → ${m2(l.amt)} + ${parts.map(p=>m2(sg*p)).join(' + ')}`});
     log(`Split line ${l.sys} (${m2(sg*tot)}) into ${parts.length+1} RSVN ${resOf(B).no}`,B.id);folSel=null;closeModal(m);after();toast(`Split into ${parts.length+1} lines`)}}
 
 /* ---------- Offset transaction: permanently freezes the line (no new line is added) ---------- */
@@ -7547,7 +7669,7 @@ function moveToRoom(B,l,after){if(!need('move'))return;if(!l){toast('Select a li
      <div class="segs fseg mt">${[1,2,3,4].map(x=>`<button type="button" data-tf="${x}" aria-pressed="${x===pf}">Folio ${x}<small>${m2(folioBal(pick,x))}</small></button>`).join('')}</div>
      <div class="btns end"><button class="btn ghost" id="trX">Cancel</button><button class="btn gold" id="trGo">Transfer</button></div></div>`;
     $$('[data-tf]',bx).forEach(b=>b.onclick=()=>{pf=+b.dataset.tf;paintPick()});$('#trX',bx).onclick=()=>closeModal(m);
-    $('#trGo',bx).onclick=()=>{if(!need('move'))return;const T=pick;if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}B.lines=B.lines.filter(x=>x!==l);l.folio=pf;
+    $('#trGo',bx).onclick=()=>{if(!need('move'))return;const T=pick;if(bCur(T)!==bCur(B)){toast('This line is in '+bCur(B)+' and that room is in '+bCur(T)+'. A line cannot move between reservations in different currencies.');return}if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}B.lines=B.lines.filter(x=>x!==l);l.folio=pf;
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:`Transferred from room ${B.room} to room ${T.room} folio ${pf}`});T.lines.push(l);log(`Transferred line ${l.sys} from room ${B.room} to ${T.room} folio ${pf}`,B.id);folSel=null;closeModal(m);after();toast(`Moved to room ${T.room}, folio ${pf}`)}};
   $('#trQ',m).oninput=()=>{pick=null;paintPick();run()};
 }
@@ -7698,21 +7820,24 @@ function readBill(m){return {bill:$('#ivB',m).value,other:{name:$('#ivN',m).valu
 const DOC_ROWS=8;
 function flattenDoc(rows){const flat=[];rows.forEach(x=>{flat.push({t:'l',x});if(x.card&&x.card.last4)flat.push({t:'c',x});if(x.remark)flat.push({t:'r',x});if(x.note)flat.push({t:'n',text:x.note})});return flat}
 function chunkDoc(flat){if(!flat.length)return [[]];const pages=[];let i=0;while(i<flat.length){let n=Math.min(DOC_ROWS,flat.length-i);if(n===DOC_ROWS){const last=flat[i+n-1],nxt=flat[i+n];if(last&&last.t==='l'&&nxt&&nxt.t!=='l'&&n>1)n--}pages.push(flat.slice(i,i+n));i+=n}return pages}
-function docRowHtml(c){if(c.t==='e')return '<tr class="ivpad"><td>&nbsp;</td><td></td><td></td><td></td></tr>';if(c.t==='l')return `<tr><td>${fd(c.x.bd)}</td><td>${esc(c.x.desc)}</td><td>${esc(c.x.ref||'')}</td><td class="n">${m2(c.x.amt)}</td></tr>`;if(c.t==='c')return `<tr class="ivrm"><td></td><td colspan="3">${esc(cardMaskLine(c.x.card))}</td></tr>`;if(c.t==='r')return `<tr class="ivrm"><td colspan="4">${esc(c.x.remark)}</td></tr>`;return `<tr class="ivrm"><td colspan="4">${esc(c.text||'')}</td></tr>`}
-function moneyTotals(box){const cur=H.set.curWord.charAt(0)+H.set.curWord.slice(1).toLowerCase(),t=taxSplit(box.base||0,true),gross=r2((box.base||0)+(box.nonvat||0));
+function docRowHtml(c){if(c.t==='e')return '<tr class="ivpad"><td>&nbsp;</td><td></td><td></td><td></td></tr>';if(c.t==='l')return `<tr><td>${fd(c.x.bd)}</td><td>${esc(c.x.desc)}${c.x.fx?` <span class="ivfx">${esc(c.x.fx.fc)} ${m2(Math.abs(c.x.fx.fa))}${c.x.fx.fc!==curMain()?' @ '+c.x.fx.fr:''}</span>`:''}</td><td>${esc(c.x.ref||'')}</td><td class="n">${m2(c.x.amt)}</td></tr>`;if(c.t==='c')return `<tr class="ivrm"><td></td><td colspan="3">${esc(cardMaskLine(c.x.card))}</td></tr>`;if(c.t==='r')return `<tr class="ivrm"><td colspan="4">${esc(c.x.remark)}</td></tr>`;return `<tr class="ivrm"><td colspan="4">${esc(c.text||'')}</td></tr>`}
+const docCurWord=B=>{const w=B&&bForeign(B)?curInfo(H,B.cur).word:H.set.curWord;return w.charAt(0)+w.slice(1).toLowerCase()};
+/* the extra line under the words: the value in the main currency, at the rate staff typed */
+const docEquiv=(B,amt)=>B&&bForeign(B)?`<div class="ivq">Equivalent ${esc(curMain())} ${m2(curToMain(amt,bRate(B)))} (1 ${esc(B.cur)} = ${B.curRate} ${esc(curMain())})</div>`:'';
+function moneyTotals(box,B){const cur=docCurWord(B),t=taxSplit(box.base||0,true),gross=r2((box.base||0)+(box.nonvat||0));
   const svc=H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(t.svc)}</td></tr>`:'';
-  return `<table class="ivtot"><tr><td>Total Balance (${esc(cur)})</td><td class="n">${m2(box.balance)}</td></tr>${svc}<tr><td>Vatable</td><td class="n">${m2(r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(box.nonvat||0)}</td></tr><tr class="grand"><td>Total Amount (${esc(cur)})</td><td class="n">${m2(gross)}</td></tr></table><div class="ivw">${amountWords(gross)}</div>`}
+  return `<table class="ivtot"><tr><td>Total Balance (${esc(cur)})</td><td class="n">${m2(box.balance)}</td></tr>${svc}<tr><td>Vatable</td><td class="n">${m2(r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(box.nonvat||0)}</td></tr><tr class="grand"><td>Total Amount (${esc(cur)})</td><td class="n">${m2(gross)}</td></tr></table><div class="ivw">${amountWords(gross,B)}</div>${docEquiv(B,gross)}`}
 function hotelHead(){return `<div class="ivh"><div><b class="ivn">${esc(H.set.name)}</b><div class="ivl"><b>${esc(H.set.legal)}</b><br><b>${esc(H.set.branch)}</b><br>${esc(H.set.addr)}<br>Tel. : ${esc(H.set.phone)}${H.set.fax?' Fax. : '+esc(H.set.fax):''}<br>HOTEL TAX ID : ${esc(H.set.taxId)}<br>Website : ${esc(H.set.web)} | E-Mail : ${esc(H.set.email)}</div></div><img src="${docLogo()}" class="ivlogo" alt=""></div>`}
 function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spec.billTo,spec.billTo==='other'?spec.other:null),pages=chunkDoc(flattenDoc(spec.rows)),now=fd(todayZ())+' '+tms(Date.now());
   const sets=spec.copies==='copy'?['COPY']:spec.copies==='original'?['ORIGINAL']:['ORIGINAL','COPY'];
-  const totals=spec.credit?creditTotals(spec):moneyTotals(spec);const coName=companyLine(B,bt);
+  const totals=spec.credit?creditTotals(spec,B):moneyTotals(spec,B);const coName=companyLine(B,bt);
   const page=(chunk,pi,label)=>{const rows=chunk.slice();while(rows.length<DOC_ROWS)rows.push({t:'e'});
     const head=spec.guest?`<b>Folio ${spec.folio}</b>`:spec.credit?`<b>CREDIT NOTE NO. ${spec.inv.no} (${label})</b>`:`<b>TAX INVOICE NO. ${invRef(spec.inv)} (${label})</b>`;
     const left=`<tr><td colspan="2">${head}</td></tr><tr><td>Guest Name</td><td>: ${esc(gName(g))}</td></tr><tr><td>Room Number</td><td>: ${esc(B.room||'')}</td></tr>${spec.credit?`<tr><td>Credit for</td><td>: ${esc(spec.cn.label)} (RSVN ${r.no})</td></tr><tr><td>Reason</td><td>: ${esc(spec.cn.reason)}</td></tr>`:''}<tr><td>Company</td><td>: ${esc(coName)}</td></tr><tr><td>Tax ID/Gst Pass</td><td>: ${esc(bt.tax||'')}</td></tr><tr><td>Address</td><td>: ${esc(bt.addr||'')}</td></tr>`;
     const right=`<tr><td>Page#</td><td>: ${pi+1} / ${pages.length}</td></tr><tr><td>Folio No.</td><td>: ${B.internal}</td></tr><tr><td>Arrival</td><td>: ${fd(B.arr)}</td></tr><tr><td>Departure</td><td>: ${fd(B.dep)}</td></tr><tr><td>No. of guest</td><td>: ${B.adults+B.children}</td></tr><tr><td>Printed Date/Time</td><td>: ${now}</td></tr><tr><td>${spec.guest?'Folio Date':spec.credit?'Credit Note Date':'Tax Invoice Date'}</td><td>: ${fd(spec.guest?H.set.bd:spec.inv.bd)}</td></tr>`;
     return `<div class="ppage port inv">${hotelHead()}<div class="ivtitlebar"><div class="ivtitle${spec.guest?' guest':''}">${spec.guest?'GUEST FOLIO':spec.credit?'CREDIT NOTE':'RECEIPT / TAX INVOICE'}</div></div>
      <div class="ivinfo"><table>${left}</table><table>${right}</table></div>
-     <table class="ivt"><tr><th>DATE</th><th>DESCRIPTION</th><th>REFERENCE</th><th class="n">AMOUNT</th></tr>${rows.map(docRowHtml).join('')}</table>
+     <table class="ivt"><tr><th>DATE</th><th>DESCRIPTION</th><th>REFERENCE</th><th class="n">AMOUNT${bForeign(B)?' ('+esc(B.cur)+')':''}</th></tr>${rows.map(docRowHtml).join('')}</table>
      ${totals}<div class="ivfoot"><p>${spec.credit?'This credit note corrects the amount charged on the folio above. It does not change the number of the original tax invoice.':'I agree that my liability for this invoice is not waived and agree to be held personally liable in the event that the indicated person, company or association fails to pay for any part of the full amount of these charges.'}</p>
       <div class="sigs"><div><span></span>Guest's Signature</div><div><span></span>Cashier's Signature<br><b>${esc(user().name.toUpperCase())}</b></div></div></div></div>`};
   return {html:sets.map(lb=>pages.map((c,i)=>page(c,i,lb)).join('')).join(''),sets,pages:pages.length,bt}}
@@ -7720,7 +7845,7 @@ function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spe
    The folio 1 advance credit is the same on those two prints. Its card and remark are printed only on the receipt / tax invoice. */
 function groupRemark(grp,pay){const hit=[pay].concat(grp||[]).find(l=>l&&l.remark);return hit?hit.remark:''}
 function receiptRow(l){const advCredit=l.kind==='pay'&&(l.adv||l.deposit);const payment=['pay','payrec','corrpay'].includes(l.kind);
-  return {bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,card:(payment||advCredit)?l.card||null:null,remark:(payment||advCredit)?(l.remark||''):''}}
+  return {bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,fx:l.fc?{fc:l.fc,fa:l.fa,fr:l.fr}:null,card:(payment||advCredit)?l.card||null:null,remark:(payment||advCredit)?(l.remark||''):''}}
 function receiptSpec(B,line){const grp=B.lines.filter(l=>l.group&&l.group===line.group);const pay=grp.find(l=>l.kind==='pay')||grp.find(l=>l.kind==='payrec')||line;const card=(grp.find(l=>l.card)||pay).card||null;const method=payLabel(Object.assign({},pay,{card:card||pay.card}));const amt=Math.abs(pay.amt);const bd=pay.orgDate||pay.bd;const ref=pay.ref||'';const remark=groupRemark(grp,pay);const tc=TCODES.find(c=>c.code===pay.code);
   if(grp.some(l=>l.deposit)||pay.deposit)return {deposit:true,paid:false,folio:4,key:'dep:'+(pay.group||pay.id),rows:[{bd,desc:'Reservation Deposit - '+method,ref,amt,card,remark}],balance:amt,base:amt,nonvat:0};
   if(grp.some(l=>l.adv)||pay.adv){const rec=grp.find(l=>l.kind==='payrec')||line;return {deposit:false,paid:false,folio:rec.folio||4,key:'pay:'+(pay.group||pay.id),rows:[{bd,desc:'Advance Payment - '+method,ref,amt},{bd,desc:method+' - Advance Payment',ref,amt:-amt,card,remark}],balance:0,base:amt,nonvat:0}}
@@ -7740,7 +7865,7 @@ function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line)
   openMoneyDoc(B,spec,(spec.deposit?'Reservation deposit':'Receipt / Tax invoice')+' '+invRef(spec.inv))}
 function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[only]:B.lines.filter(l=>l.folio===f)).slice().sort((a,b)=>a.time-b.time);if(!ls.length){toast('This folio has no lines to print.');return}const fol=only?only.folio:f;const payKind=k=>['pay','payrec','payoff','corrpay'].includes(k);
   const folioExtra=l=>payKind(l.kind)&&!(l.kind==='pay'&&(l.adv||l.deposit));
-  let rows=ls.map(l=>({bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}));
+  let rows=ls.map(l=>({bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,fx:l.fc?{fc:l.fc,fa:l.fa,fr:l.fr}:null,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}));
   if(style==='summary'&&!only){const by={};ls.forEach(l=>{const k=l.code+'|'+l.desc.replace(/^Correct - /,'');by[k]=by[k]||{bd:l.orgDate||l.bd,desc:l.desc.replace(/^Correct - /,''),ref:'',amt:0,card:null,remark:''};by[k].amt=r2(by[k].amt+l.amt);if(folioExtra(l)&&l.card)by[k].card=l.card;if(folioExtra(l)&&l.remark)by[k].remark=l.remark});rows=Object.values(by).filter(x=>Math.abs(x.amt)>0.004)}
   const ch=ls.filter(isCharge),base=r2(sum(ch.filter(l=>l.vat),l=>l.amt)),nonvat=r2(sum(ch.filter(l=>!l.vat),l=>l.amt));
   openMoneyDoc(B,{guest:true,deposit:false,paid:false,folio:fol,rows,balance:r2(sum(ls,l=>l.amt)),base,nonvat,billTo,other,copies:copies||'both'},only?'Guest folio':'Guest folio '+B.internal+' · folio '+f)}
@@ -7816,24 +7941,34 @@ function printRegCard(B){
 }
 
 /* ================= Shift, Close Day, Setup, Provider ================= */
+/* the currency a posted line is in: what was typed, else the currency of its reservation */
+const curOfLine=l=>l.fc||(l.origBooking&&bookingById(l.origBooking)?bCur(bookingById(l.origBooking)):curMain());
 function shiftTotals(s){const ls=allLinesH(H).filter(l=>l.shiftId===s.id);const pays=paymentsIn(ls);const by={};pays.forEach(p=>{by[p.l.method]=(by[p.l.method]||0)+p.amt});
-  const cash=r2(by['Cash']||0),paidOut=r2(sum(ls.filter(l=>l.code==='600'&&isCharge(l)),l=>l.amt));return {ls,by,cash,paidOut,expected:r2((s.openCash||0)+cash-paidOut),charges:r2(sum(ls.filter(isCharge),l=>l.amt))}}
+  const cash=r2(by['Cash']||0),paidOut=r2(sum(ls.filter(l=>l.code==='600'&&isCharge(l)),l=>l.amt));
+  /* with extra currencies: the cash received in each currency, in that currency */
+  const cashBy={},byCur={};if(curMulti(H))pays.forEach(p=>{const c=curOfLine(p.l),a=p.l.fa!=null?-p.l.fa:p.amt;(byCur[c]=byCur[c]||{})[p.l.method]=r2(((byCur[c]||{})[p.l.method]||0)+a);if(p.l.method==='Cash')cashBy[c]=r2((cashBy[c]||0)+a)});
+  return {ls,by,cash,paidOut,cashBy,byCur,expected:r2((s.openCash||0)+(curMulti(H)?(cashBy[curMain()]||0):cash)-paidOut),expectedBy:curMulti(H)?Object.assign({[curMain()]:r2((s.openCash||0)+(cashBy[curMain()]||0)-paidOut)},curOthers(H).reduce((o,c)=>{o[c]=cashBy[c]||0;return o},{})):undefined,charges:r2(sum(ls.filter(isCharge),l=>l.amt))}}
+/* closing somebody else's shift: ask the cash counted in each other currency */
+async function curCountOthers(tt,o){const cb={};if(curMulti(H)){for(const k of curOthers(H)){const ex=tt.cashBy[k]||0;const raw=await dlgAsk('Cash counted in '+k+' for '+o.userName+' ('+o.name+'). Expected '+m2(ex)+':',String(ex));if(raw===null)return null;cb[k]=r2(+raw||0)}}
+  return {fields:(cnt,t)=>curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({[curMain()]:cnt},cb),varianceBy:Object.assign({[curMain()]:r2(cnt-t.expected)},Object.keys(cb).reduce((o,k)=>{o[k]=r2(cb[k]-(t.cashBy[k]||0));return o},{}))}:{}}}
 VIEWS['cd.shift']=el=>{
   const s=curShift();if(!s){el.innerHTML='<div class="empty">No open shift.</div>';return}if(s.noShift){el.innerHTML=pageHead('My Shift & Cashier')+'<div class="empty">You sign in without a shift, so there is no shift to close. Payments you take are counted in the cashier shift you choose.</div>';return}const t=shiftTotals(s);
   const others=H.shifts.filter(x=>x.status==='open'&&x.id!==s.id);
   el.innerHTML=pageHead('My Shift & Cashier',`<span class="sub">${esc(s.name)} shift · opened ${tm(s.openAt)} · business date ${fd(s.bd)}</span>`)+`<div class="cols2">
-   <div class="panel"><div class="ph">Collections this shift</div><table class="grid kv">${Object.entries(t.by).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${m2(v)}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
-     <tr class="tot"><td>Total collected</td><td class="n">${m2(sum(Object.values(t.by)))}</td></tr><tr><td>Charges posted</td><td class="n">${m2(t.charges)}</td></tr></table></div>
-   <div class="panel"><div class="ph">Cash drawer</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(s.openCash||0)}</td></tr><tr><td>+ Cash received</td><td class="n">${m2(t.cash)}</td></tr><tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr class="tot"><td>Expected cash</td><td class="n">${m2(t.expected)}</td></tr></table>
-    <div class="form2 mt">${fld('Cash counted',`<input type="number" id="csC" step="0.01" class="n">`)}${fld('Handover note (optional)',`<input id="csN">`)}</div><div class="err" id="csE"></div>
+   <div class="panel"><div class="ph">Collections this shift</div><table class="grid kv">${(curMulti(H)?Object.entries(t.byCur).flatMap(([c,mm])=>Object.entries(mm).map(([k,v])=>[k+' ('+c+')',v])):Object.entries(t.by)).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${m2(v)}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
+     <tr class="tot"><td>Total collected</td><td class="n">${curMulti(H)?Object.entries(t.byCur).map(([c,mm])=>c+' '+m2(sum(Object.values(mm)))).join(' · ')||'0.00':m2(sum(Object.values(t.by)))}</td></tr><tr><td>Charges posted</td><td class="n">${m2(t.charges)}</td></tr></table></div>
+   <div class="panel"><div class="ph">Cash drawer</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(s.openCash||0)}</td></tr><tr><td>+ Cash received${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(curMulti(H)?(t.cashBy[curMain()]||0):t.cash)}</td></tr><tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr class="tot"><td>Expected cash${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.expected)}</td></tr></table>
+    ${curMulti(H)?`<table class="grid kv mt"><tr><th colspan="2">Cash received in other currencies</th></tr>${curOthers(H).map(c=>`<tr><td>Expected cash (${esc(c)})</td><td class="n">${m2(t.cashBy[c]||0)}</td></tr>`).join('')}</table>`:''}
+    <div class="form2 mt">${fld('Cash counted'+(curMulti(H)?' ('+esc(curMain())+')':''),`<input type="number" id="csC" step="0.01" class="n">`)}${curMulti(H)?curOthers(H).map(c=>fld('Cash counted ('+esc(c)+')',`<input type="number" id="csC_${c}" step="0.01" class="n">`)).join(''):''}${fld('Handover note (optional)',`<input id="csN">`)}</div><div class="err" id="csE"></div>
     <div class="btns"><button class="btn gold" id="csGo">Close my shift and sign out</button><button class="btn ghost" id="csRep">Shift report</button></div></div></div>
    ${others.length?`<div class="panel mt"><div class="ph">Other open shifts</div><table class="grid"><tr><th>User</th><th>Shift</th><th>Opened</th><th></th></tr>${others.map(o=>`<tr><td>${esc(o.userName)}</td><td>${o.name}</td><td>${fd(o.bd)} ${tm(o.openAt)}</td><td>${can('closeothers')?`<button class="btn sm ghost" data-cls="${o.id}">Close this shift</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
   $('#csRep',el).onclick=()=>{openReportsTab();toast('Open "Shift by Shift Cashier" under Cashier & Billing.')};
-  $('#csGo',el).onclick=async ()=>{const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);
-    if(v!==0&&!await dlgConfirm(`Cash variance ${m2(v)}. Close the shift with this variance?`))return;
-    Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:cnt,variance:v,note:$('#csN',el).value.trim()});log(`Closed ${s.name} shift, variance ${m2(v)}`);saveDB();signOut(true)};
-  $$('[data-cls]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cls);const tt=shiftTotals(o);const c=await dlgAsk(`Cash counted for ${o.userName} (${o.name}). Expected ${m2(tt.expected)}:`,m2(tt.expected).replace(/,/g,''));if(c===null)return;
-    Object.assign(o,{status:'closed',closeAt:Date.now(),expected:tt.expected,counted:r2(+c),variance:r2(+c-tt.expected),closedBy:user().name});log(`Closed ${o.userName}'s ${o.name} shift`);refresh()});
+  $('#csGo',el).onclick=async ()=>{const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);const cb={},vb={};let vAny=false;curOthers(H).forEach(k=>{const raw=$('#csC_'+k,el)?$('#csC_'+k,el).value:'',ex=t.cashBy[k]||0;cb[k]=raw===''?(ex===0?0:null):r2(+raw);if(cb[k]!=null){vb[k]=r2(cb[k]-ex);if(vb[k]!==0)vAny=true}});
+    if(Object.values(cb).some(x=>x==null)){$('#csE',el).textContent='Count the cash in each currency and enter the amounts.';return}
+    if((v!==0||vAny)&&!await dlgConfirm(`Cash variance ${m2(v)}${curOthers(H).map(k=>vb[k]?', '+k+' '+m2(vb[k]):'').join('')}. Close the shift with this variance?`))return;
+    Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:cnt,variance:v,note:$('#csN',el).value.trim()},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({[curMain()]:cnt},cb),varianceBy:Object.assign({[curMain()]:v},vb)}:{});log(`Closed ${s.name} shift, variance ${m2(v)}`);saveDB();signOut(true)};
+  $$('[data-cls]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cls);const tt=shiftTotals(o);const c=await dlgAsk(`Cash counted for ${o.userName} (${o.name}). Expected ${m2(tt.expected)}:`,m2(tt.expected).replace(/,/g,''));if(c===null)return;const xc=await curCountOthers(tt,o);if(xc===null)return;
+    Object.assign(o,{status:'closed',closeAt:Date.now(),expected:tt.expected,counted:r2(+c),variance:r2(+c-tt.expected),closedBy:user().name},xc.fields(r2(+c),tt));log(`Closed ${o.userName}'s ${o.name} shift`);refresh()});
 };
 
 /* ---------- Close Day (Section 1 + Comanche post room screen) ---------- */
@@ -7844,7 +7979,7 @@ async function markNoShow(B){if(!B||!need('res.cancel'))return false;const g=G(B
   if(!await dlgConfirm(`Mark ${gName(g)} as a no-show?`))return false;
   B.status='noshow';B.statusDate=H.set.bd;histB(B,'No-show');
   const night=B.arr,fee=r2(B.nightly[night]!==undefined?billRate(B,night):rateFor(H,B.type,B.rateCode));
-  if(fee>0&&!B.lines.some(l=>l.code==='160')&&await dlgConfirm(`Post the no-show charge of ${m2(fee)} ${H.set.cur} for ${fd(night)}?`)){
+  if(fee>0&&!B.lines.some(l=>l.code==='160')&&await dlgConfirm(`Post the no-show charge of ${m2(fee)} ${bCur(B)} for ${fd(night)}?`)){
     addLine(H,B,{...lineCtx(),folio:1,code:'160',desc:'No-show Charge',ref:B.room||String(resOf(B).no),amt:fee,kind:'post',remark:'No-show '+fd(night)});
     log('No-show charge '+m2(fee)+' RSVN '+resOf(B).no,B.id)}
   log('No-show RSVN '+resOf(B).no,B.id);return true}
@@ -7857,9 +7992,9 @@ function archiveDummyLines(h){h=h||H;if(!h||!h.set||!h.set.lockedThrough)return 
       const ids=new Set(bl.map(l=>l.id));B.lines=B.lines.filter(l=>!ids.has(l.id));
       h.dummyHist.push({id:'dh'+uid(),bookingId:B.id,room:B.room||'D999',bd:end,from:bl.reduce((m,l)=>l.bd<m?l.bd:m,bl[0].bd),to:end,archivedOn:h.set.lockedThrough,lines:bl});moved+=bl.length})});
   return moved}
-function bfPrices(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return {a:0,c:0};return {a:Math.max(0,+rc.bfAdult||+H.set.bfAdult||0),c:Math.max(0,+rc.bfChild||0)}}
+function bfPrices(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return {a:0,c:0};if(bForeign(B)){const i=curInfo(H,B.cur);return {a:i.bfA,c:i.bfC}}return {a:Math.max(0,+rc.bfAdult||+H.set.bfAdult||0),c:Math.max(0,+rc.bfChild||0)}}
 const abfPax=B=>({a:B.abfAdult==null?Math.max(0,+B.adults||0):Math.max(0,+B.abfAdult||0),c:Math.max(0,+B.abfChild||0)});
-function bfEach(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return 0;return Math.max(0,+rc.bfAdult||+H.set.bfAdult||0)}
+function bfEach(B){const rc=H.rateCodes.find(r=>r.code===B.rateCode);if(!rc||rc.meal!=='ABF')return 0;if(bForeign(B))return curInfo(H,B.cur).bfA;return Math.max(0,+rc.bfAdult||+H.set.bfAdult||0)}
 function postRoom(){const bd=H.set.bd,s=curShift();let n=0;tonightIH().filter(b=>!roomPostedTonight(b)).forEach(b=>{
     const full=r2(b.nightly[bd]!==undefined?billRate(b,bd):rateFor(H,b.type,b.rateCode));
     const px=bfPrices(b),pax=abfPax(b);let bA=r2(px.a*pax.a),bC=r2(px.c*pax.c);if(bA+bC>full){const k=full/(bA+bC);bA=r2(bA*k);bC=r2(full-bA)}
@@ -7870,7 +8005,7 @@ function postRoom(){const bd=H.set.bd,s=curShift();let n=0;tonightIH().filter(b=
       const D=ensureDummyBooking(H);
       [[bA,'201','ABF - Adult',pax.a],[bC,'202','ABF - Child',pax.c]].forEach(([amt,code,desc,n])=>{if(amt<=0.004)return;
         addLine(H,b,{bd,shift:s,user:'Auto-Post',folio:2,code,desc,ref:b.room,amt,kind:'post',remark:n+' pax',pkgSplit:true});
-        if(D)addLine(H,D,{bd,shift:s,user:'Auto-Post',folio:1,code,desc,ref:b.room,amt:-amt,kind:'post',remark:'Room '+b.room+', '+n+' pax'})});
+        if(D){const dA=bForeign(b)?curToMain(amt,bRate(b)):amt;addLine(H,D,{bd,shift:s,user:'Auto-Post',folio:1,code,desc,ref:b.room,amt:-dA,kind:'post',remark:'Room '+b.room+', '+n+' pax',fx:bForeign(b)?{fc:b.cur,fa:amt,fr:b.curRate,eq:dA}:undefined})}});
     }
     n++});if(n)log(`Post room: ${n} room charge(s) posted`);return n}
 /* Room discrepancy: front office status vs the occupancy housekeeping reports (Skip = FO occupied / HK vacant, Sleep = FO vacant / HK occupied) */
@@ -7885,7 +8020,7 @@ function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
   allBookings().filter(b=>['confirmed','tentative'].includes(b.status)&&b.arr<=bd).forEach(b=>o.push({block:true,k:'arr',t:'Arrival not checked in',d:`${gName(G(b.guestId))} (RSVN ${resOf(b).no}) – check in or mark no-show.`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep<=bd).forEach(b=>o.push({block:true,k:'dep',t:'Departure not checked out',d:`Room ${b.room} ${gName(G(b.guestId))} was due out ${fd(b.dep)} – check out or extend the stay.`,id:b.id}));
   if(ruleOn(H,'requireOtherCashiersClosedForCloseDay'))H.shifts.filter(x=>x.status==='open'&&(!s||x.id!==s.id)).forEach(x=>o.push({block:true,k:'shift',t:'Cashier shift still open',d:`${x.userName} – ${x.name} shift (${fd(x.bd)}).`,sid:x.id}));
-  tonightIH().filter(b=>rateError(b.nightly[bd]??0,rateKindOf(b.rateCode))).forEach(b=>o.push({block:true,k:'rate',t:'Rate not allowed',d:`Room ${b.room}: ${rateError(b.nightly[bd]??0,rateKindOf(b.rateCode))}`,id:b.id}));
+  tonightIH().filter(b=>rateError(b.nightly[bd]??0,rateKindOf(b.rateCode),bCur(b))).forEach(b=>o.push({block:true,k:'rate',t:'Rate not allowed',d:`Room ${b.room}: ${rateError(b.nightly[bd]??0,rateKindOf(b.rateCode),bCur(b))}`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&!b.room).forEach(b=>o.push({block:true,k:'room',t:'In house without room',d:`RSVN ${resOf(b).no}`,id:b.id}));
   const seen={};allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.room).forEach(b=>{if(seen[b.room])o.push({block:true,k:'dup',t:'Room used twice',d:`Room ${b.room}: RSVN ${resOf(seen[b.room]).no} and ${resOf(b).no}`,id:b.id});seen[b.room]=b});
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&G(b.guestId).nationality&&G(b.guestId).nationality!==H.set.nat&&!(G(b.guestId).doc||{}).no).forEach(b=>o.push({block:false,k:'doc',t:'Passport missing',d:`Room ${b.room} ${gName(G(b.guestId))} – needed for the government report.`,id:b.id}));
@@ -7904,7 +8039,7 @@ VIEWS['cd.close']=el=>{
     i.k==='shift'?(can('closeothers')?`<button class="btn sm" data-cdsh="${i.sid}">Close shift</button>`:'<span class="sub">Ask the user to close it</span>'):
     i.k==='post'?`<button class="btn sm" data-cdpost="1">Post room</button>`:i.k==='rate'?`<button class="btn sm" data-cdrate="${i.id}">Rate setup</button>`:i.id?`<button class="btn sm ghost" data-ores="${i.id}">Open</button>`:'';
   const tabs={guest:`<table class="grid"><tr><th>RSVN#</th><th>Room#</th><th>Guest name</th><th>Arrival</th><th>Departure</th><th>Rate code</th><th class="n">Tonight's rate</th><th class="n">Standard rate</th><th>Status</th></tr>
-      ${ih.map(b=>{const std=rateFor(H,b.type,b.rateCode),v=b.nightly[bd]??std;return `<tr><td>${resOf(b).no}</td><td>${b.room}</td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${b.rateCode}</td><td class="n ${v!==std?'warn':''}">${m2(v)}</td><td class="n">${m2(std)}</td><td>${roomPostedTonight(b)?'<span class="pill g">Posted</span>':'<span class="pill y">Not posted</span>'}</td></tr>`}).join('')||'<tr><td colspan="9" class="empty">No guests in house tonight.</td></tr>'}</table>`,
+      ${ih.map(b=>{const std=rateFor(H,b.type,b.rateCode),v=b.nightly[bd]??std,fg=bForeign(b);return `<tr><td>${resOf(b).no}</td><td>${b.room}</td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${b.rateCode}</td><td class="n ${!fg&&v!==std?'warn':''}">${m2(v)}${fg?' '+esc(b.cur):''}</td><td class="n">${fg?'—':m2(std)}</td><td>${roomPostedTonight(b)?'<span class="pill g">Posted</span>':'<span class="pill y">Not posted</span>'}</td></tr>`}).join('')||'<tr><td colspan="9" class="empty">No guests in house tonight.</td></tr>'}</table>`,
     conflict:iss.length?`<table class="grid"><tr><th></th><th>Check</th><th>Details</th><th>Fix</th></tr>${iss.map(i=>`<tr><td>${i.block?'<span class="pill r">Must fix</span>':'<span class="pill y">Warning</span>'}</td><td>${esc(i.t)}</td><td>${esc(i.d)}</td><td class="nowrap">${act(i)}</td></tr>`).join('')}</table><p class="sub pad">"Must fix" stops Close Day. Warnings do not.</p>`:'<div class="empty">No data conflicts.</div>',
     room:allDisc.length?`<table class="grid"><tr><th>Room</th><th>Type</th><th>Front office</th><th>Housekeeping reports</th><th>Status</th><th></th></tr>${allDisc.map(d=>`<tr><td><b>${d.rm.no}</b></td><td>${d.type}</td><td>${d.fo?'Occupied':'Vacant'}</td><td>${d.rm.hkOcc==='occ'?'Occupied':'Vacant'}</td>
       <td>${d.status==='open'?'<span class="pill r">Open</span>':`<span class="pill g">Closed</span> <span class="sub">${esc(d.user||'')} ${d.note?'· '+esc(d.note):''}</span>`}</td><td>${d.status==='open'?`<button class="btn sm" data-dcl="${d.rm.no}">Close</button>`:`<button class="btn sm ghost" data-dro="${d.rm.no}">Reopen</button>`}</td></tr>`).join('')}</table>
@@ -7923,8 +8058,8 @@ VIEWS['cd.close']=el=>{
   $$('[data-cdfo]',el).forEach(b=>b.onclick=()=>go('fo.departures2',b.dataset.cdfo));
   $$('[data-cdrate]',el).forEach(b=>b.onclick=()=>advanceRate(bookingById(b.dataset.cdrate),render));
   $$('[data-cdpost]',el).forEach(b=>b.onclick=()=>$('#cdP',el).click());
-  $$('[data-cdsh]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cdsh),tt=shiftTotals(o);const c=await dlgAsk(`Counted cash for ${o.userName} (expected ${m2(tt.expected)}):`,tt.expected);if(c===null)return;
-    Object.assign(o,{status:'closed',closeAt:Date.now(),expected:tt.expected,counted:r2(+c||0),variance:r2((+c||0)-tt.expected),closedBy:user().name});log(`Closed ${o.userName}'s ${o.name} shift`);refresh()});
+  $$('[data-cdsh]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cdsh),tt=shiftTotals(o);const c=await dlgAsk(`Counted cash for ${o.userName} (expected ${m2(tt.expected)}):`,tt.expected);if(c===null)return;const xc=await curCountOthers(tt,o);if(xc===null)return;
+    Object.assign(o,{status:'closed',closeAt:Date.now(),expected:tt.expected,counted:r2(+c||0),variance:r2((+c||0)-tt.expected),closedBy:user().name},xc.fields(r2(+c||0),tt));log(`Closed ${o.userName}'s ${o.name} shift`);refresh()});
   $$('[data-dcl]',el).forEach(b=>b.onclick=async ()=>{if(!needNight())return;const n=await dlgAsk(`Room ${b.dataset.dcl}: what did housekeeping confirm?`,'Checked with housekeeping');if(n===null)return;Object.assign(H.disc[b.dataset.dcl],{status:'closed',user:user().name,note:n.trim(),closedAt:Date.now()});log(`Room discrepancy ${b.dataset.dcl} closed`);refresh()});
   $$('[data-dro]',el).forEach(b=>b.onclick=()=>{if(!needNight())return;Object.assign(H.disc[b.dataset.dro],{status:'open',user:'',note:''});log(`Room discrepancy ${b.dataset.dro} reopened`);refresh()});
   $('#cdR',el).onclick=()=>{render();toast('Refreshed')};$('#cdC',el).onclick=()=>{cdTab='guest';render();toast('Rates that differ from the rate code are highlighted.')};
@@ -7940,8 +8075,8 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
   const mark=i=>{const e=m.querySelector(`[data-st="${i}"]`);if(e)e.classList.add('done');const n=m.querySelector(`[data-st="${i+1}"]`);if(n)n.classList.add('run')};
   m.querySelector('[data-st="0"]').classList.add('run');
   const work=[()=>{if(!cdReady().ok)throw new Error('Checks failed')},
-    ()=>{const ls=allLinesH(H).filter(l=>l.night===bd&&l.kind==='room');H.audits.push({date:bd,at:Date.now(),user:user().name,rooms:ls.length,rev:r2(sum(ls,l=>l.amt)),ns:allBookings().filter(b=>b.status==='noshow'&&b.statusDate===bd).length,shifts:H.shifts.filter(x=>x.bd===bd).length,variance:r2(sum(H.shifts.filter(x=>x.bd===bd),x=>x.variance||0)),inhouse:tonightIH().length,discClosed:Object.values(H.disc||{}).filter(d=>d.bd===bd&&d.status==='closed').length})},
-    ()=>{const s=curShift();if(s){const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'})}},
+    ()=>{const ls=allLinesH(H).filter(l=>l.night===bd&&l.kind==='room'),rv=curMulti(H)?allBookings().flatMap(b=>b.lines.filter(l=>l.night===bd&&l.kind==='room').map(l=>({c:bCur(b),a:l.amt,e:curLineEq(b,l)}))):null;H.audits.push({date:bd,at:Date.now(),user:user().name,rooms:ls.length,rev:rv?r2(sum(rv,x=>x.e)):r2(sum(ls,l=>l.amt)),revCur:rv?rv.reduce((o,x)=>{o[x.c]=r2((o[x.c]||0)+x.a);return o},{}):undefined,ns:allBookings().filter(b=>b.status==='noshow'&&b.statusDate===bd).length,shifts:H.shifts.filter(x=>x.bd===bd).length,variance:r2(sum(H.shifts.filter(x=>x.bd===bd),x=>x.variance||0)),inhouse:tonightIH().length,discClosed:Object.values(H.disc||{}).filter(d=>d.bd===bd&&d.status==='closed').length})},
+    ()=>{const s=curShift();if(s){const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({},t.expectedBy),varianceBy:Object.keys(t.expectedBy).reduce((o,k)=>{o[k]=0;return o},{})}:{})}},
     ()=>{H.set.lockedThrough=bd;archiveDummyLines(H)},()=>{log(`Close Day ${fd(bd)} done`)},()=>{H.set.bd=nd;saveDB()}];
   let i=0;const tick=()=>{try{work[i]()}catch(e){m.querySelector('#cdMsg').textContent='Close Day stopped: '+e.message;return}mark(i);i++;
     if(i<work.length)setTimeout(tick,CD_DELAY);else{m.querySelector('#cdMsg').innerHTML=`<b>Close Day complete.</b> The business date is now ${fd(nd)}. Signing out…`;setTimeout(()=>{closeModal(m);signOut(true)},CD_DELAY*3)}};
@@ -8844,6 +8979,25 @@ function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data
   box.insertAdjacentHTML('beforeend',`<div class="panel scroll le"></div>${note?`<p class="sub">${note}</p>`:''}<div class="err lee"></div><div class="btns"><button class="btn ghost leadd">${ic('plus',14)} Add</button><button class="btn gold lesave">Save</button></div>`);
   paint();box.querySelector('.leadd').onclick=()=>{data.push(blank());paint()};
   box.querySelector('.lesave').onclick=()=>{if(!provOnly())return;const e=validate?validate(data):'';if(e){box.querySelector('.lee').textContent=e;return}save(data)}}
+/* Provider: open extra currencies for the hotel being set up */
+function curSetupPanel(box){const s=H.set,main=s.cur,inUse=c=>allBookings().some(b=>b.cur===c);let picked=new Set(curOthers(H));
+  box.insertAdjacentHTML('beforeend',`<div class="panel pad mt" id="mcP"><h3>Other currencies (optional)</h3>
+   <p class="sub">${esc(main)} is the main currency: tax, the invoice number series and the equivalent amounts stay in ${esc(main)}. Tick the other currencies this hotel may use. With none ticked nothing changes anywhere and the hotel works in ${esc(main)} only. Rates are never fetched: staff type the final rate themselves.</p>
+   <div class="curgrid">${CUR_LIST.filter(c=>c[0]!==main).map(c=>`<label class="curchk ${picked.has(c[0])?'on':''}"><input type="checkbox" data-mc="${c[0]}" ${picked.has(c[0])?'checked':''}> <b>${c[0]}</b> ${esc(c[1])}</label>`).join('')}</div>
+   <label class="rpchk mt"><input type="checkbox" id="mcU" ${s.curUsers?'checked':''}><span><b>Let hotel users choose a currency</b><br><small>Staff also need the permission "Choose a reservation currency" (Staff &amp; permissions). Managers get it when you switch this on. The provider can always choose.</small></span></label>
+   <div id="mcT"></div><div class="err" id="mcE"></div><div class="btns"><button class="btn gold" id="mcS">Save currencies</button></div></div>`);
+  const cur=c=>{const i=(s.curInfo&&s.curInfo[c])||{};const d=curInfo(H,c);return {word:i.word||d.word,sub:i.sub!=null&&i.sub!==''?i.sub:d.sub,bfA:i.bfA!=null?i.bfA:d.bfA,bfC:i.bfC!=null?i.bfC:d.bfC}};
+  const paintT=()=>{const keep={};$$('[data-mi]',box).forEach(x=>keep[x.dataset.mi]=x.value);
+    $('#mcT',box).innerHTML=picked.size?`<h3 class="mt">Per currency</h3><p class="sub">The words are printed on the invoice amount. The breakfast values are used for the breakfast split of reservations made in that currency.</p><div class="panel scroll"><table class="grid"><tr><th>Currency</th><th>Invoice words (major)</th><th>Sub-unit words</th><th class="n">Breakfast adult</th><th class="n">Breakfast child</th></tr>
+     ${[...picked].map(c=>{const v=cur(c),g=(k,d)=>esc(keep[c+'|'+k]!=null?keep[c+'|'+k]:d);return `<tr><td><b>${c}</b> ${esc(curName(c))}</td><td><input data-mi="${c}|word" value="${g('word',v.word)}"></td><td><input data-mi="${c}|sub" value="${g('sub',v.sub)}"></td><td><input class="n" type="number" step="0.01" min="0" data-mi="${c}|bfA" value="${g('bfA',v.bfA)}"></td><td><input class="n" type="number" step="0.01" min="0" data-mi="${c}|bfC" value="${g('bfC',v.bfC)}"></td></tr>`}).join('')}</table></div>`:''};
+  paintT();
+  $$('[data-mc]',box).forEach(x=>x.onchange=()=>{if(x.checked)picked.add(x.dataset.mc);else picked.delete(x.dataset.mc);x.closest('label').classList.toggle('on',x.checked);paintT()});
+  $('#mcS',box).onclick=()=>{if(!provOnly())return;const e=$('#mcE',box);e.textContent='';
+    const gone=curOthers(H).filter(c=>!picked.has(c)&&inUse(c));if(gone.length){e.textContent='Reservations already use '+gone.join(', ')+'. A currency that is in use cannot be removed.';return}
+    const info={};picked.forEach(c=>{const g=k=>$('[data-mi="'+c+'|'+k+'"]',box);info[c]={word:g('word').value.trim().toUpperCase(),sub:g('sub').value.trim().toUpperCase(),bfA:Math.max(0,+g('bfA').value||0),bfC:Math.max(0,+g('bfC').value||0)}});
+    const wasU=!!s.curUsers,nowU=$('#mcU',box).checked;s.curAllow=[...picked];s.curInfo=info;s.curUsers=nowU;
+    if(nowU&&!wasU)H.users.forEach(u=>{if(u.role==='Manager'){u.perms=u.perms||[];if(!u.perms.includes('currency'))u.perms.push('currency')}});
+    provLog(`Currencies saved for ${H.code}: ${s.curAllow.join(', ')||'main only'}${nowU?' · users may choose':''}`);saved('Currencies saved')}}
 const SEC={
  profile(box){const s=H.set;box.innerHTML=secHead('1. Hotel profile','Printed on the receipt / tax invoice, registration card, reservation confirmation and reports.')+`<div class="panel pad"><div class="form2">
    ${[['name','Hotel name'],['legal','Legal company name (tax invoice)'],['branch','Branch (e.g. Head Office)'],['taxId','Tax ID'],['addr','Address'],['phone','Phone'],['fax','Fax'],['email','Email'],['web','Website'],['country','Country'],['nat','Local nationality (for government reports)']].map(([k,l])=>fld(l,`<input id="p_${k}" value="${esc(s[k]||'')}">`,k==='addr'||k==='legal'?'span2':'')).join('')}${fld('Time zone (for times on logs, reports and documents)',`<select id="p_tz">${tzOptions(s.tz)}</select>`)}</div>
@@ -8861,6 +9015,7 @@ const SEC={
    const q=()=>{const sv=+$('#t_svc',box).value||0,v=+$('#t_vat',box).value||0,net=1000/(1+sv/100)/(1+v/100);$('#t_q',box).innerHTML=`Example: 1,000.00 inclusive = net ${m2(net)} + service ${m2(net*sv/100)} + ${esc($('#t_tn',box).value)} ${m2((net*(1+sv/100))*v/100)}`};
    ['t_svc','t_vat','t_tn'].forEach(id=>$('#'+id,box).oninput=q);q();
    $('#t_cur',box).onchange=()=>{const w=CUR_WORDS[$('#t_cur',box).value];if(w){$('#t_cw',box).value=w[0];$('#t_sw',box).value=w[1]}};
+   curSetupPanel(box);
    $('#tS',box).onclick=async ()=>{if(!provOnly())return;if(H.active!==false&&$('#t_cur',box).value!==s.cur&&!await dlgConfirm('This hotel is active. Changing the currency affects every amount. Continue?'))return;
      Object.assign(s,{cur:$('#t_cur',box).value,curWord:$('#t_cw',box).value.trim().toUpperCase(),subWord:$('#t_sw',box).value.trim().toUpperCase(),svc:+$('#t_svc',box).value||0,taxName:$('#t_tn',box).value.trim()||'Tax',vat:+$('#t_vat',box).value||0});provLog(`Tax setup saved for ${H.code}`);saved()}},
  bd(box){const s=H.set,live=H.active!==false;box.innerHTML=secHead('3. Business date & times')+`<div class="panel pad"><div class="form3">
@@ -9452,12 +9607,12 @@ const REPORTS=[
     rows:grp(items,b=>b.arr,k=>'Arrival Date : '+fd(k),b=>{const r=resOf(b);return [r.no,gName(G(b.guestId)),b.type,b.room||'',1,pax(b),fd(b.arr),fd(b.dep),nights(b),coN(r),b.market,b.rateCode,m2(stayTotal(b)),m2(depOf(b)),fd(r.date)]},
       a=>['SubTotal','','','',a.length,paxS(a),'','',sum(a,nights),'','','',m2(sum(a,stayTotal)),m2(sum(a,depOf)),''])}}},
  /* ---------- Cashier & Billing ---------- */
- {g:'Cashier & Billing',code:'CB_01',title:'Posting Journal Details',mode:'today',run:p=>{const ls=allLinesH(H).filter(l=>l.bd===p.to&&l.kind!=='payoff').sort((a,b)=>a.code.localeCompare(b.code)||a.time-b.time);
+ {g:'Cashier & Billing',code:'CB_01',title:'Posting Journal Details',mode:'today',cv:'cash',run:p=>{const ls=allLinesH(H).filter(l=>l.bd===p.to&&l.kind!=='payoff').sort((a,b)=>a.code.localeCompare(b.code)||a.time-b.time);
    return {cols:[C('Time',5),C('Room#',5),C('Guest Name',15),C('Folio',4,'c'),C('Description',16),C('Reference#',10),C('Amount',9,'r'),C('User',11),C('Shift',7),C('Sys Ref#',7)],
     rows:grp(ls,l=>l.code,k=>k+' – '+tcOf(k).desc,l=>{const x=bline(l);return [tm(l.time),x.b.room||'',gName(x.g),l.folio,l.desc,l.ref,m2(l.amt),l.user,l.shiftName,l.sys]},a=>['','','SubTotal','','','',m2(sum(a,l=>l.amt)),'','',''])
       .concat(psSec('*** Rebates (already inside the codes above) ***',psIn('rebate',p.to,p.to),l=>{const x=bline(l);return [tm(l.time),x.b.room||'',gName(x.g),l.folio,l.desc,l.ref,m2(l.amt),l.user,l.shiftName,l.sys]},v=>['','','Total Rebates','','','',m2(v),'','','']))
       .concat(psSec('*** Adjust (+) (already inside the codes above) ***',psIn('adjust',p.to,p.to),l=>{const x=bline(l);return [tm(l.time),x.b.room||'',gName(x.g),l.folio,l.desc,l.ref,m2(l.amt),l.user,l.shiftName,l.sys]},v=>['','','Total Adjust (+)','','','',m2(v),'','','']))}}},
- {g:'Cashier & Billing',code:'CB_02',title:'Shift by Shift Cashier Report',mode:'today',shiftFilter:true,run:p=>{const shs=H.shifts.filter(s=>s.bd===p.to&&(!p.shift||s.id===p.shift));const rows=[];
+ {g:'Cashier & Billing',code:'CB_02',title:'Shift by Shift Cashier Report',mode:'today',cv:'cash',shiftFilter:true,run:p=>{const shs=H.shifts.filter(s=>s.bd===p.to&&(!p.shift||s.id===p.shift));const rows=[];
    shs.forEach(s=>{const t=shiftTotals(s);rows.push({t:'h',text:`Shift : ${s.name} · ${s.userName} · opened ${tm(s.openAt)}${s.status==='closed'?' · closed '+tm(s.closeAt):' · still open'}`});
      psSorted(paymentsIn(t.ls),x=>x.l).forEach(x=>{const y=bline(x.l);rows.push({t:'r',c:[tm(x.l.time),y.b.room||'',gName(y.g),x.l.code,x.l.method+(x.l.kind==='corrpay'?' (correct)':''),x.l.ref,m2(x.amt)]})});
      Object.entries(t.by).forEach(([k,v])=>rows.push({t:'s',c:['','','Total '+k,'','','',m2(v)]}));
@@ -9467,8 +9622,8 @@ const REPORTS=[
  {g:'Cashier & Billing',code:'CB_03',title:'Billing Report',mode:'today',run:p=>{const ls=chargeLines(p.to,p.to).sort((a,b)=>{const x=bline(a).b.room||'',y=bline(b).b.room||'';return x.localeCompare(y)||a.time-b.time});
    return {cols:[C('Room#',7),C('Guest Name',18),C('Time',6),C('Code',6),C('Description',20),C('Folio',5,'c'),C('Amount',12,'r'),C('User',14),C('Shift',12)],
     rows:grp(ls,l=>bline(l).b.room||'',k=>'Room# '+k,l=>{const x=bline(l);return [x.b.room||'',gName(x.g),tm(l.time),l.code,l.desc,l.folio,m2(l.amt),l.user,l.shiftName]},a=>['','SubTotal','','','','',m2(sum(a,l=>l.amt)),'',''])}}},
- {g:'Cashier & Billing',code:'CB_04',title:'Close Shift by Shift (Summary)',mode:'today',orient:'port',shiftName:true,run:p=>closeShiftSummary(p)},
- {g:'Cashier & Billing',code:'CB_05',title:'Close Shift by Shift (Detail)',mode:'today',shiftName:true,run:p=>closeShiftDetail(p)},
+ {g:'Cashier & Billing',code:'CB_04',title:'Close Shift by Shift (Summary)',mode:'today',cv:'cash',orient:'port',shiftName:true,run:p=>closeShiftSummary(p)},
+ {g:'Cashier & Billing',code:'CB_05',title:'Close Shift by Shift (Detail)',mode:'today',cv:'cash',shiftName:true,run:p=>closeShiftDetail(p)},
  /* ---------- Reservation ---------- */
  {g:'Reservation',code:'RS_01',title:'Reservation Made Today Report',mode:'upTo',run:p=>{const items=[];H.reservations.filter(r=>r.date===p.to).forEach(r=>r.bookings.forEach(b=>items.push(b)));
    return {cols:[C('RSVN#',6),C('Guest Name',16),C('Room Type',6),C('#Rm',4,'r'),C('Arr Date',8),C('Dep Date',8),C('Nts',4,'r'),C('Company / TA',16),C('Channel',6),C('Rate Code',6),C('Total',10,'r'),C('Status',10)],
@@ -9492,7 +9647,7 @@ const REPORTS=[
    return {cols:[C('Date',8),C('Day',5),C('Total Rooms',6,'r'),C('OOO',5,'r'),C('Available',6,'r'),C('Definite',6,'r'),C('Tentative',6,'r'),C('Occ %',7,'r'),C('Arrivals',6,'r'),C('Departures',7,'r'),C('Pax',5,'r'),C('Room Revenue',11,'r'),C('ADR',9,'r')],
     rows:rows.concat([{t:'g',c:['GrandTotal','','','','','','','','','','',m2(sum(rows,r=>r._.rev)),m2(sum(rows,r=>r._.o)?sum(rows,r=>r._.rev)/sum(rows,r=>r._.o):0)]}]),foot:'Forecast if every booking on the books stays as booked.'}}},
  /* ---------- Accounting ---------- */
- {g:'Accounting',code:'AC_01',title:'Payment & Collection Report',mode:'range',run:p=>{const psl=paymentsIn(allLinesH(H).filter(l=>l.bd>=p.from&&l.bd<=p.to)),pcmp=psPayCmp(psl,x=>x.l),ps=psl.sort((a,b)=>a.l.method.localeCompare(b.l.method)||pcmp(a,b));
+ {g:'Accounting',code:'AC_01',title:'Payment & Collection Report',mode:'range',cv:'cash',run:p=>{const real=curRealFor('ALL');if(real)return acPayMulti(p,real);const psl=paymentsIn(allLinesH(H).filter(l=>l.bd>=p.from&&l.bd<=p.to)),pcmp=psPayCmp(psl,x=>x.l),ps=psl.sort((a,b)=>a.l.method.localeCompare(b.l.method)||pcmp(a,b));
    return {cols:[C('Date',7),C('Time',5),C('Room#',5),C('Guest Name',16),C('Code',5),C('Reference',14),C('Amount',10,'r'),C('User',12),C('Shift',8),C('Deposit',6,'c')],
     rows:grp(ps,x=>x.l.method,k=>'Payment Type : '+k,x=>{const y=bline(x.l);return [fd(x.l.bd),tm(x.l.time),y.b.room||'',gName(y.g),x.l.code,x.l.ref+(x.l.kind==='corrpay'?' (correct payment)':'')+(x.l.refund?' (refund)':''),m2(x.amt),x.l.user,x.l.shiftName,x.l.deposit?'Y':'']},a=>['','','','SubTotal','','',m2(sum(a,x=>x.amt)),'','',''])
       .concat([{t:'g',c:['','','','GrandTotal','','',m2(sum(ps,x=>x.amt)),'','','']}]).concat(psSec('*** Refunds (already inside the totals above) ***',psIn('refund',p.from,p.to),l=>{const y=bline(l);return [fd(l.bd),tm(l.time),y.b.room||'',gName(y.g),l.code,l.ref,m2(-l.amt),l.user,l.shiftName,'']},v=>['','','','Total Refunds','','',m2(-v),'','','']))}}},
@@ -9620,12 +9775,29 @@ const REPORTS=[
 const RMODE={today:'Current business date only',future:'Business date or later',past:'Closed dates only',pastOne:'One date',upTo:'One date',range:'Date range',futureRange:'Business date or later'};
 
 /* ---------- page builder ---------- */
+
+/* AC_01 in a hotel with extra currencies (all currencies view): each payment in the currency it was taken in, with the rate and its value in the main currency */
+function acPayMulti(p,real){const main=real.set.cur,lines=allLinesH(real).filter(l=>l.bd>=p.from&&l.bd<=p.to),rl=id=>{for(const r of real.reservations)for(const b of r.bookings)if(b.id===id)return b;return null};
+  const items=paymentsIn(lines).map(x=>{const b=rl(x.l.origBooking)||{},fg=!!(b.cur&&b.cur!==main),cc=x.l.fc||(fg?b.cur:main),own=x.l.fa!=null?-x.l.fa:x.amt,
+    rate=+x.l.fr>0?+x.l.fr:(fg&&cc===b.cur&&+b.curRate>0?+b.curRate:1),eq=x.l.eq!=null?-x.l.eq:(cc===main?own:r2(own*rate));
+    return {l:x.l,amt:x.amt,cc,own,rate:cc===main?'':String(rate),eq}});
+  const pcmp=psPayCmp(items,x=>x.l),ps=items.sort((a,b)=>a.l.method.localeCompare(b.l.method)||pcmp(a,b)),cs=[...new Set(ps.map(x=>x.cc))];
+  const per=a=>{const m={};a.forEach(x=>m[x.cc]=r2((m[x.cc]||0)+x.own));return Object.entries(m).map(([c,v])=>c+' '+m2(v)).join(' · ')};
+  const rows=grp(ps,x=>x.l.method,k=>'Payment Type : '+k,x=>{const bb=bookingById(x.l.origBooking)||{},y={b:bb,g:bb.guestId?G(bb.guestId):{}};return [fd(x.l.bd),tm(x.l.time),y.b.room||'',bb.guestId?gName(y.g):'',x.l.code,x.l.ref+(x.l.kind==='corrpay'?' (correct payment)':'')+(x.l.refund?' (refund)':''),x.cc,m2(x.own),x.rate,m2(x.eq),x.l.user,x.l.shiftName,x.l.deposit?'Y':'']},
+      a=>['','','','SubTotal','','','',per(a),'',m2(sum(a,x=>x.eq)),'','','']);
+  cs.forEach(c=>rows.push({t:'s',c:['','','','Total '+c,'','',c,m2(sum(ps.filter(x=>x.cc===c),x=>x.own)),'',m2(sum(ps.filter(x=>x.cc===c),x=>x.eq)),'','','']}));
+  rows.push({t:'g',c:['','','','Total in '+main,'','','','','',m2(sum(ps,x=>x.eq)),'','','']});
+  return {note:'Each payment is in the currency it was taken in. The last amount column is its value in '+main+' at the rate typed by staff.',
+    cols:[C('Date',7),C('Time',5),C('Room#',5),C('Guest Name',15),C('Code',4),C('Reference',10),C('Curr.',5),C('Amount',15,'r'),C('Rate',6,'r'),C('Equivalent '+main,11,'r'),C('User',8),C('Shift',6),C('Dep.',3,'c')],rows}}
+/* In a hotel with extra currencies a report runs on a currency view of the hotel (see curViewHotel). Other hotels run the report on the hotel itself, exactly as before. */
+let CURREAL=null;const curRealFor=cv=>CURREAL&&RP.cv===cv?CURREAL:null;
+function runReportData(def,p){if(!curMulti(H)||!RP.cv)return def.run(p);const real=H;CURREAL=real;H=curViewHotel(real,RP.cv,def.cv||'folio');try{return def.run(p)}finally{H=real;CURREAL=null}}
 function reportPages(def,p){
-  const out=def.run(p),cols=out.cols,rows=out.rows||[],land=(def.orient||'land')==='land';const per=land?24:40;
+  const out=runReportData(def,p),cols=out.cols,rows=out.rows||[],land=(def.orient||'land')==='land';const per=land?24:40;
   const pages=[];let cur=[],w=0;rows.forEach(r=>{const rw=r.t==='n'?2:1;if(w+rw>per&&cur.length){pages.push(cur);cur=[];w=0}cur.push(r);w+=rw});pages.push(cur);
   const audited=p.to<=H.set.lockedThrough,dateLine=def.mode==='today'||p.from===p.to?fd(p.to):fd(p.from)+' To '+fd(p.to);
   const now=new Date(),by=user().name;
-  const filt=[p.shift?'Shift: '+(H.shifts.find(s=>s.id===p.shift)||{}).name:'',def.shiftName?'Shift : '+(p.shiftName?p.shiftName+' Shift':'All shifts'):'',out.note||''].filter(Boolean).join(' · ');
+  const filt=[curMulti(H)&&RP.cv?(RP.cv==='ALL'?'All currencies converted to '+curMain()+' at the rates typed by staff':'Currency: '+RP.cv+(def.cv==='cash'?' (by currency paid in)':' (reservations made in '+RP.cv+')')):'',p.shift?'Shift: '+(H.shifts.find(s=>s.id===p.shift)||{}).name:'',def.shiftName?'Shift : '+(p.shiftName?p.shiftName+' Shift':'All shifts'):'',out.note||''].filter(Boolean).join(' · ');
   const head=`<colgroup>${cols.map(c=>`<col style="width:${c.w}%">`).join('')}</colgroup><thead><tr>${cols.map(c=>`<th class="${c.a}">${esc(c.h)}</th>`).join('')}</tr></thead>`;
   const tr=r=>r.t==='h'?`<tr class="rh"><td colspan="${cols.length}">${esc(r.text)}</td></tr>`:r.t==='n'?`<tr class="rn"><td colspan="${cols.length}">${esc(r.text)}</td></tr>`:
     `<tr class="${r.t==='s'?'rs':r.t==='g'?'rgt':''}">${r.c.map((v,i)=>`<td class="${cols[i]?cols[i].a:''}">${esc(v)}</td>`).join('')}</tr>`;
@@ -9640,7 +9812,7 @@ function xlsDownload(def,p,res){const cols=res.cols;const body=res.rows.map(r=>r
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel'}));a.download=`${def.code}_${p.from}_${p.to}.xls`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
 
 /* ---------- Reports page (4.14–4.19) ---------- */
-let RP={code:null,open:{},zoom:1,page:1};
+let RP={code:null,open:{},zoom:1,page:1,cv:'ALL'};
 function defaultRange(def){const bd=H.set.bd,lt=H.set.lockedThrough;switch(def.mode){case 'today':case 'future':return {from:bd,to:bd};case 'past':return {from:lt,to:lt};case 'pastOne':return {from:lt,to:lt};case 'upTo':return {from:bd,to:bd};case 'futureRange':return {from:bd,to:addD(bd,13)};default:return {from:monthStart(lt),to:lt}}}
 function renderReports(root,overlay){
   if(!DB.session||!H){root.innerHTML=`<div class="rpempty"><img src="${ICON}" alt=""><h2>Sign in first</h2><p>Open Maha Hub in the other tab and sign in, then press Report again.</p></div>`;return}
@@ -9661,11 +9833,12 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
    ${d.mode==='today'?`<label>Date <input type="date" value="${bd}" disabled></label>`:one?`<label>Date <input type="date" id="rpT" value="${RP.to}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label>`:
     `<label>From <input type="date" id="rpF" value="${RP.from}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label><label>To <input type="date" id="rpT" value="${RP.to}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label>`}
    ${d.shiftName?`<label>Shift <select id="rpSN"><option value="">All shifts (whole day)</option>${SHIFTS.map(x=>opt(x,x+' Shift',RP.shiftName)).join('')}</select></label>`:''}${d.shiftFilter?`<label>Shift <select id="rpS"><option value="">All shifts</option>${H.shifts.filter(s=>s.bd===bd).map(s=>opt(s.id,s.name+' – '+s.userName,RP.shift)).join('')}</select></label>`:''}
+   ${curMulti(H)?`<label>Currency <select id="rpCv"><option value="ALL" ${RP.cv==='ALL'||!RP.cv?'selected':''}>All, converted to ${esc(curMain())}</option>${curList(H).map(c=>opt(c,c+(c===curMain()?' (main)':' only'),RP.cv)).join('')}</select></label>`:''}
    <button class="btn gold sm" id="rpRun">Run</button><span class="tsep"></span>
    <button class="tbtn" id="rpZo" title="Zoom out">${ic('zout')}</button><span class="zl" id="rpZl">${Math.round(RP.zoom*100)}%</span><button class="tbtn" id="rpZi" title="Zoom in">${ic('zin')}</button><button class="tbtn" id="rpFit" title="Fit width">${ic('fit')}</button>
    <span class="tsep"></span><button class="tbtn" id="rpPv" title="Previous page">${ic('left')}</button><span class="zl" id="rpPg"></span><button class="tbtn" id="rpNx" title="Next page">${ic('chev')}</button>
    <span class="tsep"></span><button class="tbtn" id="rpX" title="Download Excel">${ic('xls')}</button><button class="tbtn" id="rpPdf" title="Download PDF (Save as PDF in the print window)">${ic('upload')}</button><button class="tbtn" id="rpPr" title="Print">${ic('print')}</button></div>`;
-  const val=()=>{if($('#rpT',root))RP.to=$('#rpT',root).value;RP.from=$('#rpF',root)?$('#rpF',root).value:RP.to;if(d.mode==='today'){RP.from=RP.to=bd}if(RP.from>RP.to){const t=RP.from;RP.from=RP.to;RP.to=t}if($('#rpS',root))RP.shift=$('#rpS',root).value;if($('#rpSN',root))RP.shiftName=$('#rpSN',root).value};
+  const val=()=>{if($('#rpT',root))RP.to=$('#rpT',root).value;RP.from=$('#rpF',root)?$('#rpF',root).value:RP.to;if(d.mode==='today'){RP.from=RP.to=bd}if(RP.from>RP.to){const t=RP.from;RP.from=RP.to;RP.to=t}if($('#rpS',root))RP.shift=$('#rpS',root).value;if($('#rpSN',root))RP.shiftName=$('#rpSN',root).value;if($('#rpCv',root))RP.cv=$('#rpCv',root).value};
   $('#rpRun',root).onclick=()=>{val();RP.page=1;runReport(root)};
   const zoom=z=>{RP.zoom=Math.max(.4,Math.min(2,z));$('#rpZl',root).textContent=Math.round(RP.zoom*100)+'%';const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
   $('#rpZo',root).onclick=()=>zoom(RP.zoom-.1);$('#rpZi',root).onclick=()=>zoom(RP.zoom+.1);$('#rpFit',root).onclick=()=>{const v=$('#rpview',root),pg=$('.rpage',v);if(pg)zoom((v.clientWidth-40)/pg.offsetWidth)};
@@ -9815,9 +9988,9 @@ function chargeTarget(B,code){const r=resOf(B);if(!r||!r.groupId)return B;const 
   const tc=TCODES.find(c=>c.code===code)||{};const hit=(g.routing||[]).find(x=>x.on!==false&&(x.match==='ALL'||x.match===code||x.match===(tc.dept||'')||x.match===(tc.tab||'')));
   if(!hit||hit.to!=='master')return B;return bookingById(g.masterId)||B}
 function fillTpl(tpl,map){return String(tpl||'').replace(/\{\{(\w+)\}\}/g,(_,k)=>map[k]==null?'':String(map[k]))}
-function confirmationPack(B){const r=resOf(B),g=G(B.guestId),co=CO(r.companyId);const dep=depositReceived(B);const map={guest:gName(g),hotel:H.set.name,rsvn:r.no,confirmation:(r.confirmation&&r.confirmation!=='0')?r.confirmation:String(r.no),arr:fd(B.arr),dep:fd(B.dep),room:B.room||'to be assigned',type:RT(B.type).name||B.type,nights:nights(B),adults:B.adults,children:B.children,signature:H.set.signature||H.set.name,deposit:dep>0.004?m2(dep)+' '+H.set.cur:'none'};
-  let letter=fillTpl(H.set.confirmTpl,map);if(dep>0.004&&!/\{\{deposit\}\}/.test(H.set.confirmTpl||'')&&letter.indexOf(m2(dep))<0)letter+='\n\nReservation deposit received: '+m2(dep)+' '+H.set.cur+'.';
-  const rows=[['Reservation no.',r.no],['Guest',gName(g)],['Arrival',fd(B.arr)],['Departure',fd(B.dep)],['Nights',nights(B)],['Room type',RT(B.type).name||B.type],['Room',B.room||'To be assigned'],['Guests',B.adults+' adult(s), '+B.children+' child(ren)'],['Company',co&&co.code!=='WIN'&&co.code!=='DIR'?co.name:'—'],['Deposit',dep>0.004?m2(dep)+' '+H.set.cur:'None']];
+function confirmationPack(B){const r=resOf(B),g=G(B.guestId),co=CO(r.companyId);const dep=depositReceived(B);const map={guest:gName(g),hotel:H.set.name,rsvn:r.no,confirmation:(r.confirmation&&r.confirmation!=='0')?r.confirmation:String(r.no),arr:fd(B.arr),dep:fd(B.dep),room:B.room||'to be assigned',type:RT(B.type).name||B.type,nights:nights(B),adults:B.adults,children:B.children,signature:H.set.signature||H.set.name,deposit:dep>0.004?m2(dep)+' '+bCur(B):'none'};
+  let letter=fillTpl(H.set.confirmTpl,map);if(dep>0.004&&!/\{\{deposit\}\}/.test(H.set.confirmTpl||'')&&letter.indexOf(m2(dep))<0)letter+='\n\nReservation deposit received: '+m2(dep)+' '+bCur(B)+'.';
+  const rows=[['Reservation no.',r.no],['Guest',gName(g)],['Arrival',fd(B.arr)],['Departure',fd(B.dep)],['Nights',nights(B)],['Room type',RT(B.type).name||B.type],['Room',B.room||'To be assigned'],['Guests',B.adults+' adult(s), '+B.children+' child(ren)'],['Company',co&&co.code!=='WIN'&&co.code!=='DIR'?co.name:'—'],['Deposit',dep>0.004?m2(dep)+' '+bCur(B):'None']];
   const html=`<div class="ppage port cf"><div class="a4in">${hotelHead()}<div class="ivtitle">RESERVATION CONFIRMATION</div>
     <table class="cfstay">${rows.map(x=>`<tr><td>${esc(x[0])}</td><td>${esc(x[1])}</td></tr>`).join('')}</table>
     <div class="cfbody">${esc(letter)}</div>
