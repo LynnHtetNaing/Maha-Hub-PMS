@@ -344,6 +344,9 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 @media (max-width:700px){.hx-tiles{grid-template-columns:1fr 1fr}.hx-anh{flex-wrap:wrap}.hx-seg{margin-left:0}}
 
 .curgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin:10px 0}.curchk{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;font-size:13px}.curchk.on{border-color:#0e8a82;background:#e6f4f3}
+.curpick{position:relative;display:flex;align-items:center;gap:10px;min-height:40px}.curbtn{font-weight:700}.curbtn.on{border-color:#3b9ae1;color:#1d4f8a;background:#e8f2fb}.curmenu{position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:#fff;border:1px solid #cfd8de;border-radius:10px;box-shadow:0 10px 26px rgba(0,0,0,.2);min-width:260px;padding:6px}.curmenu button{display:flex;gap:8px;align-items:center;width:100%;background:none;border:0;padding:8px 10px;border-radius:6px;text-align:left;font-size:13.5px;cursor:pointer;color:#26323b}.curmenu button:hover,.curmenu button.on{background:#e8f2fb;color:#1d4f8a}.curmenu small{margin-left:auto;color:#7a8791}
+.mcrate{display:flex;align-items:center;gap:10px;margin:10px 0;padding:12px 14px;background:#f3f8fb;border:1px solid #cfe0ec;border-radius:10px;font-weight:600}.mcrate input{width:130px;text-align:right;font-size:16px;font-weight:700}
+.curtag{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;background:#e8f2fb;color:#1d4f8a;font-weight:700;font-size:12px;border:1px solid #3b9ae1}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -1088,6 +1091,14 @@ function curApply(amt,pc,rp,rc,rr,main){const a=Math.round((+amt||0)*100)/100;pc
   const rpv=pc===main?1:(+rp>0?+rp:(same&&+rr>0?+rr:0)),rrv=rc===main?1:(+rr>0?+rr:0);
   if(!rpv||!rrv)return {error:'Type the rate (1 '+(!rpv?pc:rc)+' = ? '+main+').',main:0,folio:0,same};
   const m=Math.round(a*rpv*100)/100,f=same?a:Math.round(m/rrv*100)/100;return {main:m,folio:f,same}}/* ---- end Multi-currency ---- */
+/* The alert shown when a currency other than the main one is chosen: the user types the rate (1 unit = X main currency). Returns the rate, or null when cancelled. */
+function curRateAlert(code,rate0,note){const main=curMain();
+  return dlgOpen('Check the actual rate',`<p class="dlgmsg"><b>Please check the actual exchange rate before you continue.</b><br>The system does not look up or convert rates. You type the final rate, and every amount you enter is in ${esc(code)}.</p>
+   <div class="mcrate">1 ${esc(code)} = <input class="dlgin n" id="mcRate" inputmode="decimal" value="${rate0?esc(String(rate0)):''}" placeholder="0.00"> ${esc(main)}</div>
+   ${note?`<p class="sub">${esc(note)}</p>`:''}<div class="err" id="dlgErr"></div>`,
+   [{t:'Cancel',cls:'ghost',v:null,cancel:null},{t:'I checked the rate - continue',cls:'purple',get:m=>{const v=+String(m.querySelector('#mcRate').value).replace(/,/g,'');if(!(v>0)){m.querySelector('#dlgErr').textContent='Type the rate: how many '+main+' is 1 '+code+'.';return undefined}return Math.round(v*1e6)/1e6}}],580)}
+/* a room added to a reservation, or a copy of it, keeps the currency, the rate and the nightly rate typed for it */
+function curInherit(nb,B){if(!bForeign(B))return nb;nb.cur=B.cur;nb.curRate=B.curRate;const v=nightRate(H,B);Object.keys(nb.nightly).forEach(k=>nb.nightly[k]=v);return nb}
 
 /* ---------- password hashing (SHA-256 + salt, stored only on this device) ---------- */
 function sha256(ascii){function rr(v,a){return(v>>>a)|(v<<(32-a))}var mp=Math.pow,maxWord=mp(2,32),result='',words=[],len=ascii.length*8,hash=[],k=[],pc=0,isC={};
@@ -2648,8 +2659,8 @@ function ensureDummyBooking(h){
 }
 /* Rate rules: Complimentary is always 0; House use may be 0; every other rate is at least 1 (hotel currency). */
 const rateKindOf=code=>{const rc=H&&H.rateCodes.find(x=>x.code===code);return rc&&rc.comp==='COMP'?'comp':rc&&rc.comp==='HOUSE'?'house':'normal'};
-function rateError(v,kind){if(kind==='comp')return v===0?'':'Complimentary rates are always 0.';if(isNaN(v)||v<0)return 'Enter a rate of 0 or more.';
-  if(kind==='normal'&&v<1)return `The rate must be at least 1 ${H.set.cur}. Only Complimentary (always 0) and House use can be 0.`;return ''}
+function rateError(v,kind,cur){if(kind==='comp')return v===0?'':'Complimentary rates are always 0.';if(isNaN(v)||v<0)return 'Enter a rate of 0 or more.';
+  if(kind==='normal'&&v<1)return `The rate must be at least 1 ${cur||H.set.cur}. Only Complimentary (always 0) and House use can be 0.`;return ''}
 function addLine(h,B,o){
   const tc=TCODES.find(c=>c.code===o.code)||{};
   const l={id:'l'+uid(),sys:h.set.nextSys++,folio:o.folio||1,bd:o.bd||h.set.bd,orgDate:o.bd||h.set.bd,time:o.time||Date.now(),code:o.code,desc:o.desc||tc.desc||'',ref:o.ref||'',
@@ -2815,7 +2826,7 @@ const isLocked=d=>!!(d&&H.set.lockedThrough&&d<=H.set.lockedThrough);
 const closedBooking=B=>['out','cancelled','noshow'].includes(B.status)&&isLocked(B.statusDate);
 const firstNightClosed=B=>['inhouse','out'].includes(B.status)&&isLocked(B.arr);
 const stayTotal=B=>r2(sum(dates(B.arr,B.dep),d=>billRate(B,d)));
-const rateLine=B=>`${B.type}/${B.rateCode}/${nights(B)}NT TTL @ ${m2(stayTotal(B))}/${H.set.cur}`;
+const rateLine=B=>`${B.type}/${B.rateCode}/${nights(B)}NT TTL @ ${m2(stayTotal(B))}/${bCur(B)}`;
 
 /* ---------- session ---------- */
 function user(){const se=DB&&DB.session;if(!se)return {name:'Signed out',perms:[]};if(se.provider){const p=DB.providers.find(x=>x.id===se.userId);
@@ -6202,7 +6213,7 @@ async function checkOut(B){
   if(!need('checkout'))return false;const res=resOf(B);
   if(B.status!=='inhouse'){toast('Only in-house guests can be checked out.');return false}
   showNotifs(res,'Check-out');
-  const b=bal(B);if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(b)>0.004){toast(`Outstanding ${m2(b)} ${H.set.cur}. Settle the folio to 0.00 before check-out.`);return false}
+  const b=bal(B);if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(b)>0.004){toast(`Outstanding ${m2(b)} ${bCur(B)}. Settle the folio to 0.00 before check-out.`);return false}
   if(B.dep>H.set.bd){if(!await dlgConfirm(`Departure is ${fd(B.dep)}. Check out early today?`))return false;B.earlyOut=true;const nd=H.set.bd>B.arr?H.set.bd:addD(B.arr,1);dates(nd,B.dep).forEach(d=>delete B.nightly[d]);B.dep=nd}
   B.status='out';B.statusDate=H.set.bd;B.checkoutTime=Date.now();const rm=RM(B.room);if(rm){rm.hk='dirty';rm.hkOcc='vac';rm.hkNote='Vacant dirty after check-out'}
   histB(B,'Checked out – room vacant dirty (VD)');log(`Checked out RSVN ${res.no} room ${B.room} (vacant dirty)`,B.id);saveDB();toast(`Checked out (O). Room ${B.room} is vacant dirty (VD).`);return true}
@@ -6532,7 +6543,7 @@ VIEWS['fo.departures2']=(el,id)=>{
   $('#toFull',el).onclick=()=>go('fo.departures');
   sideSearch($('#sideL',el),{title:'FRONT OFFICE / DEPARTURES',st:DS,rows:departuresDue,mode:'dep',pick:x=>{DS.sel=x;re()},rerender:re});
   const B=DS.sel&&bookingById(DS.sel);const box=$('#arDetail',el);
-  if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}">Balance <b>${m2(bb)} ${H.set.cur}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}<span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
+  if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}">Balance <b>${m2(bb)} ${bCur(B)}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}<span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
     reservationScreen($('#dRes',box),resOf(B),B,{compact:true});
     $('#dFol',box).onclick=()=>go('bill.open',B.id);$('#dCo',box).onclick=async()=>{if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(await checkOut(B))re()};
     showNotifs(resOf(B),'Check-out')}else box.innerHTML='<div class="panel empty">No departure selected.</div>';
@@ -6683,8 +6694,8 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Adult# / Child#',`<div class="two"><input type="number" id="bAd" min="1" value="${B.adults}" ${dis('b')}><input type="number" id="bCh" min="0" value="${B.children}" ${dis('b')}></div>`)}
        ${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="bAbA" min="0" value="${abfPax(B).a}" ${dis('b')}><input type="number" id="bAbC" min="0" value="${abfPax(B).c}" ${dis('b')}></div>`)}${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
        ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
-       ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
-       ${fld('<span class="blue">Total rate</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
+       ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
+       ${fld('<span class="blue">Total rate'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
        ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Blocked: ${esc(B.roomBlock.reason)}. Clear the block before this room can change.</span>`:''}`)}
      </div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
@@ -6735,7 +6746,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
   if(q('#aDinv'))q('#aDinv').onclick=()=>{if(need('print'))printDeposit(B)};
   if(q('#aFol'))q('#aFol').onclick=()=>go('bill.open',B.id);
   q('#aCopy').onclick=()=>{if(!need('res.create'))return;const nb=copyReservation(B);go('res.open',nb.id);toast('Copied to a new reservation. Choose the room and dates for the extension, then save.')};
-  q('#aAdd').onclick=()=>{if(!need('res.create'))return;const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:B.arr,dep:B.dep,rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr});r.bookings.push(nb);histB(nb,'Room added to reservation');log('Added room to RSVN '+r.no);reservationScreen(box,r,nb,o);saveDB()};
+  q('#aAdd').onclick=()=>{if(!need('res.create'))return;const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:B.arr,dep:B.dep,rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr});curInherit(nb,B);r.bookings.push(nb);histB(nb,'Room added to reservation');log('Added room to RSVN '+r.no);reservationScreen(box,r,nb,o);saveDB()};
   if(q('#aCI'))q('#aCI').onclick=async()=>{if(await checkInUI(B))reopen()};
   if(q('#aCan'))q('#aCan').onclick=async ()=>{if(!need('res.cancel'))return;if(B.lines.some(l=>isCharge(l))){toast('Charges are already posted. Correct them before cancelling.');return}if(Math.abs(bal(B))>0.004){toast('This booking holds a deposit. Refund or move it before cancelling.');return}
     if(!await dlgConfirm(`Cancel RSVN ${r.no} for ${gName(g)}?`))return;B.status='cancelled';B.statusDate=H.set.bd;histB(B,'Cancelled');log('Cancelled RSVN '+r.no);reopen()};
@@ -6797,7 +6808,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
 function copyReservation(B){const r=resOf(B);const start=B.status==='inhouse'||B.status==='out'?(B.dep>H.set.bd?B.dep:H.set.bd):B.dep;
   const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:r.contact,reference:r.reference,phone:r.phone,fax:r.fax,email:r.email,confirmation:'0',companyId:r.companyId,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};stampHotelNumbers(H,nr);
   const nb=newBooking(H,{guestId:B.guestId,type:B.type,arr:start,dep:addD(start,1),rateCode:B.rateCode,market:B.market,channel:B.channel,source:B.source,salesMgr:B.salesMgr,adults:B.adults});
-  nb.copyOf=B.id;nb.remark='Copy of RSVN '+r.no+' (extension)';nr.bookings.push(nb);H.reservations.push(nr);histB(nb,'Created by copy from RSVN '+r.no);log(`Copied RSVN ${r.no} to ${nr.no}`,nb.id);saveDB();return nb}
+  curInherit(nb,B);nb.copyOf=B.id;nb.remark='Copy of RSVN '+r.no+' (extension)';nr.bookings.push(nb);H.reservations.push(nr);histB(nb,'Created by copy from RSVN '+r.no);log(`Copied RSVN ${r.no} to ${nr.no}`,nb.id);saveDB();return nb}
 
 /* ---------- new reservation / walk-in ---------- */
 /* ---- Nationalities: type a country or a nationality, the matching nationality is chosen ---- */
@@ -6874,7 +6885,7 @@ function newReservation(el,pre,walkin){
     ${fld('Market',`<select id="nMk">${MARKETS.map(x=>opt(x,x,walkin?'WIN':'FIT')).join('')}</select>`)}${fld('BK channel',`<select id="nChn">${CHANNELS.map(x=>opt(x,x,walkin?'WIN':'EML')).join('')}</select>`)}
     ${fld('BK source',`<select id="nSrc">${SOURCES.map(x=>opt(x,x,walkin?'WALK-IN':'DIRECT')).join('')}</select>`)}${fld('Booking type',`<select id="nBt">${opt('FD','FD (definite)')}${walkin?'':opt('FT','FT (tentative)')}</select>`)}
     ${fld('Arrival',`<input type="date" id="nA" value="${arr}" ${walkin?'disabled':''}>`)}${fld('Departure',`<input type="date" id="nD" value="${dep}">`)}${fld('Room type',`<select id="nRt">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code+' – '+t.name,type)).join('')}</select>`)}
-    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${fld('Rate per night',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
+    ${fld('Rate code',`<select id="nRc">${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,'RO')).join('')}</select>`)}${curUserOn()?fld('Currency',`<div class="curpick"><button type="button" class="btn ghost curbtn" id="nCurB">${esc(curMain())} &#9662;</button><div class="curmenu" id="nCurM" hidden></div><span class="sub" id="nCurR"></span></div>`):''}${fld('<span id="nRateL">Rate per night</span>',`<input type="number" id="nRate" class="n">`)}${fld('<span id="nCmL">Commission per night</span>',`<input id="nCm" disabled class="n">`)}${fld('<span id="nNtL">Net rate per night</span>',`<input id="nNt" disabled class="n">`)}${fld('Total rate',`<input id="nTot" disabled class="n">`)}${fld('<span id="nTcL">Total commission</span>',`<input id="nTc" disabled class="n">`)}${fld('<span id="nTnL">Total net rate</span>',`<input id="nTn" disabled class="n">`)}
     ${fld('Room',`<select id="nRm"></select>`)}${fld('Adults / children',`<div class="two"><input type="number" id="nAd" value="2" min="1"><input type="number" id="nCh" value="0" min="0"></div>`)}${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="nAbA" value="2" min="0"><input type="number" id="nAbC" value="0" min="0"></div>`,'nabf')}
     ${walkin?'':`${fld('<span class="depi">$</span> Deposit amount',`<input id="nDep" class="n" inputmode="decimal" value="0">`)}${fld('Deposit paid by',`<select id="nPay">${TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&payEnabled(c)).map(c=>opt(c.code,c.code+' – '+c.desc,'900')).join('')}</select>`)}${fld('Deposit reference',`<input id="nPref" maxlength="60" placeholder="Optional">`,'span2')}
     <p class="sub rfull">Leave the amount at 0 to post the deposit later from the reservation. A deposit is posted as one line in Folio 1: Reservation Deposit - (payment type). For its receipt / tax invoice, open the reservation and click Deposit invoice.</p>`}
@@ -6887,7 +6898,7 @@ function newReservation(el,pre,walkin){
     <p class="sub">A company or agency is the bill-to when its code is not WIN or DIR. WIN and DIR, and a walk-in, use the guest. Another address is stored on this reservation and printed on the invoice.</p></div>
    <div class="quote" id="nQ"></div><div class="err" id="nErr"></div>
    <div class="btns"><button class="btn gold" id="nSave">${walkin?'Save and check in':'Save reservation'}</button><button class="btn ghost" id="nX">Cancel</button></div></div>`;
-  const q=s=>$(s,el);
+  const q=s=>$(s,el);let selCur=curMain(),selRate=1;
   attachCombo(q('#nN'),()=>NATION_ITEMS);
   attachCombo(q('#nG'),()=>H.guests.filter(g=>g.profileId&&g.profileId!=='GROUP').map(g=>({value:gName(g)+' #'+g.profileId,label:g.nationality||''})));
   const upd=()=>{const a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value;const cur=q('#nRm').value||pre.room;
@@ -6895,9 +6906,17 @@ function newReservation(el,pre,walkin){
     {const rcb=H.rateCodes.find(x=>x.code===q('#nRc').value),on=!!(rcb&&rcb.meal==='ABF'),bx=el.querySelector('.nabf');if(bx)bx.style.display=on?'':'none'}const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
     const n=a&&d?diff(a,d):0,rt=+q('#nRate').value||0,free=H.rooms.filter(r=>r.type===t&&n>0&&roomFree(r.no,a,d)).length;
     {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip;const tb=totalBoxes(Array(Math.max(0,n)).fill(rt),CO(q('#nCo').value));q('#nTot').value=tb.rVal;q('#nTcL').textContent=tb.cLabel;q('#nTc').value=tb.cVal;q('#nTnL').textContent=tb.nLabel;q('#nTn').value=tb.nVal;q('#nTc').title=q('#nTn').title=tb.tip}
-    q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${H.set.cur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
+    if(q('#nRateL'))q('#nRateL').textContent='Rate per night'+(selCur!==curMain()?' ('+selCur+')':'');
+    q('#nQ').innerHTML=n>0?`<b>${n} night${n>1?'s':''}</b> × ${m2(rt)} = <b>${m2(rt*n)} ${selCur}</b> (inclusive of service charge and ${H.set.taxName}) · ${free} ${t} room${free===1?'':'s'} free`:'<span class="bad">Departure must be after arrival.</span>'};
   ['nA','nD','nRt','nRc'].forEach(id=>q('#'+id).addEventListener('change',()=>{if(id!=='nA'&&id!=='nD')delete q('#nRate').dataset.touched;if(id==='nA'&&q('#nD').value<=q('#nA').value)q('#nD').value=addD(q('#nA').value,1);upd()}));
   q('#nRate').oninput=()=>{q('#nRate').dataset.touched=1;upd()};
+  if(q('#nCurB')){const paintCur=()=>{q('#nCurB').innerHTML=esc(selCur)+' &#9662;';q('#nCurB').classList.toggle('on',selCur!==curMain());q('#nCurR').textContent=selCur!==curMain()?'1 '+selCur+' = '+selRate+' '+curMain():'';$$('[data-cu]',el).forEach(x=>x.classList.toggle('on',x.dataset.cu===selCur))};
+    q('#nCurM').innerHTML=curList(H).map(c=>`<button type="button" data-cu="${c}"><b>${c}</b> ${esc(curName(c))}${c===curMain()?' <small>main</small>':''}</button>`).join('');
+    q('#nCurB').onclick=e=>{e.stopPropagation();q('#nCurM').hidden=!q('#nCurM').hidden};el.addEventListener('click',()=>{if(q('#nCurM'))q('#nCurM').hidden=true});
+    $$('[data-cu]',el).forEach(b=>b.onclick=async()=>{const c=b.dataset.cu;q('#nCurM').hidden=true;if(c===selCur)return;
+      if(c===curMain()){selCur=c;selRate=1}
+      else{const r=await curRateAlert(c,0,'This reservation stays in '+c+' until check-out, including its folio and bill. The Post and Payment windows can still use another allowed currency.');if(r==null)return;selCur=c;selRate=r}
+      delete q('#nRate').dataset.touched;q('#nRate').value='';paintCur();upd()});paintCur()}
   ['nAbA','nAbC'].forEach(i=>q('#'+i).addEventListener('input',()=>{q('#nAbA').dataset.touched='1'}));
   ['nAd','nCh'].forEach(i=>q('#'+i).addEventListener('input',()=>{if(q('#nAbA').dataset.touched)return;q('#nAbA').value=Math.max(0,+q('#nAd').value||0);q('#nAbC').value=Math.max(0,+q('#nCh').value||0)}));
   const syncBill=()=>{if(q('#nBill').dataset.touched)return;const co=CO(q('#nCo').value);q('#nBill').value=co&&co.code!=='WIN'&&co.code!=='DIR'?'company':'guest'};
@@ -6912,13 +6931,14 @@ function newReservation(el,pre,walkin){
     if(!last){err.textContent='Enter the guest last name.';q('#nL').focus();return}if(!a||!d||d<=a){err.textContent='Departure must be after arrival.';return}if(a<H.set.bd){err.textContent='Arrival cannot be before the business date.';return}
     if(walkin&&!room){err.textContent='Choose a vacant clean (VC) room for the walk-in guest.';return}if(room&&!roomFree(room,a,d)){err.textContent=`Room ${room} is not free for these dates.`;return}
     if(walkin&&!roomIsVC(RM(room))){err.textContent='A walk-in checks in only to a vacant clean (VC) room.';return}
-    const re_=rateError(rt,rateKindOf(rcd));if(re_){err.textContent=re_;return}
+    const re_=rateError(rt,rateKindOf(rcd),selCur);if(re_){err.textContent=re_;return}
     const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0){err.textContent='The deposit cannot be below 0.';return}
     const finish=sh=>{let g=q('#nG').dataset.gid&&H.guests.find(x=>x.id===q('#nG').dataset.gid);
     if(!g||g.last!==last){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:q('#nT').value,last,first:q('#nF').value.trim(),middle:'',other:'',jobTitle:'',company:'',nationality:natResolve(q('#nN').value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:q('#nE').value.trim(),phone:q('#nP').value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(g)}
     const r={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.last+', '+g.first,reference:q('#nRef').value.trim(),phone:g.phone,fax:'',email:g.email,confirmation:'0',companyId:q('#nCo').value,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};{const c_=CO(q('#nCo').value);r.commPct=commPct(c_);r.commBasis=commBasis(c_)}stampHotelNumbers(H,r);
     const B=newBooking(H,{guestId:g.id,type:t,room,arr:a,dep:d,rateCode:rcd,status:q('#nBt').value==='FT'?'tentative':'confirmed',market:q('#nMk').value,channel:q('#nChn').value,source:q('#nSrc').value,adults:+q('#nAd').value||1,children:+q('#nCh').value||0,abfAdult:(rco&&rco.meal==='ABF'&&(+q('#nAbA').value||0)!==(+q('#nAd').value||1))?Math.max(0,+q('#nAbA').value||0):null,abfChild:(rco&&rco.meal==='ABF')?Math.max(0,+q('#nAbC').value||0):0,remark:q('#nRem').value.trim()});
     Object.keys(B.nightly).forEach(k=>B.nightly[k]=rt);B.bkType=q('#nBt').value;
+    if(selCur!==curMain()){B.cur=selCur;B.curRate=selRate;histB(B,'Currency '+selCur+' at 1 '+selCur+' = '+selRate+' '+curMain())}
     B.billTo=q('#nBill').value;r.billTo=B.billTo;B.bill={name:q('#nBn').value.trim(),addr:q('#nBa').value.trim(),tax:q('#nBtx').value.trim(),branch:q('#nBbr').value.trim()};
     r.bookings.push(B);H.reservations.push(r);histB(B,'Reservation created');log(`Created RSVN ${r.no}`,B.id);saveDB();
     if(depN>0){postPayment(H,B,q('#nPay').value,depN,{...lineCtx(sh),folio:1,deposit:true,adv:true,ref:q('#nPref').value.trim(),remark:''});histB(B,'Reservation deposit '+m2(depN));log('Reservation deposit '+m2(depN)+' RSVN '+r.no,B.id);saveDB()}
@@ -7103,7 +7123,7 @@ function inquiryFolios(B){
   const r=resOf(B),g=G(B.guestId),co=CO(r.companyId),total=bal(B);
   const box=f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
     return `<div class="folio"><div class="fh" style="cursor:default"><span>Folio ${f}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div><div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>${ls.map(l=>`<tr class="${lineCls(l)}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}</td><td>${esc(l.ref)}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')}</table></div></div>`};
-  return `<div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <span class="pnic" style="cursor:default">${ic('idc',18)}</span> <b>#${B.internal}</b> <span class="gname" style="cursor:default;text-decoration:none">${esc(gName(g))}${B.copyOf?'(Copy)':''}</span> RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div><div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b> <button type="button" class="btn sm ghost" id="biOpen" style="margin-left:18px">Open in Billing / Folio</button></div></div><div class="fhr"><div class="rmk">Remark</div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div><div class="folios">${[1,2,3,4].map(box).join('')}</div>`;
+  return `<div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <span class="pnic" style="cursor:default">${ic('idc',18)}</span> <b>#${B.internal}</b> <span class="gname" style="cursor:default;text-decoration:none">${esc(gName(g))}${B.copyOf?'(Copy)':''}</span> RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div><div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''} <button type="button" class="btn sm ghost" id="biOpen" style="margin-left:18px">Open in Billing / Folio</button></div></div><div class="fhr"><div class="rmk">Remark</div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div><div class="folios">${[1,2,3,4].map(box).join('')}</div>`;
 }
 VIEWS['bill.inquiry']=el=>{
   const list=allBookings().filter(b=>b.status==='out'&&!b.masterDummy&&sideMatch(FI,b,FI.q)).sort((a,b)=>b.statusDate.localeCompare(a.statusDate)||(a.room||'').localeCompare(b.room||''));
@@ -7169,7 +7189,7 @@ function folioPane(el,id,onRe){
     ${tb('fReg','card','Print registration card',!can('print'))}${tb('fNot','bell','Notifications')}${tb('fLog','log','User logs of this folio')}${back?tb('fBack','left','Check back in (Auto)',!can('checkin')):''}${B.status==='inhouse'?(cancelCheckInBlock(B)?`<button class="tbtn blocked" id="fCCI" title="Cancel Check-In – blocked: ${esc(CCI_BLOCK_MSG)}" aria-label="Cancel Check-In (blocked)" aria-disabled="true">${ic('undo',22)}</button>`:tb('fCCI','undo','Cancel Check-In – back to Reservation, room becomes VD',!can('checkin'))):''}${tb('fOut','out','Check out',!can('checkout')||B.status!=='inhouse')}</div>
    <div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <button class="pnic" id="fProf" title="Guest profile">${ic('idc',18)}</button> <b>#${B.internal}</b> <a class="gname" id="fName">${esc(gName(g))}${B.copyOf?'(Copy)':''}</a>
       RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio" title="${esc(stayMark(B).label)}">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div>
-      <div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b></div>
+      <div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''}</div>
       ${closed?'<div class="lockbar sm">Closed by Close Day. This folio is read-only. A rebate, refund or void needs approval.</div>':B.status==='out'?'<div class="lockbar sm">Checked out (O). The room is vacant dirty (VD). Check in back returns the guest to the same room while it is still vacant, until Close Day.</div>':''}</div>
     <div class="fhr"><div class="rmk">Remark <span>${ic('detail',12)}</span></div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div>
    <div class="folios">${[1,2,3,4].map(f=>{const ls=B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=folioBal(B,f);
@@ -7878,7 +7898,7 @@ async function markNoShow(B){if(!B||!need('res.cancel'))return false;const g=G(B
   if(!await dlgConfirm(`Mark ${gName(g)} as a no-show?`))return false;
   B.status='noshow';B.statusDate=H.set.bd;histB(B,'No-show');
   const night=B.arr,fee=r2(B.nightly[night]!==undefined?billRate(B,night):rateFor(H,B.type,B.rateCode));
-  if(fee>0&&!B.lines.some(l=>l.code==='160')&&await dlgConfirm(`Post the no-show charge of ${m2(fee)} ${H.set.cur} for ${fd(night)}?`)){
+  if(fee>0&&!B.lines.some(l=>l.code==='160')&&await dlgConfirm(`Post the no-show charge of ${m2(fee)} ${bCur(B)} for ${fd(night)}?`)){
     addLine(H,B,{...lineCtx(),folio:1,code:'160',desc:'No-show Charge',ref:B.room||String(resOf(B).no),amt:fee,kind:'post',remark:'No-show '+fd(night)});
     log('No-show charge '+m2(fee)+' RSVN '+resOf(B).no,B.id)}
   log('No-show RSVN '+resOf(B).no,B.id);return true}
