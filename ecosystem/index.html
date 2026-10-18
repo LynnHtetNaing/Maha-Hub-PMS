@@ -351,6 +351,7 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 .nimc .nimain{grid-template-columns:1fr 540px;min-height:min(720px,calc(96vh - 150px));max-height:calc(96vh - 150px)}
 .hrs{text-align:center;font-size:12px;color:#6b7882;padding:0 8px 6px;margin-top:-8px}
 .hx-anh .hx-sel+.hx-sel{margin-left:8px}
+.ivq{margin-top:4px;font-size:12px;color:#44525c;text-align:right}.ivfx{display:inline-block;margin-left:6px;font-size:11px;color:#2b6cb0;font-weight:600}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -2856,7 +2857,7 @@ function numWords(n){const a=['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN'
   t=['','','TWENTY','THIRTY','FORTY','FIFTY','SIXTY','SEVENTY','EIGHTY','NINETY'];
   const h=x=>{let s='';if(x>=100){s+=a[Math.floor(x/100)]+' HUNDRED';x%=100;if(x)s+=' '}if(x>=20){s+=t[Math.floor(x/10)];if(x%10)s+=' '+a[x%10]}else if(x)s+=a[x];return s};
   if(n===0)return 'ZERO';const parts=[];[[1e9,'BILLION'],[1e6,'MILLION'],[1e3,'THOUSAND']].forEach(([v,w])=>{if(n>=v){parts.push(h(Math.floor(n/v))+' '+w);n%=v}});if(n)parts.push(h(n));return parts.join(' ')}
-function amountWords(x){const neg=x<0;x=Math.abs(r2(x));const i=Math.floor(x),c=Math.round((x-i)*100);let w=numWords(i)+' '+H.set.curWord;if(c)w+=' AND '+numWords(c)+' '+H.set.subWord;return '*** '+(neg?'MINUS ':'')+w+' ONLY ***'}
+function amountWords(x,B){const neg=x<0;x=Math.abs(r2(x));const i=Math.floor(x),c=Math.round((x-i)*100),ci=B&&bForeign(B)?curInfo(H,B.cur):{word:H.set.curWord,sub:H.set.subWord};let w=numWords(i)+' '+ci.word;if(c)w+=' AND '+numWords(c)+' '+ci.sub;return '*** '+(neg?'MINUS ':'')+w+' ONLY ***'}
 
 /* ---------- lookups ---------- */
 function allBookings(){const o=[];H.reservations.forEach(r=>r.bookings.forEach(b=>o.push(b)));return o}
@@ -7311,9 +7312,9 @@ function folioPane(el,id,onRe){
   showNotifs(r,'Billing / Folio');
 };
 
-function creditTotals(spec){const cur=H.set.curWord.charAt(0)+H.set.curWord.slice(1).toLowerCase(),c=spec.cn,sg=c.neg?-1:1,t=taxSplit(Math.abs(c.vatable),true);
+function creditTotals(spec,B){const cur=docCurWord(B),c=spec.cn,sg=c.neg?-1:1,t=taxSplit(Math.abs(c.vatable),true);
   const svc=H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(t.svc)}</td></tr>`:'';
-  return `<table class="ivtot"><tr><td>Credit amount (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr>${H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(sg*t.svc)}</td></tr>`:''}<tr><td>Vatable</td><td class="n">${m2(sg*r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(sg*t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(sg*(c.nonvat||0))}</td></tr><tr class="grand"><td>Total Credit (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr></table><div class="ivw">${amountWords(sg*c.total)}</div>`}
+  return `<table class="ivtot"><tr><td>Credit amount (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr>${H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(sg*t.svc)}</td></tr>`:''}<tr><td>Vatable</td><td class="n">${m2(sg*r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(sg*t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(sg*(c.nonvat||0))}</td></tr><tr class="grand"><td>Total Credit (${esc(cur)})</td><td class="n">${m2(sg*c.total)}</td></tr></table><div class="ivw">${amountWords(sg*c.total,B)}</div>${docEquiv(B,Math.abs(c.total))}`}
 /* Credit Note: the money document with the title CREDIT NOTE, printed as ORIGINAL and COPY (2 papers) */
 function printCreditNote(B,cn,o){if(!need('print'))return;o=o||{};const spec={credit:true,cn,deposit:false,guest:false,paid:false,folio:cn.folio||1,
     rows:cn.rows.map(x=>({bd:cn.bd,desc:x.desc,ref:x.ref||'',amt:x.amt})),balance:cn.neg?0:cn.total,base:cn.vatable,nonvat:cn.nonvat,billTo:o.bill||B.billTo||defaultBillTo(resOf(B)),other:o.other||B.bill||{},copies:o.copies||'both',inv:{no:cn.no,bd:cn.bd}};
@@ -7819,21 +7820,24 @@ function readBill(m){return {bill:$('#ivB',m).value,other:{name:$('#ivN',m).valu
 const DOC_ROWS=8;
 function flattenDoc(rows){const flat=[];rows.forEach(x=>{flat.push({t:'l',x});if(x.card&&x.card.last4)flat.push({t:'c',x});if(x.remark)flat.push({t:'r',x});if(x.note)flat.push({t:'n',text:x.note})});return flat}
 function chunkDoc(flat){if(!flat.length)return [[]];const pages=[];let i=0;while(i<flat.length){let n=Math.min(DOC_ROWS,flat.length-i);if(n===DOC_ROWS){const last=flat[i+n-1],nxt=flat[i+n];if(last&&last.t==='l'&&nxt&&nxt.t!=='l'&&n>1)n--}pages.push(flat.slice(i,i+n));i+=n}return pages}
-function docRowHtml(c){if(c.t==='e')return '<tr class="ivpad"><td>&nbsp;</td><td></td><td></td><td></td></tr>';if(c.t==='l')return `<tr><td>${fd(c.x.bd)}</td><td>${esc(c.x.desc)}</td><td>${esc(c.x.ref||'')}</td><td class="n">${m2(c.x.amt)}</td></tr>`;if(c.t==='c')return `<tr class="ivrm"><td></td><td colspan="3">${esc(cardMaskLine(c.x.card))}</td></tr>`;if(c.t==='r')return `<tr class="ivrm"><td colspan="4">${esc(c.x.remark)}</td></tr>`;return `<tr class="ivrm"><td colspan="4">${esc(c.text||'')}</td></tr>`}
-function moneyTotals(box){const cur=H.set.curWord.charAt(0)+H.set.curWord.slice(1).toLowerCase(),t=taxSplit(box.base||0,true),gross=r2((box.base||0)+(box.nonvat||0));
+function docRowHtml(c){if(c.t==='e')return '<tr class="ivpad"><td>&nbsp;</td><td></td><td></td><td></td></tr>';if(c.t==='l')return `<tr><td>${fd(c.x.bd)}</td><td>${esc(c.x.desc)}${c.x.fx?` <span class="ivfx">${esc(c.x.fx.fc)} ${m2(Math.abs(c.x.fx.fa))}${c.x.fx.fc!==curMain()?' @ '+c.x.fx.fr:''}</span>`:''}</td><td>${esc(c.x.ref||'')}</td><td class="n">${m2(c.x.amt)}</td></tr>`;if(c.t==='c')return `<tr class="ivrm"><td></td><td colspan="3">${esc(cardMaskLine(c.x.card))}</td></tr>`;if(c.t==='r')return `<tr class="ivrm"><td colspan="4">${esc(c.x.remark)}</td></tr>`;return `<tr class="ivrm"><td colspan="4">${esc(c.text||'')}</td></tr>`}
+const docCurWord=B=>{const w=B&&bForeign(B)?curInfo(H,B.cur).word:H.set.curWord;return w.charAt(0)+w.slice(1).toLowerCase()};
+/* the extra line under the words: the value in the main currency, at the rate staff typed */
+const docEquiv=(B,amt)=>B&&bForeign(B)?`<div class="ivq">Equivalent ${esc(curMain())} ${m2(curToMain(amt,bRate(B)))} (1 ${esc(B.cur)} = ${B.curRate} ${esc(curMain())})</div>`:'';
+function moneyTotals(box,B){const cur=docCurWord(B),t=taxSplit(box.base||0,true),gross=r2((box.base||0)+(box.nonvat||0));
   const svc=H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(t.svc)}</td></tr>`:'';
-  return `<table class="ivtot"><tr><td>Total Balance (${esc(cur)})</td><td class="n">${m2(box.balance)}</td></tr>${svc}<tr><td>Vatable</td><td class="n">${m2(r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(box.nonvat||0)}</td></tr><tr class="grand"><td>Total Amount (${esc(cur)})</td><td class="n">${m2(gross)}</td></tr></table><div class="ivw">${amountWords(gross)}</div>`}
+  return `<table class="ivtot"><tr><td>Total Balance (${esc(cur)})</td><td class="n">${m2(box.balance)}</td></tr>${svc}<tr><td>Vatable</td><td class="n">${m2(r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(box.nonvat||0)}</td></tr><tr class="grand"><td>Total Amount (${esc(cur)})</td><td class="n">${m2(gross)}</td></tr></table><div class="ivw">${amountWords(gross,B)}</div>${docEquiv(B,gross)}`}
 function hotelHead(){return `<div class="ivh"><div><b class="ivn">${esc(H.set.name)}</b><div class="ivl"><b>${esc(H.set.legal)}</b><br><b>${esc(H.set.branch)}</b><br>${esc(H.set.addr)}<br>Tel. : ${esc(H.set.phone)}${H.set.fax?' Fax. : '+esc(H.set.fax):''}<br>HOTEL TAX ID : ${esc(H.set.taxId)}<br>Website : ${esc(H.set.web)} | E-Mail : ${esc(H.set.email)}</div></div><img src="${docLogo()}" class="ivlogo" alt=""></div>`}
 function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spec.billTo,spec.billTo==='other'?spec.other:null),pages=chunkDoc(flattenDoc(spec.rows)),now=fd(todayZ())+' '+tms(Date.now());
   const sets=spec.copies==='copy'?['COPY']:spec.copies==='original'?['ORIGINAL']:['ORIGINAL','COPY'];
-  const totals=spec.credit?creditTotals(spec):moneyTotals(spec);const coName=companyLine(B,bt);
+  const totals=spec.credit?creditTotals(spec,B):moneyTotals(spec,B);const coName=companyLine(B,bt);
   const page=(chunk,pi,label)=>{const rows=chunk.slice();while(rows.length<DOC_ROWS)rows.push({t:'e'});
     const head=spec.guest?`<b>Folio ${spec.folio}</b>`:spec.credit?`<b>CREDIT NOTE NO. ${spec.inv.no} (${label})</b>`:`<b>TAX INVOICE NO. ${invRef(spec.inv)} (${label})</b>`;
     const left=`<tr><td colspan="2">${head}</td></tr><tr><td>Guest Name</td><td>: ${esc(gName(g))}</td></tr><tr><td>Room Number</td><td>: ${esc(B.room||'')}</td></tr>${spec.credit?`<tr><td>Credit for</td><td>: ${esc(spec.cn.label)} (RSVN ${r.no})</td></tr><tr><td>Reason</td><td>: ${esc(spec.cn.reason)}</td></tr>`:''}<tr><td>Company</td><td>: ${esc(coName)}</td></tr><tr><td>Tax ID/Gst Pass</td><td>: ${esc(bt.tax||'')}</td></tr><tr><td>Address</td><td>: ${esc(bt.addr||'')}</td></tr>`;
     const right=`<tr><td>Page#</td><td>: ${pi+1} / ${pages.length}</td></tr><tr><td>Folio No.</td><td>: ${B.internal}</td></tr><tr><td>Arrival</td><td>: ${fd(B.arr)}</td></tr><tr><td>Departure</td><td>: ${fd(B.dep)}</td></tr><tr><td>No. of guest</td><td>: ${B.adults+B.children}</td></tr><tr><td>Printed Date/Time</td><td>: ${now}</td></tr><tr><td>${spec.guest?'Folio Date':spec.credit?'Credit Note Date':'Tax Invoice Date'}</td><td>: ${fd(spec.guest?H.set.bd:spec.inv.bd)}</td></tr>`;
     return `<div class="ppage port inv">${hotelHead()}<div class="ivtitlebar"><div class="ivtitle${spec.guest?' guest':''}">${spec.guest?'GUEST FOLIO':spec.credit?'CREDIT NOTE':'RECEIPT / TAX INVOICE'}</div></div>
      <div class="ivinfo"><table>${left}</table><table>${right}</table></div>
-     <table class="ivt"><tr><th>DATE</th><th>DESCRIPTION</th><th>REFERENCE</th><th class="n">AMOUNT</th></tr>${rows.map(docRowHtml).join('')}</table>
+     <table class="ivt"><tr><th>DATE</th><th>DESCRIPTION</th><th>REFERENCE</th><th class="n">AMOUNT${bForeign(B)?' ('+esc(B.cur)+')':''}</th></tr>${rows.map(docRowHtml).join('')}</table>
      ${totals}<div class="ivfoot"><p>${spec.credit?'This credit note corrects the amount charged on the folio above. It does not change the number of the original tax invoice.':'I agree that my liability for this invoice is not waived and agree to be held personally liable in the event that the indicated person, company or association fails to pay for any part of the full amount of these charges.'}</p>
       <div class="sigs"><div><span></span>Guest's Signature</div><div><span></span>Cashier's Signature<br><b>${esc(user().name.toUpperCase())}</b></div></div></div></div>`};
   return {html:sets.map(lb=>pages.map((c,i)=>page(c,i,lb)).join('')).join(''),sets,pages:pages.length,bt}}
@@ -7841,7 +7845,7 @@ function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spe
    The folio 1 advance credit is the same on those two prints. Its card and remark are printed only on the receipt / tax invoice. */
 function groupRemark(grp,pay){const hit=[pay].concat(grp||[]).find(l=>l&&l.remark);return hit?hit.remark:''}
 function receiptRow(l){const advCredit=l.kind==='pay'&&(l.adv||l.deposit);const payment=['pay','payrec','corrpay'].includes(l.kind);
-  return {bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,card:(payment||advCredit)?l.card||null:null,remark:(payment||advCredit)?(l.remark||''):''}}
+  return {bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,fx:l.fc?{fc:l.fc,fa:l.fa,fr:l.fr}:null,card:(payment||advCredit)?l.card||null:null,remark:(payment||advCredit)?(l.remark||''):''}}
 function receiptSpec(B,line){const grp=B.lines.filter(l=>l.group&&l.group===line.group);const pay=grp.find(l=>l.kind==='pay')||grp.find(l=>l.kind==='payrec')||line;const card=(grp.find(l=>l.card)||pay).card||null;const method=payLabel(Object.assign({},pay,{card:card||pay.card}));const amt=Math.abs(pay.amt);const bd=pay.orgDate||pay.bd;const ref=pay.ref||'';const remark=groupRemark(grp,pay);const tc=TCODES.find(c=>c.code===pay.code);
   if(grp.some(l=>l.deposit)||pay.deposit)return {deposit:true,paid:false,folio:4,key:'dep:'+(pay.group||pay.id),rows:[{bd,desc:'Reservation Deposit - '+method,ref,amt,card,remark}],balance:amt,base:amt,nonvat:0};
   if(grp.some(l=>l.adv)||pay.adv){const rec=grp.find(l=>l.kind==='payrec')||line;return {deposit:false,paid:false,folio:rec.folio||4,key:'pay:'+(pay.group||pay.id),rows:[{bd,desc:'Advance Payment - '+method,ref,amt},{bd,desc:method+' - Advance Payment',ref,amt:-amt,card,remark}],balance:0,base:amt,nonvat:0}}
@@ -7861,7 +7865,7 @@ function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line)
   openMoneyDoc(B,spec,(spec.deposit?'Reservation deposit':'Receipt / Tax invoice')+' '+invRef(spec.inv))}
 function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[only]:B.lines.filter(l=>l.folio===f)).slice().sort((a,b)=>a.time-b.time);if(!ls.length){toast('This folio has no lines to print.');return}const fol=only?only.folio:f;const payKind=k=>['pay','payrec','payoff','corrpay'].includes(k);
   const folioExtra=l=>payKind(l.kind)&&!(l.kind==='pay'&&(l.adv||l.deposit));
-  let rows=ls.map(l=>({bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}));
+  let rows=ls.map(l=>({bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,fx:l.fc?{fc:l.fc,fa:l.fa,fr:l.fr}:null,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}));
   if(style==='summary'&&!only){const by={};ls.forEach(l=>{const k=l.code+'|'+l.desc.replace(/^Correct - /,'');by[k]=by[k]||{bd:l.orgDate||l.bd,desc:l.desc.replace(/^Correct - /,''),ref:'',amt:0,card:null,remark:''};by[k].amt=r2(by[k].amt+l.amt);if(folioExtra(l)&&l.card)by[k].card=l.card;if(folioExtra(l)&&l.remark)by[k].remark=l.remark});rows=Object.values(by).filter(x=>Math.abs(x.amt)>0.004)}
   const ch=ls.filter(isCharge),base=r2(sum(ch.filter(l=>l.vat),l=>l.amt)),nonvat=r2(sum(ch.filter(l=>!l.vat),l=>l.amt));
   openMoneyDoc(B,{guest:true,deposit:false,paid:false,folio:fol,rows,balance:r2(sum(ls,l=>l.amt)),base,nonvat,billTo,other,copies:copies||'both'},only?'Guest folio':'Guest folio '+B.internal+' · folio '+f)}
