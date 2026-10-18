@@ -191,6 +191,7 @@ tr.lchg td{background:#f7f7f7}tr.lpay td{background:var(--pay);color:var(--payt)
 .pillg{background:#e4e4e4;border:1px solid #cfcfcf;border-radius:11px;padding:0 8px;font-weight:600;color:#333;display:inline-block;min-width:1.4em;text-align:center;line-height:1.55}
 .txbtns{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #e6ebef}
 .txbtns .btn{display:inline-flex;align-items:center;gap:6px}
+.txbtns .btn.blocked,.txbtns .btn.blocked:hover{background:#d9dee2!important;background-image:none!important;color:#7b8790!important;border-color:#c5ccd1!important;box-shadow:none!important;cursor:not-allowed!important;opacity:1}
 .txmodal .txclose{background:#ef7a7a;border-color:#e46868;color:#fff;min-width:92px;font-weight:600}
 .txmodal .txclose:hover{background:#e15f5f;color:#fff}
 .txmodal .txlog{background:#fff;color:#222;border:1px solid #cfd6dc;font-weight:500;display:inline-flex;align-items:center;gap:6px}
@@ -7434,11 +7435,11 @@ function transactionPopup(B,l,after){if(!l)return;
   const blk=lineBlock(B,l),prov=user().provider;
   const canAmt=!blk&&!prov&&!locked&&!corrected&&(((l.kind==='pay'||l.kind==='payrec')&&can('corrpay'))||((l.kind==='post'||l.kind==='room')&&can('post')));
   const canRef=!blk&&!prov&&!locked&&(l.kind==='post'||isPay||l.kind==='room')&&can('post');const canRem=!blk&&!prov&&!locked;
-  const acts=[];
-  if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id))acts.push(`<button class="btn" id="tCP" ${locked||!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`);
+  const acts=[];let blockNote='';
+  if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCP" ${locked||!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`);if(locked)blockNote='Correct post is blocked. This post belongs to a closed day (Close Day has run). A post from a closed day cannot be corrected: use Rebate to take an amount off, or Adjust (+) to add.'}
   {const env=cpEnvOf(B),payOnly=l.kind==='pay'&&payLocked(l)&&!frozen(l)&&!l.settled&&!folLocked(B,l.folio);
     const isPayLine=(l.kind==='pay'||l.kind==='payrec')&&!l.refund&&!corrected&&(!blk||payOnly);
-    if(isPayLine&&cpDepositOk(B,l,env))acts.push(`<button class="btn" id="tCY" ${!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`);
+    if(isPayLine&&cpDepositOk(B,l,env)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCY" ${locked||!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`);if(locked)blockNote='Correct payment is blocked. This payment belongs to a closed day (Close Day has run). A payment from a closed day cannot be corrected: use Refund to pay it back.'}
     else if(isPayLine)acts.push(`<span class="sub">A reservation deposit is refunded, not corrected. Use Refund.</span>`)}
   if(!blk&&isCharge(l)&&locked)acts.push(`<button class="btn" id="tReb">${ic('rebate',15)} Rebate</button>`);
   let tab='post';
@@ -7450,6 +7451,7 @@ function transactionPopup(B,l,after){if(!l)return;
        <div><p>Original Amount: <b class="c2">${m2(l.amt)}</b> <span class="c3">(${m2(sign*t.net)})</span></p><p>Service Charge: <b class="c4">${m2(sign*t.svc)}</b></p><p>${esc(H.set.taxName)} Amount: <b class="c4">${m2(sign*t.vat)}</b></p><p>Additional Tax: <b class="c4">0.00</b></p><p>Tax Code: ${l.vat?esc(H.set.taxName)+' '+H.set.vat+'%':'NON VAT'}</p><p>Tax Type: ${l.vat?'Inclusive':'—'}</p>
        <p>Tax Inv.: <span class="pillg">${inv?invRef(inv):0}</span> CR. note: <span class="pillg">0</span> <span class="c1">Folio Seq#:</span> <span class="pillg">${B.lines.filter(x=>x.folio===l.folio).indexOf(l)+1}</span></p></div></div>`:
       `<div class="pinfo one"><p>Posted to Folio ${l.folio}${l.origBooking&&l.origBooking!==B.id?' · transferred from another room':''}. ${l.deposit?'Taken as a reservation deposit.':''}</p><p>Billing setup: default folios (charges to Folio 1; payment record pair to Folio 4).</p></div>`}
+     ${blockNote?`<div class="lockbar sm">${esc(blockNote)}</div>`:''}
      ${blk?`<div class="lockbar sm">${esc(blk)}</div>`:locked?'<div class="sub">This line belongs to a closed day. Reference, amount and remark are locked. It can still be moved between folios and rooms; only the provider can change it.</div>':'<div class="sub">Posted wrong? Reference, amount and remark can be changed until Close Day. A wrong code or description needs a Correct post.</div>'}
      <div class="txbtns">${acts.join('')}${canAmt||canRef||canRem?'<button class="btn gold" id="tSave">Save changes</button>':''}${user().isProv?'<button class="btn purple" id="tPE">Provider: edit anything</button><button class="btn red" id="tPD">Provider: delete line</button>':''}<button class="btn txclose" id="tX">Close</button><button class="btn txlog" id="tUL">${ic('log',15)} User Logs</button><button class="btn txlog" id="tPL">${ic('detail',15)} POS LOG</button></div></div>`;
     $$('[data-tt]',m).forEach(b=>b.onclick=()=>{tab=b.dataset.tt;paint()});
