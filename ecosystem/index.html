@@ -191,6 +191,7 @@ tr.lchg td{background:#f7f7f7}tr.lpay td{background:var(--pay);color:var(--payt)
 .pillg{background:#e4e4e4;border:1px solid #cfcfcf;border-radius:11px;padding:0 8px;font-weight:600;color:#333;display:inline-block;min-width:1.4em;text-align:center;line-height:1.55}
 .txbtns{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #e6ebef}
 .txbtns .btn{display:inline-flex;align-items:center;gap:6px}
+.txbtns .btn.blocked,.txbtns .btn.blocked:hover{background:#d9dee2!important;background-image:none!important;color:#7b8790!important;border-color:#c5ccd1!important;box-shadow:none!important;cursor:not-allowed!important;opacity:1}
 .txmodal .txclose{background:#ef7a7a;border-color:#e46868;color:#fff;min-width:92px;font-weight:600}
 .txmodal .txclose:hover{background:#e15f5f;color:#fff}
 .txmodal .txlog{background:#fff;color:#222;border:1px solid #cfd6dc;font-weight:500;display:inline-flex;align-items:center;gap:6px}
@@ -7435,10 +7436,10 @@ function transactionPopup(B,l,after){if(!l)return;
   const canAmt=!blk&&!prov&&!locked&&!corrected&&(((l.kind==='pay'||l.kind==='payrec')&&can('corrpay'))||((l.kind==='post'||l.kind==='room')&&can('post')));
   const canRef=!blk&&!prov&&!locked&&(l.kind==='post'||isPay||l.kind==='room')&&can('post');const canRem=!blk&&!prov&&!locked;
   const acts=[];
-  if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id))acts.push(`<button class="btn" id="tCP" ${locked||!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`);
+  if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCP" ${locked?'aria-disabled="true"':!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`)}
   {const env=cpEnvOf(B),payOnly=l.kind==='pay'&&payLocked(l)&&!frozen(l)&&!l.settled&&!folLocked(B,l.folio);
     const isPayLine=(l.kind==='pay'||l.kind==='payrec')&&!l.refund&&!corrected&&(!blk||payOnly);
-    if(isPayLine&&cpDepositOk(B,l,env))acts.push(`<button class="btn" id="tCY" ${!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`);
+    if(isPayLine&&cpDepositOk(B,l,env)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCY" ${locked?'aria-disabled="true"':!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`)}
     else if(isPayLine)acts.push(`<span class="sub">A reservation deposit is refunded, not corrected. Use Refund.</span>`)}
   if(!blk&&isCharge(l)&&locked)acts.push(`<button class="btn" id="tReb">${ic('rebate',15)} Rebate</button>`);
   let tab='post';
@@ -7470,10 +7471,10 @@ function transactionPopup(B,l,after){if(!l)return;
         if(v!==old){if(isPay){if(!can('corrpay')){toast('You do not have permission to change payment amounts.');return}grp.forEach(x=>x.amt=x.amt<0?-v:v)}else l.amt=l.amt<0?-v:v;ch.push(`amount ${m2(old)} → ${m2(v)}`)}}
       if(!ch.length){toast('Nothing changed.');return}(isPay?grp:[l]).forEach(x=>x.hist.push({at:Date.now(),user:user().name,shift:s.name,a:'Edited: '+ch.join(', ')}));
       log(`Edited line ${l.sys} RSVN ${resOf(B).no}: ${ch.join(', ')}`,B.id);closeModal(m);after();toast('Transaction updated')};
-    if($('#tCP',m))$('#tCP',m).onclick=async ()=>{if(!need('corrpost'))return;const why=await dlgAsk('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
+    if($('#tCP',m))$('#tCP',m).onclick=async ()=>{if(locked){dlgAlert('This post belongs to a closed day, so it cannot be corrected.\nUse Rebate to take an amount off, or Adjust (+) to add.','Correct post is blocked');return}if(!need('corrpost'))return;const why=await dlgAsk('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
       const c=addLine(H,B,{...lineCtx(),folio:l.folio,code:l.code,desc:'Correct - '+l.desc,ref:l.ref,amt:-l.amt,kind:'corrpost',link:l.id,vat:l.vat,remark:why.trim()});
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Corrected by line '+c.sys+': '+why});log(`Correct post ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();toast('Correct post added. The charge now nets to 0.')};
-    if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(!need('corrpay'))return;{const w0=cpCheck(B,l,cpEnvOf(B));if(w0){dlgAlert(w0);return}}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
+    if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(locked){dlgAlert('This payment belongs to a closed day, so it cannot be corrected.\nUse Refund to pay it back.','Correct payment is blocked');return}if(!need('corrpay'))return;{const w0=cpCheck(B,l,cpEnvOf(B));if(w0){dlgAlert(w0);return}}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
       const res=cpApply(H,B,l,{...lineCtx()},why.trim());
       releaseSettled(B,l.group,'Opened again because the payment was corrected');
       if(typeof refreshCityItems==='function')refreshCityItems(H);
