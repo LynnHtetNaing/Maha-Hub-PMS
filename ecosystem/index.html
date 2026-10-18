@@ -349,6 +349,8 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 .curtag{display:inline-block;margin-left:8px;padding:2px 9px;border-radius:999px;background:#e8f2fb;color:#1d4f8a;font-weight:700;font-size:12px;border:1px solid #3b9ae1}
 .mcp{background:#f3f8fb;border:1px solid #cfe0ec;border-radius:10px;padding:12px 14px;margin:4px 0;display:flex;flex-direction:column;gap:8px}.mcp-top{display:flex;align-items:center;gap:10px}.mc-btn{display:inline-flex;align-items:center;background:#fff;border:1px solid #3b9ae1;color:#1d4f8a;font-weight:700;border-radius:8px;padding:7px 14px;font-size:14px;cursor:pointer}.mcp-menu[hidden]{display:none}.mcp-menu{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid #cfd8de;border-radius:8px;padding:4px}.mcp-menu button{display:flex;gap:8px;align-items:center;background:none;border:0;padding:7px 10px;border-radius:6px;text-align:left;font-size:13.5px;cursor:pointer;color:#26323b}.mcp-menu button:hover,.mcp-menu button.on{background:#e8f2fb;color:#1d4f8a}.mcp-menu small{margin-left:auto;color:#7a8791}.mc-rate{display:flex;align-items:center;gap:8px;font-weight:600;color:#26323b;flex-wrap:wrap}.mc-rate input{width:120px;text-align:right;padding:7px 9px;font-size:15px;font-weight:700}.mc-eq{display:flex;flex-direction:column;gap:3px;font-size:13px;color:#44525c;border-top:1px dashed #b9cfde;padding-top:6px}.mc-eq:empty{display:none}.mc-note{font-size:12px;color:#7a8791}.fxtag{display:block;font-size:11px;color:#2b6cb0;font-weight:600;white-space:nowrap}
 .nimc .nimain{grid-template-columns:1fr 540px;min-height:min(720px,calc(96vh - 150px));max-height:calc(96vh - 150px)}
+.hrs{text-align:center;font-size:12px;color:#6b7882;padding:0 8px 6px;margin-top:-8px}
+.hx-anh .hx-sel+.hx-sel{margin-left:8px}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -6337,12 +6339,12 @@ const hxDonut=(parts,size,thick,cb,cs)=>{const R=size/2-thick/2,C=2*Math.PI*R,to
 /* ---- per-day numbers used by the analysis chart and the tiles ---- */
 const hxDay=d=>{const bk=(HXAB||allBookings()).filter(b=>!skipOcc(b)&&b.arr<=d&&d<b.dep&&(['confirmed','inhouse'].includes(b.status)||(b.status==='out'&&d<b.statusDate)));
   const rms=H.rooms.filter(r=>!r.dummy),cap=rms.length-rms.filter(r=>r.ooo&&r.ooo.from<=d&&d<=r.ooo.to).length;
-  const rev=r2(sum(bk,b=>billRate(b,d))),los=sum(bk,b=>diff(b.arr,b.dep)),arr=(HXAB||allBookings()).filter(b=>!skipOcc(b)&&b.arr===d&&['confirmed','inhouse','out'].includes(b.status)).length;
-  return {d,occ:bk.length,cap,rev,los,n:bk.length,arr}};
+  const fb=HX.cv==='ALL'?bk:bk.filter(b=>bCur(b)===HX.cv),rev=r2(sum(fb,b=>billRate(b,d)*(HX.cv==='ALL'?bRate(b):1))),los=sum(bk,b=>diff(b.arr,b.dep)),arr=(HXAB||allBookings()).filter(b=>!skipOcc(b)&&b.arr===d&&['confirmed','inhouse','out'].includes(b.status)).length;
+  return {d,occ:bk.length,occC:fb.length,cap,rev,los,n:bk.length,arr}};
 const HXTYPES=[['occ','Type : Occupancy %'],['adr','Type : ADR'],['rn','Type : Room nights'],['rev','Type : Revenue'],['los','Type : Avg. length of stay']];
-const hxVal=(t,a)=>t==='occ'?(a.cap?a.occ/a.cap*100:0):t==='adr'?(a.occ?a.rev/a.occ:0):t==='rn'?a.occ:t==='rev'?a.rev:(a.n?a.los/a.n:0);
-const hxAgg=list=>list.reduce((a,x)=>({occ:a.occ+x.occ,cap:a.cap+x.cap,rev:a.rev+x.rev,los:a.los+x.los,n:a.n+x.n,arr:a.arr+x.arr}),{occ:0,cap:0,rev:0,los:0,n:0,arr:0});
-let HXAB=null;const HX={range:'day',type:'occ'};
+const hxVal=(t,a)=>t==='occ'?(a.cap?a.occ/a.cap*100:0):t==='adr'?(a.occC?a.rev/a.occC:0):t==='rn'?a.occ:t==='rev'?a.rev:(a.n?a.los/a.n:0);
+const hxAgg=list=>list.reduce((a,x)=>({occ:a.occ+x.occ,occC:a.occC+x.occC,cap:a.cap+x.cap,rev:a.rev+x.rev,los:a.los+x.los,n:a.n+x.n,arr:a.arr+x.arr}),{occ:0,occC:0,cap:0,rev:0,los:0,n:0,arr:0});
+let HXAB=null;const HX={range:'day',type:'occ',cv:'ALL'};
 function hxBuckets(bd){const out=[];
   if(HX.range==='day'){for(let i=-7;i<=22;i++){const d=addD(bd,i);out.push({lab:[String(P(d).getDate()),P(d).toLocaleDateString('en-GB',{month:'short'})],list:[hxDay(d)],fut:i>0,now:i===0})}}
   else if(HX.range==='week'){const ws=d=>{const x=P(d);const k=(x.getDay()+6)%7;return addD(d,-k)};const s0=ws(bd);for(let i=-1;i<=4;i++){const s=addD(s0,i*7);const list=[...Array(7)].map((_,k)=>hxDay(addD(s,k)));out.push({lab:[String(P(s).getDate()),P(s).toLocaleDateString('en-GB',{month:'short'})],list,fut:i>0,now:i===0})}}
@@ -6372,9 +6374,11 @@ VIEWS['fo.status']=el=>{
   const fit=a=>a.filter(b=>!S.grp(b)),gp=a=>a.filter(S.grp);
   const card=(k,t,a,cls,icon)=>`<button class="hscard" data-hs="${k}" title="Click to see these guests"><div class="hct"><span class="hci ${cls}">${ic(icon,15)}</span>${t}</div><div class="hcn">${a.length}</div><div class="hcp ${cls}">Total Pax <span>${ic('user',12)} ${pxOf(a)}</span></div></button>`;
   const lines=allLinesH(H);
-  const mtdRev=r2(sum(lines.filter(l=>isCharge(l)&&l.bd>=bd.slice(0,8)+'01'&&l.bd<=bd),l=>l.amt)),todayRev=r2(sum(lines.filter(l=>isCharge(l)&&l.bd===bd),l=>l.amt));
-  const depBal=r2(sum(S.depPend,bal));
-  const T0=hxDay(bd),adr=T0.occ?T0.rev/T0.occ:0,revpar=T0.cap?T0.rev/T0.cap:0;
+  const multi=curMulti(H),rvFn=(f,to)=>{const rows=allBookings().flatMap(b=>b.lines.filter(l=>isCharge(l)&&l.bd>=f&&l.bd<=to).map(l=>({c:bCur(b),a:l.amt,e:curLineEq(b,l)})));return {conv:r2(sum(rows,x=>x.e)),by:rows.reduce((o,x)=>{o[x.c]=r2((o[x.c]||0)+x.a);return o},{})}};
+  const mtdO=multi?rvFn(bd.slice(0,8)+'01',bd):null,todayO=multi?rvFn(bd,bd):null;
+  const mtdRev=multi?mtdO.conv:r2(sum(lines.filter(l=>isCharge(l)&&l.bd>=bd.slice(0,8)+'01'&&l.bd<=bd),l=>l.amt)),todayRev=multi?todayO.conv:r2(sum(lines.filter(l=>isCharge(l)&&l.bd===bd),l=>l.amt));
+  const depBal=curMulti(H)?r2(sum(S.depPend,b=>curToMain(bal(b),bRate(b)))):r2(sum(S.depPend,bal));
+  const T0=hxDay(bd),adr=T0.occC?T0.rev/T0.occC:0,revpar=T0.cap?T0.rev/T0.cap:0;
   const hk=(occ,s)=>H.rooms.filter(rm=>!rm.dummy&&!rm.ooo&&(!!S.ih.find(b=>b.room===rm.no))===occ&&(s==='dirty'?rm.hk==='dirty':s==='inspected'?rm.hk==='inspected':rm.hk==='clean')).length;
   const HK={ooo:S.ooi,vc:hk(false,'clean'),vd:hk(false,'dirty'),oc:hk(true,'clean')+hk(true,'inspected'),od:hk(true,'dirty'),ins:hk(false,'inspected')};
   const tent=S.tent,occIncl=S.occProj.length+tent.length;
@@ -6400,7 +6404,7 @@ VIEWS['fo.status']=el=>{
   el.innerHTML=`<div class="hsbar"><span class="hsh">${titleMark('INQUIRY / HOTEL STATUS')}INQUIRY / HOTEL STATUS</span><button class="btn ghost hsbtn" id="hsRef">${ic('log',16)} Process</button><button class="btn ghost hsbtn" id="hsDet" title="Variance, tentative and occupancy tables">${ic('log',16)} Details</button><button class="btn ghost hsbtn" id="hsPr">${ic('print',16)} Print</button><button class="btn gold hsbtn" id="hsCD" title="${onNightShift()?'Open Close Day':'Close Day runs on the Night shift'}">${ic('log',16)} Close Day</button><span class="sp"></span><span class="sub">Business date ${fd(bd)}</span></div>
   <div class="hscards">${card('stay','Stay Over',S.stay,'c-blue','bed')}${card('arr','Expect Arrival',S.arrPend,'c-green','pin')}${card('dep','Expect Departure',S.depPend,'c-red','out')}${card('ih','Current In-house',S.ih,'c-navy','user')}
    ${card('parr','Project Arrival',S.arrProj,'c-green','pin')}${card('pdep','Project Departure',S.depProj,'c-red','out')}${card('pocc','Project Occupied Room',S.occProj,'c-purple','bed')}
-   <div class="hsrev"><div class="hrn">${m2(mtdRev)}</div><div class="hrl">${ic('cash',16)} Revenue month to date (${esc(H.set.cur)})</div></div></div>
+   <div class="hsrev"><div class="hrn">${m2(mtdRev)}</div>${multi?`<div class="hrs">${Object.entries(mtdO.by).map(([c,v])=>esc(c)+' '+m2(v)).join(' · ')||'&nbsp;'}</div>`:''}<div class="hrl">${ic('cash',16)} Revenue month to date (${esc(H.set.cur)}${multi?', all currencies converted':''})</div></div></div>
   <div class="hx-grid">
    <div class="hxp"><div class="hxh">${ic('bed',15)} Occupancy <span class="sub">${S.sal} salable rooms</span></div>
     <div class="hx-occ">${occDonut}<div class="hx-leg"><span><i style="background:#2f7fcf"></i>FIT<b>${fitN}</b></span><span><i style="background:#8b7cf6"></i>Group<b>${gpN}</b></span><span><i style="background:#e3e9ee"></i>Vacant<b>${Math.max(0,S.sal-S.occAct.length)}</b></span><div class="proj">End of day <b>${occEnd.toFixed(0)}%</b> incl. ${tent.length} tentative</div></div></div>
@@ -6408,15 +6412,16 @@ VIEWS['fo.status']=el=>{
     ${prog('Departures',S.depAct.length,S.depProj.length,pxOf(S.depAct),pxOf(S.depProj),S.depPend.length+' to go','r','#e0645c')}
     ${prog('Occupied',S.occAct.length,S.occProj.length,pxOf(S.occAct),pxOf(S.occProj),(net>0?'+':'')+net+' by end','o','#2f7fcf')}</div>
    <div class="hxp hx-kv"><div class="hxh">${ic('cash',15)} Revenue <span class="sub">Actual</span></div>
-    <div class="kvr"><span>Revenue today</span><b>${m2(todayRev)}</b></div><div class="kvr"><span>Departure today balance</span><b>${m2(depBal)}</b></div>
+    <div class="kvr"><span>Revenue today${multi?' ('+esc(curMain())+', converted)':''}</span><b>${m2(todayRev)}</b></div>${multi?Object.entries(todayO.by).map(([c,v])=>`<div class="kvr"><span>&middot; ${esc(c)}</span><b>${m2(v)}</b></div>`).join(''):''}<div class="kvr"><span>Departure today balance${multi?' ('+esc(curMain())+', converted)':''}</span><b>${m2(depBal)}</b></div>
     <div class="hx-kpi2"><div><small>ADR</small><b>${m2(adr)}</b></div><div><small>RevPAR</small><b>${m2(revpar)}</b></div></div></div>
    <div class="hxp"><div class="hxh">${ic('bed',15)} Housekeeping</div>${[['Out of Order',HK.ooo,'r'],['Vacant Clean',HK.vc,'b'],['Vacant Dirty',HK.vd,'b'],['Occupied Clean',HK.oc,'b'],['Occupied Dirty',HK.od,'b'],['Inspected',HK.ins,'b'],['Skip',roomDiscrepancies().filter(d=>d.type==='Skip').length,'b'],['Sleep',roomDiscrepancies().filter(d=>d.type==='Sleep').length,'b']].map(x=>`<div class="kvr"><span>${x[0]}</span><i class="pill ${x[2]}">${x[1]}</i></div>`).join('')}</div>
   </div>
-  <div class="hx-two2"><div class="hxp"><div class="hxh">${ic('user',15)} Guest mix <span class="sub">in-house</span></div><div class="hx-chips">${mix.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div><div class="hxp"><div class="hxh">${ic('pin',15)} Today's exceptions</div><div class="hx-chips">${excep.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div></div><div class="hx-an"><div class="hx-anh"><h3>Summary (7 days back, today and next 22 days)</h3><div class="hx-seg" id="hxSeg">${['day','week','month','year'].map(r=>`<button data-r="${r}" class="${HX.range===r?'on':''}">${r[0].toUpperCase()+r.slice(1)}</button>`).join('')}</div><div class="hx-sel" id="hxSel">${HXTYPES.find(t=>t[0]===HX.type)[1]}</div></div><div id="hxChart">${hxChartSvg(bd)}</div></div>
+  <div class="hx-two2"><div class="hxp"><div class="hxh">${ic('user',15)} Guest mix <span class="sub">in-house</span></div><div class="hx-chips">${mix.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div><div class="hxp"><div class="hxh">${ic('pin',15)} Today's exceptions</div><div class="hx-chips">${excep.map(x=>`<span class="hx-chip2">${x[0]} <b>${x[1]}</b></span>`).join('')}</div></div></div><div class="hx-an"><div class="hx-anh"><h3>Summary (7 days back, today and next 22 days)</h3><div class="hx-seg" id="hxSeg">${['day','week','month','year'].map(r=>`<button data-r="${r}" class="${HX.range===r?'on':''}">${r[0].toUpperCase()+r.slice(1)}</button>`).join('')}</div><div class="hx-sel" id="hxSel">${HXTYPES.find(t=>t[0]===HX.type)[1]}</div>${multi?`<div class="hx-sel" id="hxCv" title="Revenue and ADR: all currencies converted, or one currency">Currency : ${HX.cv==='ALL'?'All \u2192 '+esc(curMain()):esc(HX.cv)}</div>`:''}</div><div id="hxChart">${hxChartSvg(bd)}</div></div>
   <div class="hx-tiles">${rows.map(r=>mets.map(m=>tile(m,r)).join('')).join('')}</div>
   </div>`;
-  $('#hsPr',el).onclick=()=>printPages(hxPrintHtml(S,{mtdRev,todayRev,depBal,adr,revpar,HK,occNow,occEnd,mix,excep}),'Hotel Status');
+  $('#hsPr',el).onclick=()=>printPages(hxPrintHtml(S,{mtdRev,todayRev,depBal,adr,revpar,HK,occNow,occEnd,mix,excep,multi:multi?{today:todayO.by,mtd:mtdO.by}:null}),'Hotel Status');
   $$('#hxSeg button',el).forEach(b=>b.onclick=()=>{HX.range=b.dataset.r;$$('#hxSeg button',el).forEach(x=>x.classList.toggle('on',x===b));$('#hxChart',el).innerHTML=hxChartSvg(bd)});
+  if($('#hxCv',el))$('#hxCv',el).onclick=()=>{const L=['ALL',...curList(H)],i=(L.indexOf(HX.cv)+1)%L.length;HX.cv=L[i];render()};
   $('#hxSel',el).onclick=()=>{const i=(HXTYPES.findIndex(t=>t[0]===HX.type)+1)%HXTYPES.length;HX.type=HXTYPES[i][0];$('#hxSel',el).textContent=HXTYPES[i][1];$('#hxChart',el).innerHTML=hxChartSvg(bd)};
   const lists={stay:['Stay Over',S.stay],arr:['Expect Arrival',S.arrPend],dep:['Expect Departure',S.depPend],ih:['Current In-house',S.ih],parr:['Project Arrival',S.arrProj],pdep:['Project Departure',S.depProj],pocc:['Project Occupied Room',S.occProj]};
   $$('[data-hs]',el).forEach(b=>b.onclick=()=>{const[t,l]=lists[b.dataset.hs];statusList(t,l)});
@@ -6437,7 +6442,7 @@ function hxPrintHtml(S,x){HXAB=allBookings();const bd=S.bd,now=new Date(),fitF=a
   const p1=`<div class="ppage land hsprt">${head(1)}
    <table class="hpcards"><tr>${cards.map(c=>`<td><div class="hpcl">${c[0]}</div><div class="hpcn">${c[1].length}</div><div class="hpcp">Total Pax ${pxOf(c[1])}</div></td>`).join('')}<td class="rev"><div class="hpcl">Revenue month to date (${esc(H.set.cur)})</div><div class="hpcn">${m2(x.mtdRev)}</div></td></tr></table>
    <div class="hpcols"><div>${kv('Occupancy',[['Occupied now',x.occNow.toFixed(1)+'% ('+S.occAct.length+' of '+S.sal+' rooms)'],['End of day incl. tentative',x.occEnd.toFixed(1)+'%'],['FIT / Group in-house',fitF(S.occAct).length+' / '+gp(S.occAct).length],['Arrivals so far / expected',S.arrAct.length+' / '+S.arrProj.length+'  ('+S.arrPend.length+' to come)'],['Departures so far / expected',S.depAct.length+' / '+S.depProj.length+'  ('+S.depPend.length+' to go)'],['Occupied now / end of day',S.occAct.length+' / '+S.occProj.length]])}
-    ${kv('Revenue (actual)',[['Revenue today',m2(x.todayRev)],['Departure today balance',m2(x.depBal)],['ADR',m2(x.adr)],['RevPAR',m2(x.revpar)]])}</div>
+    ${kv('Revenue (actual)',[['Revenue today',m2(x.todayRev)],['Departure today balance',m2(x.depBal)],['ADR',m2(x.adr)],['RevPAR',m2(x.revpar)],...(x.multi?[...Object.entries(x.multi.today).map(([c,v])=>['Revenue today '+c,m2(v)]),...Object.entries(x.multi.mtd).map(([c,v])=>['Revenue month to date '+c,m2(v)])]:[])])}</div>
     <div>${kv('Housekeeping',[['Out of Order',x.HK.ooo],['Vacant Clean',x.HK.vc],['Vacant Dirty',x.HK.vd],['Occupied Clean',x.HK.oc],['Occupied Dirty',x.HK.od],['Inspected',x.HK.ins]])}
     ${kv('Guest mix and exceptions',[...x.mix,...x.excep])}</div></div>
    <table class="hpt mt"><tr><th colspan="7">Last three days</th></tr><tr><th></th><th class="n">Occupancy</th><th class="n">ADR</th><th class="n">Room nights</th><th class="n">Revenue</th><th class="n">Avg. length of stay</th><th class="n">Arrivals</th></tr>${tile}</table>
