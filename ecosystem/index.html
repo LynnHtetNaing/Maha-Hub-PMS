@@ -343,6 +343,7 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 @media (max-width:1100px){.hx-grid,.hx-grid2,.hx-two2{grid-template-columns:1fr}.hx-tiles{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:700px){.hx-tiles{grid-template-columns:1fr 1fr}.hx-anh{flex-wrap:wrap}.hx-seg{margin-left:0}}
 
+.curgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin:10px 0}.curchk{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;font-size:13px}.curchk.on{border-color:#0e8a82;background:#e6f4f3}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -1054,6 +1055,39 @@ const m2=n=>r2(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractio
 const uid=()=>Math.random().toString(36).slice(2,10);
 const dates=(a,b)=>{const o=[];for(let d=a;d<b;d=addD(d,1))o.push(d);return o};
 const sum=(a,f=x=>x)=>a.reduce((s,x)=>s+(+f(x)||0),0);
+/* ---- Multi-currency: the provider opens extra currencies for a hotel; a reservation keeps one currency until check-out. Nothing here runs unless the provider ticked an extra currency. ---- */
+const CUR_LIST=[['USD','US Dollar','US DOLLARS','CENTS'],['EUR','Euro','EUROS','CENTS'],['GBP','Pound Sterling','POUNDS STERLING','PENCE'],['JPY','Japanese Yen','YEN','SEN'],['CNY','Chinese Yuan','YUAN','FEN'],
+  ['HKD','Hong Kong Dollar','HONG KONG DOLLARS','CENTS'],['TWD','New Taiwan Dollar','NEW TAIWAN DOLLARS','CENTS'],['KRW','South Korean Won','WON','JEON'],['SGD','Singapore Dollar','SINGAPORE DOLLARS','CENTS'],
+  ['THB','Thai Baht','BAHT','SATANG'],['MMK','Myanmar Kyat','KYATS','PYAS'],['MYR','Malaysian Ringgit','RINGGIT','SEN'],['VND','Vietnamese Dong','DONG','XU'],['LAK','Lao Kip','KIP','ATT'],
+  ['KHR','Cambodian Riel','RIEL','SEN'],['IDR','Indonesian Rupiah','RUPIAH','SEN'],['PHP','Philippine Peso','PESOS','CENTAVOS'],['INR','Indian Rupee','RUPEES','PAISE'],['PKR','Pakistani Rupee','RUPEES','PAISA'],
+  ['BDT','Bangladeshi Taka','TAKA','POISHA'],['LKR','Sri Lankan Rupee','RUPEES','CENTS'],['NPR','Nepalese Rupee','RUPEES','PAISA'],['AUD','Australian Dollar','AUSTRALIAN DOLLARS','CENTS'],
+  ['NZD','New Zealand Dollar','NEW ZEALAND DOLLARS','CENTS'],['CAD','Canadian Dollar','CANADIAN DOLLARS','CENTS'],['CHF','Swiss Franc','SWISS FRANCS','RAPPEN'],['SEK','Swedish Krona','KRONOR','ORE'],
+  ['NOK','Norwegian Krone','KRONER','ORE'],['DKK','Danish Krone','KRONER','ORE'],['AED','UAE Dirham','DIRHAMS','FILS'],['SAR','Saudi Riyal','RIYALS','HALALAS'],['QAR','Qatari Riyal','RIYALS','DIRHAMS'],
+  ['KWD','Kuwaiti Dinar','DINARS','FILS'],['ILS','Israeli Shekel','SHEKELS','AGOROT'],['TRY','Turkish Lira','LIRA','KURUS'],['RUB','Russian Ruble','ROUBLES','KOPECKS'],['ZAR','South African Rand','RAND','CENTS'],
+  ['BRL','Brazilian Real','REAIS','CENTAVOS'],['MXN','Mexican Peso','PESOS','CENTAVOS'],['EGP','Egyptian Pound','EGYPTIAN POUNDS','PIASTRES']];
+const curName=c=>{const x=CUR_LIST.find(a=>a[0]===c);return x?x[1]:c};
+const curMain=h=>{h=h||H;return (h&&h.set&&h.set.cur)||''};
+/* the extra currencies the provider opened (never the main one) */
+const curOthers=h=>{h=h||H;const a=h&&h.set&&h.set.curAllow;return Array.isArray(a)?[...new Set(a.filter(c=>c&&c!==h.set.cur))]:[]};
+const curMulti=h=>curOthers(h).length>0;
+const curList=h=>[curMain(h),...curOthers(h)];
+/* may the signed-in person choose a currency? the provider can always; hotel staff only when the provider allowed it and gave them the permission */
+const curUserOn=()=>{if(!H||!curMulti(H))return false;const u=user();return !!(u.isProv||u.provider||(H.set.curUsers&&can('currency')))};
+const bCur=B=>(B&&B.cur)||curMain();
+const bForeign=B=>!!(B&&B.cur&&B.cur!==curMain());
+/* 1 unit of the reservation currency = this many units of the main currency (1 when it is the main currency) */
+const bRate=B=>bForeign(B)&&+B.curRate>0?+B.curRate:1;
+const curInfo=(h,c)=>{h=h||H;const s=h.set||{};if(!c||c===s.cur)return {word:s.curWord||'',sub:s.subWord||'',bfA:+s.bfAdult||0,bfC:0};
+  const i=(s.curInfo&&s.curInfo[c])||{},x=CUR_LIST.find(a=>a[0]===c)||[];return {word:i.word||x[2]||c,sub:i.sub!=null&&i.sub!==''?i.sub:(x[3]||''),bfA:+i.bfA||0,bfC:+i.bfC||0}};
+/* amounts */
+const curToMain=(amt,rate)=>Math.round((+amt||0)*(+rate>0?+rate:1)*100)/100;
+/* One payment or posting typed in currency pc (rp = 1 pc in main currency; left empty when pc is the main currency).
+   The folio is in the reservation currency rc (rr = 1 rc in main currency, the rate of that day when rc differs from pc).
+   Returns main = the amount in the main currency and folio = what the folio goes up or down by (in rc). Same currency: the folio gets exactly the amount typed. */
+function curApply(amt,pc,rp,rc,rr,main){const a=Math.round((+amt||0)*100)/100;pc=pc||rc;const same=pc===rc;
+  const rpv=pc===main?1:(+rp>0?+rp:(same&&+rr>0?+rr:0)),rrv=rc===main?1:(+rr>0?+rr:0);
+  if(!rpv||!rrv)return {error:'Type the rate (1 '+(!rpv?pc:rc)+' = ? '+main+').',main:0,folio:0,same};
+  const m=Math.round(a*rpv*100)/100,f=same?a:Math.round(m/rrv*100)/100;return {main:m,folio:f,same}}/* ---- end Multi-currency ---- */
 
 /* ---------- password hashing (SHA-256 + salt, stored only on this device) ---------- */
 function sha256(ascii){function rr(v,a){return(v>>>a)|(v<<(32-a))}var mp=Math.pow,maxWord=mp(2,32),result='',words=[],len=ascii.length*8,hash=[],k=[],pc=0,isC={};
@@ -1076,7 +1110,7 @@ const PERMS=[
  ['corrpost','Correct post'],['corrpay','Correct payment and edit payment amount'],['move','Move lines between folios and rooms'],
  ['rate','Change nightly rates (advance rate setup)'],['print','Print invoices and registration cards'],['hk','Change housekeeping status'],
  ['notif','Create notifications'],['profile','Edit guest profiles'],['docs','View guest documents and ID numbers'],
- ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['setup','Hotel setup']];
+ ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['currency','Choose a reservation currency (only when the provider opened more currencies)'],['setup','Hotel setup']];
 const PRESET={
  Manager:PERMS.map(p=>p[0]),
  'Front desk':['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','move','rate','print','hk','notif','profile','docs','reports','ai.guest'],
@@ -8844,6 +8878,25 @@ function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data
   box.insertAdjacentHTML('beforeend',`<div class="panel scroll le"></div>${note?`<p class="sub">${note}</p>`:''}<div class="err lee"></div><div class="btns"><button class="btn ghost leadd">${ic('plus',14)} Add</button><button class="btn gold lesave">Save</button></div>`);
   paint();box.querySelector('.leadd').onclick=()=>{data.push(blank());paint()};
   box.querySelector('.lesave').onclick=()=>{if(!provOnly())return;const e=validate?validate(data):'';if(e){box.querySelector('.lee').textContent=e;return}save(data)}}
+/* Provider: open extra currencies for the hotel being set up */
+function curSetupPanel(box){const s=H.set,main=s.cur,inUse=c=>allBookings().some(b=>b.cur===c);let picked=new Set(curOthers(H));
+  box.insertAdjacentHTML('beforeend',`<div class="panel pad mt" id="mcP"><h3>Other currencies (optional)</h3>
+   <p class="sub">${esc(main)} is the main currency: tax, the invoice number series and the equivalent amounts stay in ${esc(main)}. Tick the other currencies this hotel may use. With none ticked nothing changes anywhere and the hotel works in ${esc(main)} only. Rates are never fetched: staff type the final rate themselves.</p>
+   <div class="curgrid">${CUR_LIST.filter(c=>c[0]!==main).map(c=>`<label class="curchk ${picked.has(c[0])?'on':''}"><input type="checkbox" data-mc="${c[0]}" ${picked.has(c[0])?'checked':''}> <b>${c[0]}</b> ${esc(c[1])}</label>`).join('')}</div>
+   <label class="rpchk mt"><input type="checkbox" id="mcU" ${s.curUsers?'checked':''}><span><b>Let hotel users choose a currency</b><br><small>Staff also need the permission "Choose a reservation currency" (Staff &amp; permissions). Managers get it when you switch this on. The provider can always choose.</small></span></label>
+   <div id="mcT"></div><div class="err" id="mcE"></div><div class="btns"><button class="btn gold" id="mcS">Save currencies</button></div></div>`);
+  const cur=c=>{const i=(s.curInfo&&s.curInfo[c])||{};const d=curInfo(H,c);return {word:i.word||d.word,sub:i.sub!=null&&i.sub!==''?i.sub:d.sub,bfA:i.bfA!=null?i.bfA:d.bfA,bfC:i.bfC!=null?i.bfC:d.bfC}};
+  const paintT=()=>{const keep={};$$('[data-mi]',box).forEach(x=>keep[x.dataset.mi]=x.value);
+    $('#mcT',box).innerHTML=picked.size?`<h3 class="mt">Per currency</h3><p class="sub">The words are printed on the invoice amount. The breakfast values are used for the breakfast split of reservations made in that currency.</p><div class="panel scroll"><table class="grid"><tr><th>Currency</th><th>Invoice words (major)</th><th>Sub-unit words</th><th class="n">Breakfast adult</th><th class="n">Breakfast child</th></tr>
+     ${[...picked].map(c=>{const v=cur(c),g=(k,d)=>esc(keep[c+'|'+k]!=null?keep[c+'|'+k]:d);return `<tr><td><b>${c}</b> ${esc(curName(c))}</td><td><input data-mi="${c}|word" value="${g('word',v.word)}"></td><td><input data-mi="${c}|sub" value="${g('sub',v.sub)}"></td><td><input class="n" type="number" step="0.01" min="0" data-mi="${c}|bfA" value="${g('bfA',v.bfA)}"></td><td><input class="n" type="number" step="0.01" min="0" data-mi="${c}|bfC" value="${g('bfC',v.bfC)}"></td></tr>`}).join('')}</table></div>`:''};
+  paintT();
+  $$('[data-mc]',box).forEach(x=>x.onchange=()=>{if(x.checked)picked.add(x.dataset.mc);else picked.delete(x.dataset.mc);x.closest('label').classList.toggle('on',x.checked);paintT()});
+  $('#mcS',box).onclick=()=>{if(!provOnly())return;const e=$('#mcE',box);e.textContent='';
+    const gone=curOthers(H).filter(c=>!picked.has(c)&&inUse(c));if(gone.length){e.textContent='Reservations already use '+gone.join(', ')+'. A currency that is in use cannot be removed.';return}
+    const info={};picked.forEach(c=>{const g=k=>$('[data-mi="'+c+'|'+k+'"]',box);info[c]={word:g('word').value.trim().toUpperCase(),sub:g('sub').value.trim().toUpperCase(),bfA:Math.max(0,+g('bfA').value||0),bfC:Math.max(0,+g('bfC').value||0)}});
+    const wasU=!!s.curUsers,nowU=$('#mcU',box).checked;s.curAllow=[...picked];s.curInfo=info;s.curUsers=nowU;
+    if(nowU&&!wasU)H.users.forEach(u=>{if(u.role==='Manager'){u.perms=u.perms||[];if(!u.perms.includes('currency'))u.perms.push('currency')}});
+    provLog(`Currencies saved for ${H.code}: ${s.curAllow.join(', ')||'main only'}${nowU?' · users may choose':''}`);saved('Currencies saved')}}
 const SEC={
  profile(box){const s=H.set;box.innerHTML=secHead('1. Hotel profile','Printed on the receipt / tax invoice, registration card, reservation confirmation and reports.')+`<div class="panel pad"><div class="form2">
    ${[['name','Hotel name'],['legal','Legal company name (tax invoice)'],['branch','Branch (e.g. Head Office)'],['taxId','Tax ID'],['addr','Address'],['phone','Phone'],['fax','Fax'],['email','Email'],['web','Website'],['country','Country'],['nat','Local nationality (for government reports)']].map(([k,l])=>fld(l,`<input id="p_${k}" value="${esc(s[k]||'')}">`,k==='addr'||k==='legal'?'span2':'')).join('')}${fld('Time zone (for times on logs, reports and documents)',`<select id="p_tz">${tzOptions(s.tz)}</select>`)}</div>
@@ -8861,6 +8914,7 @@ const SEC={
    const q=()=>{const sv=+$('#t_svc',box).value||0,v=+$('#t_vat',box).value||0,net=1000/(1+sv/100)/(1+v/100);$('#t_q',box).innerHTML=`Example: 1,000.00 inclusive = net ${m2(net)} + service ${m2(net*sv/100)} + ${esc($('#t_tn',box).value)} ${m2((net*(1+sv/100))*v/100)}`};
    ['t_svc','t_vat','t_tn'].forEach(id=>$('#'+id,box).oninput=q);q();
    $('#t_cur',box).onchange=()=>{const w=CUR_WORDS[$('#t_cur',box).value];if(w){$('#t_cw',box).value=w[0];$('#t_sw',box).value=w[1]}};
+   curSetupPanel(box);
    $('#tS',box).onclick=async ()=>{if(!provOnly())return;if(H.active!==false&&$('#t_cur',box).value!==s.cur&&!await dlgConfirm('This hotel is active. Changing the currency affects every amount. Continue?'))return;
      Object.assign(s,{cur:$('#t_cur',box).value,curWord:$('#t_cw',box).value.trim().toUpperCase(),subWord:$('#t_sw',box).value.trim().toUpperCase(),svc:+$('#t_svc',box).value||0,taxName:$('#t_tn',box).value.trim()||'Tax',vat:+$('#t_vat',box).value||0});provLog(`Tax setup saved for ${H.code}`);saved()}},
  bd(box){const s=H.set,live=H.active!==false;box.innerHTML=secHead('3. Business date & times')+`<div class="panel pad"><div class="form3">
