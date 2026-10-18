@@ -352,6 +352,7 @@ body.eco-noscroll{overflow:hidden}body.eco-noscroll #app{height:100vh;height:100
 .hrs{text-align:center;font-size:12px;color:#6b7882;padding:0 8px 6px;margin-top:-8px}
 .hx-anh .hx-sel+.hx-sel{margin-left:8px}
 .ivq{margin-top:4px;font-size:12px;color:#44525c;text-align:right}.ivfx{display:inline-block;margin-left:6px;font-size:11px;color:#2b6cb0;font-weight:600}
+.badf{border-color:#d62d20!important;box-shadow:0 0 0 3px rgba(214,45,32,.28)!important;background:#fff6f5!important}
 .hx-grid{align-items:stretch}
 .hx-full{display:flex;flex-direction:column}
 .hx-kv.hx-full .kvr{flex:1;align-items:center;padding:0}
@@ -7016,14 +7017,23 @@ function newReservation(el,pre,walkin){
   q('#nG').onchange=()=>{const m=q('#nG').value.match(/#(\d+)$/);const g=m&&H.guests.find(x=>String(x.profileId)===m[1]);if(g){q('#nT').value=g.title;q('#nL').value=g.last;q('#nF').value=g.first;q('#nN').value=g.nationality;q('#nP').value=g.phone;q('#nE').value=g.email;q('#nG').dataset.gid=g.id}};
   q('#nN').addEventListener('change',()=>{q('#nN').value=natResolve(q('#nN').value)});
   syncBill();syncRef();
+  ['input','change'].forEach(ev=>el.addEventListener(ev,e=>{if(e.target&&e.target.classList)e.target.classList.remove('badf')}));
   upd();q('#nX').onclick=()=>go('fo.status');
   q('#nSave').onclick=()=>{const err=q('#nErr');if(!need('res.create'))return;
     const last=q('#nL').value.trim(),a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value,room=q('#nRm').value||null,rt=+q('#nRate').value,rcd=q('#nRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
-    if(!last){err.textContent='Enter the guest last name.';q('#nL').focus();return}if(!a||!d||d<=a){err.textContent='Departure must be after arrival.';return}if(a<H.set.bd){err.textContent='Arrival cannot be before the business date.';return}
-    if(walkin&&!room){err.textContent='Choose a vacant clean (VC) room for the walk-in guest.';return}if(room&&!roomFree(room,a,d)){err.textContent=`Room ${room} is not free for these dates.`;return}
-    if(walkin&&!roomIsVC(RM(room))){err.textContent='A walk-in checks in only to a vacant clean (VC) room.';return}
-    const re_=rateError(rt,rateKindOf(rcd),selCur);if(re_){err.textContent=re_;return}
-    const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0){err.textContent='The deposit cannot be below 0.';return}
+    $$('.badf',el).forEach(x=>x.classList.remove('badf'));
+    const bads=[],mark=(id,msg)=>bads.push([id,msg]);
+    if(!last)mark('nL','guest last name');
+    if(!a)mark('nA','arrival date');
+    if(!d||(a&&d<=a))mark('nD','departure (must be after arrival)');
+    else if(a&&a<H.set.bd)mark('nA','arrival (cannot be before the business date)');
+    if(walkin&&!room)mark('nRm','a vacant clean (VC) room');
+    else if(room&&a&&d&&d>a&&!roomFree(room,a,d))mark('nRm','room '+room+' is not free for these dates');
+    else if(walkin&&room&&!roomIsVC(RM(room)))mark('nRm','a vacant clean (VC) room');
+    {const re_=rateError(rt,rateKindOf(rcd),selCur);if(re_)mark('nRate',re_.replace(/\.$/,''))}
+    const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0)mark('nDep','deposit (cannot be below 0)');
+    if(bads.length){bads.forEach(x=>q('#'+x[0]).classList.add('badf'));const msg='Please fill or correct the boxes outlined in red: '+bads.map(x=>x[1]).join('; ')+'.';err.textContent=msg;toast(msg);const f=q('#'+bads[0][0]);f.scrollIntoView({block:'center',behavior:'smooth'});f.focus({preventScroll:true});return}
+    err.textContent='';
     const finish=sh=>{let g=q('#nG').dataset.gid&&H.guests.find(x=>x.id===q('#nG').dataset.gid);
     if(!g||g.last!==last){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:q('#nT').value,last,first:q('#nF').value.trim(),middle:'',other:'',jobTitle:'',company:'',nationality:natResolve(q('#nN').value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:q('#nE').value.trim(),phone:q('#nP').value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:{type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null};H.guests.push(g)}
     const r={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:g.last+', '+g.first,reference:q('#nRef').value.trim(),phone:g.phone,fax:'',email:g.email,confirmation:'0',companyId:q('#nCo').value,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};{const c_=CO(q('#nCo').value);r.commPct=commPct(c_);r.commBasis=commBasis(c_)}stampHotelNumbers(H,r);
