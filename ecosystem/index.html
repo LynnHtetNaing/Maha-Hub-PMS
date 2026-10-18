@@ -6994,7 +6994,7 @@ function newReservation(el,pre,walkin){
   attachCombo(q('#nN'),()=>NATION_ITEMS);
   attachCombo(q('#nG'),()=>H.guests.filter(g=>g.profileId&&g.profileId!=='GROUP').map(g=>({value:gName(g)+' #'+g.profileId,label:g.nationality||''})));
   const upd=()=>{const a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value;const cur=q('#nRm').value||pre.room;
-    q('#nRm').innerHTML=(walkin?'':'<option value="">Assign later</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
+    q('#nRm').innerHTML=(walkin?'':'<option value="">Select a room</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
     {const rcb=H.rateCodes.find(x=>x.code===q('#nRc').value),on=!!(rcb&&rcb.meal==='ABF'),bx=el.querySelector('.nabf');if(bx)bx.style.display=on?'':'none'}const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
     const n=a&&d?diff(a,d):0,rt=+q('#nRate').value||0,free=H.rooms.filter(r=>r.type===t&&n>0&&roomFree(r.no,a,d)).length;
     {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip;const tb=totalBoxes(Array(Math.max(0,n)).fill(rt),CO(q('#nCo').value));q('#nTot').value=tb.rVal;q('#nTcL').textContent=tb.cLabel;q('#nTc').value=tb.cVal;q('#nTnL').textContent=tb.nLabel;q('#nTn').value=tb.nVal;q('#nTc').title=q('#nTn').title=tb.tip}
@@ -7023,14 +7023,17 @@ function newReservation(el,pre,walkin){
     const last=q('#nL').value.trim(),a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value,room=q('#nRm').value||null,rt=+q('#nRate').value,rcd=q('#nRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
     $$('.badf',el).forEach(x=>x.classList.remove('badf'));
     const bads=[],mark=(id,msg)=>bads.push([id,msg]);
+    [['nT','title'],['nSrc','booking source'],['nCo','company'],['nMk','market'],['nBt','booking type'],['nRc','rate code']].forEach(x=>{if(!q('#'+x[0]).value)mark(x[0],x[1])});
     if(!last)mark('nL','guest last name');
     if(!a)mark('nA','arrival date');
     if(!d||(a&&d<=a))mark('nD','departure (must be after arrival)');
     else if(a&&a<H.set.bd)mark('nA','arrival (cannot be before the business date)');
-    if(walkin&&!room)mark('nRm','a vacant clean (VC) room');
+    if(!room)mark('nRm',walkin?'a vacant clean (VC) room':'a room');
     else if(room&&a&&d&&d>a&&!roomFree(room,a,d))mark('nRm','room '+room+' is not free for these dates');
     else if(walkin&&room&&!roomIsVC(RM(room)))mark('nRm','a vacant clean (VC) room');
-    {const re_=rateError(rt,rateKindOf(rcd),selCur);if(re_)mark('nRate',re_.replace(/\.$/,''))}
+    if(!(+q('#nAd').value>=1))mark('nAd','pax (at least 1 adult)');
+    if(rateKindOf(rcd)!=='comp'&&String(q('#nRate').value).trim()==='')mark('nRate','rate per night');
+    else{const re_=rateError(rt,rateKindOf(rcd),selCur);if(re_)mark('nRate',re_.replace(/\.$/,''))}
     const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0)mark('nDep','deposit (cannot be below 0)');
     if(bads.length){bads.forEach(x=>q('#'+x[0]).classList.add('badf'));const msg='Please fill or correct the boxes outlined in red: '+bads.map(x=>x[1]).join('; ')+'.';err.textContent=msg;toast(msg);const f=q('#'+bads[0][0]);f.scrollIntoView({block:'center',behavior:'smooth'});f.focus({preventScroll:true});return}
     err.textContent='';
