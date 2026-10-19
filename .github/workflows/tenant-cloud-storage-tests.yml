@@ -7,6 +7,8 @@ on:
       - 'supabase/tests/**'
       - 'supabase/functions/**'
       - 'ecosystem/index.html'
+      - 'src/pms.source.html'
+      - 'tools/**'
       - 'tests/sync/**'
       - 'docs/USERNAME_AUTH_IMPLEMENTATION.md'
       - '.github/workflows/tenant-cloud-storage-tests.yml'
@@ -25,6 +27,8 @@ on:
       - 'supabase/tests/**'
       - 'supabase/functions/**'
       - 'ecosystem/index.html'
+      - 'src/pms.source.html'
+      - 'tools/**'
       - 'tests/sync/**'
       - '.github/workflows/tenant-cloud-storage-tests.yml'
 
@@ -53,6 +57,13 @@ jobs:
       PGDATABASE: maha_test
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Published PMS page is up to date with the readable source
+        run: |
+          cd tools && npm install --silent && cd ..
+          node tools/build-pms.mjs --check
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Bootstrap disposable Auth compatibility schema
@@ -119,38 +130,38 @@ jobs:
           node-version: 22
       - name: Run record-level sync engine and login-flow tests (no network, no secrets)
         run: |
-          node tests/sync/engine-test.js ecosystem/index.html
-          node tests/sync/login-test.js ecosystem/index.html
-          node tests/sync/gapless-test.js ecosystem/index.html
-          node tests/sync/platset-test.js ecosystem/index.html
-          node tests/sync/migration-test.js ecosystem/index.html
-          node tests/sync/commission-test.js ecosystem/index.html
-          node tests/sync/recycle-test.js ecosystem/index.html
-          node tests/sync/chain-test.js ecosystem/index.html
-          node tests/sync/multicurrency-test.js ecosystem/index.html
-          node tests/sync/noshift-test.js ecosystem/index.html
-          node tests/sync/reservation-ui-test.js ecosystem/index.html
-          node tests/sync/deposit-test.js ecosystem/index.html
-          node tests/sync/hotel-numbers-test.js ecosystem/index.html
-          node tests/sync/restart-cancelcheckin-test.js ecosystem/index.html
-          node tests/sync/poststay-test.js ecosystem/index.html
-          node tests/sync/relatives-test.js ecosystem/index.html
-          node tests/sync/liveref-test.js ecosystem/index.html
-          node tests/sync/urls-test.js ecosystem/index.html
-          node tests/sync/syncperf-test.js ecosystem/index.html
-          node tests/sync/dialogs-test.js ecosystem/index.html
-          node tests/sync/correctpay-test.js ecosystem/index.html
-          node tests/sync/emailcode-test.js ecosystem/index.html
-          node tests/sync/invref-test.js ecosystem/index.html
-          node tests/sync/entrygate-test.js ecosystem/index.html
-          node tests/sync/password-test.js ecosystem/index.html
-          node tests/sync/chainseries-test.js ecosystem/index.html
-          node tests/sync/taxref-test.js ecosystem/index.html
-          node tests/sync/changeemail-test.js ecosystem/index.html
+          node tests/sync/engine-test.js src/pms.source.html
+          node tests/sync/login-test.js src/pms.source.html
+          node tests/sync/gapless-test.js src/pms.source.html
+          node tests/sync/platset-test.js src/pms.source.html
+          node tests/sync/migration-test.js src/pms.source.html
+          node tests/sync/commission-test.js src/pms.source.html
+          node tests/sync/recycle-test.js src/pms.source.html
+          node tests/sync/chain-test.js src/pms.source.html
+          node tests/sync/multicurrency-test.js src/pms.source.html
+          node tests/sync/noshift-test.js src/pms.source.html
+          node tests/sync/reservation-ui-test.js src/pms.source.html
+          node tests/sync/deposit-test.js src/pms.source.html
+          node tests/sync/hotel-numbers-test.js src/pms.source.html
+          node tests/sync/restart-cancelcheckin-test.js src/pms.source.html
+          node tests/sync/poststay-test.js src/pms.source.html
+          node tests/sync/relatives-test.js src/pms.source.html
+          node tests/sync/liveref-test.js src/pms.source.html
+          node tests/sync/urls-test.js src/pms.source.html
+          node tests/sync/syncperf-test.js src/pms.source.html
+          node tests/sync/dialogs-test.js src/pms.source.html
+          node tests/sync/correctpay-test.js src/pms.source.html
+          node tests/sync/emailcode-test.js src/pms.source.html
+          node tests/sync/invref-test.js src/pms.source.html
+          node tests/sync/entrygate-test.js src/pms.source.html
+          node tests/sync/password-test.js src/pms.source.html
+          node tests/sync/chainseries-test.js src/pms.source.html
+          node tests/sync/taxref-test.js src/pms.source.html
+          node tests/sync/changeemail-test.js src/pms.source.html
           node tests/sync/website-test.js
-          TZ=America/New_York node tests/sync/timezone-test.js ecosystem/index.html
-          TZ=Asia/Tokyo node tests/sync/timezone-test.js ecosystem/index.html
-          TZ=UTC node tests/sync/timezone-test.js ecosystem/index.html
+          TZ=America/New_York node tests/sync/timezone-test.js src/pms.source.html
+          TZ=Asia/Tokyo node tests/sync/timezone-test.js src/pms.source.html
+          TZ=UTC node tests/sync/timezone-test.js src/pms.source.html
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
