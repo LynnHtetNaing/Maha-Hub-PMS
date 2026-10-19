@@ -403,6 +403,9 @@ button.hx-chip2.zero{opacity:.65}
 #cdFull .cdf-btn{border:1px solid rgba(217,192,122,.7);background:transparent;color:#f1e2b4;border-radius:8px;padding:8px 18px;font-size:14px;cursor:pointer}#cdFull .cdf-btn:hover{background:rgba(217,192,122,.15)}
 @media (max-width:980px){#cdFull .cdf-main{grid-template-columns:1fr}#cdFull .cdf-log{height:260px}}
 @media (prefers-reduced-motion:reduce){#cdFull .cdf-grid,#cdFull .cdf-st.run i{animation:none}}
+.cdtab td,.cdtab th{padding-top:9px;padding-bottom:9px}.cdtab td:last-child{white-space:nowrap}
+.cdtab .btn.sm{display:inline-flex;align-items:center;justify-content:center;padding:7px 16px;min-height:32px;font-size:13px;line-height:1.2;border-radius:8px;margin:2px 6px 2px 0;white-space:nowrap}
+.cdtab .btn.sm:last-child{margin-right:0}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -8087,8 +8090,6 @@ function roomDiscrepancies(){H.disc=H.disc||{};const bd=H.set.bd,out=[];
     const d=H.disc[rm.no];if(!type){if(d&&d.status==='open')delete H.disc[rm.no];return}
     if(!d||d.type!==type||d.bd!==bd)H.disc[rm.no]={type,status:'open',bd,at:Date.now()};out.push({rm,fo,...H.disc[rm.no]})});return out}
 function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
-  const unposted=tonightIH().filter(b=>!roomPostedTonight(b));
-  if(unposted.length)o.push({block:true,k:'post',t:'Room charge not posted',d:`${unposted.length} room(s): ${unposted.map(b=>b.room).join(', ')}. Press Post room.`});
   allBookings().filter(b=>['confirmed','tentative'].includes(b.status)&&b.arr<=bd).forEach(b=>o.push({block:true,k:'arr',t:'Arrival not checked in',d:`${gName(G(b.guestId))} (RSVN ${resOf(b).no}) – check in or mark no-show.`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep<=bd).forEach(b=>o.push({block:true,k:'dep',t:'Departure not checked out',d:`Room ${b.room} ${gName(G(b.guestId))} was due out ${fd(b.dep)} – check out or extend the stay.`,id:b.id}));
   if(ruleOn(H,'requireOtherCashiersClosedForCloseDay'))H.shifts.filter(x=>x.status==='open'&&(!s||x.id!==s.id)).forEach(x=>o.push({block:true,k:'shift',t:'Cashier shift still open',d:`${x.userName} – ${x.name} shift (${fd(x.bd)}).`,sid:x.id}));
@@ -8102,7 +8103,9 @@ function cdReady(){const iss=cdIssues(),disc=roomDiscrepancies().filter(d=>d.sta
   const checks=[['Room charge posted to every room',ih.every(roomPostedTonight)],['No data conflict to fix',!iss.some(i=>i.block&&!['post','arr','dep','shift'].includes(i.k))],['No cashier shift left open',!iss.some(i=>i.k==='shift')],
     ['No arrival left to check in',!iss.some(i=>i.k==='arr')],['No departure left to check out',!iss.some(i=>i.k==='dep')],['Room discrepancies closed',!disc.length]];
   if(ruleOn(H,'closeDayNightOnly'))checks.unshift(['Signed in on the Night shift',onNightShift()]);
-  return {iss,disc,checks,ok:checks.every(c=>c[1])}}
+  /* order of the night: fix every check, then Post room, then Close Day */
+  const preOk=checks.filter(c=>c[0]!=='Room charge posted to every room').every(c=>c[1]);
+  return {iss,disc,checks,preOk,ok:checks.every(c=>c[1])}}
 VIEWS['cd.close']=el=>{
   const bd=H.set.bd,ih=tonightIH(),R=cdReady(),iss=R.iss,errs=iss.filter(i=>i.block),warns=iss.filter(i=>!i.block),allDisc=roomDiscrepancies(),posted=ih.filter(roomPostedTonight);
   const nightOk=!ruleOn(H,'closeDayNightOnly')||onNightShift();
@@ -8117,11 +8120,11 @@ VIEWS['cd.close']=el=>{
       <td>${d.status==='open'?'<span class="pill r">Open</span>':`<span class="pill g">Closed</span> <span class="sub">${esc(d.user||'')} ${d.note?'· '+esc(d.note):''}</span>`}</td><td>${d.status==='open'?`<button class="btn sm" data-dcl="${d.rm.no}">Close</button>`:`<button class="btn sm ghost" data-dro="${d.rm.no}">Reopen</button>`}</td></tr>`).join('')}</table>
       <p class="sub pad">Skip: front office shows occupied but housekeeping found the room vacant. Sleep: front office shows vacant but housekeeping found it occupied. Check with housekeeping, then close it (reopen if needed).</p>`:'<div class="empty">No room discrepancies.</div>',
     logs:`<table class="grid"><tr><th>Time</th><th>Room</th><th>Guest</th><th class="n">Amount</th><th>User</th></tr>${posted.map(b=>{const l=b.lines.find(x=>x.kind==='room'&&x.night===bd);return `<tr><td>${tm(l.time)}</td><td>${b.room}</td><td>${esc(G(b.guestId).last)}</td><td class="n">${m2(l.amt)}</td><td>${esc(l.user)}</td></tr>`}).join('')||'<tr><td colspan="5" class="empty">Nothing posted yet tonight.</td></tr>'}</table>`};
-  el.innerHTML=`<div class="cdbar"><button class="cdb c1" id="cdR">${ic('log',20)}<span>Refresh</span></button><button class="cdb c2" id="cdC">${ic('search',20)}<span>Check rate</span></button><button class="cdb c3" id="cdP" ${nightOk?'':'disabled title="Night shift only"'}>${ic('upload',20)}<span>Post room</span></button>
+  el.innerHTML=`<div class="cdbar"><button class="cdb c1" id="cdR">${ic('log',20)}<span>Refresh</span></button><button class="cdb c2" id="cdC">${ic('search',20)}<span>Check rate</span></button><button class="cdb c3" id="cdP" ${nightOk&&R.preOk?'':`disabled title="${nightOk?'Finish every check first, then Post room':'Night shift only'}"`}>${ic('upload',20)}<span>Post room</span></button>
      <button class="cdb c4" id="cdGo" ${R.ok?'':'disabled'} title="${R.ok?'Close the business day':'Finish every check first'}">${ic('log',20)}<span>Close Day</span></button><span class="cdhd">Hotel date: ${fd(bd)}</span></div>
    ${nightOk?'':`<div class="lockbar">Close Day can only be run on the <b>Night</b> shift. You are signed in on the <b>${esc(curShift()?curShift().name:'')}</b> shift, so Post room and Close Day are locked. You can still view the checks and fix problems.</div>`}<div class="cdchk">${R.checks.map(c=>`<span class="${c[1]?'ok':'no'}">${c[1]?'✓':'✗'} ${c[0]}</span>`).join('')}</div>
    <div class="ctabs">${[['guest','Guest post today'],['conflict',`Data conflict (${errs.length}/${warns.length})`],['room',`Room discrepancy (${R.disc.length})`],['logs','Posted LOGs']].map(t=>`<button class="${cdTab===t[0]?'on':''}" data-ct="${t[0]}">${t[1]}</button>`).join('')}</div>
-   <div class="panel scroll">${tabs[cdTab]}</div>
+   <div class="panel scroll cdtab">${tabs[cdTab]}</div>
    <div class="cdnote"><div>If there is a Data conflict, fix it first.</div><div>If there is a Room discrepancy, check with housekeeping, then close it (reopen if needed).</div><div>Post room adds tonight's room charge (code 100) to Folio 1. On an RB rate, adult breakfast is deducted from that room charge, shown on Folio 2, and posted once as F&amp;B revenue on dummy room D999.</div><div>When every check is done, Close Day locks ${fd(bd)}, moves the hotel to ${fd(addD(bd,1))} and signs you out. Sign in again with the new shift and run the reports.</div></div>`;
   saveDB();
   $$('[data-ct]',el).forEach(b=>b.onclick=()=>{cdTab=b.dataset.ct;render()});$$('[data-ores]',el).forEach(b=>b.onclick=()=>go('res.open',b.dataset.ores));
@@ -8135,7 +8138,7 @@ VIEWS['cd.close']=el=>{
   $$('[data-dcl]',el).forEach(b=>b.onclick=async ()=>{if(!needNight())return;const n=await dlgAsk(`Room ${b.dataset.dcl}: what did housekeeping confirm?`,'Checked with housekeeping');if(n===null)return;Object.assign(H.disc[b.dataset.dcl],{status:'closed',user:user().name,note:n.trim(),closedAt:Date.now()});log(`Room discrepancy ${b.dataset.dcl} closed`);refresh()});
   $$('[data-dro]',el).forEach(b=>b.onclick=()=>{if(!needNight())return;Object.assign(H.disc[b.dataset.dro],{status:'open',user:'',note:''});log(`Room discrepancy ${b.dataset.dro} reopened`);refresh()});
   $('#cdR',el).onclick=()=>{render();toast('Refreshed')};$('#cdC',el).onclick=()=>{cdTab='guest';render();toast('Rates that differ from the rate code are highlighted.')};
-  $('#cdP',el).onclick=()=>{if(!needNight())return;const n=postRoom();saveDB();cdTab='logs';render();toast(n?`${n} room charge(s) posted`:'All room charges are already posted for tonight.')};
+  $('#cdP',el).onclick=()=>{if(!needNight())return;if(!cdReady().preOk){render();toast('Finish every other check first, then Post room.');return}const n=postRoom();saveDB();cdTab='logs';render();toast(n?`${n} room charge(s) posted`:'All room charges are already posted for tonight.')};
   $('#cdGo',el).onclick=async ()=>{if(!needNight())return;if(!cdReady().ok){render();toast('Finish every check first.');return}
     if(!await dlgConfirm(`Close Day for ${fd(bd)}?\n\n• ${fd(bd)} will be locked\n• The business date moves to ${fd(addD(bd,1))}\n• Your shift closes and you are signed out`))return;runCloseDay()};
 };
