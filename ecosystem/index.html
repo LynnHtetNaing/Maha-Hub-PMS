@@ -403,6 +403,9 @@ button.hx-chip2.zero{opacity:.65}
 #cdFull .cdf-btn{border:1px solid rgba(217,192,122,.7);background:transparent;color:#f1e2b4;border-radius:8px;padding:8px 18px;font-size:14px;cursor:pointer}#cdFull .cdf-btn:hover{background:rgba(217,192,122,.15)}
 @media (max-width:980px){#cdFull .cdf-main{grid-template-columns:1fr}#cdFull .cdf-log{height:260px}}
 @media (prefers-reduced-motion:reduce){#cdFull .cdf-grid,#cdFull .cdf-st.run i{animation:none}}
+.shiftv{align-items:stretch}.shiftv .panel{display:flex;flex-direction:column;overflow:hidden;min-width:0}.shiftv .panel>.grid{width:100%}
+.shiftv .form2{padding:18px 20px 0;margin-top:0;gap:14px 16px}.shiftv .form2>*{min-width:0}.shiftv .form2 input{width:100%;box-sizing:border-box}
+.shiftv .err{padding:10px 20px 0}.shiftv .btns{padding:16px 20px 20px;display:flex;flex-wrap:wrap;gap:10px}.shiftv .btns .btn{margin:0}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -8026,7 +8029,7 @@ async function curCountOthers(tt,o){const cb={};if(curMulti(H)){for(const k of c
 VIEWS['cd.shift']=el=>{
   const s=curShift();if(!s){el.innerHTML='<div class="empty">No open shift.</div>';return}if(s.noShift){el.innerHTML=pageHead('My Shift & Cashier')+'<div class="empty">You sign in without a shift, so there is no shift to close. Payments you take are counted in the cashier shift you choose.</div>';return}const t=shiftTotals(s);
   const others=H.shifts.filter(x=>x.status==='open'&&x.id!==s.id);
-  el.innerHTML=pageHead('My Shift & Cashier',`<span class="sub">${esc(s.name)} shift · opened ${tm(s.openAt)} · business date ${fd(s.bd)}</span>`)+`<div class="cols2">
+  el.innerHTML=pageHead('My Shift & Cashier',`<span class="sub">${esc(s.name)} shift · opened ${tm(s.openAt)} · business date ${fd(s.bd)}</span>`)+`<div class="cols2 shiftv">
    <div class="panel"><div class="ph">Collections this shift</div><table class="grid kv">${(curMulti(H)?Object.entries(t.byCur).flatMap(([c,mm])=>Object.entries(mm).map(([k,v])=>[k+' ('+c+')',v])):Object.entries(t.by)).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${m2(v)}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
      <tr class="tot"><td>Total collected</td><td class="n">${curMulti(H)?Object.entries(t.byCur).map(([c,mm])=>c+' '+m2(sum(Object.values(mm)))).join(' · ')||'0.00':m2(sum(Object.values(t.by)))}</td></tr><tr><td>Charges posted</td><td class="n">${m2(t.charges)}</td></tr></table></div>
    <div class="panel"><div class="ph">Cash drawer</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(s.openCash||0)}</td></tr><tr><td>+ Cash received${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(curMulti(H)?(t.cashBy[curMain()]||0):t.cash)}</td></tr><tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr class="tot"><td>Expected cash${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.expected)}</td></tr></table>
