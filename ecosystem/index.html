@@ -6449,8 +6449,8 @@ VIEWS['fo.status']=el=>{
   /* donut is built after the channel list below */
   const exceL=[['Day Use',S.ab.filter(b=>b.checkinDate===bd&&b.status==='out'&&b.statusDate===bd)],['Early Arrival',S.ab.filter(b=>b.early&&b.checkinDate===bd)],['Early Departure',S.ab.filter(b=>b.earlyOut&&b.statusDate===bd)],['Extended Stay',S.ih.filter(b=>b.extended)]],excep=exceL.map(x=>[x[0],x[1].length]);
   const mixL=[['VIP',vip(S.occAct)],['Complimentary',comp(S.occAct)],['House Use',hu(S.occAct)],['Walk-In',win(S.occAct)],['Tentative',tent]],mix=mixL.map(x=>[x[0],x[1].length]);
-  /* occupancy by channel (company / travel agent) */
-  const CHP=['#2f7fcf','#2fb36b','#e8a23a','#8b7cf6','#e0645c','#1fa8a0','#d36ba6','#7a8791'],chanMap={};
+  /* occupancy by channel: the channels are the companies and agencies the provider set up (Setup > Companies). A new company appears here by itself, with the next colour, as soon as it syncs. */
+  const CHP=['#2f7fcf','#2fb36b','#e8a23a','#8b7cf6','#e0645c','#1fa8a0','#d36ba6','#4a5fc1','#9aa832','#c2603a','#3aa6d0','#b0508f','#5a9a4a','#d4a017','#6b5b95','#7a8791'],chanMap={};
   const chanAll=H.companies.map((c,i)=>({id:c.id,name:(coTag(c)||c.name||'Direct').replace(/^\([A-Z]\)\s*/,''),col:CHP[i%CHP.length],n:0}));
   S.occAct.forEach(b=>{const id=resOf(b).companyId;let c=chanAll.find(x=>x.id===id);if(!c){c=chanAll.find(x=>x.id==='_other');if(!c){c={id:'_other',name:'Other',col:'#7a8791',n:0};chanAll.push(c)}}c.n++});
   const chanLegend=[...chanAll].sort((a,b)=>b.n-a.n),chanParts=chanAll.filter(c=>c.n>0).sort((a,b)=>b.n-a.n).map(c=>[c.name,c.n,c.col]);
@@ -6463,7 +6463,7 @@ VIEWS['fo.status']=el=>{
   el.innerHTML=`<div class="hsbar"><span class="hsh">${titleMark('INQUIRY / HOTEL STATUS')}INQUIRY / HOTEL STATUS</span><button class="btn ghost hsbtn" id="hsRef">${ic('log',16)} Process</button><button class="btn ghost hsbtn" id="hsDet" title="Variance, tentative and occupancy tables">${ic('log',16)} Details</button><button class="btn ghost hsbtn" id="hsPr">${ic('print',16)} Print</button><button class="btn gold hsbtn" id="hsCD" title="${onNightShift()?'Open Close Day':'Close Day runs on the Night shift'}">${ic('log',16)} Close Day</button><span class="sp"></span><span class="sub">Business date ${fd(bd)}</span></div>
   <div class="hscards">${card('stay','Stay Over',S.stay,'c-blue','bed')}${card('arr','Expect Arrival',S.arrPend,'c-green','pin')}${card('dep','Expect Departure',S.depPend,'c-red','out')}${card('ih','Current In-house',S.ih,'c-navy','user')}
    ${card('parr','Project Arrival',S.arrProj,'c-green','pin')}${card('pdep','Project Departure',S.depProj,'c-red','out')}${card('pocc','Project Occupied Room',S.occProj,'c-purple','bed')}
-   <div class="hsrev"><div class="hrn">${m2(mtdRev)}</div>${multi?`<div class="hrs">${Object.entries(mtdO.by).map(([c,v])=>esc(c)+' '+m2(v)).join(' · ')||'&nbsp;'}</div>`:''}<div class="hrl">${ic('cash',16)} Revenue month to date (${esc(H.set.cur)}${multi?', all currencies converted':''})</div></div></div>
+   <div class="hsrev"><div class="hrn">${m2(mtdRev)}</div>${multi?`<div class="hrs">${Object.entries(mtdO.by).map(([c,v])=>esc(c)+' '+m2(v)).join(' · ')||'&nbsp;'}</div>`:''}<div class="hrl">${ic('cash',16)}<span>Revenue month to date<br>(${esc(H.set.cur)}${multi?', all currencies converted':''})</span></div></div></div>
   <div class="hx-grid">
    <div class="hxp hx-occp"><div class="hxh">${ic('bed',15)} Occupancy by channel <span class="sub">${S.sal} salable rooms</span></div>
     <div class="hx-occ">${hxDonut(chanParts,214,36,String(S.occAct.length),S.occAct.length===1?'room occupied':'rooms occupied',true)}<div class="hx-leg big">${chanLegend.map(c=>`<span class="${c.n?'':'off'}"><i style="background:${c.col}"></i>${esc(c.name)}</span>`).join('')}</div></div></div>
