@@ -2980,6 +2980,9 @@ const DEFAULT_RULES={
   requireVCForCheckIn:true,
   blockFutureArrivalCheckIn:true,
   closeDayNightOnly:true,
+  requireFullNewReservation:true,
+  postRoomAfterChecks:true,
+  guestFolioHidesRemark:true,
   requireDayShiftsForCloseDay:false   /* off until the provider switches it on for a real hotel */
 };
 const RULE_META=[
@@ -2991,6 +2994,9 @@ const RULE_META=[
   {k:'requireVCForCheckIn',title:'Vacant-clean room for check-in',blurb:'Check-in requires a vacant clean (VC) room — not dirty, inspected-only, OOO or occupied.'},
   {k:'blockFutureArrivalCheckIn',title:'Block early check-in without amend',blurb:'Arrival must be on or before business date; early arrival needs an amendment first.'},
   {k:'closeDayNightOnly',title:'Close Day on Night shift only',blurb:'Post room and Close Day run only when signed in on the Night shift (provider in-hotel still allowed).'},
+  {k:'requireFullNewReservation',title:'New Reservation: all key boxes required',blurb:'Save is refused until Title, Last name, BK source, Company, Market, Booking type, Rate code, Room, Rate per night and Pax are filled; missing boxes get a red outline. Off: only last name, valid dates, a free room (walk-in: a vacant clean room) and a valid rate are required, and Room may stay on Assign later.'},
+  {k:'postRoomAfterChecks',title:'Post room only after every other check',blurb:'The Post room button opens only when every other Close Day check is green; Close Day opens last, after Post room. Off: Post room can be pressed at any time on the Night shift.'},
+  {k:'guestFolioHidesRemark',title:'Printed guest folio hides remarks and card details',blurb:'A printed guest folio never shows a remark or card details; receipts and tax invoices still show them for their own payment. Off: payment remarks and card details print on the guest folio.'},
   {k:'requireDayShiftsForCloseDay',title:'Morning and Afternoon shifts before Close Day',blurb:'Close Day is refused unless the Morning and Afternoon shifts of the business day were both opened and closed. Off by default.',off:true}
 ];
 function ruleOnStrict(h,k){h=h||H;if(!h)return false;shapeHotel(h);return h.set.rules[k]===true}
@@ -7035,7 +7041,7 @@ function newReservation(el,pre,walkin){
   attachCombo(q('#nN'),()=>NATION_ITEMS);
   attachCombo(q('#nG'),()=>H.guests.filter(g=>g.profileId&&g.profileId!=='GROUP').map(g=>({value:gName(g)+' #'+g.profileId,label:g.nationality||''})));
   const upd=()=>{const a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value;const cur=q('#nRm').value||pre.room;
-    q('#nRm').innerHTML=(walkin?'':'<option value="">Select a room</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
+    q('#nRm').innerHTML=(walkin?'':'<option value="">'+(ruleOn(H,'requireFullNewReservation')?'Select a room':'Assign later')+'</option>')+H.rooms.filter(r=>r.type===t&&!r.dummy).map(r=>{const f=a&&d&&d>a&&roomFree(r.no,a,d);const vc=!walkin||roomIsVC(r);return `<option value="${r.no}" ${f&&vc?'':'disabled'} ${r.no===cur&&f&&vc?'selected':''}>${r.no}${!f?' (taken)':walkin&&!vc?' – not VC ('+hkShort(r)+')':' – '+hkShort(r)}</option>`}).join('');
     {const rcb=H.rateCodes.find(x=>x.code===q('#nRc').value),on=!!(rcb&&rcb.meal==='ABF'),bx=el.querySelector('.nabf');if(bx)bx.style.display=on?'':'none'}const comp_=rateKindOf(q('#nRc').value)==='comp';q('#nRate').disabled=comp_;if(comp_)q('#nRate').value=0;else if(!q('#nRate').dataset.touched)q('#nRate').value='';
     const n=a&&d?diff(a,d):0,rt=+q('#nRate').value||0,free=H.rooms.filter(r=>r.type===t&&n>0&&roomFree(r.no,a,d)).length;
     {const cb=commBoxes(rt,CO(q('#nCo').value));q('#nCmL').textContent=cb.cLabel;q('#nCm').value=cb.cVal;q('#nNtL').textContent=cb.nLabel;q('#nNt').value=cb.nVal;q('#nCm').title=q('#nNt').title=cb.tip;const tb=totalBoxes(Array(Math.max(0,n)).fill(rt),CO(q('#nCo').value));q('#nTot').value=tb.rVal;q('#nTcL').textContent=tb.cLabel;q('#nTc').value=tb.cVal;q('#nTnL').textContent=tb.nLabel;q('#nTn').value=tb.nVal;q('#nTc').title=q('#nTn').title=tb.tip}
@@ -7064,16 +7070,17 @@ function newReservation(el,pre,walkin){
     const last=q('#nL').value.trim(),a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value,room=q('#nRm').value||null,rt=+q('#nRate').value,rcd=q('#nRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
     $$('.badf',el).forEach(x=>x.classList.remove('badf'));
     const bads=[],mark=(id,msg)=>bads.push([id,msg]);
-    [['nT','title'],['nSrc','booking source'],['nCo','company'],['nMk','market'],['nBt','booking type'],['nRc','rate code']].forEach(x=>{if(!q('#'+x[0]).value)mark(x[0],x[1])});
+    const FULL=ruleOn(H,'requireFullNewReservation');
+    if(FULL)[['nT','title'],['nSrc','booking source'],['nCo','company'],['nMk','market'],['nBt','booking type'],['nRc','rate code']].forEach(x=>{if(!q('#'+x[0]).value)mark(x[0],x[1])});
     if(!last)mark('nL','guest last name');
     if(!a)mark('nA','arrival date');
     if(!d||(a&&d<=a))mark('nD','departure (must be after arrival)');
     else if(a&&a<H.set.bd)mark('nA','arrival (cannot be before the business date)');
-    if(!room)mark('nRm',walkin?'a vacant clean (VC) room':'a room');
+    if(!room){if(walkin||FULL)mark('nRm',walkin?'a vacant clean (VC) room':'a room')}
     else if(room&&a&&d&&d>a&&!roomFree(room,a,d))mark('nRm','room '+room+' is not free for these dates');
     else if(walkin&&room&&!roomIsVC(RM(room)))mark('nRm','a vacant clean (VC) room');
-    if(!(+q('#nAd').value>=1))mark('nAd','pax (at least 1 adult)');
-    if(rateKindOf(rcd)!=='comp'&&String(q('#nRate').value).trim()==='')mark('nRate','rate per night');
+    if(FULL&&!(+q('#nAd').value>=1))mark('nAd','pax (at least 1 adult)');
+    if(FULL&&rateKindOf(rcd)!=='comp'&&String(q('#nRate').value).trim()==='')mark('nRate','rate per night');
     else{const re_=rateError(rt,rateKindOf(rcd),selCur);if(re_)mark('nRate',re_.replace(/\.$/,''))}
     const depN=walkin?0:r2(+String(q('#nDep').value).replace(/,/g,''));if(depN<0)mark('nDep','deposit (cannot be below 0)');
     if(bads.length){bads.forEach(x=>q('#'+x[0]).classList.add('badf'));const msg='Please fill or correct the boxes outlined in red: '+bads.map(x=>x[1]).join('; ')+'.';err.textContent=msg;toast(msg);const f=q('#'+bads[0][0]);f.scrollIntoView({block:'center',behavior:'smooth'});f.focus({preventScroll:true});return}
@@ -7947,7 +7954,7 @@ function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line)
   spec.inv=taxInvoiceFor(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio);
   openMoneyDoc(B,spec,(spec.deposit?'Reservation deposit':'Receipt / Tax invoice')+' '+invRef(spec.inv))}
 function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[only]:B.lines.filter(l=>l.folio===f)).slice().sort((a,b)=>a.time-b.time);if(!ls.length){toast('This folio has no lines to print.');return}const fol=only?only.folio:f;const payKind=k=>['pay','payrec','payoff','corrpay'].includes(k);
-  const folioExtra=l=>false; /* the guest folio prints no remark and no card details */
+  const folioExtra=l=>ruleOn(H,'guestFolioHidesRemark')?false:(payKind(l.kind)&&!(l.kind==='pay'&&(l.adv||l.deposit))); /* default: the guest folio prints no remark and no card details */
   let rows=ls.map(l=>({bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,fx:l.fc?{fc:l.fc,fa:l.fa,fr:l.fr}:null,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}));
   if(style==='summary'&&!only){const by={};ls.forEach(l=>{const k=l.code+'|'+l.desc.replace(/^Correct - /,'');by[k]=by[k]||{bd:l.orgDate||l.bd,desc:l.desc.replace(/^Correct - /,''),ref:'',amt:0,card:null,remark:''};by[k].amt=r2(by[k].amt+l.amt);if(folioExtra(l)&&l.card)by[k].card=l.card;if(folioExtra(l)&&l.remark)by[k].remark=l.remark});rows=Object.values(by).filter(x=>Math.abs(x.amt)>0.004)}
   const ch=ls.filter(isCharge),base=r2(sum(ch.filter(l=>l.vat),l=>l.amt)),nonvat=r2(sum(ch.filter(l=>!l.vat),l=>l.amt));
@@ -8115,7 +8122,7 @@ function cdReady(){const iss=cdIssues(),disc=roomDiscrepancies().filter(d=>d.sta
   if(ruleOn(H,'closeDayNightOnly'))checks.unshift(['Signed in on the Night shift',onNightShift()]);
   /* order of the night: fix every check, then Post room, then Close Day */
   const preOk=checks.filter(c=>c[0]!=='Room charge posted to every room').every(c=>c[1]);
-  return {iss,disc,checks,preOk,ok:checks.every(c=>c[1])}}
+  return {iss,disc,checks,preOk:ruleOn(H,'postRoomAfterChecks')?preOk:true,ok:checks.every(c=>c[1])}}
 VIEWS['cd.close']=el=>{
   const bd=H.set.bd,ih=tonightIH(),R=cdReady(),iss=R.iss,errs=iss.filter(i=>i.block),warns=iss.filter(i=>!i.block),allDisc=roomDiscrepancies(),posted=ih.filter(roomPostedTonight);
   const nightOk=!ruleOn(H,'closeDayNightOnly')||onNightShift();
