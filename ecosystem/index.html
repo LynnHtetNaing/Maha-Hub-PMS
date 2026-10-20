@@ -460,6 +460,41 @@ button.hx-chip2.zero{opacity:.65}
  #mobnav .mmore{font-size:22px;line-height:22px}
  #mobnav svg{width:22px;height:22px}
 }
+/* ---- Fluid layout: nothing may push the page sideways at any window width ---- */
+#view,#view *{min-width:0}
+.hxp{min-width:0}.hx-occp .hx-occ{flex-wrap:wrap;justify-content:center}
+.hx-dn{max-width:100%}.hx-dn svg{max-width:100%;height:auto}
+@media (max-width:1400px){.hsbar{flex-wrap:wrap}.hsbar .sub{margin-left:auto}}
+@media (max-width:1180px){.phead.withact h1,.phead.withf h1{min-width:0!important}.pact,.bsrch,.bsgrp{flex-wrap:wrap!important;max-width:100%}.bsQ{min-width:0!important;flex:1 1 200px}}
+body.navs1 .mtop{font-size:14px!important}body.navs1 .mitems{gap:4px!important}body.navs2 .mtop{font-size:12.5px!important}body.navs2 .mitems{gap:2px!important}
+body.navcollapse .topbar{height:52px;padding:0 8px;gap:6px}body.navcollapse .tbdates,body.navcollapse .pipe{display:none}body.navcollapse .tb-mid{flex:0 0 auto;width:auto;height:52px}body.navcollapse .menubar{height:52px;flex:0 0 auto;justify-content:flex-start}body.navcollapse .mtoggle{display:grid;place-items:center}
+body.navcollapse .mitems{display:none;position:fixed;top:52px;left:0;right:0;height:auto;max-height:70vh;overflow:auto;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;background:#fff;border-bottom:1px solid var(--line);z-index:45;box-shadow:0 12px 24px rgba(0,0,0,.12)}
+body.navcollapse .mitems.open{display:flex}body.navcollapse .mitems .mgrp{width:100%}body.navcollapse .mitems .mtop{color:#22323c;height:auto;line-height:1.3;padding:12px 16px;font-size:16px;text-align:left;width:100%}body.navcollapse .mitems .mtop:hover,body.navcollapse .mitems .mtop[aria-expanded=true]{color:var(--green)}body.navcollapse .mdrop{position:static;box-shadow:none;border:0;min-width:0}
+/* ---- Slim, flat phone chrome ---- */
+@media (max-width:700px){
+ .topbar{height:46px!important;padding:0 6px!important;border-bottom:2px solid #3a5a52!important}
+ .mitems{top:46px!important}.tb-mid,.menubar{height:46px!important}
+ .topbar .tblogo{width:34px!important;height:34px!important}
+ .tbico,.tbprof{width:32px!important;height:32px!important}
+ .tb-right{gap:2px!important}.who{font-size:11px!important;line-height:1.15}
+ .phead h1{min-height:34px!important;font-size:14px!important;padding:6px 12px!important;border-bottom-width:2px!important;box-shadow:none!important;min-width:0!important;white-space:normal!important;border-radius:6px}
+ .phead{margin-bottom:6px!important;gap:6px!important}
+ .btn,.btn.sm{min-height:36px!important;padding:6px 12px!important;font-size:14px!important;box-shadow:none!important;border-radius:6px!important}
+ .btn.sm{min-height:32px!important;padding:4px 10px!important;font-size:13px!important}
+ input,select,textarea{min-height:40px!important;padding:6px 10px!important;box-shadow:none!important}
+ .tbtn{width:40px!important;height:38px!important;box-shadow:none!important}
+ #view{padding-top:8px!important}
+ #mobnav{padding:0 2px calc(0px + env(safe-area-inset-bottom))!important;border-top:1px solid rgba(255,255,255,.25)!important;box-shadow:none!important}
+ #mobnav button{min-height:44px!important;padding:4px 2px!important;gap:1px!important;font-size:10px!important;border-radius:0!important}
+ #mobnav button.on{background:none!important;color:#3fcf9f!important;box-shadow:inset 0 2px 0 #3fcf9f}
+ #mobnav svg{width:20px!important;height:20px!important}#mobnav .mmore{font-size:20px!important;line-height:20px!important}
+ body.hasmobnav{padding-bottom:50px!important}
+ table.mcards tr{padding:4px 10px!important;margin:0 0 8px!important;border-radius:8px!important;box-shadow:none!important}
+ table.mcards td{padding:3px 0!important;font-size:13.5px}
+ .hscard,.hsrev{box-shadow:none!important}
+ #sideL,.panel#sideL{min-width:0!important;width:100%!important;max-width:100%!important}
+ .bfh,.bfsearch,.bffilt{max-width:100%!important}
+}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -6011,6 +6046,17 @@ let _mobT=0;
 function mobSchedule(){if(!MOB_Q.matches||_mobT)return;_mobT=requestAnimationFrame(()=>{_mobT=0;try{mobPrep(document.body)}catch(e){}})}
 if(window.MutationObserver)new MutationObserver(mobSchedule).observe(document.documentElement,{childList:true,subtree:true});
 const MOB_NAV=[['Status','fo.status','grid'],['Bookings','res.list','cal'],['In house','fo.inhouse','user'],['Rooms','rm.hkstatus','bed']];
+function navFit(){
+  const b=document.body,mi=document.getElementById('mitems');if(!mi)return;
+  b.classList.remove('navcollapse','navs1','navs2');
+  if(window.innerWidth<=760)return;                       /* phones already use the hamburger */
+  const over=()=>mi.scrollWidth>mi.clientWidth+1;
+  if(!over())return;
+  b.classList.add('navs1');if(!over())return;             /* first shrink the titles a little, then more, then fold them into the menu button */
+  b.classList.add('navs2');if(!over())return;
+  b.classList.remove('navs1','navs2');b.classList.add('navcollapse');
+}
+let _nfT=0;window.addEventListener('resize',()=>{clearTimeout(_nfT);_nfT=setTimeout(()=>{try{navFit();mobNavMount()}catch(e){}},120)});
 function mobNavMount(){
   let n=document.getElementById('mobnav');
   const ok=DB&&DB.session&&!DB.session.provider&&H;
@@ -6036,7 +6082,7 @@ function render(){
   if(!document.querySelector('.topbar'))renderShell();
   const f=VIEWS[VIEW]||VIEWS[user().provider?'prov.home':'fo.status'];
   try{applyFxCss()}catch(e){}
-  const el=$('#view');if(!el)return;el.innerHTML='';el.classList.remove('full');f(el,VARG);try{mobNavMount();mobPrep(el)}catch(e){}window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
+  const el=$('#view');if(!el)return;el.innerHTML='';el.classList.remove('full');f(el,VARG);try{navFit();mobNavMount();mobPrep(el)}catch(e){}window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
 }
 function refresh(){saveDB();render()}
 
