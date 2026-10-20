@@ -2979,7 +2979,8 @@ const DEFAULT_RULES={
   requireOtherCashiersClosedForCloseDay:true,
   requireVCForCheckIn:true,
   blockFutureArrivalCheckIn:true,
-  closeDayNightOnly:true
+  closeDayNightOnly:true,
+  requireDayShiftsForCloseDay:false   /* off until the provider switches it on for a real hotel */
 };
 const RULE_META=[
   {k:'allowCheckBackSameDay',title:'Allow check-back same day',blurb:'After check-out, guest may check back in on the same business day before Close Day. Turn off to block check-back entirely.'},
@@ -2989,8 +2990,10 @@ const RULE_META=[
   {k:'requireOtherCashiersClosedForCloseDay',title:'Cashiers closed before Close Day',blurb:'Close Day waits until other open cashier shifts are closed.'},
   {k:'requireVCForCheckIn',title:'Vacant-clean room for check-in',blurb:'Check-in requires a vacant clean (VC) room — not dirty, inspected-only, OOO or occupied.'},
   {k:'blockFutureArrivalCheckIn',title:'Block early check-in without amend',blurb:'Arrival must be on or before business date; early arrival needs an amendment first.'},
-  {k:'closeDayNightOnly',title:'Close Day on Night shift only',blurb:'Post room and Close Day run only when signed in on the Night shift (provider in-hotel still allowed).'}
+  {k:'closeDayNightOnly',title:'Close Day on Night shift only',blurb:'Post room and Close Day run only when signed in on the Night shift (provider in-hotel still allowed).'},
+  {k:'requireDayShiftsForCloseDay',title:'Morning and Afternoon shifts before Close Day',blurb:'Close Day is refused unless the Morning and Afternoon shifts of the business day were both opened and closed. Off by default.',off:true}
 ];
+function ruleOnStrict(h,k){h=h||H;if(!h)return false;shapeHotel(h);return h.set.rules[k]===true}
 function ruleOn(h,k){h=h||H;if(!h)return DEFAULT_RULES[k]!==false;shapeHotel(h);return h.set.rules[k]!==false}
 const FEAT_LEGACY={'fn.fo.dash':'dashboard','fn.fo.roster':'roster','fn.res.group':'groups','fn.bill.master':'groups','fn.bill.city':'city','fn.cd.petty':'petty','fn.tax.tm30':'tax','fn.tax.etax':'tax','fn.tax.copies':'tax','fn.ai.guest':'ai','fn.ai.revenue':'ai','fn.help.home':'help','fn.ac.buy':'buy'};
 const HOTEL_PLANS={
@@ -8098,6 +8101,7 @@ function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
   allBookings().filter(b=>['confirmed','tentative'].includes(b.status)&&b.arr<=bd).forEach(b=>o.push({block:true,k:'arr',t:'Arrival not checked in',d:`${gName(G(b.guestId))} (RSVN ${resOf(b).no}) – check in or mark no-show.`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep<=bd).forEach(b=>o.push({block:true,k:'dep',t:'Departure not checked out',d:`Room ${b.room} ${gName(G(b.guestId))} was due out ${fd(b.dep)} – check out or extend the stay.`,id:b.id}));
   if(ruleOn(H,'requireOtherCashiersClosedForCloseDay'))H.shifts.filter(x=>x.status==='open'&&(!s||x.id!==s.id)).forEach(x=>o.push({block:true,k:'shift',t:'Cashier shift still open',d:`${x.userName} – ${x.name} shift (${fd(x.bd)}).`,sid:x.id}));
+  if(ruleOnStrict(H,'requireDayShiftsForCloseDay')){['Morning','Afternoon'].forEach(nm=>{if(!(H.shifts||[]).some(x=>x.bd===bd&&x.name===nm&&!x.virtual))o.push({block:true,k:'dayshift',t:'Shift not run',d:'The '+nm+' shift of '+fd(bd)+' was never opened. Close Day is refused until the Morning and Afternoon shifts of the day were run.'})})}
   tonightIH().filter(b=>rateError(b.nightly[bd]??0,rateKindOf(b.rateCode),bCur(b))).forEach(b=>o.push({block:true,k:'rate',t:'Rate not allowed',d:`Room ${b.room}: ${rateError(b.nightly[bd]??0,rateKindOf(b.rateCode),bCur(b))}`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&!b.room).forEach(b=>o.push({block:true,k:'room',t:'In house without room',d:`RSVN ${resOf(b).no}`,id:b.id}));
   const seen={};allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.room).forEach(b=>{if(seen[b.room])o.push({block:true,k:'dup',t:'Room used twice',d:`Room ${b.room}: RSVN ${resOf(seen[b.room]).no} and ${resOf(b).no}`,id:b.id});seen[b.room]=b});
@@ -8105,8 +8109,9 @@ function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep===addD(bd,1)&&bal(b)>0.004).forEach(b=>o.push({block:false,k:'bal',t:'Balance due tomorrow',d:`Room ${b.room} leaves ${fd(b.dep)} with ${m2(bal(b))} outstanding.`,id:b.id}));
   return o}
 function cdReady(){const iss=cdIssues(),disc=roomDiscrepancies().filter(d=>d.status==='open');const ih=tonightIH();
-  const checks=[['Room charge posted to every room',ih.every(roomPostedTonight)],['No data conflict to fix',!iss.some(i=>i.block&&!['post','arr','dep','shift'].includes(i.k))],['No cashier shift left open',!iss.some(i=>i.k==='shift')],
+  const checks=[['Room charge posted to every room',ih.every(roomPostedTonight)],['No data conflict to fix',!iss.some(i=>i.block&&!['post','arr','dep','shift','dayshift'].includes(i.k))],['No cashier shift left open',!iss.some(i=>i.k==='shift')],
     ['No arrival left to check in',!iss.some(i=>i.k==='arr')],['No departure left to check out',!iss.some(i=>i.k==='dep')],['Room discrepancies closed',!disc.length]];
+  if(ruleOnStrict(H,'requireDayShiftsForCloseDay'))checks.push(['Morning and Afternoon shifts were run',!iss.some(i=>i.k==='dayshift')]);
   if(ruleOn(H,'closeDayNightOnly'))checks.unshift(['Signed in on the Night shift',onNightShift()]);
   /* order of the night: fix every check, then Post room, then Close Day */
   const preOk=checks.filter(c=>c[0]!=='Room charge posted to every room').every(c=>c[1]);
@@ -8177,13 +8182,15 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
     ()=>{const ls=allLinesH(H).filter(l=>l.night===bd&&l.kind==='room'),rv=curMulti(H)?allBookings().flatMap(b=>b.lines.filter(l=>l.night===bd&&l.kind==='room').map(l=>({c:bCur(b),a:l.amt,e:curLineEq(b,l)}))):null;H.audits.push({date:bd,at:Date.now(),user:user().name,rooms:ls.length,rev:rv?r2(sum(rv,x=>x.e)):r2(sum(ls,l=>l.amt)),revCur:rv?rv.reduce((o,x)=>{o[x.c]=r2((o[x.c]||0)+x.a);return o},{}):undefined,ns:allBookings().filter(b=>b.status==='noshow'&&b.statusDate===bd).length,shifts:H.shifts.filter(x=>x.bd===bd).length,variance:r2(sum(H.shifts.filter(x=>x.bd===bd),x=>x.variance||0)),inhouse:tonightIH().length,discClosed:Object.values(H.disc||{}).filter(d=>d.bd===bd&&d.status==='closed').length})},
     ()=>{const s=curShift();if(s){const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({},t.expectedBy),varianceBy:Object.keys(t.expectedBy).reduce((o,k)=>{o[k]=0;return o},{})}:{})}},
     ()=>{H.set.lockedThrough=bd;archiveDummyLines(H)},()=>{log('Close Day '+fd(bd)+' done')},()=>{H.set.bd=nd;saveDB()}];
+  /* The real work runs first, all at once. Closing the shift ends the session check, so the steps must not be spread over seconds. The log below only shows what already happened. */
+  let failMsg=null;try{for(const w of work)w()}catch(e){failMsg=e.message||String(e)}
   (async()=>{
+    if(failMsg){stSet(0,'bad');line('Close Day stopped: '+failMsg,'','err');$o('#cdfSm').textContent='stopped';$o('#cdfFoot').innerHTML='<b>Close Day stopped.</b> Nothing was changed after this step. <button class="cdf-btn" id="cdfX">Back</button>';$o('#cdfX').onclick=()=>{o.remove();try{render()}catch(e){}};return}
     line('Close Day started for business date '+fd(bd),'','hd');await wait(500);
     for(let i=0;i<work.length;i++){
       stSet(i,'run');
       for(const l of logs[i]){await wait(210);line(l[0],l[1])}
       await wait(260);
-      try{work[i]()}catch(e){stSet(i,'bad');line('Close Day stopped: '+e.message,'','err');$o('#cdfSm').textContent='stopped';$o('#cdfFoot').innerHTML='<b>Close Day stopped.</b> Nothing was changed after this step. <button class="cdf-btn" id="cdfX">Back</button>';$o('#cdfX').onclick=()=>{o.remove();render()};return}
       stSet(i,'done');pct((i+1)/work.length*100);await wait(240)}
     line('Business date '+fd(bd)+' is closed','done','ok');await wait(500);
     o.classList.add('fin');$o('#cdfT').textContent='Business date '+fd(bd)+' is closed';$o('#cdfSm').textContent='complete';
@@ -8900,7 +8907,7 @@ VIEWS['prov.rules']=el=>{
      <div class="panel mt"><div class="ph">Rules for <b>${esc(H?H.code:'')}</b></div><div class="pad" id="rlBox"></div>
      <div class="btns pad"><button class="btn gold" id="rlSave">Save rules</button><button class="btn ghost" id="rlReset">Restore defaults</button><button class="btn ghost" id="rlSystems">← Systems</button></div></div>`;
   const paint=()=>{const box=$('#rlBox',el);if(!box||!H)return;shapeHotel(H);
-    box.innerHTML=`<div class="featgrid">${RULE_META.map(r=>`<label class="chk" title="${esc(r.blurb)}"><input type="checkbox" data-rule="${r.k}" ${ruleOn(H,r.k)?'checked':''}> <span><b>${esc(r.title)}</b><div class="sub">${esc(r.blurb)}</div></span></label>`).join('')}</div>`;
+    box.innerHTML=`<div class="featgrid">${RULE_META.map(r=>`<label class="chk" title="${esc(r.blurb)}"><input type="checkbox" data-rule="${r.k}" ${(r.off?ruleOnStrict(H,r.k):ruleOn(H,r.k))?'checked':''}> <span><b>${esc(r.title)}</b><div class="sub">${esc(r.blurb)}</div></span></label>`).join('')}</div>`;
   };
   paint();
   $('#rlHotel',el).onchange=()=>{openHotel($('#rlHotel',el).value);paint()};
