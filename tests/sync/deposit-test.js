@@ -1,4 +1,4 @@
-﻿/* Reservation deposit text in the folio: Every line of a reservation deposit reads "Reservation Deposit - (payment method)": Folio 1 and the two on Folio 4.
+/* Reservation deposit text in the folio: Every line of a reservation deposit reads "Reservation Deposit - (payment method)": Folio 1 and the two on Folio 4.
      node tests/sync/deposit-test.js ecosystem/index.html */
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8');
