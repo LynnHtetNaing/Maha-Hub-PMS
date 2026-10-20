@@ -2979,7 +2979,8 @@ const DEFAULT_RULES={
   requireOtherCashiersClosedForCloseDay:true,
   requireVCForCheckIn:true,
   blockFutureArrivalCheckIn:true,
-  closeDayNightOnly:true
+  closeDayNightOnly:true,
+  requireDayShiftsForCloseDay:false   /* off until the provider switches it on for a real hotel */
 };
 const RULE_META=[
   {k:'allowCheckBackSameDay',title:'Allow check-back same day',blurb:'After check-out, guest may check back in on the same business day before Close Day. Turn off to block check-back entirely.'},
@@ -2989,8 +2990,10 @@ const RULE_META=[
   {k:'requireOtherCashiersClosedForCloseDay',title:'Cashiers closed before Close Day',blurb:'Close Day waits until other open cashier shifts are closed.'},
   {k:'requireVCForCheckIn',title:'Vacant-clean room for check-in',blurb:'Check-in requires a vacant clean (VC) room — not dirty, inspected-only, OOO or occupied.'},
   {k:'blockFutureArrivalCheckIn',title:'Block early check-in without amend',blurb:'Arrival must be on or before business date; early arrival needs an amendment first.'},
-  {k:'closeDayNightOnly',title:'Close Day on Night shift only',blurb:'Post room and Close Day run only when signed in on the Night shift (provider in-hotel still allowed).'}
+  {k:'closeDayNightOnly',title:'Close Day on Night shift only',blurb:'Post room and Close Day run only when signed in on the Night shift (provider in-hotel still allowed).'},
+  {k:'requireDayShiftsForCloseDay',title:'Morning and Afternoon shifts before Close Day',blurb:'Close Day is refused unless the Morning and Afternoon shifts of the business day were both opened and closed. Off by default.',off:true}
 ];
+function ruleOnStrict(h,k){h=h||H;if(!h)return false;shapeHotel(h);return h.set.rules[k]===true}
 function ruleOn(h,k){h=h||H;if(!h)return DEFAULT_RULES[k]!==false;shapeHotel(h);return h.set.rules[k]!==false}
 const FEAT_LEGACY={'fn.fo.dash':'dashboard','fn.fo.roster':'roster','fn.res.group':'groups','fn.bill.master':'groups','fn.bill.city':'city','fn.cd.petty':'petty','fn.tax.tm30':'tax','fn.tax.etax':'tax','fn.tax.copies':'tax','fn.ai.guest':'ai','fn.ai.revenue':'ai','fn.help.home':'help','fn.ac.buy':'buy'};
 const HOTEL_PLANS={
@@ -8098,6 +8101,7 @@ function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
   allBookings().filter(b=>['confirmed','tentative'].includes(b.status)&&b.arr<=bd).forEach(b=>o.push({block:true,k:'arr',t:'Arrival not checked in',d:`${gName(G(b.guestId))} (RSVN ${resOf(b).no}) – check in or mark no-show.`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep<=bd).forEach(b=>o.push({block:true,k:'dep',t:'Departure not checked out',d:`Room ${b.room} ${gName(G(b.guestId))} was due out ${fd(b.dep)} – check out or extend the stay.`,id:b.id}));
   if(ruleOn(H,'requireOtherCashiersClosedForCloseDay'))H.shifts.filter(x=>x.status==='open'&&(!s||x.id!==s.id)).forEach(x=>o.push({block:true,k:'shift',t:'Cashier shift still open',d:`${x.userName} – ${x.name} shift (${fd(x.bd)}).`,sid:x.id}));
+  if(ruleOnStrict(H,'requireDayShiftsForCloseDay')){['Morning','Afternoon'].forEach(nm=>{if(!(H.shifts||[]).some(x=>x.bd===bd&&x.name===nm&&!x.virtual))o.push({block:true,k:'dayshift',t:'Shift not run',d:'The '+nm+' shift of '+fd(bd)+' was never opened. Close Day is refused until the Morning and Afternoon shifts of the day were run.'})})}
   tonightIH().filter(b=>rateError(b.nightly[bd]??0,rateKindOf(b.rateCode),bCur(b))).forEach(b=>o.push({block:true,k:'rate',t:'Rate not allowed',d:`Room ${b.room}: ${rateError(b.nightly[bd]??0,rateKindOf(b.rateCode),bCur(b))}`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&!b.room).forEach(b=>o.push({block:true,k:'room',t:'In house without room',d:`RSVN ${resOf(b).no}`,id:b.id}));
   const seen={};allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.room).forEach(b=>{if(seen[b.room])o.push({block:true,k:'dup',t:'Room used twice',d:`Room ${b.room}: RSVN ${resOf(seen[b.room]).no} and ${resOf(b).no}`,id:b.id});seen[b.room]=b});
@@ -8105,8 +8109,9 @@ function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep===addD(bd,1)&&bal(b)>0.004).forEach(b=>o.push({block:false,k:'bal',t:'Balance due tomorrow',d:`Room ${b.room} leaves ${fd(b.dep)} with ${m2(bal(b))} outstanding.`,id:b.id}));
   return o}
 function cdReady(){const iss=cdIssues(),disc=roomDiscrepancies().filter(d=>d.status==='open');const ih=tonightIH();
-  const checks=[['Room charge posted to every room',ih.every(roomPostedTonight)],['No data conflict to fix',!iss.some(i=>i.block&&!['post','arr','dep','shift'].includes(i.k))],['No cashier shift left open',!iss.some(i=>i.k==='shift')],
+  const checks=[['Room charge posted to every room',ih.every(roomPostedTonight)],['No data conflict to fix',!iss.some(i=>i.block&&!['post','arr','dep','shift','dayshift'].includes(i.k))],['No cashier shift left open',!iss.some(i=>i.k==='shift')],
     ['No arrival left to check in',!iss.some(i=>i.k==='arr')],['No departure left to check out',!iss.some(i=>i.k==='dep')],['Room discrepancies closed',!disc.length]];
+  if(ruleOnStrict(H,'requireDayShiftsForCloseDay'))checks.push(['Morning and Afternoon shifts were run',!iss.some(i=>i.k==='dayshift')]);
   if(ruleOn(H,'closeDayNightOnly'))checks.unshift(['Signed in on the Night shift',onNightShift()]);
   /* order of the night: fix every check, then Post room, then Close Day */
   const preOk=checks.filter(c=>c[0]!=='Room charge posted to every room').every(c=>c[1]);
@@ -8902,7 +8907,7 @@ VIEWS['prov.rules']=el=>{
      <div class="panel mt"><div class="ph">Rules for <b>${esc(H?H.code:'')}</b></div><div class="pad" id="rlBox"></div>
      <div class="btns pad"><button class="btn gold" id="rlSave">Save rules</button><button class="btn ghost" id="rlReset">Restore defaults</button><button class="btn ghost" id="rlSystems">← Systems</button></div></div>`;
   const paint=()=>{const box=$('#rlBox',el);if(!box||!H)return;shapeHotel(H);
-    box.innerHTML=`<div class="featgrid">${RULE_META.map(r=>`<label class="chk" title="${esc(r.blurb)}"><input type="checkbox" data-rule="${r.k}" ${ruleOn(H,r.k)?'checked':''}> <span><b>${esc(r.title)}</b><div class="sub">${esc(r.blurb)}</div></span></label>`).join('')}</div>`;
+    box.innerHTML=`<div class="featgrid">${RULE_META.map(r=>`<label class="chk" title="${esc(r.blurb)}"><input type="checkbox" data-rule="${r.k}" ${(r.off?ruleOnStrict(H,r.k):ruleOn(H,r.k))?'checked':''}> <span><b>${esc(r.title)}</b><div class="sub">${esc(r.blurb)}</div></span></label>`).join('')}</div>`;
   };
   paint();
   $('#rlHotel',el).onchange=()=>{openHotel($('#rlHotel',el).value);paint()};
