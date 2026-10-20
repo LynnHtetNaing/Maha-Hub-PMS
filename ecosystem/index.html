@@ -525,6 +525,8 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
  .mvb{display:none!important}
  body{font-size:14px}
 }
+.depmodal .dpbox{min-height:360px;padding:6px 4px}.dptab tr[data-dl]{cursor:pointer}.dptab tr.sel td{background:#ffe9b3}.dpbtn{margin-top:16px;gap:10px}
+.fshare{display:flex;flex-wrap:wrap;gap:6px 16px;margin:2px 0 2px 22px;font-size:13px}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -3001,7 +3003,7 @@ const CP_MSG={dep:'A reservation deposit cannot be corrected. Use Refund with th
   noshift:'A payment is corrected by a cashier who signs in with a shift.',closed:'The shift that took this payment is already closed. Use Refund with the same payment type.',
   shift:name=>'This payment was taken in the '+name+' shift.\nPlease sign in again to the same '+name+' shift and make the correct payment there.\nA correction made in another shift would put the cash drop of both shifts out of balance.'};
 const cpIsDeposit=(B,l)=>!!(l&&(l.deposit||cpGroup(B,l).some(x=>x.deposit)));
-const cpDepositOk=(B,l,env)=>!cpIsDeposit(B,l)||(l.bd===env.bd&&env.resDate===env.bd&&B.checkinDate===env.bd);
+const cpDepositOk=(B,l,env)=>!cpIsDeposit(B,l)||l.bd===env.bd;   /* a reservation deposit can be corrected until Close Day of its day; after that, Refund */
 function cpCheck(B,l,env){
   if(!l||(l.kind!=='pay'&&l.kind!=='payrec')||l.refund)return 'This line cannot be corrected.';
   if(l.bd!==env.bd||env.isLocked(l.bd))return CP_MSG.day;
@@ -6993,7 +6995,7 @@ function reservationScreen(box,r,B,o={}){
     B.status==='noshow'?`<div class="lockbar">No-show recorded for business date ${fd(B.statusDate)}. It can be recalled only on that business date.</div>`:'';
   box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
    <div class="toolbar">${tb('aSave','save','Save changes',!(canEd||GE))}${tb('aProf','idc','Guest profile')}${tb('aRate','cal','Advance rate setup')}${tb('aNotif','bell','Notifications')}${tb('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tb('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
-     ${tb('aReg','card','Print registration card',!can('print'))}${['confirmed','tentative'].includes(B.status)?tb('aDep','dollar','Reservation Deposit',!can('pay')):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tb('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
+     ${tb('aReg','card','Print registration card',!can('print'))}${(['confirmed','tentative'].includes(B.status)||resDeps(B).length)?tb('aDep','dollar',resDeps(B).length?'Reservation deposits (see, add, correct, refund)':'Reservation Deposit',!can('pay')&&!resDeps(B).length):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tb('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
      ${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="sp"></span>${stBadge(B)}</div>
    ${lockNote}
    <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input id="rContact" value="${esc(r.contact)}" ${dis('res')}>`,'w2')}
@@ -7018,6 +7020,7 @@ function reservationScreen(box,r,B,o={}){
      <div class="pn"><div class="pnh blue">Customer – Internal# ${B.internal}${r.notifs.length?' *COMMENT':''}${B.copyOf?' *COPY':''} <button class="pnic" id="gOpen" title="Guest profile">${ic('idc',15)}</button></div><div class="pnb g4">
        ${fld('Last name',`<input id="gLast" value="${esc(g.last)}" ${gdis}>`)}${fld('First name',`<input id="gFirst" value="${esc(g.first)}" ${gdis}>`)}
        ${fld('Title',`<select id="gTitle" ${gdis}>${TITLES.map(t=>opt(t,t,g.title)).join('')}</select>`)}${fld('VIP',`<input id="gVip" value="${esc(g.vip)}" ${gdis}>`)}</div></div>
+     ${roomGuestsPanel(B,!['cancelled','noshow','out'].includes(B.status)&&(can('profile')||can('res.edit')||can('checkin')))}
      <div class="pn"><div class="pnh lblue">Production</div><div class="pnb g4">
        ${fld('Market',`<select id="bMkt" ${dis('b')}>${MARKETS.map(x=>opt(x,x,B.market)).join('')}</select>`)}${fld('BK country',`<input id="bBkc" value="${esc(B.bkCountry)}" ${dis('b')}>`)}
        ${fld('BK channel',`<select id="bCh2" ${dis('b')}>${CHANNELS.map(x=>opt(x,x,B.channel)).join('')}</select>`)}${fld('BK source',`<select id="bSrc" ${dis('b')}>${SOURCES.map(x=>opt(x,x,B.source)).join('')}</select>`)}
@@ -7049,13 +7052,15 @@ function reservationScreen(box,r,B,o={}){
   $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),o));
   const reopen=()=>{saveDB();reservationScreen(box,r,bookingById(B.id),o)};
   q('#gOpen').onclick=q('#aProf').onclick=()=>guestProfile(g.id,reopen);
+  if(q('#shAdd'))q('#shAdd').onclick=()=>addSharer(B,reopen);
+  document.querySelectorAll('#view [data-sp]').forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));document.querySelectorAll('#view [data-sr]').forEach(b=>b.onclick=async()=>{if(await dlgConfirm('Remove '+gName(G(b.dataset.sr))+' from this room? The guest profile stays in the guest list.'))removeSharer(B,b.dataset.sr,reopen)});
   q('#aRate').onclick=()=>advanceRate(B,reopen);
   q('#aNotif').onclick=()=>notifForm(r);
   if(q('#aPDel'))q('#aPDel').onclick=async ()=>{const why=await dlgAsk(`Delete booking RSVN ${r.no} (${gName(g)}) and all its folio lines for good?
 Reason (kept in the amendment log):`);if(!why||!why.trim())return;
     r.bookings=r.bookings.filter(b=>b!==B);if(!r.bookings.length)H.reservations=H.reservations.filter(x=>x!==r);const w=`Deleted booking RSVN ${r.no} ${gName(g)} (${B.lines.length} folio lines, ${m2(bal(B))} balance)`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:r.no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();go('res.list');toast('Booking deleted and recorded')};
   q('#aReg').onclick=()=>{if(!need('print'))return;printRegCard(B)};
-  if(q('#aDep'))q('#aDep').onclick=()=>payModal(B,reopen,1,'adv');
+  if(q('#aDep'))q('#aDep').onclick=()=>depositModal(B,reopen);
   if(q('#aRef'))q('#aRef').onclick=()=>payModal(B,reopen,1,'pay');
   if(q('#aDinv'))q('#aDinv').onclick=()=>{if(need('print'))printDeposit(B)};
   if(q('#aFol'))q('#aFol').onclick=()=>go('bill.open',B.id);
@@ -7089,6 +7094,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
       if(!arr||!dep||dep<=arr){err.textContent='Departure must be after arrival.';return}
       if(mode==='restricted'&&dep<H.set.bd){err.textContent='Departure cannot be before the business date.';return}
       if(mode==='full'&&arr<H.set.bd&&arr!==B.arr){err.textContent='Arrival cannot be before the business date.';return}
+      if(mode==='full'&&Math.max(1,+q('#bAd').value||1)+Math.max(0,+q('#bCh').value||0)<guestsInRoom(B).length){err.textContent='Adult# + Child# cannot be less than the '+guestsInRoom(B).length+' guests in this room. Remove a sharing guest first.';return}
       const type=mode==='full'?q('#bTypeRm').value:B.type,room=mode==='full'?(q('#bRoom').value||null):B.room;
       if(B.roomBlock&&((room||null)!==(B.room||null)||type!==B.type)){err.textContent=`Room ${B.roomBlock.room||B.room} is blocked: ${B.roomBlock.reason}. Clear the block before the room or room type can change.`;return}
       if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){err.textContent=`Room ${room} is not free for these dates. Choose another room or dates.`;return}
@@ -7516,7 +7522,7 @@ function folioPane(el,id,onRe){
     ${tb('fReg','card','Print registration card',!can('print'))}${tb('fNot','bell','Notifications')}${tb('fLog','log','User logs of this folio')}${back?tb('fBack','left','Check back in (Auto)',!can('checkin')):''}${B.status==='inhouse'?(cancelCheckInBlock(B)?`<button class="tbtn blocked" id="fCCI" title="Cancel Check-In – blocked: ${esc(CCI_BLOCK_MSG)}" aria-label="Cancel Check-In (blocked)" aria-disabled="true">${ic('undo',22)}</button>`:tb('fCCI','undo','Cancel Check-In – back to Reservation, room becomes VD',!can('checkin'))):''}${tb('fOut','out','Check out',!can('checkout')||B.status!=='inhouse')}</div>
    <div class="fhead"><div class="fhl"><div class="fline1">${ic('user',16)} <button class="pnic" id="fProf" title="Guest profile">${ic('idc',18)}</button> <b>#${B.internal}</b> <a class="gname" id="fName">${esc(gName(g))}${B.copyOf?'(Copy)':''}</a>
       RM# <span class="rmb">${esc(B.room||'—')}</span> ${fd(B.arr)} - ${fd(B.dep)} <span class="st st-folio" title="${esc(stayMark(B).label)}">STATUS# ${esc((ST[B.status]||stayMark(B).label||'').toUpperCase())}</span></div>
-      <div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''}</div>
+      ${sharersHtml(B)}<div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''}</div>
       ${closed?'<div class="lockbar sm">Closed by Close Day. This folio is read-only. A rebate, refund or void needs approval.</div>':B.status==='out'?'<div class="lockbar sm">Checked out (O). The room is vacant dirty (VD). Check in back returns the guest to the same room while it is still vacant, until Close Day.</div>':''}</div>
     <div class="fhr"><div class="rmk">Remark <span>${ic('detail',12)}</span></div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div>
    <div class="folios">${(one?[1]:[1,2,3,4]).map(f=>{const ls=one?B.lines.filter(l=>!(l.folio===4&&(l.kind==='payoff'||l.kind==='payrec'))).sort((a,b)=>(a.time||0)-(b.time||0)):B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=one?r2(sum(ls,l=>l.amt)):folioBal(B,f);
@@ -7561,6 +7567,7 @@ function folioPane(el,id,onRe){
   });
   $$('[data-mv]',el).forEach(b=>b.onclick=ev=>{ev.stopPropagation();moveLine(+b.dataset.mv)});
   $('#fProf',el).onclick=$('#fName',el).onclick=()=>guestProfile(g.id,reopen);
+  $$('[data-sp]',el).forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));
   $('#fView',el).onclick=()=>{folSel=null;reopen()};
   $('#fPost',el).onclick=()=>postModal(B,reopen,actNow());$('#fPay',el).onclick=()=>payModal(B,reopen,actNow(),'pay');$('#fAdv',el).onclick=()=>payModal(B,reopen,actNow(),'adv');
   $('#fSplit',el).onclick=()=>splitLine(B,curLine(),reopen);$('#fOff',el).onclick=()=>offsetLine(B,curLine(),reopen);
@@ -7819,6 +7826,60 @@ function calcPad(box,input,after){if(box.innerHTML){box.innerHTML='';return}
       if(!isFinite(v)){toast('Check the calculation.');return}input.value=r2(v).toFixed(2);box.innerHTML='';after&&after();return}ex.value+=k})}
 
 /* ---------- Payment / Advance payment pop-up (photo style, 3 lines each) ---------- */
+/* ---- Reservation deposits: one window with every deposit of the reservation. Add more, Correct post (until Close Day), Refund (after Close Day). ---- */
+const resDeps=B=>(B.lines||[]).filter(l=>l.kind==='pay'&&l.deposit&&!l.refund).sort((a,b)=>(a.time||0)-(b.time||0));
+const depHistory=B=>{const d=resDeps(B);if(!d.length)return [];const gs=new Set(d.map(l=>l.group).filter(Boolean));
+  return (B.lines||[]).filter(l=>(l.kind==='pay'&&l.deposit&&!l.refund)||(l.kind==='corrpay'&&(l.deposit||(l.group&&gs.has(l.group))))||(l.refund&&(l.kind==='pay'||l.kind==='payrec'))).sort((a,b)=>(a.time||0)-(b.time||0))};
+function depositModal(B,after){
+  if(!resDeps(B).length){payModal(B,after,1,'adv');return}
+  let sel=null;
+  const m=modal('Reservation deposits',`<div id="dpB"></div>`,{w:980,cls:'depmodal'});
+  const status=l=>l.refund?'Refunded':l.kind==='corrpay'?'Correction':(B.lines.some(x=>x.kind==='corrpay'&&x.group&&x.group===l.group)?'Corrected':'Posted');
+  const paint=()=>{const rows=depHistory(B),closed=l=>l&&l.bd<=H.set.lockedThrough,cur=sel&&rows.find(l=>l.id===sel);
+    const total=r2(sum(rows,l=>-l.amt));
+    $('#dpB',m).innerHTML=`<div class="dpbox"><p class="sub">${esc(gName(G(B.guestId)))} · RSVN ${esc(String(resOf(B).no))} · ${fd(B.arr)} - ${fd(B.dep)}</p>
+      <table class="grid dptab"><tr><th>Date</th><th>Time</th><th>Description</th><th>Reference</th><th class="n">Amount</th><th>Status</th></tr>
+      ${rows.map(l=>`<tr data-dl="${l.id}" class="${sel===l.id?'sel':''}"><td>${fd(l.bd)}</td><td>${tm(l.time)}</td><td>${esc(l.desc)}</td><td>${esc(l.ref||'')}</td><td class="n">${m2(-l.amt)}</td><td>${status(l)}</td></tr>`).join('')}
+      <tr class="tot"><td colspan="4"><b>Deposit held</b></td><td class="n"><b>${m2(total)}</b></td><td></td></tr></table>
+      <p class="sub">Select a line. Correct post works until Close Day of the day it was posted. After Close Day the deposit can only be refunded.</p>
+      <div class="btns end dpbtn"><button class="btn" id="dpAdd" ${can('pay')&&['confirmed','tentative'].includes(B.status)?'':'disabled'}>Add more deposit</button>
+        <button class="btn" id="dpCor" ${cur&&cur.kind==='pay'&&cur.deposit&&!cur.refund&&!closed(cur)&&cur.bd===H.set.bd&&!status(cur).startsWith('Correct')?'':'disabled'}>Correct post</button>
+        <button class="btn purple" id="dpRef" ${cur&&cur.kind==='pay'&&cur.deposit&&!cur.refund&&closed(cur)&&can('pay')?'':'disabled'}>Refund</button>
+        <button class="btn red" id="dpX">Close</button></div></div>`;
+    $$('[data-dl]',m).forEach(tr=>tr.onclick=()=>{sel=tr.dataset.dl;paint()});
+    $('#dpX',m).onclick=()=>closeModal(m);
+    $('#dpAdd',m).onclick=()=>{closeModal(m);payModal(B,after,1,'adv')};
+    $('#dpCor',m).onclick=()=>{const l=B.lines.find(x=>x.id===sel);if(!l)return;closeModal(m);transactionPopup(B,l,after)};
+    $('#dpRef',m).onclick=()=>{closeModal(m);payModal(B,after,1,'pay')}};
+  paint();
+}
+/* ---- Guests sharing a room: the main guest of the booking plus the other guests who stay in the room. Bills and posts always go to the main guest. ---- */
+const guestsInRoom=B=>[B.guestId,...(B.shares||[])].filter(Boolean);
+const paxOfBooking=B=>(+B.adults||0)+(+B.children||0);
+const emptyDoc=()=>({type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''});
+function sharersHtml(B){const ids=B.shares||[];if(!ids.length)return '';
+  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<span class="fsh">${ic('user',14)} ${esc(gName(g))} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button></span>`}).join('')}</div>`}
+function addSharer(B,after){
+  B.shares=B.shares||[];
+  if(['cancelled','noshow','out'].includes(B.status)){toast('Guests can only be added to an active reservation.');return}
+  if(guestsInRoom(B).length>=paxOfBooking(B)){dlgAlert('The maximum pax limit has been reached.\n\nTo add one more guest, open the Reservation detail of this guest, raise Adult# / Child# and save. Then add the guest again.','Maximum pax limit');return}
+  const m=modal('Add a guest sharing this room',`<div class="form3">${fld('Title',`<select id="shT">${TITLES.map(t=>opt(t,t,'')).join('')}</select>`)}${fld('Last name',`<input id="shL" autocomplete="off">`)}${fld('First name',`<input id="shF" autocomplete="off">`)}
+    ${fld('Nationality',`<input id="shN" autocomplete="off">`)}${fld('Document type',`<select id="shDT">${['','PASSPORT','ID CARD','THAI ID CARD','ALIEN REGISTRATION','DRIVING LICENCE'].map(x=>opt(x,x||'—','')).join('')}</select>`)}${fld('Passport / ID no.',`<input id="shD" autocomplete="off">`)}
+    ${fld('Phone',`<input id="shP">`)}${fld('Email',`<input id="shE">`,'span2')}</div>
+    <p class="sub">${guestsInRoom(B).length} of ${paxOfBooking(B)} guests are in this room. If this passport / ID number and name are already in the guest list, that profile is used, so the stays stay together.</p><div class="err" id="shErr"></div>
+    <div class="btns end"><button class="btn red" id="shX">Close</button><button class="btn gold" id="shOk">Add guest</button></div>`,{w:760});
+  $('#shX',m).onclick=()=>closeModal(m);
+  $('#shOk',m).onclick=()=>{const last=$('#shL',m).value.trim(),first=$('#shF',m).value.trim(),no=$('#shD',m).value.trim(),err=$('#shErr',m);
+    if(!last){err.textContent='Last name is required.';return}
+    if(guestsInRoom(B).length>=paxOfBooking(B)){closeModal(m);dlgAlert('The maximum pax limit has been reached.','Maximum pax limit');return}
+    let g=no?H.guests.find(x=>x.doc&&String(x.doc.no).trim().toLowerCase()===no.toLowerCase()&&String(x.last).trim().toLowerCase()===last.toLowerCase()&&String(x.first||'').trim().toLowerCase()===first.toLowerCase()):null;
+    if(g&&guestsInRoom(B).includes(g.id)){err.textContent='This guest is already in the room.';return}
+    if(!g){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:$('#shT',m).value,last,first,middle:'',other:'',jobTitle:'',company:'',nationality:natResolve($('#shN',m).value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:$('#shE',m).value.trim(),phone:$('#shP',m).value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:Object.assign(emptyDoc(),{type:$('#shDT',m).value,no}),card:null};H.guests.push(g)}
+    B.shares.push(g.id);B.hist=B.hist||[];B.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Added sharing guest '+gName(g)});
+    log('Added sharing guest '+gName(g)+' RSVN '+resOf(B).no,B.id);saveDB();closeModal(m);after&&after()}}
+function removeSharer(B,gid,after){B.shares=(B.shares||[]).filter(x=>x!==gid);B.hist=B.hist||[];B.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Removed sharing guest '+gName(G(gid))});saveDB();after&&after()}
+function roomGuestsPanel(B,ed){const rows=guestsInRoom(B);
+  return `<div class="pn"><div class="pnh blue">Guests in this room (${rows.length} of ${paxOfBooking(B)})${ed?` <button class="pnic" id="shAdd" title="Add a guest sharing this room">${ic('plus',15)}</button>`:''}</div><div class="pnb"><div class="shlist">${rows.map((id,i)=>`<div class="shrow"><span>${ic('user',15)} <b>${esc(gName(G(id)))}</b> <em>${i===0?'Main guest (bills and posts go here)':'Sharing guest'}</em></span><span><button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button>${i>0&&ed?`<button class="pnic" data-sr="${id}" title="Remove from this room">${ic('erase',14)}</button>`:''}</span></div>`).join('')}</div></div></div>`}
 let payTab='CASH',payRef=false;
 function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','noshow'].includes(B.status)&&(mode==='adv'||psPaid(B)<=0.004)){toast('This booking is not active.');return}
   folio=folio||1;const adv=mode==='adv';payRef=false;

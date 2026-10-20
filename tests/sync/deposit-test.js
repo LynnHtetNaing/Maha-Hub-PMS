@@ -1,4 +1,4 @@
-/* Reservation deposit text in the folio: Every line of a reservation deposit reads "Reservation Deposit - (payment method)": Folio 1 and the two on Folio 4.
+﻿/* Reservation deposit text in the folio: Every line of a reservation deposit reads "Reservation Deposit - (payment method)": Folio 1 and the two on Folio 4.
      node tests/sync/deposit-test.js ecosystem/index.html */
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[2], 'utf8');
@@ -65,13 +65,13 @@ T('a deposit that was already corrected keeps all its lines (nothing is lost)', 
 T('the folio toolbar button is still Advance payment', /tb\('fAdv','wallet','Advance payment/.test(src));
 T('the window of an in-house advance is titled Advance Payment, a reservation deposit Reservation Deposit', /modal\(adv\?\(deposit\?'Reservation Deposit':'Advance Payment'\):\(noBill0\?'Refund':'Payment'\)/.test(src));
 T('its button says Post advance payment for an advance and Post deposit for a deposit', /adv\?\(deposit\?'Post deposit':'Post advance payment'\):'Post payment'/.test(src));
-T('the reservation page icon is the $ Reservation Deposit', /tb\('aDep','dollar','Reservation Deposit'/.test(src));
+T('the reservation page icon is the $ Reservation Deposit', /tb\('aDep','dollar',resDeps\(B\)\.length\?'Reservation deposits \(see, add, correct, refund\)':'Reservation Deposit'/.test(src));
 
 T('the deposit invoice line reads Reservation Deposit - (payment type)', /rows:\[\{bd,desc:'Reservation Deposit - '\+method,ref,amt,card,remark\}\]/.test(src));
 T('the deposit invoice is the same as any other invoice: no "Reservation Deposit TAX INVOICE" heading and the normal Room Number / Folio No. boxes', !/Reservation Deposit TAX INVOICE/.test(src) && !/const (left|right)=spec\.deposit\?/.test(src) && /<b>TAX INVOICE NO\. \$\{invRef\(spec\.inv\)\} \(\$\{label\}\)<\/b>/.test(src));
 T('the system writes no "ROOM RENTAL" line on an invoice', !/ROOM RENTAL/.test(src) && !/note:'ROOM/.test(src));
 T('a deposit taken with a new reservation carries no automatic remark', /ref:q\('#nPref'\)\.value\.trim\(\),remark:''\}/.test(src));
 T('a remark typed by a person is shown in the same italic style as the old automatic line, without a star', /<tr class="ivrm"><td colspan="4">\$\{esc\(c\.x\.remark\)\}<\/td><\/tr>/.test(src) && /\.inv \.ivrm td\{font-style:italic/.test(src));
-T('the $ Deposit button of the reservation is shown only before arrival (in house it would post an Advance Payment)', /\$\{\['confirmed','tentative'\]\.includes\(B\.status\)\?tb\('aDep','dollar','Reservation Deposit',!can\('pay'\)\):''\}/.test(src) && /if\(q\('#aDep'\)\)q\('#aDep'\)\.onclick/.test(src));T('a deposit has no invoice of its own on the folio: the Deposit invoice button of the reservation prints it', /if\(depSelected\(B\)\)\{dlgAlert\(DEP_PRINT_MSG\);return\}/.test(src) && /id=\"aDinv\"/.test(src));
+T('the $ Deposit button of the reservation is shown only before arrival (in house it would post an Advance Payment)', /\$\{\(\['confirmed','tentative'\]\.includes\(B\.status\)\|\|resDeps\(B\)\.length\)\?tb\('aDep'//.test(src) && /if\(q\('#aDep'\)\)q\('#aDep'\)\.onclick/.test(src));T('a deposit has no invoice of its own on the folio: the Deposit invoice button of the reservation prints it', /if\(depSelected\(B\)\)\{dlgAlert\(DEP_PRINT_MSG\);return\}/.test(src) && /id=\"aDinv\"/.test(src));
 T('saving a reservation with a deposit does not open an invoice by itself', !/if\(depN>0&&can\('print'\)\)printDeposit\(B\)/.test(src));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
