@@ -7045,7 +7045,7 @@ function reservationScreen(box,r,B,o={}){
     B.status==='noshow'?`<div class="lockbar">No-show recorded for business date ${fd(B.statusDate)}. It can be recalled only on that business date.</div>`:'';
   box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
    <div class="toolbar">${tb('aSave','save','Save changes',!(canEd||GE))}${tb('aProf','idc','Guest profile')}${tb('aRate','cal','Advance rate setup')}${tb('aNotif','bell','Notifications')}${tb('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tb('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
-     ${tb('aReg','card','Print registration card',!can('print'))}${(['confirmed','tentative'].includes(B.status)||resDeps(B).length)?tb('aDep','dollar',resDeps(B).length?'Reservation deposits (see, add, correct, refund)':'Reservation Deposit',!can('pay')&&!resDeps(B).length):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tb('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
+     ${tb('aReg','card','Print registration card',!can('print'))}${B.status==='inhouse'?tb('aShare','user','Add a guest sharing this room (guests staying with the main guest)',!(can('profile')||can('res.edit')||can('checkin'))):''}${(['confirmed','tentative'].includes(B.status)||resDeps(B).length)?tb('aDep','dollar',resDeps(B).length?'Reservation deposits (see, add, correct, refund)':'Reservation Deposit',!can('pay')&&!resDeps(B).length):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tb('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
      ${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="sp"></span>${stBadge(B)}</div>
    ${lockNote}
    <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input id="rContact" value="${esc(r.contact)}" ${dis('res')}>`,'w2')}
@@ -7070,7 +7070,7 @@ function reservationScreen(box,r,B,o={}){
      <div class="pn"><div class="pnh blue">Customer – Internal# ${B.internal}${r.notifs.length?' *COMMENT':''}${B.copyOf?' *COPY':''} <button class="pnic" id="gOpen" title="Guest profile">${ic('idc',15)}</button></div><div class="pnb g4">
        ${fld('Last name',`<input id="gLast" value="${esc(g.last)}" ${gdis}>`)}${fld('First name',`<input id="gFirst" value="${esc(g.first)}" ${gdis}>`)}
        ${fld('Title',`<select id="gTitle" ${gdis}>${TITLES.map(t=>opt(t,t,g.title)).join('')}</select>`)}${fld('VIP',`<input id="gVip" value="${esc(g.vip)}" ${gdis}>`)}</div></div>
-     ${roomGuestsPanel(B,!['cancelled','noshow','out'].includes(B.status)&&(can('profile')||can('res.edit')||can('checkin')))}
+     ${(B.status==='inhouse'||(B.shares||[]).length)?roomGuestsPanel(B,B.status==='inhouse'&&(can('profile')||can('res.edit')||can('checkin'))):''}
      <div class="pn"><div class="pnh lblue">Production</div><div class="pnb g4">
        ${fld('Market',`<select id="bMkt" ${dis('b')}>${MARKETS.map(x=>opt(x,x,B.market)).join('')}</select>`)}${fld('BK country',`<input id="bBkc" value="${esc(B.bkCountry)}" ${dis('b')}>`)}
        ${fld('BK channel',`<select id="bCh2" ${dis('b')}>${CHANNELS.map(x=>opt(x,x,B.channel)).join('')}</select>`)}${fld('BK source',`<select id="bSrc" ${dis('b')}>${SOURCES.map(x=>opt(x,x,B.source)).join('')}</select>`)}
@@ -7102,7 +7102,7 @@ function reservationScreen(box,r,B,o={}){
   $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),o));
   const reopen=()=>{saveDB();reservationScreen(box,r,bookingById(B.id),o)};
   q('#gOpen').onclick=q('#aProf').onclick=()=>guestProfile(g.id,reopen);
-  if(q('#shAdd'))q('#shAdd').onclick=()=>addSharer(B,reopen);
+  if(q('#aShare'))q('#aShare').onclick=()=>addSharer(B,reopen);
   document.querySelectorAll('#view [data-sp]').forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));document.querySelectorAll('#view [data-sr]').forEach(b=>b.onclick=async()=>{if(await dlgConfirm('Remove '+gName(G(b.dataset.sr))+' from this room? The guest profile stays in the guest list.'))removeSharer(B,b.dataset.sr,reopen)});
   q('#aRate').onclick=()=>advanceRate(B,reopen);
   q('#aNotif').onclick=()=>notifForm(r);
@@ -7617,7 +7617,7 @@ function folioPane(el,id,onRe){
   });
   $$('[data-mv]',el).forEach(b=>b.onclick=ev=>{ev.stopPropagation();moveLine(+b.dataset.mv)});
   $('#fProf',el).onclick=$('#fName',el).onclick=()=>guestProfile(g.id,reopen);
-  $$('[data-sp]',el).forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));if($('#fShAdd',el))$('#fShAdd',el).onclick=()=>addSharer(B,reopen);
+  $$('[data-sp]',el).forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));
   $('#fView',el).onclick=()=>{folSel=null;reopen()};
   $('#fPost',el).onclick=()=>postModal(B,reopen,actNow());$('#fPay',el).onclick=()=>payModal(B,reopen,actNow(),'pay');$('#fAdv',el).onclick=()=>payModal(B,reopen,actNow(),'adv');
   $('#fSplit',el).onclick=()=>splitLine(B,curLine(),reopen);$('#fOff',el).onclick=()=>offsetLine(B,curLine(),reopen);
@@ -7907,11 +7907,11 @@ function depositModal(B,after){
 const guestsInRoom=B=>[B.guestId,...(B.shares||[])].filter(Boolean);
 const paxOfBooking=B=>(+B.adults||0)+(+B.children||0);
 const emptyDoc=()=>({type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''});
-function sharersHtml(B){const ids=B.shares||[],ed=!['cancelled','noshow','out'].includes(B.status)&&(can('profile')||can('res.edit')||can('checkin'));if(!ids.length&&!ed)return '';
-  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<span class="fsh">${ic('user',14)} ${esc(gName(g))} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button></span>`}).join('')}${ed?`<button type="button" class="btn sm ghost" id="fShAdd" title="Add a guest sharing this room">${ic('plus',13)} Guest</button>`:''}</div>`}
+function sharersHtml(B){const ids=B.shares||[];if(!ids.length)return '';
+  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<span class="fsh">${ic('user',14)} ${esc(gName(g))} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button></span>`}).join('')}</div>`}
 function addSharer(B,after){
   B.shares=B.shares||[];
-  if(['cancelled','noshow','out'].includes(B.status)){toast('Guests can only be added to an active reservation.');return}
+  if(B.status!=='inhouse'){toast('A sharing guest is added after the main guest has checked in.');return}
   if(guestsInRoom(B).length>=paxOfBooking(B)){dlgAlert('The maximum pax limit has been reached.\n\nTo add one more guest, open the Reservation detail of this guest, raise Adult# / Child# and save. Then add the guest again.','Maximum pax limit');return}
   const m=modal('Add a guest sharing this room',`<div class="form3">${fld('Title',`<select id="shT">${TITLES.map(t=>opt(t,t,'')).join('')}</select>`)}${fld('Last name',`<input id="shL" autocomplete="off">`)}${fld('First name',`<input id="shF" autocomplete="off">`)}
     ${fld('Nationality',`<input id="shN" autocomplete="off">`)}${fld('Document type',`<select id="shDT">${['','PASSPORT','ID CARD','THAI ID CARD','ALIEN REGISTRATION','DRIVING LICENCE'].map(x=>opt(x,x||'—','')).join('')}</select>`)}${fld('Passport / ID no.',`<input id="shD" autocomplete="off">`)}
@@ -7929,7 +7929,7 @@ function addSharer(B,after){
     log('Added sharing guest '+gName(g)+' RSVN '+resOf(B).no,B.id);saveDB();closeModal(m);after&&after()}}
 function removeSharer(B,gid,after){B.shares=(B.shares||[]).filter(x=>x!==gid);B.hist=B.hist||[];B.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Removed sharing guest '+gName(G(gid))});saveDB();after&&after()}
 function roomGuestsPanel(B,ed){const rows=guestsInRoom(B);
-  return `<div class="pn"><div class="pnh blue">Guests in this room (${rows.length} of ${paxOfBooking(B)})${ed?` <button type="button" class="btn sm gold shaddb" id="shAdd" title="Add a guest sharing this room">${ic('plus',14)} Add guest</button>`:''}</div><div class="pnb">${rows.length<2&&ed?'<p class="sub" style="margin:0 0 6px">Only the main guest is in this room. Press <b>Add guest</b> to add another guest who stays in the room.</p>':''}<div class="shlist">${rows.map((id,i)=>`<div class="shrow"><span>${ic('user',15)} <b>${esc(gName(G(id)))}</b> <em>${i===0?'Main guest (bills and posts go here)':'Sharing guest'}</em></span><span><button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button>${i>0&&ed?`<button class="pnic" data-sr="${id}" title="Remove from this room">${ic('erase',14)}</button>`:''}</span></div>`).join('')}</div></div></div>`}
+  return `<div class="pn"><div class="pnh blue">Guests in this room (${rows.length} of ${paxOfBooking(B)})</div><div class="pnb">${rows.length<2&&ed?'<p class="sub" style="margin:0 0 6px">Only the main guest is in this room. To add another guest who stays in the room, use the <b>Add guest</b> icon in the toolbar above.</p>':''}<div class="shlist">${rows.map((id,i)=>`<div class="shrow"><span>${ic('user',15)} <b>${esc(gName(G(id)))}</b> <em>${i===0?'Main guest (bills and posts go here)':'Sharing guest'}</em></span><span><button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button>${i>0&&ed?`<button class="pnic" data-sr="${id}" title="Remove from this room">${ic('erase',14)}</button>`:''}</span></div>`).join('')}</div></div></div>`}
 let payTab='CASH',payRef=false;
 function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','noshow'].includes(B.status)&&(mode==='adv'||psPaid(B)<=0.004)){toast('This booking is not active.');return}
   folio=folio||1;const adv=mode==='adv';payRef=false;
