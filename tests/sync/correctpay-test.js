@@ -54,10 +54,10 @@ T('a no-shift sign-in cannot correct a payment', X.cpCheck(bk(), pay(), env({ sh
 T('a refund line cannot be corrected', X.cpCheck(bk(), pay({ refund: true }), env()) === 'This line cannot be corrected.');
 const dep = (o) => pay(Object.assign({ deposit: true, adv: true }, o));
 T('a deposit posted today, reservation made today and checked in today: Correct payment is allowed', X.cpCheck(bk(), dep(), env({ resDate: today })) === '');
-T('a deposit of a reservation made on an earlier day: Refund only', X.cpCheck(bk(), dep(), env({ resDate: '2026-10-10' })) === X.CP_MSG.dep);
-T('a deposit of a reservation not checked in: Refund only', X.cpCheck(bk({ checkinDate: undefined }), dep(), env({ resDate: today })) === X.CP_MSG.dep);
+T('a deposit posted today can be corrected whatever the reservation date (until Close Day)', X.cpCheck(bk(), dep(), env({ resDate: '2026-10-10' })) === '');
+T('a deposit of a reservation not checked in can be corrected until Close Day', X.cpCheck(bk({ checkinDate: undefined }), dep(), env({ resDate: today })) === '');
 T('a deposit of an earlier day: nothing can be done but Refund', X.cpCheck(bk(), dep({ bd: '2026-10-12' }), env({ resDate: today })) === X.CP_MSG.day);
-T('the red line of a deposit (payrec) follows the same deposit rule through its group', X.cpCheck({ lines: [dep({ kind: 'pay', group: 'gx' }), pay({ kind: 'payrec', group: 'gx', deposit: true })], checkinDate: undefined }, pay({ kind: 'payrec', group: 'gx', deposit: true }), env({ resDate: today })) === X.CP_MSG.dep);
+T('the red line of a deposit (payrec) follows the same deposit rule through its group', X.cpCheck({ lines: [dep({ kind: 'pay', group: 'gx' }), pay({ kind: 'payrec', group: 'gx', deposit: true })], checkinDate: undefined }, pay({ kind: 'payrec', group: 'gx', deposit: true }), env({ resDate: today })) === '');
 
 /* F. in the reports a correct payment is a separate line right under its own payment */
 const L = (id, group, kind, time, room) => ({ id, group, kind, time, room });

@@ -73,7 +73,7 @@ T('another hotel has its own series with its own code', j1.ref === 'TIV-H2-2026-
     ['folio list pill', /\$\{inv\?invRef\(inv\):0\}/],
     ['tax invoice report table', /<td>\$\{invRef\(x\.i\)\}<\/td>/],
     ['tax invoice report CSV', /rows\.map\(x=>\[invRef\(x\.i\),x\.i\.bd,/],
-    ['revenue / invoice list', /c:\[invRef\(z\.i\),fd\(z\.i\.bd\)/],
+    ['revenue / invoice list', /c:\[fd\(z\.i\.bd\),invRef\(z\.i\)/],
     ['hotel export', /return \[invRef\(i\),i\.bd,no,/],
     ['reservation list', /\.map\(invRef\)\.join\(' '\)/],
   ];
