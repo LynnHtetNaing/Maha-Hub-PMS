@@ -241,7 +241,7 @@ table.grid.pm .tog{display:inline-flex;align-items:center;justify-content:center
 .rpr{display:flex;flex-direction:column;min-width:0;min-height:0}.rptool{background:#d7e7f3;border-bottom:1px solid #b9d0e1;padding:6px 10px}.rtt{font-weight:600;margin-bottom:4px}.rtc{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.rtc label{display:flex;align-items:center;gap:4px;font-size:12px}.zl{min-width:46px;text-align:center;font-size:12px;font-weight:600}
 .rpview{flex:1;overflow:auto;background:#8e9aa2;padding:16px;--z:1}.rpages{display:flex;flex-direction:column;align-items:center;gap:16px;zoom:var(--z)}.rpempty{margin:auto;max-width:420px;text-align:center;background:#fff;border-radius:8px;padding:30px;color:var(--mut)}.rpempty img{width:64px;border-radius:12px}
 .rpage{background:#fff;color:#000;box-shadow:0 2px 10px rgba(0,0,0,.3);font-family:Arial,"Noto Sans Thai",sans-serif;font-size:9px;display:flex;flex-direction:column}.rpage.land{width:297mm;min-height:210mm;padding:9mm 9mm 7mm;page:land}.rpage.port{width:210mm;min-height:297mm;padding:10mm;page:port}
-.rph{display:flex;justify-content:space-between;margin-bottom:5px}.rhn{font-size:13px;font-weight:700}.rht{font-size:11px;font-weight:700;margin-top:2px}.rhf{font-size:9px;color:#333}.rhd{font-size:9.5px}.rhr{text-align:right;font-size:9px}
+.rph{display:flex;justify-content:space-between;margin-bottom:5px}.rhn{font-size:13px;font-weight:700}.rht{font-size:11px;font-weight:700;margin-top:2px;white-space:nowrap}.rhf{font-size:9px;color:#333}.rhd{font-size:9.5px}.rhr{text-align:right;font-size:9px}
 .rt{width:100%;border-collapse:collapse;table-layout:fixed}.rt th{border-top:1px solid #000;border-bottom:1px solid #000;padding:3px 3px;font-weight:700;text-align:left;vertical-align:bottom}.rt td{padding:2px 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rt .r{text-align:right}.rt .c{text-align:center}
 .rt tr.rh td{font-weight:700;padding-top:6px;text-decoration:underline}.rt tr.rs td{font-weight:700;border-top:1px solid #000}.rt tr.rgt td{font-weight:700;border-top:1px solid #000;border-bottom:3px double #000}.rt tr.rn td{white-space:normal;font-style:italic;padding:6px 3px}
 .rfoot{margin-top:6px;font-style:italic}.rpf{margin-top:auto;padding-top:4px;border-top:1px solid #999;font-size:8px;color:#555}
@@ -7569,7 +7569,7 @@ function folioPane(el,id,onRe){
   $('#fDet',el).onclick=()=>{const m=modal('Guest information','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=reopen;reservationScreen($('#rdB',m),r,B,{compact:false})};
   $('#fRate',el).onclick=()=>advanceRate(B,reopen);$('#fInv',el).onclick=()=>invoiceChooser(B);$('#fReg',el).onclick=()=>{if(need('print'))printRegCard(B)};
   $('#fNot',el).onclick=()=>notifForm(r);$('#fLog',el).onclick=()=>folioLogs(B);
-  $('#fOut',el).onclick=async()=>{if(await checkOut(B)){reopen();if(can('print')&&await dlgConfirm('Print this folio now? A red receipt, or the advance credit on Folio 1, prints a tax invoice with the card and remark. With no receipt line selected, this prints a guest folio.'))invoiceChooser(B)}};
+  $('#fOut',el).onclick=async()=>{if(await checkOut(B))reopen()};
   if($('#fBack',el))$('#fBack',el).onclick=()=>{if(checkBackIn(B))reopen()};
   if($('#fCCI',el))$('#fCCI',el).onclick=async()=>{if(await cancelCheckIn(B))go('res.open',B.id)};
 
@@ -9312,13 +9312,13 @@ const SEC={
  tax(box){const s=H.set;box.innerHTML=secHead('2. Currency, tax & service','All rates are inclusive. Service is worked out on the net amount; tax on net plus service.')+`<div class="panel pad"><div class="form3">
    ${fld('Currency',`<select id="t_cur">${Object.keys(CUR_WORDS).map(c=>opt(c,c,s.cur)).join('')}</select>`)}${fld('Currency in words (invoice)',`<input id="t_cw" value="${esc(s.curWord)}">`)}${fld('Sub-unit in words',`<input id="t_sw" value="${esc(s.subWord)}">`)}
    ${fld('Service charge %',`<input type="number" step="0.01" id="t_svc" value="${s.svc}">`)}${fld('Tax name (e.g. VAT, Commercial tax)',`<input id="t_tn" value="${esc(s.taxName)}">`)}${fld('Tax %',`<input type="number" step="0.01" id="t_vat" value="${s.vat}">`)}</div>
-   <div class="quote" id="t_q"></div><div class="btns"><button class="btn gold" id="tS">Save</button></div></div>`;
+   ${taxLangPanel(s)}<div class="quote" id="t_q"></div><div class="btns"><button class="btn gold" id="tS">Save</button></div></div>`;
    const q=()=>{const sv=+$('#t_svc',box).value||0,v=+$('#t_vat',box).value||0,net=1000/(1+sv/100)/(1+v/100);$('#t_q',box).innerHTML=`Example: 1,000.00 inclusive = net ${m2(net)} + service ${m2(net*sv/100)} + ${esc($('#t_tn',box).value)} ${m2((net*(1+sv/100))*v/100)}`};
    ['t_svc','t_vat','t_tn'].forEach(id=>$('#'+id,box).oninput=q);q();
    $('#t_cur',box).onchange=()=>{const w=CUR_WORDS[$('#t_cur',box).value];if(w){$('#t_cw',box).value=w[0];$('#t_sw',box).value=w[1]}};
    curSetupPanel(box);
    $('#tS',box).onclick=async ()=>{if(!provOnly())return;if(H.active!==false&&$('#t_cur',box).value!==s.cur&&!await dlgConfirm('This hotel is active. Changing the currency affects every amount. Continue?'))return;
-     Object.assign(s,{cur:$('#t_cur',box).value,curWord:$('#t_cw',box).value.trim().toUpperCase(),subWord:$('#t_sw',box).value.trim().toUpperCase(),svc:+$('#t_svc',box).value||0,taxName:$('#t_tn',box).value.trim()||'Tax',vat:+$('#t_vat',box).value||0});provLog(`Tax setup saved for ${H.code}`);saved()}},
+     Object.assign(s,{cur:$('#t_cur',box).value,curWord:$('#t_cw',box).value.trim().toUpperCase(),subWord:$('#t_sw',box).value.trim().toUpperCase(),svc:+$('#t_svc',box).value||0,taxName:$('#t_tn',box).value.trim()||'Tax',vat:+$('#t_vat',box).value||0});const tt={};TAXL_KEYS.forEach(k=>{const v=$('#tl_'+k[0],box).value.trim();if(v)tt[k[0]]=v});s.taxLang={mode:$('#tl_mode',box).value,t:tt};provLog(`Tax setup saved for ${H.code}`);saved()}},
  bd(box){const s=H.set,live=H.active!==false;box.innerHTML=secHead('3. Business date & times')+`<div class="panel pad"><div class="form3">
    ${fld('Business date',`<input type="date" id="b_bd" value="${s.bd}" ${live?'disabled':''}>`)}${fld('Check-in time',`<input type="time" id="b_ci" value="${esc(s.checkIn)}">`)}${fld('Check-out time',`<input type="time" id="b_co" value="${esc(s.checkOut)}">`)}</div>
    <p class="sub">${live?'The business date of an active hotel only moves forward with Close Day.':'Set the first business date. After activation it only moves forward with Close Day.'}</p><div class="btns"><button class="btn gold" id="bS">Save</button></div></div>`;
@@ -9876,6 +9876,32 @@ function psPeriodRows(T,M,Y,lead){lead=lead||[];const v=(flag,[f,t],neg)=>{const
   return [['Refunds (money given back)','refund',true],['Rebates (charges reduced)','rebate',false],['Adjust (+) (overpayment kept)','adjust',false]].map(([n,f,neg])=>({t:'r',c:lead.concat([n,v(f,T,neg),v(f,M,neg),v(f,Y,neg)])}))}
 const psCNs=p=>(H.creditNotes||[]).filter(c=>(c.kind==='rebate'||(c.kind==='correct'&&c.taxed))&&c.bd>=p.from&&c.bd<=p.to).sort((a,b)=>a.n-b.n);
 function psCNSum(p){let net=0,vat=0;const a=psCNs(p);a.forEach(c=>{const t=taxSplit(c.vatable,true);net+=t.net+t.svc;vat+=t.vat});return {net:r2(net),vat:r2(vat),nv:r2(sum(a,c=>c.nonvat)),tot:r2(sum(a,c=>c.total))}}
+/* ---- Report options: every report can offer filters, a sort order and a view (Detail / Summary). ---- */
+const ropt=(p,id,d='')=>{const v=p&&p.o?p.o[id]:undefined;return v==null||v===''?d:v};
+const optChoices=o=>typeof o.c==='function'?o.c():o.c;
+const payMethodsAll=()=>[...new Set([...allLinesH(H).filter(l=>['pay','payrec','corrpay'].includes(l.kind)).map(l=>l.method).filter(Boolean),...TCODES.filter(c=>c.type==='p'&&!c.refund).map(c=>c.desc)])].sort();
+const usersInLines=()=>[...new Set(allLinesH(H).map(l=>l.user).filter(Boolean))].sort();
+const roomTypeChoices=()=>[['','All room types']].concat(H.roomTypes.filter(t=>!t.dummy).map(t=>[t.code,t.code+' – '+t.name]));
+const chgCodeChoices=()=>[['','All charge codes']].concat([...new Set(chargeLines('0000-01-01','9999-12-31').map(l=>l.code))].sort().map(c=>[c,c+' – '+tcOf(c).desc]));
+const userChoices=()=>[['','All users']].concat(usersInLines().map(u=>[u,u]));
+const payChoices=()=>[['','All payment types']].concat(payMethodsAll().map(m=>[m,m]));
+const VIEW_OPT={id:'view',l:'View',c:[['','Detail'],['sum','Summary (totals only)']]};
+const payOpt=(x,p)=>{const m=ropt(p,'method'),u=ropt(p,'user'),t=ropt(p,'rtype');return (!m||x.l.method===m)&&(!u||x.l.user===u)&&(!t||bline(x.l).b.type===t)};
+const payCmpOf=(p,base)=>{const q=ropt(p,'sort');return q==='amount'?(a,b)=>b.amt-a.amt:q==='room'?(a,b)=>String(bline(a.l).b.room||'').localeCompare(String(bline(b.l).b.room||''),undefined,{numeric:true}):q==='user'?(a,b)=>String(a.l.user).localeCompare(String(b.l.user)):base};
+const chargeSel=p=>chargeLines(p.from,p.to).filter(l=>{const c=ropt(p,'code'),t=ropt(p,'rtype'),u=ropt(p,'user');return (!c||l.code===c)&&(!u||l.user===u)&&(!t||bline(l).b.type===t)});
+const chgCmp=p=>{const q=ropt(p,'sort');return q==='amount'?(a,b)=>b.amt-a.amt:q==='room'?(a,b)=>String(bline(a).b.room||'').localeCompare(String(bline(b).b.room||''),undefined,{numeric:true}):q==='user'?(a,b)=>String(a.user).localeCompare(String(b.user)):(a,b)=>a.time-b.time};
+const codeSort=(a,p)=>{const q=ropt(p,'sort'),am=c=>sum(a.filter(l=>l.code===c),l=>l.amt),n=c=>a.filter(l=>l.code===c).length;return q==='amount'?(x,y)=>am(y)-am(x):q==='count'?(x,y)=>n(y)-n(x):(x,y)=>String(x).localeCompare(y)};
+const paySel=p=>ropt(p,'code')?[]:paymentsIn(allLinesH(H).filter(l=>l.bd>=p.from&&l.bd<=p.to)).filter(x=>payOpt(x,p));
+/* the payments that follow the postings in the two Posting Journals */
+function payRowsDetail(p){const ps=paySel(p).sort(payCmpOf(p,(a,b)=>a.l.time-b.l.time));if(!ps.length)return [];
+  const rows=[{t:'h',text:'*** PAYMENTS (follow the postings above) ***'}];
+  [...new Set(ps.map(x=>x.l.method))].sort().forEach(m=>{const a=ps.filter(x=>x.l.method===m);rows.push({t:'h',text:'Payment Type : '+m});a.forEach(x=>{const y=bline(x.l);rows.push({t:'r',c:[fd(x.l.bd),y.b.room||'',gName(y.g),x.l.desc,x.l.ref+(x.l.kind==='corrpay'?' (correct payment)':'')+(x.l.refund?' (refund)':''),'','','',m2(x.amt),x.l.user,x.l.sys]})});rows.push({t:'s',c:['','','SubTotal','','','','','',m2(sum(a,x=>x.amt)),'','']})});
+  rows.push({t:'g',c:['','','Total Payments','','','','','',m2(sum(ps,x=>x.amt)),'','']});return rows}
+function payRowsByRoomType(p){const ps=paySel(p);if(!ps.length)return [];
+  const rows=[{t:'h',text:'*** PAYMENTS (follow the postings above) ***'}];
+  H.roomTypes.forEach(t=>{const a=ps.filter(x=>bline(x.l).b.type===t.code);if(!a.length)return;rows.push({t:'h',text:t.code+' – '+t.name});
+    [...new Set(a.map(x=>x.l.method))].sort().forEach(m=>{const z=a.filter(x=>x.l.method===m);rows.push({t:'r',c:[z[0].l.code,m,z.length,'','','',m2(sum(z,x=>x.amt))]})});rows.push({t:'s',c:['','SubTotal',a.length,'','','',m2(sum(a,x=>x.amt))]})});
+  rows.push({t:'g',c:['','Total Payments',ps.length,'','','',m2(sum(ps,x=>x.amt))]});return rows}
 const REPORTS=[
  /* ---------- Front Office ---------- */
  {g:'Front Office',code:'FO_21',title:'Expect Arrival Report',mode:'future',run:p=>{const items=allBookings().filter(b=>b.arr>=p.from&&b.arr<=p.to&&['confirmed','tentative'].includes(b.status)).sort((a,b)=>a.arr.localeCompare(b.arr)||(a.room||'').localeCompare(b.room||''));
@@ -9948,34 +9974,47 @@ const REPORTS=[
    return {cols:[C('Date',8),C('Day',5),C('Total Rooms',6,'r'),C('OOO',5,'r'),C('Available',6,'r'),C('Definite',6,'r'),C('Tentative',6,'r'),C('Occ %',7,'r'),C('Arrivals',6,'r'),C('Departures',7,'r'),C('Pax',5,'r'),C('Room Revenue',11,'r'),C('ADR',9,'r')],
     rows:rows.concat([{t:'g',c:['GrandTotal','','','','','','','','','','',m2(sum(rows,r=>r._.rev)),m2(sum(rows,r=>r._.o)?sum(rows,r=>r._.rev)/sum(rows,r=>r._.o):0)]}]),foot:'Forecast if every booking on the books stays as booked.'}}},
  /* ---------- Accounting ---------- */
- {g:'Accounting',code:'AC_01',title:'Payment & Collection Report',mode:'range',cv:'cash',run:p=>{const real=curRealFor('ALL');if(real)return acPayMulti(p,real);const psl=paymentsIn(allLinesH(H).filter(l=>l.bd>=p.from&&l.bd<=p.to)),pcmp=psPayCmp(psl,x=>x.l),ps=psl.sort((a,b)=>a.l.method.localeCompare(b.l.method)||pcmp(a,b));
+ {g:'Accounting',code:'AC_01',title:'Payment & Collection Report',mode:'range',cv:'cash',viewSum:true,opts:[{id:'method',l:'Payment type',c:payChoices},{id:'user',l:'User',c:userChoices},{id:'sort',l:'Sort',c:[['','Payment type, then time'],['amount','Amount, high to low'],['room','Room'],['user','User']]},VIEW_OPT],run:p=>{const real=curRealFor('ALL');if(real)return acPayMulti(p,real);const psl=paymentsIn(allLinesH(H).filter(l=>l.bd>=p.from&&l.bd<=p.to)).filter(x=>payOpt(x,p)),pcmp=payCmpOf(p,psPayCmp(psl,x=>x.l)),ps=psl.sort((a,b)=>a.l.method.localeCompare(b.l.method)||pcmp(a,b));
    return {cols:[C('Date',7),C('Time',5),C('Room#',5),C('Guest Name',16),C('Code',5),C('Reference',14),C('Amount',10,'r'),C('User',12),C('Shift',8),C('Deposit',6,'c')],
     rows:grp(ps,x=>x.l.method,k=>'Payment Type : '+k,x=>{const y=bline(x.l);return [fd(x.l.bd),tm(x.l.time),y.b.room||'',gName(y.g),x.l.code,x.l.ref+(x.l.kind==='corrpay'?' (correct payment)':'')+(x.l.refund?' (refund)':''),m2(x.amt),x.l.user,x.l.shiftName,x.l.deposit?'Y':'']},a=>['','','','SubTotal','','',m2(sum(a,x=>x.amt)),'','',''])
       .concat([{t:'g',c:['','','','GrandTotal','','',m2(sum(ps,x=>x.amt)),'','','']}]).concat(psSec('*** Refunds (already inside the totals above) ***',psIn('refund',p.from,p.to),l=>{const y=bline(l);return [fd(l.bd),tm(l.time),y.b.room||'',gName(y.g),l.code,l.ref,m2(-l.amt),l.user,l.shiftName,'']},v=>['','','','Total Refunds','','',m2(-v),'','','']))}}},
- {g:'Accounting',code:'AC_02',title:'Posting Journal Details by Room Type',mode:'range',run:p=>{const ls=chargeLines(p.from,p.to);const rows=[];
+ {g:'Accounting',code:'AC_02',title:'Posting Journal Details by Room Type',mode:'range',opts:[{id:'rtype',l:'Room type',c:roomTypeChoices},{id:'code',l:'Charge code',c:chgCodeChoices},{id:'user',l:'User',c:userChoices},{id:'method',l:'Payment type',c:payChoices},{id:'sort',l:'Sort codes',c:[['','Code'],['amount','Amount, high to low'],['count','Count']]}],run:p=>{const ls=chargeSel(p);const rows=[];
    H.roomTypes.forEach(t=>{const a=ls.filter(l=>bline(l).b.type===t.code);if(!a.length)return;rows.push({t:'h',text:t.code+' – '+t.name});
-     [...new Set(a.map(l=>l.code))].sort().forEach(c=>{const x=a.filter(l=>l.code===c),am=sum(x,l=>l.amt),s=taxOfLines(x);rows.push({t:'r',c:[c,tcOf(c).desc,x.length,m2(s.net),m2(s.svc),m2(s.vat),m2(am)]})});
+     [...new Set(a.map(l=>l.code))].sort(codeSort(a,p)).forEach(c=>{const x=a.filter(l=>l.code===c),am=sum(x,l=>l.amt),s=taxOfLines(x);rows.push({t:'r',c:[c,tcOf(c).desc,x.length,m2(s.net),m2(s.svc),m2(s.vat),m2(am)]})});
      const am=sum(a,l=>l.amt);rows.push({t:'s',c:['','SubTotal',a.length,'','','',m2(am)]})});
-   return {cols:[C('Code',8),C('Description',30),C('Count',8,'r'),C('Net',13,'r'),C('Service',12,'r'),C(H.set.taxName,12,'r'),C('Amount',14,'r')],rows:rows.concat([{t:'g',c:['','GrandTotal',ls.length,'','','',m2(sum(ls,l=>l.amt))]}])}}},
- {g:'Accounting',code:'AC_03',title:'Posting Journal Detail',mode:'range',run:p=>{const ls=chargeLines(p.from,p.to).sort((a,b)=>a.code.localeCompare(b.code)||a.time-b.time);
+   return {cols:[C('Code',8),C('Description',30),C('Count',8,'r'),C('Net',13,'r'),C('Service',12,'r'),C(H.set.taxName,12,'r'),C('Amount',14,'r')],rows:rows.concat([{t:'g',c:['','GrandTotal',ls.length,'','','',m2(sum(ls,l=>l.amt))]}]).concat(payRowsByRoomType(p))}}},
+ {g:'Accounting',code:'AC_03',title:'Posting Journal Detail',mode:'range',viewSum:true,opts:[{id:'code',l:'Charge code',c:chgCodeChoices},{id:'rtype',l:'Room type',c:roomTypeChoices},{id:'user',l:'User',c:userChoices},{id:'method',l:'Payment type',c:payChoices},{id:'sort',l:'Sort',c:[['','Time'],['room','Room'],['amount','Amount, high to low'],['user','User']]},VIEW_OPT],run:p=>{const ls=chargeSel(p).sort((a,b)=>a.code.localeCompare(b.code)||chgCmp(p)(a,b));
    return {cols:[C('Date',7),C('Room#',5),C('Guest Name',15),C('Description',16),C('Reference#',9),C('Net',9,'r'),C('Service',8,'r'),C(H.set.taxName,8,'r'),C('Amount',9,'r'),C('User',10),C('Sys#',4)],
     rows:grp(ls,l=>l.code,k=>k+' – '+tcOf(k).desc,l=>{const x=bline(l),s=taxSplit(Math.abs(l.amt),l.vat),g=l.amt<0?-1:1;return [fd(l.bd),x.b.room||'',gName(x.g),l.desc,l.ref,m2(g*s.net),m2(g*s.svc),m2(g*s.vat),m2(l.amt),l.user,l.sys]},a=>['','','SubTotal','','','','','',m2(sum(a,l=>l.amt)),'',''])
       .concat([{t:'g',c:['','','GrandTotal','','','','','',m2(sum(ls,l=>l.amt)),'','']}])
       .concat(psSec('*** Rebates (already inside the codes above) ***',psIn('rebate',p.from,p.to),l=>{const x=bline(l),s=taxSplit(Math.abs(l.amt),l.vat);return [fd(l.bd),x.b.room||'',gName(x.g),l.desc,l.ref,m2(-s.net),m2(-s.svc),m2(-s.vat),m2(l.amt),l.user,l.sys]},v=>['','','Total Rebates','','','','','',m2(v),'','']))
-      .concat(psSec('*** Adjust (+) (already inside the codes above) ***',psIn('adjust',p.from,p.to),l=>{const x=bline(l),s=taxSplit(Math.abs(l.amt),l.vat);return [fd(l.bd),x.b.room||'',gName(x.g),l.desc,l.ref,m2(s.net),m2(s.svc),m2(s.vat),m2(l.amt),l.user,l.sys]},v=>['','','Total Adjust (+)','','','','','',m2(v),'','']))}}},
- {g:'Accounting',code:'AC_06',title:'Guest Outstanding Report',mode:'pastOne',run:p=>{const d=p.to,items=(d>=H.set.bd?allBookings().filter(b=>b.status==='inhouse'):inHouseOn(d)).sort((a,b)=>a.room.localeCompare(b.room));
+      .concat(psSec('*** Adjust (+) (already inside the codes above) ***',psIn('adjust',p.from,p.to),l=>{const x=bline(l),s=taxSplit(Math.abs(l.amt),l.vat);return [fd(l.bd),x.b.room||'',gName(x.g),l.desc,l.ref,m2(s.net),m2(s.svc),m2(s.vat),m2(l.amt),l.user,l.sys]},v=>['','','Total Adjust (+)','','','','','',m2(v),'','']))
+      .concat(payRowsDetail(p))}}},
+ {g:'Accounting',code:'AC_06',title:'Guest Outstanding Report',mode:'upTo',opts:[{id:'bal',l:'Show',c:[['','All in-house guests'],['bal','Only guests with a balance'],['zero','Only zero balance']]},{id:'rtype',l:'Room type',c:roomTypeChoices},{id:'sort',l:'Sort',c:[['','Room'],['guest','Guest name'],['balance','Balance, high to low'],['dep','Departure date']]}],run:p=>{const d=p.to;
    const fb=(b,f)=>r2(sum(b.lines.filter(l=>l.folio===f&&l.bd<=d),l=>l.amt)),tb=b=>r2(sum(b.lines.filter(l=>l.bd<=d),l=>l.amt));
+   const q=ropt(p,'sort'),bf=ropt(p,'bal'),rt=ropt(p,'rtype');
+   const items=(d>=H.set.bd?allBookings().filter(b=>b.status==='inhouse'):inHouseOn(d)).filter(b=>!(H.roomTypes.find(t=>t.code===b.type)||{}).dummy&&(!rt||b.type===rt)&&(bf==='bal'?Math.abs(tb(b))>0.004:bf==='zero'?Math.abs(tb(b))<=0.004:true)).sort(q==='guest'?(a,b)=>gName(G(a.guestId)).localeCompare(gName(G(b.guestId))):q==='balance'?(a,b)=>tb(b)-tb(a):q==='dep'?(a,b)=>a.dep.localeCompare(b.dep)||a.room.localeCompare(b.room,undefined,{numeric:true}):(a,b)=>a.room.localeCompare(b.room,undefined,{numeric:true}));
    return {cols:[C('Room#',4),C('Room Type',5),C('#Rm',3,'r'),C('#Gst',3,'r'),C('Guest Name',15),C('Arr Date',6),C('Dep Date',6),C('Company / TA',13),C('Payment Code',6),C('Folio 1',7,'r'),C('Folio 2',7,'r'),C('Folio 3',7,'r'),C('Folio 4',7,'r'),C('Balance',8,'r')],
     rows:items.map(b=>({t:'r',c:[b.room,b.type,1,b.adults+b.children,gName(G(b.guestId)),fd(b.arr),fd(b.dep),coN(resOf(b)),payCodeOf(b),m2(fb(b,1)),m2(fb(b,2)),m2(fb(b,3)),m2(fb(b,4)),m2(tb(b))]}))
       .concat([{t:'g',c:['GrandTotal','',items.length,sum(items,b=>b.adults+b.children),'','','','','',m2(sum(items,b=>fb(b,1))),m2(sum(items,b=>fb(b,2))),m2(sum(items,b=>fb(b,3))),m2(sum(items,b=>fb(b,4))),m2(sum(items,tb))]}])}}},
- {g:'Accounting',code:'AC_04',title:'Output Tax Report',mode:'range',run:p=>{const iv=H.invoices.filter(i=>i.bd>=p.from&&i.bd<=p.to).sort((a,b)=>a.no-b.no);
-   const row=i=>{const b=bookingById(i.bookingId);if(!b)return null;const ch=b.lines.filter(l=>l.folio===i.folio&&isCharge(l)),va=sum(ch.filter(l=>l.vat),l=>l.amt),nv=sum(ch.filter(l=>!l.vat),l=>l.amt),t=taxSplit(va,true),c=CO(resOf(b).companyId);
-     return {b,c,va,nv,t,bt:i.billTo==='company'&&c?c.name:gName(G(b.guestId)),tax:i.billTo==='company'&&c?c.taxId:''}};
-   const rs=iv.map(i=>({i,x:row(i)})).filter(z=>z.x);
-   return {cols:[C('Tax Inv No.',8),C('Date',8),C('Bill To',22),C('Tax ID',11),C('Room#',6),C('Vatable',11,'r'),C(H.set.taxName,10,'r'),C('Non VAT',10,'r'),C('Total',12,'r')],
-    rows:rs.map(z=>({t:'r',c:[invRef(z.i),fd(z.i.bd),z.x.bt,z.x.tax,z.x.b.room||'',m2(z.x.t.net+z.x.t.svc),m2(z.x.t.vat),m2(z.x.nv),m2(z.x.va+z.x.nv)]}))
-      .concat(psCNs(p).length?[{t:'h',text:'Credit notes (rebates and corrected payments) - the tax is taken back'}].concat(psCNs(p).map(c=>{const b=bookingById(c.bookingId),t=taxSplit(c.vatable,true),co=b?CO(resOf(b).companyId):null;return {t:'r',c:['CN '+c.no,fd(c.bd),b?gName(G(b.guestId)):'',co?co.taxId:'',b?b.room||'':'',m2(-(t.net+t.svc)),m2(-t.vat),m2(-c.nonvat),m2(-c.total)]}})):[])
-      .concat([{t:'g',c:['GrandTotal (after credit notes)','','','','',m2(sum(rs,z=>z.x.t.net+z.x.t.svc)-psCNSum(p).net),m2(sum(rs,z=>z.x.t.vat)-psCNSum(p).vat),m2(sum(rs,z=>z.x.nv)-psCNSum(p).nv),m2(sum(rs,z=>z.x.va+z.x.nv)-psCNSum(p).tot)]}]),foot:'Invoices are numbered when first printed; reprints are marked COPY. A credit note (rebate) takes tax back.'}}},
+ {g:'Accounting',code:'AC_04',title:'Output Tax Report',mode:'range',opts:[{id:'kind',l:'Document',c:[['','All documents'],['folio','Folio invoices'],['pay','Payment receipts'],['dep','Reservation deposits']]},{id:'bill',l:'Bill to',c:[['','Guest and company'],['guest','Guest'],['company','Company']]},{id:'sort',l:'Sort',c:[['','Tax invoice number'],['date','Date'],['room','Room'],['amount','Amount, high to low']]}],run:p=>{
+   const kindOf=i=>/^dep:/.test(i.key||'')?'dep':/^pay:/.test(i.key||'')?'pay':'folio',KN={folio:'Folio invoice',pay:'Payment receipt',dep:'Reservation deposit'};
+   const kf=ropt(p,'kind'),bf=ropt(p,'bill'),q=ropt(p,'sort');
+   const row=i=>{const b=bookingById(i.bookingId);if(!b)return null;const k=kindOf(i);let va,nv;
+     if(k==='folio'){const ch=b.lines.filter(l=>l.folio===i.folio&&isCharge(l));va=sum(ch.filter(l=>l.vat),l=>l.amt);nv=sum(ch.filter(l=>!l.vat),l=>l.amt)}else{va=+i.amount||0;nv=0}
+     const t=taxSplit(va,true),c=CO(resOf(b).companyId),co=i.billTo==='company'&&c;
+     return {i,b,k,va,nv,t,bt:co?c.name:gName(G(b.guestId)),tax:co?c.taxId:'',co:!!co}};
+   let rs=H.invoices.filter(i=>i.bd>=p.from&&i.bd<=p.to).map(row).filter(Boolean).filter(z=>(!kf||z.k===kf)&&(!bf||(bf==='company'?z.co:!z.co)));
+   rs.sort(q==='date'?(x,y)=>x.i.bd.localeCompare(y.i.bd)||x.i.no-y.i.no:q==='room'?(x,y)=>String(x.b.room||'').localeCompare(String(y.b.room||''),undefined,{numeric:true}):q==='amount'?(x,y)=>(y.va+y.nv)-(x.va+x.nv):(x,y)=>x.i.no-y.i.no);
+   const cns=kf||bf?[]:psCNs(p),hq=/head/i.test(H.set.branch||'')||!(H.set.branch||'').trim();
+   const hdr=[[tl('owner'),H.set.legal||H.set.name],[tl('estab'),H.set.name+(H.set.branch?' · '+H.set.branch:'')],[tl('addr'),H.set.addr||''],[tl('taxid'),H.set.taxId||'']].filter(x=>x[1]).map(x=>({t:'n',text:x[0]+' : '+x[1]}));
+   const cn=cns.map(c=>{const b=bookingById(c.bookingId),t=taxSplit(c.vatable,true),co=b?CO(resOf(b).companyId):null;return {t:'r',c:[fd(c.bd),'','CN '+c.no,'Credit note',b?gName(G(b.guestId)):'',co?co.taxId:'',hq?'X':'',hq?'':(H.set.branch||''),b?b.room||'':'',m2(-t.net),m2(-c.nonvat),m2(-t.svc),m2(-t.vat),m2(0),m2(-c.total)]}});
+   const sv=psCNSum(p);
+   return {title:tl('title'),cols:[C(tl('date'),7),C(tl('invno'),10),C(tl('crnote'),7),C(tl('type'),8),C(tl('buyer'),12),C(tl('buyertax'),8),C(tl('ho'),3,'c'),C(tl('br'),4,'c'),C(tl('room'),5),C(tl('goods'),7,'r'),C(tl('exempt'),6,'r'),C(tl('svc'),6,'r'),C(H.set.taxName||tl('vat'),6,'r'),C(tl('local'),4,'r'),C(tl('total'),7,'r')],
+    rows:hdr.concat(rs.map(z=>({t:'r',c:[fd(z.i.bd),invRef(z.i),'',KN[z.k]+(z.k==='folio'?' '+z.i.folio:''),z.bt,z.tax,hq?'X':'',hq?'':(H.set.branch||''),z.b.room||'',m2(z.t.net),m2(z.nv),m2(z.t.svc),m2(z.t.vat),m2(0),m2(z.va+z.nv)]})))
+      .concat(cns.length?[{t:'h',text:'Credit notes (rebates and corrected payments) - the tax is taken back'}].concat(cn):[])
+      .concat([{t:'g',c:['',tl('total')+' (after credit notes)','','','','','','','',m2(sum(rs,z=>z.t.net)-(cns.length?sv.net:0)),m2(sum(rs,z=>z.nv)-(cns.length?sv.nv:0)),m2(sum(rs,z=>z.t.svc)),m2(sum(rs,z=>z.t.vat)-(cns.length?sv.vat:0)),m2(0),m2(sum(rs,z=>z.va+z.nv)-(cns.length?sv.tot:0))]}]),
+    foot:'Every invoice, every payment receipt and every reservation deposit has its own tax invoice number. Invoices are numbered when first printed; reprints are marked COPY. A credit note takes tax back.'}}},
  {g:'Accounting',code:'AC_05',title:'AP & AR Report',mode:'range',run:p=>{refreshCityItems(H);
    const ar=(H.cityLedger||[]).filter(x=>x.status!=='void'&&x.bd>=p.from&&x.bd<=p.to),ap=(H.purchases||[]).filter(x=>x.bd>=p.from&&x.bd<=p.to);
    const rows=[{t:'h',text:'Accounts Receivable - City Ledger'}];
@@ -10078,11 +10117,21 @@ const RMODE={today:'Current business date only',future:'Business date or later',
 /* ---------- page builder ---------- */
 
 /* AC_01 in a hotel with extra currencies (all currencies view): each payment in the currency it was taken in, with the rate and its value in the main currency */
+/* ---- Local-language titles of the Output Tax Report. The provider chooses the language and can type every title in the Tax setting. ---- */
+const TAXL_KEYS=[['title','Report title','Output Tax Report','รายงานภาษีขาย'],['owner','Taxpayer (owner) name','Taxpayer','ชื่อผู้ประกอบการ'],['estab','Establishment name','Establishment','ชื่อสถานประกอบการ'],['addr','Address','Address','ที่อยู่'],['taxid','Taxpayer ID','Taxpayer ID','เลขประจำตัวผู้เสียภาษีอากร'],['hqbr','Head office / Branch','Head office / Branch','สถานประกอบการ'],
+  ['date','Date','Date','วันที่'],['invno','Tax invoice no.','Tax Inv No.','ใบกำกับภาษี/ใบเสร็จรับเงิน'],['crnote','Credit note no.','Credit Note','ใบลดหนี้'],['type','Document type','Document','ประเภทเอกสาร'],['buyer','Buyer / guest name','Bill To','ชื่อผู้ซื้อสินค้า/ผู้รับบริการ'],['buyertax','Buyer tax ID','Buyer Tax ID','เลขประจำตัวผู้เสียภาษีอากรของผู้ซื้อ'],
+  ['ho','Head office','HQ','สำนักงานใหญ่'],['br','Branch','Branch','สาขา'],['room','Room','Room#','ห้อง'],['goods','Value of goods or services','Goods / Services','มูลค่าสินค้าหรือบริการ'],['exempt','Value exempt from tax','Tax exempt','มูลค่าสินค้าหรือบริการยกเว้นภาษี'],['svc','Service charge','Service charge','Service charge'],['vat','Tax amount','Tax','จำนวนเงินภาษีมูลค่าเพิ่ม'],['local','Local tax','Local tax','จำนวนเงินภาษีท้องถิ่น'],['total','Total','Total','มูลค่ารวมสินค้าหรือบริการ'],['period','Date range word (to)','To','ถึง']];
+function taxLangMode(h){const m=(h&&h.set&&h.set.taxLang&&h.set.taxLang.mode)||'auto';return m==='auto'?(/thai/i.test((h.set&&h.set.country)||'')?'th':'en'):m}
+function tl(k,h){h=h||H;const row=TAXL_KEYS.find(x=>x[0]===k);if(!row)return k;const m=taxLangMode(h),c=(h.set.taxLang&&h.set.taxLang.t&&h.set.taxLang.t[k])||'';return m==='en'?row[2]:(c||(m==='th'?row[3]:row[2]))}
+function taxLangPanel(s){const tlg=s.taxLang||{mode:'auto',t:{}};
+  return '<h3 class="mt">Output Tax Report: titles in the local language</h3><p class="sub">The report prints these titles. Auto uses Thai for a hotel in Thailand and English for the others. Choose Local to type every title yourself (for example in Burmese). A box left empty uses the default.</p><div class="form3">'
+   +fld('Language of the report',`<select id="tl_mode">${[['auto','Auto (by the hotel country)'],['en','English'],['th','Thai'],['local','Local language (typed below)']].map(o=>opt(o[0],o[1],tlg.mode||'auto')).join('')}</select>`)+'</div><div class="form3 mt">'
+   +TAXL_KEYS.map(k=>fld(k[1]+' ('+k[2]+')',`<input id="tl_${k[0]}" value="${esc((tlg.t||{})[k[0]]||'')}" placeholder="${esc(k[3])}">`)).join('')+'</div>'}
 function acPayMulti(p,real){const main=real.set.cur,lines=allLinesH(real).filter(l=>l.bd>=p.from&&l.bd<=p.to),rl=id=>{for(const r of real.reservations)for(const b of r.bookings)if(b.id===id)return b;return null};
   const items=paymentsIn(lines).map(x=>{const b=rl(x.l.origBooking)||{},fg=!!(b.cur&&b.cur!==main),cc=x.l.fc||(fg?b.cur:main),own=x.l.fa!=null?-x.l.fa:x.amt,
     rate=+x.l.fr>0?+x.l.fr:(fg&&cc===b.cur&&+b.curRate>0?+b.curRate:1),eq=x.l.eq!=null?-x.l.eq:(cc===main?own:r2(own*rate));
     return {l:x.l,amt:x.amt,cc,own,rate:cc===main?'':String(rate),eq}});
-  const pcmp=psPayCmp(items,x=>x.l),ps=items.sort((a,b)=>a.l.method.localeCompare(b.l.method)||pcmp(a,b)),cs=[...new Set(ps.map(x=>x.cc))];
+  const pcmp=payCmpOf(p,psPayCmp(items,x=>x.l)),ps=items.filter(x=>payOpt(x,p)).sort((a,b)=>a.l.method.localeCompare(b.l.method)||pcmp(a,b)),cs=[...new Set(ps.map(x=>x.cc))];
   const per=a=>{const m={};a.forEach(x=>m[x.cc]=r2((m[x.cc]||0)+x.own));return Object.entries(m).map(([c,v])=>c+' '+m2(v)).join(' · ')};
   const rows=grp(ps,x=>x.l.method,k=>'Payment Type : '+k,x=>{const bb=bookingById(x.l.origBooking)||{},y={b:bb,g:bb.guestId?G(bb.guestId):{}};return [fd(x.l.bd),tm(x.l.time),y.b.room||'',bb.guestId?gName(y.g):'',x.l.code,x.l.ref+(x.l.kind==='corrpay'?' (correct payment)':'')+(x.l.refund?' (refund)':''),x.cc,m2(x.own),x.rate,m2(x.eq),x.l.user,x.l.shiftName,x.l.deposit?'Y':'']},
       a=>['','','','SubTotal','','','',per(a),'',m2(sum(a,x=>x.eq)),'','','']);
@@ -10094,15 +10143,15 @@ function acPayMulti(p,real){const main=real.set.cur,lines=allLinesH(real).filter
 let CURREAL=null;const curRealFor=cv=>CURREAL&&RP.cv===cv?CURREAL:null;
 function runReportData(def,p){if(!curMulti(H)||!RP.cv)return def.run(p);const real=H;CURREAL=real;H=curViewHotel(real,RP.cv,def.cv||'folio');try{return def.run(p)}finally{H=real;CURREAL=null}}
 function reportPages(def,p){
-  const out=runReportData(def,p),cols=out.cols,rows=out.rows||[],land=(def.orient||'land')==='land';const per=land?24:40;
+  const out=runReportData(def,p),cols=out.cols,rows=(def.viewSum&&ropt(p,'view')==='sum')?(out.rows||[]).filter(r=>r.t!=='r'):(out.rows||[]),land=(def.orient||'land')==='land';const per=land?24:40;
   const pages=[];let cur=[],w=0;rows.forEach(r=>{const rw=r.t==='n'?2:1;if(w+rw>per&&cur.length){pages.push(cur);cur=[];w=0}cur.push(r);w+=rw});pages.push(cur);
   const audited=p.to<=H.set.lockedThrough,dateLine=def.mode==='today'||p.from===p.to?fd(p.to):fd(p.from)+' To '+fd(p.to);
   const now=new Date(),by=user().name;
-  const filt=[curMulti(H)&&RP.cv?(RP.cv==='ALL'?'All currencies converted to '+curMain()+' at the rates typed by staff':'Currency: '+RP.cv+(def.cv==='cash'?' (by currency paid in)':' (reservations made in '+RP.cv+')')):'',p.shift?'Shift: '+(H.shifts.find(s=>s.id===p.shift)||{}).name:'',def.shiftName?'Shift : '+(p.shiftName?p.shiftName+' Shift':'All shifts'):'',out.note||''].filter(Boolean).join(' · ');
+  const filt=[curMulti(H)&&RP.cv?(RP.cv==='ALL'?'All currencies converted to '+curMain()+' at the rates typed by staff':'Currency: '+RP.cv+(def.cv==='cash'?' (by currency paid in)':' (reservations made in '+RP.cv+')')):'',p.shift?'Shift: '+(H.shifts.find(s=>s.id===p.shift)||{}).name:'',def.shiftName?'Shift : '+(p.shiftName?p.shiftName+' Shift':'All shifts'):'',...(def.opts||[]).map(o=>{const v=ropt(p,o.id);if(v==='')return '';const c=(optChoices(o).find(z=>String(z[0])===String(v))||[v,v])[1];return o.l+': '+c}),out.note||''].filter(Boolean).join(' · ');
   const head=`<colgroup>${cols.map(c=>`<col style="width:${c.w}%">`).join('')}</colgroup><thead><tr>${cols.map(c=>`<th class="${c.a}">${esc(c.h)}</th>`).join('')}</tr></thead>`;
   const tr=r=>r.t==='h'?`<tr class="rh"><td colspan="${cols.length}">${esc(r.text)}</td></tr>`:r.t==='n'?`<tr class="rn"><td colspan="${cols.length}">${esc(r.text)}</td></tr>`:
     `<tr class="${r.t==='s'?'rs':r.t==='g'?'rgt':''}">${r.c.map((v,i)=>`<td class="${cols[i]?cols[i].a:''}">${esc(v)}</td>`).join('')}</tr>`;
-  return {html:pages.map((pg,i)=>`<div class="rpage ${land?'land':'port'}"><div class="rph"><div><div class="rhn">${esc(H.set.name)}</div><div class="rht">${def.code} : ${esc(def.title.toUpperCase())}${audited?' (Audited)':''}</div>
+  return {html:pages.map((pg,i)=>`<div class="rpage ${land?'land':'port'}"><div class="rph"><div><div class="rhn">${esc(H.set.name)}</div><div class="rht">${def.code} : ${esc((out.title||def.title).toUpperCase())}${audited?' (Audited)':''}</div>
      <div class="rhf">${filt?'Filter by : '+esc(filt):'&nbsp;'}</div><div class="rhd">Date : ${dateLine}</div><div class="rhd">Building : ${esc(H.set.building||'Non-Building')}</div></div>
      <div class="rhr"><div>Page ${i+1} of ${pages.length}</div><div>Printed On : ${fd(dateOf(now))} ${tm(now)}</div><div>By : ${esc(by)}</div></div></div>
     <table class="rt">${head}<tbody>${pg.map(tr).join('')||`<tr class="rn"><td colspan="${cols.length}">No data for this selection.</td></tr>`}</tbody></table>
@@ -10113,7 +10162,7 @@ function xlsDownload(def,p,res){const cols=res.cols;const body=res.rows.map(r=>r
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel'}));a.download=`${def.code}_${p.from}_${p.to}.xls`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
 
 /* ---------- Reports page (4.14–4.19) ---------- */
-let RP={code:null,open:{},zoom:1,page:1,cv:'ALL'};
+let RP={code:null,open:{},zoom:1,page:1,cv:'ALL',o:{}};
 function defaultRange(def){const bd=H.set.bd,lt=H.set.lockedThrough;switch(def.mode){case 'today':case 'future':return {from:bd,to:bd};case 'past':return {from:lt,to:lt};case 'pastOne':return {from:lt,to:lt};case 'upTo':return {from:bd,to:bd};case 'futureRange':return {from:bd,to:addD(bd,13)};default:return {from:monthStart(lt),to:lt}}}
 function renderReports(root,overlay){
   if(!DB.session||!H){root.innerHTML=`<div class="rpempty"><img src="${ICON}" alt=""><h2>Sign in first</h2><p>Open Maha Hub in the other tab and sign in, then press Report again.</p></div>`;return}
@@ -10125,7 +10174,7 @@ function renderReports(root,overlay){
    <section class="rpr"><div class="rptool" id="rptool"></div><div class="rpview" id="rpview"><div class="rpempty"><h2>Choose a report</h2><p>Open a group on the left and pick a report. It shows here as printed pages.</p></div></div></section></div></div>`;
   if(overlay)$('#rpClose',root).onclick=()=>{root.remove()};
   $$('[data-rg]',root).forEach(b=>b.onclick=()=>{RP.open[b.dataset.rg]=!RP.open[b.dataset.rg];b.setAttribute('aria-expanded',RP.open[b.dataset.rg]);b.nextElementSibling.hidden=!RP.open[b.dataset.rg]});
-  $$('[data-rc]',root).forEach(b=>b.onclick=()=>{RP.code=b.dataset.rc;RP.page=1;$$('.ritem',root).forEach(x=>x.classList.toggle('on',x===b));const d=REPORTS.find(r=>r.code===RP.code);const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.shift='';RP.shiftName='';paintTool(root);runReport(root)});
+  $$('[data-rc]',root).forEach(b=>b.onclick=()=>{RP.code=b.dataset.rc;RP.page=1;$$('.ritem',root).forEach(x=>x.classList.toggle('on',x===b));const d=REPORTS.find(r=>r.code===RP.code);const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.shift='';RP.shiftName='';RP.o={};paintTool(root);runReport(root)});
   if(RP.code){paintTool(root);runReport(root)}
 }
 function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.set.bd,lt=H.set.lockedThrough;
@@ -10135,24 +10184,25 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
     `<label>From <input type="date" id="rpF" value="${RP.from}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label><label>To <input type="date" id="rpT" value="${RP.to}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label>`}
    ${d.shiftName?`<label>Shift <select id="rpSN"><option value="">All shifts (whole day)</option>${SHIFTS.map(x=>opt(x,x+' Shift',RP.shiftName)).join('')}</select></label>`:''}${d.shiftFilter?`<label>Shift <select id="rpS"><option value="">All shifts</option>${H.shifts.filter(s=>s.bd===bd).map(s=>opt(s.id,s.name+' – '+s.userName,RP.shift)).join('')}</select></label>`:''}
    ${curMulti(H)?`<label>Currency <select id="rpCv"><option value="ALL" ${RP.cv==='ALL'||!RP.cv?'selected':''}>All, converted to ${esc(curMain())}</option>${curList(H).map(c=>opt(c,c+(c===curMain()?' (main)':' only'),RP.cv)).join('')}</select></label>`:''}
+   ${(d.opts||[]).map(o=>`<label>${esc(o.l)} <select data-ro="${o.id}">${optChoices(o).map(c=>`<option value="${esc(c[0])}" ${String(ropt({o:RP.o},o.id,''))===String(c[0])?'selected':''}>${esc(c[1])}</option>`).join('')}</select></label>`).join('')}
    <button class="btn gold sm" id="rpRun">Run</button><span class="tsep"></span>
    <button class="tbtn" id="rpZo" title="Zoom out">${ic('zout')}</button><span class="zl" id="rpZl">${Math.round(RP.zoom*100)}%</span><button class="tbtn" id="rpZi" title="Zoom in">${ic('zin')}</button><button class="tbtn" id="rpFit" title="Fit width">${ic('fit')}</button>
    <span class="tsep"></span><button class="tbtn" id="rpPv" title="Previous page">${ic('left')}</button><span class="zl" id="rpPg"></span><button class="tbtn" id="rpNx" title="Next page">${ic('chev')}</button>
    <span class="tsep"></span><button class="tbtn" id="rpX" title="Download Excel">${ic('xls')}</button><button class="tbtn" id="rpPdf" title="Download PDF (Save as PDF in the print window)">${ic('upload')}</button><button class="tbtn" id="rpPr" title="Print">${ic('print')}</button></div>`;
-  const val=()=>{if($('#rpT',root))RP.to=$('#rpT',root).value;RP.from=$('#rpF',root)?$('#rpF',root).value:RP.to;if(d.mode==='today'){RP.from=RP.to=bd}if(RP.from>RP.to){const t=RP.from;RP.from=RP.to;RP.to=t}if($('#rpS',root))RP.shift=$('#rpS',root).value;if($('#rpSN',root))RP.shiftName=$('#rpSN',root).value;if($('#rpCv',root))RP.cv=$('#rpCv',root).value};
-  $('#rpRun',root).onclick=()=>{val();RP.page=1;runReport(root)};
+  const val=()=>{if($('#rpT',root))RP.to=$('#rpT',root).value;RP.from=$('#rpF',root)?$('#rpF',root).value:RP.to;if(d.mode==='today'){RP.from=RP.to=bd}if(RP.from>RP.to){const t=RP.from;RP.from=RP.to;RP.to=t}if($('#rpS',root))RP.shift=$('#rpS',root).value;if($('#rpSN',root))RP.shiftName=$('#rpSN',root).value;if($('#rpCv',root))RP.cv=$('#rpCv',root).value;RP.o=RP.o||{};$$('[data-ro]',root).forEach(x=>{RP.o[x.dataset.ro]=x.value})};
+  $('#rpRun',root).onclick=()=>{val();RP.page=1;runReport(root)};$$('[data-ro]',root).forEach(x=>x.onchange=()=>$('#rpRun',root).click());
   const zoom=z=>{RP.zoom=Math.max(.4,Math.min(2,z));$('#rpZl',root).textContent=Math.round(RP.zoom*100)+'%';const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
   $('#rpZo',root).onclick=()=>zoom(RP.zoom-.1);$('#rpZi',root).onclick=()=>zoom(RP.zoom+.1);$('#rpFit',root).onclick=()=>{const v=$('#rpview',root),pg=$('.rpage',v);if(pg)zoom((v.clientWidth-40)/pg.offsetWidth)};
   const goP=n=>{const pgs=$$('.rpage',root);if(!pgs.length)return;RP.page=Math.max(1,Math.min(pgs.length,n));pgs[RP.page-1].scrollIntoView({behavior:'smooth',block:'start'});$('#rpPg',root).textContent=RP.page+' / '+pgs.length};
   $('#rpPv',root).onclick=()=>goP(RP.page-1);$('#rpNx',root).onclick=()=>goP(RP.page+1);
-  $('#rpX',root).onclick=()=>{loadFresh();val();xlsDownload(d,{from:RP.from,to:RP.to,shift:RP.shift},reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName}))};
+  $('#rpX',root).onclick=()=>{loadFresh();val();xlsDownload(d,{from:RP.from,to:RP.to,shift:RP.shift},reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o}))};
   const pr=()=>{const p=$('#print');p.innerHTML=$('#rpview',root).innerHTML;document.body.classList.add('printing','printrep');window.print();setTimeout(()=>document.body.classList.remove('printing','printrep'),500)};
   $('#rpPr',root).onclick=pr;$('#rpPdf',root).onclick=()=>{toast('In the print window choose "Save as PDF".');setTimeout(pr,300)};
 }
 function loadFresh(){if(!document.body.classList.contains('rpmode'))return;   /* on top of the live page the data is already current; only a separate reports tab needs to re-read it */
   const code=H&&H.code;try{const raw=localStorage.getItem(DBKEY)||localStorage.getItem(DBKEY4);const d=raw?JSON.parse(raw):null;if(d&&d.hotels){const live=DB&&DB.session;DB=migrateDB(d);DB.session=live&&sessionValid(live)?live:null;if(DB.session)writeLiveSession(DB.session);else clearLiveSession();H=(code&&DB.hotels[code])||(DB.session&&DB.hotels[DB.session.hotel])||H}}catch(e){}}
 function runReport(root){loadFresh();const d=REPORTS.find(r=>r.code===RP.code);const v=$('#rpview',root);
-  try{const res=reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName});v.innerHTML=`<div class="rpages">${res.html}</div>`;v.style.setProperty('--z',RP.zoom);$('#rpPg',root).textContent='1 / '+res.n;
+  try{const res=reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o});v.innerHTML=`<div class="rpages">${res.html}</div>`;v.style.setProperty('--z',RP.zoom);$('#rpPg',root).textContent='1 / '+res.n;
     v.onscroll=()=>{const pgs=$$('.rpage',v);let n=1;pgs.forEach((p,i)=>{if(p.getBoundingClientRect().top<v.getBoundingClientRect().top+120)n=i+1});RP.page=n;$('#rpPg',root).textContent=n+' / '+pgs.length}}
   catch(e){v.innerHTML=`<div class="rpempty"><h2>This report could not run</h2><p>${esc(e.message)}</p></div>`;console.error(e)}}
 function openReportsOverlay(){const o=document.createElement('div');o.className='rpoverlay';document.body.appendChild(o);renderReports(o,true)}
