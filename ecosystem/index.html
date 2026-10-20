@@ -533,6 +533,8 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
 }
 .depmodal .dpbox{min-height:360px;padding:6px 4px}.dptab tr[data-dl]{cursor:pointer}.dptab tr.sel td{background:#ffe9b3}.dpbtn{margin-top:16px;gap:10px}
 .fshare{display:flex;flex-wrap:wrap;gap:6px 16px;margin:2px 0 2px 22px;font-size:13px}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
+.gb-ch{color:#fff;box-shadow:inset 0 -4px 0 var(--stc,#2f6fb5);padding-bottom:4px}.gb-ch.gb-confirmed{--stc:#2f6fb5}.gb-ch.gb-tentative{--stc:#f0c14b;color:#fff}.gb-ch.gb-inhouse{--stc:#1f9a5a}.gb-ch.gb-out{--stc:#c0392b}
+.gbi{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;background:#fff;font-size:10px;font-weight:800;margin-right:5px;vertical-align:middle;line-height:1}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -6671,7 +6673,7 @@ VIEWS['fo.status']=el=>{
   const mixL=[['VIP',vip(S.occAct)],['Complimentary',comp(S.occAct)],['House Use',hu(S.occAct)],['Walk-In',win(S.occAct)],['Tentative',tent]],mix=mixL.map(x=>[x[0],x[1].length]);
   /* occupancy by channel: the channels are the companies and agencies the provider set up (Setup > Companies). A new company appears here by itself, with the next colour, as soon as it syncs. */
   const CHP=['#2f7fcf','#2fb36b','#e8a23a','#8b7cf6','#e0645c','#1fa8a0','#d36ba6','#4a5fc1','#9aa832','#c2603a','#3aa6d0','#b0508f','#5a9a4a','#d4a017','#6b5b95','#7a8791'],chanMap={};
-  const chanAll=H.companies.map((c,i)=>({id:c.id,name:(coTag(c)||c.name||'Direct').replace(/^\([A-Z]\)\s*/,''),col:CHP[i%CHP.length],n:0}));
+  const chanAll=H.companies.map((c,i)=>({id:c.id,name:(coTag(c)||c.name||'Direct').replace(/^\([A-Z]\)\s*/,''),col:chanColor(c,i),n:0}));
   S.occAct.forEach(b=>{const id=resOf(b).companyId;let c=chanAll.find(x=>x.id===id);if(!c){c=chanAll.find(x=>x.id==='_other');if(!c){c={id:'_other',name:'Other',col:'#7a8791',n:0};chanAll.push(c)}}c.n++});
   const chanLegend=[...chanAll].sort((a,b)=>b.n-a.n),chanParts=chanAll.filter(c=>c.n>0).sort((a,b)=>b.n-a.n).map(c=>[c.name,c.n,c.col]);
   /* tiles: Today / Yesterday / Day before, each compared with the day before it */
@@ -6903,21 +6905,32 @@ function stayList(el,title,list,mode){
 VIEWS['fo.inhouse']=el=>stayList(el,'In House',allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b))).sort((a,b)=>(a.room||'').localeCompare(b.room||'')),'ih');
 
 /* ---------- room grid ---------- */
+/* ---- Channel colour and badge (OTA / agent). Known OTAs keep their brand colour; every other company or agent takes the next colour of the palette. ---- */
+const CH_PALETTE=['#2f7fcf','#2fb36b','#e8a23a','#8b7cf6','#e0645c','#1fa8a0','#d36ba6','#4a5fc1','#9aa832','#c2603a','#3aa6d0','#b0508f','#5a9a4a','#d4a017','#6b5b95','#7a8791'];
+const OTA_BRAND=[[/agoda/i,'#5b3fd1'],[/booking\.com|booking/i,'#003580'],[/expedia/i,'#d99a00'],[/trip\.com|ctrip/i,'#287dfa'],[/airbnb/i,'#ff5a5f'],[/traveloka/i,'#0194f3'],[/hotels\.com/i,'#d32f2f'],[/tiket/i,'#1a73e8'],[/klook/i,'#ff5722'],[/makemytrip/i,'#e53935']];
+function chanColor(c,i){const nm=(c&&c.name)||'';const b=OTA_BRAND.find(x=>x[0].test(nm));return b?b[1]:CH_PALETTE[(i<0?0:i)%CH_PALETTE.length]}
+function chanOfBooking(b){const c=CO(resOf(b).companyId);if(!c)return null;const nm=String(c.name||'').replace(/^\([A-Z]\)\s*/,'').trim();return {col:chanColor(c,(H.companies||[]).indexOf(c)),ini:(nm[0]||'?').toUpperCase(),name:nm}}
+let GF={type:'',floor:''};
 let gridFrom=null,gridTo=null;
 VIEWS['fo.grid']=el=>{
   if(!gridFrom||!gridTo){gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,13)}
   const N=Math.max(1,diff(gridFrom,gridTo)+1),days=[...Array(N)].map((_,i)=>addD(gridFrom,i)),end=addD(gridTo,1);
-  let h=`<div class="gridwrap" style="--days:${N}"><div class="grow ghead"><div class="gl">ROOM / DATE</div>${days.map((d,i)=>{const o=occOn(d).filter(b=>b.status!=='out'||d<b.statusDate).length,sell=H.rooms.filter(r=>!r.dummy&&!(r.ooo&&d>=r.ooo.from&&d<=r.ooo.to)).length;
+  const RMS=H.rooms.filter(rm=>(!GF.type||rm.type===GF.type)&&(!GF.floor||String(rm.floor)===String(GF.floor))),RNO=new Set(RMS.map(x=>x.no));
+  const usedCh={};
+  let h=`<div class="gridwrap" style="--days:${N}"><div class="grow ghead"><div class="gl">ROOM / DATE</div>${days.map((d,i)=>{const o=occOn(d).filter(b=>(b.status!=='out'||d<b.statusDate)&&(!(GF.type||GF.floor)||RNO.has(b.room))).length,sell=RMS.filter(r=>!r.dummy&&!(r.ooo&&d>=r.ooo.from&&d<=r.ooo.to)).length;
     return `<div class="gd ${d===H.set.bd?'today':''}" style="grid-column:${i+2}">${P(d).toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()} ${P(d).getDate()} ${P(d).toLocaleDateString('en-GB',{month:'short'}).toUpperCase()}<b>${(sell?o/sell*100:0).toFixed(2)}%</b></div>`}).join('')}</div>`;
-  H.rooms.forEach(rm=>{h+=`<div class="grow"><div class="gl"><b>${rm.no}</b> <span>${rm.type}</span></div>`;
+  RMS.forEach(rm=>{h+=`<div class="grow"><div class="gl"><b>${rm.no}</b> <span>${rm.type}</span></div>`;
     days.forEach((d,i)=>{const ooo=rm.ooo&&d>=rm.ooo.from&&d<=rm.ooo.to;h+=`<button class="gc ${d===H.set.bd?'today':''} ${ooo?'ooo':''}" style="grid-column:${i+2}" data-cell="${rm.no}|${d}" aria-label="Room ${rm.no} ${fd(d)}"></button>`});
     allBookings().filter(b=>b.room===rm.no&&live(b)&&overlaps(gridFrom,end,b.arr,b.dep)).forEach(b=>{const s=Math.max(0,diff(gridFrom,b.arr)),e=Math.min(N,diff(gridFrom,b.dep)),span=Math.max(1,e-s);
-      h+=`<button class="gb gb-${b.status}" style="grid-column:${s+2} / span ${span}" data-bk="${b.id}" title="${esc(gName(G(b.guestId)))} ${fd(b.arr)}–${fd(b.dep)}">${esc(G(b.guestId).last)}${b.copyOf?' (Copy)':''}</button>`});
+      const ch=chanOfBooking(b);usedCh[ch?ch.name:'']=ch;
+      h+=`<button class="gb gb-${b.status}${ch?' gb-ch':''}" style="grid-column:${s+2} / span ${span}${ch?';background:'+ch.col:''}" data-bk="${b.id}" title="${esc(gName(G(b.guestId)))} ${fd(b.arr)}–${fd(b.dep)}${ch?' · '+esc(ch.name):''}">${ch?`<span class="gbi" style="color:${ch.col}">${esc(ch.ini)}</span>`:''}${esc(G(b.guestId).last)}${b.copyOf?' (Copy)':''}</button>`});
     if(rm.ooo&&overlaps(gridFrom,end,rm.ooo.from,addD(rm.ooo.to,1))){const s=Math.max(0,diff(gridFrom,rm.ooo.from)),e=Math.min(N,diff(gridFrom,addD(rm.ooo.to,1)));h+=`<div class="gb gb-ooo" style="grid-column:${s+2} / span ${Math.max(1,e-s)}">${rm.ooo.kind} ${esc(rm.ooo.reason)}</div>`}
     h+='</div>'});
-  el.innerHTML=pageHead('Room Grid',`<label class="ufl">From date ${ufDate('gFrom',gridFrom)}</label><label class="ufl">To date ${ufDate('gTo',gridTo)}</label><button class="btn gold" id="gSearch">${ic('search',16)} Search</button>`,'under')+
+  const fl=[...new Map(H.rooms.filter(x=>!x.dummy).map(x=>[String(x.floor),((H.floors||[]).find(f=>String(f.id)===String(x.floor))||{}).name||('Floor '+x.floor)])).entries()];
+  el.innerHTML=pageHead('Room Grid',`<label class="ufl">From date ${ufDate('gFrom',gridFrom)}</label><label class="ufl">To date ${ufDate('gTo',gridTo)}</label><label class="ufl">Room type <select id="gType"><option value="">All room types</option>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<option value="${esc(t.code)}" ${GF.type===t.code?'selected':''}>${esc(t.code)} – ${esc(t.name)}</option>`).join('')}</select></label><label class="ufl">Floor <select id="gFloor"><option value="">All floors</option>${fl.map(([id,nm])=>`<option value="${esc(id)}" ${String(GF.floor)===id?'selected':''}>${esc(nm)}</option>`).join('')}</select></label><button class="btn gold" id="gSearch">${ic('search',16)} Search</button>`,'under')+
    `<p class="sub">From the day before the business date, 14 days. Search applies the dates you choose, up to 42 days. Click an empty box to make a booking for that room and date. Click a booking to open it.</p><div class="panel scroll">${h}</div></div>
-   <div class="legend"><span><i class="gb-confirmed"></i>Confirmed</span><span><i class="gb-tentative"></i>Tentative</span><span><i class="gb-inhouse"></i>In house</span><span><i class="gb-out"></i>Checked out</span><span><i class="gb-ooo"></i>Out of order</span></div>`;
+   <div class="legend"><span><i class="gb-confirmed"></i>Confirmed</span><span><i class="gb-tentative"></i>Tentative</span><span><i class="gb-inhouse"></i>In house</span><span><i class="gb-out"></i>Checked out</span><span><i class="gb-ooo"></i>Out of order</span>${Object.values(usedCh).filter(Boolean).map(c=>`<span><i style="background:${c.col}"></i>${esc(c.name)}</span>`).join('')}</div><p class="sub">A booking from a company, agent or OTA is drawn in its channel colour with the first letter of the channel. The coloured line under the name is the status: blue confirmed, yellow tentative, green in house, red checked out.</p>`;
+  $('#gType',el).onchange=()=>{GF.type=$('#gType',el).value;render()};$('#gFloor',el).onchange=()=>{GF.floor=$('#gFloor',el).value;render()};
   $('#gSearch',el).onclick=()=>{const spn=readPair(el,'gFrom','gTo');if(!spn){toast('Enter From date and To date as dd/mm/yyyy.');return}const n=diff(spn.from,spn.to)+1;if(n>42){toast('A room grid search can cover at most 42 days.');return}gridFrom=spn.from;gridTo=spn.to;render()};bindDatePick(el);
   $$('[data-bk]',el).forEach(b=>b.onclick=()=>{go.keepBack=true;resBack='fo.grid';go('res.open',b.dataset.bk)});
   $$('[data-cell]',el).forEach(c=>c.onclick=()=>{const[no,d]=c.dataset.cell.split('|');if(d<H.set.bd){toast('Bookings cannot start before the business date.');return}
