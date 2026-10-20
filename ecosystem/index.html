@@ -472,9 +472,9 @@ button.hx-chip2.zero{opacity:.65}
  #mobnav svg{width:22px;height:22px}
 }
 /* ---- Fluid layout: nothing may push the page sideways at any window width ---- */
-#view,#view *{min-width:0}
-.hxp{min-width:0}.hx-occp .hx-occ{flex-wrap:wrap;justify-content:center}
-.hx-dn{max-width:100%}.hx-dn svg{max-width:100%;height:auto}
+@media (max-width:1400px){#view,#view *:not(.fob):not(.btn):not(.tbtn):not(.rmb):not(.st):not(.pillg):not(.curtag){min-width:0}}
+@media (max-width:1400px){.hxp{min-width:0}.hx-occp .hx-occ{flex-wrap:wrap;justify-content:center}
+.hx-dn{max-width:100%}.hx-dn svg{max-width:100%;height:auto}}
 @media (max-width:1400px){.hsbar{flex-wrap:wrap}.hsbar .sub{margin-left:auto}}
 @media (max-width:1180px){.phead.withact h1,.phead.withf h1{min-width:0!important}.pact,.bsrch,.bsgrp{flex-wrap:wrap!important;max-width:100%}.bsQ{min-width:0!important;flex:1 1 200px}}
 body.navs1 .mtop{font-size:14px!important}body.navs1 .mitems{gap:4px!important}body.navs2 .mtop{font-size:12.5px!important}body.navs2 .mitems{gap:2px!important}
@@ -521,7 +521,8 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
  .tb-mid{order:2}.tb-right{order:3}
  .tbinfo{display:flex;flex-direction:column;gap:1px;padding:8px 14px 9px;border-bottom:1px solid #d5e0dc;margin-bottom:2px;font-size:12.5px;color:#4a5f58}
  .tbinfo b{font-size:14px;color:#113732}
- .folios .folio{height:auto!important;max-height:none}
+ .folios .folio{height:auto!important;max-height:none;min-height:calc(100dvh - 104px)}
+ .folio .fbody{overflow:visible!important;flex:1 1 auto}
  .folio .fh{min-height:36px!important;font-size:13px!important;padding:6px 12px!important}
  .mvb{display:none!important}
  body{font-size:14px}
@@ -5933,9 +5934,11 @@ function shellHTML(){
     ${H?`<button class="tbprof" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu">${ic('user',18)}</button>`:''}
   </div></header>
 <main id="view" class="view"></main>`}
+/* On phones, tablets and narrow windows the menu is one panel opened by the hamburger button; the titles open as a list inside it */
+function menuPanel(){const mi=document.getElementById('mitems');return !!mi&&getComputedStyle(mi).position==='fixed'}
 function placeMenuDrop(b,d){
   d.hidden=false;b.setAttribute('aria-expanded','true');
-  if(window.innerWidth<=760)return;
+  if(menuPanel())return;
   const r=b.getBoundingClientRect();
   d.style.position='fixed';d.style.top=(r.bottom-1)+'px';d.style.zIndex='80';
   const w=Math.max(d.offsetWidth||0,220);
@@ -6051,7 +6054,7 @@ function renderShell(){
     if(m.report)return can('reports')&&feat('reports')?`<button class="mtop" data-report="1">Report <span class="car" aria-hidden="true">▾</span></button>`:'';
     const items=m.items.filter(x=>(!x[2]||can(x[2]))&&(!x[3]||feat(x[3])));if(!items.length)return '';
     return `<div class="mgrp"><button class="mtop" data-m="${i}" aria-expanded="false">${esc(m.t)} <span class="car" aria-hidden="true">▾</span></button><div class="mdrop" hidden>${items.map(x=>`<button data-go="${x[1]}">${titleMark(x[0])}<span>${esc(x[0])}</span></button>`).join('')}</div></div>`}).join('')+`</div>`;
-  $$('.mtop[data-m]',nav).forEach(b=>b.onclick=e=>{e.stopPropagation();const d=b.nextElementSibling,open=d.hidden;closeMenus();if(open)placeMenuDrop(b,d)});
+  $$('.mtop[data-m]',nav).forEach(b=>b.onclick=e=>{e.stopPropagation();const d=b.nextElementSibling,open=d.hidden,panel=menuPanel();if(panel){$$('.mdrop').forEach(x=>{x.hidden=true});$$('.mtop[data-m]').forEach(x=>x.setAttribute('aria-expanded','false'));if(open){d.hidden=false;b.setAttribute('aria-expanded','true');setTimeout(()=>{try{b.scrollIntoView({block:'nearest'})}catch(x){}},0)}return}closeMenus();if(open)placeMenuDrop(b,d)});
   $$('[data-go]',nav).forEach(b=>b.onclick=()=>{closeMenus();const mi=$('#mitems');if(mi)mi.classList.remove('open');go(b.dataset.go)});
   const rb=$('[data-report]',nav);if(rb)rb.onclick=openReportsTab;
   if($('#sysPick'))$('#sysPick').onclick=e=>{e.stopPropagation();openSystemsArrow($('#sysPick'))};
@@ -6061,7 +6064,7 @@ function renderShell(){
   const sc=$('#mitems');if(sc)sc.addEventListener('scroll',()=>{$$('.mdrop').forEach(d=>{d.hidden=true;d.style.position='';d.style.left='';d.style.top=''});$$('.mtop[data-m]').forEach(b=>b.setAttribute('aria-expanded','false'))},{passive:true});
 }
 function closeMenus(){$$('.mdrop').forEach(d=>{d.hidden=true;d.style.position='';d.style.left='';d.style.top=''});$$('.mtop[data-m]').forEach(b=>b.setAttribute('aria-expanded','false'));const m=$('#mitems');if(m)m.classList.remove('open');const p=$('#tbPop');if(p)p.hidden=true}
-document.addEventListener('click',e=>{if(!e.target.closest('.mgrp'))closeMenus()});
+document.addEventListener('click',e=>{if(e.target.closest('.mgrp'))return;if(menuPanel()&&e.target.closest('#mitems'))return;closeMenus()});
 /* ---- Phone layout (screens 700px wide or narrower). Desktop is not touched. Tables become cards, a bottom bar gives the main screens, windows fill the screen. ---- */
 const MOB_Q=window.matchMedia?window.matchMedia('(max-width:700px)'):{matches:false,addEventListener(){}};
 function mobFont(){
