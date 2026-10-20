@@ -8177,13 +8177,15 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
     ()=>{const ls=allLinesH(H).filter(l=>l.night===bd&&l.kind==='room'),rv=curMulti(H)?allBookings().flatMap(b=>b.lines.filter(l=>l.night===bd&&l.kind==='room').map(l=>({c:bCur(b),a:l.amt,e:curLineEq(b,l)}))):null;H.audits.push({date:bd,at:Date.now(),user:user().name,rooms:ls.length,rev:rv?r2(sum(rv,x=>x.e)):r2(sum(ls,l=>l.amt)),revCur:rv?rv.reduce((o,x)=>{o[x.c]=r2((o[x.c]||0)+x.a);return o},{}):undefined,ns:allBookings().filter(b=>b.status==='noshow'&&b.statusDate===bd).length,shifts:H.shifts.filter(x=>x.bd===bd).length,variance:r2(sum(H.shifts.filter(x=>x.bd===bd),x=>x.variance||0)),inhouse:tonightIH().length,discClosed:Object.values(H.disc||{}).filter(d=>d.bd===bd&&d.status==='closed').length})},
     ()=>{const s=curShift();if(s){const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({},t.expectedBy),varianceBy:Object.keys(t.expectedBy).reduce((o,k)=>{o[k]=0;return o},{})}:{})}},
     ()=>{H.set.lockedThrough=bd;archiveDummyLines(H)},()=>{log('Close Day '+fd(bd)+' done')},()=>{H.set.bd=nd;saveDB()}];
+  /* The real work runs first, all at once. Closing the shift ends the session check, so the steps must not be spread over seconds. The log below only shows what already happened. */
+  let failMsg=null;try{for(const w of work)w()}catch(e){failMsg=e.message||String(e)}
   (async()=>{
+    if(failMsg){stSet(0,'bad');line('Close Day stopped: '+failMsg,'','err');$o('#cdfSm').textContent='stopped';$o('#cdfFoot').innerHTML='<b>Close Day stopped.</b> Nothing was changed after this step. <button class="cdf-btn" id="cdfX">Back</button>';$o('#cdfX').onclick=()=>{o.remove();try{render()}catch(e){}};return}
     line('Close Day started for business date '+fd(bd),'','hd');await wait(500);
     for(let i=0;i<work.length;i++){
       stSet(i,'run');
       for(const l of logs[i]){await wait(210);line(l[0],l[1])}
       await wait(260);
-      try{work[i]()}catch(e){stSet(i,'bad');line('Close Day stopped: '+e.message,'','err');$o('#cdfSm').textContent='stopped';$o('#cdfFoot').innerHTML='<b>Close Day stopped.</b> Nothing was changed after this step. <button class="cdf-btn" id="cdfX">Back</button>';$o('#cdfX').onclick=()=>{o.remove();render()};return}
       stSet(i,'done');pct((i+1)/work.length*100);await wait(240)}
     line('Business date '+fd(bd)+' is closed','done','ok');await wait(500);
     o.classList.add('fin');$o('#cdfT').textContent='Business date '+fd(bd)+' is closed';$o('#cdfSm').textContent='complete';
