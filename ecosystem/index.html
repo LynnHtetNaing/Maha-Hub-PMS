@@ -123,6 +123,12 @@ table.grid tr.click{cursor:pointer}table.grid tr.click:hover td{background:#f4f9
 .mx{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:#445}.mbody{padding:12px;overflow:auto}
 .nmodal .mhead{background:#fff4d6}.notif{border:1px solid #f0d79a;background:#fffaf0;border-radius:4px;padding:8px 10px;margin-bottom:8px}.notif.done{opacity:.6}.nfrom{font-weight:700}.ntext{color:#b3261e;font-weight:600;margin:4px 0}.nmeta{font-size:11px;color:var(--mut);margin-bottom:4px}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);background:#1d2a33;color:#fff;padding:9px 16px;border-radius:6px;opacity:0;transition:.25s;z-index:200;max-width:92vw;pointer-events:none}#toast.show{opacity:1;transform:translateX(-50%)}
+#cnote{position:fixed;left:0;right:0;top:33vh;display:flex;justify-content:center;pointer-events:none;z-index:9999}
+#cnote .cn{display:inline-flex;align-items:center;gap:10px;font-size:21px;font-weight:700;letter-spacing:.2px;opacity:0;transform:translateY(8px);transition:opacity .22s,transform .22s;max-width:92vw;text-align:center}
+#cnote .cn.show{opacity:1;transform:none}
+#cnote .cn.saved{color:#137a56;text-shadow:0 0 6px #fff,0 0 12px #fff,0 0 20px rgba(255,255,255,.95)}
+#cnote .cn.welcome{background:#1d2a33;color:#fff;padding:11px 22px;border-radius:6px;font-size:17px;font-weight:600}
+@media (max-width:700px){#cnote .cn{font-size:17px}#cnote .cn svg{width:20px;height:20px}}
 /* login */
 .login{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr;background:var(--ivory)}.lart{background:radial-gradient(circle at 30% 20%,#23654b,var(--green2));color:var(--ivory);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:30px;border-right:4px solid var(--gold)}
 .lart img{width:120px;height:120px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.35)}.lwm{font-family:"Cinzel",Georgia,serif;font-size:40px;letter-spacing:6px;color:var(--gold2)}.lart p{margin:0;opacity:.85}.lpart{font-size:12px;opacity:.7;margin-top:30px}
@@ -1911,6 +1917,7 @@ let _saveQ=0;
 let _persistT=0;
 function saveDB(opt){
   if(!DB)return;
+  try{svNoteCheck()}catch(e){}
   DB.version=5;
   if(!(opt&&opt.keepTime)) DB.savedAt=Date.now();
   if(DB.session)stampSession(DB.session);
@@ -3213,7 +3220,25 @@ const lineCtx=ov=>{const s=ov||curShift();return {bd:H.set.bd,shift:s,user:user(
 function histB(B,what){const s=curShift();B.hist.push({at:Date.now(),bd:H.set.bd,user:user().name,shift:s?s.name:'',what})}
 
 /* ---------- toast / modals ---------- */
-function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800)}
+/* ---- The centre note: "... was saved successfully." shows in the middle of the screen for 1.5 seconds, with no box. The Welcome message after sign-in uses the same place. ---- */
+const CN_MS=1500;
+function centerNote(text,kind){
+  let w=document.getElementById('cnote');if(!w){w=document.createElement('div');w.id='cnote';w.setAttribute('role','status');w.setAttribute('aria-live','polite');document.body.appendChild(w)}
+  const chk='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>';
+  w.innerHTML='<div class="cn '+(kind||'saved')+'">'+(kind==='welcome'?'':chk)+'<span>'+esc(text)+'</span></div>';
+  const n=w.firstChild;clearTimeout(w._a);clearTimeout(w._b);requestAnimationFrame(()=>n.classList.add('show'));
+  w._a=setTimeout(()=>n.classList.remove('show'),CN_MS-250);w._b=setTimeout(()=>{if(w.firstChild===n)w.innerHTML=''},CN_MS+100)}
+function savedViewLabel(){try{if(VIEW==='prov.setup'){const x=SET_SECTIONS.find(z=>z[0]===SET_SEC);if(x)return x[2]}
+  for(const m of MENU.concat(typeof PROV_MENU!=='undefined'?PROV_MENU:[]))for(const it of (m.items||[]))if(it[1]===VIEW)return it[0]}catch(e){}return 'Your changes'}
+function savedTextOf(m,btn){const s0=String(m||'').trim();let base='';
+  const mm=/^(.+?)\s+saved\b/i.exec(s0);if(mm&&!/^saved/i.test(s0))base=mm[1].replace(/^platform\s+/i,'').trim();
+  if(!base&&btn)base=String(btn).replace(/^\s*save\s*(and\s+\w+)?\s*/i,'').replace(/^changes$/i,'').trim();
+  if(!base)base=savedViewLabel();return base.charAt(0).toUpperCase()+base.slice(1)+' was saved successfully.'}
+const isSavedMsg=m=>/\bsaved\b/i.test(m)&&!/pause|snapshot|another device|could not|cannot|failed|error|not saved|nothing|expired/i.test(m);
+window._svClick=null;
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest?e.target.closest('button'):null;if(b&&/^\s*Save\b/i.test(b.textContent||''))window._svClick={t:Date.now(),label:b.textContent}},true);
+function svNoteCheck(){const c=window._svClick;if(c&&Date.now()-c.t<5000){window._svClick=null;centerNote(savedTextOf('',c.label),'saved')}}
+function toast(m){if(isSavedMsg(m)){window._svClick=null;centerNote(savedTextOf(m),'saved');return}const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800)}
 let MODALS=[];
 function modal(title,html,o={}){
   const wrap=document.createElement('div');wrap.className='mwrap';wrap.style.zIndex=60+MODALS.length*2;
@@ -6343,7 +6368,7 @@ function doLogin(){
       toast(ecoSysLabel(sys)+' is closed for your account. Opening '+fallback.name+'.');
       sys=fallback.kind;avail=fallback;
     }
-    if(sys==='hub'){applySysPath('hub');renderShell();go(firstHotelView());toast(shift==='No shift'?`Welcome ${who}. ${fd(h.set.bd)}.`:`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`);return}
+    if(sys==='hub'){applySysPath('hub');renderShell();go(firstHotelView());centerNote(shift==='No shift'?`Welcome ${who}. ${fd(h.set.bd)}.`:`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`,'welcome');return}
     lgTargetSys=sys;openSystem(sys,h,true);
   };
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Maha Hub support.';return}
