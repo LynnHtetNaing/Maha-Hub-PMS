@@ -7618,7 +7618,7 @@ function folioPane(el,id,onRe){
   });
   $$('[data-mv]',el).forEach(b=>b.onclick=ev=>{ev.stopPropagation();moveLine(+b.dataset.mv)});
   $('#fProf',el).onclick=$('#fName',el).onclick=()=>guestProfile(g.id,reopen);
-  $$('[data-sp]',el).forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));
+  $$('[data-sp]',el).forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));if($('#fShAdd',el))$('#fShAdd',el).onclick=()=>addSharer(B,reopen);
   $('#fView',el).onclick=()=>{folSel=null;reopen()};
   $('#fPost',el).onclick=()=>postModal(B,reopen,actNow());$('#fPay',el).onclick=()=>payModal(B,reopen,actNow(),'pay');$('#fAdv',el).onclick=()=>payModal(B,reopen,actNow(),'adv');
   $('#fSplit',el).onclick=()=>splitLine(B,curLine(),reopen);$('#fOff',el).onclick=()=>offsetLine(B,curLine(),reopen);
@@ -7908,8 +7908,8 @@ function depositModal(B,after){
 const guestsInRoom=B=>[B.guestId,...(B.shares||[])].filter(Boolean);
 const paxOfBooking=B=>(+B.adults||0)+(+B.children||0);
 const emptyDoc=()=>({type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''});
-function sharersHtml(B){const ids=B.shares||[];if(!ids.length)return '';
-  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<span class="fsh">${ic('user',14)} ${esc(gName(g))} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button></span>`}).join('')}</div>`}
+function sharersHtml(B){const ids=B.shares||[],ed=!['cancelled','noshow','out'].includes(B.status)&&(can('profile')||can('res.edit')||can('checkin'));if(!ids.length&&!ed)return '';
+  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<span class="fsh">${ic('user',14)} ${esc(gName(g))} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button></span>`}).join('')}${ed?`<button type="button" class="btn sm ghost" id="fShAdd" title="Add a guest sharing this room">${ic('plus',13)} Guest</button>`:''}</div>`}
 function addSharer(B,after){
   B.shares=B.shares||[];
   if(['cancelled','noshow','out'].includes(B.status)){toast('Guests can only be added to an active reservation.');return}
@@ -7930,7 +7930,7 @@ function addSharer(B,after){
     log('Added sharing guest '+gName(g)+' RSVN '+resOf(B).no,B.id);saveDB();closeModal(m);after&&after()}}
 function removeSharer(B,gid,after){B.shares=(B.shares||[]).filter(x=>x!==gid);B.hist=B.hist||[];B.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Removed sharing guest '+gName(G(gid))});saveDB();after&&after()}
 function roomGuestsPanel(B,ed){const rows=guestsInRoom(B);
-  return `<div class="pn"><div class="pnh blue">Guests in this room (${rows.length} of ${paxOfBooking(B)})${ed?` <button class="pnic" id="shAdd" title="Add a guest sharing this room">${ic('plus',15)}</button>`:''}</div><div class="pnb"><div class="shlist">${rows.map((id,i)=>`<div class="shrow"><span>${ic('user',15)} <b>${esc(gName(G(id)))}</b> <em>${i===0?'Main guest (bills and posts go here)':'Sharing guest'}</em></span><span><button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button>${i>0&&ed?`<button class="pnic" data-sr="${id}" title="Remove from this room">${ic('erase',14)}</button>`:''}</span></div>`).join('')}</div></div></div>`}
+  return `<div class="pn"><div class="pnh blue">Guests in this room (${rows.length} of ${paxOfBooking(B)})${ed?` <button type="button" class="btn sm gold shaddb" id="shAdd" title="Add a guest sharing this room">${ic('plus',14)} Add guest</button>`:''}</div><div class="pnb">${rows.length<2&&ed?'<p class="sub" style="margin:0 0 6px">Only the main guest is in this room. Press <b>Add guest</b> to add another guest who stays in the room.</p>':''}<div class="shlist">${rows.map((id,i)=>`<div class="shrow"><span>${ic('user',15)} <b>${esc(gName(G(id)))}</b> <em>${i===0?'Main guest (bills and posts go here)':'Sharing guest'}</em></span><span><button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button>${i>0&&ed?`<button class="pnic" data-sr="${id}" title="Remove from this room">${ic('erase',14)}</button>`:''}</span></div>`).join('')}</div></div></div>`}
 let payTab='CASH',payRef=false;
 function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','noshow'].includes(B.status)&&(mode==='adv'||psPaid(B)<=0.004)){toast('This booking is not active.');return}
   folio=folio||1;const adv=mode==='adv';payRef=false;
