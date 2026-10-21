@@ -205,8 +205,8 @@ function originalPage(title){
  const actualTitle=actualTitles[title]||title;
  const cfg=MODULES[title];
  if(!cfg) return heading(actualTitle,exactOriginalSubtitles[title]||'',btn('Refresh view','Refresh sample view'))+panel('Workspace overview','Sample operational view','<div class="empty-state">This page has no dedicated content definition yet.</div>');
- const kpis=metrics(cfg.k.map((m,i)=>[m[0],['◈','▦','✓'][i],m[1],m[2]]));
- const rows=cfg.rows.map((r,i)=>r.map((v,j)=>j===r.length-1?status(v,/active|approved|available|ready|in house|enabled|settled/i.test(v)?'ready':/pending|review|awaiting|partial|upcoming|attention|overdue|blocked|expired/i.test(v)?'pending':'arriving'):v));
+ const kpis=metrics(cfg.k.map(m=>[m[0],m[1],m[2],m[3]]));
+ const rows=cfg.rows.map(r=>r.map((v,j)=>j===r.length-1&&/status/i.test(cfg.cols[cfg.cols.length-1])?status(v,/active|approved|available|ready|in house|enabled|settled/i.test(v)?'ready':/pending|review|awaiting|partial|upcoming|attention|overdue|blocked|expired/i.test(v)?'pending':'arriving'):v));
  const tools='<div class="page-tools" style="padding:0 18px 14px"><input class="field searchfield" placeholder="Search '+actualTitle.toLowerCase()+'…" data-module-search><select class="field"><option>All statuses</option><option>Active / ready</option><option>Pending review</option><option>Closed / inactive</option></select><button class="btn" data-toast="Filter options opened — sample preview">Filters</button></div>';
  const primary=heading(actualTitle,exactOriginalSubtitles[title]||cfg.sub,btn('Export','Export '+actualTitle+' preview')+btn('＋ '+(/reservation|folio|rate|staff|room|company|group|purchase|petty cash/i.test(title)?'Add new':'New entry'),'Create '+actualTitle+' preview',true))+kpis+panel(cfg.section,cfg.note,tools+table(cfg.cols,rows));
  const side=panel(cfg.side,'Recommended operational checks',cfg.items.map((it,i)=>'<div class="setting-row"><div><strong>'+it[0]+'</strong><p>'+it[1]+'</p></div><button class="btn" data-toast="'+it[0]+' — preview only">Review</button></div>').join(''));
