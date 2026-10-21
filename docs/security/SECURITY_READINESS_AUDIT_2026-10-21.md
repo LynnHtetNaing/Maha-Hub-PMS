@@ -64,6 +64,28 @@ Before commercial use, verify backups and restore drills, monitoring/alerts, ses
 6. Only then continue screen/module integration and route/deep-link work.
 7. Deploy via an explicit release step after review; do not merge or deploy the visual integration branch as a security fix.
 
+
+## Follow-up work performed on 2026-10-21
+
+### Development/test project containment
+A separate project named `MAHA-HUB Project` (`wragaoglvksbbgmfjyzp`) was inspected as the development/test environment. It contains test records, but the `maha_edc` table had zero rows at the time of review. This project is not the intended production project.
+
+The EDC database functions exposed a high-risk design: `maha_edc_public_submit(text, jsonb)` stores card PAN and CVC/CVV in the database payload. CVC/CVV must not be retained after authorization. Until a PCI-compliant payment-provider tokenization flow replaces this legacy implementation, the following functions have had EXECUTE revoked from `PUBLIC`, `anon`, and `authenticated` **in the development/test project only**:
+- `maha_edc_keyed(text, text)`
+- `maha_edc_list(text, text)`
+- `maha_edc_public_submit(text, jsonb)`
+- `maha_edc_put(text, jsonb)`
+- `maha_edc_wipe(text, text)`
+- `maha_init(text)`
+
+The public `maha_edc_public_get(text)` status lookup remains callable because its returned fields do not include the PAN or CVC/CVV. Post-change privilege checks confirmed the six functions above are no longer executable by `anon` or `authenticated`; the status lookup remains public. The development app's legacy EDC write/admin flows may therefore stop working until they are replaced and regression-tested. The migration is committed on the integration branch at `supabase/migrations/20261021120000_contain_legacy_edc_rpc.sql`.
+
+**Do not apply this EDC containment migration to the intended production project blindly.** First confirm whether EDC is used, replace it with provider tokenization, and test the new flow. The intended production project `Maha-Hub-PMS` (`ulguzclaeksxfhzwuovg`) was not changed.
+
+### Development/test project advisor status after containment
+The development project's anonymous SECURITY DEFINER warning count dropped from 7 to 1; the remaining finding is the public EDC status lookup. The authenticated SECURITY DEFINER warning count remains because several RPCs are intentionally used by authenticated flows and need per-function authorization review, not blanket revocation. Tables with RLS enabled but no policies have no direct `anon` table grants in the inspected effective privileges; this appears to be default-deny, but must be confirmed with end-to-end tests.
+
+
 ## Evidence limits
 - This review used read-only project metadata, schema/policy/grant inspection, deployed Edge Function source, migrations list, and Supabase security/performance advisors.
 - The repository's oversized `solutions-PMS.html` could not be fetched through the current GitHub connector, so its current full client code has not been inspected or syntax-tested in this pass.
