@@ -82,6 +82,11 @@ The public `maha_edc_public_get(text)` status lookup remains callable because it
 
 **Do not apply this EDC containment migration to the intended production project blindly.** First confirm whether EDC is used, replace it with provider tokenization, and test the new flow. The intended production project `Maha-Hub-PMS` (`ulguzclaeksxfhzwuovg`) was not changed.
 
+### Organization membership policy correction in development/test
+The `maha_organizations_select_member` policy was confirmed to compare `m.organization_id = m.id`, which is inconsistent with the intended organization membership relation. In the development/test project only, the policy was recreated to compare `m.organization_id = public.maha_organizations.id` while preserving the owner and organization-admin branches. The matching migration is committed on the integration branch at `supabase/migrations/20261021121000_fix_org_member_select_policy.sql`.
+
+The development project currently has no organization/property membership rows to exercise this policy with real authenticated test identities, so this is a schema-level correction, **not yet an end-to-end authorization test**. Before promoting, create test owner/admin/member accounts and verify allowed/denied organization reads; compare the production migration history and apply the same correction to production only after confirming the live policy still has the defect and the test plan passes.
+
 ### Development/test project advisor status after containment
 The development project's anonymous SECURITY DEFINER warning count dropped from 7 to 1; the remaining finding is the public EDC status lookup. The authenticated SECURITY DEFINER warning count remains because several RPCs are intentionally used by authenticated flows and need per-function authorization review, not blanket revocation. Tables with RLS enabled but no policies have no direct `anon` table grants in the inspected effective privileges; this appears to be default-deny, but must be confirmed with end-to-end tests.
 
