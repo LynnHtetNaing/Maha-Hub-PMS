@@ -105,3 +105,17 @@ The development project's anonymous SECURITY DEFINER warning count dropped from 
 - This review used read-only project metadata, schema/policy/grant inspection, deployed Edge Function source, migrations list, and Supabase security/performance advisors.
 - The repository's oversized `solutions-PMS.html` could not be fetched through the current GitHub connector, so its current full client code has not been inspected or syntax-tested in this pass.
 - No production SQL, Auth settings, customer records, or deployed code were changed.
+
+
+### Follow-up: public EDC lookup containment (2026-10-21)
+Further review found that `maha_edc_public_get(text)` returns the entire `meta` JSON object to unauthenticated callers. Although it does not directly return PAN/CVC, unrestricted metadata can expose unintended booking or customer details if callers place them in that field. The test project's `maha_edc` table currently has zero rows, and the legacy submit/write flow is already disabled pending a safe payment-provider replacement.
+
+As a narrow containment step, EXECUTE was revoked from `PUBLIC`, `anon`, and `authenticated` on `public.maha_edc_public_get(text)` in the development/test project only. A post-change privilege query confirmed both `anon` and `authenticated` can no longer execute it. The security advisor now reports zero anonymous-executable SECURITY DEFINER functions; 20 authenticated-executable SECURITY DEFINER functions remain for individual review. The migration is committed on `integration/live-pms-calm-theme` at `supabase/migrations/20261021123000_contain_public_edc_lookup.sql`.
+
+This intentionally disables the legacy public EDC lookup as well as the already-contained card-submit flow. Do not restore public access until the replacement endpoint returns only an explicit allowlist of non-sensitive fields and the payment flow uses a PCI-compliant provider tokenization design. Do not apply to production without checking its current function grants and EDC usage.
+
+### Additional grant verification
+For the 13 tables flagged by the advisor as RLS-enabled without policies, effective privilege checks in the development/test project found no direct `anon` table access and no direct `authenticated` SELECT/INSERT/UPDATE/DELETE grants. This is consistent with default-deny table access and controlled RPC usage, rather than a reason to add broad RLS policies. The tables still require end-to-end REST checks before production approval.
+
+### Invoice and platform settings RPC review
+A targeted source review found that the reviewed invoice issuance RPCs check `auth.uid()` and call `maha_can_write_property(target_property)`; the platform-settings read/write functions check authentication and platform-admin/session authorization. The property-cloud read/write functions check property access/write permission. This is positive source-level evidence, not a complete adversarial test. Invoice counter floor arguments may affect numbering integrity if a valid writer submits an unexpectedly high floor value; trace client usage and define bounds/monotonicity rules before changing these functions, since a premature cap could break legitimate offline synchronization.
