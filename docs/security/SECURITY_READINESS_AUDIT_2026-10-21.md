@@ -87,6 +87,16 @@ The `maha_organizations_select_member` policy was confirmed to compare `m.organi
 
 The development project currently has no organization/property membership rows to exercise this policy with real authenticated test identities, so this is a schema-level correction, **not yet an end-to-end authorization test**. Before promoting, create test owner/admin/member accounts and verify allowed/denied organization reads; compare the production migration history and apply the same correction to production only after confirming the live policy still has the defect and the test plan passes.
 
+### Transaction-scoped tenant-isolation regression checks
+A transaction-scoped test was run in `MAHA-HUB Project` using three existing test auth identities and temporary organizations/properties/records. The transaction was rolled back. The test completed without assertion errors and checked:
+- Owner A can access Hotel A but cannot access Hotel B.
+- Owner B can access Hotel B but cannot access Hotel A.
+- Cross-tenant `maha_sync_pull` and `maha_sync_push` requests raise authorization denial.
+- Read-only staff can access their assigned property, cannot write, and cannot access another hotel's property.
+- Read-only staff `maha_sync_push` is denied.
+
+The reusable test script is committed at `supabase/tests/tenant_isolation.sql` on the integration branch. This is useful positive evidence for the helper/RPC authorization logic, but it is **not a full RLS/PostgREST acceptance test**: the checks ran inside a database transaction with simulated JWT claims, not through REST using separate real user sessions. The organization membership SELECT policy also still needs a direct RLS test under the authenticated role.
+
 ### Development/test project advisor status after containment
 The development project's anonymous SECURITY DEFINER warning count dropped from 7 to 1; the remaining finding is the public EDC status lookup. The authenticated SECURITY DEFINER warning count remains because several RPCs are intentionally used by authenticated flows and need per-function authorization review, not blanket revocation. Tables with RLS enabled but no policies have no direct `anon` table grants in the inspected effective privileges; this appears to be default-deny, but must be confirmed with end-to-end tests.
 
