@@ -1,0 +1,67 @@
+# Maha PMS Production Security Readiness Audit
+Date: 2026-10-21
+Scope: read-only review of the connected Supabase project named `Maha-Hub-PMS` (`ulguzclaeksxfhzwuovg`). No production database settings or data were changed during this review.
+
+## Status
+**Not yet cleared for commercial production.** This is an initial evidence-based review, not a complete penetration test or certification. Keep the live production deployment unchanged until the high-risk items below are reviewed, tested, and resolved.
+
+## Positive controls observed
+- The project has tenant-oriented tables for organizations, properties, memberships, property cloud payloads, and per-property records.
+- RLS is enabled on all inspected public tables.
+- The tenant-cloud Edge Function requires a bearer token, validates the user with Supabase Auth, uses the caller's JWT (not a service-role client) for tenant data access, and calls property-scoped RPCs.
+- The client-facing tables `maha_records` and `maha_property_cloud` have RLS SELECT policies tied to property access; direct client write grants were not observed in the inspected grants. Writes are intended to pass through controlled RPCs.
+- Database migrations include tenant identity, username authentication, table-grant hardening, record-level sync, MFA gate, review hardening, and activity logging.
+- The username-auth Edge Function uses a server-side service-role client only to resolve the private username mapping, returns generic credential errors, and avoids logging passwords/tokens.
+
+## Findings requiring action
+
+### P0 — Review authorization on every exposed SECURITY DEFINER RPC
+Supabase's security advisor reports 20 public-schema SECURITY DEFINER functions executable by `authenticated`. This warning does not prove each function is exploitable; some functions correctly check `auth.uid()` and tenant ownership. However, each exposed function must be classified as:
+1. safe for direct authenticated RPC calls, with explicit identity, tenant, and role checks; or
+2. internal-only, with EXECUTE revoked from `anon`/`authenticated` and only the required trusted role granted access.
+
+Prioritize data-returning/mutating functions, especially `maha_sync_pull`, `maha_sync_push`, `maha_get_property_cloud`, `maha_save_property_cloud`, invoice-number functions, platform settings functions, recycle-bin functions, and admin/staff management functions. Do not blanket-revoke or switch all functions to SECURITY INVOKER: some are intentionally used by RLS or trusted flows, and careless changes can break access controls or operations.
+
+### P1 — Correctness issue in organization membership SELECT policy
+The inspected `maha_organizations_select_member` policy contains an EXISTS predicate comparing `m.organization_id = m.id`. This appears inconsistent with the intended membership relationship and should be reviewed against the migration/source of truth. Do not patch it until the intended owner/admin/member access rules are confirmed and a regression test is prepared.
+
+### P1 — Authentication hardening settings
+The Supabase security advisor reports:
+- leaked-password protection is disabled;
+- email OTP expiry exceeds the recommended one-hour threshold.
+
+Enable leaked-password protection and reduce OTP expiry through the project's Auth settings after verifying recovery/sign-in flows and choosing an appropriate expiry. These settings were not changed by this audit.
+
+### P1 — Verify MFA enforcement end to end
+The database includes an MFA-gate migration and the username-auth Edge Function supports an optional emailed sign-in code controlled by `MAHA_REQUIRE_CODE`. The deployed function's comments say the code requirement remains off until the compatible sign-in page is live. Confirm the intended policy for platform administrators and hotel owners, then test enforcement at both login and sensitive server/database operations. A UI-only MFA check is not sufficient.
+
+### P1 — Tenant-isolation acceptance tests
+Before live customer onboarding, prove with two separate test users/properties that:
+- Hotel A cannot read, update, delete, or sync Hotel B's records or cloud payload by changing property IDs/codes or record keys.
+- A staff member cannot reach properties outside their active membership, and read-only staff cannot write.
+- Disabled, deleted, or recycled properties/users cannot continue using old sessions to read or mutate data.
+- Invoice sequence allocation, settings, audit/activity data, and recycle-bin/admin operations are correctly scoped.
+- Anonymous requests cannot access any customer or administrative data.
+- A user cannot change their own role, organization ownership, membership, or platform-admin status by direct REST/RPC calls.
+
+These adversarial tests have **not** yet been run. RLS being enabled is not proof that the policies and privileged RPCs are correct.
+
+### P2 — Data/API and frontend architecture
+The monolithic HTML file and shared database are maintainability/architecture concerns, not vulnerabilities by themselves. Keep one shared database if tenant isolation is enforced server-side. Add stable routes/deep links after security is validated; routes alone do not enforce authorization. Extract the frontend into modules gradually rather than rewriting everything at once.
+
+### P2 — Production operational controls
+Before commercial use, verify backups and restore drills, monitoring/alerts, session revocation behavior, secrets separation, dependency pinning, and a documented incident/restore procedure. Confirm the public frontend contains no service-role/secret key. Rotate any secret that was ever committed or exposed.
+
+## Next implementation sequence
+1. Inventory every SECURITY DEFINER function, its EXECUTE grants, callers, and tenant/role checks.
+2. Reconcile SQL functions/policies with committed migrations and tests.
+3. Add cross-tenant and privilege-escalation tests in a non-production environment.
+4. Make narrow, reviewed database changes with migration history and rollback notes.
+5. Re-run Supabase security advisors and all tenant-isolation tests.
+6. Only then continue screen/module integration and route/deep-link work.
+7. Deploy via an explicit release step after review; do not merge or deploy the visual integration branch as a security fix.
+
+## Evidence limits
+- This review used read-only project metadata, schema/policy/grant inspection, deployed Edge Function source, migrations list, and Supabase security/performance advisors.
+- The repository's oversized `solutions-PMS.html` could not be fetched through the current GitHub connector, so its current full client code has not been inspected or syntax-tested in this pass.
+- No production SQL, Auth settings, customer records, or deployed code were changed.
