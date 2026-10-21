@@ -119,3 +119,14 @@ For the 13 tables flagged by the advisor as RLS-enabled without policies, effect
 
 ### Invoice and platform settings RPC review
 A targeted source review found that the reviewed invoice issuance RPCs check `auth.uid()` and call `maha_can_write_property(target_property)`; the platform-settings read/write functions check authentication and platform-admin/session authorization. The property-cloud read/write functions check property access/write permission. This is positive source-level evidence, not a complete adversarial test. Invoice counter floor arguments may affect numbering integrity if a valid writer submits an unexpectedly high floor value; trace client usage and define bounds/monotonicity rules before changing these functions, since a premature cap could break legitimate offline synchronization.
+
+
+### Follow-up: membership mutation boundary and invoice-floor semantics (2026-10-21)
+
+In the development/test project, `maha_memberships` grants `authenticated` SELECT only; no direct `anon` or `authenticated` INSERT/UPDATE/DELETE grants were present. Its only inspected policy is a SELECT policy allowing a user to read their own membership or an organization admin to read memberships for that organization. The inspected staff-provisioning, staff-active, staff-rename, and staff-email functions are SECURITY DEFINER but have EXECUTE granted only to `service_role` (plus the database owner), not browser roles. This reduces the direct self-promotion/role-tampering surface at the database grant layer. It does not replace an end-to-end test of the deployed Edge Function and API path that provisions or changes staff access.
+
+The invoice tests in the integration branch explicitly use higher floor values to recover/continue an existing series (for example, a month sequence floor of 40) and expect lower floors not to rewind the series. The issuance functions therefore intentionally take a caller-supplied floor and advance counters using `greatest(current, supplied_floor)`. An unexpectedly large floor from a valid write-capable user could create a large numbering jump, but adding a simple low cap could break legitimate recovery/offline synchronization. No invoice function was changed. Before remediation, inspect the actual client call sites and determine whether the floor represents a trusted local high-water mark, a server-read value, or untrusted user-controlled data; then add an explicit upper-bound/authorization rule and regression tests for both recovery and abuse cases.
+
+### Auth configuration limitation
+
+The connected Supabase tools available for this review expose database SQL, advisors, and Edge Function source, but not project Auth configuration controls. Compromised-password protection and OTP expiry remain unmodified and need to be checked in the Supabase Dashboard Auth settings. Do not treat them as fixed.
