@@ -12,11 +12,14 @@ Scope: read-only review of the connected Supabase project named `Maha-Hub-PMS` (
 - The client-facing tables `maha_records` and `maha_property_cloud` have RLS SELECT policies tied to property access; direct client write grants were not observed in the inspected grants. Writes are intended to pass through controlled RPCs.
 - Database migrations include tenant identity, username authentication, table-grant hardening, record-level sync, MFA gate, review hardening, and activity logging.
 - The username-auth Edge Function uses a server-side service-role client only to resolve the private username mapping, returns generic credential errors, and avoids logging passwords/tokens.
+- The inspected SECURITY DEFINER functions do not grant EXECUTE to `anon`. Several high-impact RPCs also have explicit `auth.uid()` checks and property-access/write checks. This is a useful safeguard, but it does not replace per-function review.
 
 ## Findings requiring action
 
 ### P0 — Review authorization on every exposed SECURITY DEFINER RPC
-Supabase's security advisor reports 20 public-schema SECURITY DEFINER functions executable by `authenticated`. This warning does not prove each function is exploitable; some functions correctly check `auth.uid()` and tenant ownership. However, each exposed function must be classified as:
+Supabase's security advisor reports 20 public-schema SECURITY DEFINER functions executable by `authenticated`. This warning does not prove each function is exploitable; some functions correctly check `auth.uid()` and tenant ownership. The read-only function review confirmed that `maha_sync_pull` checks property access and `maha_sync_push` / `maha_save_property_cloud` check property write access. Continue the same review for every exposed function, including helper functions and all invoice/admin functions.
+
+For each function, classify it as:
 1. safe for direct authenticated RPC calls, with explicit identity, tenant, and role checks; or
 2. internal-only, with EXECUTE revoked from `anon`/`authenticated` and only the required trusted role granted access.
 
