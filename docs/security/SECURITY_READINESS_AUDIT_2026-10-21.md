@@ -143,3 +143,12 @@ Additional transaction-scoped tests were run in the development/test project by 
 One initial owner-property assertion without the `aal2` claim returned zero rows. Inspection showed the owner access helper intentionally requires `aal2` when verified MFA is enrolled. Re-running with an `aal2` claim passed. This is expected MFA enforcement, not a cross-tenant leak.
 
 These tests are stronger than calling helper functions alone because they exercise table RLS as the `authenticated` role, but JWT claims were still simulated inside SQL. The available connected tools do not provide a direct authenticated PostgREST/API invocation capability, so separate real JWT REST tests remain outstanding. The test fixtures were rolled back; no persistent test rows were left by these checks. No production project was touched.
+
+
+### Fresh security advisor snapshot (2026-10-22)
+
+The latest Supabase security advisor for the development/test project reports:
+- No anonymous-executable SECURITY DEFINER finding in the returned findings (the earlier targeted privilege check also found none after EDC containment).
+- 20 SECURITY DEFINER functions callable by `authenticated`; each remains subject to function-by-function review. Several are expected application RPCs, so this warning is not itself proof of a vulnerability.
+- 13 RLS-enabled tables with no policies. Earlier effective-grant inspection found no direct browser-role table grants for these tables; keep the default-deny posture and verify the controlled RPC paths rather than adding permissive policies to silence the warning.
+- Leaked-password protection remains disabled. This setting still requires a dashboard change and validation; it has not been changed.
