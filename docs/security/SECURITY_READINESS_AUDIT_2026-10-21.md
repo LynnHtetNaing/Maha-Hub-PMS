@@ -172,3 +172,8 @@ This is a targeted policy-level fix, not a full API-level MFA test. The producti
 - Review the 20 authenticated-callable SECURITY DEFINER functions individually and test each through the API. Avoid blanket revocation because core application RPCs need browser access.
 - Review invoice numbering floor arguments for large jumps/abuse and verify offline-sync compatibility before imposing bounds.
 - Run production-like build, browser, and end-to-end regression tests; this audit is not a penetration test or compliance certification.
+
+
+### Security posture regression assertions (2026-10-22)
+
+Added supabase/tests/security_posture.sql and executed its assertions against the development/test database. The assertions passed: every public SECURITY DEFINER routine has a fixed search_path; no public SECURITY DEFINER routine is executable by anon; the 13 internal tables flagged for RLS-without-policies have no direct anon/authenticated table grants; and the organization-update policy uses the MFA-aware org-admin predicate without a direct owner bypass. These are database-level checks and do not replace API tests or Auth dashboard configuration.
