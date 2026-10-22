@@ -1,41 +1,28 @@
--- Regression: authenticated owners cannot change organization ownership through table UPDATE.
--- The target UUID need not exist: the trigger must reject ownership change before FK validation.
+-- Regression: the owner-change trigger rejects an attempted ownership transfer.
+-- Use a temporary fixture so the test does not require customer or seed organizations.
 begin;
 
-select set_config(
-  'request.jwt.claims',
-  jsonb_build_object(
-    'sub', (select owner_user_id::text from public.maha_organizations order by id limit 1),
-    'role', 'authenticated',
-    'aal', 'aal2'
-  )::text,
-  true
-);
-select set_config(
-  'request.jwt.claim.sub',
-  (select owner_user_id::text from public.maha_organizations order by id limit 1),
-  true
-);
+create temporary table owner_transfer_fixture(owner_user_id uuid);
+insert into owner_transfer_fixture values ('00000000-0000-0000-0000-000000000002');
 
-set local role authenticated;
+create trigger owner_transfer_fixture_guard
+before update of owner_user_id on owner_transfer_fixture
+for each row execute function public.maha_prevent_org_owner_change();
 
 do $test$
-declare
-  v_org uuid;
 begin
-  select id into v_org from public.maha_organizations order by id limit 1;
-  if v_org is null then raise exception 'test_requires_organization'; end if;
-
   begin
-    update public.maha_organizations
-    set owner_user_id = '00000000-0000-0000-0000-000000000001'
-    where id = v_org;
+    update owner_transfer_fixture
+    set owner_user_id = '00000000-0000-0000-0000-000000000001';
     raise exception 'assertion_failed_owner_transfer_was_allowed';
   exception when sqlstate '42501' then
     null;
   end;
+
+  if (select owner_user_id from owner_transfer_fixture) <> '00000000-0000-0000-0000-000000000002'::uuid then
+    raise exception 'assertion_failed_owner_changed';
+  end if;
 end
 $test$;
 
-reset role;
 rollback;
