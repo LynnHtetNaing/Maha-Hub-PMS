@@ -158,7 +158,7 @@ The latest Supabase security advisor for the development/test project reports:
 
 **Finding fixed in the development/test project:** the original maha_organizations_update_admin RLS policy allowed updates when owner_user_id = auth.uid() OR maha_is_org_admin(id). The direct owner branch bypassed the shared maha_owner_session_ok() check, which enforces AAL2 when a verified MFA factor is enrolled. Since the policy allowed organization-row updates generally, this could allow a signed-in owner with verified MFA to update organization-level fields without satisfying the expected AAL2 policy.
 
-**Change:** replaced the policy so both USING and WITH CHECK require public.maha_is_org_admin(id). Applied only to development/test project ulguzclaeksxfhzwuovg's counterpart wragaoglvksbbgmfjyzp; verified the stored policy expression uses the helper in both clauses. Migration and structural regression assertion:
+**Change:** replaced the policy so both USING and WITH CHECK require public.maha_is_org_admin(id). Applied only to the development/test project wragaoglvksbbgmfjyzp; verified the stored policy expression uses the helper in both clauses. Migration and structural regression assertion:
 - supabase/migrations/20261022130000_require_org_admin_for_org_updates.sql
 - supabase/tests/organization_update_policy.sql
 
