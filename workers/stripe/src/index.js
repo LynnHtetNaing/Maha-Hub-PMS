@@ -186,6 +186,27 @@ function cardFromSession(session) {
   };
 }
 
+/*
+ * Money-moving endpoints (/api/checkout, /api/collect) can require a signed-in Maha user.
+ * Turn it on with the variable REQUIRE_AUTH = "1" (plus SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY).
+ * The Worker asks Supabase whether the Bearer token is a real, current user; nothing is trusted from the browser.
+ * Off by default so nothing breaks until every caller sends a token (see the notes in wrangler.toml).
+ */
+async function requireUser(request, env) {
+  if (String(env.REQUIRE_AUTH || '') !== '1') return null;
+  const base = String(env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const key = String(env.SUPABASE_PUBLISHABLE_KEY || '').trim();
+  if (!base || !key) throw Object.assign(new Error('Sign-in check is not configured'), { status: 503 });
+  const auth = String(request.headers.get('Authorization') || '');
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!token) throw Object.assign(new Error('Sign in required'), { status: 401 });
+  const res = await fetch(base + '/auth/v1/user', { headers: { apikey: key, Authorization: 'Bearer ' + token } });
+  if (!res.ok) throw Object.assign(new Error('Sign in required'), { status: 401 });
+  const user = await res.json().catch(() => null);
+  if (!user || !user.id) throw Object.assign(new Error('Sign in required'), { status: 401 });
+  return user;
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -214,6 +235,7 @@ export default {
       }
 
       if (request.method === 'POST' && url.pathname === '/api/checkout') {
+        await requireUser(request, env);
         const input = await request.json().catch(() => ({}));
         const secret = String(input.secret || env.STRIPE_SECRET_KEY || '').trim();
         if (!secret) throw Object.assign(new Error('STRIPE_SECRET_KEY is not set'), { status: 400 });
@@ -272,6 +294,7 @@ export default {
       }
 
       if (request.method === 'POST' && url.pathname === '/api/collect') {
+        await requireUser(request, env);
         const input = await request.json().catch(() => ({}));
         const secret = String(input.secret || env.STRIPE_SECRET_KEY || '').trim();
         if (!secret) throw Object.assign(new Error('STRIPE_SECRET_KEY is not set'), { status: 400 });

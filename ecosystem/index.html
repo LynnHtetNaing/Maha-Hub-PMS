@@ -5733,7 +5733,8 @@ async function stripeCreateCheckout(link){
   const server=(cfg.server||'').replace(/\/+$/,'');
   if(server){
     try{
-      const res=await fetch(server+'/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const ckHdr={'Content-Type':'application/json'};const sbTok=(typeof MahaAuth!=='undefined'&&MahaAuth.read)?MahaAuth.read():null;if(sbTok&&sbTok.access_token)ckHdr['Authorization']='Bearer '+sbTok.access_token;
+      const res=await fetch(server+'/api/checkout',{method:'POST',headers:ckHdr,body:JSON.stringify(payload)});
       const data=await res.json().catch(()=>({}));
       if(res.ok&&data.url)return Object.assign({account:payload.stripeAccount||null,hotelOwned:!!payload.secret},data);
       if(cfg.secret&&(data.error||'').includes('STRIPE_SECRET_KEY')){/* fall through */}
