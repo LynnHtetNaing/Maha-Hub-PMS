@@ -239,3 +239,19 @@ A fresh security-advisor run against both the development/test project and the i
 Additional observed controls: no anonymous-executable public SECURITY DEFINER function was reported after the EDC containment in development/test; no public views were found in the development/test schema query. The production project was only inspected, not changed.
 
 The following remain release blockers: real authenticated REST/API tests; explicit confirmation and replacement/retirement of legacy EDC/payment behavior; dashboard Auth settings and MFA/session policy verification; full frontend/browser/build regression; production backup/restore validation; and a reviewed migration plan. The target of “99% secure” cannot be established from SQL tests or advisor counts alone, and this work is not a penetration test, PCI assessment, or certification.
+
+
+### Production security fixes applied after explicit instruction to proceed (2026-10-22)
+
+After the production schema was inspected, the following narrowly scoped database fixes were applied to `Maha-Hub-PMS` (`ulguzclaeksxfhzwuovg`):
+1. Corrected `maha_organizations_select_member` so the active-membership predicate compares `m.organization_id` to `maha_organizations.id`, not `m.id`.
+2. Replaced the organization UPDATE policy's direct-owner bypass with the shared MFA-aware `maha_is_org_admin(id)` predicate in both USING and WITH CHECK.
+3. Added `maha_organizations_owner_immutable`, a trigger that rejects any change to `owner_user_id` through ordinary updates. A future ownership-transfer workflow must be separately designed and reviewed.
+4. Added the 1,000,000,000 upper bound to the four invoice/counter floor RPCs after confirming all four functions and their expected authorization guards exist. A read-only check found no production records or counter rows at the time, so there was no existing invoice sequence to alter.
+5. Updated `maha_payload_has_forbidden_keys` to recursively reject non-empty nested credential fields. The prior function was confirmed to have the older Stripe-specific secret check; the read-only check found no production records to reject at the time.
+
+Post-change structural checks returned true for the corrected member policy, MFA-aware organization update policy, owner-immutability trigger, trigger-function browser-role EXECUTE revocation, all four invoice floor guards, and the nested `secret_key` detector. The owner-immutability trigger regression script passed against both development/test and production projects using temporary fixtures. No customer record or counter was changed by these checks.
+
+The production project did not contain the legacy `maha_edc` table or the named legacy EDC functions when checked, so the EDC-containment migrations were not applied there. Development/test still has those legacy functions contained and needs a replacement/retirement decision before that flow is used.
+
+**These changes do not mean production is cleared for commercial launch.** The current Supabase advisor still reports leaked-password protection disabled and 20 authenticated-executable SECURITY DEFINER functions. The latter require role-by-role API testing; not all are vulnerabilities, and blanket revocation could break the PMS. Real PostgREST tests, Auth dashboard configuration, payment-flow review, frontend/browser tests, backup/restore drill, and operational readiness checks remain outstanding.
