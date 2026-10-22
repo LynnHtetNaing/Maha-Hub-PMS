@@ -267,3 +267,12 @@ The connected Supabase migration tool recorded server-generated migration versio
 A direct post-deployment test caught a mismatch between the intended regression contract and the first nested-secret detector implementation: it also rejected an empty `stripe.secret` placeholder. This contradicted the committed test and could reject a previously compatible settings payload. I corrected the detector to reject non-empty nested `secret`, `secret_key`, `api_secret`, `private_key`, and `client_secret` values, while allowing empty secret placeholders and continuing to reject PAN/CVC/CVV/cardvault/session keys.
 
 The corrective migration `supabase/migrations/20261022170000_allow_empty_secret_placeholder.sql` was applied to development/test and production. The five focused payload checks now pass in both projects: non-empty nested secret rejected, nested secret_key rejected, nested CVC rejected, empty Stripe secret placeholder allowed, and ordinary guest/room payload allowed. The committed `payload_secret_detection.sql` regression script also completed without assertion errors against both projects. This illustrates why repeated behavioral tests matter even after a migration applies successfully.
+
+
+### Final focused regression rerun after the compatibility correction (2026-10-22)
+
+After the corrected payload detector was applied, the six committed development/test SQL regression files were fetched from the branch and executed again: `security_posture.sql`, `tenant_isolation.sql`, `invoice_counter_floor_bounds.sql`, `organization_update_policy.sql`, `payload_secret_detection.sql`, and `payload_write_rejection.sql`. Each completed without assertion errors. The additional `organization_owner_immutable.sql` test was executed against both development/test and production using a temporary fixture and completed without assertion errors.
+
+The focused payload predicate checks also passed in both projects: nested non-empty secret rejected; nested secret_key rejected; nested CVC rejected; empty Stripe secret placeholder allowed; ordinary guest/room payload allowed. Separate production structural checks returned true for the organization membership policy, MFA-aware organization update policy, owner immutability trigger and its browser-role grant restriction, all four invoice floor bounds, and nested secret-key detection.
+
+All of these remain SQL-level validations. Real authenticated PostgREST/API sessions, frontend/browser tests, and the Auth dashboard controls remain unverified.
