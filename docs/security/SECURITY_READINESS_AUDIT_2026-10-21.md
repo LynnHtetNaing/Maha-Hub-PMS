@@ -152,3 +152,23 @@ The latest Supabase security advisor for the development/test project reports:
 - 20 SECURITY DEFINER functions callable by `authenticated`; each remains subject to function-by-function review. Several are expected application RPCs, so this warning is not itself proof of a vulnerability.
 - 13 RLS-enabled tables with no policies. Earlier effective-grant inspection found no direct browser-role table grants for these tables; keep the default-deny posture and verify the controlled RPC paths rather than adding permissive policies to silence the warning.
 - Leaked-password protection remains disabled. This setting still requires a dashboard change and validation; it has not been changed.
+
+
+### Additional authorization finding (2026-10-22)
+
+**Finding fixed in the development/test project:** the original maha_organizations_update_admin RLS policy allowed updates when owner_user_id = auth.uid() OR maha_is_org_admin(id). The direct owner branch bypassed the shared maha_owner_session_ok() check, which enforces AAL2 when a verified MFA factor is enrolled. Since the policy allowed organization-row updates generally, this could allow a signed-in owner with verified MFA to update organization-level fields without satisfying the expected AAL2 policy.
+
+**Change:** replaced the policy so both USING and WITH CHECK require public.maha_is_org_admin(id). Applied only to development/test project ulguzclaeksxfhzwuovg's counterpart wragaoglvksbbgmfjyzp; verified the stored policy expression uses the helper in both clauses. Migration and structural regression assertion:
+- supabase/migrations/20261022130000_require_org_admin_for_org_updates.sql
+- supabase/tests/organization_update_policy.sql
+
+This is a targeted policy-level fix, not a full API-level MFA test. The production project ulguzclaeksxfhzwuovg remains untouched. Do not apply the migration to production until the release branch is reviewed and the owner/org-admin update flow is tested with real JWT sessions both with and without verified MFA.
+
+### Remaining release blockers
+
+- Perform real PostgREST/API tests with separate user JWTs for owner, org admin, property admin, staff, read-only staff, inactive users, and a second tenant. SQL-simulated claims are useful but do not replace these tests.
+- Confirm the legacy EDC flow is retired/replaced with a PCI-compliant provider tokenization flow before restoring any EDC RPC access. Never persist CVC/CVV after authorization; review whether legacy PAN data exists in any other tables, logs, backups, or exports.
+- Enable and verify leaked-password protection in Supabase Auth; review OTP expiry against the provider's current recommendation.
+- Review the 20 authenticated-callable SECURITY DEFINER functions individually and test each through the API. Avoid blanket revocation because core application RPCs need browser access.
+- Review invoice numbering floor arguments for large jumps/abuse and verify offline-sync compatibility before imposing bounds.
+- Run production-like build, browser, and end-to-end regression tests; this audit is not a penetration test or compliance certification.
