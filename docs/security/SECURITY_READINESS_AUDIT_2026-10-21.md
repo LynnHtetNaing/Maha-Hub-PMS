@@ -212,3 +212,8 @@ Updated `maha_payload_has_forbidden_keys` in the development/test project to rej
 
 
 The payload-secret regression was also tested through the actual database write RPCs: `maha_sync_push` rejected a non-empty nested secret; `maha_save_property_cloud` rejected a nested `secret_key`; and a Stripe-shaped record with an empty secret placeholder was accepted. All successful test writes were rolled back. This still tests database functions under simulated claims, not an HTTP/PostgREST request.
+
+
+### Final regression pass (2026-10-22)
+
+Reran all six committed SQL regression files against the development/test project after the final changes; all completed without assertion errors: `security_posture.sql`, `tenant_isolation.sql`, `invoice_counter_floor_bounds.sql`, `organization_update_policy.sql`, `payload_secret_detection.sql`, and `payload_write_rejection.sql`.
