@@ -209,3 +209,6 @@ A recursive scan of the 594 development/test `maha_records` payloads found one e
 Updated `maha_payload_has_forbidden_keys` in the development/test project to reject non-empty nested `secret`, `secret_key`, `api_secret`, `private_key`, and `client_secret` values regardless of wrapper depth, while retaining rejection of PAN/CVC/CVV/cardvault/session keys. Tests passed for nested secret, nested CVC, empty placeholder compatibility, and ordinary guest/room data. The existing test data's `secret` placeholder is empty; no secret value was displayed or changed. Migration and test:
 - `supabase/migrations/20261022150000_harden_nested_secret_payload_detection.sql`
 - `supabase/tests/payload_secret_detection.sql`
+
+
+The payload-secret regression was also tested through the actual database write RPCs: `maha_sync_push` rejected a non-empty nested secret; `maha_save_property_cloud` rejected a nested `secret_key`; and a Stripe-shaped record with an empty secret placeholder was accepted. All successful test writes were rolled back. This still tests database functions under simulated claims, not an HTTP/PostgREST request.
