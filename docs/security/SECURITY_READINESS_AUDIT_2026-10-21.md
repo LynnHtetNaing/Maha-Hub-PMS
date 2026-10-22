@@ -177,3 +177,6 @@ This is a targeted policy-level fix, not a full API-level MFA test. The producti
 ### Security posture regression assertions (2026-10-22)
 
 Added supabase/tests/security_posture.sql and executed its assertions against the development/test database. The assertions passed: every public SECURITY DEFINER routine has a fixed search_path; no public SECURITY DEFINER routine is executable by anon; the 13 internal tables flagged for RLS-without-policies have no direct anon/authenticated table grants; and the organization-update policy uses the MFA-aware org-admin predicate without a direct owner bypass. These are database-level checks and do not replace API tests or Auth dashboard configuration.
+
+
+A transaction-scoped RLS regression was also run using a development/test account with a verified MFA factor. With the same owner JWT subject simulated at AAL1, an organization update affected zero rows (blocked); with AAL2, the update succeeded. Both fixtures were rolled back. This validates the database policy/helper interaction under simulated claims, not real JWT issuance or PostgREST transport.
