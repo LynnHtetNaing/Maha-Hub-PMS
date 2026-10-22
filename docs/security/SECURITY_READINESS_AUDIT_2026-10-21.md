@@ -180,3 +180,14 @@ Added supabase/tests/security_posture.sql and executed its assertions against th
 
 
 A transaction-scoped RLS regression was also run using a development/test account with a verified MFA factor. With the same owner JWT subject simulated at AAL1, an organization update affected zero rows (blocked); with AAL2, the update succeeded. Both fixtures were rolled back. This validates the database policy/helper interaction under simulated claims, not real JWT issuance or PostgREST transport.
+
+
+### Invoice/counter floor abuse hardening (2026-10-22)
+
+The invoice and number-lease RPCs accepted client-supplied floor values without an upper bound. A user who already had write access to a property could submit an extremely large floor and push the hotel's invoice sequence forward, potentially disrupting future issuance. The development/test project had a maximum existing counter of 1,301 and maximum registered invoice number of 7 at the time of the change.
+
+Added a conservative upper bound of 1,000,000,000 to client-provided invoice/counter floor values in `maha_issue_invoice_no`, `maha_issue_invoice_number`, `maha_issue_invoice_ref`, and `maha_lease_numbers`. Oversized values now raise SQLSTATE 22023 before counter mutation. The migration was applied only to the development/test project `wragaoglvksbbgmfjyzp`. Regression tests attempted oversized floors against all four RPCs under simulated authenticated owner/AAL2 claims; all were rejected and the transaction rolled back. Migration and test:
+- `supabase/migrations/20261022143000_bound_invoice_and_counter_floors.sql`
+- `supabase/tests/invoice_counter_floor_bounds.sql`
+
+Before production rollout, validate the bound against real customer invoice numbering requirements and offline-sync/import scenarios.
