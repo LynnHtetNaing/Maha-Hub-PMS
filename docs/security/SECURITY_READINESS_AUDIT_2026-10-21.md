@@ -130,3 +130,16 @@ The invoice tests in the integration branch explicitly use higher floor values t
 ### Auth configuration limitation
 
 The connected Supabase tools available for this review expose database SQL, advisors, and Edge Function source, but not project Auth configuration controls. Compromised-password protection and OTP expiry remain unmodified and need to be checked in the Supabase Dashboard Auth settings. Do not treat them as fixed.
+
+
+### Follow-up: direct authenticated-role RLS regression checks (2026-10-22)
+
+Additional transaction-scoped tests were run in the development/test project by creating temporary fixture organizations, properties, memberships, and records, switching to the PostgreSQL `authenticated` role, setting simulated JWT claims, querying through the actual table RLS policies, and rolling back the fixtures. Results:
+- Owner A sees only their own property when the test JWT includes `aal2` where required: passed.
+- An active member sees only their assigned organization and membership row: passed.
+- An active read-only staff member sees only the assigned property and its records: passed.
+- An inactive member sees no assigned organization, property, or records: passed.
+
+One initial owner-property assertion without the `aal2` claim returned zero rows. Inspection showed the owner access helper intentionally requires `aal2` when verified MFA is enrolled. Re-running with an `aal2` claim passed. This is expected MFA enforcement, not a cross-tenant leak.
+
+These tests are stronger than calling helper functions alone because they exercise table RLS as the `authenticated` role, but JWT claims were still simulated inside SQL. The available connected tools do not provide a direct authenticated PostgREST/API invocation capability, so separate real JWT REST tests remain outstanding. The test fixtures were rolled back; no persistent test rows were left by these checks. No production project was touched.
