@@ -217,3 +217,25 @@ The payload-secret regression was also tested through the actual database write 
 ### Final regression pass (2026-10-22)
 
 Reran all six committed SQL regression files against the development/test project after the final changes; all completed without assertion errors: `security_posture.sql`, `tenant_isolation.sql`, `invoice_counter_floor_bounds.sql`, `organization_update_policy.sql`, `payload_secret_detection.sql`, and `payload_write_rejection.sql`.
+
+
+### Additional authorization finding: organization ownership transfer (2026-10-22)
+
+A further policy review found that an active organization-level admin could satisfy the organization UPDATE policy even when changing the organization's `owner_user_id`. The existing policy checks admin status against the organization ID; that check alone does not make the ownership field immutable. This could allow an org admin to attempt an unintended ownership transfer through direct table UPDATE.
+
+**Development/test fix:** added a `BEFORE UPDATE OF owner_user_id` trigger that rejects any change to the organization owner with SQLSTATE `42501`. The trigger function is `SECURITY INVOKER`, has an empty fixed search path, and has EXECUTE revoked from browser roles. Existing organization setup/creation is unaffected; an ownership-transfer workflow would need a separate explicit, reviewed implementation. The migration was applied only to `wragaoglvksbbgmfjyzp` and committed at:
+- `supabase/migrations/20261022160000_prevent_org_owner_transfer.sql`
+- `supabase/tests/organization_owner_immutable.sql`
+
+The trigger definition and browser-role EXECUTE revocation were verified after migration. The regression script is transaction-scoped and uses simulated JWT claims; it is not a real PostgREST/API test. Production remains unchanged.
+
+### Fresh advisor snapshot and current remaining blockers (2026-10-22)
+
+A fresh security-advisor run against both the development/test project and the intended production project reports the same core findings:
+- **Leaked-password protection disabled** (Auth configuration/plan limitation; not changed).
+- **20 authenticated-executable SECURITY DEFINER functions** in the public schema. Source-level inspection found the main property data and invoice mutation functions check authenticated identity and the appropriate property write/access helper, and platform/admin data functions contain role/session checks. This is not a blanket pass: direct REST calls with real JWTs are still required for each relevant function and role.
+- **RLS enabled with no policies** on internal tables. Effective privilege inspection found no direct anon/authenticated table grants for the flagged internal tables in the inspected project; keep them default-deny rather than adding broad policies to silence the informational warning.
+
+Additional observed controls: no anonymous-executable public SECURITY DEFINER function was reported after the EDC containment in development/test; no public views were found in the development/test schema query. The production project was only inspected, not changed.
+
+The following remain release blockers: real authenticated REST/API tests; explicit confirmation and replacement/retirement of legacy EDC/payment behavior; dashboard Auth settings and MFA/session policy verification; full frontend/browser/build regression; production backup/restore validation; and a reviewed migration plan. The target of “99% secure” cannot be established from SQL tests or advisor counts alone, and this work is not a penetration test, PCI assessment, or certification.
