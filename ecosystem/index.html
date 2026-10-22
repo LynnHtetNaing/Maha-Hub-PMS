@@ -1176,6 +1176,32 @@ tr.rblk td{background:#c3c8cd!important;color:#1f2a33}tr.rblk:hover td{backgroun
 .eco-shell .eco-login img.eco-tile.is-stack{width:min(240px,66%);margin:0 auto 10px}
 .phead h1,.bfh,.fch,.hsh,.hkh{background:#3b9ae1;color:#fff;border:0;border-bottom:3px solid #2b7fc6;border-radius:4px}
 .phead h1 .thic,.hsh .thic,.fch .thic,.bfh .thic,.hkh .thic{color:#fff}
+/* Hotel style: "Modern" (calm, cool, high-contrast). Only active when the provider sets the hotel to Modern: html[data-skin="modern"]. Classic = nothing here applies. */
+html[data-skin="modern"] .phead h1 .thic,html[data-skin="modern"] .hsh .thic,html[data-skin="modern"] .fch .thic,html[data-skin="modern"] .bfh .thic,html[data-skin="modern"] .hkh .thic{color:#fff}
+html[data-skin="modern"]{--logo-bg:#244740; --title:#243A34; --accent:#315F54; --accent-hover:#244740; --gold-muted:#B89A5A; --green:#244740; --green2:#315F54; --green3:#3D6A5F; --green-hover:#244740; --gold:#B89A5A; --gold2:#C4A66A; --gold3:#8B713E; --gold-wash:#F5F0E3; --gold-soft:#FAF7EF; --select:#DDE9E3; --ivory:#F0F4F2; --ink:#243A34; --mut:#52645D; --line:#DCE5E0; --bg:#F0F4F2; --card:#FFFFFF; --blue:#315F80; --lblue:#E3EDF4; --orange:#F0D39B; --pgreen:#D9EDE0; --pred:#F2DCD8; --pay:#F5E1DD; --payt:#873F34; --corr:#E2F1E8; --corrt:#205E3E;}
+html[data-skin="modern"] body{color:var(--ink);background:var(--bg)}
+html[data-skin="modern"] .sub,html[data-skin="modern"] .muted,html[data-skin="modern"] .hint,html[data-skin="modern"] .small-muted{color:#52645D}
+html[data-skin="modern"] .phead h1,html[data-skin="modern"] .bfh,html[data-skin="modern"] .fch,html[data-skin="modern"] .hsh,html[data-skin="modern"] .hkh{background:#FFFFFF;color:#243A34;border:1px solid #DCE5E0; border-bottom:3px solid #B89A5A;border-radius:6px}
+html[data-skin="modern"] .phead h1 .thic,html[data-skin="modern"] .hsh .thic,html[data-skin="modern"] .fch .thic,html[data-skin="modern"] .bfh .thic,html[data-skin="modern"] .hkh .thic{color:#315F54}
+html[data-skin="modern"] .toolbar,html[data-skin="modern"] .cdbar{background:#E5EEE9;border-color:#CBDAD2;color:#243A34}
+html[data-skin="modern"] .tsep{background:#CBDAD2}
+html[data-skin="modern"] .tbtn{border-color:#CBDAD2;color:#244740}
+html[data-skin="modern"] .tbtn:hover{background:#F5F0E3;border-color:#B89A5A}
+html[data-skin="modern"] .topbar{height:58px;padding:0 12px;background:#244740;color:#FFFFFF;border-bottom:1px solid #DCE5E0}
+html[data-skin="modern"] .tb-left{gap:8px}
+html[data-skin="modern"] .tblogo{width:42px;height:42px}
+html[data-skin="modern"] .tb-mid{height:56px}
+html[data-skin="modern"] .tbdates .bdate{font-family:Manrope,"Noto Sans",sans-serif;font-size:12px}
+html[data-skin="modern"] .tbdates .tbnow{font-size:10px}
+html[data-skin="modern"] .tb-right{gap:7px}
+html[data-skin="modern"] .tbico{width:34px;height:34px}
+html[data-skin="modern"] .phead h1,html[data-skin="modern"] .bfh,html[data-skin="modern"] .fch,html[data-skin="modern"] .hsh,html[data-skin="modern"] .hkh{font-family:Manrope,"Noto Sans",sans-serif;font-weight:700}
+html[data-skin="modern"] h1,html[data-skin="modern"] h2,html[data-skin="modern"] h3,html[data-skin="modern"] .hsec{font-family:Manrope,"Noto Sans","Noto Sans Thai","Noto Sans Myanmar",sans-serif}
+html[data-skin="modern"] button,html[data-skin="modern"] input,html[data-skin="modern"] select,html[data-skin="modern"] textarea{font-family:"Noto Sans","Noto Sans Thai","Noto Sans Myanmar",Tahoma,system-ui,sans-serif}
+@media(max-width:760px){html[data-skin="modern"] .topbar{height:54px}
+html[data-skin="modern"] .tb-mid{height:52px}
+html[data-skin="modern"] .tblogo{width:36px;height:36px}
+}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 </head><body><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -3177,6 +3203,7 @@ const FX_LIST=[["Reservation screen",[["fx.res.checkin","Check in","#aCI"],["fx.
 function fxOn(k){return featOn(H,k)}
 function fxGuard(k){if(fxOn(k))return true;toast('This function is switched off for this hotel. The provider can switch it on under Functions & plan.');return false}
 function applyFxCss(){
+  applySkin();
   let st=document.getElementById('fxCss');if(!st){st=document.createElement('style');st.id='fxCss';document.head.appendChild(st)}
   const off=[];if(H&&H.set&&H.set.features&&DB&&DB.session&&!DB.session.provider)FX_LIST.forEach(g=>g[1].forEach(x=>{if(x[2]&&H.set.features[x[0]]===false)off.push(x[2])}));
   st.textContent=off.length?off.join(',')+'{display:none!important}':'';
@@ -3194,6 +3221,12 @@ const HOTEL_PACKAGES={
   build:{name:'Build Up',note:'Maha PMS with the essential titles. Connect, Booking, Reach and Sales are closed for this hotel. Each system can still be opened on its own, and each person is opened under Staff & permissions.'},
   fullpkg:{name:'Full Package',note:'Every PMS title is open, and Connect, Booking, Reach and Sales are open for this hotel. Each person still needs that system under Setup → Staff & permissions. Direct booking still needs the Google details under Setup → Direct booking & Google before guests can book.'}
 };
+const HOTEL_SKINS={
+  classic:{name:'Classic',note:'The familiar Maha look: forest green and gold. This is how the system looks today.'},
+  modern:{name:'Modern',note:'A calmer, cooler, higher-contrast look with clearer headings. Same screens, same buttons, same workflow.'}
+};
+function skinOf(h){const id=h&&h.set&&h.set.skin;return HOTEL_SKINS[id]?id:'classic'}
+function applySkin(){try{document.documentElement.setAttribute('data-skin',(typeof H!=='undefined'&&H&&H.set&&DB&&DB.session)?skinOf(H):'classic')}catch(e){}}
 function applyHotelPackage(h,id){
   shapeHotel(h);
   const pkg=HOTEL_PACKAGES[id];if(!pkg)return;
@@ -3216,11 +3249,14 @@ function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.s
   const pkg=H.set&&H.set.package;
   const boxes=functionGroups().map(g=>`<h3 class="featsec">${esc(g.t)}</h3><div class="featgrid">${g.items.map(([k,l])=>`<label class="chk"><input type="checkbox" data-fn="${k}" ${feat(k)?'checked':''} ${editable?'':'disabled'}> ${esc(l)}</label>`).join('')}</div>`).join('');
   const pkgRow=editable?`<h3 class="featsec">Package</h3><div class="planrow">${Object.entries(HOTEL_PACKAGES).map(([id,p])=>`<button type="button" class="btn ${pkg===id?'gold':''}" data-pkg="${id}">${esc(p.name)}</button>`).join('')}</div><p class="sub" id="pkgNote">${esc((HOTEL_PACKAGES[pkg]||{note:'One choice for this hotel. Build Up or Full Package sets the PMS titles and Connect, Booking and Reach together. Maha Sales is not switched per hotel.'}).note)}</p>`:`<p>Package: <b>${esc((HOTEL_PACKAGES[pkg]||{name:'Custom mix'}).name)}</b>. Plan: <b>${esc(planName(H))}</b>.</p>`;
-  const head=editable?`${pkgRow}<h3 class="featsec">PMS titles</h3><div class="planrow">${plans.map(([id,name])=>`<button type="button" class="btn ${plan===id?'gold':''}" data-plan="${id}">${name}</button>`).join('')}</div><p class="sub" id="planNote">${esc((HOTEL_PLANS[plan]||HOTEL_PLANS.full).note)}</p><p class="sub">Setup → Functions stays visible so the hotel can read this list. Staff cannot turn a hidden title back on.</p>`:pkgRow;
+  const skin=skinOf(H);
+  const skinRow=editable?`<h3 class="featsec">Style</h3><div class="planrow">${Object.entries(HOTEL_SKINS).map(([id,k])=>`<button type="button" class="btn ${skin===id?'gold':''}" data-skin-pick="${id}">${esc(k.name)}</button>`).join('')}</div><p class="sub" id="skinNote">${esc(HOTEL_SKINS[skin].note)}</p>`:`<p>Style: <b>${esc(HOTEL_SKINS[skin].name)}</b>.</p>`;
+  const head=editable?`${pkgRow}${skinRow}<h3 class="featsec">PMS titles</h3><div class="planrow">${plans.map(([id,name])=>`<button type="button" class="btn ${plan===id?'gold':''}" data-plan="${id}">${name}</button>`).join('')}</div><p class="sub" id="planNote">${esc((HOTEL_PLANS[plan]||HOTEL_PLANS.full).note)}</p><p class="sub">Setup → Functions stays visible so the hotel can read this list. Staff cannot turn a hidden title back on.</p>`:pkgRow;
   return head+boxes+fxHtml(editable)}
 function bindPlanEditor(root){if(!root)return;root.dataset.chosen=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);
   const mark=id=>{$$('[data-plan]',root).forEach(b=>b.classList.toggle('gold',b.dataset.plan===id));const n=$('#planNote',root);if(n)n.textContent=(HOTEL_PLANS[id]||HOTEL_PLANS.custom).note;root.dataset.chosen=id;if(H.set)H.set.package='';$$('[data-pkg]',root).forEach(b=>b.classList.remove('gold'));const pn=$('#pkgNote',root);if(pn)pn.textContent='PMS titles were changed on their own. Save, or choose Build Up or Full Package again to set the whole hotel in one step.'};
   $$('[data-pkg]',root).forEach(b=>b.onclick=()=>{if(!provOnly())return;applyHotelPackage(H,b.dataset.pkg);provLog(`${HOTEL_PACKAGES[b.dataset.pkg].name} for ${H.code}`);saveDB();toast(`${HOTEL_PACKAGES[b.dataset.pkg].name} saved for ${H.code}.`);render()});
+  $$('[data-skin-pick]',root).forEach(b=>b.onclick=()=>{if(!provOnly())return;const id=b.dataset.skinPick;if(!HOTEL_SKINS[id])return;H.set.skin=id;provLog(`Style ${HOTEL_SKINS[id].name} for ${H.code}`);saveDB();applySkin();toast(`${HOTEL_SKINS[id].name} style saved for ${H.code}.`);render()});
   $$('[data-plan]',root).forEach(b=>b.onclick=()=>{mark(b.dataset.plan);if(b.dataset.plan==='custom')return;const flags=flagsForPlan(b.dataset.plan);$$('[data-fn]',root).forEach(c=>{c.checked=!!flags[c.dataset.fn]})});
   $$('[data-fn]',root).forEach(c=>c.addEventListener('change',()=>mark('custom')));
   const btn=$('#fnSave',root);if(!btn)return;
