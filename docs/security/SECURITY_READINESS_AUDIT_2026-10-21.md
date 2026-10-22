@@ -191,3 +191,12 @@ Added a conservative upper bound of 1,000,000,000 to client-provided invoice/cou
 - `supabase/tests/invoice_counter_floor_bounds.sql`
 
 Before production rollout, validate the bound against real customer invoice numbering requirements and offline-sync/import scenarios.
+
+
+### Auth password protection plan limitation (2026-10-22)
+
+The connected Supabase organization is currently on the Free plan. Supabase's current password-security documentation states leaked-password protection is available on Pro and above, so this control cannot be enabled on the current plan through the available project tooling. No plan upgrade or billing change was made. This remains a dashboard/plan-level decision; once eligible, enable leaked-password protection in Authentication → Settings and re-run the Security Advisor. The existing Auth warning is therefore unresolved rather than silently dismissed.
+
+### Regression suite rerun (2026-10-22)
+
+Fetched and executed the repository versions of `security_posture.sql`, `tenant_isolation.sql`, `invoice_counter_floor_bounds.sql`, and `organization_update_policy.sql` against the development/test project. All completed without assertion errors. These are database-side tests with simulated JWT claims where applicable; they do not establish real PostgREST/API behavior.
