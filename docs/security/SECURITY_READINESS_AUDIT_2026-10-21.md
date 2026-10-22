@@ -200,3 +200,12 @@ The connected Supabase organization is currently on the Free plan. Supabase's cu
 ### Regression suite rerun (2026-10-22)
 
 Fetched and executed the repository versions of `security_posture.sql`, `tenant_isolation.sql`, `invoice_counter_floor_bounds.sql`, and `organization_update_policy.sql` against the development/test project. All completed without assertion errors. These are database-side tests with simulated JWT claims where applicable; they do not establish real PostgREST/API behavior.
+
+
+### Nested secret-payload detection fix (2026-10-22)
+
+A recursive scan of the 594 development/test `maha_records` payloads found one empty `secret` placeholder nested at `collection=$set`, `key=stripe`; no card-data keys were found by the recursive scan, and the existing helper reported zero flagged payloads. Review showed the helper only rejected `secret` when its immediate parent key was `stripe`, so a non-empty secret under the common `{ "v": { ... } }` record wrapper could bypass that check.
+
+Updated `maha_payload_has_forbidden_keys` in the development/test project to reject non-empty nested `secret`, `secret_key`, `api_secret`, `private_key`, and `client_secret` values regardless of wrapper depth, while retaining rejection of PAN/CVC/CVV/cardvault/session keys. Tests passed for nested secret, nested CVC, empty placeholder compatibility, and ordinary guest/room data. The existing test data's `secret` placeholder is empty; no secret value was displayed or changed. Migration and test:
+- `supabase/migrations/20261022150000_harden_nested_secret_payload_detection.sql`
+- `supabase/tests/payload_secret_detection.sql`
