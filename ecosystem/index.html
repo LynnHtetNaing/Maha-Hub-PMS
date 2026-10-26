@@ -560,7 +560,7 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
  body{font-size:14px}
 }
 .depmodal .dpbox{min-height:360px;padding:6px 4px}.dptab tr[data-dl]{cursor:pointer}.dptab tr.sel td{background:#ffe9b3}.dpbtn{margin-top:16px;gap:10px}
-.fshare{display:flex;flex-wrap:wrap;gap:6px 16px;margin:2px 0 2px 22px;font-size:13px}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
+.fshare{display:block;margin:6px 0 2px 0}.fshare .fsh1{margin-top:6px}.fspace{visibility:hidden}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
 .gbi{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;background:#fff;color:#26414f;font-size:10px;font-weight:800;margin-right:5px;vertical-align:middle;line-height:1}
 .chb{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#e3ebef;color:#26414f;font-size:11px;font-weight:800;margin-right:6px;vertical-align:middle;line-height:1}
 /* ---- Reports bar: the first layout, with smaller boxes and buttons so it fits ---- */
@@ -991,6 +991,14 @@ tr.sel td{outline:0!important;background:#ffd98a!important;color:#3a2a05!importa
 .fpc0{overflow-x:auto;padding:52px 40px 44px}.fpcanvas{min-width:900px}
 .dft .hkt{padding:8px 10px}.dft .hkt .tat{right:7px;top:7px}.dft .hkt .tlo{right:7px;bottom:7px}
 .hkl .hkh,html[data-skin="modern"] .hkl .hkh{padding:20px 22px 8px!important;gap:12px}html[data-skin="modern"] .hkl .hkh .thic{margin:0}.hkl .hkform{padding:12px 20px 14px}.hkl .hkleg{margin:0 16px 16px}
+/* four corners of a room card: number top-left, type code top-right, @ marks bottom-left, status icons bottom-right. Nothing sits on top of anything else. */
+.hkt,html[data-skin="modern"] .hkt{display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto 1fr auto;grid-template-areas:"n n" "t ." ". ." "b b";align-items:start;column-gap:8px;padding:12px 13px 12px;min-height:88px}
+.hkt .tn{grid-area:n;font-size:clamp(18px,1.7vw,24px);line-height:1.1;margin:0}
+.hkt .tt{grid-area:t;justify-self:start;margin:6px 0 0;font-size:11.5px;font-weight:800;letter-spacing:.04em;color:#fff;background:#ffffff2e;border-radius:8px;padding:2px 8px;line-height:1.2}
+.hkt .tbot{grid-area:b;display:flex;flex-wrap:wrap;align-items:center;gap:7px 8px;align-self:end}
+.hkt .tat{position:static;right:auto;top:auto;gap:4px;padding:2px 9px}.hkt .tat .at{font-size:14px;line-height:1.2}
+.hkt .tlo{position:static;margin-left:auto;right:auto;bottom:auto;left:auto;gap:8px;padding:4px 11px}.hkt .tlo svg{width:15px;height:15px}
+.dft .hkt{min-height:0;width:126px;height:92px;padding:8px 10px}.dft .hkt .tn{font-size:16px}.dft .hkt .tt{font-size:10px;padding:1px 6px}.dft .hkt .tat{padding:0 6px}.dft .hkt .tlo{padding:2px 8px;gap:5px}.dft .hkt .tlo svg{width:13px;height:13px}
 .fpf{border:2px solid #ffffff4d;border-radius:14px}.fpf .lift{border:0;border-radius:10px;background:#ffffff1a;color:#cfd4e3}.fpcorr{border-radius:99px}
 .hkdashb{gap:18px}
 /* ---- Full-page invoice and registration card ---- */
@@ -7760,7 +7768,50 @@ VIEWS['res.walkin']=(el)=>{if(!need('res.create')){go('fo.status');return}newRes
 function editMode(B){if(!B)return 'full';if(closedBooking(B))return 'closed';if(firstNightClosed(B))return 'restricted';if(['cancelled','noshow'].includes(B.status))return 'closed';return 'full'}
 
 /* ---------- reservation screen (Sections 8 and 10) ---------- */
+/* tabs of a reservation: one per room (main guest), and one beside it for each guest sharing that room */
+function resTabsHtml(r,B,sg){return `<div class="btabs">${r.bookings.map(b=>`<button class="btab ${b===B&&!sg?'on':''}" data-bt="${b.id}">${esc(G(b.guestId).last)}${b.room?' · '+b.room:''}</button>`+(b.shares||[]).map(id=>`<button class="btab sh ${b===B&&sg===id?'on':''}" data-bt="${b.id}" data-sg="${id}" title="Guest sharing room ${esc(b.room||'')}">${esc(G(id).last)}${b.room?' · '+b.room:''}</button>`).join('')).join('')}</div>`}
+/* the page of a guest who shares the room: the same look as the main guest's page, the guest's own details, saved to that guest's profile */
+function shareGuestScreen(box,r,B,gid,o){
+  const g=G(gid),GE=can('profile')&&!user().provider,gd=GE?'':'disabled',docs=can('docs');
+  g.doc=g.doc||emptyDoc();
+  const reopen=()=>{saveDB();reservationScreen(box,r,bookingById(B.id),o)};
+  const q=sel=>box.querySelector(sel);
+  box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
+   <div class="toolbar">${tb('sSave','save','Save changes',!GE)}${tb('sProf','idc','Guest profile')}<span class="sp"></span>${stBadge(B)}</div>
+   <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input value="${esc(r.contact)}" disabled>`,'w2')}${fld('Reference',`<input value="${esc(r.reference)}" disabled>`)}</div>
+   ${resTabsHtml(r,B,gid)}
+   <div class="rgrid">
+    <div class="rcol">
+     <div class="pn"><div class="pnh grey">${ic('bed',15)} Rooms – ${B.type}${B.room?' ['+B.room+']':''}</div><div class="pnb kv2">
+       ${fld('Hotel code',`<input value="${H.code}" disabled>`)}${fld('Room',`<input value="${esc(B.room||'')}" disabled>`)}
+       ${fld('Arrival',`<input value="${fd(B.arr)}" disabled>`)}${fld('Departure',`<input value="${fd(B.dep)}" disabled>`)}
+       ${fld('Room nights',`<input value="${nights(B)}" disabled>`)}${fld('Rate code',`<input value="${esc(B.rateCode)}" disabled>`)}</div></div>
+    </div>
+    <div class="rcol">
+     <div class="pn"><div class="pnh blue">Customer – Sharing guest <button class="pnic" id="sOpen" title="Guest profile">${ic('idc',15)}</button></div><div class="pnb g4">
+       ${fld('Last name',`<input id="sLast" value="${esc(g.last)}" ${gd}>`)}${fld('First name',`<input id="sFirst" value="${esc(g.first)}" ${gd}>`)}
+       ${fld('Title',`<select id="sTitle" ${gd}>${TITLES.map(t=>opt(t,t,g.title)).join('')}</select>`)}${fld('VIP',`<input id="sVip" value="${esc(g.vip)}" ${gd}>`)}</div></div>
+     <div class="pn"><div class="pnh lblue">Guest details</div><div class="pnb g4">
+       ${fld('Nationality',`<input id="sNat" value="${esc(g.nationality)}" ${gd}>`)}${fld('Country',`<input id="sCountry" value="${esc(g.country)}" ${gd}>`)}
+       ${fld('Gender',`<input id="sGen" value="${esc(g.gender)}" list="sGenL" ${gd}><datalist id="sGenL"><option value="Male"><option value="Female"><option value="Other"></datalist>`)}${fld('Birthday',`<input type="date" id="sBirth" value="${esc(g.birthday)}" ${gd}>`)}
+       ${fld('Document type',`<select id="sDocT" ${docs&&GE?'':'disabled'}>${['','PASSPORT','ID CARD','THAI ID CARD','ALIEN REGISTRATION','DRIVING LICENCE'].map(x=>opt(x,x||'—',g.doc.type||'')).join('')}</select>`)}${fld('Passport / ID no.',`<input id="sPass" value="${docs?esc(g.doc.no):'••••••'}" ${docs&&GE?'':'disabled'}>`)}
+       ${fld('Phone',`<input id="sPhone" value="${esc(g.phone)}" ${gd}>`)}${fld('Email',`<input id="sEmail" value="${esc(g.email)}" ${gd}>`)}
+       ${fld('Address',`<input id="sAddr" value="${esc(g.address)}" ${gd}>`,'span2')}${fld('Remark',`<input id="sRem" value="${esc(g.remark)}" ${gd}>`,'span2')}</div></div>
+    </div>
+   </div><div class="err" id="sErr"></div></div>`;
+  $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),Object.assign({},o,{shareGid:t.dataset.sg||null})));
+  const prof=()=>guestProfile(gid,reopen);q('#sProf').onclick=prof;q('#sOpen').onclick=prof;
+  q('#sSave').onclick=()=>{
+    const err=q('#sErr');err.textContent='';if(!DB.session||!curShift()){need();return}
+    const ng={last:q('#sLast').value.trim(),first:q('#sFirst').value.trim(),title:q('#sTitle').value,vip:q('#sVip').value.trim(),nationality:q('#sNat').value.trim(),country:q('#sCountry').value.trim(),gender:q('#sGen').value.trim(),birthday:q('#sBirth').value,phone:q('#sPhone').value.trim(),email:q('#sEmail').value.trim(),address:q('#sAddr').value.trim(),remark:q('#sRem').value.trim()};
+    if(!ng.last){err.textContent='Enter the guest last name.';return}
+    const ch=[];Object.keys(ng).forEach(k=>{if((g[k]||'')!==ng[k]){ch.push(k);g[k]=ng[k]}});
+    if(docs){const dt=q('#sDocT').value,dn=q('#sPass').value.trim();if(g.doc.type!==dt){g.doc.type=dt;ch.push('document type')}if(g.doc.no!==dn){g.doc.no=dn;ch.push('passport / ID no.')}}
+    if(ch.length){log('Sharing guest '+gName(g)+' updated: '+ch.join(', ')+' RSVN '+r.no,B.id);B.hist=B.hist||[];B.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Updated sharing guest '+gName(g)+': '+ch.join(', ')})}
+    saveDB();toast(ch.length?'Guest details saved.':'Nothing changed.');reopen()};
+}
 function reservationScreen(box,r,B,o={}){
+  if(o.shareGid&&(B.shares||[]).includes(o.shareGid)){shareGuestScreen(box,r,B,o.shareGid,o);return}
   const g=G(B.guestId),mode=editMode(B),canEd=can('res.edit')&&!user().provider,E=k=>{ // can this field be edited?
     if(!canEd)return false;if(mode==='full')return true;if(mode==='restricted')return ['dep','rate'].includes(k);return false};
   const GE=can('profile')&&!user().provider; // guest data stays editable after Close Day (1.4)
@@ -7785,7 +7836,7 @@ function reservationScreen(box,r,B,o={}){
    ${lockNote}
    <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input id="rContact" value="${esc(r.contact)}" ${dis('res')}>`,'w2')}
      ${fld('Reference',`<input id="rRef" value="${esc(r.reference)}" ${r.refAuto?'disabled':dis('res')}${r.refAuto?'':' placeholder="OTA booking reference"'}>`)}${fld('Phone no.',`<input id="rPhone" value="${esc(r.phone)}" ${dis('res')}>`)}${fld('Fax no.',`<input id="rFax" value="${esc(r.fax)}" ${dis('res')}>`)}${fld('Email',`<input id="rEmail" value="${esc(r.email)}" ${dis('res')}>`,'w2')}${fld('Confirmation No.',`<input id="rConf" value="${esc(r.confirmation)}" disabled title="Given by the system">`)}</div>
-   <div class="btabs">${r.bookings.map(b=>`<button class="btab ${b===B?'on':''}" data-bt="${b.id}">${esc(G(b.guestId).last)}${b.room?' · '+b.room:''}</button>`).join('')}</div>
+   ${resTabsHtml(r,B,null)}
    <div class="rgrid">
     <div class="rcol">
      <div class="pn"><div class="pnh grey">${ic('bed',15)} Rooms – ${B.type}${B.room?' ['+B.room+']':''}</div><div class="pnb kv2">
@@ -7833,7 +7884,7 @@ function reservationScreen(box,r,B,o={}){
     </div></div>
    <div class="err" id="rErr"></div></div>`;
   const q=s=>$(s,box);
-  $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),o));
+  $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),Object.assign({},o,{shareGid:t.dataset.sg||null})));
   const reopen=()=>{saveDB();reservationScreen(box,r,bookingById(B.id),o)};
   q('#gOpen').onclick=q('#aProf').onclick=()=>guestProfile(g.id,reopen);
   if(q('#aShare'))q('#aShare').onclick=()=>sharersModal(B,reopen);
@@ -8677,7 +8728,7 @@ const guestsInRoom=B=>[B.guestId,...(B.shares||[])].filter(Boolean);
 const paxOfBooking=B=>(+B.adults||0)+(+B.children||0);
 const emptyDoc=()=>({type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''});
 function sharersHtml(B){const ids=B.shares||[];if(!ids.length)return '';
-  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<span class="fsh">${ic('user',14)} ${esc(gName(g))} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button></span>`}).join('')}</div>`}
+  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<div class="fline1 fsh1">${ic('user',16)} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',18)}</button> <b class="fspace" aria-hidden="true">#${B.internal}</b> <a class="gname" data-sp="${id}" title="View or update this guest profile">${esc(gName(g))}</a></div>`}).join('')}</div>`}
 function addSharer(B,after){
   B.shares=B.shares||[];
   if(B.status!=='inhouse'){toast('A sharing guest is added after the main guest has checked in.');return}
@@ -9900,13 +9951,13 @@ VIEWS['rm.hkstatus']=el=>{
     if(rm.dnd)low.push(`<span title="Do not disturb">${ic(rm.dnd==='tel'?'phoneoff':'dnd',13)}</span>`);if(rm.cleanAt)low.push(`<span title="Clean at ${esc(rm.cleanAt)}">${ic('log',13)}</span>`);if(rm.softBlock)low.push(`<span title="Soft block">${ic('key',13)}</span>`);
     if(s.msgs)low.push(`<span title="${s.msgs} comment(s)">${ic('chat',13)}</span>`);if(s.dnm)low.push(`<span title="Do not move">${ic('warn',13)}</span>`);if(rm.connect)low.push(`<span title="Connecting with ${esc(rm.connect)}">${ic('link2',13)}</span>`);if(rm.handicap)low.push(`<span title="Handicap room">${ic('access',13)}</span>`);
     return {top:ic2.join(''),low:low.join('')}};
-  const tile=(x,style)=>{const a=at(x);return `<button class="hkt ${HKF.hi===x.rm.no?'hi':''}" data-rm="${x.rm.no}" style="${style};background:${HKCOL[x.s.key]}" title="Room ${x.rm.no} – ${HKS.find(s=>s[0]===x.s.key)[1]} ${HKS.find(s=>s[0]===x.s.key)[2]}"><span class="tn">${x.rm.no}</span><span class="tt">${x.rm.type}</span><span class="tat">${a.top}</span><span class="tlo">${a.low}</span></button>`};
+  const tile=(x,style)=>{const a=at(x);return `<button class="hkt ${HKF.hi===x.rm.no?'hi':''}" data-rm="${x.rm.no}" style="${style};background:${HKCOL[x.s.key]}" title="Room ${x.rm.no} – ${HKS.find(s=>s[0]===x.s.key)[1]} ${HKS.find(s=>s[0]===x.s.key)[2]}"><span class="tn">${x.rm.no}</span><span class="tt">${x.rm.type}</span><span class="tbot"><span class="tat">${a.top}</span><span class="tlo">${a.low}</span></span></button>`};
   if(HKF.floor==='dash'){
     R.innerHTML=`<div class="fph">${ic('plan',26)}<h2>Dashboard : All floors</h2></div><div class="fpinfo">Total: ${sell.length} rooms <b class="at dep">@</b> Expect departure today <b class="at arr">@</b> Expect arrival today <b class="at win">@</b> Walk-in guest</div><div class="hkmode" role="group" aria-label="Click a room to"><span class="hkml">Click a room to:</span>${[['view','View only',''],['clean','Mark Clean','cln'],['dirty','Mark Dirty','drt'],['inspected','Mark Inspected','ins'],['disc','Close discrepancy','dsc']].map(x=>`<button type="button" data-hm="${x[0]}" class="${x[2]}" aria-pressed="${HKF.mode===x[0]}">${x[1]}</button>`).join('')}<span class="sub">${HKF.mode==='view'?'Right-click (or press and hold) a room for details.':HKF.mode==='disc'?'Click a room with a Sleep or Skip discrepancy to close it.':'Click rooms to mark them '+HKF.mode+' – vacant or occupied. Right-click for details.'}</span></div>
      <div class="hkdashb">${fl.map(f=>{const rs=shown.filter(x=>x.rm.floor===f);return `<div class="dfl"><button class="dfh" data-gofl="${f}">${esc(floorName(f))} <span>${rs.length} rooms · ${rs.filter(x=>!x.rm.dummy&&x.s.occ).length} occupied · ${rs.filter(x=>!x.rm.dummy&&!x.s.clean&&!x.s.ooo).length} dirty</span></button><div class="dft">${rs.map(x=>tile(x,'position:relative')).join('')}</div></div>`}).join('')}</div>`}
   else{const f=HKF.floor,p=planFor(f),rs=shown.filter(x=>x.rm.floor===f);
     const pct=(v,t)=>(v/t*100).toFixed(3)+'%';
-    const cells=rs.map(x=>{const q=p.rooms[x.rm.no];if(!q)return '';return tile(x,`left:${pct(q.x+.7,p.W)};top:${pct(q.y+.2,p.H)};width:${pct(q.w-1.4,p.W)};height:${pct(q.h-.4,p.H)}`)}).join('');
+    const cells=rs.map(x=>{const q=p.rooms[x.rm.no];if(!q)return '';return tile(x,`left:${pct(q.x+.8,p.W)};top:${pct(q.y+.4,p.H)};width:${pct(q.w-1.6,p.W)};height:${pct(q.h-.8,p.H)}`)}).join('');
     const feats=p.feat.map(ft=>{const box=`left:${pct(ft.x,p.W)};top:${pct(ft.y,p.H)};width:${pct(ft.w,p.W)};height:${pct(ft.h,p.H)}`;
       if(ft.t==='fac'){const F=FAC[ft.kind]||['Facility','#888'];return `<div class="fpf fac" style="${box};--fc:${F[1]}" title="${esc(ft.label||F[0])}"><div class="facin">${ic('f_'+ft.kind,28)}<span>${esc(ft.label||F[0])}</span></div></div>`}
       return `<div class="fpf ${ft.t}" style="${box}">${ft.t==='stairs'?'<div class="stp"></div>'+(p.auto?'<div class="exit" title="Emergency exit">'+ic('out',22)+'</div>':''):ft.t==='lift'?'<div class="lift">LIFT</div>':ft.t==='exit'?'<div class="exit2" title="Emergency exit">'+ic('out',22)+'</div>':''}</div>`}).join('');
@@ -9914,7 +9965,7 @@ VIEWS['rm.hkstatus']=el=>{
     const links=[];rs.forEach(x=>{const o=x.rm.connect;if(!o||x.rm.no>o)return;const a=p.rooms[x.rm.no],b=p.rooms[o];if(!a||!b)return;
       const cx=((a.x+a.w/2)+(b.x+b.w/2))/2,cy=((a.y+a.h/2)+(b.y+b.h/2))/2;links.push(`<div class="fplink" style="left:${pct(cx,p.W)};top:${pct(cy,p.H)}" title="Connecting rooms ${esc(x.rm.no)} – ${esc(o)}">${ic('link2',16)}</div>`)});
     R.innerHTML=`<div class="fph">${ic('plan',26)}<h2>Floor Plan : ${esc(floorName(f))}</h2></div><div class="fpinfo">Total: <span class="blue">${rs.length} rooms</span>${(()=>{const fs=p.feat.filter(x=>x.t==='fac');return fs.length?` · Facilities: ${fs.map(x=>esc(x.label||(FAC[x.kind]||['Facility'])[0])).join(', ')}`:''})()} <b class="at dep">@</b> Expect departure today <b class="at arr">@</b> Expect arrival today <b class="at win">@</b> Walk-in guest</div>${rs.length?`<div class="hkmode" role="group" aria-label="Click a room to"><span class="hkml">Click a room to:</span>${[['view','View only',''],['clean','Mark Clean','cln'],['dirty','Mark Dirty','drt'],['inspected','Mark Inspected','ins'],['disc','Close discrepancy','dsc']].map(x=>`<button type="button" data-hm="${x[0]}" class="${x[2]}" aria-pressed="${HKF.mode===x[0]}">${x[1]}</button>`).join('')}<span class="sub">${HKF.mode==='view'?'Right-click (or press and hold) a room for details.':HKF.mode==='disc'?'Click a room with a Sleep or Skip discrepancy to close it.':'Click rooms to mark them '+HKF.mode+' – vacant or occupied. Right-click for details.'}</span></div>`:''}
-     <div class="fpc0"><div class="fpcanvas" style="aspect-ratio:${p.W}/${p.H};max-width:${Math.round(p.W*17)}px">${feats}${cells}${links.join('')}${p.auto?`<div class="fpcorr" style="top:${pct(19,p.H)};height:${pct(4,p.H)}"></div>`:''}</div></div>
+     <div class="fpc0"><div class="fpcanvas" style="aspect-ratio:${p.W}/${p.H};min-width:${Math.round(p.W*12)}px;max-width:${Math.round(p.W*17)}px">${feats}${cells}${links.join('')}${p.auto?`<div class="fpcorr" style="top:${pct(19,p.H)};height:${pct(4,p.H)}"></div>`:''}</div></div>
      <p class="sub">${p.auto?'Automatic layout. Room numbers, room type short names, floors and the real positions of rooms, emergency exits, stairs and lifts will come from each hotel\'s setup in the backend.':'Floor plan from the hotel setup.'} Right-click a room (or press and hold on a tablet) for details.</p>`}
   $('#hkFl',el).onchange=e=>{HKF.floor=e.target.value;HKF.hi=null;render()};$('#hkDash',el).onclick=()=>{HKF.floor='dash';render()};
   const srch=()=>{const q=$('#hkQ',el).value.trim();HKF.q=q;if(!q){HKF.hi=null;render();return}const rm=H.rooms.find(r=>r.no===q)||H.rooms.find(r=>r.no.startsWith(q));if(!rm){toast(`Room ${q} not found.`);return}HKF.floor=rm.floor;HKF.hi=rm.no;render();setTimeout(()=>{const t=$(`.hkt[data-rm="${rm.no}"]`);t&&t.focus()},30)};
