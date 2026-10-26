@@ -6485,7 +6485,7 @@ const MI={
  search:'M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-3.5-3.5',desk:'M3 18h18M5 18a7 7 0 0114 0M12 8v3M10 8h4',folder:'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z'
 };
 function mIc(n,cls){return '<svg class="mi'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(MI[n]||MI.folder)+'"/></svg>'}
-const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','Billing / Folio':'receipt','Room Management':'bed','Inquiry':'search','Close Day':'moon','Help':'help','Report':'chart','Setup':'gear','Provider':'gear'};
+const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','Billing / Folio':'receipt','Room Management':'bed','Inquiry':'search','Close Day':'moon','Help':'help','Report':'chart','Setup':'gear','Provider':'gear','Property set-up':'building','Rates & profiles':'tag','People & access':'users','Finance & data':'db'};
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
  'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.edclinks':'card','bill.city':'book','bill.master':'layers','set.approve':'check',
  'rm.hkstatus':'spark','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','help.home':'help',
@@ -6501,9 +6501,9 @@ function userTheme(){let t=null;const r=rawUserRec();if(r&&r.uiTheme)t=r.uiTheme
 function modeStoreKey(){return themeStoreKey().replace('maha.theme.','maha.mode.')}
 function userMode(){let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
 function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
-function setUserMode(m){m=m==='dark'?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
+function setUserMode(m){m=m==='dark'?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
 function skinIsModern(){try{const se=DB&&DB.session;return !!(se&&typeof H!=='undefined'&&H&&H.set&&!(se.provider&&!se.inHotel)&&skinOf(H)==='modern')}catch(e){return false}}
-function setUserTheme(id){if(!MODERN_THEMES.some(x=>x[0]===id))return;const r=rawUserRec();if(r)r.uiTheme=id;try{localStorage.setItem(themeStoreKey(),id)}catch(e){}try{saveDB()}catch(e){}applySkin();toast('Theme saved')}
+function setUserTheme(id){if(!MODERN_THEMES.some(x=>x[0]===id))return;const r=rawUserRec();if(r)r.uiTheme=id;try{localStorage.setItem(themeStoreKey(),id);localStorage.setItem('maha.pref.pal',id)}catch(e){}try{saveDB()}catch(e){}applySkin();toast('Theme saved')}
 function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
   const um=userMode();return '<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div><div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
@@ -6515,7 +6515,7 @@ function modernShellHTML(){
   <aside class="msb" id="msb"><div class="msb-top"><img src="${ICON}" alt=""><span class="msb-brand">Maha PMS</span><button type="button" class="msb-tog" id="msbTog" title="Collapse or expand the menu" aria-label="Collapse or expand the menu">${mIc(msbSlim()?'right':'left')}</button></div>
   <div class="msb-prop"><small>Current property</small><b>${esc(H.set.name)}</b></div><nav class="msbnav" id="msbnav" aria-label="Main"></nav></aside>
   <div class="msb-back" id="msbBack"></div>
-  <header class="topbar mtop"><button type="button" class="tbico mopen" id="msbOpen" aria-label="Menu">${mIc('menu')}</button><div class="mcrumb" id="mcrumb"></div>
+  <header class="topbar mtop"><button type="button" class="tbico mopen" id="msbOpen" aria-label="Menu">${mIc('menu')}</button><div class="mcrumb" id="mcrumb"></div>${areaSwitchHtml()}
   <button type="button" class="msearch" id="msearch">${mIc('search')}<span>Search anything...</span></button>
   <nav class="menubar" id="menubar" hidden aria-hidden="true"></nav>
   <div class="tb-right"><div class="tb-tools">
@@ -6529,7 +6529,7 @@ function modernShellHTML(){
   <main id="view" class="view"></main></div>`}
 function modernNavInit(){
   const nav=$('#msbnav');if(!nav)return;
-  const src=DB.session.provider&&DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):MENU;
+  const src=areaMenu(DB.session.provider&&DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):MENU);
   const groups=[];
   src.forEach(m=>{if(m.report){if(can('reports')&&feat('reports'))groups.push({t:'Report',report:true,items:[]});return}
     const items=m.items.filter(x=>(!x[2]||can(x[2]))&&(!x[3]||feat(x[3])));if(items.length)groups.push({t:m.t,items})});
@@ -6561,7 +6561,7 @@ function shellHTML(){
   return `<header class="topbar${providerConsole?' provbar':''}">
   <div class="tb-left">${LOGO()}</div>
   <div class="tb-mid"><span class="pipe" aria-hidden="true">|</span><nav class="menubar" id="menubar" aria-label="Main"></nav><span class="pipe" aria-hidden="true">|</span></div>
-  <div class="tb-right">
+  ${areaSwitchHtml()}<div class="tb-right">
     <div class="tb-tools">
       <button type="button" class="tbico" id="sysPick" title="Switch system" aria-label="Switch system">${ic('swap',20)}</button>
       <button type="button" class="tbico" id="tbHelp" title="Help" aria-label="Help">${ic('help',20)}</button>
@@ -6622,7 +6622,7 @@ function openAccountMenu(btn){
   $$('[data-mode-pick]',p).forEach(b=>b.onclick=e=>{e.stopPropagation();setUserMode(b.dataset.modePick);p.hidden=true});
   $$('[data-act]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const a=b.dataset.act;
     if(a==='account'){go('prov.account');return}
-    if(a==='switch'){openHotelSwitcher();return}
+    if(a==='switch'){changePropertyFlow();return}
     if(a==='profile'){if(VIEW!=='me.profile')PREV={v:VIEW,a:VARG};go('me.profile');return}
     if(a==='search')globalSearch();
     if(a==='out')signOut(false)});
@@ -6688,7 +6688,7 @@ function renderShell(){
   const providerConsole=!!(DB.session.provider&&!DB.session.inHotel);
   const raw=DB.session.provider?(DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):PROV_MENU):MENU;
   const hide=providerConsole?[]:['Tax','Help','AI','Setup'];
-  const menu=raw.filter(m=>!hide.includes(m.t));
+  const menu=areaMenu(raw).filter(m=>!hide.includes(m.t));
   const nav=$('#menubar');
   nav.innerHTML=`<button class="mtoggle" id="mtoggle" aria-label="Menu">☰</button><div class="mitems" id="mitems">`+menu.map((m,i)=>{
     if(m.report)return can('reports')&&feat('reports')?`<button class="mtop" data-report="1">Report <span class="car" aria-hidden="true">▾</span></button>`:'';
@@ -6702,6 +6702,7 @@ function renderShell(){
   if($('#tbBell'))$('#tbBell').onclick=()=>{closeMenus();openNotifyCenter()};
   $('#mtoggle').onclick=e=>{e.stopPropagation();$('#mitems').classList.toggle('open')};
   if(skinIsModern())modernNavInit();
+  $$('#areaSw [data-area]').forEach(b=>b.onclick=()=>switchAreaTo(b.dataset.area));
   const sc=$('#mitems');if(sc)sc.addEventListener('scroll',()=>{$$('.mdrop').forEach(d=>{d.hidden=true;d.style.position='';d.style.left='';d.style.top=''});$$('.mtop[data-m]').forEach(b=>b.setAttribute('aria-expanded','false'))},{passive:true});
 }
 function closeMenus(){$$('.mdrop').forEach(d=>{d.hidden=true;d.style.position='';d.style.left='';d.style.top=''});$$('.mtop[data-m]').forEach(b=>b.setAttribute('aria-expanded','false'));const m=$('#mitems');if(m)m.classList.remove('open');const p=$('#tbPop');if(p)p.hidden=true}
@@ -6983,7 +6984,7 @@ function doLogin(){
       toast(ecoSysLabel(sys)+' is closed for your account. Opening '+fallback.name+'.');
       sys=fallback.kind;avail=fallback;
     }
-    if(sys==='hub'){applySysPath('hub');renderShell();go(firstHotelView());toast(shift==='No shift'?`Welcome ${who}. ${fd(h.set.bd)}.`:`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`);return}
+    if(sys==='hub'){afterLoginRoute(h,who,shift);return}
     lgTargetSys=sys;openSystem(sys,h,true);
   };
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Maha Hub support.';return}
@@ -9317,6 +9318,128 @@ function noShiftGate(kind,next){
   $('#nsNo',m).onclick=()=>closeModal(m);
   $('#nsYes',m).onclick=()=>{const sh=pay?pickPayShift(open,$('#nsSh',m)?$('#nsSh',m).value:''):null;closeModal(m);next(sh)}}
 /* Switch hotel (Profile menu, only for people who sign in without a shift) */
+/* ---- sign-in flow: Select Property, Select System (Frontend / Backend), loading screens ---- */
+const BOOT_T0=Date.now();
+const sleepMs=ms=>new Promise(r=>setTimeout(r,ms));
+const bootWait=()=>sleepMs(Math.max(0,2200-(Date.now()-BOOT_T0)));
+const FLOW_CSS=`
+#mhLoad{position:fixed;inset:0;z-index:99999;transition:opacity .4s}#mhLoad.out{opacity:0;pointer-events:none}
+.selpg{--a1:#059669;--a2:#0D9488;--a3:#2563EB;--bg:#ECF6F1;--card:#fff;--line:#D3E6DC;--ink:#0D2A24;--mut:#52705F;min-height:100vh;background:var(--bg);color:var(--ink);font:14px/1.5 "Noto Sans",system-ui,sans-serif}
+.selpg[data-pal=blue]{--a1:#2563EB;--a2:#0EA5E9;--a3:#7C3AED;--bg:#EEF2FA;--line:#DDE3F0;--ink:#12203A;--mut:#5B6B88}
+.selpg[data-pal=violet]{--a1:#7C3AED;--a2:#DB2777;--a3:#2563EB;--bg:#F3F0FD;--line:#E1DAF7;--ink:#1D1647;--mut:#6A62A0}
+.selpg[data-pal=coral]{--a1:#F43F5E;--a2:#F97316;--a3:#8B5CF6;--bg:#FFF3F0;--line:#F6DCD6;--ink:#2A1620;--mut:#8A5F68}
+.selpg[data-pal=graphite]{--a1:#0F766E;--a2:#0EA5E9;--a3:#6366F1;--bg:#F1F3F5;--line:#E1E4E8;--ink:#1F2933;--mut:#66707C}
+.selpg.dark{--bg:#070F1B;--card:#0E1A2A;--line:#ffffff1f;--ink:#DBE8F4;--mut:#8FB4CD;background:radial-gradient(900px 420px at 10% -10%,#0f3a52,transparent 60%),radial-gradient(800px 420px at 100% 110%,#2a1f5c,transparent 60%),#070F1B}
+.selpg h1,.selpg h2,.selpg h3{font-family:Manrope,"Noto Sans",sans-serif;margin:0}
+.selpg .sp-top{display:flex;align-items:center;gap:14px;padding:0 24px;height:62px;background:linear-gradient(115deg,var(--a3),var(--a1) 55%,var(--a2));color:#fff}
+.selpg .sp-logo{display:flex;align-items:center;gap:10px;font:800 17px Manrope,sans-serif}.selpg .sp-logo img{width:34px;height:34px;border-radius:10px}
+.selpg .sp-right{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px}
+.selpg .sp-pill{padding:6px 14px;border-radius:99px;background:#ffffff26;border:1px solid #ffffff4d;color:#fff;font:700 12.5px "Noto Sans",sans-serif;cursor:pointer}.selpg .sp-pill:hover{background:#ffffff40}
+.selpg .sp-body{max-width:1180px;margin:0 auto;padding:26px 24px 60px}
+.selpg h1{font-size:26px}.selpg .sp-sub{color:var(--mut);margin:4px 0 18px}
+.selpg .sp-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.selpg select,.selpg input{padding:10px 14px;border:1.5px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);font:inherit;min-width:180px}
+.selpg input:focus,.selpg select:focus{outline:3px solid color-mix(in srgb,var(--a1) 28%,transparent);border-color:var(--a1)}
+.selpg .sp-clear{background:none;border:0;color:var(--a1);font-weight:700;cursor:pointer}
+.selpg .sp-card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px #12204414;overflow:hidden}
+.selpg table{width:100%;border-collapse:collapse}.selpg th{padding:13px 14px;text-align:left;font:700 11px "Noto Sans",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);background:color-mix(in srgb,var(--a1) 9%,var(--card));border-bottom:2px solid color-mix(in srgb,var(--a1) 22%,var(--line))}
+.selpg td{padding:13px 14px;border-bottom:1px solid var(--line)}.selpg tr:last-child td{border-bottom:0}.selpg tbody tr:hover td{background:color-mix(in srgb,var(--a1) 6%,var(--card))}
+.selpg .sp-btn{padding:8px 20px;border:0;border-radius:11px;background:linear-gradient(135deg,var(--a1),color-mix(in srgb,var(--a1) 62%,var(--a3)));color:#fff;font:700 13px "Noto Sans",sans-serif;cursor:pointer;box-shadow:0 6px 14px color-mix(in srgb,var(--a1) 32%,transparent)}
+.selpg .sp-btn:hover{filter:brightness(1.07)}
+.selpg .sp-sys{display:grid;grid-template-columns:repeat(2,minmax(240px,340px));gap:22px;justify-content:center;margin:30px 0 8px}
+.selpg .sp-tile{border:0;border-radius:24px;padding:28px 28px 24px;color:#fff;text-align:left;cursor:pointer;position:relative;overflow:hidden;min-height:220px;box-shadow:0 14px 34px #12204433;transition:transform .15s}
+.selpg .sp-tile:hover{transform:translateY(-4px)}.selpg .sp-tile::after{content:"";position:absolute;right:-44px;top:-44px;width:160px;height:160px;border-radius:50%;background:#ffffff22}
+.selpg .sp-tile .ic{width:58px;height:58px;border-radius:17px;background:#ffffff30;display:grid;place-items:center}.selpg .sp-tile .ic svg{width:30px;height:30px}
+.selpg .sp-tile h3{font-size:26px;margin:18px 0 6px}.selpg .sp-tile p{margin:0;opacity:.95;font-size:13px}
+.selpg .sp-t1{background:linear-gradient(135deg,var(--a1),color-mix(in srgb,var(--a1) 55%,#000))}.selpg .sp-t2{background:linear-gradient(135deg,var(--a3),color-mix(in srgb,var(--a3) 55%,#000))}
+.selpg .sp-empty{padding:30px;text-align:center;color:var(--mut)}
+.areasw{display:inline-flex;gap:2px;padding:3px;border-radius:99px;background:#ffffff1f;border:1px solid #ffffff3a;margin-left:6px}
+.areasw button{border:0;background:none;color:inherit;padding:5px 13px;border-radius:99px;font:700 12px "Noto Sans",sans-serif;cursor:pointer;opacity:.85}.areasw button.on{background:#fff;color:#0d4a3a;opacity:1}
+html[data-skin="modern"] .areasw{background:var(--m-soft);border-color:var(--m-line);color:var(--m-mut)}
+html[data-skin="modern"] .areasw button.on{background:linear-gradient(135deg,var(--a1),color-mix(in srgb,var(--a1) 60%,var(--a3)));color:#fff}
+@media(max-width:760px){.selpg .sp-sys{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){#mhLoad{transition:none}.selpg .sp-tile{transition:none}}
+`;
+function ensureFlowCss(){if(document.getElementById('flowCss'))return;const s=document.createElement('style');s.id='flowCss';s.textContent=FLOW_CSS;document.head.appendChild(s)}
+function loadingShow(msg){ensureFlowCss();let o=document.getElementById('mhLoad');if(!o){o=document.createElement('div');o.id='mhLoad';document.body.appendChild(o)}
+  o.classList.remove('out');o.innerHTML=`<div class="mh-boot" role="status" aria-live="polite"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="${ICON}" alt="" width="62" height="62"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">${esc(msg||'Preparing your hotel')}<span>_</span></div></div></div>`;return o}
+function loadingHide(){const o=document.getElementById('mhLoad');if(!o)return;o.classList.add('out');setTimeout(()=>{if(o.classList.contains('out'))o.remove()},450)}
+async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r;try{r=await fn()}finally{await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));loadingHide()}return r}
+/* ---- who sees what ---- */
+function hasBackend(){try{return !!(DB&&DB.session&&!DB.session.provider&&H&&can('setup'))}catch(e){return false}}
+function curArea(){const se=DB&&DB.session;return se&&se.area==='back'&&hasBackend()?'back':'front'}
+function setArea(a){if(DB&&DB.session){DB.session.area=a==='back'?'back':'front';try{writeLiveSession(DB.session)}catch(e){}}}
+function BACKEND_MENU(){
+  const f=v=>{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it;return null};
+  const g=(t,ids)=>({t,items:ids.map(f).filter(Boolean)});
+  return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users']),g('Finance & data',['ac.buy','set.backup']),g('Help',['help.home']),{t:'Report',report:true}]}
+function areaMenu(src){
+  const se=DB&&DB.session;if(!se||se.provider)return src;
+  return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
+function firstBackendView(){for(const g of BACKEND_MENU())for(const it of (g.items||[]))if(viewAllowed(it[1]))return it[1];return 'set.hotel'}
+function areaSwitchHtml(){if(!hasBackend())return '';const a=curArea();return `<div class="areasw" id="areaSw" role="group" aria-label="Frontend or Backend"><button type="button" data-area="front" class="${a==='front'?'on':''}">Frontend</button><button type="button" data-area="back" class="${a==='back'?'on':''}">Backend</button></div>`}
+async function switchAreaTo(a){if(!hasBackend()||a===curArea())return;
+  await withLoading(a==='back'?'Opening Backend':'Opening Frontend',1600,async()=>{setArea(a)});
+  renderShell();go(a==='back'?firstBackendView():firstHotelView())}
+/* ---- the two pages ---- */
+function selPrefs(){let mode='light',pal='emerald';try{mode=localStorage.getItem('maha.pref.mode')==='dark'?'dark':'light';pal=localStorage.getItem('maha.pref.pal')||'emerald'}catch(e){}return {mode,pal}}
+function selShell(inner){ensureFlowCss();const p=selPrefs(),u=user();
+  document.documentElement.removeAttribute('data-skin');
+  document.getElementById('app').innerHTML=`<div class="selpg ${p.mode==='dark'?'dark':''}" data-pal="${esc(p.pal)}"><header class="sp-top"><div class="sp-logo"><img src="${ICON}" alt="">Maha PMS</div><div class="sp-right"><span>${esc(u.name||'')}</span><button type="button" class="sp-pill" id="spMode">${p.mode==='dark'?'Light mode':'Dark mode'}</button><button type="button" class="sp-pill" id="spOut">Sign out</button></div></header><main class="sp-body">${inner}</main></div>`;
+  $('#spMode').onclick=()=>{try{localStorage.setItem('maha.pref.mode',p.mode==='dark'?'light':'dark')}catch(e){}const el=document.querySelector('.selpg');if(el){el.classList.toggle('dark');$('#spMode').textContent=el.classList.contains('dark')?'Light mode':'Dark mode'}};
+  $('#spOut').onclick=()=>{signOut(true)}}
+async function loadPropertyList(){
+  const t=await MahaAuth.fresh();if(!t)throw new Error('auth');const props=await MahaAuth.properties(t);let rows=null;
+  try{rows=await MahaAuth.rest('maha_properties?select=property_code,name,country&property_code=not.is.null',t)}catch(e){try{rows=await MahaAuth.rest('maha_properties?select=property_code,name&property_code=not.is.null',t)}catch(e2){rows=[]}}
+  const m={};(rows||[]).forEach(r=>{m[String(r.property_code).toUpperCase()]=r});
+  return props.map(p=>({code:p.code,id:p.id,name:(m[p.code]&&m[p.code].name)||p.code,country:(m[p.code]&&m[p.code].country)||''}))}
+function selectPropertyPage(list,current,canCancel){return new Promise(res=>{
+  const countries=[...new Set(list.map(p=>p.country).filter(Boolean))].sort();
+  selShell(`<h1>Select Property</h1><div class="sp-sub">You can open the properties below. Choose one to continue.</div>
+   <div class="sp-filters">${countries.length?`<select id="spC"><option value="">All Country</option>${countries.map(c=>`<option>${esc(c)}</option>`).join('')}</select>`:''}<input id="spQ" placeholder="Search property name" autocomplete="off"><button type="button" class="sp-clear" id="spX">Clear all</button>${canCancel?'<button type="button" class="sp-pill" id="spBack" style="margin-left:auto;background:var(--a1)">Back</button>':''}</div>
+   <div class="sp-card"><table><thead><tr><th style="width:64px">No.</th><th>Property name</th><th style="width:170px">Country</th><th style="width:150px;text-align:center">Action</th></tr></thead><tbody id="spRows"></tbody></table></div>`);
+  const paint=()=>{const q=($('#spQ').value||'').trim().toLowerCase(),c=$('#spC')?$('#spC').value:'';const rows=list.filter(p=>(!q||(p.name+' '+p.code).toLowerCase().includes(q))&&(!c||p.country===c));
+    $('#spRows').innerHTML=rows.length?rows.map((p,i)=>`<tr><td>${i+1}</td><td><b>${esc(p.name)}</b> <span style="color:var(--mut);font-size:12px">${esc(p.code)}${p.code===current?' &middot; current':''}</span></td><td>${esc(p.country||'—')}</td><td style="text-align:center"><button type="button" class="sp-btn" data-pick="${esc(p.code)}">Select</button></td></tr>`).join(''):'<tr><td colspan="4" class="sp-empty">No property matches.</td></tr>';
+    $$('[data-pick]',$('#spRows')).forEach(b=>b.onclick=()=>res(b.dataset.pick))};
+  $('#spQ').oninput=paint;if($('#spC'))$('#spC').onchange=paint;$('#spX').onclick=()=>{$('#spQ').value='';if($('#spC'))$('#spC').value='';paint()};if($('#spBack'))$('#spBack').onclick=()=>res(current);paint()})}
+function selectSystemPage(h,multi){return new Promise(res=>{
+  selShell(`<div class="sp-card" style="padding:26px 28px 32px"><h1>Select System</h1><div class="sp-sub">${esc(h.set.name)} &middot; choose where to work${multi?` &middot; <button type="button" class="sp-clear" id="spChg">Change property</button>`:''}</div>
+   <div class="sp-sys"><button type="button" class="sp-tile sp-t1" data-sys="front"><div class="ic">${mIc('desk')}</div><h3>Frontend</h3><p>Reservations, front office, billing, room management, inquiry and close day: the daily operation.</p></button>
+   <button type="button" class="sp-tile sp-t2" data-sys="back"><div class="ic">${mIc('gear')}</div><h3>Backend</h3><p>Set-up of this property: settings, rooms and room types, codes, rates, staff and permissions, purchasing, backup and reports.</p></button></div></div>`);
+  $$('[data-sys]').forEach(b=>b.onclick=()=>res(b.dataset.sys));if($('#spChg'))$('#spChg').onclick=()=>res('change')})}
+/* ---- the route after sign-in, and when changing property later ---- */
+async function openPropertyChoice(props,current,canCancel){
+  for(;;){
+    const code=await selectPropertyPage(props,current,canCancel);
+    if(code===current)return true;
+    const p=props.find(x=>x.code===code);
+    const ok=await withLoading('Opening '+(p?p.name:code),2000,()=>switchHotelCore(code,p&&p.id));
+    if(ok)return true}}
+async function chooseAreaAndEnter(props,welcome){
+  const multi=props&&props.length>1;setArea('front');
+  while(hasBackend()){
+    const a=await selectSystemPage(H,multi);
+    if(a==='change'){await openPropertyChoice(props,H.code,false);setArea('front');continue}
+    setArea(a);break}
+  await withLoading(curArea()==='back'?'Opening Backend':'Opening Frontend',1800,async()=>{});
+  applySysPath('hub');renderShell();go(curArea()==='back'?firstBackendView():firstHotelView());if(welcome)toast(welcome)}
+async function afterLoginRoute(h,who,shift){
+  const welcome=shift==='No shift'?`Welcome ${who}. ${fd(h.set.bd)}.`:`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`;
+  try{
+    let props=[];
+    await withLoading('Signing you in',2000,async()=>{if(MahaAuth.on()&&DB.session&&!DB.session.provider){try{props=await loadPropertyList()}catch(e){props=[]}}});
+    if(props.length>1)await openPropertyChoice(props,h.code,false);
+    await chooseAreaAndEnter(props,welcome)
+  }catch(e){loadingHide();applySysPath('hub');renderShell();go(firstHotelView());toast(welcome)}}
+async function changePropertyFlow(){
+  if(!MahaAuth.on()||!DB.session||DB.session.provider)return;
+  let props=[];await withLoading('Loading your properties',1400,async()=>{try{props=await loadPropertyList()}catch(e){props=[]}});
+  if(props.length<2){renderShell();render();toast('You can open only this property.');return}
+  const keep={code:H.code,view:VIEW,arg:VARG};
+  await openPropertyChoice(props,H.code,true);
+  if(H.code===keep.code){renderShell();go(keep.view,keep.arg);return}
+  await chooseAreaAndEnter(props,'You are now in '+H.set.name+' ('+H.code+').')}
+/* ---- end sign-in flow ---- */
 async function openHotelSwitcher(){
   if(!MahaAuth.on()||!DB.session||DB.session.provider)return;
   let props,names={},chain=null;
@@ -9330,7 +9453,8 @@ async function openHotelSwitcher(){
     <p class="sub mt">You stay signed in. Hotels are approved by the provider.</p>`,{w:520});
   $$('[data-sw]',m).forEach(b=>b.onclick=()=>{closeModal(m);switchHotel(b.dataset.sw,b.dataset.pid)});
 }
-async function switchHotel(code,pid){
+async function switchHotel(code,pid){const ok=await switchHotelCore(code,pid);if(ok){applySysPath('hub');renderShell();go(firstHotelView());toast('You are now in '+H.set.name+' ('+H.code+').')}}
+async function switchHotelCore(code,pid){
   const un=String(user().username||'').toLowerCase(),prev={code:MahaSync.code,pid:MahaSync.pid};
   toast('Switching to '+code+'...');
   const back=async()=>{try{await MahaSync.open(prev.code,prev.pid);MahaSync.start()}catch(e){}};
@@ -9350,7 +9474,7 @@ async function switchHotel(code,pid){
     log('Switched to another hotel ('+code+')');
     DB.session=stampSession({hotel:code,userId:u.id,noShift:true});H=h;applyHotelCodes();
     try{localStorage.setItem('maha.lastHotel.'+un,code)}catch(e){}
-    writeLiveSession(DB.session);saveDB({nocloud:true});MahaSync.start();closeAllModals();applySysPath('hub');renderShell();go(firstHotelView());toast('You are now in '+h.set.name+' ('+code+').');
+    writeLiveSession(DB.session);saveDB({nocloud:true});MahaSync.start();closeAllModals();return true;
   }catch(e){await back();toast('Switching did not finish. You are still in '+prev.code+'.')}
 }
 VIEWS['prov.perms']=el=>{
@@ -11791,7 +11915,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       else go(firstHotelView());
       if(location.hash==='#systems'){try{history.replaceState(null,'',location.pathname+location.search)}catch(e){} setTimeout(openSystemsSwitcher,40)}}
       else{if(pathSys)lgTargetSys=pathSys;DB.session=null;H=null;clearLiveSession();saveDB({keepTime:true,nocloud:true});showLogin()}};
-    Promise.race([cloudPull().catch(()=>{}),new Promise(r=>setTimeout(r,8000))]).then(finish,finish)};
+    Promise.race([cloudPull().catch(()=>{}),new Promise(r=>setTimeout(r,8000))]).then(bootWait,bootWait).then(finish,finish)};
   setTimeout(startApp,1500);
   hydrateFromIDB().then(startApp,startApp);
 });
