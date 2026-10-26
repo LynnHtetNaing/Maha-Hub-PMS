@@ -572,6 +572,16 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
 .rptool .rtc input[type=date]{width:112px;padding:2px 4px}.rptool .rtc select{width:118px;max-width:118px}.rptool .rtc{gap:5px 7px}.rptool .rtc label{gap:3px;font-size:11px}
 .rptool .rtc .btn{height:30px;padding:0 14px}
 .rptool .rtc .tbtn{width:28px;height:28px}.rptool .rtc .tsep{height:20px}.rptool .rtc .zl{font-size:12px}
+/* report toolbar: the date and filter boxes sit in aligned columns on the left; Run and the icon buttons are bigger, centred beside them */
+.rptool .rtc{display:flex;align-items:center;gap:22px;flex-wrap:nowrap}
+.rptool .rtc .rtf{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 14px;align-items:end}
+.rptool .rtc .rtf label{display:flex;flex-direction:column;align-items:stretch;gap:4px;font-size:11.5px;font-weight:700}
+.rptool .rtc .rtf input,.rptool .rtc .rtf select,.rptool .rtc .rtf input[type=date]{width:100%!important;max-width:none!important;height:34px;padding:2px 10px}
+.rptool .rtc .rta{flex:0 0 auto;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 10px;max-width:360px}
+.rptool .rtc .rta .btn{height:42px;padding:0 28px;font-size:15px;min-width:92px}
+.rptool .rtc .rta .tbtn{width:40px;height:40px;display:inline-grid;place-items:center;padding:0}.rptool .rtc .rta .tbtn svg{width:20px;height:20px}
+.rptool .rtc .rta .tsep{height:26px}.rptool .rtc .rta .zl{font-size:13px;min-width:38px;text-align:center}
+@media (max-width:1100px){.rptool .rtc{flex-wrap:wrap}.rptool .rtc .rta{max-width:none}}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -11606,16 +11616,16 @@ function renderReports(root,overlay){
 }
 function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.set.bd,lt=H.set.lockedThrough;
   const one=['today','future','pastOne','upTo'].includes(d.mode)&&!['FO_21','FO_41'].includes(d.code),minD=['future','futureRange'].includes(d.mode)?bd:'',maxD=d.mode==='past'?lt:d.mode==='upTo'||d.mode==='pastOne'?bd:'';
-  $('#rptool',root).innerHTML=`<div class="rtt"><b>${d.code}</b> ${esc(d.title)} <span class="sub">· ${RMODE[d.mode]}</span></div><div class="rtc">
+  $('#rptool',root).innerHTML=`<div class="rtt"><b>${d.code}</b> ${esc(d.title)} <span class="sub">· ${RMODE[d.mode]}</span></div><div class="rtc"><div class="rtf">
    ${d.mode==='today'?`<label>Date <input type="date" value="${bd}" disabled></label>`:one?`<label>Date <input type="date" id="rpT" value="${RP.to}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label>`:
     `<label>From <input type="date" id="rpF" value="${RP.from}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label><label>To <input type="date" id="rpT" value="${RP.to}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label>`}
    ${d.shiftName?`<label>Shift <select id="rpSN"><option value="">All shifts (whole day)</option>${SHIFTS.map(x=>opt(x,x+' Shift',RP.shiftName)).join('')}</select></label>`:''}${d.shiftFilter?`<label>Shift <select id="rpS"><option value="">All shifts</option>${H.shifts.filter(s=>s.bd===bd).map(s=>opt(s.id,s.name+' – '+s.userName,RP.shift)).join('')}</select></label>`:''}
    ${curMulti(H)?`<label>Currency <select id="rpCv"><option value="ALL" ${RP.cv==='ALL'||!RP.cv?'selected':''}>All, converted to ${esc(curMain())}</option>${curList(H).map(c=>opt(c,c+(c===curMain()?' (main)':' only'),RP.cv)).join('')}</select></label>`:''}
    ${(d.opts||[]).map(o=>`<label>${esc(o.l)} <select data-ro="${o.id}">${optChoices(o).map(c=>`<option value="${esc(c[0])}" ${String(ropt({o:RP.o},o.id,''))===String(c[0])?'selected':''}>${esc(c[1])}</option>`).join('')}</select></label>`).join('')}
-   <button class="btn gold sm" id="rpRun">Run</button><span class="tsep"></span>
+   </div><div class="rta"><button class="btn gold sm" id="rpRun">Run</button><span class="tsep"></span>
    <button class="tbtn" id="rpZo" title="Zoom out">${ic('zout')}</button><span class="zl" id="rpZl">${Math.round(RP.zoom*100)}%</span><button class="tbtn" id="rpZi" title="Zoom in">${ic('zin')}</button><button class="tbtn" id="rpFit" title="Fit width">${ic('fit')}</button>
    <span class="tsep"></span><button class="tbtn" id="rpPv" title="Previous page">${ic('left')}</button><span class="zl" id="rpPg"></span><button class="tbtn" id="rpNx" title="Next page">${ic('chev')}</button>
-   <span class="tsep"></span><button class="tbtn" id="rpX" title="Download Excel">${ic('xls')}</button><button class="tbtn" id="rpPdf" title="Download PDF (Save as PDF in the print window)">${ic('upload')}</button><button class="tbtn" id="rpPr" title="Print">${ic('print')}</button></div>`;
+   <span class="tsep"></span><button class="tbtn" id="rpX" title="Download Excel">${ic('xls')}</button><button class="tbtn" id="rpPdf" title="Download PDF (Save as PDF in the print window)">${ic('upload')}</button><button class="tbtn" id="rpPr" title="Print">${ic('print')}</button></div></div>`;
   const val=()=>{if($('#rpT',root))RP.to=$('#rpT',root).value;RP.from=$('#rpF',root)?$('#rpF',root).value:RP.to;if(d.mode==='today'){RP.from=RP.to=bd}if(RP.from>RP.to){const t=RP.from;RP.from=RP.to;RP.to=t}if($('#rpS',root))RP.shift=$('#rpS',root).value;if($('#rpSN',root))RP.shiftName=$('#rpSN',root).value;if($('#rpCv',root))RP.cv=$('#rpCv',root).value;RP.o=RP.o||{};$$('[data-ro]',root).forEach(x=>{RP.o[x.dataset.ro]=x.value})};
   $('#rpRun',root).onclick=()=>{val();RP.page=1;runReport(root)};$$('[data-ro]',root).forEach(x=>x.onchange=()=>$('#rpRun',root).click());
   const zoom=z=>{RP.zoom=Math.max(.4,Math.min(2,z));$('#rpZl',root).textContent=Math.round(RP.zoom*100)+'%';const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
