@@ -33,7 +33,7 @@ function runGate(kind, { ticket, search = '', now = 1e12, fresh = false } = {}) 
   vm.createContext(sandbox); vm.runInContext(m[0].replace(/^<script>|<\/script>$/g, ''), sandbox);
   out.hidden = sandbox.document.documentElement.style.display === 'none'; out.store = store; out.sandbox = sandbox; return out;
 }
-for (const kind of ['reach', 'sales', 'connect']) {
+for (const kind of ['reach', 'sales', 'connect', 'book']) {
   const html = read(kind + '/index.html');
   const gateAt = html.indexOf('Maha entry gate'), firstOther = html.search(/<script(?![^>]*>\/\* Maha entry gate)/);
   T(kind + ': the gate is the first thing in the page, before any other script', gateAt > 0 && html.indexOf('<script>/* Maha entry gate') < (html.indexOf('<script', html.indexOf('</script>', gateAt) + 1) === -1 ? Infinity : html.indexOf('<script', html.indexOf('</script>', gateAt) + 1)));
@@ -57,7 +57,7 @@ for (const kind of ['reach', 'sales', 'connect']) {
   delete g.store['mahahub.entry.' + kind]; g.intervals.forEach(f => f());
   T(kind + ': after sign-out (ticket removed) an open page is sent away within seconds', g.redirects[0] === '/solutions' && g.intervals.length === 1);
 }
-T('Maha Booking (the page guests use to book) stays open to guests, as before', !/Maha entry gate/.test(read('book/index.html')));
+T('Maha Booking (the engine linked to Google) is gated like the other systems', /Maha entry gate/.test(read('book/index.html')));
 
 /* 3. the Main page leaves and removes the ticket */
 const cut = (a, b) => { const i = app.indexOf(a), j = app.indexOf(b, i); if (i < 0 || j < 0) throw new Error('cut ' + a); return app.slice(i, j) };
@@ -78,8 +78,8 @@ env.DB.session = { hotel: 'H1', provider: true };
 T('the Owner (provider) can open every system', ['hub', 'reach', 'connect', 'sales', 'book'].every(k => api.sysAllowed(k)));
 api.sysUrl('reach', h1);
 T('the address built still has the hotel in it', api.sysUrl('reach', h1).endsWith('?hotel=H1'));
-const before = Object.keys(store).length; api.sysUrl('book', h1); api.sysUrl('hub', h1);
-T('Booking (for guests) and the PMS need no ticket', Object.keys(store).length === before);
+const before = Object.keys(store).length; api.sysUrl('hub', h1);
+T('the PMS needs no ticket', Object.keys(store).length === before);
 api.clearEntryTickets();
 T('signing out removes every ticket', Object.keys(store).length === 0);
 env.DB.session = null; api.sysUrl('reach', h1);
