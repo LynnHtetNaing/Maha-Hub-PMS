@@ -972,6 +972,14 @@ tr.sel td{outline:0!important;background:#ffd98a!important;color:#3a2a05!importa
 .fpc0{padding:44px 36px 36px}
 .hkt{border-radius:7px;padding:6px 8px}.hkt .tn{font-size:13px;margin-top:2px}.hkt .tt{font-size:12px;margin-top:2px}.hkt .tlo{left:6px;bottom:4px;gap:4px}.hkt .tat{right:6px;top:3px}
 .dfl{padding:14px}.dft{gap:12px;margin-top:10px}.dft .hkt{width:110px;height:62px}
+/* Housekeeping floor plan: one rounded card per room, number and type inside, the status icons inside the corner */
+.hkt{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:1px;border:0;border-radius:14px;padding:7px 9px 6px;text-align:left;box-shadow:0 3px 10px #0004}
+.hkt::before{content:"";position:absolute;inset:0;background:linear-gradient(160deg,#ffffff2b,transparent 58%);pointer-events:none;border-radius:inherit}
+.hkt .tn{font-size:clamp(15px,1.9vw,24px);font-weight:800;line-height:1.1;letter-spacing:.2px}.hkt .tt{color:#ffffffd9;font-size:clamp(11px,1.15vw,15px);font-weight:700;line-height:1.1;margin-top:1px}
+.hkt .tat{right:7px;top:6px;display:flex;gap:2px;background:#fff;border-radius:99px;padding:0 6px;line-height:1.35}.hkt .tat:empty{display:none}.hkt .tat .at{font-size:13px}
+.hkt .tlo{left:auto;right:7px;bottom:6px;gap:5px;color:#fff;background:#0000002e;border-radius:99px;padding:2px 8px}.hkt .tlo svg{width:13px;height:13px}
+.dft .hkt .tn{font-size:16px}.dft .hkt .tt{font-size:11px}.dft .hkt .tlo{padding:1px 6px}
+.fpf{border:2px solid #ffffff4d;border-radius:14px}.fpf .lift{border:0;border-radius:10px;background:#ffffff1a;color:#cfd4e3}.fpcorr{border-radius:99px}
 .hkdashb{gap:18px}
 /* ---- Full-page invoice and registration card ---- */
 .ppage.port.inv,.ppage.port.reg,.ppage.port.regb,.ppage.port.cf{display:flex;flex-direction:column;height:297mm;min-height:297mm;max-height:297mm;box-sizing:border-box;padding:12mm 12mm 10mm;overflow:hidden}
@@ -1884,11 +1892,11 @@ const PERMS=[
  ['corrpost','Correct post'],['corrpay','Correct payment and edit payment amount'],['move','Move lines between folios and rooms'],
  ['rate','Change nightly rates (advance rate setup)'],['print','Print invoices and registration cards'],['hk','Change housekeeping status'],
  ['notif','Create notifications'],['profile','Edit guest profiles'],['docs','View guest documents and ID numbers'],
- ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['currency','Choose a reservation currency (only when the provider opened more currencies)'],['setup','Hotel setup']];
+ ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['hkpost','Post housekeeping charges (Mini Bar, Missing / Damage, Laundry, Misc.) from HK Folio'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['currency','Choose a reservation currency (only when the provider opened more currencies)'],['setup','Hotel setup']];
 const PRESET={
  Manager:PERMS.map(p=>p[0]),
  'Front desk':['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','move','rate','print','hk','notif','profile','docs','reports','ai.guest'],
- Housekeeping:['hk','notif']};
+ Housekeeping:['hk','hkpost','notif']};
 
 /* ---------- transaction codes ---------- */
 const TCODES=[
@@ -6162,7 +6170,7 @@ const MENU=[
  {t:'Reservation',items:[['New Reservation','res.new','res.create','fn.res.new'],['Walk-In','res.walkin','res.create','fn.res.walkin'],['Reservation List / Change','res.list','','fn.res.list'],['Group Reservation','res.group','res.create','fn.res.group'],['Advance Rate Setup','res.rate','rate','fn.res.rate'],['Room Grid','fo.grid','','fn.res.grid']]},
  {t:'Front Office',items:[['Manager Dashboard','fo.dash','reports','fn.fo.dash'],['Arrivals','fo.arrivals','','fn.fo.arrivals'],['Departures','fo.departures','','fn.fo.departures'],['In House','fo.inhouse','','fn.fo.inhouse'],['Duty Roster','fo.roster','','fn.fo.roster']]},
  {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['Payment / EDC links','bill.edclinks','pay','fn.bill.folio'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','','fn.set.approve']]},
- {t:'Room Management',items:[['Housekeeping Status','rm.hkstatus','','fn.rm.hkstatus'],['Room Grid','fo.grid','','fn.rm.grid'],['Out of Order','rm.ooo','','fn.rm.ooo']]},
+ {t:'Room Management',items:[['Housekeeping Status','rm.hkstatus','','fn.rm.hkstatus'],['HK Folio','rm.hkfolio','','fn.rm.hkfolio'],['Out of Order','rm.ooo','','fn.rm.ooo']]},
  {t:'Inquiry',items:[['Hotel Status','fo.status','','fn.inq.status'],['Guest','inq.guest','','fn.inq.guest'],['Booking History','inq.history','','fn.inq.history'],['Forecast','inq.forecast','','fn.inq.forecast']]},
  {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty']]},
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
@@ -6578,7 +6586,7 @@ function mIc(n,cls){return '<svg class="mi'+(cls?' '+cls:'')+'" viewBox="0 0 24 
 const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','Billing / Folio':'receipt','Room Management':'bed','Inquiry':'search','Close Day':'moon','Help':'help','Report':'chart','Setup':'gear','Provider':'gear','Property set-up':'building','Rates & profiles':'tag','People & access':'users','Finance & data':'db'};
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
  'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.edclinks':'card','bill.city':'book','bill.master':'layers','set.approve':'check',
- 'rm.hkstatus':'spark','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','help.home':'help',
+ 'rm.hkstatus':'spark','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','help.home':'help',
  'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.exit':'login','prov.edc':'card','prov.log':'history'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
@@ -8211,6 +8219,34 @@ function bfSearchBar(host,rows,pick,stIn,onFilter){
   $$('[data-sf]',host).forEach(x=>x.onclick=()=>{st.by=x.dataset.sf;menu.hidden=true;$('.bsBy span',host).textContent=cur()[1];q.placeholder=cur()[2];$$('[data-sf]',host).forEach(y=>y.classList.toggle('on',y===x));q.focus()});
   document.addEventListener('click',function h(e){if(!host.isConnected){document.removeEventListener('click',h);return}if(!e.target.closest('.bfdd'))menu.hidden=true;if(!e.target.closest('.bsList')&&!e.target.closest('.bsGo'))list.hidden=true});
 }
+/* ---- HK Folio: every in-house room as in the In House list; open a folio and post Mini Bar, Missing / Damage, Laundry or Misc. only ---- */
+let HKB={sel:null,by:'room',q:''};
+function hkFolioView(el,id){
+  if(id)HKB.sel=id;
+  const rowsF=()=>allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b))).sort((a,b)=>(a.room||'').localeCompare(b.room||''));
+  if(HKB.sel&&!rowsF().find(b=>b.id===HKB.sel))HKB.sel=null;
+  const re=()=>hkFolioView(el);
+  el.innerHTML=pageHead('HK Folio',(HKB.sel?'<button class="btn ghost sm" id="hkBack">In-house list</button>':'')+'<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';
+  bfSearchBar($('#bfSearch',el),rowsF,x=>{HKB.sel=x;re()},HKB);
+  const pane=$('#bfPane',el);
+  if(HKB.sel){
+    folioPane(pane,HKB.sel,re);
+    const B=bookingById(HKB.sel);
+    /* read-only except posting: remove every other tool and the line actions */
+    $$('.ftb .tbtn, .ftb button',pane).forEach(b=>{if(b.id!=='fPost')b.remove()});
+    $$('tr[data-l]',pane).forEach(tr=>tr.replaceWith(tr.cloneNode(true)));
+    ['fProf','fName'].forEach(i=>{const n=$('#'+i,pane);if(n)n.replaceWith(n.cloneNode(true))});
+    const pb=$('#fPost',pane);
+    if(pb&&B){const nb=pb.cloneNode(true);nb.disabled=!(can('post')||can('hkpost'));nb.title='Post Mini Bar, Missing / Damage, Laundry or Misc.';pb.replaceWith(nb);nb.onclick=()=>postModal(B,()=>{saveDB();re()},folAct[B.id]||1,true)}
+    const hb=$('#hkBack',el);if(hb)hb.onclick=()=>{HKB.sel=null;re()};
+    return}
+  const list=rowsF();
+  pane.innerHTML=`<div class="panel scroll"><table class="grid">
+   <tr><th>Status</th><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th></th></tr>
+   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr><td class="nowrap">${stIcons(b,'')}</td><td><b>${esc(b.room)}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap"><button class="btn sm" data-hkf="${b.id}">Folio</button></td></tr>`}).join('')||`<tr><td colspan="11" class="empty">No guests in house.</td></tr>`}</table></div>`;
+  $$('[data-hkf]',pane).forEach(b=>b.onclick=()=>{HKB.sel=b.dataset.hkf;re()});
+}
+VIEWS['rm.hkfolio']=(el,id)=>hkFolioView(el,id);
 VIEWS['bill.folio']=(el,id)=>billingSplit(el,id);
 VIEWS['bill.open']=(el,id)=>billingSplit(el,id);
 let FI={by:'name',q:''};
@@ -8529,17 +8565,21 @@ VIEWS['bill.edclinks']=el=>{
 
 /* ---------- post new transaction: "New Item Folio" (7.x) ---------- */
 let postTab='MISC.',postKind='c';   /* postKind: c charge types, adj Adjust types, reb Rebate types */
-function postModal(B,after,folio){if(!need('post'))return;const gone=B.status==='out';if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
+const HK_TABS=['MINIBAR','LAUNDRY','MISC.'];
+/* HK Folio: only charges (no adjust or rebate) in Minibar, Laundry and Misc. (which holds Missing / Damage and the other small charges); never cash codes */
+function hkCode(c){return !!c&&c.type==='c'&&HK_TABS.includes(c.tab)&&!c.auto&&!c.hidden&&!c.adjFor&&!c.rebFor&&!c.rebate&&!/^Adjust|^Rebate/i.test(c.desc)&&c.code!=='721'}
+function needHk(){return (can('post')||can('hkpost'))?need():need('hkpost')}
+function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const gone=B.status==='out';if(hk){if(!HK_TABS.includes(postTab))postTab=HK_TABS[0];postKind='c'}if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
   let pf=folio||1,cur=null;
   if(gone&&postKind==='c')postKind='adj';
   const cs=curUserOn()?{cur:bCur(B),rp:'',rr:bForeign(B)?String(B.curRate):''}:null;let Pq=null;
   const m=modal('New Item Folio','<div id="niB"></div>',{w:cs?1440:1240,cls:'nimodal'+(cs?' nimc':'')});
-  const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor));
+  const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor)&&(!hk||hkCode(c)));
   const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c),kindOf=c=>isRb(c)?'reb':isAd(c)?'adj':'c';
   /* a correction code is chosen like any other; after check-out it opens the correction window (reason, credit note, who may do it) */
   const allowed=c=>{if(isRb(c)&&!can('rebate')||isAd(c)&&!can('adjust')){dlgAlert(PS_MSG.perm);return false}if(gone&&corr(c)){closeModal(m);psEntry(B,isRb(c)?'rebate':'adjust',after,isRb(c)?(c.rebFor||c.code):c.code);return false}return true};
   const paint=()=>{const nOf=k=>codes().filter(c=>c.tab===postTab&&kindOf(c)===k).length,list=codes().filter(c=>c.tab===postTab&&kindOf(c)===postKind);
-    $('#niB',m).innerHTML=`<div class="nitabs">${POST_TABS.map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    $('#niB',m).innerHTML=`<div class="nitabs">${(hk?HK_TABS:POST_TABS).map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
     <div class="nimain"><div class="nileft"><div class="segs refseg"><button type="button" id="niKc" aria-pressed="${postKind==='c'}" ${gone?'disabled title="After check-out only Adjust and Rebate are possible"':''}>Charge types (${nOf('c')})</button><button type="button" id="niKa" aria-pressed="${postKind==='adj'}">Adjust types (${nOf('adj')})</button><button type="button" id="niKr" aria-pressed="${postKind==='reb'}">Rebate types (${nOf('reb')})</button></div><div class="nitiles" id="niTiles">${list.map(c=>`<button class="nitile ${cur&&cur.code===c.code?'on':''}" data-nc="${c.code}">${ic(isRb(c)?'rebate':isAd(c)?'swap':'copy',40)}<b>${c.code}</b><span>${esc(c.desc)}</span><em class="rg ${chargeVat(c)?'':'nv'}">${chargeVat(c)?'VAT':'Non-VAT'}</em></button>`).join('')||'<div class="empty">No codes in this group.</div>'}</div></div>
      <div class="niform">${fld('Post to folio',`<div class="segs fseg">${[1,2,3,4].map(x=>`<button type="button" data-pf="${x}" aria-pressed="${x===pf}">Folio ${x}</button>`).join('')}</div>`)}
       ${fld('Code',`<div class="row gap"><input id="niC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="niSrch" title="Search codes">${ic('search',15)}</button></div><div id="niHits"></div>`)}
@@ -8549,6 +8589,7 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
       ${fld('Remark',`<textarea id="niM" rows="3"></textarea>`)}
       <div class="quote" id="niQ"></div><div class="err" id="niE"></div>
       <div class="btns end"><button class="btn red" id="niX">Close</button><button class="btn purple" id="niP">Post</button></div></div></div>`;
+    if(hk)['niKa','niKr'].forEach(id=>{const b=$('#'+id,m);if(b)b.remove()});
     const keep=['niR','niA','niM'].map(id=>[id,m._v&&m._v[id]]);keep.forEach(([id,v])=>{if(v!=null)$('#'+id,m).value=v});
     if(cur&&cur.code==='203'&&houseAccount(B)&&!$('#niA',m).value){const need=-folioBal(B,pf);if(need>0.004)$('#niA',m).value=String(r2(need))}
     $$('[data-nt]',m).forEach(b=>b.onclick=()=>{save();postTab=b.dataset.nt;paint()});
@@ -8567,7 +8608,7 @@ function postModal(B,after,folio){if(!need('post'))return;const gone=B.status===
   const save=()=>{m._v={};['niR','niA','niM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value});if(cur&&$('#niD',m))cur={...cur,desc:$('#niD',m).value.trim()||cur.desc}};
   const upd=()=>{let a=+String($('#niA',m).value).replace(/,/g,'')||0;if(cs){const r=curPanelCalc(B,cs,a);Pq&&Pq();a=r.error?0:r.folio}if(!cur||!a){$('#niQ',m).innerHTML=cur?'':'Choose a code on the left or type it.';return}const vOn=chargeVat(cur),t=taxSplit(a,vOn);
     $('#niQ',m).innerHTML=`${cur.rebate?'Rebate: posts as −'+m2(a)+'. ':''}Net ${m2(t.net)} + service ${m2(t.svc)} + ${esc(H.set.taxName)} ${m2(t.vat)} = <b>${m2(a)}</b>${vOn?'':' (non-VAT)'} → Folio ${pf}`};
-  const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}const a0=r2(+String($('#niA',m).value).replace(/,/g,''));
+  const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(hk?!needHk():!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}if(hk&&!hkCode(cur)){e.textContent='From HK Folio only Mini Bar, Missing / Damage, Laundry and Misc. charges can be posted.';return}const a0=r2(+String($('#niA',m).value).replace(/,/g,''));
     if(!(a0>0)){e.textContent='Enter an amount above 0.';return}const FX=cs?curPanelCalc(B,cs,a0):null;if(FX&&FX.error){e.textContent=FX.error;return}const a=FX?FX.folio:a0;if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
     const adj=/^Adjust/i.test(base.desc)||base.code==='398'||base.code==='728';
     if(adj&&bal(B)>=-0.004){e.textContent='Adjust (+) is only for an overpayment. The folio balance must be below zero.';return}
@@ -9831,7 +9872,7 @@ VIEWS['rm.hkstatus']=el=>{
   const fl=floorsList();if(!HKF.floor||(HKF.floor!=='dash'&&!fl.includes(HKF.floor)))HKF.floor=fl[0];
   const shown=H.rooms.map(rm=>({rm,s:roomState(rm)})),sell=shown.filter(x=>!x.rm.dummy),count=k=>sell.filter(x=>x.s.key===k).length;
   const legend=[['smile','Clean room'],['frown','Dirty room'],['moon','Discrepancy - Sleep room'],['ban','Discrepancy - Skip room'],['dnd','Do not disturb'],['phoneoff','Do not disturb (Telephone)'],['wifi','Inspected'],['log','Set special cleaning time'],['key','Soft block'],['chat','Comment information'],['warn','Do not move'],['link2','Connecting room'],['access','Handicap room']];
-  el.innerHTML=`<div class="hkw"><aside class="hkl"><div class="hkh">${titleMark('ROOM MANAGEMENT / HOUSEKEEPING')}<span class="hkname">Room Management / Housekeeping</span></div>
+  el.innerHTML=`<div class="hkw"><aside class="hkl"><div class="hkh">${titleMark('HOUSEKEEPING STATUS')}<span class="hkname">Housekeeping Status</span></div>
     <div class="hkform"><label>Floor plan</label><div class="row gap"><select id="hkFl" style="flex:1">${fl.map(f=>opt(f,floorName(f),HKF.floor)).join('')}${opt('dash','All floors (dashboard)',HKF.floor)}</select><button class="btn hkdash" id="hkDash">Dashboard</button></div>
      <label>Rooms</label><div class="row gap"><input id="hkQ" style="flex:1" value="${esc(HKF.q)}" placeholder="Room number"><button class="btn gold" id="hkGo">${ic('search',14)} Search</button></div></div>
     <div class="hkleg"><b>Color description</b>${legend.map(l=>`<div class="hli li-${l[0]}">${ic(l[0],17)}<span>${l[1]}</span></div>`).join('')}
@@ -9850,8 +9891,7 @@ VIEWS['rm.hkstatus']=el=>{
      <div class="hkdashb">${fl.map(f=>{const rs=shown.filter(x=>x.rm.floor===f);return `<div class="dfl"><button class="dfh" data-gofl="${f}">${esc(floorName(f))} <span>${rs.length} rooms · ${rs.filter(x=>!x.rm.dummy&&x.s.occ).length} occupied · ${rs.filter(x=>!x.rm.dummy&&!x.s.clean&&!x.s.ooo).length} dirty</span></button><div class="dft">${rs.map(x=>tile(x,'position:relative')).join('')}</div></div>`}).join('')}</div>`}
   else{const f=HKF.floor,p=planFor(f),rs=shown.filter(x=>x.rm.floor===f);
     const pct=(v,t)=>(v/t*100).toFixed(3)+'%';
-    const cells=rs.map(x=>{const q=p.rooms[x.rm.no];if(!q)return '';return `<div class="fpc" style="left:${pct(q.x,p.W)};top:${pct(q.y,p.H)};width:${pct(q.w,p.W)};height:${pct(q.h,p.H)}"><span class="fptype">${x.rm.type}</span></div>`+
-      tile(x,`left:${pct(q.x+1.3,p.W)};top:${pct(q.y+(q.y<p.H/2?3.6:1.3),p.H)};width:${pct(q.w-2.6,p.W)};height:${pct(4.8,p.H)}`)}).join('');
+    const cells=rs.map(x=>{const q=p.rooms[x.rm.no];if(!q)return '';return tile(x,`left:${pct(q.x+.4,p.W)};top:${pct(q.y+.4,p.H)};width:${pct(q.w-.8,p.W)};height:${pct(q.h-.8,p.H)}`)}).join('');
     const feats=p.feat.map(ft=>{const box=`left:${pct(ft.x,p.W)};top:${pct(ft.y,p.H)};width:${pct(ft.w,p.W)};height:${pct(ft.h,p.H)}`;
       if(ft.t==='fac'){const F=FAC[ft.kind]||['Facility','#888'];return `<div class="fpf fac" style="${box};--fc:${F[1]}" title="${esc(ft.label||F[0])}"><div class="facin">${ic('f_'+ft.kind,28)}<span>${esc(ft.label||F[0])}</span></div></div>`}
       return `<div class="fpf ${ft.t}" style="${box}">${ft.t==='stairs'?'<div class="stp"></div>'+(p.auto?'<div class="exit" title="Emergency exit">'+ic('out',22)+'</div>':''):ft.t==='lift'?'<div class="lift">LIFT</div>':ft.t==='exit'?'<div class="exit2" title="Emergency exit">'+ic('out',22)+'</div>':''}</div>`}).join('');
