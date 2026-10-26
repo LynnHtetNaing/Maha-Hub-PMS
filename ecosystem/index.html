@@ -1693,6 +1693,8 @@ html[data-skin="modern"] .fph{border-radius:15px 15px 0 0}
 html[data-skin="modern"] .hscard>:first-child,html[data-skin="modern"] .hsrev>:first-child,html[data-skin="modern"] .fcwrap>:first-child{border-radius:15px 15px 0 0}
 /* the $ sign in the green deposit circle */
 html[data-skin="modern"] .depi{color:#fff!important;background:linear-gradient(135deg,var(--a1),color-mix(in srgb,var(--a1) 60%,var(--a2)))!important}
+/* a dot in the box colour in front of each box title */
+html[data-skin="modern"] .pnh:not(:has(>svg:first-child))::before{content:"";flex:none;width:10px;height:10px;border-radius:50%;background:var(--area);box-shadow:0 0 0 3px color-mix(in srgb,var(--area) 22%,transparent)}
 /* save notice: small shaded box at the bottom of the screen */
 html[data-skin="modern"] #cnote{top:auto;bottom:26px}
 html[data-skin="modern"] #cnote .cn.saved{font-size:13px;font-weight:600;letter-spacing:0;padding:9px 16px;border-radius:10px;background:#E7F4EC;border:1px solid #BFE0CC;color:#1f6b49;text-shadow:none;box-shadow:0 6px 18px #0a27231f}
@@ -6196,7 +6198,7 @@ const MENU=[
  {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty']]},
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
- {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy'],['Backup & restore','set.backup','setup','fn.set.backup']]}];
+ {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
 const PROV_MENU=[
  {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
  {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Chains / Groups','prov.chains'],['Recycle bin','prov.recycle']]},
@@ -9571,7 +9573,7 @@ function setArea(a){if(DB&&DB.session){DB.session.area=a==='back'?'back':'front'
 function BACKEND_MENU(){
   const f=v=>{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it;return null};
   const g=(t,ids)=>({t,items:ids.map(f).filter(Boolean)});
-  return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users']),g('Finance & data',['ac.buy','set.backup']),g('Help',['help.home']),{t:'Report',report:true}]}
+  return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users']),g('Finance & data',['ac.buy']),g('Help',['help.home']),{t:'Report',report:true}]}
 function areaMenu(src){
   const se=DB&&DB.session;if(!se||se.provider)return src;
   return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
@@ -11528,7 +11530,7 @@ function downloadBackup(){const keep=DB.session;DB.session=null;const raw=JSON.s
 function applyRestore(obj){if(!obj||!obj.hotels){toast('This file is not a Maha Hub backup.');return}
   DB=migrateDB(obj);DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Backup restored. Sign in again.')}
 VIEWS['set.backup']=el=>{
-  if(!can('setup')&&!user().provider){el.innerHTML='<div class="empty">Backup is for the manager or the provider.</div>';return}
+  if(!user().provider&&!user().isProv){el.innerHTML=pageHead('Backup & restore')+'<div class="empty">Backup and restore is available in the Provider console only.</div>';return}
   const when=DB.savedAt?fdt(DB.savedAt):'not yet';
   el.innerHTML=pageHead('Backup & restore')+`<div class="cols2"><div class="panel pad"><h3>On this device</h3>
     <p>The hotel file is kept in this browser (local storage and IndexedDB). A recovery point is saved once each day. Last save: <b>${esc(when)}</b>.</p>
