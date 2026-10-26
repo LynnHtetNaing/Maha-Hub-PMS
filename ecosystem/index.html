@@ -979,6 +979,13 @@ tr.sel td{outline:0!important;background:#ffd98a!important;color:#3a2a05!importa
 .hkt .tat{right:7px;top:6px;display:flex;gap:2px;background:#fff;border-radius:99px;padding:0 6px;line-height:1.35}.hkt .tat:empty{display:none}.hkt .tat .at{font-size:13px}
 .hkt .tlo{left:auto;right:7px;bottom:6px;gap:5px;color:#fff;background:#0000002e;border-radius:99px;padding:2px 8px}.hkt .tlo svg{width:13px;height:13px}
 .dft .hkt .tn{font-size:16px}.dft .hkt .tt{font-size:11px}.dft .hkt .tlo{padding:1px 6px}
+/* HK Folio pop-up: wide and breathable, the room line on one line */
+.hkfmodal .mbody{padding:20px 26px 22px}
+.hkfinfo{display:flex;align-items:center;gap:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;padding:12px 16px;margin-bottom:16px;background:#eef4f8;border:1px solid var(--line);border-radius:12px}.hkfinfo .gname{font-weight:700}.hkfinfo .rmb{font-weight:800}
+.hkft th{padding:12px 14px;font-size:12px}.hkft td{padding:13px 14px;font-size:14px;line-height:1.5}
+.hkft tr.hkdone td{color:#8b97a0;background:#f2f4f6}.hkft tr.hkdone td.n{text-decoration:line-through}.hkset{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:99px;background:#dfe4e8;color:#5c6770;font-size:11px;font-weight:700}
+.hkftot{display:flex;justify-content:flex-end;align-items:center;gap:18px;padding:16px 14px 6px;font-size:15px}.hkftot b{font-size:20px}
+.hkfmodal .btns.end{margin-top:14px}
 /* airy floor plan: space between the cards and the corridor, and inside each card */
 .hkt{padding:10px 12px 9px;gap:3px}.hkt .tt{margin-top:3px}.hkt .tat{right:9px;top:9px;padding:1px 7px}.hkt .tlo{right:9px;bottom:9px;gap:7px;padding:3px 10px}.hkt .tlo svg{width:14px;height:14px}
 .fpc0{overflow-x:auto;padding:52px 40px 44px}.fpcanvas{min-width:900px}
@@ -8224,34 +8231,36 @@ function bfSearchBar(host,rows,pick,stIn,onFilter){
   $$('[data-sf]',host).forEach(x=>x.onclick=()=>{st.by=x.dataset.sf;menu.hidden=true;$('.bsBy span',host).textContent=cur()[1];q.placeholder=cur()[2];$$('[data-sf]',host).forEach(y=>y.classList.toggle('on',y===x));q.focus()});
   document.addEventListener('click',function h(e){if(!host.isConnected){document.removeEventListener('click',h);return}if(!e.target.closest('.bfdd'))menu.hidden=true;if(!e.target.closest('.bsList')&&!e.target.closest('.bsGo'))list.hidden=true});
 }
-/* ---- HK Folio: every in-house room as in the In House list; open a folio and post Mini Bar, Missing / Damage, Laundry or Misc. only ---- */
-let HKB={sel:null,by:'room',q:''};
-function hkFolioView(el,id){
-  if(id)HKB.sel=id;
+/* ---- HK Folio: every in-house room as in the In House list. (+) Post opens the posting window; Folio opens one wide folio with only the housekeeping charges ---- */
+let HKB={by:'room',q:''};
+/* every Mini Bar, Missing / Damage, Laundry and Misc. charge on the room, whoever posted it and in whichever folio it now sits */
+function hkLines(B){return (B.lines||[]).filter(l=>l.kind==='post'&&hkCode(TCODES.find(c=>c.code===l.code))).sort((a,b)=>(a.time||0)-(b.time||0))}
+function hkFolioModal(B,onClose){
+  const m=modal('Folio – Room '+esc(B.room||''),'<div id="hkfB"></div>',{w:1080,cls:'hkfmodal'});
+  const paint=()=>{const g=G(B.guestId),ls=hkLines(B),done=l=>!!(l.settled||l.offset),tot=r2(sum(ls.filter(l=>!done(l)),l=>l.amt)),canPost=!user().provider&&(can('post')||can('hkpost')),fix=can('corrpost')&&!user().provider;
+    $('#hkfB',m).innerHTML=`<div class="hkfinfo">${ic('user',16)} <b>#${B.internal}</b> <span class="gname">${esc(gName(g))}${B.copyOf?' (Copy)':''}</span> <span>RM# <span class="rmb">${esc(B.room||'—')}</span></span> <span>${fd(B.arr)} - ${fd(B.dep)}</span> <span class="st st-folio">STATUS# ${esc((ST[B.status]||'').toUpperCase())}</span></div>
+     <table class="grid hkft"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th>Posted by</th><th class="n">Amount</th></tr>
+     ${ls.map(l=>`<tr class="${done(l)?'hkdone':''}" data-hl="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${done(l)?' <span class="hkset">Settled</span>':''}</td><td>${esc(l.ref||'')}</td><td>${esc(l.user||'')}</td><td class="n">${m2(l.amt)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No Mini Bar, Missing / Damage, Laundry or Misc. charge on this room.</td></tr>'}</table>
+     <div class="hkftot"><span>Total to settle</span><b>${m2(tot)}</b></div>
+     ${fix?'<p class="sub">Double-click a line to correct it.</p>':''}
+     <div class="btns end"><button class="btn gold" id="hkfPost" ${canPost?'':'disabled'}>+ Post</button><button class="btn ghost" id="hkfX">Close</button></div>`;
+    $('#hkfX',m).onclick=()=>closeModal(m);
+    $('#hkfPost',m).onclick=()=>postModal(B,()=>{saveDB();paint()},1,true);
+    if(fix)$$('tr[data-hl]',m).forEach(tr=>tr.ondblclick=()=>{const l=B.lines.find(x=>x.id===tr.dataset.hl);if(l&&!done(l))transactionPopup(B,l,()=>{saveDB();paint()})})};
+  m._wrap._onclose=onClose;paint();return m}
+function hkFolioView(el){
   const rowsF=()=>allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b))).sort((a,b)=>(a.room||'').localeCompare(b.room||''));
-  if(HKB.sel&&!rowsF().find(b=>b.id===HKB.sel))HKB.sel=null;
   const re=()=>hkFolioView(el);
-  el.innerHTML=pageHead('HK Folio',(HKB.sel?'<button class="btn ghost sm" id="hkBack">In-house list</button>':'')+'<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';
-  bfSearchBar($('#bfSearch',el),rowsF,x=>{HKB.sel=x;re()},HKB);
-  const pane=$('#bfPane',el);
-  if(HKB.sel){
-    folioPane(pane,HKB.sel,re);
-    const B=bookingById(HKB.sel);
-    /* read-only except posting: remove every other tool and the line actions */
-    $$('.ftb .tbtn, .ftb button',pane).forEach(b=>{if(b.id!=='fPost')b.remove()});
-    $$('tr[data-l]',pane).forEach(tr=>tr.replaceWith(tr.cloneNode(true)));
-    ['fProf','fName'].forEach(i=>{const n=$('#'+i,pane);if(n)n.replaceWith(n.cloneNode(true))});
-    const pb=$('#fPost',pane);
-    if(pb&&B){const nb=pb.cloneNode(true);nb.disabled=!(can('post')||can('hkpost'));nb.title='Post Mini Bar, Missing / Damage, Laundry or Misc.';pb.replaceWith(nb);nb.onclick=()=>postModal(B,()=>{saveDB();re()},folAct[B.id]||1,true)}
-    const hb=$('#hkBack',el);if(hb)hb.onclick=()=>{HKB.sel=null;re()};
-    return}
-  const list=rowsF();
+  el.innerHTML=pageHead('HK Folio','<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';
+  bfSearchBar($('#bfSearch',el),rowsF,x=>{const B=bookingById(x);if(B)hkFolioModal(B,re)},HKB);
+  const pane=$('#bfPane',el),list=rowsF(),canPost=!user().provider&&(can('post')||can('hkpost'));
   pane.innerHTML=`<div class="panel scroll"><table class="grid">
    <tr><th>Status</th><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th></th></tr>
-   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr><td class="nowrap">${stIcons(b,'')}</td><td><b>${esc(b.room)}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap"><button class="btn sm" data-hkf="${b.id}">Folio</button></td></tr>`}).join('')||`<tr><td colspan="11" class="empty">No guests in house.</td></tr>`}</table></div>`;
-  $$('[data-hkf]',pane).forEach(b=>b.onclick=()=>{HKB.sel=b.dataset.hkf;re()});
+   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr><td class="nowrap">${stIcons(b,'')}</td><td><b>${esc(b.room)}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap"><button class="btn sm gold" data-hkp="${b.id}" ${canPost?'':'disabled'} title="Post Mini Bar, Missing / Damage, Laundry or Misc.">+ Post</button> <button class="btn sm" data-hkf="${b.id}">Folio</button></td></tr>`}).join('')||`<tr><td colspan="11" class="empty">No guests in house.</td></tr>`}</table></div>`;
+  $$('[data-hkf]',pane).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.hkf);if(B)hkFolioModal(B,re)});
+  $$('[data-hkp]',pane).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.hkp);if(B)postModal(B,()=>{saveDB();re()},1,true)});
 }
-VIEWS['rm.hkfolio']=(el,id)=>hkFolioView(el,id);
+VIEWS['rm.hkfolio']=(el)=>hkFolioView(el);
 VIEWS['bill.folio']=(el,id)=>billingSplit(el,id);
 VIEWS['bill.open']=(el,id)=>billingSplit(el,id);
 let FI={by:'name',q:''};
@@ -8594,11 +8603,11 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
       ${fld('Remark',`<textarea id="niM" rows="3"></textarea>`)}
       <div class="quote" id="niQ"></div><div class="err" id="niE"></div>
       <div class="btns end"><button class="btn red" id="niX">Close</button><button class="btn purple" id="niP">Post</button></div></div></div>`;
-    if(hk)['niKa','niKr'].forEach(id=>{const b=$('#'+id,m);if(b)b.remove()});
+    if(hk){['niKa','niKr'].forEach(id=>{const b=$('#'+id,m);if(b)b.remove()});const fs_=$('.fseg',m);if(fs_&&fs_.closest('label'))fs_.closest('label').style.display='none'}
     const keep=['niR','niA','niM'].map(id=>[id,m._v&&m._v[id]]);keep.forEach(([id,v])=>{if(v!=null)$('#'+id,m).value=v});
     if(cur&&cur.code==='203'&&houseAccount(B)&&!$('#niA',m).value){const need=-folioBal(B,pf);if(need>0.004)$('#niA',m).value=String(r2(need))}
     $$('[data-nt]',m).forEach(b=>b.onclick=()=>{save();postTab=b.dataset.nt;paint()});
-    if($('#niKc',m)){$('#niKc',m).onclick=()=>{if(gone)return;save();postKind='c';paint()};$('#niKa',m).onclick=()=>{save();postKind='adj';paint()};$('#niKr',m).onclick=()=>{save();postKind='reb';paint()}}
+    if($('#niKc',m)){$('#niKc',m).onclick=()=>{if(gone)return;save();postKind='c';paint()};if($('#niKa',m))$('#niKa',m).onclick=()=>{save();postKind='adj';paint()};if($('#niKr',m))$('#niKr',m).onclick=()=>{save();postKind='reb';paint()}}
     $$('[data-nc]',m).forEach(b=>b.onclick=()=>{const c=TCODES.find(x=>x.code===b.dataset.nc);if(!allowed(c))return;save();cur=c;paint();$('#niA',m).focus()});
     $$('[data-pf]',m).forEach(b=>b.onclick=()=>{save();pf=+b.dataset.pf;paint()});
     const findCode=q=>{q=q.trim().toLowerCase();return q?codes().filter(c=>c.code.startsWith(q)||c.desc.toLowerCase().includes(q)).slice(0,8):[]};
@@ -8614,7 +8623,7 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
   const upd=()=>{let a=+String($('#niA',m).value).replace(/,/g,'')||0;if(cs){const r=curPanelCalc(B,cs,a);Pq&&Pq();a=r.error?0:r.folio}if(!cur||!a){$('#niQ',m).innerHTML=cur?'':'Choose a code on the left or type it.';return}const vOn=chargeVat(cur),t=taxSplit(a,vOn);
     $('#niQ',m).innerHTML=`${cur.rebate?'Rebate: posts as −'+m2(a)+'. ':''}Net ${m2(t.net)} + service ${m2(t.svc)} + ${esc(H.set.taxName)} ${m2(t.vat)} = <b>${m2(a)}</b>${vOn?'':' (non-VAT)'} → Folio ${pf}`};
   const doPost=()=>noShiftGate('post',()=>doPost0());const doPost0=()=>{if(hk?!needHk():!need('post'))return;const e=$('#niE',m);if(!cur){e.textContent='Choose a transaction code.';return}if(hk&&!hkCode(cur)){e.textContent='From HK Folio only Mini Bar, Missing / Damage, Laundry and Misc. charges can be posted.';return}const a0=r2(+String($('#niA',m).value).replace(/,/g,''));
-    if(!(a0>0)){e.textContent='Enter an amount above 0.';return}const FX=cs?curPanelCalc(B,cs,a0):null;if(FX&&FX.error){e.textContent=FX.error;return}const a=FX?FX.folio:a0;if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
+    if(!(a0>0)){e.textContent='Enter an amount above 0.';return}const FX=cs?curPanelCalc(B,cs,a0):null;if(FX&&FX.error){e.textContent=FX.error;return}const a=FX?FX.folio:a0;if(hk&&folLocked(B,pf)){const u1=[1,2,3,4].find(x=>!folLocked(B,x));if(u1)pf=u1}if(folLocked(B,pf)){e.textContent=`Folio ${pf} is locked. Choose another folio or unlock it.`;return}const base=TCODES.find(c=>c.code===cur.code);
     const adj=/^Adjust/i.test(base.desc)||base.code==='398'||base.code==='728';
     if(adj&&bal(B)>=-0.004){e.textContent='Adjust (+) is only for an overpayment. The folio balance must be below zero.';return}
     if(base.rebate){const net=r2(sum(B.lines.filter(isCharge),l=>l.amt));if(net<=0.004){e.textContent=PS_MSG.rebate;return}if(a>net+0.004){e.textContent='A rebate cannot be more than the charges on this folio ('+m2(net)+').';return}}
