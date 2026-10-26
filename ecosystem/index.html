@@ -3097,7 +3097,7 @@ function sessionValid(se){
   if(last&&(now-last)>SESSION_MAX_MS)return false;
   if(se.provider)return (DB.providers||[]).some(p=>p.id===se.userId&&p.active!==false);
   const h=DB.hotels&&DB.hotels[se.hotel];if(!h)return false;
-  const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false)return false;
+  const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false||accessWhy(u))return false;
   if(!noShiftSessionOk(se,u))return false;   /* the provider took the No-shift setting away: sign in again */
   if(se.shiftId&&!(h.shifts||[]).some(s=>s.id===se.shiftId&&s.status==='open'))return false;
   return true;
@@ -6163,6 +6163,56 @@ function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.sys
 function bookOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.google&&h.set.google.enabled)}
 function salesOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.sales!==false)}
 function userHasSystem(u,kind){if(!u||u.provider||u.isProv)return true;const s=u.systems;if(!s||!Object.prototype.hasOwnProperty.call(s,kind))return true;return s[kind]!==false}
+/* ---- Access term and cancelled users (Provider Console) ----
+   A person can be given an access term: from a few seconds up to 3 years, set by the provider from the contract. When it ends the person cannot sign in,
+   and one who is signed in is signed out within seconds. "Cancel user" ends access at once (sign-in is cut on the server too) and does not wait for a shift. */
+const ACCESS_MIN_MS=1000,ACCESS_MAX_MS=1096*86400000;
+const ACCESS_UNITS={seconds:1000,minutes:60000,hours:3600000,days:86400000,months:30*86400000,years:365*86400000};
+function accessWhy(u,now){if(!u||u.provider||u.isProv)return '';if(u.cancelled)return 'cancelled';const a=u.access;if(!a)return '';now=now||Date.now();if(a.from&&now<a.from)return 'notyet';if(a.until&&now>=a.until)return 'ended';return ''}
+function accessMsg(w){return w==='cancelled'?'This account has been cancelled. Please contact Maha Hub support.':w==='notyet'?'Your access has not started yet. Please contact Maha Hub support.':'Your access period has ended. Please contact Maha Hub support.'}
+function accessSpan(ms){ms=Math.max(0,Math.round(ms/1000));const d=Math.floor(ms/86400),h=Math.floor(ms%86400/3600),m=Math.floor(ms%3600/60),s=ms%60;
+  if(d>=365){const y=Math.floor(d/365),r=d%365;return y+' yr'+(y>1?'s':'')+(r>=30?' '+Math.floor(r/30)+' mo':'')}if(d>=30)return Math.floor(d/30)+' mo '+(d%30)+' d';if(d>=1)return d+' d '+h+' h';if(h>=1)return h+' h '+m+' min';if(m>=1)return m+' min '+s+' s';return s+' s'}
+function accessText(u,now){now=now||Date.now();if(u&&u.cancelled)return 'Cancelled '+fd(new Date(u.cancelled.at).toISOString().slice(0,10));const a=u&&u.access;if(!a)return 'No time limit';
+  if(a.from&&now<a.from)return 'Starts '+fd(new Date(a.from).toISOString().slice(0,10))+' '+tm(a.from);if(!a.until)return 'No end date';
+  return now>=a.until?'Ended '+fd(new Date(a.until).toISOString().slice(0,10))+' '+tm(a.until):'Until '+fd(new Date(a.until).toISOString().slice(0,10))+' '+tm(a.until)+' ('+accessSpan(a.until-now)+' left)'}
+function accessNote(u,text,by){u.accessLog=u.accessLog||[];u.accessLog.unshift({at:Date.now(),by:by||'',a:text});if(u.accessLog.length>60)u.accessLog.length=60}
+setInterval(()=>{try{if(typeof DB==='undefined'||!DB||!DB.session||DB.session.provider||typeof H==='undefined'||!H)return;const w=accessWhy(user());if(w)signOut(true,accessMsg(w))}catch(e){}},5000);
+function accessModal(u,done){
+  const a=u.access||{},now=Date.now();
+  const hist=(u.accessLog||[]).slice(0,12).map(x=>`<tr><td class="nowrap">${fd(new Date(x.at).toISOString().slice(0,10))} ${tm(x.at)}</td><td>${esc(x.a)}</td><td>${esc(x.by||'')}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nothing yet.</td></tr>';
+  const m=modal('Access term – '+esc(u.name)+' ('+esc(u.username)+')',`<p class="sub">Now: <b>${esc(accessText(u))}</b></p>
+    <div class="form2">${fld('Starts',`<select id="acF"><option value="now">Now</option><option value="at" ${a.from&&a.from>now?'selected':''}>At a date and time</option></select>`)}${fld('Start date and time',`<input type="datetime-local" id="acFd" ${a.from&&a.from>now?'value="'+new Date(a.from-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)+'"':''}>`)}
+    ${fld('Lasts',`<input type="number" id="acN" min="1" step="1" value="1">`)}${fld('Unit',`<select id="acU">${Object.keys(ACCESS_UNITS).map(k=>`<option value="${k}" ${k==='years'?'selected':''}>${k}</option>`).join('')}</select>`)}</div>
+    <div class="btns" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn sm ghost" data-q="1:hours">1 hour</button><button class="btn sm ghost" data-q="1:days">1 day</button><button class="btn sm ghost" data-q="6:months">6 months</button><button class="btn sm ghost" data-q="1:years">1 year</button><button class="btn sm ghost" data-q="2:years">2 years</button><button class="btn sm ghost" data-q="3:years">3 years</button></div>
+    <p class="sub" id="acPrev"></p><div class="err" id="acE"></div>
+    <div class="btns"><button class="btn gold" id="acS">Save access term</button><button class="btn ghost" id="acNo">No time limit</button><button class="btn ghost" id="acX">Close</button></div>
+    <h4 class="mt">Timeline</h4><table class="grid"><tr><th>When</th><th>What</th><th>By</th></tr>${hist}</table>`,{w:620});
+  const read=()=>{const n=+$('#acN',m).value,unit=$('#acU',m).value;const from=$('#acF',m).value==='at'&&$('#acFd',m).value?new Date($('#acFd',m).value).getTime():Date.now();const len=n*ACCESS_UNITS[unit];return {n,unit,from,len,until:from+len}};
+  const prev=()=>{const r=read();$('#acPrev',m).textContent=(r.n>0&&r.len>=ACCESS_MIN_MS)?'Access from '+fd(new Date(r.from).toISOString().slice(0,10))+' '+tm(r.from)+' to '+fd(new Date(r.until).toISOString().slice(0,10))+' '+tm(r.until)+' ('+accessSpan(r.len)+').':''};
+  $$('[data-q]',m).forEach(b=>b.onclick=()=>{const [n,k]=b.dataset.q.split(':');$('#acN',m).value=n;$('#acU',m).value=k;prev()});
+  ['#acN','#acU','#acF','#acFd'].forEach(i=>$(i,m).addEventListener('input',prev));prev();
+  $('#acX',m).onclick=()=>closeModal(m);
+  $('#acS',m).onclick=()=>{const r=read();if(!(r.n>0)||!isFinite(r.len)){$('#acE',m).textContent='Enter how long the access lasts.';return}
+    if(r.len<ACCESS_MIN_MS){$('#acE',m).textContent='The shortest access term is 1 second.';return}if(r.len>ACCESS_MAX_MS){$('#acE',m).textContent='The longest access term is 3 years.';return}
+    u.access={from:r.from>Date.now()+1000?r.from:null,until:r.until,term:r.n+' '+r.unit,setAt:Date.now(),by:user().name};
+    const t='Access term set: '+r.n+' '+r.unit+', until '+fd(new Date(r.until).toISOString().slice(0,10))+' '+tm(r.until);accessNote(u,t,user().name);
+    H.amend.unshift({at:Date.now(),user:user().name,what:t+' for '+u.username,reason:'Access term'});provLog(t+' for '+u.username);saveDB();closeModal(m);done();toast('Access term saved for '+u.username+'.')};
+  $('#acNo',m).onclick=async ()=>{if(!await dlgConfirm('Remove the time limit for '+u.username+'? Access then continues until you cancel the user.'))return;delete u.access;const t='Access term removed (no time limit)';accessNote(u,t,user().name);H.amend.unshift({at:Date.now(),user:user().name,what:t+' for '+u.username,reason:'Access term'});provLog(t+' for '+u.username);saveDB();closeModal(m);done()}}
+function cancelUserModal(u,done){
+  const open=H.shifts.filter(s=>s.userId===u.id&&s.status==='open');
+  const m=modal('Cancel user – '+esc(u.name)+' ('+esc(u.username)+')',`<p>The person <b>cannot sign in or do anything</b> from this moment, on every device. You can reinstate the account later.</p>
+    <div class="form2">${fld('Reason',`<select id="cuR">${['Resigned','Contract ended','Terminated','Other'].map(x=>opt(x)).join('')}</select>`)}${fld('Note (optional)',`<input id="cuN">`)}</div>
+    ${open.length?`<div class="panel pad mt"><b>${open.length===1?'This person has a shift still open':'This person has '+open.length+' shifts still open'}.</b> It does <u>not</u> have to be closed first.
+      <label class="chk mt"><input type="radio" name="cuS" value="keep" checked> Leave it open. The duty manager counts the cash and closes it in My Shift &amp; Cashier ("Other open shifts").</label>
+      <label class="chk"><input type="radio" name="cuS" value="close"> Close it now at the expected cash (nothing counted, no difference recorded).</label></div>`:''}
+    <div class="err" id="cuE"></div><div class="btns"><button class="btn red" id="cuGo">Cancel user</button><button class="btn ghost" id="cuX">Keep the user</button></div>`,{w:560});
+  $('#cuX',m).onclick=()=>closeModal(m);
+  $('#cuGo',m).onclick=()=>{const reason=$('#cuR',m).value,note=$('#cuN',m).value.trim(),how=(m.querySelector('input[name=cuS]:checked')||{}).value||'keep';
+    const apply=()=>{u.active=false;u.cancelled={at:Date.now(),by:user().name,reason,note};
+      if(how==='close')open.forEach(s=>{const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by the provider: user cancelled',closedBy:user().name},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({},t.expectedBy),varianceBy:Object.keys(t.expectedBy).reduce((o,k)=>{o[k]=0;return o},{})}:{})});
+      const t='User cancelled ('+reason+(note?': '+note:'')+')'+(open.length?(how==='close'?'; open shift closed at expected cash':'; open shift left for the duty manager to close'):'');
+      accessNote(u,t,user().name);H.amend.unshift({at:Date.now(),user:user().name,what:t+' – '+u.username,reason:'Cancel user'});provLog('Cancelled user '+u.username+' ('+reason+')');saveDB();closeModal(m);done();toast(u.username+' is cancelled. They can no longer sign in.')};
+    if(MahaAuth.on()){$('#cuE',m).textContent='Cutting access…';ProvAdmin.call({action:'set_active',username:u.username,active:false}).then(apply,err=>{$('#cuE',m).textContent=ProvAdmin.msg(err)})}else apply()}}
 function hubBaseUrl(){const u=new URL(location.href);let path=u.pathname.replace(/index\.html?$/i,'');path=path.replace(/\/(?:ecosystem(?:\/(?:PMS|Reach|Connect|Booking|Sales))?|solutions(?:-(?:PMS|Reach|Connect|Booking|Sales))?(?:\.html?)?)\/?$/i,'/');if(!path.endsWith('/'))path+='/';return u.origin+path}
 function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book:'Booking',sales:'Sales'}[kind]||''}
 /* Addresses: the Main page is /solutions and the PMS is /solutions-PMS. The other systems keep /ecosystem/<System>/. The old /ecosystem/ and /ecosystem/PMS/ still open and move to the new address. */
@@ -6171,8 +6221,13 @@ function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}
 /* Entry ticket: Maha Connect, Reach and Sales open only from the signed-in Main page. The page leaves a ticket here (12 hours, removed at sign-out);
    those systems look for it and send everybody else to the sign-in page. */
-const ENTRY_KINDS=['connect','reach','sales'];
-function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||''}))}catch(e){}}
+/* Release gate: a system that is not yet open for sale and distribution cannot be opened from anywhere (the Main page, the switcher, a typed address,
+   an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
+const RELEASED_SYSTEMS=['hub'];
+function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
+function sysAllowed(kind){return RELEASED_SYSTEMS.includes(kind)||isOwnerSession()}
+const ENTRY_KINDS=['connect','reach','sales','book'];
+function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
 function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
 function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
 function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
@@ -6435,14 +6490,15 @@ function hotelSystems(h,u){
     ['sales','Maha Sales','Hotel leads, follow-ups and quotations.','sales',salesOn(h)]
   ];
   return rows.map(([kind,name,blurb,tone,hotel])=>{
-    const userOk=userHasSystem(u,kind);
-    return {id:kind,kind,name,blurb,tone,hotel,user:userOk,open:!!hotel&&!!userOk};
+    const userOk=userHasSystem(u,kind),released=sysAllowed(kind);
+    return {id:kind,kind,name,blurb,tone,hotel,user:userOk,released,open:!!hotel&&!!userOk&&released};
   });
 }
 function openSystem(kind,h,same){
   h=h||H;
   const asProv=!!(DB.session&&DB.session.provider);
   const row=hotelSystems(h,asProv?null:user()).find(s=>s.kind===kind);
+  if(row&&!row.released){toast(ecoSysLabel(kind)+' is not released yet.');return}
   if(!asProv&&row&&!row.hotel){toast(ecoSysLabel(kind)+' is closed for this hotel. The provider opens it under Systems.');return}
   if(!asProv&&row&&!row.user){toast(ecoSysLabel(kind)+' is not open for your account. The provider opens it under Staff & permissions.');return}
   if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
@@ -6455,7 +6511,7 @@ function openSystem(kind,h,same){
 function ecoAvailableCards(h, interactive, selected, u){
   return hotelSystems(h,u).map((s,i)=>{
     const locked=!s.open;
-    const why=!s.hotel?' · Ask Maha Hub to open':!s.user?' · Not open for this account':'';
+    const why=!s.released?' · Not released yet':!s.hotel?' · Ask Maha Hub to open':!s.user?' · Not open for this account':'';
     const sel=!!selected&&selected===s.kind&&!locked;
     const dis=interactive?(locked?'disabled':''):'disabled';
     return `<button type="button" class="eco-card${locked?' is-locked':''}${sel?' is-selected':''}" data-sys="${s.kind}" ${dis} aria-pressed="${sel?'true':'false'}" style="animation-delay:${0.18+i*0.06}s">
@@ -6950,7 +7006,7 @@ function openSystemsSwitcher(){
   const who=user();
   const rows=hotelSystems(H,who.provider||who.isProv?null:who).map(s=>{
     const locked=!s.open;
-    const why=!s.hotel?' · Ask Maha Hub to open for this hotel':!s.user?' · Not open for your account':'';
+    const why=!s.released?' · Not released yet':!s.hotel?' · Ask Maha Hub to open for this hotel':!s.user?' · Not open for your account':'';
     return `<button type="button" class="btn ${locked?'ghost':'gold'}" data-sys="${s.kind}" ${locked?'disabled':''} style="justify-content:flex-start;text-align:left;width:100%;margin:0 0 8px">
       <span style="flex:1"><b>${esc(s.name)}</b><div class="sub">${esc(s.blurb)}${why}${!why&&s.kind==='hub'?' · Current workspace':''}</div></span>
       <span>${locked?'Closed':(s.kind==='hub'?'Open PMS':'Open')}</span></button>`;
@@ -7004,6 +7060,7 @@ function doLogin(){
     if(sys==='hub'){afterLoginRoute(h,who,shift);return}
     lgTargetSys=sys;openSystem(sys,h,true);
   };
+  {const aw=accessWhy(u);if(aw){if(MahaAuth.on())MahaAuth.signOut();err.textContent=accessMsg(aw);return}}
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Maha Hub support.';return}
   fails=0;H=h;let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open');
   if(u.noShift){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log('Signed in without a shift');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}
@@ -8988,7 +9045,7 @@ VIEWS['cd.shift']=el=>{
     ${curMulti(H)?`<table class="grid kv mt"><tr><th colspan="2">Cash received in other currencies</th></tr>${curOthers(H).map(c=>`<tr><td>Expected cash (${esc(c)})</td><td class="n">${m2(t.cashBy[c]||0)}</td></tr>`).join('')}</table>`:''}
     <div class="form2 mt">${fld('Cash counted'+(curMulti(H)?' ('+esc(curMain())+')':''),`<input type="number" id="csC" step="0.01" class="n">`)}${curMulti(H)?curOthers(H).map(c=>fld('Cash counted ('+esc(c)+')',`<input type="number" id="csC_${c}" step="0.01" class="n">`)).join(''):''}${fld('Handover note (optional)',`<input id="csN">`)}</div><div class="err" id="csE"></div>
     <div class="btns"><button class="btn gold" id="csGo">Close my shift and sign out</button><button class="btn ghost" id="csRep">Shift report</button></div></div></div>
-   ${others.length?`<div class="panel mt"><div class="ph">Other open shifts</div><table class="grid"><tr><th>User</th><th>Shift</th><th>Opened</th><th></th></tr>${others.map(o=>`<tr><td>${esc(o.userName)}</td><td>${o.name}</td><td>${fd(o.bd)} ${tm(o.openAt)}</td><td>${can('closeothers')?`<button class="btn sm ghost" data-cls="${o.id}">Close this shift</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
+   ${others.length?`<div class="panel mt"><div class="ph">Other open shifts</div><table class="grid"><tr><th>User</th><th>Shift</th><th>Opened</th><th></th></tr>${others.map(o=>`<tr><td>${esc(o.userName)}${(()=>{const ou=H.users.find(x=>x.id===o.userId);return ou&&(ou.cancelled||ou.active===false)?' <span class="sub" style="color:#b3261e">(user cancelled, shift still open)</span>':''})()}</td><td>${o.name}</td><td>${fd(o.bd)} ${tm(o.openAt)}</td><td>${can('closeothers')?`<button class="btn sm ghost" data-cls="${o.id}">Close this shift</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
   $('#csRep',el).onclick=()=>{openReportsTab();toast('Open "Shift by Shift Cashier" under Cashier & Billing.')};
   $('#csGo',el).onclick=async ()=>{const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);const cb={},vb={};let vAny=false;curOthers(H).forEach(k=>{const raw=$('#csC_'+k,el)?$('#csC_'+k,el).value:'',ex=t.cashBy[k]||0;cb[k]=raw===''?(ex===0?0:null):r2(+raw);if(cb[k]!=null){vb[k]=r2(cb[k]-ex);if(vb[k]!==0)vAny=true}});
     if(Object.values(cb).some(x=>x==null)){$('#csE',el).textContent='Count the cash in each currency and enter the amounts.';return}
@@ -9501,8 +9558,8 @@ VIEWS['prov.perms']=el=>{
   if(!H){el.innerHTML=pageHead('Staff & permissions')+'<div class="empty">Create a property first.</div>';return}
   el.innerHTML=pageHead('Staff & permissions',provHotelPicker()+`<button class="btn gold" id="pvU">Add staff</button>`)+`<p class="sub">Access for people at <b>${esc(H.set.name)}</b>. This is not part of the hotel file. Open or lock each system per person, then set PMS permissions. A closed hotel system stays hidden even when this person is Open.</p><h3>Systems for each person</h3><div class="panel">${systemMatrix(H.users,true)}</div><h3 class="mt">PMS permissions</h3><div class="panel">${permMatrix(H.users,true)}</div>
    <div class="panel mt" id="chAcc" hidden></div>
-   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username / email</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th title="Signs in without opening a shift">No shift</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}<div class="sub" data-em="${esc(u.username)}"></div></td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.active===false?'Inactive':'Active'}</td><td><input type="checkbox" data-ns="${u.id}" ${u.noShift?'checked':''} aria-label="No shift for ${esc(u.username)}"></td>
-    <td class="nowrap">${MahaAuth.on()?`<button class="btn sm ghost" data-ce="${u.id}">Change email</button> `:''}<button class="btn sm ghost" data-rp="${u.id}">Reset password</button> <button class="btn sm ghost" data-act="${u.id}">${u.active===false?'Activate':'Deactivate'}</button> <select data-pre="${u.id}"><option value="">Apply preset…</option>${Object.keys(PRESET).map(k=>opt(k)).join('')}</select></td></tr>`).join('')}</table><datalist id="posList">${['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'].map(x=>`<option value="${x}">`).join('')}</datalist></div>`;
+   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username / email</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th>Access term</th><th title="Signs in without opening a shift">No shift</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}<div class="sub" data-em="${esc(u.username)}"></div></td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.cancelled?'<b style="color:#b3261e">Cancelled</b>':u.active===false?'Inactive':'Active'}</td><td class="sub" style="min-width:150px">${esc(accessText(u))}</td><td><input type="checkbox" data-ns="${u.id}" ${u.noShift?'checked':''} aria-label="No shift for ${esc(u.username)}"></td>
+    <td style="min-width:380px;line-height:2.1">${MahaAuth.on()?`<button class="btn sm ghost" data-ce="${u.id}">Change email</button> `:''}<button class="btn sm ghost" data-rp="${u.id}">Reset password</button> <button class="btn sm ghost" data-term="${u.id}">Access term</button> <button class="btn sm ghost" data-act="${u.id}">${u.cancelled?'Reinstate':u.active===false?'Activate':'Deactivate'}</button>${u.cancelled||u.owner||u.protected?'':` <button class="btn sm red" data-cancel="${u.id}">Cancel user</button>`} <select data-pre="${u.id}"><option value="">Apply preset…</option>${Object.keys(PRESET).map(k=>opt(k)).join('')}</select></td></tr>`).join('')}</table><datalist id="posList">${['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'].map(x=>`<option value="${x}">`).join('')}</datalist></div>`;
   bindPicker(el);
   $$('[data-ns]',el).forEach(c=>c.onchange=()=>{const u=H.users.find(x=>x.id===c.dataset.ns);if(!u)return;u.noShift=c.checked||undefined;
     H.amend.unshift({at:Date.now(),user:user().name,what:`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`,reason:'Provider setting'});provLog(`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`);saveDB();toast(c.checked?'This person now signs in without a shift.':'This person signs in with a shift again.')});
@@ -9512,9 +9569,11 @@ VIEWS['prov.perms']=el=>{
   $$('[data-pos]',el).forEach(i=>i.onchange=()=>{const u=H.users.find(x=>x.id===i.dataset.pos),v=i.value.trim();if(!v){i.value=u.position||u.role;toast('Enter a position title.');return}const old=u.position||u.role;u.position=v;H.amend.unshift({at:Date.now(),user:user().name,what:`Position of ${u.username}: ${old} → ${v}`,reason:'Position change'});provLog(`Position of ${u.username}: ${old} → ${v}`);saveDB();toast('Position saved')});
   $$('[data-su]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
   $$('[data-pu]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();render()});
+  $$('[data-term]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.term);if(u)accessModal(u,()=>render())});
+  $$('[data-cancel]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.cancel);if(!u)return;if(u.owner||u.protected){toast('The owner account is protected.');return}cancelUserModal(u,()=>render())});
   $$('[data-pre]',el).forEach(s=>s.onchange=()=>{if(!s.value)return;const u=H.users.find(x=>x.id===s.dataset.pre);u.perms=[...PRESET[s.value]];u.role=s.value;provLog(`Applied preset ${s.value} to ${u.username}`);saveDB();render()});
   $$('[data-rp]',el).forEach(b=>b.onclick=async ()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{if(d&&d.invitation_sent===false){toast('The email could not be sent now. Try again in a few minutes.');return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=await dlgAsk(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
-  $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}if(u.active!==false&&H.shifts.some(s=>s.userId===u.id&&s.status==='open')){toast('Close this person\'s open shift first.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
+  $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;if(nowActive&&u.cancelled){accessNote(u,'User reinstated',user().name);delete u.cancelled}if(nowActive&&accessWhy(u)==='ended')setTimeout(()=>toast('Their access term has ended. Set a new Access term so they can sign in.'),400);provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
     $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
       $('#auE',m).textContent='Creating the login...';
@@ -11926,7 +11985,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       applyLiveSession();resumeSync();
       const pathSys=sysFromPath();
       if(DB.session&&H&&(DB.session.provider||curShift())){
-      if(pathSys&&pathSys!=='hub'&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
+      if(pathSys&&pathSys!=='hub'&&sysAllowed(pathSys)&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
       applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub');
       renderShell();
       if(DB.session.provider&&!DB.session.inHotel)go('prov.home');

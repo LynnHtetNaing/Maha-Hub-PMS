@@ -1,0 +1,30 @@
+/* Access term and cancelled users: who may sign in, and when the term ends.   node tests/sync/access-term-test.js ecosystem/index.html */
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[2], 'utf8');
+let fails = 0; const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++ };
+const a = src.indexOf('const ACCESS_MIN_MS'), b = src.indexOf('setInterval(()=>{try{if(typeof DB===');
+if (a < 0 || b < 0) throw new Error('code not found');
+const api = new Function('fd', 'tm', src.slice(a, b) + '\nreturn {ACCESS_MIN_MS,ACCESS_MAX_MS,ACCESS_UNITS,accessWhy,accessMsg,accessSpan,accessText,accessNote};')(() => '', () => '');
+const NOW = 1.8e12, S = 1000, DAY = 86400000;
+T('no term -> no limit, can sign in', api.accessWhy({ username: 'a' }, NOW) === '');
+T('inside the term -> can sign in', api.accessWhy({ access: { until: NOW + 5 * S } }, NOW) === '');
+T('term ended -> cannot sign in', api.accessWhy({ access: { until: NOW - 1 } }, NOW) === 'ended');
+T('the very second the term ends -> cannot sign in', api.accessWhy({ access: { until: NOW } }, NOW) === 'ended');
+T('term not started -> cannot sign in', api.accessWhy({ access: { from: NOW + S, until: NOW + DAY } }, NOW) === 'notyet');
+T('cancelled -> cannot sign in, even with a valid term', api.accessWhy({ cancelled: { at: 1 }, access: { until: NOW + DAY } }, NOW) === 'cancelled');
+T('the provider is never cut by a term', api.accessWhy({ provider: true, access: { until: 1 } }, NOW) === '' && api.accessWhy({ isProv: true, cancelled: {} }, NOW) === '');
+T('shortest term is 1 second, longest about 3 years', api.ACCESS_MIN_MS === 1000 && api.ACCESS_MAX_MS === 1096 * DAY);
+T('3 years fits, 4 years does not', 3 * api.ACCESS_UNITS.years <= api.ACCESS_MAX_MS && 4 * api.ACCESS_UNITS.years > api.ACCESS_MAX_MS);
+T('2 years fits', 2 * api.ACCESS_UNITS.years <= api.ACCESS_MAX_MS);
+T('all units from seconds to years exist', ['seconds', 'minutes', 'hours', 'days', 'months', 'years'].every(k => api.ACCESS_UNITS[k] > 0));
+T('time left reads in plain words', api.accessSpan(45 * S) === '45 s' && api.accessSpan(90 * 60 * S) === '1 h 30 min' && /^2 yrs/.test(api.accessSpan(730 * DAY)));
+T('each message tells the person what to do', ['ended', 'notyet', 'cancelled'].every(w => /contact Maha Hub support/.test(api.accessMsg(w))));
+const u = {}; for (let i = 0; i < 70; i++) api.accessNote(u, 'x' + i, 'p');
+T('the timeline keeps the latest 60 entries, newest first', u.accessLog.length === 60 && u.accessLog[0].a === 'x69');
+/* the wiring */
+T('a signed-in session ends when the term ends or the user is cancelled', /u\.active===false\|\|accessWhy\(u\)\)return false/.test(src));
+T('sign-in is refused by the term check', /const aw=accessWhy\(u\);if\(aw\)\{if\(MahaAuth\.on\(\)\)MahaAuth\.signOut\(\);err\.textContent=accessMsg\(aw\)/.test(src));
+T('a user is no longer stopped from cancelling by an open shift', !/Close this person\'s open shift first/.test(src));
+T('the provider can cancel a user and set an access term', /data-cancel=/.test(src) && /data-term=/.test(src));
+T('cancelling cuts the sign-in on the server too', /ProvAdmin\.call\(\{action:'set_active',username:u\.username,active:false\}\)/.test(src));
+process.exit(fails ? 1 : 0);
