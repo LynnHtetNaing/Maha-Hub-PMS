@@ -10,10 +10,10 @@ const a = src.indexOf('/* ---- who sees what ---- */'), b = src.indexOf('/* ----
 if (mStart < 0 || mEnd < 0 || a < 0 || b < 0) throw new Error('code not found');
 
 function build(env) {
-  return new Function('DB', 'H', 'can', 'viewAllowed', 'firstHotelView', 'withLoading', 'renderShell', 'go', 'writeLiveSession',
+  return new Function('DB', 'H', 'can', 'viewAllowed', 'firstHotelView', 'withLoading', 'renderShell', 'go', 'writeLiveSession','ensureFlowCss',
     src.slice(mStart, mEnd) + '\n' + src.slice(a, b) +
     '\nreturn {MENU,hasBackend,curArea,setArea,BACKEND_MENU,areaMenu,firstBackendView,areaSwitchHtml};')(
-    env.DB, env.H, env.can, env.viewAllowed || (() => true), () => 'fo.status', async (m, ms, fn) => fn(), () => {}, () => {}, () => {});
+    env.DB, env.H, env.can, env.viewAllowed || (() => true), () => 'fo.status', async (m, ms, fn) => fn(), () => {}, () => {}, () => {}, () => {});
 }
 const hotel = { set: { name: 'Test' } };
 const staff = build({ DB: { session: { userId: 'u1', hotel: 'T' } }, H: hotel, can: p => p !== 'setup' });
