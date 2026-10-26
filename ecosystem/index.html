@@ -6171,8 +6171,13 @@ function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}
 /* Entry ticket: Maha Connect, Reach and Sales open only from the signed-in Main page. The page leaves a ticket here (12 hours, removed at sign-out);
    those systems look for it and send everybody else to the sign-in page. */
+/* Release gate: a system that is not yet open for sale and distribution cannot be opened from anywhere (the Main page, the switcher, a typed address,
+   an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
+const RELEASED_SYSTEMS=['hub'];
+function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
+function sysAllowed(kind){return RELEASED_SYSTEMS.includes(kind)||isOwnerSession()}
 const ENTRY_KINDS=['connect','reach','sales'];
-function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||''}))}catch(e){}}
+function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
 function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
 function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
 function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
@@ -6435,14 +6440,15 @@ function hotelSystems(h,u){
     ['sales','Maha Sales','Hotel leads, follow-ups and quotations.','sales',salesOn(h)]
   ];
   return rows.map(([kind,name,blurb,tone,hotel])=>{
-    const userOk=userHasSystem(u,kind);
-    return {id:kind,kind,name,blurb,tone,hotel,user:userOk,open:!!hotel&&!!userOk};
+    const userOk=userHasSystem(u,kind),released=sysAllowed(kind);
+    return {id:kind,kind,name,blurb,tone,hotel,user:userOk,released,open:!!hotel&&!!userOk&&released};
   });
 }
 function openSystem(kind,h,same){
   h=h||H;
   const asProv=!!(DB.session&&DB.session.provider);
   const row=hotelSystems(h,asProv?null:user()).find(s=>s.kind===kind);
+  if(row&&!row.released){toast(ecoSysLabel(kind)+' is not released yet.');return}
   if(!asProv&&row&&!row.hotel){toast(ecoSysLabel(kind)+' is closed for this hotel. The provider opens it under Systems.');return}
   if(!asProv&&row&&!row.user){toast(ecoSysLabel(kind)+' is not open for your account. The provider opens it under Staff & permissions.');return}
   if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
@@ -6455,7 +6461,7 @@ function openSystem(kind,h,same){
 function ecoAvailableCards(h, interactive, selected, u){
   return hotelSystems(h,u).map((s,i)=>{
     const locked=!s.open;
-    const why=!s.hotel?' · Ask Maha Hub to open':!s.user?' · Not open for this account':'';
+    const why=!s.released?' · Not released yet':!s.hotel?' · Ask Maha Hub to open':!s.user?' · Not open for this account':'';
     const sel=!!selected&&selected===s.kind&&!locked;
     const dis=interactive?(locked?'disabled':''):'disabled';
     return `<button type="button" class="eco-card${locked?' is-locked':''}${sel?' is-selected':''}" data-sys="${s.kind}" ${dis} aria-pressed="${sel?'true':'false'}" style="animation-delay:${0.18+i*0.06}s">
@@ -6950,7 +6956,7 @@ function openSystemsSwitcher(){
   const who=user();
   const rows=hotelSystems(H,who.provider||who.isProv?null:who).map(s=>{
     const locked=!s.open;
-    const why=!s.hotel?' · Ask Maha Hub to open for this hotel':!s.user?' · Not open for your account':'';
+    const why=!s.released?' · Not released yet':!s.hotel?' · Ask Maha Hub to open for this hotel':!s.user?' · Not open for your account':'';
     return `<button type="button" class="btn ${locked?'ghost':'gold'}" data-sys="${s.kind}" ${locked?'disabled':''} style="justify-content:flex-start;text-align:left;width:100%;margin:0 0 8px">
       <span style="flex:1"><b>${esc(s.name)}</b><div class="sub">${esc(s.blurb)}${why}${!why&&s.kind==='hub'?' · Current workspace':''}</div></span>
       <span>${locked?'Closed':(s.kind==='hub'?'Open PMS':'Open')}</span></button>`;
@@ -11926,7 +11932,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       applyLiveSession();resumeSync();
       const pathSys=sysFromPath();
       if(DB.session&&H&&(DB.session.provider||curShift())){
-      if(pathSys&&pathSys!=='hub'&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
+      if(pathSys&&pathSys!=='hub'&&sysAllowed(pathSys)&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
       applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub');
       renderShell();
       if(DB.session.provider&&!DB.session.inHotel)go('prov.home');
