@@ -589,7 +589,17 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
 .rptool .rtc .rta .rpact:hover{border-color:currentColor;filter:none;background:color-mix(in srgb,var(--a1,#059669) 10%,var(--m-card,#fff))}
 .rpr{position:relative}.rpzoom{position:absolute;right:26px;bottom:20px;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:99px;background:var(--m-card,#fff);color:var(--m-ink,#1d2b36);border:1px solid var(--m-line,#c9d6df);box-shadow:0 8px 22px #12204433;z-index:5}
 .rpzoom .tbtn{width:34px;height:34px;display:inline-grid;place-items:center;padding:0}.rpzoom .zl{color:var(--m-ink,#1d2b36)}.rpzoom .zl{min-width:44px;text-align:center;font-weight:700;font-size:13px}
-@media (max-width:1100px){.rptool .rtc{flex-wrap:wrap}.rptool .rtc .rta{max-width:none;width:100%}}
+/* a report with only a few filters keeps its one-line toolbar: the boxes, a small Run, and the icon buttons beside them */
+.rptool .rtc.rt1{flex-wrap:wrap;gap:6px 10px}
+.rptool .rtc.rt1 .rtf{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;flex:0 1 auto}
+.rptool .rtc.rt1 .rtf label{flex-direction:row;align-items:center;gap:6px;font-size:11.5px}
+.rptool .rtc.rt1 .rtf input,.rptool .rtc.rt1 .rtf select,.rptool .rtc.rt1 .rtf input[type=date]{width:auto!important;min-width:112px;height:30px}
+.rptool .rtc.rt1 .rtf select{width:150px!important;max-width:170px!important}
+.rptool .rtc.rt1 .rta{flex-direction:row;align-items:center;width:auto;max-width:none;gap:8px}
+.rptool .rtc.rt1 .rta .rpgo{width:auto;height:30px;padding:0 16px;font-size:13px;letter-spacing:0;gap:6px}.rptool .rtc.rt1 .rta .rpgo svg{width:13px;height:13px}
+.rptool .rtc.rt1 .rta .rpacts{display:flex;gap:6px}
+.rptool .rtc.rt1 .rta .rpact{width:32px;height:32px;padding:0;border-radius:9px}.rptool .rtc.rt1 .rta .rpact span{display:none}.rptool .rtc.rt1 .rta .rpact svg{width:18px;height:18px}
+@media (max-width:1100px){.rptool .rtc{flex-wrap:wrap}.rptool .rtc .rta{max-width:none;width:100%}.rptool .rtc.rt1 .rta{width:auto}}
 .eco-choose{margin:0 0 24px;color:#fff;font-family:'Cinzel',serif;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}.eco-choose[hidden]{display:none}
 
 .eco-brand .eco-lede{font-family:'Cinzel',serif;color:#fff;font-weight:700;font-size:clamp(14px,1.45vw,20px);letter-spacing:.05em;line-height:1.6;text-shadow:0 1px 4px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
@@ -11624,7 +11634,7 @@ function renderReports(root,overlay){
 }
 function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.set.bd,lt=H.set.lockedThrough;
   const one=['today','future','pastOne','upTo'].includes(d.mode)&&!['FO_21','FO_41'].includes(d.code),minD=['future','futureRange'].includes(d.mode)?bd:'',maxD=d.mode==='past'?lt:d.mode==='upTo'||d.mode==='pastOne'?bd:'';
-  $('#rptool',root).innerHTML=`<div class="rtt"><b>${d.code}</b> ${esc(d.title)} <span class="sub">· ${RMODE[d.mode]}</span></div><div class="rtc"><div class="rtf">
+  $('#rptool',root).innerHTML=`<div class="rtt"><b>${d.code}</b> ${esc(d.title)} <span class="sub">· ${RMODE[d.mode]}</span></div><div class="rtc ${((d.mode==='today'||one?1:2)+(d.shiftName?1:0)+(d.shiftFilter?1:0)+(curMulti(H)?1:0)+(d.opts||[]).length)>4?'rtmany':'rt1'}"><div class="rtf">
    ${d.mode==='today'?`<label>Date <input type="date" value="${bd}" disabled></label>`:one?`<label>Date <input type="date" id="rpT" value="${RP.to}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label>`:
     `<label>From <input type="date" id="rpF" value="${RP.from}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label><label>To <input type="date" id="rpT" value="${RP.to}" ${minD?'min="'+minD+'"':''} ${maxD?'max="'+maxD+'"':''}></label>`}
    ${d.shiftName?`<label>Shift <select id="rpSN"><option value="">All shifts (whole day)</option>${SHIFTS.map(x=>opt(x,x+' Shift',RP.shiftName)).join('')}</select></label>`:''}${d.shiftFilter?`<label>Shift <select id="rpS"><option value="">All shifts</option>${H.shifts.filter(s=>s.bd===bd).map(s=>opt(s.id,s.name+' – '+s.userName,RP.shift)).join('')}</select></label>`:''}
