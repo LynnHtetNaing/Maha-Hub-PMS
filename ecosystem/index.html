@@ -560,7 +560,7 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
  body{font-size:14px}
 }
 .depmodal .dpbox{min-height:360px;padding:6px 4px}.dptab tr[data-dl]{cursor:pointer}.dptab tr.sel td{background:#ffe9b3}.dpbtn{margin-top:16px;gap:10px}
-.fshare{display:flex;flex-wrap:wrap;gap:6px 16px;margin:2px 0 2px 22px;font-size:13px}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
+.fshare{display:block;margin:6px 0 2px 0}.fshare .fsh1{margin-top:6px}.fspace{visibility:hidden}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
 .gbi{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;background:#fff;color:#26414f;font-size:10px;font-weight:800;margin-right:5px;vertical-align:middle;line-height:1}
 .chb{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#e3ebef;color:#26414f;font-size:11px;font-weight:800;margin-right:6px;vertical-align:middle;line-height:1}
 /* ---- Reports bar: the first layout, with smaller boxes and buttons so it fits ---- */
@@ -7768,7 +7768,50 @@ VIEWS['res.walkin']=(el)=>{if(!need('res.create')){go('fo.status');return}newRes
 function editMode(B){if(!B)return 'full';if(closedBooking(B))return 'closed';if(firstNightClosed(B))return 'restricted';if(['cancelled','noshow'].includes(B.status))return 'closed';return 'full'}
 
 /* ---------- reservation screen (Sections 8 and 10) ---------- */
+/* tabs of a reservation: one per room (main guest), and one beside it for each guest sharing that room */
+function resTabsHtml(r,B,sg){return `<div class="btabs">${r.bookings.map(b=>`<button class="btab ${b===B&&!sg?'on':''}" data-bt="${b.id}">${esc(G(b.guestId).last)}${b.room?' · '+b.room:''}</button>`+(b.shares||[]).map(id=>`<button class="btab sh ${b===B&&sg===id?'on':''}" data-bt="${b.id}" data-sg="${id}" title="Guest sharing room ${esc(b.room||'')}">${esc(G(id).last)}${b.room?' · '+b.room:''}</button>`).join('')).join('')}</div>`}
+/* the page of a guest who shares the room: the same look as the main guest's page, the guest's own details, saved to that guest's profile */
+function shareGuestScreen(box,r,B,gid,o){
+  const g=G(gid),GE=can('profile')&&!user().provider,gd=GE?'':'disabled',docs=can('docs');
+  g.doc=g.doc||emptyDoc();
+  const reopen=()=>{saveDB();reservationScreen(box,r,bookingById(B.id),o)};
+  const q=sel=>box.querySelector(sel);
+  box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
+   <div class="toolbar">${tb('sSave','save','Save changes',!GE)}${tb('sProf','idc','Guest profile')}<span class="sp"></span>${stBadge(B)}</div>
+   <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input value="${esc(r.contact)}" disabled>`,'w2')}${fld('Reference',`<input value="${esc(r.reference)}" disabled>`)}</div>
+   ${resTabsHtml(r,B,gid)}
+   <div class="rgrid">
+    <div class="rcol">
+     <div class="pn"><div class="pnh grey">${ic('bed',15)} Rooms – ${B.type}${B.room?' ['+B.room+']':''}</div><div class="pnb kv2">
+       ${fld('Hotel code',`<input value="${H.code}" disabled>`)}${fld('Room',`<input value="${esc(B.room||'')}" disabled>`)}
+       ${fld('Arrival',`<input value="${fd(B.arr)}" disabled>`)}${fld('Departure',`<input value="${fd(B.dep)}" disabled>`)}
+       ${fld('Room nights',`<input value="${nights(B)}" disabled>`)}${fld('Rate code',`<input value="${esc(B.rateCode)}" disabled>`)}</div></div>
+    </div>
+    <div class="rcol">
+     <div class="pn"><div class="pnh blue">Customer – Sharing guest <button class="pnic" id="sOpen" title="Guest profile">${ic('idc',15)}</button></div><div class="pnb g4">
+       ${fld('Last name',`<input id="sLast" value="${esc(g.last)}" ${gd}>`)}${fld('First name',`<input id="sFirst" value="${esc(g.first)}" ${gd}>`)}
+       ${fld('Title',`<select id="sTitle" ${gd}>${TITLES.map(t=>opt(t,t,g.title)).join('')}</select>`)}${fld('VIP',`<input id="sVip" value="${esc(g.vip)}" ${gd}>`)}</div></div>
+     <div class="pn"><div class="pnh lblue">Guest details</div><div class="pnb g4">
+       ${fld('Nationality',`<input id="sNat" value="${esc(g.nationality)}" ${gd}>`)}${fld('Country',`<input id="sCountry" value="${esc(g.country)}" ${gd}>`)}
+       ${fld('Gender',`<input id="sGen" value="${esc(g.gender)}" list="sGenL" ${gd}><datalist id="sGenL"><option value="Male"><option value="Female"><option value="Other"></datalist>`)}${fld('Birthday',`<input type="date" id="sBirth" value="${esc(g.birthday)}" ${gd}>`)}
+       ${fld('Document type',`<select id="sDocT" ${docs&&GE?'':'disabled'}>${['','PASSPORT','ID CARD','THAI ID CARD','ALIEN REGISTRATION','DRIVING LICENCE'].map(x=>opt(x,x||'—',g.doc.type||'')).join('')}</select>`)}${fld('Passport / ID no.',`<input id="sPass" value="${docs?esc(g.doc.no):'••••••'}" ${docs&&GE?'':'disabled'}>`)}
+       ${fld('Phone',`<input id="sPhone" value="${esc(g.phone)}" ${gd}>`)}${fld('Email',`<input id="sEmail" value="${esc(g.email)}" ${gd}>`)}
+       ${fld('Address',`<input id="sAddr" value="${esc(g.address)}" ${gd}>`,'span2')}${fld('Remark',`<input id="sRem" value="${esc(g.remark)}" ${gd}>`,'span2')}</div></div>
+    </div>
+   </div><div class="err" id="sErr"></div></div>`;
+  $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),Object.assign({},o,{shareGid:t.dataset.sg||null})));
+  const prof=()=>guestProfile(gid,reopen);q('#sProf').onclick=prof;q('#sOpen').onclick=prof;
+  q('#sSave').onclick=()=>{
+    const err=q('#sErr');err.textContent='';if(!DB.session||!curShift()){need();return}
+    const ng={last:q('#sLast').value.trim(),first:q('#sFirst').value.trim(),title:q('#sTitle').value,vip:q('#sVip').value.trim(),nationality:q('#sNat').value.trim(),country:q('#sCountry').value.trim(),gender:q('#sGen').value.trim(),birthday:q('#sBirth').value,phone:q('#sPhone').value.trim(),email:q('#sEmail').value.trim(),address:q('#sAddr').value.trim(),remark:q('#sRem').value.trim()};
+    if(!ng.last){err.textContent='Enter the guest last name.';return}
+    const ch=[];Object.keys(ng).forEach(k=>{if((g[k]||'')!==ng[k]){ch.push(k);g[k]=ng[k]}});
+    if(docs){const dt=q('#sDocT').value,dn=q('#sPass').value.trim();if(g.doc.type!==dt){g.doc.type=dt;ch.push('document type')}if(g.doc.no!==dn){g.doc.no=dn;ch.push('passport / ID no.')}}
+    if(ch.length){log('Sharing guest '+gName(g)+' updated: '+ch.join(', ')+' RSVN '+r.no,B.id);B.hist=B.hist||[];B.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Updated sharing guest '+gName(g)+': '+ch.join(', ')})}
+    saveDB();toast(ch.length?'Guest details saved.':'Nothing changed.');reopen()};
+}
 function reservationScreen(box,r,B,o={}){
+  if(o.shareGid&&(B.shares||[]).includes(o.shareGid)){shareGuestScreen(box,r,B,o.shareGid,o);return}
   const g=G(B.guestId),mode=editMode(B),canEd=can('res.edit')&&!user().provider,E=k=>{ // can this field be edited?
     if(!canEd)return false;if(mode==='full')return true;if(mode==='restricted')return ['dep','rate'].includes(k);return false};
   const GE=can('profile')&&!user().provider; // guest data stays editable after Close Day (1.4)
@@ -7793,7 +7836,7 @@ function reservationScreen(box,r,B,o={}){
    ${lockNote}
    <div class="hrow">${fld('Reservation#',`<input value="${r.no}" disabled>`)}${fld('RSVN date',`<input value="${fd(r.date)}" disabled>`)}${fld('Contact name',`<input id="rContact" value="${esc(r.contact)}" ${dis('res')}>`,'w2')}
      ${fld('Reference',`<input id="rRef" value="${esc(r.reference)}" ${r.refAuto?'disabled':dis('res')}${r.refAuto?'':' placeholder="OTA booking reference"'}>`)}${fld('Phone no.',`<input id="rPhone" value="${esc(r.phone)}" ${dis('res')}>`)}${fld('Fax no.',`<input id="rFax" value="${esc(r.fax)}" ${dis('res')}>`)}${fld('Email',`<input id="rEmail" value="${esc(r.email)}" ${dis('res')}>`,'w2')}${fld('Confirmation No.',`<input id="rConf" value="${esc(r.confirmation)}" disabled title="Given by the system">`)}</div>
-   <div class="btabs">${r.bookings.map(b=>`<button class="btab ${b===B?'on':''}" data-bt="${b.id}">${esc(G(b.guestId).last)}${b.room?' · '+b.room:''}</button>`).join('')}</div>
+   ${resTabsHtml(r,B,null)}
    <div class="rgrid">
     <div class="rcol">
      <div class="pn"><div class="pnh grey">${ic('bed',15)} Rooms – ${B.type}${B.room?' ['+B.room+']':''}</div><div class="pnb kv2">
@@ -7841,7 +7884,7 @@ function reservationScreen(box,r,B,o={}){
     </div></div>
    <div class="err" id="rErr"></div></div>`;
   const q=s=>$(s,box);
-  $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),o));
+  $$('[data-bt]',box).forEach(t=>t.onclick=()=>reservationScreen(box,r,bookingById(t.dataset.bt),Object.assign({},o,{shareGid:t.dataset.sg||null})));
   const reopen=()=>{saveDB();reservationScreen(box,r,bookingById(B.id),o)};
   q('#gOpen').onclick=q('#aProf').onclick=()=>guestProfile(g.id,reopen);
   if(q('#aShare'))q('#aShare').onclick=()=>sharersModal(B,reopen);
@@ -8685,7 +8728,7 @@ const guestsInRoom=B=>[B.guestId,...(B.shares||[])].filter(Boolean);
 const paxOfBooking=B=>(+B.adults||0)+(+B.children||0);
 const emptyDoc=()=>({type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''});
 function sharersHtml(B){const ids=B.shares||[];if(!ids.length)return '';
-  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<span class="fsh">${ic('user',14)} ${esc(gName(g))} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button></span>`}).join('')}</div>`}
+  return `<div class="fshare">${ids.map(id=>{const g=G(id);return `<div class="fline1 fsh1">${ic('user',16)} <button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',18)}</button> <b class="fspace" aria-hidden="true">#${B.internal}</b> <a class="gname" data-sp="${id}" title="View or update this guest profile">${esc(gName(g))}</a></div>`}).join('')}</div>`}
 function addSharer(B,after){
   B.shares=B.shares||[];
   if(B.status!=='inhouse'){toast('A sharing guest is added after the main guest has checked in.');return}
