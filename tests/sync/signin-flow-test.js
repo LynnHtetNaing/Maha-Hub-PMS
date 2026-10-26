@@ -29,9 +29,10 @@ mgr.setArea('back'); T('a manager can be in Backend', mgr.curArea() === 'back');
 
 const ids = g => g.flatMap(x => (x.items || []).map(i => i[1]));
 const back = mgr.BACKEND_MENU(), backIds = ids(back);
-['set.hotel', 'set.rooms', 'set.codes', 'set.users', 'ac.buy', 'set.backup', 'profile.rates', 'res.rate', 'profile.companies'].forEach(v =>
+['set.hotel', 'set.rooms', 'set.codes', 'set.users', 'ac.buy', 'profile.rates', 'res.rate', 'profile.companies'].forEach(v =>
   T('Backend holds ' + v, backIds.includes(v)));
 T('Backend does NOT hold Functions (provider only)', !backIds.includes('set.features'));
+T('Backend does NOT hold Backup & restore (Provider console only)', !backIds.includes('set.backup'));
 T('Backend holds no provider-console page', !backIds.some(v => /^prov\./.test(v)));
 T('Backend has a Report entry', back.some(g => g.report));
 mgr.setArea('back'); T('in Backend the menu is the Backend menu', mgr.areaMenu(mgr.MENU).map(g => g.t).join('|') === back.map(g => g.t).join('|'));
