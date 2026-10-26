@@ -9498,6 +9498,8 @@ VIEWS['cd.close']=el=>{
     if(!await dlgConfirm(`Close Day for ${fd(bd)}?\n\n• ${fd(bd)} will be locked\n• The business date moves to ${fd(addD(bd,1))}\n• Your shift closes and you are signed out`))return;runCloseDay()};
 };
 /* Close Day run: a full-page "Closing Day" screen. The real work is the same six steps as before; the page only shows it nicely. */
+/* Close Day: every room with a guest in house becomes dirty (OC to OD) for tomorrow's stay-over cleaning. Do Not Disturb stays on the room; out of order and dummy rooms are not touched. */
+function closeDayDirty(bd){let n=0;H.rooms.forEach(rm=>{if(rm.dummy)return;if(rm.ooo&&rm.ooo.from<=bd&&bd<=rm.ooo.to)return;if(!allBookings().some(b=>b.room===rm.no&&b.status==='inhouse'))return;if(rm.hk!=='dirty'){rm.hk='dirty';rm.hkNote='Occupied dirty after Close Day';n++}});return n}
 function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
   const steps=['Checking data','Creating data log','Closing cashier shift','Locking business date '+fd(bd),'Closing entire system','Moving to business date '+fd(nd)];
   const K=Math.max(0,CD_DELAY)/380,wait=ms=>new Promise(r=>setTimeout(r,Math.round(ms*K)));
@@ -9526,7 +9528,7 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
   const work=[()=>{if(!cdReady().ok)throw new Error('Checks failed')},
     ()=>{const ls=allLinesH(H).filter(l=>l.night===bd&&l.kind==='room'),rv=curMulti(H)?allBookings().flatMap(b=>b.lines.filter(l=>l.night===bd&&l.kind==='room').map(l=>({c:bCur(b),a:l.amt,e:curLineEq(b,l)}))):null;H.audits.push({date:bd,at:Date.now(),user:user().name,rooms:ls.length,rev:rv?r2(sum(rv,x=>x.e)):r2(sum(ls,l=>l.amt)),revCur:rv?rv.reduce((o,x)=>{o[x.c]=r2((o[x.c]||0)+x.a);return o},{}):undefined,ns:allBookings().filter(b=>b.status==='noshow'&&b.statusDate===bd).length,shifts:H.shifts.filter(x=>x.bd===bd).length,variance:r2(sum(H.shifts.filter(x=>x.bd===bd),x=>x.variance||0)),inhouse:tonightIH().length,discClosed:Object.values(H.disc||{}).filter(d=>d.bd===bd&&d.status==='closed').length})},
     ()=>{const s=curShift();if(s){const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({},t.expectedBy),varianceBy:Object.keys(t.expectedBy).reduce((o,k)=>{o[k]=0;return o},{})}:{})}},
-    ()=>{H.set.lockedThrough=bd;archiveDummyLines(H)},()=>{log('Close Day '+fd(bd)+' done')},()=>{H.set.bd=nd;saveDB()}];
+    ()=>{H.set.lockedThrough=bd;archiveDummyLines(H);const nd2=closeDayDirty(bd);if(nd2)log('Close Day: '+nd2+' occupied room'+(nd2===1?'':'s')+' set to dirty')},()=>{log('Close Day '+fd(bd)+' done')},()=>{H.set.bd=nd;saveDB()}];
   /* The real work runs first, all at once. Closing the shift ends the session check, so the steps must not be spread over seconds. The log below only shows what already happened. */
   let failMsg=null;try{for(const w of work)w()}catch(e){failMsg=e.message||String(e)}
   (async()=>{
