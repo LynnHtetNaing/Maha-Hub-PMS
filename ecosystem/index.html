@@ -1032,6 +1032,9 @@ tr.sel td{outline:0!important;background:#ffd98a!important;color:#3a2a05!importa
 /* all tick boxes are one size everywhere (they shrank when the text beside them was long) */
 input[type=checkbox],input[type=radio]{width:18px!important;height:18px!important;min-width:18px;min-height:18px;max-width:18px;flex:0 0 18px;padding:0;margin:2px 8px 0 0;accent-color:var(--accent,#0e8a82);cursor:pointer;vertical-align:middle}
 .fld input[type=checkbox],.f input[type=checkbox]{width:18px!important}
+/* Room totals banner */
+.rtot{margin:0 0 14px}.rtot.rtbad{border-left:5px solid #dc2626}.rtot.rtok{border-left:5px solid #16a34a}.rtrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.rtc{padding:3px 12px;border-radius:99px;font-weight:700;font-size:12.5px;background:#e6f4ec;color:#15803d}.rtc.no{background:#fde8e8;color:#b3261e}
+html[data-skin="modern"][data-mode=dark] .rtc{background:#12301c;color:#9be3ab}html[data-skin="modern"][data-mode=dark] .rtc.no{background:#3a1417;color:#ffb4ad}
 /* HK Folio pop-up: wide and breathable, the room line on one line */
 .hkfmodal .mbody{padding:20px 26px 22px}
 .hkfinfo{display:flex;align-items:center;gap:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;padding:12px 16px;margin-bottom:16px;background:#eef4f8;border:1px solid var(--line);border-radius:12px}.hkfinfo .gname{font-weight:700}.hkfinfo .rmb{font-weight:800}
@@ -2393,7 +2396,9 @@ function shapeHotel(h){
     enabled:false,lat:'',lng:'',countryCode:'',category:'hotel',amenities:[],cancelPolicy:'',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''
   },h.set.google||{});
   if(!Array.isArray(h.set.google.amenities))h.set.google.amenities=[];
-  h.set.systems=Object.assign({reach:false,connect:false,sales:true},h.set.systems||{});
+  h.set.systems=Object.assign({reach:false,connect:false,sales:false},h.set.systems||{});
+  /* a system that is not released starts Closed for every hotel; the provider opens it for a hotel when it is released */
+  if(!h.set._sysClosedMig){h.set._sysClosedMig=1;if(h.set.package!=='fullpkg')h.set.systems.sales=false}
   (h.users||[]).forEach(u=>{u.systems=Object.assign({hub:true,connect:true,book:true,reach:true,sales:true},u.systems||{})});
   h.set.rules=Object.assign({},DEFAULT_RULES,h.set.rules||{});
   if(!h.set.codeVat||typeof h.set.codeVat!=='object'||Array.isArray(h.set.codeVat))h.set.codeVat={};
@@ -6479,7 +6484,7 @@ const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
 function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.connect)}
 function bookOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.google&&h.set.google.enabled)}
-function salesOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.sales!==false)}
+function salesOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.sales===true)}
 function userHasSystem(u,kind){if(!u||u.provider||u.isProv)return true;const s=u.systems;if(!s||!Object.prototype.hasOwnProperty.call(s,kind))return true;return s[kind]!==false}
 /* ---- Access term and cancelled users (Provider Console) ----
    A person can be given an access term: from a few seconds up to 3 years, set by the provider from the contract. When it ends the person cannot sign in,
@@ -10087,7 +10092,7 @@ VIEWS['inq.forecast']=el=>{
   el.classList.add('full');
   if(!FC.from||FC.from<H.set.bd)FC.from=H.set.bd;const days=Math.max(1,Math.min(93,+FC.days||15)),to=addD(FC.from,days-1);
   const ds=[...Array(days)].map((_,i)=>addD(FC.from,i)),D=ds.map(fcDay);
-  const TABS=[['all','All'],['adv','Advance'],['occ','OCC.RmType'],['avl','AVL.RmType'],['allot','Allotment'],['sum','Summary AVL'],['prod','Production']];
+  const TABS=[['all','All'],['adv','Advance'],['occ','OCC.RmType'],['avl','AVL.RmType'],['sum','Summary AVL'],['prod','Production']];if(FC.tab==='allot')FC.tab='all';
   const tbl=fcTable(FC.tab,D,ds);
   el.innerHTML=`<div class="fcwrap"><div class="fcbar"><div class="fch">${titleMark('INQUIRY / FORECAST')}INQUIRY / FORECAST</div>
    <div class="fcf"><div class="fcfld"><label for="fcF">From date</label><div class="dpk"><input id="fcF" value="${fd(FC.from)}" placeholder="dd/mm/yyyy" inputmode="numeric" autocomplete="off"><button type="button" class="dpb" data-dp="fcF" title="Choose date">${ic('grid',14)}</button><input type="date" class="dph" data-for="fcF" tabindex="-1" aria-hidden="true"></div></div>
@@ -10594,6 +10599,10 @@ function newPropertyForm(){if(!provOnly())return;
     openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}
 
 /* ---------- Setup checks (activation) ---------- */
+/* Room totals: every room type has a total number of rooms (its allotment, set by the provider); the rooms listed must add up to it for each type */
+function roomTotals(h){const types=(h.roomTypes||[]).filter(t=>!t.dummy),rooms=(h.rooms||[]).filter(r=>!r.dummy);
+  return types.map(t=>{const have=rooms.filter(r=>r.type===t.code).length,allot=+t.allot||0;return {code:t.code,name:t.name,allot,have,set:allot>0,ok:allot>0&&have===allot}})}
+const roomTotalsOk=h=>{const t=roomTotals(h);return t.length>0&&t.every(x=>x.ok)};
 function setupChecks(h){const s=h.set,g=s.google||{};
   const types=(h.roomTypes||[]).filter(t=>!t.dummy),rooms=(h.rooms||[]).filter(r=>!r.dummy);
   return [
@@ -10602,17 +10611,20 @@ function setupChecks(h){const s=h.set,g=s.google||{};
   {k:'floors',t:'Floors',ok:(h.floors||[]).length>0||new Set(rooms.map(r=>r.floor)).size>0},
   {k:'types',t:'Room types',ok:types.length>0},
   {k:'rooms',t:'Rooms',ok:rooms.length>0&&rooms.every(r=>r.type&&r.floor)},
+  {k:'allot',t:'Room totals',ok:roomTotalsOk(h)},
   {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&types.length>0},
   {k:'pay',t:'Payment methods',ok:TCODES.some(c=>c.type==='p'&&!c.refund&&!c.auto&&!(h.set.payOff||{})[c.code])},
   {k:'staff',t:'Staff & permissions',ok:h.users.some(u=>u.role==='Manager'&&u.active!==false)},
   {k:'terms',t:'Terms & Conditions',ok:true},
   {k:'google',t:'Direct booking & Google metadata',ok:!g.enabled||!!(g.lat&&g.lng&&g.countryCode&&g.cancelPolicy)}]}
+function roomTotalsBanner(){const t=roomTotals(H),bad=t.filter(x=>!x.ok);
+  return `<div class="panel pad rtot ${bad.length?'rtbad':'rtok'}"><b>${bad.length?'Room totals do not match yet':'Room totals match'}</b><div class="rtrow">${t.map(x=>`<span class="rtc ${x.ok?'ok':'no'}">${esc(x.code)}: ${x.have} of ${x.set?x.allot:'not set'}</span>`).join('')}</div>${bad.length?'<p class="sub">Each room type must have exactly its total number of rooms (the position of the rooms does not matter). Set the total in section 5, or add / remove rooms here. You cannot move on to the next step until they match.</p>':''}</div>`}
 function propertyChecks(h){return setupChecks(h).filter(c=>c.k!=='staff'&&c.k!=='google')}
 
 /* ---------- Property setup: hotel file only ---------- */
 let SET_SEC='profile';
 const SET_SECTIONS=[['profile','1','Hotel profile'],['tax','2','Currency, tax & service'],['bd','3','Business date & times'],['floors','4','Floors'],['types','5','Room types'],['rooms','6','Rooms'],
-  ['plan','7','Floor plan'],['rates','8','Rate codes'],['charges','9','Charge codes'],['pay','10','Payment methods'],['companies','11','Companies & agents'],['allot','12','Allotments'],
+  ['plan','7','Floor plan'],['rates','8','Rate codes'],['charges','9','Charge codes'],['pay','10','Payment methods'],['companies','11','Companies & agents'],['allot','12','Room totals'],
   ['docs','13','Registration card & invoice'],['tiref','14','Tax Invoice Reference'],['terms','15','Terms & Conditions'],['activate','16','Review & activate']];
 VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
   el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · property setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
@@ -10622,7 +10634,7 @@ VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>
   $$('[data-sec]',el).forEach(b=>b.onclick=()=>{SET_SEC=b.dataset.sec;render()});
   const box=$('#suBody',el);(SEC[SET_SEC]||SEC.profile)(box);
   const i=SET_SECTIONS.findIndex(s=>s[0]===SET_SEC);box.insertAdjacentHTML('beforeend',`<div class="sunext">${i>0?`<button class="btn ghost" data-go2="${SET_SECTIONS[i-1][0]}">‹ ${esc(SET_SECTIONS[i-1][2])}</button>`:'<span></span>'}${i<SET_SECTIONS.length-1?`<button class="btn" data-go2="${SET_SECTIONS[i+1][0]}">${esc(SET_SECTIONS[i+1][2])} ›</button>`:''}</div>`);
-  $$('[data-go2]',box).forEach(b=>b.onclick=()=>{SET_SEC=b.dataset.go2;render()});
+  $$('[data-go2]',box).forEach(b=>b.onclick=()=>{if(SET_SEC==='rooms'&&b.dataset.go2!=='types'&&b.dataset.go2!=='floors'&&!roomTotalsOk(H)){dlgAlert('The rooms do not add up to the total of each room type.\n\n'+roomTotals(H).filter(x=>!x.ok).map(x=>x.code+': '+x.have+' rooms listed, total '+(x.set?x.allot:'not set')).join('\n')+'\n\nCheck the totals in section 5 or the rooms in section 6, then continue.','Room totals');return}SET_SEC=b.dataset.go2;render()});
 };
 const secHead=(t,d)=>`<h2 class="sut">${esc(t)}</h2>${d?`<p class="sub">${d}</p>`:''}`;
 function saved(msg){saveDB();render();toast(msg||'Saved')}
@@ -10686,13 +10698,13 @@ const SEC={
    listEditor(box,{orderable:true,rows,cols:[{k:'id',h:'Floor ID (used on rooms)',ro:true,w:'120px'},{k:'name',h:'Display name'}],blank:()=>({id:'',name:''}),
     validate:d=>{if(d.some(f=>!f.id||!f.name))return 'Every floor needs an ID and a name.';if(new Set(d.map(f=>f.id)).size!==d.length)return 'Floor IDs must be different.';const used=new Set(H.rooms.filter(r=>!r.dummy).map(r=>r.floor));const gone=[...used].filter(u=>!d.some(f=>f.id===u));return gone.length?`Rooms still use floor ${gone.join(', ')}. Move those rooms first.`:''},
     save:d=>{H.floors=d.map((f,i)=>({id:String(f.id),name:f.name,order:i+1}));provLog(`Floors saved for ${H.code}`);saved()}})},
- types(box){box.innerHTML=secHead('5. Room types','Short code (shown on the floor plan, reports and forecast), full name and maximum guests. Room types have no standard rate: the rate is agreed with the guest and typed on each reservation.');
-   listEditor(box,{orderable:true,rows:H.roomTypes.filter(t=>!t.dummy).map(t=>({...t,_old:true})),cols:[{k:'code',h:'Short code',ro:true,w:'90px'},{k:'name',h:'Name'},{k:'max',h:'Max guests',type:'number',w:'90px'}],
-    blank:()=>({code:'',name:'',max:2}),
+ types(box){box.innerHTML=secHead('5. Room types','Short code (shown on the floor plan, reports and forecast), full name, maximum guests and the <b>total rooms</b> of this type (allotment). In section 6 the rooms you list must add up to this total for every room type. Room types have no standard rate: the rate is agreed with the guest and typed on each reservation.');
+   listEditor(box,{orderable:true,rows:H.roomTypes.filter(t=>!t.dummy).map(t=>({...t,_old:true})),cols:[{k:'code',h:'Short code',ro:true,w:'90px'},{k:'name',h:'Name'},{k:'max',h:'Max guests',type:'number',w:'90px'},{k:'allot',h:'Total rooms (allotment)',type:'number',w:'150px'}],
+    blank:()=>({code:'',name:'',max:2,allot:0}),
     validate:d=>{if(d.some(t=>!t.code||!t.name))return 'Every room type needs a short code and a name.';if(d.some(t=>!/^[A-Z0-9]{2,8}$/.test(String(t.code).toUpperCase())))return 'Short code: 2 to 8 letters or numbers.';if(new Set(d.map(t=>String(t.code).toUpperCase())).size!==d.length)return 'Short codes must be different.';
       const gone=H.rooms.filter(r=>!r.dummy&&!d.some(t=>String(t.code).toUpperCase()===r.type));return gone.length?`Rooms still use ${[...new Set(gone.map(r=>r.type))].join(', ')}. Change those rooms first.`:''},
-    save:d=>{H.roomTypes=d.map(t=>({code:String(t.code).toUpperCase(),name:t.name,base:+((H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{}).base)||0,max:+t.max||2}));ensureDummyBooking(H);provLog(`Room types saved for ${H.code}`);saved()}})},
- rooms(box){box.innerHTML=secHead('6. Rooms','Room number, room type and floor. Connecting room and handicap room are shown on the floor plan.')+`<div class="panel pad rbulk"><b>Add many rooms at once</b><div class="row gap">${fld('From room no.',`<input id="rb_f" style="width:110px">`)}${fld('To room no.',`<input id="rb_t" style="width:110px">`)}${fld('Room type',`<select id="rb_ty">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code)).join('')}</select>`)}${fld('Floor',`<input id="rb_fl" style="width:90px">`)}<button class="btn" id="rb_go">Add range</button></div></div>`;
+    save:d=>{H.roomTypes=d.map(t=>({code:String(t.code).toUpperCase(),name:t.name,base:+((H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{}).base)||0,max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));ensureDummyBooking(H);provLog(`Room types saved for ${H.code}`);saved()}})},
+ rooms(box){box.innerHTML=secHead('6. Rooms','Room number, room type and floor. Connecting room and handicap room are shown on the floor plan.')+roomTotalsBanner()+`<div class="panel pad rbulk"><b>Add many rooms at once</b><div class="row gap">${fld('From room no.',`<input id="rb_f" style="width:110px">`)}${fld('To room no.',`<input id="rb_t" style="width:110px">`)}${fld('Room type',`<select id="rb_ty">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code)).join('')}</select>`)}${fld('Floor',`<input id="rb_fl" style="width:90px">`)}<button class="btn" id="rb_go">Add range</button></div></div>`;
    const floorsOpt=()=>{const fs=(H.floors&&H.floors.length?H.floors.map(f=>[f.id,f.name]):[...new Set(H.rooms.map(r=>r.floor))].map(f=>[f,'Floor '+f]));return [['','—'],...fs]};
    listEditor(box,{rows:H.rooms.filter(r=>!r.dummy).map(r=>({no:r.no,type:r.type,floor:r.floor,connect:r.connect||'',handicap:!!r.handicap,_old:true})),
     cols:[{k:'no',h:'Room no.',ro:true,w:'100px'},{k:'type',h:'Room type',opts:()=>[['','—'],...H.roomTypes.filter(t=>!t.dummy).map(t=>[t.code,t.code+' – '+t.name])]},{k:'floor',h:'Floor',opts:floorsOpt},{k:'connect',h:'Connecting with',w:'110px'},{k:'handicap',h:'Handicap',type:'check'}],
@@ -10734,11 +10746,9 @@ const SEC={
     blank:()=>({id:'c'+uid(),code:'',type:'T',name:'',address:'',taxId:'',branch:'Head Office',comm:0,rateBasis:'gross',creditLimit:0}),
     validate:d=>{if(d.some(c=>!c.code||!c.name))return 'Every company needs a code and a name.';if(new Set(d.map(c=>String(c.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(c=>+c.creditLimit<0))return 'Credit limit cannot be below 0.';if(d.some(c=>+c.comm<0||+c.comm>=100))return 'Commission must be from 0 to below 100.';const used=H.companies.filter(c=>!d.some(x=>x.id===c.id)&&H.reservations.some(r=>r.companyId===c.id));return used.length?`${used.map(c=>c.code).join(', ')} is used by bookings and cannot be deleted.`:''},
     save:d=>{H.companies=d.map(c=>Object.assign({},H.companies.find(o=>o.id===c.id)||{},{id:c.id||'c'+uid(),code:String(c.code).toUpperCase(),type:c.type,name:c.name,address:c.address||'',taxId:c.taxId||'',branch:c.branch||'',comm:+c.comm||0,rateBasis:c.rateBasis==='net'?'net':'gross',creditLimit:Math.max(0,+c.creditLimit||0)}));provLog(`Companies saved for ${H.code}`);saved()}})},
- allot(box){box.innerHTML=secHead('12. Allotments','Rooms held for a company or agent by room type and dates, until the cut-off.');
-   listEditor(box,{rows:(H.allotments||[]).map(a=>({...a,_old:true})),cols:[{k:'companyId',h:'Company / agent',opts:()=>H.companies.map(c=>[c.id,`(${c.type}) ${c.name}`])},{k:'type',h:'Room type',opts:()=>H.roomTypes.map(t=>[t.code,t.code])},{k:'rooms',h:'Rooms / night',type:'number',w:'90px'},{k:'from',h:'From',type:'date'},{k:'to',h:'To',type:'date'},{k:'cutoff',h:'Cut-off days',type:'number',w:'90px'}],
-    blank:()=>({id:'a'+uid(),companyId:H.companies[0]&&H.companies[0].id,type:H.roomTypes[0]&&H.roomTypes[0].code,rooms:1,from:H.set.bd,to:addD(H.set.bd,30),cutoff:7}),
-    validate:d=>{if(d.some(a=>!a.companyId||!a.type))return 'Choose the company and room type.';if(d.some(a=>!a.from||!a.to||a.to<a.from))return 'Check the dates.';if(d.some(a=>!(+a.rooms>=1)))return 'At least 1 room.';return ''},
-    save:d=>{H.allotments=d.map(a=>({id:a.id||'a'+uid(),companyId:a.companyId,type:a.type,rooms:+a.rooms,from:a.from,to:a.to,cutoff:+a.cutoff||0}));provLog(`Allotments saved for ${H.code}`);saved()}})},
+ allot(box){const t=roomTotals(H);box.innerHTML=secHead('12. Room totals','The total number of rooms of each room type (its allotment) against the rooms listed in section 6. Every room type must match before the hotel can be activated. Agency allotments are not part of the PMS: they are managed in the channel manager.')+`<div class="panel scroll"><table class="grid"><tr><th>Room type</th><th>Name</th><th class="n">Total (allotment)</th><th class="n">Rooms listed</th><th>Status</th></tr>${t.map(x=>`<tr><td><b>${esc(x.code)}</b></td><td>${esc(x.name)}</td><td class="n">${x.set?x.allot:'—'}</td><td class="n">${x.have}</td><td>${x.ok?'<span class="pill g">Match</span>':x.set?'<span class="pill r">Differ by '+Math.abs(x.have-x.allot)+'</span>':'<span class="pill y">Total not set</span>'}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Add room types first (section 5).</td></tr>'}</table></div>
+   <div class="btns" style="margin-top:12px"><button class="btn" id="rtFill" ${t.some(x=>!x.set)?'':'disabled'}>Use the rooms listed now as the totals</button></div>`;
+   $('#rtFill',box).onclick=()=>{if(!provOnly())return;roomTotals(H).forEach(x=>{if(!x.set){const rt=H.roomTypes.find(r=>r.code===x.code);if(rt)rt.allot=x.have}});provLog('Room totals set from the rooms listed for '+H.code);saved('Totals saved')}},
  docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}</div>
    <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 15). The tax invoice numbers are set in section 14, Tax Invoice Reference.</p><div class="btns"><button class="btn gold" id="dS">Save</button></div></div>`;
    $('#dS',box).onclick=()=>{if(!provOnly())return;s.formCode=$('#d_fc',box).value.trim();s.building=$('#d_bl',box).value.trim();provLog(`Documents saved for ${H.code}`);saved()}},
