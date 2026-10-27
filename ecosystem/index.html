@@ -9406,7 +9406,7 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
   const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&POST_TABS.includes(c.tab)&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor)&&(!hk||hkCode(c)));
   const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c),kindOf=c=>isRb(c)?'reb':isAd(c)?'adj':'c';
   /* a correction code is chosen like any other; after check-out it opens the correction window (reason, credit note, who may do it) */
-  const allowed=c=>{if(isAd(c)&&!can('adjust')&&!gone){dlgAlert(PS_MSG.perm);return false}if(gone&&corr(c)){closeModal(m);psEntry(B,isRb(c)?'rebate':'adjust',after,isRb(c)?(c.rebFor||c.code):c.code);return false}return true};
+  const allowed=c=>{if(gone&&corr(c)){closeModal(m);psEntry(B,isRb(c)?'rebate':'adjust',after,isRb(c)?(c.rebFor||c.code):c.code);return false}return true};
   const paint=()=>{const nOf=k=>codes().filter(c=>c.tab===postTab&&kindOf(c)===k).length,list=codes().filter(c=>c.tab===postTab&&kindOf(c)===postKind);
     $('#niB',m).innerHTML=`<div class="nitabs">${(hk?HK_TABS:POST_TABS).map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(titleLabel(t))}</button>`).join('')}</div>
     <div class="nimain"><div class="nileft"><div class="segs refseg"><button type="button" id="niKc" aria-pressed="${postKind==='c'}" ${gone?'disabled title="After check-out only Adjust and Rebate are possible"':''}>Charge types (${nOf('c')})</button><button type="button" id="niKa" aria-pressed="${postKind==='adj'}">Adjust types (${nOf('adj')})</button><button type="button" id="niKr" aria-pressed="${postKind==='reb'}">Rebate types (${nOf('reb')})</button></div><div class="nitiles" id="niTiles">${list.map(c=>`<button class="nitile ${cur&&cur.code===c.code?'on':''}" data-nc="${c.code}">${ic(isRb(c)?'rebate':isAd(c)?'swap':'copy',40)}<b>${c.code}</b><span>${esc(c.desc)}</span><em class="rg ${chargeVat(c)?'':'nv'}">${chargeVat(c)?'VAT':'Non-VAT'}</em></button>`).join('')||'<div class="empty">No codes in this group.</div>'}</div></div>
@@ -9447,6 +9447,7 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
     if(base.rebate&&typeof needsApproval==='function'&&(needsApproval(vOn?'vatRebate':'nonVatRebate')||!can('rebate'))){
       queueApproval({action:'rebate',kind:vOn?'vatRebate':'nonVatRebate',bookingId:dest.id,title:`Rebate ${cur.code} ${m2(a)}`,code:cur.code,desc:'Rebate - '+desc,ref,amt,folio:pf,remark:rem,vat:vOn,noPerm:!can('rebate')});
       closeModal(m);after();if(!can('rebate'))askNotice('Rebate');return}
+    if(adj&&!can('adjust')){queueApproval({action:'post',kind:'adjust',bookingId:dest.id,title:'Adjust (+) '+cur.code+' '+m2(a),code:cur.code,desc,ref,amt,folio:pf,remark:rem,vat:vOn,noPerm:true});closeModal(m);after();askNotice('Adjust (+)');return}
     const l=addLine(H,dest,{...lineCtx(),folio:pf,code:cur.code,desc,ref,amt,kind:'post',remark:rem,vat:vOn,fx:FX&&FX.fx});
     log(`Posted ${cur.code} ${m2(l.amt)} to RSVN ${resOf(dest).no} folio ${pf}`,dest.id);closeModal(m);after();toast(`Posted ${m2(l.amt)} to folio ${pf}`)};
   paint();setTimeout(()=>$('#niC',m).focus(),50);
@@ -9674,7 +9675,7 @@ function transactionPopup(B,l,after){if(!l)return;
   if(!blk&&isCharge(l)&&l.kind!=='corrpost'&&!B.lines.some(x=>x.link===l.id)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCP" ${locked?'aria-disabled="true"':!can('corrpost')?'disabled':''}>${ic('erase',15)} Correct post</button>`)}
   {const env=cpEnvOf(B),payOnly=l.kind==='pay'&&payLocked(l)&&!frozen(l)&&!l.settled&&!folLocked(B,l.folio);
     const isPayLine=(l.kind==='pay'||l.kind==='payrec')&&!l.refund&&!corrected&&(!blk||payOnly);
-    if(isPayLine&&cpDepositOk(B,l,env)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCY" ${locked?'aria-disabled="true"':!can('corrpay')?'disabled':''}>${ic('erase',15)} Correct payment</button>`)}
+    if(isPayLine&&cpDepositOk(B,l,env)){acts.push(`<button class="btn ${locked?'blocked':''}" id="tCY" ${locked?'aria-disabled="true"':''}>${ic('erase',15)} Correct payment</button>`)}
     else if(isPayLine)acts.push(`<span class="sub">A reservation deposit is refunded, not corrected. Use Refund.</span>`)}
   if(!blk&&isCharge(l)&&locked)acts.push(`<button class="btn" id="tReb">${ic('rebate',15)} Rebate</button>`);
   let tab='post';
@@ -9710,7 +9711,8 @@ function transactionPopup(B,l,after){if(!l)return;
     if($('#tCP',m))$('#tCP',m).onclick=async ()=>{if(locked){dlgAlert('This post belongs to a closed day, so it cannot be corrected.\nUse Rebate to take an amount off, or Adjust (+) to add.','Correct post is blocked');return}if(!need('corrpost'))return;const why=await dlgAsk('Reason for the correct post:');if(!why||!why.trim()){toast('A correct post needs a reason.');return}
       const c=addLine(H,B,{...lineCtx(),folio:l.folio,code:l.code,desc:'Correct - '+l.desc,ref:l.ref,amt:-l.amt,kind:'corrpost',link:l.id,vat:l.vat,remark:why.trim()});
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Corrected by line '+c.sys+': '+why});log(`Correct post ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why}`,B.id);closeModal(m);after();toast('Correct post added. The charge now nets to 0.')};
-    if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(locked){dlgAlert('This payment belongs to a closed day, so it cannot be corrected.\nUse Refund to pay it back.','Correct payment is blocked');return}if(!need('corrpay'))return;{const w0=cpCheck(B,l,cpEnvOf(B));if(w0){dlgAlert(w0);return}}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
+    if($('#tCY',m))$('#tCY',m).onclick=async ()=>{if(locked){dlgAlert('This payment belongs to a closed day, so it cannot be corrected.\nUse Refund to pay it back.','Correct payment is blocked');return}const asReq=!can('corrpay');if(!asReq&&!need('corrpay'))return;{const w0=cpCheck(B,l,asReq?Object.assign({},cpEnvOf(B),{shift:(H.shifts||[]).find(x=>x.id===l.shiftId)||cpEnvOf(B).shift}):cpEnvOf(B));if(w0){dlgAlert(w0);return}}const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
+      if(asReq){queueApproval({action:'cpay',kind:'corrpay',bookingId:B.id,lineId:l.id,title:'Correct payment '+(l.method||l.desc)+' '+m2(Math.abs(l.amt)),amt:Math.abs(l.amt),reason:why.trim(),noPerm:true});closeModal(m);after();askNotice('Correct payment');return}
       const res=cpApply(H,B,l,{...lineCtx()},why.trim());
       releaseSettled(B,l.group,'Opened again because the payment was corrected');
       if(typeof refreshCityItems==='function')refreshCityItems(H);
@@ -12514,20 +12516,29 @@ function askNotice(name){dlgAlert('You are not allowed to post this ('+name+') y
 function approvalReply(a,status,reason){if(!a||!a.byId)return;const who=user().name;
   inboxPush(a.byId,status==='approved'?('Your request was approved by '+who+' and is posted: '+(a.title||'')):('Your request was rejected by '+who+': '+(a.title||'')+(reason?'. Reason: '+reason:'')),'approval')}
 function releaseSettled(B,group,why){B.lines.forEach(x=>{if(x.settledBy===group){x.settled=false;x.settledBy='';x.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:why})}})}
-function applyVoid(B,l,why){const fol=B.lines.some(x=>x.group===l.group&&x.kind==='payrec')?4:l.folio;const sh=curShift();
-  const c=addLine(H,B,{bd:H.set.bd,shift:sh,user:user().name,folio:fol,code:l.code,desc:'Void Payment - '+(l.method||l.desc),ref:l.ref,amt:-l.amt,kind:'corrpay',group:l.group,method:l.method,vat:false,remark:why||''});
-  l.hist.push({at:Date.now(),user:user().name,shift:sh?sh.name:'',a:'Void payment '+c.sys+': '+(why||'')});
+function applyVoid(B,l,why,asU){const fol=B.lines.some(x=>x.group===l.group&&x.kind==='payrec')?4:l.folio;const sh=curShift();
+  const c=addLine(H,B,{bd:H.set.bd,shift:sh,user:asU||user().name,folio:fol,code:l.code,desc:'Void Payment - '+(l.method||l.desc),ref:l.ref,amt:-l.amt,kind:'corrpay',group:l.group,method:l.method,vat:false,remark:why||''});
+  l.hist.push({at:Date.now(),user:asU||user().name,shift:sh?sh.name:'',a:'Void payment '+c.sys+': '+(why||'')});
   releaseSettled(B,l.group,'Opened again because the payment was voided');
   if(typeof refreshCityItems==='function')refreshCityItems(H);log(`Void payment ${l.method||l.desc} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no}`,B.id)}
 function applyApproval(ap){const B=bookingById(ap.bookingId);if(!B){toast('That booking is no longer on file.');return false}
-  if(ap.action==='void'){const l=B.lines.find(x=>x.id===ap.lineId);if(!l){toast('That payment line is gone.');return false}if(B.lines.some(x=>x.group===l.group&&x.kind==='corrpay')){toast('This payment is already corrected.');return false}applyVoid(B,l,ap.reason||ap.title);return true}
-  if(ap.action==='refund'){if(curShift()&&curShift().noShift){toast('A refund is approved by someone who signs in with a shift.');return false}postPayment(H,B,ap.code,ap.amt,{bd:H.set.bd,shift:curShift(),user:user().name,folio:ap.folio||1,remark:ap.remark||'',desc:ap.desc||'',ref:ap.ref||''});log('Approved refund '+m2(ap.amt)+' RSVN '+resOf(B).no,B.id);return true}
-  if(ap.action==='rebate'){addLine(H,B,{bd:ap.bd||H.set.bd,shift:curShift(),user:user().name,folio:ap.folio||1,code:ap.code,desc:ap.desc,ref:ap.ref||'',amt:ap.amt,kind:'post',remark:ap.remark||'',vat:!!ap.vat});log('Approved rebate '+ap.code+' RSVN '+resOf(B).no,B.id);return true}
-  if(ap.action==='ps'){const kind=ap.psKind,ctx={bd:H.set.bd,shift:curShift(),user:user().name},a=+ap.amt,why=(ap.remark||'')+' (asked by '+(ap.by||'')+', approved by '+user().name+')';let l,cn=null;
+  const asU=ap.by||user().name,ok=' (approved by '+user().name+')';
+  if(ap.action==='void'){const l=B.lines.find(x=>x.id===ap.lineId);if(!l){toast('That payment line is gone.');return false}if(B.lines.some(x=>x.group===l.group&&x.kind==='corrpay')){toast('This payment is already corrected.');return false}applyVoid(B,l,(ap.reason||ap.title)+ok,asU);return true}
+  if(ap.action==='refund'){if(curShift()&&curShift().noShift){toast('A refund is approved by someone who signs in with a shift.');return false}postPayment(H,B,ap.code,ap.amt,{bd:H.set.bd,shift:curShift(),user:asU,folio:ap.folio||1,remark:(ap.remark||'')+ok,desc:ap.desc||'',ref:ap.ref||''});log('Approved refund '+m2(ap.amt)+' RSVN '+resOf(B).no,B.id);return true}
+  if(ap.action==='rebate'){addLine(H,B,{bd:ap.bd||H.set.bd,shift:curShift(),user:asU,folio:ap.folio||1,code:ap.code,desc:ap.desc,ref:ap.ref||'',amt:ap.amt,kind:'post',remark:(ap.remark||'')+ok,vat:!!ap.vat});log('Approved rebate '+ap.code+' RSVN '+resOf(B).no,B.id);return true}
+  if(ap.action==='ps'){const kind=ap.psKind,ctx={bd:H.set.bd,shift:curShift(),user:asU},a=+ap.amt,why=(ap.remark||'')+' (asked by '+(ap.by||'')+', approved by '+user().name+')';let l,cn=null;
     if(kind==='refund'){if(psPaid(B)<=0.004||a>psPaid(B)+0.004){toast('The folio changed: the refund is more than what was paid.');return false}l=psRefund(H,B,Object.assign({},ctx,{code:ap.code,amt:a,ref:ap.ref||'',remark:why}));cn=psIssue(H,B,'refund',l,why,ctx);histB(B,'Refund '+m2(a)+' after check-out ('+l.method+'): '+why);log('Approved refund '+m2(a)+' RSVN '+resOf(B).no,B.id)}
     else if(kind==='rebate'){const pool=psPools(B).find(p=>p.key===ap.poolKey);if(!pool||a>pool.amt+0.004){toast('The charge changed: the rebate is more than what is left.');return false}l=psRebate(H,B,pool,a,Object.assign({},ctx,{ref:ap.ref||'',remark:why}));cn=psIssue(H,B,'rebate',l,why,ctx);histB(B,'Rebate '+m2(a)+' '+pool.desc+' after check-out: '+why);log('Approved rebate '+m2(a)+' RSVN '+resOf(B).no,B.id)}
     else{if(a>psCredit(B)+0.004){toast('The folio changed: there is no such credit.');return false}l=psAdjust(H,B,ap.code,a,Object.assign({},ctx,{ref:ap.ref||'',remark:why}));histB(B,'Adjust (+) '+m2(a)+' '+l.desc+' after check-out: '+why);log('Approved adjust (+) '+m2(a)+' RSVN '+resOf(B).no,B.id)}
     return true}
+  if(ap.action==='cpay'){const l=B.lines.find(x=>x.id===ap.lineId);if(!l){toast('That payment line is gone.');return false}
+    const sh=(H.shifts||[]).find(x=>x.id===l.shiftId);if(!sh||sh.status==='closed'){toast('The shift that took this payment is already closed. Use Refund instead.');return false}
+    const w0=cpCheck(B,l,Object.assign({},cpEnvOf(B),{shift:sh}));if(w0){toast(w0);return false}
+    const why=(ap.reason||'')+' (asked by '+asU+', approved by '+user().name+')',res=cpApply(H,B,l,{bd:H.set.bd,shift:sh,user:asU},why);
+    releaseSettled(B,l.group,'Opened again because the payment was corrected');if(typeof refreshCityItems==='function')refreshCityItems(H);
+    l.hist.push({at:Date.now(),user:asU,shift:sh.name,a:'Correct payment '+res.lines.map(x=>x.sys).join(', ')+' · '+res.cn.no+': '+why});log('Approved correct payment '+(l.method||l.desc)+' '+m2(Math.abs(l.amt))+' RSVN '+resOf(B).no+' · '+res.cn.no,B.id);return true}
+  if(ap.action==='post'){if(bal(B)>=-0.004){toast('The folio changed: there is no overpayment now.');return false}
+    addLine(H,B,{bd:H.set.bd,shift:curShift(),user:asU,folio:ap.folio||1,code:ap.code,desc:ap.desc,ref:ap.ref||'',amt:ap.amt,kind:'post',remark:(ap.remark||'')+ok,vat:!!ap.vat});log('Approved adjust (+) '+ap.code+' RSVN '+resOf(B).no,B.id);return true}
   return false}
 function chargeTarget(B,code){const r=resOf(B);if(!r||!r.groupId)return B;const g=(H.groups||[]).find(x=>x.id===r.groupId);if(!g)return B;
   const tc=TCODES.find(c=>c.code===code)||{};const hit=(g.routing||[]).find(x=>x.on!==false&&(x.match==='ALL'||x.match===code||x.match===(tc.dept||'')||x.match===(tc.tab||'')));
