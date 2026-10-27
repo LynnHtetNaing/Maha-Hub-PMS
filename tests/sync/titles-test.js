@@ -15,7 +15,7 @@ T('no two codes share a number', new Set(codes).size === codes.length);
 const charges = TCODES.filter(c => c.type === 'c' && !c.rel && !c.auto && !c.adjFor && !c.rebFor && !c.rebate);
 T('every charge code sits under a known title', charges.every(c => POST_TITLES_BASE.includes(c.tab)), charges.filter(c => !POST_TITLES_BASE.includes(c.tab)).map(c => c.code).join());
 T('every payment method sits under a known title', TCODES.filter(c => c.type === 'p' && !c.refund).every(c => PAY_TITLES_BASE.includes(c.ptab)));
-T('the 20 charge titles and 6 payment titles exist', POST_TITLES_BASE.length === 20 && PAY_TITLES_BASE.length === 6);
+T('the 20 charge titles and 8 payment titles exist', POST_TITLES_BASE.length === 20 && PAY_TITLES_BASE.length === 8);
 ['MISSING & DAMAGE', 'TRAVEL & TOUR', 'TELEPHONE & COMMUNICATION', 'SHOP & GIFTS', 'FEES & TAXES', 'MEDICAL & WELLNESS', 'ENTERTAINMENT', 'CHILD CARE'].forEach(t =>
   T('title ' + t + ' exists and has codes', POST_TITLES_BASE.includes(t) && charges.some(c => c.tab === t)));
 T('Damage and Breakage are under Missing & Damage', ['705', '703'].every(c => TCODES.find(x => x.code === c).tab === 'MISSING & DAMAGE'));
