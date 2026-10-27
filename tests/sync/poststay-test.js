@@ -74,7 +74,7 @@ T('adjust (+) posts +500 to the adjust code, flagged, and the folio comes to 0',
 
 /* wiring in the app */
 T('the three permissions exist', /\['refund','Refund money/.test(src) && /\['rebate','Rebate \(reduce\)/.test(src) && /\['adjust','Adjust \(\+\)/.test(src));
-T('a click without the permission opens the form as a request to the HOD or manager, for everybody who can see the button', src.includes('function psEntry(B,kind,after,presetKey){const asReq=!can(kind)') && src.includes("if(asReq){queueApproval({action:'ps'"));
+T('a click without the permission opens the form as a request to the HOD or manager when the hotel switched requests on, and shows the not-eligible message when it did not', src.includes('function psEntry(B,kind,after,presetKey){if(!can(kind)&&!reqFlowOn()){dlgAlert(PS_MSG.perm);return}const asReq=!can(kind)') && src.includes("if(asReq){queueApproval({action:'ps'") && src.includes('function reqFlowOn()'));
 T('the folio toolbar has no Refund / Rebate / Adjust icons of its own', !/psButtons|psBtn\(/.test(src) && !/id="fCN"/.test(src));
 T('Rebate and Adjust (+) are tiles of the Post window with their own icons, like every other code', /ic\(isRb\(c\)\?'rebate':isAd\(c\)\?'swap':'copy',40\)/.test(src) && !/data-psb="rebate"/.test(src) && !/psOpenPost/.test(src));
 T('after check-out the Post window shows only the Rebate and Adjust codes, and choosing one opens the correction window', /const gone=B\.status==='out'/.test(src) && /\(!gone\|\|c\.rebFor\|\|c\.adjFor\)/.test(src) && /psEntry\(B,isRb\(c\)\?'rebate':'adjust',after/.test(src));
