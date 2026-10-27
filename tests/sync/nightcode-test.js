@@ -4,6 +4,7 @@ const cut=(a,b)=>{const i=src.indexOf(a),j=src.indexOf(b,i);if(i<0||j<0)throw ne
 const fail=m=>{console.log('FAIL',m);process.exit(1)};
 const dates=(a,d)=>{const o=[];for(let x=new Date(a+'T00:00:00Z');x<new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()+1))o.push(x.toISOString().slice(0,10));return o};
 const H={rateCodes:[{code:'RB'},{code:'RO'},{code:'COMP',comp:'COMP'}],roomTypes:[]};
+const nightFxOn=(B,d)=>!!(B.nightFx&&B.nightFx[d]&&B.nightFx[d].cur&&B.nightFx[d].cur!==bCur(B)),bCur=B=>B.cur||'THB';
 const rateFor=(h,t,c)=>({RB:2100,RO:1800,COMP:0}[c]),rateKindOf=c=>c==='COMP'?'comp':'normal',bForeign=()=>false,r2=x=>Math.round(x*100)/100;
 eval(cut('const codeOn=','function advanceRate(')+';globalThis.T={codeOn,ownRate,amountFor,setNightCode}');
 const B={arr:'2026-10-10',dep:'2026-10-13',rateCode:'RB',type:'STD',nightly:{'2026-10-10':2100,'2026-10-11':2100,'2026-10-12':2100}};
