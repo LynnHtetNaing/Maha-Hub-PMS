@@ -1180,6 +1180,29 @@ html[data-mode=dark] .ivq{color:#b6cadb}html[data-mode=dark] .ivfx{color:#7cb6f2
 #secB .panel .grid th:last-child,#secB .panel .grid td:last-child{padding-right:22px}
 #secB .panel.pad .grid{margin:8px -22px 0;width:calc(100% + 44px)}
 #secB .panel .btns{padding:6px 22px 16px}
+/* Reports on a phone: pick, options, report only */
+.rpmbar{display:none}
+@media (max-width:900px){
+  .rpoverlay .rptop{display:none!important}
+  .rpoverlay .rpmbar{display:flex;align-items:center;gap:8px;height:54px;padding:0 10px;position:sticky;top:0;z-index:8;background:linear-gradient(120deg,#0e8a82,#1b7fa6);color:#fff}
+  .rpmbar .mbt{flex:1;font-weight:800;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rpmbar .mbb{width:38px;height:38px;border-radius:12px;border:0;background:rgba(255,255,255,.2);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;flex:0 0 38px}
+  .rpmbar .mbb[hidden]{display:none}
+  .rpmenu{position:absolute;right:10px;top:50px;width:170px;background:#fff;color:#0d2a24;border:1px solid #cfdcd5;border-radius:14px;box-shadow:0 14px 28px rgba(0,0,0,.35);padding:6px;z-index:9}.rpmenu[hidden]{display:none}
+  .rpmenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 12px;border-radius:9px;font:inherit;font-weight:700;color:inherit;cursor:pointer}.rpmenu button:hover{background:#e3f6f1}
+  .rpoverlay .rp[data-ms=list] .rpr{display:none!important}
+  .rpoverlay .rp[data-ms=list] .rpl{max-height:none!important;height:calc(100dvh - 54px);overflow:auto;border-bottom:0}
+  .rpoverlay .rp:not([data-ms=list]) .rpl{display:none!important}
+  .rpoverlay .rp[data-ms=opts] .rpview,.rpoverlay .rp[data-ms=opts] .rpzoom{display:none!important}
+  .rpoverlay .rp[data-ms=view] .rptool{display:none}
+  .rpoverlay .rp[data-ms=view] .rpview{height:calc(100dvh - 54px);min-height:0!important;overflow:auto;padding:6px}
+  .rpoverlay .rp[data-ms=view] .rpzoom{position:fixed;right:10px;bottom:14px;z-index:7;display:flex;align-items:center;gap:4px;background:rgba(23,37,47,.88);color:#fff;border-radius:14px;padding:4px 6px}
+  .rpoverlay .rp[data-ms=view] .rpzoom .tbtn{background:transparent;color:#fff;border:0;width:36px;height:36px}
+  .rpoverlay .rp.rpsheet .rptool{display:block!important;position:fixed;left:0;right:0;bottom:0;z-index:7;max-height:80vh;overflow:auto;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -12px 28px rgba(0,0,0,.4);padding:14px}
+  .rpoverlay .rp.rpsheet .rptool .rpacts{display:none}
+  html[data-mode=dark] .rpmenu{background:#101d2e;border-color:#2c3f55;color:#e6eef6}html[data-mode=dark] .rpmenu button:hover{background:#0f3a3c}
+  html[data-mode=dark] .rpoverlay .rp.rpsheet .rptool{background:#101d2e;color:#e6eef6}
+}
 /* Own photo in the profile button and on My profile */
 .tbprof{overflow:hidden;padding:0}.tbphoto{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}.mpav{overflow:hidden}.mpav img{width:100%;height:100%;object-fit:cover}
 /* Dark: transaction detail window (tabs, calculator button, coloured values, number pills) */
@@ -7465,6 +7488,10 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
   if(ENTRY_QUIET&&ENTRY_QUIET.pending)ENTRY_QUIET.pending=false;else ENTRY_QUIET=null;
   VIEW=v;VARG=arg===undefined?null:arg;closeMenus();render()}
+/* Opening the same page again (after a click such as Open or Lock) keeps the place where the person was working. A different page starts at the top. */
+let RENDER_KEY='';
+function scrollSnap(){const o=[];let e=document.getElementById('view');while(e&&e!==document.documentElement){if(e.scrollTop>0)o.push([e,e.scrollTop]);e=e.parentElement}return {y:window.scrollY||0,els:o}}
+function scrollBack(sn){window.scrollTo(0,sn.y);sn.els.forEach(([e,t])=>{if(e.isConnected)e.scrollTop=t})}
 function render(){
   if(!DB.session){showLogin();return}
   if(typeof applyHotelCodes==='function')applyHotelCodes();
@@ -7473,7 +7500,8 @@ function render(){
   if(!document.querySelector('.topbar'))renderShell();
   const f=VIEWS[VIEW]||VIEWS[user().provider?'prov.home':'fo.status'];
   try{applyFxCss()}catch(e){}
-  const el=$('#view');if(!el)return;el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
+  const el=$('#view');if(!el)return;const rkey=VIEW+'|'+(typeof VARG==='object'?JSON.stringify(VARG):String(VARG)),keep=rkey===RENDER_KEY?scrollSnap():null;RENDER_KEY=rkey;
+  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep){scrollBack(keep);setTimeout(()=>{if(RENDER_KEY===rkey)scrollBack(keep)},80)}else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
 }
 function refresh(){saveDB();render()}
 
@@ -12167,15 +12195,28 @@ function renderReports(root,overlay){
   if(!can('reports')){root.innerHTML='<div class="rpempty"><h2>No permission</h2><p>Ask the provider to open Reports for your account.</p></div>';return}
   try{applySkin()}catch(e){}
   document.title='Reports – '+H.set.name;try{setTabIcons('hub')}catch(e){}
-  root.innerHTML=`<div class="rp"><header class="rptop"><div class="rphl"><div class="tbbrand">${LOGO()}<span class="tbwm">MAHA PMS</span></div><div class="tbsep"></div><span class="rptitle">REPORTS</span></div><div class="rpmid"><div class="bdate">${fdWide(H.set.bd)}</div><div class="ver">Business date</div></div><div class="rpright"><div class="tbhotel"><div class="tbhn">${esc(H.set.name)}</div><div class="tbus">${esc(user().name)}</div></div>${overlay?'<button class="btn sm ghost" id="rpClose">Close reports</button>':''}</div></header>
+  root.innerHTML=`<div class="rp" data-ms="list"><div class="rpmbar" id="rpmbar"><button type="button" class="mbb" id="rpmBack" aria-label="Back">&#8249;</button><span class="mbt" id="rpmT">REPORTS</span><button type="button" class="mbb" id="rpmFil" aria-label="Filters" hidden>&#9881;</button><button type="button" class="mbb" id="rpmMore" aria-label="Excel, PDF, Print" hidden>&#8943;</button><div class="rpmenu" id="rpmMenu" hidden><button type="button" data-rm="rpX">Excel</button><button type="button" data-rm="rpPdf">PDF</button><button type="button" data-rm="rpPr">Print</button></div></div><header class="rptop"><div class="rphl"><div class="tbbrand">${LOGO()}<span class="tbwm">MAHA PMS</span></div><div class="tbsep"></div><span class="rptitle">REPORTS</span></div><div class="rpmid"><div class="bdate">${fdWide(H.set.bd)}</div><div class="ver">Business date</div></div><div class="rpright"><div class="tbhotel"><div class="tbhn">${esc(H.set.name)}</div><div class="tbus">${esc(user().name)}</div></div>${overlay?'<button class="btn sm ghost" id="rpClose">Close reports</button>':''}</div></header>
    <div class="rpb"><aside class="rpl" id="rpl">${RG.map(g=>{const list=REPORTS.filter(r=>r.g===g);return `<div class="rgrp"><button class="rgh" data-rg="${esc(g)}" aria-expanded="${!!RP.open[g]}">${esc(g)} <span>${list.length}</span></button>
      <div class="rgl" ${RP.open[g]?'':'hidden'}>${list.map(r=>`<button class="ritem ${RP.code===r.code?'on':''}" data-rc="${r.code}"><b>${r.code}</b> ${esc(r.title)}</button>`).join('')||'<div class="sub pad">No reports confirmed yet.</div>'}</div></div>`}).join('')}</aside>
    <section class="rpr"><div class="rptool" id="rptool"></div><div class="rpview" id="rpview"><div class="rpempty"><h2>Choose a report</h2><p>Open a group on the left and pick a report. It shows here as printed pages.</p></div></div><div class="rpzoom"><button class="tbtn" id="rpZo" title="Zoom out">${ic('zout')}</button><span class="zl" id="rpZl">${Math.round(RP.zoom*100)}%</span><button class="tbtn" id="rpZi" title="Zoom in">${ic('zin')}</button><button class="tbtn" id="rpFit" title="Fit width">${ic('fit')}</button></div></section></div></div>`;
   if(overlay)$('#rpClose',root).onclick=()=>{root.remove()};
   $$('[data-rg]',root).forEach(b=>b.onclick=()=>{RP.open[b.dataset.rg]=!RP.open[b.dataset.rg];b.setAttribute('aria-expanded',RP.open[b.dataset.rg]);b.nextElementSibling.hidden=!RP.open[b.dataset.rg]});
-  $$('[data-rc]',root).forEach(b=>b.onclick=()=>{RP.code=b.dataset.rc;RP.page=1;$$('.ritem',root).forEach(x=>x.classList.toggle('on',x===b));const d=REPORTS.find(r=>r.code===RP.code);const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.shift='';RP.shiftName='';RP.o={};paintTool(root);runReport(root)});
-  if(RP.code){paintTool(root);runReport(root)}
+  $$('[data-rc]',root).forEach(b=>b.onclick=()=>{RP.code=b.dataset.rc;RP.page=1;$$('.ritem',root).forEach(x=>x.classList.toggle('on',x===b));const d=REPORTS.find(r=>r.code===RP.code);const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.shift='';RP.shiftName='';RP.o={};paintTool(root);if(MOBR())rpSetMs(root,'opts');else runReport(root)});
+  if(overlay)mobReports(root);else if(RP.code){paintTool(root);runReport(root)}
 }
+/* Reports on a phone: three steps (pick the report, set the options, see only the report page) */
+const MOBR=()=>innerWidth<900;
+function rpSetMs(root,ms){const rp=$('.rp',root);if(!rp)return;rp.setAttribute('data-ms',ms);rp.classList.remove('rpsheet');
+  const d=RP.code&&REPORTS.find(r=>r.code===RP.code);$('#rpmT',root).textContent=ms==='list'||!d?'REPORTS':d.code+' '+d.title;
+  $('#rpmFil',root).hidden=ms!=='view';$('#rpmMore',root).hidden=ms!=='view';$('#rpmMenu',root).hidden=true;
+  const sc=$('.rpoverlay');if(sc)sc.scrollTop=0}
+function mobReports(root){const rp=$('.rp',root);if(!rp)return;
+  $('#rpmBack',root).onclick=()=>{const ms=rp.getAttribute('data-ms');if(ms==='view')rpSetMs(root,'opts');else if(ms==='opts')rpSetMs(root,'list');else root.remove()};
+  $('#rpmFil',root).onclick=()=>{rp.classList.toggle('rpsheet');$('#rpmMenu',root).hidden=true};
+  $('#rpmMore',root).onclick=()=>{const m=$('#rpmMenu',root);m.hidden=!m.hidden};
+  $$('[data-rm]',root).forEach(b=>b.onclick=()=>{$('#rpmMenu',root).hidden=true;const t=$('#'+b.dataset.rm,root);if(t)t.click()});
+  const run=$('#rpRun',root);if(run)run.addEventListener('click',()=>{rp.classList.remove('rpsheet')});
+  if(MOBR())rpSetMs(root,'list');else if(RP.code){paintTool(root);runReport(root)}}
 function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.set.bd,lt=H.set.lockedThrough;
   const one=['today','future','pastOne','upTo'].includes(d.mode)&&!['FO_21','FO_41'].includes(d.code),minD=['future','futureRange'].includes(d.mode)?bd:'',maxD=d.mode==='past'?lt:d.mode==='upTo'||d.mode==='pastOne'?bd:'';
   $('#rptool',root).innerHTML=`<div class="rtt"><b>${d.code}</b> ${esc(d.title)} <span class="sub">· ${RMODE[d.mode]}</span></div><div class="rtc ${((d.mode==='today'||one?1:2)+(d.shiftName?1:0)+(d.shiftFilter?1:0)+(curMulti(H)?1:0)+(d.opts||[]).filter(o=>o.id!=='view').length)>4?'rtmany':'rt1'}"><div class="rtf">
@@ -12187,8 +12228,8 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
    </div><div class="rta"><button class="btn gold rpgo" id="rpRun">${ic('play')} Run report</button>
     <div class="rpacts"><button class="btn rpact axl" id="rpX" title="Download Excel">${ic('xls')}<span>Excel</span></button><button class="btn rpact apd" id="rpPdf" title="Download PDF (Save as PDF in the print window)">${ic('pdf')}<span>PDF</span></button><button class="btn rpact apr" id="rpPr" title="Print">${ic('print')}<span>Print</span></button></div></div></div>`;
   const val=()=>{if($('#rpT',root))RP.to=$('#rpT',root).value;RP.from=$('#rpF',root)?$('#rpF',root).value:RP.to;if(d.mode==='today'){RP.from=RP.to=bd}if(RP.from>RP.to){const t=RP.from;RP.from=RP.to;RP.to=t}if($('#rpS',root))RP.shift=$('#rpS',root).value;if($('#rpSN',root))RP.shiftName=$('#rpSN',root).value;if($('#rpCv',root))RP.cv=$('#rpCv',root).value;RP.o=RP.o||{};delete RP.o.view;$$('[data-ro]',root).forEach(x=>{RP.o[x.dataset.ro]=x.value})};
-  $('#rpRun',root).onclick=()=>{val();RP.page=1;runReport(root)};$$('[data-ro]',root).forEach(x=>x.onchange=()=>$('#rpRun',root).click());
-  const zoom=z=>{RP.zoom=Math.max(.2,Math.min(2,z));{const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%'}const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
+  $('#rpRun',root).onclick=()=>{val();RP.page=1;if(MOBR())rpSetMs(root,'view');runReport(root)};$$('[data-ro]',root).forEach(x=>x.onchange=()=>{if(!MOBR())$('#rpRun',root).click()});
+  const zoom=z=>{RP.zoom=Math.max(.3,Math.min(3,z));{const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%'}const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
   $('#rpZo',root).onclick=()=>zoom(RP.zoom-.1);$('#rpZi',root).onclick=()=>zoom(RP.zoom+.1);$('#rpFit',root).onclick=()=>{const v=$('#rpview',root),pg=$('.rpage',v);if(pg)zoom((v.clientWidth-40)/pg.offsetWidth)};
   $('#rpX',root).onclick=()=>{loadFresh();val();xlsDownload(d,{from:RP.from,to:RP.to,shift:RP.shift},reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o}))};
   const pr=()=>{const p=$('#print');p.innerHTML=$('#rpview',root).innerHTML;document.body.classList.add('printing','printrep');window.print();setTimeout(()=>document.body.classList.remove('printing','printrep'),500)};
@@ -12197,7 +12238,7 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
 function loadFresh(){if(!document.body.classList.contains('rpmode'))return;   /* on top of the live page the data is already current; only a separate reports tab needs to re-read it */
   const code=H&&H.code;try{const raw=localStorage.getItem(DBKEY)||localStorage.getItem(DBKEY4);const d=raw?JSON.parse(raw):null;if(d&&d.hotels){const live=DB&&DB.session;DB=migrateDB(d);DB.session=live&&sessionValid(live)?live:null;if(DB.session)writeLiveSession(DB.session);else clearLiveSession();H=(code&&DB.hotels[code])||(DB.session&&DB.hotels[DB.session.hotel])||H}}catch(e){}}
 function runReport(root){loadFresh();const d=REPORTS.find(r=>r.code===RP.code);const v=$('#rpview',root);
-  try{const res=reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o});v.innerHTML=`<div class="rpages">${res.html}</div>`;$$('[data-gp]',v).forEach(t=>t.onclick=()=>guestProfile(t.dataset.gp));if(innerWidth<900){const pg=$('.rpage',v);if(pg&&pg.offsetWidth)RP.zoom=Math.max(.45,Math.min(1,(v.clientWidth-20)/pg.offsetWidth));const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%';setTimeout(()=>{try{v.scrollIntoView({block:'start'})}catch(e){}},30)}v.style.setProperty('--z',RP.zoom);}
+  try{const res=reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o});v.innerHTML=`<div class="rpages">${res.html}</div>`;$$('[data-gp]',v).forEach(t=>t.onclick=()=>guestProfile(t.dataset.gp));if(innerWidth<900){const pg=$('.rpage',v);if(pg&&pg.offsetWidth)RP.zoom=1.25;const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%';v.scrollTop=0;v.scrollLeft=0}v.style.setProperty('--z',RP.zoom);}
   catch(e){v.innerHTML=`<div class="rpempty"><h2>This report could not run</h2><p>${esc(e.message)}</p></div>`;console.error(e)}}
 function openReportsOverlay(){const o=document.createElement('div');o.className='rpoverlay';document.body.appendChild(o);renderReports(o,true)}
 
