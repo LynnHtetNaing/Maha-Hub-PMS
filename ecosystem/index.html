@@ -7519,7 +7519,13 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
 /* Opening the same page again (after a click such as Open or Lock) keeps the place where the person was working. A different page starts at the top. */
 let RENDER_KEY='';
 function scrollSnap(){const o=[];let e=document.getElementById('view');while(e&&e!==document.documentElement){if(e.scrollTop>0)o.push([e,e.scrollTop]);e=e.parentElement}return {y:window.scrollY||0,els:o}}
+/* While a page is being redrawn, a programmatic focus (or an autofocus box) must not scroll the page, and the place is put back a few times
+   in the next moments unless the person scrolls by themself. */
+let SCROLL_GUARD=0,_userScrolled=false;
+(()=>{const of=HTMLElement.prototype.focus;HTMLElement.prototype.focus=function(o){if(Date.now()<SCROLL_GUARD)o=Object.assign({preventScroll:true},o||{});return of.call(this,o)};
+  ['wheel','touchmove','keydown','mousedown'].forEach(ev=>window.addEventListener(ev,()=>{_userScrolled=true},{passive:true,capture:true}))})();
 function scrollBack(sn){window.scrollTo(0,sn.y);sn.els.forEach(([e,t])=>{if(e.isConnected)e.scrollTop=t})}
+function scrollKeep(sn,rkey){SCROLL_GUARD=Date.now()+900;_userScrolled=false;[0,60,200,450,800].forEach(ms=>setTimeout(()=>{if(RENDER_KEY===rkey&&(ms===0||!_userScrolled))scrollBack(sn)},ms))}
 function render(){
   if(!DB.session){showLogin();return}
   if(typeof applyHotelCodes==='function')applyHotelCodes();
@@ -7529,7 +7535,7 @@ function render(){
   const f=VIEWS[VIEW]||VIEWS[user().provider?'prov.home':'fo.status'];
   try{applyFxCss()}catch(e){}
   const el=$('#view');if(!el)return;const rkey=VIEW+'|'+(typeof VARG==='object'?JSON.stringify(VARG):String(VARG)),keep=rkey===RENDER_KEY?scrollSnap():null;RENDER_KEY=rkey;
-  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep){scrollBack(keep);setTimeout(()=>{if(RENDER_KEY===rkey)scrollBack(keep)},80)}else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
+  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep)scrollKeep(keep,rkey);else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
 }
 function refresh(){saveDB();render()}
 
