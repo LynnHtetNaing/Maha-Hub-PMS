@@ -1122,6 +1122,8 @@ html[data-mode=dark] .msel{background:#101d2e;border-color:#2c3f55;color:#e6eef6
 .tbtn svg,.aric svg{stroke-width:2.5}
 html:not([data-mode=dark]) .tbtn{border-width:2px!important;border-color:color-mix(in srgb,var(--accent,#0e8a82) 55%,#cfdcd5)!important}
 html:not([data-mode=dark]) .aric{border-width:2px}
+/* Advance rate setup: currency of a night */
+.aramt{display:grid;grid-template-columns:1fr 100px;gap:8px}.aramt .arfld{min-width:0}.arrate{grid-column:1/-1}.arrt{display:flex;align-items:center;gap:10px;font-weight:700}.arrt input{max-width:170px}
 /* Advance rate setup */
 .ar2{display:grid;grid-template-columns:320px minmax(0,1fr);gap:0;margin:-12px}
 .arl2{padding:16px;border-right:1px solid #dbe8e2;background:#f7fbf9;min-width:0}.arr2{padding:16px 20px;min-width:0}
@@ -3858,11 +3860,14 @@ function totalBoxes(rates,c){const t=commTotals(rates,c),none=!t.pct;
 /* The commission terms a reservation was made with (kept on the reservation so a later change never rewrites old bills). */
 const resComm=(h,r)=>r&&r.commPct!==undefined?{comm:r.commPct,rateBasis:r.commBasis}:((h.companies||[]).find(c=>c.id===(r&&r.companyId))||null);
 /* A new night of a stay follows the rate already agreed for that stay; there is no standard room-type rate any more. */
-function nightRate(h,B){const ks=Object.keys(B.nightly||{}).sort();for(let i=ks.length-1;i>=0;i--){const v=+B.nightly[ks[i]];if(v>0)return v}return rateFor(h,B.type,B.rateCode)}
+function nightRate(h,B){const ks=Object.keys(B.nightly||{}).sort();for(let i=ks.length-1;i>=0;i--){const v=+B.nightly[ks[i]];if(v>0&&!nightFxOn(B,ks[i]))return v}return rateFor(h,B.type,B.rateCode)}
 /* What is billed for a night is always the rate the user typed, whether the agent is Gross or Net.
    Folio postings, the stay total, invoices and revenue reports all read this one figure.
    Commission and net/gross are shown beside it for information only; they never change what is posted. */
-const billRate=(B,d)=>r2(+(B.nightly&&B.nightly[d])||0);
+/* A night can be typed in another currency (B.nightFx[d] = {cur, rate}: 1 cur = rate of the main currency). billRate is the night in the reservation currency. */
+const nightCur=(B,d)=>(B.nightFx&&B.nightFx[d]&&B.nightFx[d].cur)||bCur(B);
+const nightFxOn=(B,d)=>{const x=B.nightFx&&B.nightFx[d];return !!(x&&x.cur&&x.cur!==bCur(B))};
+const billRate=(B,d)=>{const v=r2(+(B.nightly&&B.nightly[d])||0);if(!nightFxOn(B,d))return v;const x=B.nightFx[d],main=curMain(),rp=x.cur===main?1:+x.rate,rr=bCur(B)===main?1:bRate(B);if(!(rp>0)||!(rr>0))return v;return r2(v*rp/rr)};
 /* ---- end Agent commission ---- */
 function ensureDummyBooking(h){
   if(!h||!h.set)return null;
@@ -4029,6 +4034,8 @@ function numWords(n){const a=['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN'
 function amountWords(x,B){const neg=x<0;x=Math.abs(r2(x));const i=Math.floor(x),c=Math.round((x-i)*100),ci=B&&bForeign(B)?curInfo(H,B.cur):{word:H.set.curWord,sub:H.set.subWord};let w=numWords(i)+' '+ci.word;if(c)w+=' AND '+numWords(c)+' '+ci.sub;return '*** '+(neg?'MINUS ':'')+w+' ONLY ***'}
 
 /* ---------- lookups ---------- */
+/* A folio shows currency signs only for a multi-currency hotel and only when its lines are in more than one currency (or all in a currency other than the reservation's) */
+function folioMixed(B,ls){if(!curMulti(H))return false;const set=new Set((ls||[]).map(l=>curLineCur(B,l)));return set.size>1||(set.size===1&&!set.has(bCur(B)))}
 function allBookings(){const o=[];H.reservations.forEach(r=>r.bookings.forEach(b=>o.push(b)));return o}
 const bookingById=id=>{for(const r of H.reservations)for(const b of r.bookings)if(b.id===id)return b;return null};
 const resOf=B=>H.reservations.find(r=>r.bookings.includes(B));
@@ -8622,11 +8629,11 @@ VIEWS['res.rate']=el=>{
 };
 /* A night can have its own rate code (B.nightCodes). Without one it has the code of the booking. Breakfast and the rate rule follow the code of each night. */
 const codeOn=(B,d)=>(B.nightCodes&&B.nightCodes[d])||B.rateCode;
-const ownRate=B=>{const st=dates(B.arr,B.dep).filter(d=>codeOn(B,d)===B.rateCode&&+B.nightly[d]>0);return st.length?+B.nightly[st[st.length-1]]:rateFor(H,B.type,B.rateCode)};
+const ownRate=B=>{const st=dates(B.arr,B.dep).filter(d=>codeOn(B,d)===B.rateCode&&+B.nightly[d]>0&&!nightFxOn(B,d));return st.length?+B.nightly[st[st.length-1]]:rateFor(H,B.type,B.rateCode)};
 const amountFor=(B,code,d)=>{if(rateKindOf(code)==='comp')return 0;if(code===B.rateCode)return ownRate(B);if(bForeign(B)&&d&&B.nightly[d]!==undefined)return +B.nightly[d];return rateFor(H,B.type,code)};
-function setNightCode(B,d,code,amt){B.nightly[d]=r2(amt);if(code===B.rateCode){if(B.nightCodes)delete B.nightCodes[d]}else{B.nightCodes=B.nightCodes||{};B.nightCodes[d]=code}if(B.nightCodes&&!Object.keys(B.nightCodes).length)delete B.nightCodes}
+function setNightCode(B,d,code,amt,fx){B.nightly[d]=r2(amt);if(fx&&fx.cur&&fx.cur!==bCur(B)){B.nightFx=B.nightFx||{};B.nightFx[d]={cur:fx.cur,rate:+fx.rate>0?+fx.rate:1}}else if(B.nightFx){delete B.nightFx[d];if(!Object.keys(B.nightFx).length)delete B.nightFx}if(code===B.rateCode){if(B.nightCodes)delete B.nightCodes[d]}else{B.nightCodes=B.nightCodes||{};B.nightCodes[d]=code}if(B.nightCodes&&!Object.keys(B.nightCodes).length)delete B.nightCodes}
 function advanceRate(B,after){
-  const g=G(B.guestId);let month=(B.arr>H.set.bd?B.arr:H.set.bd).slice(0,7),sel=null,pick=null,draft=null,kw='';
+  const g=G(B.guestId);let month=(B.arr>H.set.bd?B.arr:H.set.bd).slice(0,7),sel=null,pick=null,ed=null,kw='';
   const m=modal('Advance rate setup – '+esc(gName(g))+', Stay: '+fd(B.arr)+' – '+fd(B.dep)+', Room# '+esc(B.room||'—'),'<div id="arBody"></div>',{w:1180,cls:'armodal arnew'});
   m._wrap._onclose=()=>after&&after();
   const editable=d=>d>=H.set.bd&&!isLocked(d)&&dates(B.arr,B.dep).includes(d)&&can('rate')&&!closedBooking(B)&&!user().provider;
@@ -8634,7 +8641,7 @@ function advanceRate(B,after){
   const BTN=[['arApply','wand','#0e8a82','Apply code: gives every night you can still change the rate code you picked on the left'],['arCopy','copy','#2f6fb8','Copy forward: copies the night you clicked (code and amount) to all the following nights'],['arClear','erase','#c77a0a','Reset night: puts the night you clicked back to the rate code and amount of the booking'],['arDel','trash','#c0392b','Reset all: puts every night you can still change back to the rate code and amount of the booking'],['arHelp','help','#6b4fb3','Help']];
   const paint=()=>{
     const rcs=H.rateCodes,stay=dates(B.arr,B.dep),lateStay=B.status==='inhouse'&&H.set.bd>B.dep;
-    const selCode=sel?codeOn(B,sel):null,shown=(draft&&draft.code)||pick||selCode||B.rateCode,shownRc=rcs.find(x=>x.code===shown)||rcs[0];
+    const selCode=sel?codeOn(B,sel):null,shown=(ed&&ed.code!==selCode?ed.code:null)||pick||selCode||B.rateCode,shownRc=rcs.find(x=>x.code===shown)||rcs[0];
     const ymShift=(ym,n)=>{const d=P(ym+'-01');d.setMonth(d.getMonth()+n);return iso(d).slice(0,7)};
     const months=(()=>{if(!lateStay)return [month];const a=B.dep.slice(0,7),b=H.set.bd.slice(0,7);const all=[];let y=a,gg=0;while(y<=b&&gg<36){all.push(y);y=ymShift(y,1);gg++}if(!all.length)return [b];return all.length>8?all.slice(-8):all})();
     const calHtml=ym=>{const first=P(ym+'-01'),startDow=(first.getDay()+6)%7,start=addD(ym+'-01',-startDow);const cells=[...Array(42)].map((_,i)=>addD(start,i));
@@ -8642,12 +8649,12 @@ function advanceRate(B,after){
         const diff=inS&&(c!==B.rateCode||v!==rateFor(H,B.type,c));
         const cls=!inS?'':isLocked(d)?(diff?'cr-h':'cr-p'):(diff?'cr-a':'cr-b');
         const corner=d===H.set.bd?'real':(lateStay&&d>B.dep&&d<H.set.bd?'late':'');
-        return '<div class="cc '+(inM?'':'om')+' '+corner+' '+(ed?'ed':'')+' '+(sel===d?'sel':'')+'" data-d="'+d+'"><span class="cn">'+P(d).getDate()+'</span>'+(inS?'<span class="chip '+cls+'">'+m2(v)+' ('+esc(c)+')</span>':'')+'</div>'}).join('')+'</div></div>'};
+        return '<div class="cc '+(inM?'':'om')+' '+corner+' '+(ed?'ed':'')+' '+(sel===d?'sel':'')+'" data-d="'+d+'"><span class="cn">'+P(d).getDate()+'</span>'+(inS?'<span class="chip '+cls+'">'+(nightFxOn(B,d)?esc(curSym(B.nightFx[d].cur))+' ':'')+m2(v)+' ('+esc(c)+')</span>':'')+'</div>'}).join('')+'</div></div>'};
     const q=kw.trim().toLowerCase(),list=rcs.filter(x=>!q||x.code.toLowerCase().includes(q)||String(x.desc).toLowerCase().includes(q));
     const incAmt=amountFor(B,shownRc.code,sel);
     $('#arBody',m).innerHTML='<div class="ar2">'+
      '<div class="arl2"><p class="arlh">Rate code</p><div class="arsr">'+ic('search',16)+'<input id="arK" placeholder="Search code or description" autocomplete="off" value="'+esc(kw)+'"></div>'+
-      '<div class="arcodes">'+(list.map(x=>'<button type="button" class="arcode'+(x.code===B.rateCode?' cur':'')+((pick||draft)&&x.code===shown?' pick':'')+'" data-rc="'+esc(x.code)+'" '+(sel&&x.code===selCode?'disabled title="This night already has this code"':'')+'><b>'+esc(x.code)+'</b><span>'+esc(x.desc)+'</span>'+(x.code===B.rateCode?'<em>Current</em>':'')+'</button>').join('')||'<div class="sub">No rate code found.</div>')+'</div>'+
+      '<div class="arcodes">'+(list.map(x=>'<button type="button" class="arcode'+(x.code===B.rateCode?' cur':'')+((pick||(ed&&ed.code!==selCode))&&x.code===shown?' pick':'')+'" data-rc="'+esc(x.code)+'" '+(sel&&x.code===selCode?'disabled title="This night already has this code"':'')+'><b>'+esc(x.code)+'</b><span>'+esc(x.desc)+'</span>'+(x.code===B.rateCode?'<em>Current</em>':'')+'</button>').join('')||'<div class="sub">No rate code found.</div>')+'</div>'+
       '<div class="arinc"><b>'+esc(shownRc.code)+' includes</b><div><span>Room charge (100)</span><span>'+m2(incAmt)+'</span></div>'+(shownRc.meal?'<div><span>Breakfast (ABF)</span><span>included</span></div>':'')+'</div>'+
       '<div class="sub arnote">Rates are inclusive of service charge and '+esc(H.set.taxName)+'. Closed dates cannot be changed.</div></div>'+
      '<div class="arr2"><div class="artb">'+BTN.map(b=>'<button type="button" class="aric" id="'+b[0]+'" style="--ic:'+b[2]+'" title="'+esc(b[3])+'" aria-label="'+esc(b[3])+'">'+ic(b[1],22)+'</button>').join('')+'<span class="sp"></span><div class="artot">Total Amount : '+m2(stayTotal(B))+'</div></div>'+
@@ -8657,29 +8664,36 @@ function advanceRate(B,after){
        '<div class="sub">A yellow corner is the business date. A red corner is a date after departure while the guest is still in house. The business date stays yellow.</div><div id="arEdit"></div></div></div>';
     if($('#arToday',m)){$('#arToday',m).onclick=()=>{month=H.set.bd.slice(0,7);paint()};$('#arP',m).onclick=()=>{month=addD(month+'-01',-1).slice(0,7);paint()};$('#arN',m).onclick=()=>{month=addD(month+'-28',7).slice(0,7);paint()}}
     $('#arK',m).oninput=e=>{kw=e.target.value;paint();const k=$('#arK',m);k.focus();k.setSelectionRange(kw.length,kw.length)};
-    $$('.cc[data-d]',m).forEach(c=>c.onclick=()=>{const d=c.dataset.d;if(!stay.includes(d))return;if(!editable(d)){toast(isLocked(d)?'This night is closed. Only the provider can change it.':'You cannot change this night.');return}sel=d;draft=null;paint()});
+    $$('.cc[data-d]',m).forEach(c=>c.onclick=()=>{const d=c.dataset.d;if(!stay.includes(d))return;if(!editable(d)){toast(isLocked(d)?'This night is closed. Only the provider can change it.':'You cannot change this night.');return}sel=d;ed=null;paint()});
     $$('[data-rc]',m).forEach(b=>b.onclick=()=>{const code=b.dataset.rc;
-      if(sel){draft={d:sel,code,amt:amountFor(B,code,sel)};paint();return}
+      if(sel){const e=getEd(sel);e.code=code;if(e.cur===bCur(B))e.amt=amountFor(B,code,sel);ed=e;paint();return}
       pick=pick===code?null:code;paint()});
     $('#arHelp',m).onclick=()=>toast('Click a night (today or later) to change its amount, or click another rate code on the left to change its code. Save applies it. The wand gives a picked code to every night you can still change.');
     $('#arApply',m).onclick=()=>{if(!guard())return;if(!pick){toast('Click a rate code on the left first.');return}const ns=stay.filter(editable);if(!ns.length){toast('No night can be changed.');return}
-      ns.forEach(d=>setNightCode(B,d,pick,amountFor(B,pick,d)));histB(B,'Rate code '+pick+' applied to '+ns.length+' night(s)');log('Advance rate code '+pick+' RSVN '+resOf(B).no,B.id);saveDB();pick=null;sel=null;draft=null;paint();toast('Rate code applied to '+ns.length+' night(s)')};
-    $('#arCopy',m).onclick=()=>{if(!sel){toast('Click a night first.');return}if(!guard())return;const v=B.nightly[sel],c=codeOn(B,sel);stay.filter(d=>d>sel&&editable(d)).forEach(d=>setNightCode(B,d,c,v));histB(B,'Rate '+m2(v)+' ('+c+') copied from '+fd(sel));log('Advance rate copy RSVN '+resOf(B).no,B.id);saveDB();draft=null;paint()};
-    $('#arClear',m).onclick=()=>{if(!sel){toast('Click a night first.');return}if(!guard())return;setNightCode(B,sel,B.rateCode,ownRate(B));histB(B,'Rate '+fd(sel)+' reset to '+B.rateCode);saveDB();draft=null;paint()};
+      ns.forEach(d=>setNightCode(B,d,pick,amountFor(B,pick,d)));histB(B,'Rate code '+pick+' applied to '+ns.length+' night(s)');log('Advance rate code '+pick+' RSVN '+resOf(B).no,B.id);saveDB();pick=null;sel=null;ed=null;paint();toast('Rate code applied to '+ns.length+' night(s)')};
+    $('#arCopy',m).onclick=()=>{if(!sel){toast('Click a night first.');return}if(!guard())return;const v=B.nightly[sel],c=codeOn(B,sel),fx=nightFxOn(B,sel)?{cur:B.nightFx[sel].cur,rate:B.nightFx[sel].rate}:null;stay.filter(d=>d>sel&&editable(d)).forEach(d=>setNightCode(B,d,c,v,fx));histB(B,'Rate '+m2(v)+' ('+c+') copied from '+fd(sel));log('Advance rate copy RSVN '+resOf(B).no,B.id);saveDB();ed=null;paint()};
+    $('#arClear',m).onclick=()=>{if(!sel){toast('Click a night first.');return}if(!guard())return;setNightCode(B,sel,B.rateCode,ownRate(B));histB(B,'Rate '+fd(sel)+' reset to '+B.rateCode);saveDB();ed=null;paint()};
     $('#arDel',m).onclick=async()=>{if(!guard())return;const ns=stay.filter(editable);if(!ns.length){toast('No night can be changed.');return}if(!await dlgConfirm('Put every night you can still change back to rate code '+B.rateCode+' and its amount?'))return;
-      const v=ownRate(B);ns.forEach(d=>setNightCode(B,d,B.rateCode,v));histB(B,'Rates reset to '+B.rateCode);log('Advance rate reset RSVN '+resOf(B).no,B.id);saveDB();sel=null;draft=null;pick=null;paint()};
+      const v=ownRate(B);ns.forEach(d=>setNightCode(B,d,B.rateCode,v));histB(B,'Rates reset to '+B.rateCode);log('Advance rate reset RSVN '+resOf(B).no,B.id);saveDB();sel=null;ed=null;pick=null;paint()};
     if(sel&&editable(sel))editNight(sel);
   };
-  const editNight=d=>{const box=$('#arEdit',m);const cur=codeOn(B,d);const dr=(draft&&draft.d===d)?draft:{d,code:cur,amt:B.nightly[d]};const kind=rateKindOf(dr.code),chg=dr.code!==cur;
-    box.innerHTML='<div class="aredit"><h3>'+fd(d)+'</h3><div><label>Rate code</label><div class="arfld'+(chg?' chg':'')+'">'+esc(dr.code)+'<i>'+(chg?'changed from '+esc(cur):'current')+'</i></div></div>'+
-      '<div><label>Rate amount</label><input type="number" id="neA" class="arfld'+(chg?' chg':'')+'" value="'+dr.amt+'" min="0" step="any" '+(kind==='comp'?'disabled':'')+'></div>'+
-      '<div class="acts"><button class="btn ghost" id="neX">Cancel</button><button class="btn gold" id="neS">Save</button></div><div class="err" id="neE"></div></div>';
+  const getEd=d=>(ed&&ed.d===d)?ed:{d,code:codeOn(B,d),amt:B.nightly[d],cur:nightCur(B,d),rate:(B.nightFx&&B.nightFx[d]&&B.nightFx[d].rate)||''};
+  const editNight=d=>{const box=$('#arEdit',m),e=getEd(d),cur=codeOn(B,d),kind=rateKindOf(e.code),chg=e.code!==cur||e.cur!==nightCur(B,d),multi=curUserOn(),foreign=e.cur!==bCur(B),needRate=foreign&&e.cur!==curMain();
+    box.innerHTML='<div class="aredit"><h3>'+fd(d)+'</h3><div><label>Rate code</label><div class="arfld'+(e.code!==cur?' chg':'')+'">'+esc(e.code)+'<i>'+(e.code!==cur?'changed from '+esc(cur):'current')+'</i></div></div>'+
+      '<div><label>Rate amount'+(multi?' and currency':'')+'</label><div class="aramt"><input type="number" id="neA" class="arfld'+(chg?' chg':'')+'" value="'+e.amt+'" min="0" step="any" '+(kind==='comp'?'disabled':'')+'>'+(multi?'<select id="neC" class="arfld">'+curList(H).map(c=>opt(c,c,e.cur)).join('')+'</select>':'')+'</div></div>'+
+      '<div class="acts"><button class="btn ghost" id="neX">Cancel</button><button class="btn gold" id="neS">Save</button></div>'+
+      (needRate?'<div class="arrate"><label>Conversion rate</label><div class="arrt"><span>1 '+esc(e.cur)+' =</span><input type="number" id="neR" class="arfld" value="'+(e.rate||'')+'" min="0" step="any" placeholder="rate"><span>'+esc(curMain())+'</span></div><div class="sub">At Close Day the night is posted in '+esc(e.cur)+' with this rate, and the folio shows it with the currency sign.</div></div>':'')+
+      '<div class="err" id="neE"></div></div>';
     if(kind!=='comp'&&!chg)setTimeout(()=>{const i=$('#neA',m);if(i){i.focus();i.select()}},30);
-    $('#neA',m).oninput=e=>{draft={d,code:dr.code,amt:e.target.value}};
-    $('#neX',m).onclick=()=>{sel=null;draft=null;paint()};
-    $('#neS',m).onclick=()=>{if(!guard())return;const v=+$('#neA',m).value;const re_=rateError(v,rateKindOf(dr.code));if(re_){$('#neE',m).textContent=re_;return}
-      const old=B.nightly[d],oldC=codeOn(B,d);setNightCode(B,d,dr.code,v);
-      histB(B,'Rate '+fd(d)+': '+oldC+' '+m2(old)+' → '+dr.code+' '+m2(v));log('Rate change RSVN '+resOf(B).no+' '+fd(d)+' '+oldC+' '+m2(old)+' → '+dr.code+' '+m2(v),B.id);saveDB();sel=null;draft=null;pick=null;paint();toast('Rate saved')}};
+    $('#neA',m).oninput=x=>{ed=getEd(d);ed.amt=x.target.value};
+    if($('#neC',m))$('#neC',m).onchange=x=>{ed=getEd(d);ed.amt=$('#neA',m).value;ed.cur=x.target.value;if(ed.cur===curMain())ed.rate=1;else if(!ed.rate)ed.rate=(ed.cur===bCur(B)&&bRate(B)>0)?bRate(B):'';editNight(d)};
+    if($('#neR',m))$('#neR',m).oninput=x=>{ed=getEd(d);ed.rate=x.target.value};
+    $('#neX',m).onclick=()=>{sel=null;ed=null;paint()};
+    $('#neS',m).onclick=()=>{if(!guard())return;const x=getEd(d);x.amt=$('#neA',m).value;if($('#neR',m))x.rate=$('#neR',m).value;const v=+x.amt;let fx=null;
+      if(x.cur!==bCur(B)){const rp=x.cur===curMain()?1:+x.rate;if(!(rp>0)){$('#neE',m).textContent='Type the rate (1 '+x.cur+' = ? '+curMain()+').';return}fx={cur:x.cur,rate:rp}}
+      const re_=rateError(v,rateKindOf(x.code));if(re_){$('#neE',m).textContent=re_;return}
+      const old=B.nightly[d],oldC=codeOn(B,d),oldCur=nightCur(B,d);setNightCode(B,d,x.code,v,fx);
+      histB(B,'Rate '+fd(d)+': '+oldC+' '+m2(old)+(oldCur!==bCur(B)?' '+oldCur:'')+' → '+x.code+' '+m2(v)+(fx?' '+fx.cur+' @ '+fx.rate:''));log('Rate change RSVN '+resOf(B).no+' '+fd(d)+' '+oldC+' '+m2(old)+' → '+x.code+' '+m2(v)+(fx?' '+fx.cur+' @ '+fx.rate:''),B.id);saveDB();sel=null;ed=null;pick=null;paint();toast('Rate saved')}};
   paint();
 }
 
@@ -8902,10 +8916,10 @@ function folioPane(el,id,onRe){
       ${sharersHtml(B)}<div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''}</div>
       ${closed?'<div class="lockbar sm">Closed by Close Day. This folio is read-only. A rebate, refund or void needs approval.</div>':B.status==='out'?'<div class="lockbar sm">Checked out (O). The room is vacant dirty (VD). Check in back returns the guest to the same room while it is still vacant, until Close Day.</div>':''}</div>
     <div class="fhr"><div class="rmk">Remark <span>${ic('detail',12)}</span></div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div>
-   <div class="folios">${(one?[1]:[1,2,3,4]).map(f=>{const ls=one?B.lines.filter(l=>!(l.folio===4&&(l.kind==='payoff'||l.kind==='payrec'))).sort((a,b)=>(a.time||0)-(b.time||0)):B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=one?r2(sum(ls,l=>l.amt)):folioBal(B,f);
+   <div class="folios">${(one?[1]:[1,2,3,4]).map(f=>{const ls=one?B.lines.filter(l=>!(l.folio===4&&(l.kind==='payoff'||l.kind==='payrec'))).sort((a,b)=>(a.time||0)-(b.time||0)):B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=one?r2(sum(ls,l=>l.amt)):folioBal(B,f),mx=folioMixed(B,ls);
      return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Select Folio ${f}. To print it, use the print icon above."><span>Folio ${one?1:f}${f===act?' ✱':''}${folLocked(B,one?1:f)?' '+ic('lock',13)+' Locked':''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
       <div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>
-      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${!one&&folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${curMulti(H)&&l.fc?`<div class="amtc"><span>${esc(curSym(l.fc))}</span><span>${m2(l.fa)}</span></div><span class="fxtag">${esc(curSym(bCur(B)))}${m2(l.amt)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:`${m2(l.amt)}${l.fc?`<span class="fxtag">${esc(l.fc)} ${m2(l.fa)}${l.fc!==curMain()?' @ '+l.fr:''}</span>`:''}`}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
+      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${!one&&folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${mx?`<div class="amtc"><span>${esc(curSym(curLineCur(B,l)))}</span><span>${m2(curLineAmt(B,l))}</span></div>${curLineCur(B,l)!==bCur(B)?`<span class="fxtag">${esc(curSym(bCur(B)))}${m2(l.amt)}${curLineCur(B,l)!==curMain()?' @ '+l.fr:''}</span>`:''}`:m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
    <p class="sub">Single-click a line to select it and show the folio numbers that move it. Double-click a line to open it. Click a folio bar to make it the active folio. To print a Guest Folio, click the print icon in the toolbar. The grey (+) on Folio 4 can move. The red (−) on Folio 4, and the advance credit (−) on this folio, each print a receipt / tax invoice with the card and remark. A charge remark stays in the transaction window. A normal payment freezes the lines already on that folio and posts one red receipt line.</p>`;
   const reopen=()=>{saveDB();onRe?onRe():folioPane(el,id)};
   const actNow=()=>folAct[B.id]||1;
@@ -9773,7 +9787,8 @@ function postRoom(){const bd=H.set.bd,s=curShift();let n=0;tonightIH().filter(b=
     const px=bfPrices(b,bd),pax=abfPax(b);let bA=r2(px.a*pax.a),bC=r2(px.c*pax.c);if(bA+bC>full){const k=full/(bA+bC);bA=r2(bA*k);bC=r2(full-bA)}
     const bf=r2(bA+bC),roomAmt=r2(full-bf);
     const dest=typeof chargeTarget==='function'?chargeTarget(b,'100'):b;
-    addLine(H,dest,{bd,shift:s,user:'Auto-Post',folio:1,code:'100',desc:'Room Charge',ref:b.room,amt:roomAmt,kind:'room',night:bd});
+    const nx=nightFxOn(b,bd)?b.nightFx[bd]:null,roomFx=nx?(()=>{const main=curMain(),rp=nx.cur===main?1:+nx.rate,rr=bCur(b)===main?1:bRate(b);return rp>0&&rr>0?{fc:nx.cur,fa:r2(roomAmt*rr/rp),fr:rp,eq:r2(roomAmt*rr)}:undefined})():undefined;
+    addLine(H,dest,{bd,shift:s,user:'Auto-Post',folio:1,code:'100',desc:'Room Charge',ref:b.room,amt:roomAmt,kind:'room',night:bd,fx:roomFx});
     if(bf>0.004){
       const D=ensureDummyBooking(H);
       [[bA,'201','ABF - Adult',pax.a],[bC,'202','ABF - Child',pax.c]].forEach(([amt,code,desc,n])=>{if(amt<=0.004)return;
