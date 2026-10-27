@@ -3818,7 +3818,7 @@ function ensureDummyBooking(h){
 /* Rate rules: Complimentary is always 0; House use may be 0; every other rate is at least 1 (hotel currency). */
 const rateKindOf=code=>{const rc=H&&H.rateCodes.find(x=>x.code===code);return rc&&rc.comp==='COMP'?'comp':rc&&rc.comp==='HOUSE'?'house':'normal'};
 function rateError(v,kind,cur){if(kind==='comp')return v===0?'':'Complimentary rates are always 0.';if(isNaN(v)||v<0)return 'Enter a rate of 0 or more.';
-  if(kind==='normal'&&v<1)return `The rate must be at least 1 ${cur||H.set.cur}. Only Complimentary (always 0) and House use can be 0.`;return ''}
+  if(kind==='normal'&&v<1)return `The rate must be at least 1 unit of the currency. Only Complimentary (always 0) and House use can be 0.`;return ''}
 function addLine(h,B,o){
   const tc=TCODES.find(c=>c.code===o.code)||{};
   const l={id:'l'+uid(),sys:h.set.nextSys++,folio:o.folio||1,bd:o.bd||h.set.bd,orgDate:o.bd||h.set.bd,time:o.time||Date.now(),code:o.code,desc:o.desc||tc.desc||'',ref:o.ref||'',
@@ -8655,7 +8655,7 @@ VIEWS['profile.companies']=el=>{
 VIEWS['profile.rates']=el=>{
   el.innerHTML=pageHead('Rate Codes')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Valid</th><th>Until</th><th>Rule</th><th>Meal</th>${H.roomTypes.map(t=>`<th class="n">${t.code}</th>`).join('')}</tr>
   ${H.rateCodes.map(r=>`<tr><td><b>${r.code}</b></td><td>${esc(r.desc)}</td><td>${fd(r.valid)}</td><td>${fd(r.until)}</td><td>${r.kind==='zero'?(r.comp==='COMP'?'Complimentary – always 0':'House use – 0 allowed'):r.kind==='amt'?'+'+m2(r.v)+' on base':(r.v>=0?'+':'')+r.v+'% on base'}</td><td>${esc(r.meal)}</td>${H.roomTypes.map(t=>`<td class="n">${m2(rateFor(H,t.code,r.code))}</td>`).join('')}</tr>`).join('')}</table></div>
-  <p class="sub">Complimentary rates are always 0. House use can be 0. Every other rate must be at least 1 ${H.set.cur}. All rates are inclusive of service charge ${H.set.svc}% and ${esc(H.set.taxName)} ${H.set.vat}%.</p>`;
+  <p class="sub">Complimentary rates are always 0. House use can be 0. Every other rate must be at least 1 unit of the currency. All rates are inclusive of service charge ${H.set.svc}% and ${esc(H.set.taxName)} ${H.set.vat}%.</p>`;
 };
 
 /* ================= Billing / Folio (Section 7) ================= */
