@@ -1183,25 +1183,31 @@ html[data-mode=dark] .ivq{color:#b6cadb}html[data-mode=dark] .ivfx{color:#7cb6f2
 /* Reports on a phone: pick, options, report only */
 .rpmbar{display:none}
 @media (max-width:900px){
-  .rpoverlay .rptop{display:none!important}
-  .rpoverlay .rpmbar{display:flex;align-items:center;gap:8px;height:54px;padding:0 10px;position:sticky;top:0;z-index:8;background:linear-gradient(120deg,#0e8a82,#1b7fa6);color:#fff}
+  .rp .rptop{display:none!important}
+  .rp .rpmbar{display:flex;align-items:center;gap:8px;height:54px;padding:0 10px;position:sticky;top:0;z-index:8;background:linear-gradient(120deg,#0e8a82,#1b7fa6);color:#fff}
   .rpmbar .mbt{flex:1;font-weight:800;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rpmbar .mbb{width:38px;height:38px;border-radius:12px;border:0;background:rgba(255,255,255,.2);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;flex:0 0 38px}
+  .rpmbar .mbb.txt{width:auto;padding:0 12px;font-size:13.5px;font-weight:800;flex:0 0 auto;white-space:nowrap}
   .rpmbar .mbb[hidden]{display:none}
   .rpmenu{position:absolute;right:10px;top:50px;width:170px;background:#fff;color:#0d2a24;border:1px solid #cfdcd5;border-radius:14px;box-shadow:0 14px 28px rgba(0,0,0,.35);padding:6px;z-index:9}.rpmenu[hidden]{display:none}
   .rpmenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 12px;border-radius:9px;font:inherit;font-weight:700;color:inherit;cursor:pointer}.rpmenu button:hover{background:#e3f6f1}
-  .rpoverlay .rp[data-ms=list] .rpr{display:none!important}
-  .rpoverlay .rp[data-ms=list] .rpl{max-height:none!important;height:calc(100dvh - 54px);overflow:auto;border-bottom:0}
-  .rpoverlay .rp:not([data-ms=list]) .rpl{display:none!important}
-  .rpoverlay .rp[data-ms=opts] .rpview,.rpoverlay .rp[data-ms=opts] .rpzoom{display:none!important}
-  .rpoverlay .rp[data-ms=view] .rptool{display:none}
-  .rpoverlay .rp[data-ms=view] .rpview{height:calc(100dvh - 54px);min-height:0!important;overflow:auto;padding:6px}
-  .rpoverlay .rp[data-ms=view] .rpzoom{position:fixed;right:10px;bottom:14px;z-index:7;display:flex;align-items:center;gap:4px;background:rgba(23,37,47,.88);color:#fff;border-radius:14px;padding:4px 6px}
-  .rpoverlay .rp[data-ms=view] .rpzoom .tbtn{background:transparent;color:#fff;border:0;width:36px;height:36px}
-  .rpoverlay .rp.rpsheet .rptool{display:block!important;position:fixed;left:0;right:0;bottom:0;z-index:7;max-height:80vh;overflow:auto;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -12px 28px rgba(0,0,0,.4);padding:14px}
-  .rpoverlay .rp.rpsheet .rptool .rpacts{display:none}
+  .rp{display:block!important;height:auto!important}
+  .rp .rpb{display:block!important;height:auto!important}
+  .rp[data-ms=list] .rpr{display:none!important}
+  .rp[data-ms=list] .rpl{max-height:none!important;height:calc(100dvh - 54px);overflow:auto;border:0}
+  .rp[data-ms=view] .rpl{display:none!important}
+  /* the report screen: filters and Run on top, the report page under them, the zoom strip only when asked */
+  .rp[data-ms=view] .rpr{display:flex!important;flex-direction:column;height:calc(100dvh - 54px);overflow:hidden}
+  .rp[data-ms=view] .rptool{display:block;flex:0 0 auto;max-height:52vh;overflow:auto;padding:8px 10px;order:1}
+  .rp[data-ms=view] .rptool .rta{position:sticky;bottom:-8px;z-index:3;background:inherit;padding:8px 0 4px;margin-top:6px}
+  .rp[data-ms=view] .rptool .rpgo{width:100%}
+  .rp[data-ms=view].rpfc .rptool{display:none}
+  .rp[data-ms=view] .rptool .rpacts{display:none}
+  .rp[data-ms=view] .rpview{order:3;flex:1 1 auto;min-height:0!important;height:auto!important;overflow:auto;padding:6px}
+  .rp[data-ms=view] .rpzoom{order:2;position:static!important;display:none;align-items:center;justify-content:center;gap:10px;padding:6px 10px;background:#17252f;color:#fff}
+  .rp[data-ms=view].rpzm .rpzoom{display:flex}
+  .rp[data-ms=view] .rpzoom .tbtn{background:rgba(255,255,255,.15);color:#fff;border:0;width:38px;height:36px}
   html[data-mode=dark] .rpmenu{background:#101d2e;border-color:#2c3f55;color:#e6eef6}html[data-mode=dark] .rpmenu button:hover{background:#0f3a3c}
-  html[data-mode=dark] .rpoverlay .rp.rpsheet .rptool{background:#101d2e;color:#e6eef6}
 }
 /* Own photo in the profile button and on My profile */
 .tbprof{overflow:hidden;padding:0}.tbphoto{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}.mpav{overflow:hidden}.mpav img{width:100%;height:100%;object-fit:cover}
@@ -7781,6 +7787,7 @@ setInterval(()=>{if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return
 /* ---------- reports open in their own tab (4.6) ---------- */
 function openReportsTab(){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
   try{flushDB()}catch(e){}   /* the new tab reads the hotel from this device: write it first */
+  if(MOBR()){openReportsOverlay();return}
   let w=null;try{w=window.open(location.href.split('#')[0]+'#reports','mahahub-reports')}catch(e){w=null}
   if(!w){openReportsOverlay()}else{try{w.focus()}catch(e){}}}
 
@@ -12235,27 +12242,30 @@ function renderReports(root,overlay){
   if(!can('reports')){root.innerHTML='<div class="rpempty"><h2>No permission</h2><p>Ask the provider to open Reports for your account.</p></div>';return}
   try{applySkin()}catch(e){}
   document.title='Reports – '+H.set.name;try{setTabIcons('hub')}catch(e){}
-  root.innerHTML=`<div class="rp" data-ms="list"><div class="rpmbar" id="rpmbar"><button type="button" class="mbb" id="rpmBack" aria-label="Back">&#8249;</button><span class="mbt" id="rpmT">REPORTS</span><button type="button" class="mbb" id="rpmFil" aria-label="Filters" hidden>&#9881;</button><button type="button" class="mbb" id="rpmMore" aria-label="Excel, PDF, Print" hidden>&#8943;</button><div class="rpmenu" id="rpmMenu" hidden><button type="button" data-rm="rpX">Excel</button><button type="button" data-rm="rpPdf">PDF</button><button type="button" data-rm="rpPr">Print</button></div></div><header class="rptop"><div class="rphl"><div class="tbbrand">${LOGO()}<span class="tbwm">MAHA PMS</span></div><div class="tbsep"></div><span class="rptitle">REPORTS</span></div><div class="rpmid"><div class="bdate">${fdWide(H.set.bd)}</div><div class="ver">Business date</div></div><div class="rpright"><div class="tbhotel"><div class="tbhn">${esc(H.set.name)}</div><div class="tbus">${esc(user().name)}</div></div>${overlay?'<button class="btn sm ghost" id="rpClose">Close reports</button>':''}</div></header>
+  root.innerHTML=`<div class="rp" data-ms="list"><div class="rpmbar" id="rpmbar"><button type="button" class="mbb txt" id="rpmBack" aria-label="Back">&#8249; System</button><span class="mbt" id="rpmT">REPORTS</span><button type="button" class="mbb" id="rpmFil" aria-label="Show or fold the filters" title="Filters" hidden>&#9881;</button><button type="button" class="mbb" id="rpmZm" aria-label="Zoom" title="Zoom" hidden>&#8981;</button><button type="button" class="mbb" id="rpmMore" aria-label="Excel, PDF, Print" hidden>&#8943;</button><div class="rpmenu" id="rpmMenu" hidden><button type="button" data-rm="rpX">Excel</button><button type="button" data-rm="rpPdf">PDF</button><button type="button" data-rm="rpPr">Print</button></div></div><header class="rptop"><div class="rphl"><div class="tbbrand">${LOGO()}<span class="tbwm">MAHA PMS</span></div><div class="tbsep"></div><span class="rptitle">REPORTS</span></div><div class="rpmid"><div class="bdate">${fdWide(H.set.bd)}</div><div class="ver">Business date</div></div><div class="rpright"><div class="tbhotel"><div class="tbhn">${esc(H.set.name)}</div><div class="tbus">${esc(user().name)}</div></div>${overlay?'<button class="btn sm ghost" id="rpClose">Close reports</button>':''}</div></header>
    <div class="rpb"><aside class="rpl" id="rpl">${RG.map(g=>{const list=REPORTS.filter(r=>r.g===g);return `<div class="rgrp"><button class="rgh" data-rg="${esc(g)}" aria-expanded="${!!RP.open[g]}">${esc(g)} <span>${list.length}</span></button>
      <div class="rgl" ${RP.open[g]?'':'hidden'}>${list.map(r=>`<button class="ritem ${RP.code===r.code?'on':''}" data-rc="${r.code}"><b>${r.code}</b> ${esc(r.title)}</button>`).join('')||'<div class="sub pad">No reports confirmed yet.</div>'}</div></div>`}).join('')}</aside>
    <section class="rpr"><div class="rptool" id="rptool"></div><div class="rpview" id="rpview"><div class="rpempty"><h2>Choose a report</h2><p>Open a group on the left and pick a report. It shows here as printed pages.</p></div></div><div class="rpzoom"><button class="tbtn" id="rpZo" title="Zoom out">${ic('zout')}</button><span class="zl" id="rpZl">${Math.round(RP.zoom*100)}%</span><button class="tbtn" id="rpZi" title="Zoom in">${ic('zin')}</button><button class="tbtn" id="rpFit" title="Fit width">${ic('fit')}</button></div></section></div></div>`;
   if(overlay)$('#rpClose',root).onclick=()=>{root.remove()};
   $$('[data-rg]',root).forEach(b=>b.onclick=()=>{RP.open[b.dataset.rg]=!RP.open[b.dataset.rg];b.setAttribute('aria-expanded',RP.open[b.dataset.rg]);b.nextElementSibling.hidden=!RP.open[b.dataset.rg]});
-  $$('[data-rc]',root).forEach(b=>b.onclick=()=>{RP.code=b.dataset.rc;RP.page=1;$$('.ritem',root).forEach(x=>x.classList.toggle('on',x===b));const d=REPORTS.find(r=>r.code===RP.code);const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.shift='';RP.shiftName='';RP.o={};paintTool(root);if(MOBR())rpSetMs(root,'opts');else runReport(root)});
-  if(overlay)mobReports(root);else if(RP.code){paintTool(root);runReport(root)}
+  $$('[data-rc]',root).forEach(b=>b.onclick=()=>{RP.code=b.dataset.rc;RP.page=1;$$('.ritem',root).forEach(x=>x.classList.toggle('on',x===b));const d=REPORTS.find(r=>r.code===RP.code);const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.shift='';RP.shiftName='';RP.o={};paintTool(root);if(MOBR())rpSetMs(root,'view');runReport(root)});
+  mobReports(root);
 }
 /* Reports on a phone: three steps (pick the report, set the options, see only the report page) */
 const MOBR=()=>innerWidth<900;
-function rpSetMs(root,ms){const rp=$('.rp',root);if(!rp)return;rp.setAttribute('data-ms',ms);rp.classList.remove('rpsheet');
+function rpSetMs(root,ms){const rp=$('.rp',root);if(!rp)return;rp.setAttribute('data-ms',ms);rp.classList.remove('rpfc','rpzm');
   const d=RP.code&&REPORTS.find(r=>r.code===RP.code);$('#rpmT',root).textContent=ms==='list'||!d?'REPORTS':d.code+' '+d.title;
-  $('#rpmFil',root).hidden=ms!=='view';$('#rpmMore',root).hidden=ms!=='view';$('#rpmMenu',root).hidden=true;
-  const sc=$('.rpoverlay');if(sc)sc.scrollTop=0}
+  $('#rpmBack',root).innerHTML=ms==='list'?'&#8249; System':'&#8249; Reports';
+  ['rpmFil','rpmZm','rpmMore'].forEach(id=>{$('#'+id,root).hidden=ms!=='view'});$('#rpmMenu',root).hidden=true;
+  const sc=root.classList.contains('rpoverlay')?root:null;if(sc)sc.scrollTop=0;window.scrollTo(0,0)}
+/* leave the reports and go back to the system side */
+function rpLeave(root){if(root.classList&&root.classList.contains('rpoverlay')){root.remove();return}try{window.close()}catch(e){}setTimeout(()=>{try{location.href=location.href.split('#')[0]}catch(e){}},250)}
 function mobReports(root){const rp=$('.rp',root);if(!rp)return;
-  $('#rpmBack',root).onclick=()=>{const ms=rp.getAttribute('data-ms');if(ms==='view')rpSetMs(root,'opts');else if(ms==='opts')rpSetMs(root,'list');else root.remove()};
-  $('#rpmFil',root).onclick=()=>{rp.classList.toggle('rpsheet');$('#rpmMenu',root).hidden=true};
+  $('#rpmBack',root).onclick=()=>{if(rp.getAttribute('data-ms')==='view')rpSetMs(root,'list');else rpLeave(root)};
+  $('#rpmFil',root).onclick=()=>{rp.classList.toggle('rpfc');$('#rpmMenu',root).hidden=true};
+  $('#rpmZm',root).onclick=()=>{rp.classList.toggle('rpzm');$('#rpmMenu',root).hidden=true};
   $('#rpmMore',root).onclick=()=>{const m=$('#rpmMenu',root);m.hidden=!m.hidden};
   $$('[data-rm]',root).forEach(b=>b.onclick=()=>{$('#rpmMenu',root).hidden=true;const t=$('#'+b.dataset.rm,root);if(t)t.click()});
-  const run=$('#rpRun',root);if(run)run.addEventListener('click',()=>{rp.classList.remove('rpsheet')});
   if(MOBR())rpSetMs(root,'list');else if(RP.code){paintTool(root);runReport(root)}}
 function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.set.bd,lt=H.set.lockedThrough;
   const one=['today','future','pastOne','upTo'].includes(d.mode)&&!['FO_21','FO_41'].includes(d.code),minD=['future','futureRange'].includes(d.mode)?bd:'',maxD=d.mode==='past'?lt:d.mode==='upTo'||d.mode==='pastOne'?bd:'';
