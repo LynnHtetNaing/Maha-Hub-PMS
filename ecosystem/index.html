@@ -1238,6 +1238,21 @@ html[data-mode=dark] .anncard{background:#14243a;border-color:#2a3f57;color:#e6e
 .hsrev .hrl .hl1{display:block;font-weight:800;line-height:1.25}.hsrev .hrl .hl2{display:block;font-weight:600;line-height:1.25;opacity:.95}
 .kvr .cvn{display:block;font-weight:400;font-size:.92em;opacity:.85}
 @media (max-width:700px){.kvr .cvn{display:inline}}
+/* Announcement card: chips row, title, message, read ring (poster only) */
+.anmeta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.achip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px;background:#e8f1ee;color:#37574a;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.achip.imp{background:#fde4e1;color:#b3261e}.achip.nor{background:#d7f0ea;color:#0b6f69}.achip.adm{background:#e1e8fb;color:#2b4aa8}
+.annti{font-size:16.5px;font-weight:800;margin:8px 0 4px}
+.anncard.imp{border-left:5px solid #e0a23a}
+.anfoot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid #e3eee8;padding-top:10px;margin-top:6px}.anfoot.solo{justify-content:flex-start}
+.anring{--p:75;--c:#e0a23a;width:46px;height:46px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--p)*1%),#e3eee8 0);display:grid;place-items:center;flex:0 0 auto}.anring.ok{--c:#0e8a82}
+.anring b{width:36px;height:36px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:11px;font-weight:800}
+.anwho{flex:1 1 120px;min-width:0}.anrb{font-weight:700}.anwho a{color:#0b6f69;font-weight:700;font-size:12.5px;text-decoration:underline}
+.anbtn{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;justify-content:flex-start}.anfoot.solo .anbtn{margin-left:0}
+.andone{font-weight:700;color:#0b6f69;font-size:13px}.anunl{margin-top:6px}
+html[data-mode=dark] .achip{background:#1a2c42;color:#b8cde0}html[data-mode=dark] .achip.imp{background:#4a1b1d;color:#ffb4ad}html[data-mode=dark] .achip.nor{background:#12403f;color:#7be0d6}html[data-mode=dark] .achip.adm{background:#1d2a52;color:#a9bdff}
+html[data-mode=dark] .anfoot{border-color:#26394f}html[data-mode=dark] .anring{background:conic-gradient(var(--c) calc(var(--p)*1%),#26394f 0)}html[data-mode=dark] .anring.ok{--c:#14a39a}html[data-mode=dark] .anring b{background:#14243a}
+html[data-mode=dark] .anwho a,html[data-mode=dark] .andone{color:#7be0d6}
 /* Own photo in the profile button and on My profile */
 .tbprof{overflow:hidden;padding:0}.tbphoto{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}.mpav{overflow:hidden}.mpav img{width:100%;height:100%;object-fit:cover}
 /* Dark: transaction detail window (tabs, calculator button, coloured values, number pills) */
@@ -7507,11 +7522,11 @@ function msgPane(m,mark,tabs){const box=$('#ncMsg',m),list=inboxMine();
 function annPane(m,mark,tabs){const box=$('#ncAnn',m),u=curStaff(),isP=!!(DB.session&&DB.session.provider),list=annMine(),canPost=can('announce')&&!!H;
   const mine=a=>!a.prov&&canPost;
   box.innerHTML=(canPost?'<div class="btns" style="justify-content:flex-start;margin-bottom:10px"><button class="btn gold" id="anNew">'+ic('plus',15)+' New announcement</button></div>':'')+
-    (list.map(a=>{const rd=isP?1:(annVisibleTo(a,u)?annReadAt(a,u.id):1);let stat='';
-      if(mine(a)){const rc=annRecipients(a),seen=rc.filter(x=>annReadAt(a,x.id)),un=rc.filter(x=>!annReadAt(a,x.id));stat='<div class="sub">Read by '+seen.length+' of '+rc.length+(un.length?' · <a href="#" data-anun="'+a.id+'">who has not read it</a>':'')+'</div><div class="sub" id="anun-'+a.id+'" hidden>'+esc(un.map(x=>x.name||x.username).join(', '))+'</div>'}
-      return '<div class="anncard'+(rd?' read':'')+(a.prio==='important'?' imp':'')+'"><div class="annh">'+(a.prio==='important'?'<span class="pill r">Important</span>':'')+'<b>'+esc(a.title)+'</b>'+(a.prov?'<span class="pill b">Administrator</span>':'')+(!rd?'<span class="pill y">New</span>':'')+'</div>'+
-        '<div class="sub">'+esc(a.by||'')+' · '+fdt(a.at)+' · To: '+esc(annAudText(a))+(a.until?' · until '+fd(a.until):'')+'</div><div class="annt">'+esc(a.text)+'</div>'+stat+
-        '<div class="btns" style="justify-content:flex-start">'+(!rd&&!isP?'<button class="btn sm ghost" data-anr="'+a.id+'">Mark as read</button>':'')+(mine(a)?'<button class="btn sm ghost" data-ane="'+a.id+'">Edit</button><button class="btn sm red" data-and="'+a.id+'">Remove</button>':'')+'</div></div>'}).join('')||'<div class="empty nempty">No announcements.</div>');
+    (list.map(a=>{const rd=isP?1:(annVisibleTo(a,u)?annReadAt(a,u.id):1),imp=a.prio==='important',own=mine(a);let foot='',unl='';
+      if(own){const rc=annRecipients(a),seen=rc.filter(x=>annReadAt(a,x.id)),un=rc.filter(x=>!annReadAt(a,x.id)),pc=rc.length?Math.round(seen.length/rc.length*100):100;foot='<div class="anring'+(un.length?'':' ok')+'" style="--p:'+pc+'"><b>'+seen.length+'/'+rc.length+'</b></div><div class="anwho"><div class="anrb">Read by '+seen.length+' of '+rc.length+'</div>'+(un.length?'<a href="#" data-anun="'+a.id+'">Who has not read it ('+un.length+')</a>':'<div class="sub">Everyone has read it</div>')+'</div></div>';unl='<div class="sub anunl" id="anun-'+a.id+'" hidden>'+esc(un.map(x=>x.name||x.username).join(', '))+'</div>'}
+      const acts=(!rd&&!isP?'<button class="btn sm ghost" data-anr="'+a.id+'">Mark as read</button>':(!isP&&!a.prov&&annVisibleTo(a,u)&&!own?'<span class="andone">✔ You read this</span>':''))+(own?'<button class="btn sm ghost" data-ane="'+a.id+'">Edit</button><button class="btn sm red" data-and="'+a.id+'">Remove</button>':'');
+      return '<div class="anncard'+(rd?' read':'')+(imp?' imp':'')+'"><div class="anmeta"><span class="achip '+(a.prov?'adm':imp?'imp':'nor')+'">'+(a.prov?'🛡 Administrator':imp?'⚠ Important':'📢 Normal')+'</span><span class="achip">👤 '+esc(a.by||'')+'</span><span class="achip">🕒 '+fdt(a.at)+'</span><span class="achip">🎯 '+esc(annAudText(a))+'</span>'+(a.until?'<span class="achip">until '+fd(a.until)+'</span>':'')+(!rd?'<span class="pill y">New</span>':'')+'</div>'+
+        '<div class="annti">'+esc(a.title)+'</div><div class="annt">'+esc(a.text)+'</div>'+(foot||acts?'<div class="anfoot'+(foot?'':' solo')+'">'+foot+(acts?'<div class="btns anbtn">'+acts+'</div>':'')+'</div>':'')+unl+'</div>'}).join('')||'<div class="empty nempty">No announcements.</div>');
   if($('#anNew',box))$('#anNew',box).onclick=()=>annForm(null,()=>{mark();tabs();annPane(m,mark,tabs)});
   $$('[data-anr]',box).forEach(b=>b.onclick=()=>{const a=list.find(x=>x.id===b.dataset.anr);if(a){annMarkRead(a,u.id);saveDB();mark();tabs();annPane(m,mark,tabs)}});
   $$('[data-anun]',box).forEach(l=>l.onclick=e=>{e.preventDefault();const t=$('#anun-'+l.dataset.anun,box);if(t)t.hidden=!t.hidden});
