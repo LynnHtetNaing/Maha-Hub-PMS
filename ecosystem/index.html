@@ -1179,6 +1179,8 @@ html[data-mode=dark] .ivq{color:#b6cadb}html[data-mode=dark] .ivfx{color:#7cb6f2
 #secB .panel .grid th:last-child,#secB .panel .grid td:last-child{padding-right:22px}
 #secB .panel.pad .grid{margin:8px -22px 0;width:calc(100% + 44px)}
 #secB .panel .btns{padding:6px 22px 16px}
+/* Own photo in the profile button and on My profile */
+.tbprof{overflow:hidden;padding:0}.tbphoto{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}.mpav{overflow:hidden}.mpav img{width:100%;height:100%;object-fit:cover}
 /* Dark: transaction detail window (tabs, calculator button, coloured values, number pills) */
 html[data-mode=dark] .ttabs{border-bottom-color:#243a52;gap:8px}
 html[data-mode=dark] .ttabs button{background:#14243a;border:1.5px solid #2a3f57;border-bottom:0;color:#4fd1c5;font-weight:700;padding:8px 16px;border-radius:10px 10px 0 0}
@@ -7219,7 +7221,7 @@ function modernShellHTML(){
     <button type="button" class="tbico" id="tbHelp" title="Help" aria-label="Help">${ic('help',20)}</button>
     <button type="button" class="tbico" id="tbBell" title="Notifications" aria-label="Notifications">${ic('bell',20)}${n?`<span class="tbbadge">${n>99?'99+':n}</span>`:''}</button></div>
     <div class="tbhotel"><div class="tbus">${esc(user().name)}${curShift()?' · '+esc(curShift().name):''}</div><div class="tbnow" id="rtClock"></div></div>
-    <button class="tbprof" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu">${ic('user',18)}</button>
+    <button class="tbprof" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu">${avatarInner(18)}</button>
   </div></header>
   <main id="view" class="view"></main></div>`}
 function modernNavInit(){
@@ -7264,7 +7266,7 @@ function shellHTML(){
       ${providerConsole?'':`<button type="button" class="tbico" id="tbBell" title="Notifications" aria-label="Notifications">${ic('bell',20)}${n?`<span class="tbbadge">${n>99?'99+':n}</span>`:''}</button>`}
     </div>
     <div class="tbhotel">${H?`<div class="tbhn">${providerConsole?'Provider console':esc(H.set.name)}</div><div class="tbus">${esc(user().name)}${curShift()?' · '+esc(curShift().name):''}</div>`:''}<div class="tbnow" id="rtClock" title="System date"></div></div>
-    ${H?`<button class="tbprof" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu">${ic('user',18)}</button>`:''}
+    ${H?`<button class="tbprof" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu">${avatarInner(18)}</button>`:''}
   </div></header>
 <main id="view" class="view"></main>`}
 /* On phones, tablets and narrow windows the menu is one panel opened by the hamburger button; the titles open as a list inside it */
@@ -7309,6 +7311,10 @@ function openHelpMenu(btn){
   const p=tbPop(btn,`<button type="button" data-act="help">Help</button>`);
   $$('[data-act]',p).forEach(b=>b.onclick=()=>{p.hidden=true;go('help.home')});
 }
+/* The person's own photo (My profile): shown in the round profile button at the top right and on the My profile page */
+function myPhoto(){const se=DB&&DB.session;if(!se||se.provider)return '';const u=H&&(H.users||[]).find(x=>x.id===se.userId);return (u&&u.profile&&u.profile.photo)||''}
+const avatarInner=(n)=>myPhoto()?'<img class="tbphoto" src="'+myPhoto()+'" alt="">':ic('user',n||18);
+function paintAvatar(){const b=$('#tbProf');if(b)b.innerHTML=avatarInner(18)}
 function openAccountMenu(btn){
   const provider=!!(DB.session&&DB.session.provider);
   const inHotel=!(provider&&!DB.session.inHotel);
@@ -10418,7 +10424,7 @@ VIEWS['prov.log']=el=>{
 VIEWS['me.profile']=el=>{const se=DB.session;const u=H&&H.users.find(x=>x.id===se.userId);if(!u){el.innerHTML='<div class="empty">Profile not available.</div>';return}
   const p=u.profile||{};const dens=densityMode();
   el.innerHTML=`<div class="mphead"><button class="btn ghost" id="mpBack">${ic('left',16)} Back</button><h1>My profile</h1></div>
-   <div class="mp"><div class="panel mpcard"><div class="mpav">${ic('user',64)}</div><div class="mpu">${esc(u.username)}</div><div class="mppos">${esc(u.position||u.role)}</div>
+   <div class="mp"><div class="panel mpcard"><div class="mpav">${p.photo?`<img src="${p.photo}" alt="My photo">`:ic('user',64)}</div><div class="btns" style="justify-content:center;margin:0 0 10px"><label class="btn sm ghost" title="Add or change my photo">${ic('upload',15)} ${p.photo?'Change photo':'Add photo'}<input type="file" id="mpF" accept="image/*" hidden></label>${p.photo?`<button class="btn sm ghost" id="mpFx" title="Remove my photo">${ic('trash',15)}</button>`:''}</div><div class="mpu">${esc(u.username)}</div><div class="mppos">${esc(u.position||u.role)}</div>
      <div class="mpnote">Your username <b>${esc(u.username)}</b> is what appears on reports, invoices, folios and logs. Your personal details below are private to your profile.</div></div>
     <div class="panel pad"><h3>Account</h3><div class="form2">${fld('Username',`<input value="${esc(u.username)}" disabled>`)}${fld('Position',`<input value="${esc(u.position||u.role)}" disabled>`)}${fld('Hotel',`<input value="${esc(H.set.name)} (${esc(H.code)})" disabled>`,'span2')}</div>
      <p class="sub">Username and position are set by the provider and cannot be changed here.</p>
@@ -10435,12 +10441,16 @@ VIEWS['me.profile']=el=>{const se=DB.session;const u=H&&H.users.find(x=>x.id===s
       ${fld('Nationality',`<input id="mpNa" value="${esc(p.nationality||'')}">`)}</div>
      <div class="err" id="mpErr"></div><div class="btns"><button class="btn gold" id="mpS">Save</button></div></div></div>`;
   $('#mpBack',el).onclick=()=>{const b=PREV||{v:'fo.status',a:null};PREV=null;go(b.v,b.a)};
+  const savePhoto=d=>{u.profile=Object.assign({},u.profile||{},{photo:d,at:Date.now()});log(d?'Own photo changed':'Own photo removed');saveDB();paintAvatar();render();toast(d?'Photo saved':'Photo removed')};
+  $('#mpF',el).onchange=e=>{const fl=e.target.files[0];e.target.value='';if(!fl)return;if(fl.size>6e6){toast('The photo is too large. Use one under 6 MB.');return}const img=new Image(),rd=new FileReader();
+    rd.onload=()=>{img.onload=()=>{const side=Math.min(img.width,img.height),c=document.createElement('canvas');c.width=c.height=240;c.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,240,240);savePhoto(c.toDataURL('image/jpeg',.82))};img.onerror=()=>toast('That file is not a picture.');img.src=rd.result};rd.readAsDataURL(fl)};
+  if($('#mpFx',el))$('#mpFx',el).onclick=()=>savePhoto('');
   $('#mpComfort',el).onclick=()=>{applyDensity('comfort');toast('Comfort layout on');render()};
   $('#mpCompact',el).onclick=()=>{applyDensity('compact');toast('Compact layout on');render()};
   $('#mpS',el).onclick=()=>{const e=$('#mpE',el).value.trim(),b=$('#mpB',el).value;
     if(e&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){$('#mpErr',el).textContent='Check the email address.';return}
     if(b&&b>todayZ()){$('#mpErr',el).textContent='The date of birth cannot be in the future.';return}
-    u.profile={fullName:$('#mpN',el).value.trim(),dob:b,gender:$('#mpG',el).value,phone:$('#mpP',el).value.trim(),email:e,nationality:$('#mpNa',el).value.trim(),at:Date.now()};
+    u.profile={photo:(u.profile&&u.profile.photo)||'',fullName:$('#mpN',el).value.trim(),dob:b,gender:$('#mpG',el).value,phone:$('#mpP',el).value.trim(),email:e,nationality:$('#mpNa',el).value.trim(),at:Date.now()};
     log('Updated own profile');saveDB();$('#mpErr',el).textContent='';toast('Profile saved')};
 };
 
