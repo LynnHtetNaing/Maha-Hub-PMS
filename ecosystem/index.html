@@ -4048,7 +4048,8 @@ function applyHotelPackage(h,id){
 function viewKeys(v){if(!v||v==='set.features')return [];if(v==='reports')return ['reports'];const keys=[];
   (typeof MENU!=='undefined'?MENU:[]).forEach(m=>{(m.items||[]).forEach(x=>{if(x[1]===v&&x[3])keys.push(x[3])})});return keys}
 function viewAllowed(v){const keys=viewKeys(v);if(!keys.length)return true;return keys.some(k=>feat(k))}
-function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];return prefer.find(v=>viewAllowed(v))||'set.features'}
+let ENTRY_QUIET=null;   /* the page opened by itself on entry: the left menu marks no title until the person chooses one */
+function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];const v=prefer.find(v=>viewAllowed(v))||'set.features';ENTRY_QUIET={v,pending:true};return v}
 function menuFeature(v){const keys=viewKeys(v);return keys[0]||''}
 function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);const plans=[['essential','Essential'],['front','Front Office'],['full','Full PMS'],['custom','Custom']];
   const pkg=H.set&&H.set.package;
@@ -6963,7 +6964,7 @@ function modernNavInit(){
 function msbMark(){
   const nav=$('#msbnav');if(!nav)return;
   let grp='',title='';
-  $$('.mit',nav).forEach(b=>{const on=b.dataset.go===VIEW;b.classList.toggle('on',on);if(on&&!grp){grp=b.closest('.mg').dataset.gt||'';title=b.dataset.t||'';MSB_OPEN[grp]=true;b.closest('.mg').classList.add('open')}});
+  $$('.mit',nav).forEach(b=>{const on=b.dataset.go===VIEW,quiet=!!(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW);b.classList.toggle('on',on&&!quiet);if(on&&!grp){grp=b.closest('.mg').dataset.gt||'';title=b.dataset.t||'';MSB_OPEN[grp]=true;b.closest('.mg').classList.add('open')}});
   const h=$('#view h1'),h1=h?h.textContent.replace(/\s+/g,' ').trim():'';
   const c=$('#mcrumb');if(c)c.innerHTML='Workspace'+(grp?' / '+esc(grp):'')+(title||h1?' / <b>'+esc(title||h1)+'</b>':'')}
 function shellHTML(){
@@ -7172,6 +7173,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
+  if(ENTRY_QUIET&&ENTRY_QUIET.pending)ENTRY_QUIET.pending=false;else ENTRY_QUIET=null;
   VIEW=v;VARG=arg===undefined?null:arg;closeMenus();render()}
 function render(){
   if(!DB.session){showLogin();return}
