@@ -1209,6 +1209,14 @@ html[data-mode=dark] .ivq{color:#b6cadb}html[data-mode=dark] .ivfx{color:#7cb6f2
   .rp[data-ms=view] .rpzoom .tbtn{background:rgba(255,255,255,.15);color:#fff;border:0;width:38px;height:36px}
   html[data-mode=dark] .rpmenu{background:#101d2e;border-color:#2c3f55;color:#e6eef6}html[data-mode=dark] .rpmenu button:hover{background:#0f3a3c}
 }
+/* Announcements and messages */
+.nctabs{display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap}
+.nctab{height:40px;padding:0 16px;border-radius:12px;border:1.5px solid #cfdcd5;background:#fff;color:#0e8a82;font:inherit;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.nctab.on{background:#0e8a82;color:#fff;border-color:#0e8a82}.nctab b{background:#c0392b;color:#fff;border-radius:99px;font-size:11px;padding:1px 7px}
+.anncard{border:1px solid #dbe8e2;border-radius:14px;padding:12px 14px;margin:0 0 10px;background:#fff}.anncard.read{opacity:.78}.anncard.imp{border-color:#e0a23a;background:#fffaf0}
+.annh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.annh b{font-size:15px}.annt{white-space:pre-wrap;margin:6px 0 8px}
+html[data-mode=dark] .nctab{background:#14243a;border-color:#2a3f57;color:#4fd1c5}html[data-mode=dark] .nctab.on{background:#14a39a;border-color:#14a39a;color:#fff}
+html[data-mode=dark] .anncard{background:#14243a;border-color:#2a3f57;color:#e6eef6}html[data-mode=dark] .anncard.imp{background:#2c2410;border-color:#8a6a1e}
 /* Own photo in the profile button and on My profile */
 .tbprof{overflow:hidden;padding:0}.tbphoto{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}.mpav{overflow:hidden}.mpav img{width:100%;height:100%;object-fit:cover}
 /* Dark: transaction detail window (tabs, calculator button, coloured values, number pills) */
@@ -2305,11 +2313,11 @@ const PERMS=[
  ['corrpost','Correct post'],['corrpay','Correct payment and edit payment amount'],['move','Move lines between folios and rooms'],
  ['rate','Change nightly rates (advance rate setup)'],['print','Print invoices and registration cards'],['hk','Change housekeeping status'],
  ['notif','Create notifications'],['profile','Edit guest profiles'],['docs','View guest documents and ID numbers'],
- ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['hkpost','Post housekeeping charges (Mini Bar, Missing / Damage, Laundry, Misc.) from HK Folio'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['currency','Choose a reservation currency (only when the provider opened more currencies)'],['approve','Approve requests (rebate, refund, void) made by others'],['setup','Hotel setup']];
+ ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['hkpost','Post housekeeping charges (Mini Bar, Missing / Damage, Laundry, Misc.) from HK Folio'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['currency','Choose a reservation currency (only when the provider opened more currencies)'],['approve','Approve requests (rebate, refund, void) made by others'],['announce','Post announcements to staff'],['setup','Hotel setup']];
 const PRESET={
  Manager:PERMS.map(p=>p[0]),
  'Front desk':['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','move','rate','print','hk','notif','profile','docs','reports','ai.guest'],
- HOD:['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','corrpay','move','rate','print','hk','notif','profile','docs','reports','ai.guest','approve'],
+ HOD:['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','corrpay','move','rate','print','hk','notif','profile','docs','reports','ai.guest','approve','announce'],
  Housekeeping:['hk','hkpost','notif']};
 
 /* ---------- transaction codes ---------- */
@@ -3628,7 +3636,7 @@ const PlatSet={
   KEYS:{catalog:{get:()=>DB.catalog,set:v=>{DB.catalog=v}},pay_logos:{get:()=>DB.payLogos,set:v=>{DB.payLogos=v}}},
   limit:{catalog:300000,pay_logos:3000000},
   hashOf(v){return msHash(msStable(v===undefined?null:v))},
-  isEmpty(k,v){if(!v||typeof v!=='object')return true;if(k==='catalog')return !(v.charges||[]).length&&!(v.payments||[]).length&&!Object.keys(v.hidden||{}).length&&!(v.titles||[]).length&&!(v.payTitles||[]).length&&!Object.keys(v.tmeta||{}).length;return !Object.keys(v).length},
+  isEmpty(k,v){if(!v||typeof v!=='object')return true;if(k==='catalog')return !(v.announce||[]).length&&!(v.charges||[]).length&&!(v.payments||[]).length&&!Object.keys(v.hidden||{}).length&&!(v.titles||[]).length&&!(v.payTitles||[]).length&&!Object.keys(v.tmeta||{}).length;return !Object.keys(v).length},
   take(k,data,version){this.KEYS[k].set(JSON.parse(JSON.stringify(data)));this.ver[k]=+version;this.hash[k]=this.hashOf(this.KEYS[k].get())},
   /* Download the cloud copy. Returns true if this device's copy changed. A key never saved to the cloud is left alone. */
   async load(){
@@ -4320,7 +4328,7 @@ function viewKeys(v){if(!v||v==='set.features')return [];if(v==='reports')return
   (typeof MENU!=='undefined'?MENU:[]).forEach(m=>{(m.items||[]).forEach(x=>{if(x[1]===v&&x[3])keys.push(x[3])})});return keys}
 function viewAllowed(v){const keys=viewKeys(v);if(!keys.length)return true;return keys.some(k=>feat(k))}
 let ENTRY_QUIET=null;   /* the page opened by itself on entry: the left menu marks no title until the person chooses one */
-function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];const v=prefer.find(v=>viewAllowed(v))||'set.features';ENTRY_QUIET={v,pending:true};try{MSB_OPEN={}}catch(e){}return v}
+function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];const v=prefer.find(v=>viewAllowed(v))||'set.features';ENTRY_QUIET={v,pending:true};try{MSB_OPEN={}}catch(e){}setTimeout(()=>{try{showImportantAnnouncements()}catch(e){}},1500);return v}
 function menuFeature(v){const keys=viewKeys(v);return keys[0]||''}
 function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);const plans=[['essential','Essential'],['front','Front Office'],['full','Full PMS'],['custom','Custom']];
   const pkg=H.set&&H.set.package;
@@ -6765,7 +6773,7 @@ const MENU=[
 const PROV_MENU=[
  {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
  {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Chains / Groups','prov.chains'],['Recycle bin','prov.recycle']]},
- {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log']]},
+ {t:'Records',items:[['Announcements','prov.announce'],['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 /* ---- Our own drop-down list: used on every select instead of the browser list. Keyboard still works on the closed select. ---- */
 const MahaSel=(()=>{let pop=null,cur=null;
@@ -7387,10 +7395,30 @@ function openAccountMenu(btn){
     if(a==='search')globalSearch();
     if(a==='out')signOut(false)});
 }
+/* ---- Announcements and personal messages ----
+   Hotel announcements live in the hotel file (H.announcements). The Administrator's (provider's) announcements live in the shared catalog (DB.catalog.announce)
+   so every hotel receives them. Who has read what is kept in the hotel file. */
+const DEPTS=['Front Office','Housekeeping','F&B','Sales & Reservation','Accounting','Engineering','Security','Management'];
+const bdNow=()=>(H&&H.set&&H.set.bd)||todayZ();
+function curStaff(){const se=DB&&DB.session;if(!se||!H)return null;if(se.provider)return {id:se.userId,department:'',isProv:true};return (H.users||[]).find(x=>x.id===se.userId)||null}
+function annVisibleTo(a,u){if(!a||a.removed)return false;if(a.until&&a.until<bdNow())return false;if(a.hotels&&a.hotels.length&&H&&!a.hotels.includes(H.code))return false;if(!a.depts||!a.depts.length)return true;return !!(u&&u.department&&a.depts.includes(u.department))}
+function annAll(){const own=((H&&H.announcements)||[]).map(a=>Object.assign({},a,{prov:false}));const adm=((DB&&DB.catalog&&DB.catalog.announce)||[]).map(a=>Object.assign({},a,{prov:true}));return own.concat(adm)}
+/* what the person sees in the bell: what is addressed to them, and (for people who may post) every hotel announcement so they can manage it */
+function annMine(){const u=curStaff();if(!u)return [];const mgr=!!(H&&can('announce')&&!u.isProv);return annAll().filter(a=>annVisibleTo(a,u)||(mgr&&!a.prov&&!a.removed)).sort((x,y)=>(y.at||0)-(x.at||0))}
+const annForMe=()=>{const u=curStaff();return u?annMine().filter(a=>annVisibleTo(a,u)):[]};
+function annReadAt(a,uid){if(a.prov){const r=H&&H.annReads&&H.annReads[a.id];return (r&&r[uid])||0}return (a.reads&&a.reads[uid])||0}
+function annMarkRead(a,uid){if(!H||!uid)return;if(a.prov){H.annReads=H.annReads||{};(H.annReads[a.id]=H.annReads[a.id]||{})[uid]=Date.now()}else{const x=(H.announcements||[]).find(y=>y.id===a.id);if(x){x.reads=x.reads||{};x.reads[uid]=Date.now()}}}
+function annUnreadCount(){const se=DB&&DB.session;if(!se||se.provider)return 0;const u=curStaff();if(!u)return 0;return annForMe().filter(a=>!annReadAt(a,u.id)).length}
+function inboxMine(){const u=curStaff();if(!u||!H)return [];return (H.inbox||[]).filter(m=>m.to===u.id).sort((x,y)=>(y.at||0)-(x.at||0))}
+function inboxUnreadCount(){const se=DB&&DB.session;if(!se||se.provider)return 0;return inboxMine().filter(m=>!m.read).length}
+function inboxPush(toId,text,kind){if(!H||!toId)return;H.inbox=H.inbox||[];H.inbox.unshift({id:'ib'+uid(),at:Date.now(),to:toId,kind:kind||'info',text:String(text||''),read:false});if(H.inbox.length>400)H.inbox.length=400}
+const annAudText=a=>(a.depts&&a.depts.length)?a.depts.join(', '):'Everyone';
+function annRecipients(a){return (H.users||[]).filter(u=>u.active!==false&&!u.cancelled&&(!a.depts||!a.depts.length||a.depts.includes(u.department)))}
 function notifBadgeCount(){
   if(!H||!H.reservations)return 0;let n=0;
   H.reservations.forEach(r=>(r.notifs||[]).forEach(x=>{if(!x.done)n++}));
   if(DB.session&&canApprove())n+=approvalsForMe().length;
+  n+=annUnreadCount()+inboxUnreadCount();
   return n;
 }
 function paintNotifBadge(){
@@ -7417,13 +7445,13 @@ function notifInRange(row,kind,from,to){
 function openNotifyCenter(){
   if(!H||!DB.session){showLogin();return}
   const today=H.set.bd||todayZ();
-  const m=modal(`${ic('bell',18)} Notifications`,`<div class="nfilt">
+  const m=modal(`${ic('bell',18)} Notifications`,`<div class="nctabs" id="ncTabs"></div><div id="ncAnn" hidden></div><div id="ncMsg" hidden></div><div id="ncRes"><div class="nfilt">
     <label class="f"><span>Date type</span><select id="nfKind"><option value="created">Created date</option><option value="effective">Effective date</option></select></label>
     <label class="f"><span>From</span><input type="date" id="nfFrom" value="${addD(today,-14)}"></label>
     <label class="f"><span>To</span><input type="date" id="nfTo" value="${today}"></label>
     <button class="btn" id="nfApply" type="button">Show</button></div>
     <p class="sub">Created date is when the message was written. Effective date is the guest stay, arrival through departure.</p>
-    <div id="nfList"></div>`,{w:980,cls:'ncenter'});
+    <div id="nfList"></div></div>`,{w:980,cls:'ncenter'});
   if(m._wrap)m._wrap.classList.add('mcenter');
   {const ap=canApprove()?approvalsForMe().length:0;if(ap){const bar=document.createElement('div');bar.className='panel pad apnote';bar.innerHTML=`<b>${ap} approval${ap===1?'':'s'} waiting for you</b> <button class="btn sm gold" id="nfAp" type="button">Open Approvals</button>`;m.querySelector('.nfilt').before(bar);$('#nfAp',m).onclick=()=>{closeModal(m);go('set.approve')}}}
   const paint=()=>{
@@ -7438,7 +7466,59 @@ function openNotifyCenter(){
     });
   };
   $('#nfApply',m).onclick=paint;$('#nfKind',m).onchange=paint;paint();
+  ncTabs(m);
 }
+/* the three tabs of the bell */
+function ncTabs(m){
+  const u=curStaff(),isP=!!(DB.session&&DB.session.provider);let tab=(!isP&&annUnreadCount())?'ann':(!isP&&inboxUnreadCount())?'msg':'res';
+  const tabs=()=>{const a=isP?0:annUnreadCount(),g=isP?0:inboxUnreadCount();
+    $('#ncTabs',m).innerHTML=[['ann','Announcements',a],['msg','Messages',g],['res','Reservation notes',0]].map(t=>'<button type="button" class="nctab'+(tab===t[0]?' on':'')+'" data-nt="'+t[0]+'">'+t[1]+(t[2]?' <b>'+t[2]+'</b>':'')+'</button>').join('');
+    ['ann','msg','res'].forEach(k=>{const p=$('#nc'+k[0].toUpperCase()+k.slice(1),m);if(p)p.hidden=tab!==k});
+    $$('[data-nt]',m).forEach(b=>b.onclick=()=>{tab=b.dataset.nt;show()})};
+  const mark=()=>{try{paintNotifBadge()}catch(e){}};
+  const show=()=>{tabs();if(tab==='ann')annPane(m,mark,tabs);else if(tab==='msg')msgPane(m,mark,tabs)};
+  show()}
+function msgPane(m,mark,tabs){const box=$('#ncMsg',m),list=inboxMine();
+  box.innerHTML='<div class="btns" style="justify-content:flex-end;margin-bottom:8px"><button class="btn sm ghost" id="ibAll" '+(list.some(x=>!x.read)?'':'disabled')+'>Mark all as read</button></div>'+
+    (list.map(x=>'<div class="anncard'+(x.read?' read':'')+'"><div class="annh"><b>'+(x.kind==='approval'?'Approval':'Message')+'</b><span class="sub">'+fdt(x.at)+'</span>'+(x.read?'':'<span class="pill y">New</span>')+'</div><div class="annt">'+esc(x.text)+'</div>'+(x.read?'':'<div class="btns" style="justify-content:flex-start"><button class="btn sm ghost" data-ibr="'+x.id+'">Mark as read</button></div>')+'</div>').join('')||'<div class="empty nempty">No messages.</div>');
+  $$('[data-ibr]',box).forEach(b=>b.onclick=()=>{const x=(H.inbox||[]).find(y=>y.id===b.dataset.ibr);if(x){x.read=true;saveDB();mark();tabs();msgPane(m,mark,tabs)}});
+  if($('#ibAll',box))$('#ibAll',box).onclick=()=>{inboxMine().forEach(x=>{x.read=true});saveDB();mark();tabs();msgPane(m,mark,tabs)}}
+function annPane(m,mark,tabs){const box=$('#ncAnn',m),u=curStaff(),isP=!!(DB.session&&DB.session.provider),list=annMine(),canPost=can('announce')&&!!H;
+  const mine=a=>!a.prov&&canPost;
+  box.innerHTML=(canPost?'<div class="btns" style="justify-content:flex-start;margin-bottom:10px"><button class="btn gold" id="anNew">'+ic('plus',15)+' New announcement</button></div>':'')+
+    (list.map(a=>{const rd=isP?1:(annVisibleTo(a,u)?annReadAt(a,u.id):1);let stat='';
+      if(mine(a)){const rc=annRecipients(a),seen=rc.filter(x=>annReadAt(a,x.id)),un=rc.filter(x=>!annReadAt(a,x.id));stat='<div class="sub">Read by '+seen.length+' of '+rc.length+(un.length?' · <a href="#" data-anun="'+a.id+'">who has not read it</a>':'')+'</div><div class="sub" id="anun-'+a.id+'" hidden>'+esc(un.map(x=>x.name||x.username).join(', '))+'</div>'}
+      return '<div class="anncard'+(rd?' read':'')+(a.prio==='important'?' imp':'')+'"><div class="annh">'+(a.prio==='important'?'<span class="pill r">Important</span>':'')+'<b>'+esc(a.title)+'</b>'+(a.prov?'<span class="pill b">Administrator</span>':'')+(!rd?'<span class="pill y">New</span>':'')+'</div>'+
+        '<div class="sub">'+esc(a.by||'')+' · '+fdt(a.at)+' · To: '+esc(annAudText(a))+(a.until?' · until '+fd(a.until):'')+'</div><div class="annt">'+esc(a.text)+'</div>'+stat+
+        '<div class="btns" style="justify-content:flex-start">'+(!rd&&!isP?'<button class="btn sm ghost" data-anr="'+a.id+'">Mark as read</button>':'')+(mine(a)?'<button class="btn sm ghost" data-ane="'+a.id+'">Edit</button><button class="btn sm red" data-and="'+a.id+'">Remove</button>':'')+'</div></div>'}).join('')||'<div class="empty nempty">No announcements.</div>');
+  if($('#anNew',box))$('#anNew',box).onclick=()=>annForm(null,()=>{mark();tabs();annPane(m,mark,tabs)});
+  $$('[data-anr]',box).forEach(b=>b.onclick=()=>{const a=list.find(x=>x.id===b.dataset.anr);if(a){annMarkRead(a,u.id);saveDB();mark();tabs();annPane(m,mark,tabs)}});
+  $$('[data-anun]',box).forEach(l=>l.onclick=e=>{e.preventDefault();const t=$('#anun-'+l.dataset.anun,box);if(t)t.hidden=!t.hidden});
+  $$('[data-ane]',box).forEach(b=>b.onclick=()=>{const a=(H.announcements||[]).find(x=>x.id===b.dataset.ane);if(a)annForm(a,()=>{mark();tabs();annPane(m,mark,tabs)})});
+  $$('[data-and]',box).forEach(b=>b.onclick=async()=>{const a=(H.announcements||[]).find(x=>x.id===b.dataset.and);if(!a||!await dlgConfirm('Remove this announcement for everyone?'))return;a.removed=true;log('Announcement removed: '+a.title);saveDB();mark();tabs();annPane(m,mark,tabs)})}
+/* new / edit announcement (hotel). prov = the Administrator's form: it also chooses the hotels */
+function annForm(a,done,prov){
+  const isNew=!a,x=a||{id:'an'+uid(),at:Date.now(),title:'',text:'',depts:[],hotels:[],prio:'normal',until:''};
+  const hotelsHtml=prov?'<div class="sub mt"><b>Hotels</b></div><div class="featgrid" id="anH"><label class="chk"><input type="checkbox" id="anHall" '+(!x.hotels.length?'checked':'')+'> All hotels</label>'+Object.values(DB.hotels).map(h=>'<label class="chk"><input type="checkbox" data-ah="'+h.code+'" '+(x.hotels.includes(h.code)?'checked':'')+'> '+esc(h.code)+' '+esc(h.set.name)+'</label>').join('')+'</div>':'';
+  const body='<div class="form2">'+fld('Title','<input id="anT" maxlength="80" value="'+esc(x.title)+'" autofocus>','span2')+fld('Message','<textarea id="anX" rows="5" maxlength="1200">'+esc(x.text)+'</textarea>','span2')+'</div>'+hotelsHtml+
+    '<div class="sub mt"><b>Who receives it</b></div><div class="featgrid" id="anD"><label class="chk"><input type="checkbox" id="anAll" '+(!x.depts.length?'checked':'')+'> Everyone</label>'+DEPTS.map(d=>'<label class="chk"><input type="checkbox" data-ad="'+esc(d)+'" '+(x.depts.includes(d)?'checked':'')+'> '+esc(d)+'</label>').join('')+'</div>'+
+    '<div class="form2 mt">'+fld('Priority','<select id="anP"><option value="normal" '+(x.prio!=='important'?'selected':'')+'>Normal</option><option value="important" '+(x.prio==='important'?'selected':'')+'>Important (shown when people sign in)</option></select>')+fld('Show until (optional)','<input type="date" id="anU" value="'+esc(x.until||'')+'">')+'</div>'+
+    '<div class="err" id="anE"></div><div class="btns end"><button class="btn ghost" id="anX0">Cancel</button><button class="btn gold" id="anOk">'+(isNew?'Post':'Save')+'</button></div>';
+  const m=modal(isNew?'New announcement':'Edit announcement',body,{w:640});
+  const all=$('#anAll',m),deps=$$('[data-ad]',m);
+  all.onchange=()=>{if(all.checked)deps.forEach(c=>c.checked=false)};deps.forEach(c=>c.onchange=()=>{if(c.checked)all.checked=false;else if(!deps.some(d=>d.checked))all.checked=true});
+  if(prov){const ha=$('#anHall',m),hs=$$('[data-ah]',m);ha.onchange=()=>{if(ha.checked)hs.forEach(c=>c.checked=false)};hs.forEach(c=>c.onchange=()=>{if(c.checked)ha.checked=false;else if(!hs.some(d=>d.checked))ha.checked=true})}
+  $('#anX0',m).onclick=()=>closeModal(m);
+  $('#anOk',m).onclick=()=>{const t=$('#anT',m).value.trim(),tx=$('#anX',m).value.trim();if(!t||!tx){$('#anE',m).textContent='Write a title and a message.';return}
+    x.title=t;x.text=tx;x.depts=all.checked?[]:deps.filter(c=>c.checked).map(c=>c.dataset.ad);x.prio=$('#anP',m).value;x.until=$('#anU',m).value||'';
+    if(prov){x.hotels=$('#anHall',m).checked?[]:$$('[data-ah]',m).filter(c=>c.checked).map(c=>c.dataset.ah);x.by='Administrator';DB.catalog.announce=DB.catalog.announce||[];if(isNew)DB.catalog.announce.unshift(x);provLog((isNew?'Posted':'Edited')+' administrator announcement: '+t)}
+    else{const u=curStaff();x.by=(u&&(u.name||u.username))||'';x.byId=u&&u.id;x.reads=x.reads||{};H.announcements=H.announcements||[];if(isNew){x.reads[x.byId]=Date.now();H.announcements.unshift(x)}log((isNew?'Announcement posted: ':'Announcement edited: ')+t)}
+    saveDB();closeModal(m);toast(isNew?'Announcement posted':'Announcement saved');if(done)done()}}
+/* Important announcements: shown once after sign-in until the person confirms */
+function showImportantAnnouncements(){try{const se=DB&&DB.session;if(!se||se.provider||!H||document.querySelector('.modal'))return;const u=curStaff();if(!u)return;
+  const list=annForMe().filter(a=>a.prio==='important'&&!annReadAt(a,u.id));if(!list.length)return;
+  const m=modal('Important announcement',list.map(a=>'<div class="anncard imp"><div class="annh"><b>'+esc(a.title)+'</b>'+(a.prov?'<span class="pill b">Administrator</span>':'')+'</div><div class="sub">'+esc(a.by||'')+' · '+fdt(a.at)+'</div><div class="annt">'+esc(a.text)+'</div></div>').join('')+'<div class="btns end"><button class="btn gold" id="anRead">I have read this</button></div>',{w:600});
+  $('#anRead',m).onclick=()=>{list.forEach(a=>annMarkRead(a,u.id));saveDB();try{paintNotifBadge()}catch(e){}closeModal(m)}}catch(e){}}
 function renderShell(){
   if(/solutions-pms/i.test(location.pathname)){document.title=tabTitleFor();try{setTabIcons('hub')}catch(e){}}
   document.body.classList.remove('eco-noscroll');
@@ -9144,8 +9224,8 @@ function psCreditList(B,after){const list=(H.creditNotes||[]).filter(c=>c.bookin
 /* three buttons on the folio of a checked-out booking: seen by every staff member, blocked for anyone without the permission or with nothing to do */
 const PS_ICON={refund:'refund',rebate:'rebate',adjust:'swap'};
 const PS_TIP={refund:'Refund – give money back to the guest',rebate:'Rebate – reduce a charge',adjust:'Adjust (+) – keep an overpayment as revenue'};
-function psEntry(B,kind,after,presetKey){if(!can(kind)){dlgAlert(PS_MSG.perm);return}if(!fxGuard('fx.after.'+kind))return;const why=psCheck(B,kind,true);if(why){dlgAlert(why);return}psModal(B,kind,after,presetKey)}
-function psModal(B,kind,after,presetKey){
+function psEntry(B,kind,after,presetKey){const asReq=!can(kind);if(!fxGuard('fx.after.'+kind))return;const why=psCheck(B,kind,true);if(why){dlgAlert(why);return}psModal(B,kind,after,presetKey,asReq)}
+function psModal(B,kind,after,presetKey,asReq){
   let intro='',fields='',okLabel='Post';
   if(kind==='refund'){const max=psPaid(B),codes=TCODES.filter(c=>c.refund&&payEnabled(c)).sort((a,b)=>String(a.ptab).localeCompare(String(b.ptab))||String(a.desc).localeCompare(String(b.desc)));
     intro=`Money given back to the guest, for any payment that was received (advance, normal or reservation deposit). It is posted today (${fd(H.set.bd)}). In the reports it comes off the payment type you choose, and a Credit Note is made.`;okLabel='Post refund';
@@ -9156,12 +9236,13 @@ function psModal(B,kind,after,presetKey){
   else{const credit=psCredit(B),codes=TCODES.filter(c=>c.type==='c'&&c.adjFor&&!c.hidden).sort((a,b)=>String(a.tab).localeCompare(String(b.tab))||a.desc.localeCompare(b.desc));
     intro=`The guest paid more than was charged (credit balance ${m2(credit)}). Adjust (+) posts that amount as revenue so the folio comes to 0. It is posted today (${fd(H.set.bd)}).`;okLabel='Post adjust';
     fields=`${fld('Credit balance',`<input disabled value="${m2(credit)}">`)}${fld('Adjust to',`<select id="psC">${codes.map(c=>opt(c.code,c.desc,presetKey||'128')).join('')}</select>`)}${fld('Amount',`<input id="psA" class="n" inputmode="decimal" value="${credit}">`)}${fld('Reference',`<input id="psR" maxlength="60" placeholder="Optional">`)}`}
+  if(asReq){okLabel='Send request';intro='You are not allowed to post this yourself. Fill in the details: they are sent to your HOD or manager, and nothing is posted until it is approved. '+intro}
   const m=modal(kind==='refund'?'Refund':PS_NAME[kind]+' after check-out',`<p class="sub">${esc(intro)}</p><div class="form2">${fields}${fld('Reason (printed and kept in the log)',`<textarea id="psM" rows="3" placeholder="Why is this needed?"></textarea>`,'span2')}</div><div class="err" id="psE"></div><div class="btns end"><button class="btn ghost" id="psX">Cancel</button><button class="btn gold" id="psOk">${okLabel}</button></div>`,{w:700,cls:'psmodal'});
   const E=$('#psE',m),num=()=>r2(+String($('#psA',m).value).replace(/,/g,''));
   if(kind==='rebate'){const pools=psPools(B);$$('[name=psP]',m).forEach(r=>r.onchange=()=>{const p=pools.find(x=>x.key===r.value);if(p)$('#psA',m).value=p.amt})}
   $('#psX',m).onclick=()=>closeModal(m);
   $('#psOk',m).onclick=()=>{
-    if(!can(kind)){closeModal(m);dlgAlert(PS_MSG.perm);return}
+    if(!can(kind)&&!asReq){closeModal(m);dlgAlert(PS_MSG.perm);return}
     const why=$('#psM',m).value.trim(),a=num(),ref=$('#psR',m).value.trim();
     if(why.length<3){E.textContent='Please write the reason.';return}
     let pool=null,max=0;
@@ -9169,6 +9250,7 @@ function psModal(B,kind,after,presetKey){
     else if(kind==='rebate'){const k=($('[name=psP]:checked',m)||{}).value;pool=psPools(B).find(p=>p.key===k);if(!pool){E.textContent='Choose the charge to rebate.';return}max=pool.amt}
     else max=psCredit(B);
     const err=psAmountError(max,a);if(err){E.textContent=err;return}
+    if(asReq){queueApproval({action:'ps',psKind:kind,kind:'ps'+kind,bookingId:B.id,title:PS_NAME[kind]+' '+m2(a)+' · room '+(B.room||'')+(pool?' · '+pool.desc:''),code:$('#psC',m)?$('#psC',m).value:'',poolKey:pool?pool.key:'',amt:a,ref,remark:why,noPerm:true});closeModal(m);after();askNotice(PS_NAME[kind]);return}
     const run=sh=>{const ctx={bd:H.set.bd,shift:sh||curShift(),user:user().name};let l,cn=null;
       if(kind==='refund'){l=psRefund(H,B,{...ctx,code:$('#psC',m).value,amt:a,ref,remark:why});cn=psIssue(H,B,'refund',l,why,ctx);histB(B,`Refund ${m2(a)} after check-out (${l.method}): ${why}`);log(`Refund ${m2(a)} ${l.method} RSVN ${resOf(B).no} · ${cn.no}: ${why}`,B.id)}
       else if(kind==='rebate'){l=psRebate(H,B,pool,a,{...ctx,ref,remark:why});cn=psIssue(H,B,'rebate',l,why,ctx);histB(B,`Rebate ${m2(a)} ${pool.desc} after check-out: ${why}`);log(`Rebate ${m2(a)} ${pool.desc} RSVN ${resOf(B).no} · ${cn.no}: ${why}`,B.id)}
@@ -9324,7 +9406,7 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
   const codes=()=>TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.hidden&&POST_TABS.includes(c.tab)&&(c.code!=='203'||houseAccount(B))&&(!gone||c.rebFor||c.adjFor)&&(!hk||hkCode(c)));
   const isRb=c=>!!(c&&(c.rebFor||c.rebate)),isAd=c=>!!(c&&(c.adjFor||/^Adjust/i.test(c.desc))),corr=c=>isRb(c)||isAd(c),kindOf=c=>isRb(c)?'reb':isAd(c)?'adj':'c';
   /* a correction code is chosen like any other; after check-out it opens the correction window (reason, credit note, who may do it) */
-  const allowed=c=>{if(isRb(c)&&!can('rebate')||isAd(c)&&!can('adjust')){dlgAlert(PS_MSG.perm);return false}if(gone&&corr(c)){closeModal(m);psEntry(B,isRb(c)?'rebate':'adjust',after,isRb(c)?(c.rebFor||c.code):c.code);return false}return true};
+  const allowed=c=>{if(isAd(c)&&!can('adjust')&&!gone){dlgAlert(PS_MSG.perm);return false}if(gone&&corr(c)){closeModal(m);psEntry(B,isRb(c)?'rebate':'adjust',after,isRb(c)?(c.rebFor||c.code):c.code);return false}return true};
   const paint=()=>{const nOf=k=>codes().filter(c=>c.tab===postTab&&kindOf(c)===k).length,list=codes().filter(c=>c.tab===postTab&&kindOf(c)===postKind);
     $('#niB',m).innerHTML=`<div class="nitabs">${(hk?HK_TABS:POST_TABS).map(t=>`<button class="${t===postTab?'on':''}" data-nt="${esc(t)}">${esc(titleLabel(t))}</button>`).join('')}</div>
     <div class="nimain"><div class="nileft"><div class="segs refseg"><button type="button" id="niKc" aria-pressed="${postKind==='c'}" ${gone?'disabled title="After check-out only Adjust and Rebate are possible"':''}>Charge types (${nOf('c')})</button><button type="button" id="niKa" aria-pressed="${postKind==='adj'}">Adjust types (${nOf('adj')})</button><button type="button" id="niKr" aria-pressed="${postKind==='reb'}">Rebate types (${nOf('reb')})</button></div><div class="nitiles" id="niTiles">${list.map(c=>`<button class="nitile ${cur&&cur.code===c.code?'on':''}" data-nc="${c.code}">${ic(isRb(c)?'rebate':isAd(c)?'swap':'copy',40)}<b>${c.code}</b><span>${esc(c.desc)}</span><em class="rg ${chargeVat(c)?'':'nv'}">${chargeVat(c)?'VAT':'Non-VAT'}</em></button>`).join('')||'<div class="empty">No codes in this group.</div>'}</div></div>
@@ -9362,9 +9444,9 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
     if(base.rebate){const net=r2(sum(B.lines.filter(isCharge),l=>l.amt));if(net<=0.004){e.textContent=PS_MSG.rebate;return}if(a>net+0.004){e.textContent='A rebate cannot be more than the charges on this folio ('+m2(net)+').';return}}
     const desc=$('#niD',m).value.trim()||base.desc,ref=$('#niR',m).value.trim()||B.room,rem=$('#niM',m).value.trim(),amt=base.rebate?-a:a;
     const dest=typeof chargeTarget==='function'?chargeTarget(B,cur.code):B;const vOn=chargeVat(base);if(FX&&dest!==B&&bCur(dest)!==bCur(B)){e.textContent='This charge is routed to a folio in another currency. Ask the manager.';return}
-    if(base.rebate&&typeof needsApproval==='function'&&needsApproval(vOn?'vatRebate':'nonVatRebate')){
-      queueApproval({action:'rebate',kind:vOn?'vatRebate':'nonVatRebate',bookingId:dest.id,title:`Rebate ${cur.code} ${m2(a)}`,code:cur.code,desc:'Rebate - '+desc,ref,amt,folio:pf,remark:rem,vat:vOn});
-      closeModal(m);after();return}
+    if(base.rebate&&typeof needsApproval==='function'&&(needsApproval(vOn?'vatRebate':'nonVatRebate')||!can('rebate'))){
+      queueApproval({action:'rebate',kind:vOn?'vatRebate':'nonVatRebate',bookingId:dest.id,title:`Rebate ${cur.code} ${m2(a)}`,code:cur.code,desc:'Rebate - '+desc,ref,amt,folio:pf,remark:rem,vat:vOn,noPerm:!can('rebate')});
+      closeModal(m);after();if(!can('rebate'))askNotice('Rebate');return}
     const l=addLine(H,dest,{...lineCtx(),folio:pf,code:cur.code,desc,ref,amt,kind:'post',remark:rem,vat:vOn,fx:FX&&FX.fx});
     log(`Posted ${cur.code} ${m2(l.amt)} to RSVN ${resOf(dest).no} folio ${pf}`,dest.id);closeModal(m);after();toast(`Posted ${m2(l.amt)} to folio ${pf}`)};
   paint();setTimeout(()=>$('#niC',m).focus(),50);
@@ -9483,7 +9565,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
       ${fld('Remark',`<textarea id="pyM" rows="2"></textarea>`)}<div class="err" id="pyE"></div>
       <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?(deposit?'Post deposit':'Post advance payment'):'Post payment'}</button></div></div></div>`;
     if(m._v)['pyR','pyA','pyM'].forEach(id=>{if(m._v[id]!=null&&m._v[id]!=='')$('#'+id,m).value=m._v[id]});
-    const pick=code=>{const c0=TCODES.find(c=>c.code===code);if(c0&&c0.refund){if(!can('refund')){dlgAlert(PS_MSG.perm);return}closeModal(m);psEntry(B,'refund',after,c0.code);return}save();cur=c0;payTab=cur.ptab;payRef=false;if(m._v)m._v.pyA='';paint();$('#pyA',m).focus()};
+    const pick=code=>{const c0=TCODES.find(c=>c.code===code);if(c0&&c0.refund){closeModal(m);psEntry(B,'refund',after,c0.code);return}save();cur=c0;payTab=cur.ptab;payRef=false;if(m._v)m._v.pyA='';paint();$('#pyA',m).focus()};
     if($('#pyI',m))$('#pyI',m).onclick=()=>dlgAlert(adv?(deposit?'Reservation deposit. One line on this folio: Reservation Deposit - (payment type). For its receipt / tax invoice, open the reservation and click Deposit invoice.':'Advance payment. Same three lines. Printing the credit or the red line makes the receipt / tax invoice, with the card and remark. If this folio still has an amount to pay, the amount below is that balance, so the folio comes back to 0.'):`Payment on Folio ${folio}: outstanding ${m2(folioBal(B,folio))}. Every post and advance line already on this folio freezes until a correct payment, and stays frozen after Close Day. One red line is posted. Print that line for the receipt / tax invoice. A charge remark is not printed. The advance credit keeps its card and remark on that invoice. A refund can be made for any payment (advance, normal or reservation deposit): choose Refund types, then the type to pay back by.`,'How this payment works');
     $$('[data-pt]',m).forEach(b=>b.onclick=()=>{save();payTab=b.dataset.pt;paint()});
     if($('#pyPayT',m)){$('#pyPayT',m).onclick=()=>{if(noBill)return;save();payRef=false;paint()};$('#pyRefT',m).onclick=()=>{save();payRef=true;paint()}}
@@ -9503,7 +9585,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     if(cur.refund&&adv){e.textContent='Refunds are made with Payment, not Advance Payment.';return}
     if(cur.refund){const prior=B.lines.filter(l=>(l.kind==='pay'||l.kind==='payrec')&&l.code===(cur.refFor||l.code)&&isLocked(l.bd)&&l.amt<0);
       if(!prior.length){e.textContent='A refund is for a payment from a closed day. For today, use Correct payment or Void payment on the transaction.';return}
-      if(typeof needsApproval==='function'&&needsApproval('refund')){queueApproval({action:'refund',kind:'refund',bookingId:B.id,title:`Refund ${cur.desc} ${m2(a)}`,code:cur.code,amt:a,folio,remark:$('#pyM',m).value.trim(),ref:$('#pyR',m).value.trim(),desc:$('#pyD',m).value.trim()||cur.desc});closeModal(m);after();return}}
+      if(typeof needsApproval==='function'&&(needsApproval('refund')||!can('refund'))){queueApproval({noPerm:!can('refund'),action:'refund',kind:'refund',bookingId:B.id,title:`Refund ${cur.desc} ${m2(a)}`,code:cur.code,amt:a,folio,remark:$('#pyM',m).value.trim(),ref:$('#pyR',m).value.trim(),desc:$('#pyD',m).value.trim()||cur.desc});closeModal(m);after();if(!can('refund'))askNotice('Refund');return}}
     if(cur.ptab==='CITY LEDGER'&&!cur.refund){const rr=resOf(B);if(!rr.companyId){e.textContent='Put a company or travel agent on the reservation before City Ledger.';return}
       const co=CO(rr.companyId);if(co&&+co.creditLimit>0){refreshCityItems(H);const open=r2(sum((H.cityLedger||[]).filter(x=>x.companyId===co.id&&x.status==='open'),x=>x.open));
         if(open+a>+co.creditLimit+0.004){e.textContent=`Credit limit ${m2(co.creditLimit)} would be exceeded (open ${m2(open)} + this ${m2(a)}).`;return}}}
@@ -10422,7 +10504,7 @@ VIEWS['prov.perms']=el=>{
   if(!H){el.innerHTML=pageHead('Staff & permissions')+'<div class="empty">Create a property first.</div>';return}
   el.innerHTML=pageHead('Staff & permissions',provHotelPicker()+`<button class="btn gold" id="pvU">Add staff</button>`)+`<p class="sub">Access for people at <b>${esc(H.set.name)}</b>. This is not part of the hotel file. Open or lock each system per person, then set PMS permissions. A closed hotel system stays hidden even when this person is Open.</p><h3>Systems for each person</h3><div class="panel">${systemMatrix(H.users,true)}</div><h3 class="mt">PMS permissions</h3><div class="panel">${permMatrix(H.users,true)}</div>
    <div class="panel mt" id="chAcc" hidden></div>
-   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username / email</th><th>Position (type any title)</th><th>Permission preset</th><th>Status</th><th>Access term</th><th title="Signs in without opening a shift">No shift</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}<div class="sub" data-em="${esc(u.username)}"></div></td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td>${esc(u.role)}</td><td>${u.cancelled?'<b style="color:#b3261e">Cancelled</b>':u.active===false?'Inactive':'Active'}</td><td class="sub" style="min-width:150px">${esc(accessText(u))}</td><td><input type="checkbox" data-ns="${u.id}" ${u.noShift?'checked':''} aria-label="No shift for ${esc(u.username)}"></td>
+   <div class="panel mt"><div class="ph">Staff accounts</div><table class="grid"><tr><th>Name</th><th>Username / email</th><th>Position (type any title)</th><th>Department</th><th>Permission preset</th><th>Status</th><th>Access term</th><th title="Signs in without opening a shift">No shift</th><th></th></tr>${H.users.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}<div class="sub" data-em="${esc(u.username)}"></div></td><td><input class="posin" data-pos="${u.id}" value="${esc(u.position||u.role)}" list="posList" aria-label="Position of ${esc(u.username)}"></td><td><select data-dept="${u.id}"><option value="">—</option>${DEPTS.map(d=>opt(d,d,u.department||'')).join('')}</select></td><td>${esc(u.role)}</td><td>${u.cancelled?'<b style="color:#b3261e">Cancelled</b>':u.active===false?'Inactive':'Active'}</td><td class="sub" style="min-width:150px">${esc(accessText(u))}</td><td><input type="checkbox" data-ns="${u.id}" ${u.noShift?'checked':''} aria-label="No shift for ${esc(u.username)}"></td>
     <td style="min-width:380px;line-height:2.1">${MahaAuth.on()?`<button class="btn sm ghost" data-ce="${u.id}">Change email</button> `:''}<button class="btn sm ghost" data-rp="${u.id}">Reset password</button> <button class="btn sm ghost" data-term="${u.id}">Access term</button> <button class="btn sm ghost" data-act="${u.id}">${u.cancelled?'Reinstate':u.active===false?'Activate':'Deactivate'}</button>${u.cancelled||u.owner||u.protected?'':` <button class="btn sm red" data-cancel="${u.id}">Cancel user</button>`} <select data-pre="${u.id}"><option value="">Apply preset…</option>${Object.keys(PRESET).map(k=>opt(k)).join('')}</select></td></tr>`).join('')}</table><datalist id="posList">${['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'].map(x=>`<option value="${x}">`).join('')}</datalist></div>`;
   bindPicker(el);
   $$('[data-ns]',el).forEach(c=>c.onchange=()=>{const u=H.users.find(x=>x.id===c.dataset.ns);if(!u)return;u.noShift=c.checked||undefined;
@@ -10431,6 +10513,7 @@ VIEWS['prov.perms']=el=>{
   if(MahaAuth.on()){const hc=H.code;SignInSec.load(ProvAdmin.call.bind(ProvAdmin),hc,true).then(()=>{$$('[data-em]',el).forEach(d=>{const r=SignInSec.find(hc,d.dataset.em);d.textContent=(r&&r.masked_email)||''})}).catch(()=>{})}
   $$('[data-ce]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.ce);if(u)signinEmailDialog(H.code,u.username,()=>render())});
   $$('[data-pos]',el).forEach(i=>i.onchange=()=>{const u=H.users.find(x=>x.id===i.dataset.pos),v=i.value.trim();if(!v){i.value=u.position||u.role;toast('Enter a position title.');return}const old=u.position||u.role;u.position=v;H.amend.unshift({at:Date.now(),user:user().name,what:`Position of ${u.username}: ${old} → ${v}`,reason:'Position change'});provLog(`Position of ${u.username}: ${old} → ${v}`);saveDB();toast('Position saved')});
+  $$('[data-dept]',el).forEach(s=>s.onchange=()=>{const u=H.users.find(x=>x.id===s.dataset.dept);if(!u)return;const old=u.department||'';u.department=s.value;H.amend.unshift({at:Date.now(),user:user().name,what:`Department of ${u.username}: ${old||'none'} → ${s.value||'none'}`,reason:'Department change'});provLog(`Department of ${u.username}: ${old||'none'} → ${s.value||'none'}`);saveDB();toast('Department saved')});
   $$('[data-su]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
   $$('[data-pu]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();render()});
   $$('[data-term]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.term);if(u)accessModal(u,()=>render())});
@@ -10784,7 +10867,7 @@ function nextCode(kind,key){const r=titleRange(kind,key);if(!r)return '';const u
 function allocBlock(kind){const cat=DB.catalog,list=(kind==='p'?cat.payTitles:cat.titles)||[],taken=list.map(t=>t.from);const used=new Set(TCODES.map(c=>+c.code).filter(n=>n));
   const starts=kind==='p'?[]:[550,560,570,580,590,620,630,640,650,660,670,680,690];for(let n=(kind==='p'?1500:1000);n<(kind==='p'?1990:1490);n+=10)starts.push(n);
   for(const a of starts){if(taken.includes(a))continue;let free=true;for(let n=a;n<a+10;n++)if(used.has(n)){free=false;break}if(free)return [a,a+9]}return null}
-let _catApplied=[];function applyCatalog(){const cat=DB.catalog||(DB.catalog={charges:[],payments:[],hidden:{}});cat.titles=cat.titles||[];cat.payTitles=cat.payTitles||[];cat.tmeta=cat.tmeta||{};
+let _catApplied=[];function applyCatalog(){const cat=DB.catalog||(DB.catalog={charges:[],payments:[],hidden:{}});cat.titles=cat.titles||[];cat.payTitles=cat.payTitles||[];cat.announce=cat.announce||[];cat.tmeta=cat.tmeta||{};
   (cat.payments||[]).forEach(c=>{if(c.ptab==='BANK / QR')c.ptab='QR PAYMENT'});if(cat.tmeta['p:BANK / QR']){if(!cat.tmeta['p:QR PAYMENT'])cat.tmeta['p:QR PAYMENT']=cat.tmeta['p:BANK / QR'];delete cat.tmeta['p:BANK / QR']}
   applyTitles();
   _catApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_catApplied=[];
@@ -10793,7 +10876,7 @@ let _catApplied=[];function applyCatalog(){const cat=DB.catalog||(DB.catalog={ch
   cat.payments.forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){const o={...c,type:'p',custom:true};TCODES.push(o);_catApplied.push(o);
     const rf={code:c.code+'R',desc:'Refund - '+c.desc,type:'p',ptab:c.ptab,pic:'refund',refund:true,refFor:c.code,custom:true};TCODES.push(rf);_catApplied.push(rf)}});
   TCODES.forEach(c=>{c.hidden=!!cat.hidden[c.refFor||c.rebFor||c.adjFor||c.code]})}
-function migratePerms(){Object.values(DB.hotels).forEach(h=>{if(h._aiMig)return;h.users.forEach(u=>{if(u.role==='Manager'){['ai.guest','ai.revenue'].forEach(p=>{if(!u.perms.includes(p))u.perms.push(p)})}else if(u.role==='Front desk'&&!u.perms.includes('ai.guest'))u.perms.push('ai.guest')});h._aiMig=true});Object.values(DB.hotels).forEach(h=>{if(h._apMig)return;h.users.forEach(u=>{if((u.role==='Manager'||u.owner||u.protected||(u.perms||[]).includes('setup'))&&!(u.perms||[]).includes('approve'))u.perms.push('approve')});h._apMig=true})}
+function migratePerms(){Object.values(DB.hotels).forEach(h=>{if(h._aiMig)return;h.users.forEach(u=>{if(u.role==='Manager'){['ai.guest','ai.revenue'].forEach(p=>{if(!u.perms.includes(p))u.perms.push(p)})}else if(u.role==='Front desk'&&!u.perms.includes('ai.guest'))u.perms.push('ai.guest')});h._aiMig=true});Object.values(DB.hotels).forEach(h=>{if(h._apMig)return;h.users.forEach(u=>{if((u.role==='Manager'||u.owner||u.protected||(u.perms||[]).includes('setup'))&&!(u.perms||[]).includes('approve'))u.perms.push('approve')});h._apMig=true});Object.values(DB.hotels).forEach(h=>{if(h._anMig)return;h.users.forEach(u=>{if((u.role==='Manager'||u.role==='HOD'||u.owner||u.protected||(u.perms||[]).includes('setup'))&&!(u.perms||[]).includes('announce'))u.perms.push('announce');if(!u.department){const d={'Front desk':'Front Office',Housekeeping:'Housekeeping',Manager:'Management'}[u.role];if(d)u.department=d}});h._anMig=true})}
 let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_extraApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_extraApplied=[];if(!H)return;(H.extraCodes||[]).forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){TCODES.push(c);_extraApplied.push(c)}});addChargeRelatives(_extraApplied.filter(c=>c.type==='c'||c.type===undefined),{custom:true}).forEach(c=>{TCODES.push(c);_extraApplied.push(c)})}
 /* Retired from the screens: staff choose the card by its brand (Visa, Master...), not by a general Credit Card or OTA Virtual Card. The codes stay for old postings and reports. */
 const LEGACY_PAY=['905','915'];
@@ -11035,6 +11118,14 @@ VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
   $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
   $$('[data-cd]',el).forEach(b=>b.onclick=()=>{enterHotel(b.dataset.cd);go('cd.close')});
 };
+VIEWS['prov.announce']=el=>{
+  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
+  applyCatalog();const list=(DB.catalog.announce||[]).filter(a=>!a.removed).slice().sort((x,y)=>(y.at||0)-(x.at||0));
+  el.innerHTML=pageHead('Announcements (Administrator)','<button class="btn gold" id="paNew">'+ic('plus',15)+' New announcement</button>')+'<p class="sub">An announcement posted here is shown to the staff of the hotels you choose (and the departments you choose) in their bell, as from the Administrator. Important ones are shown when people sign in.</p>'+
+   '<div class="panel pad">'+(list.map(a=>'<div class="anncard'+(a.prio==="important"?' imp':'')+'"><div class="annh">'+(a.prio==='important'?'<span class="pill r">Important</span>':'')+'<b>'+esc(a.title)+'</b></div><div class="sub">'+fdt(a.at)+' · Hotels: '+esc((a.hotels&&a.hotels.length)?a.hotels.join(', '):'All hotels')+' · To: '+esc(annAudText(a))+(a.until?' · until '+fd(a.until):'')+'</div><div class="annt">'+esc(a.text)+'</div><div class="btns" style="justify-content:flex-start"><button class="btn sm ghost" data-pae="'+a.id+'">Edit</button><button class="btn sm red" data-pad="'+a.id+'">Remove</button></div></div>').join('')||'<div class="empty">No announcement yet.</div>')+'</div>';
+  $('#paNew',el).onclick=()=>annForm(null,()=>render(),true);
+  $$('[data-pae]',el).forEach(b=>b.onclick=()=>{const a=(DB.catalog.announce||[]).find(x=>x.id===b.dataset.pae);if(a)annForm(a,()=>render(),true)});
+  $$('[data-pad]',el).forEach(b=>b.onclick=async()=>{const a=(DB.catalog.announce||[]).find(x=>x.id===b.dataset.pad);if(!a||!await dlgConfirm('Remove this announcement for every hotel?'))return;a.removed=true;provLog('Removed administrator announcement: '+a.title);saveDB();render()})};
 VIEWS['prov.approvals']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
   const rows=[];Object.values(DB.hotels).forEach(h=>{const lim=((h.set&&h.set.approvalLimits)||{mgr:50000}).mgr;(h.approvals||[]).forEach(a=>{if(a.status==='pending'&&+lim>0&&Math.abs(+a.amt||0)>+lim)rows.push({h,a})})});
@@ -12418,6 +12509,10 @@ function canDecide(a){const u=user();if(!canApprove())return {ok:false,why:'You 
 function approvalsForMe(){return (H&&H.approvals||[]).filter(a=>a.status==='pending'&&canDecide(a).ok)}
 function needsApproval(kind){const a=(H.set&&H.set.approvals)||{};return a[kind]!==false}
 function queueApproval(req){H.approvals=H.approvals||[];H.approvals.unshift(Object.assign({id:'ap'+uid(),status:'pending',at:Date.now(),bd:H.set.bd,by:user().name,byId:user().id},req));log('Approval requested: '+(req.title||req.action));saveDB();paintNotifBadge();toast('Sent for approval. A person with the Approve permission opens Approvals.')}
+/* A person without the permission may still fill in the function. It becomes a request: nothing is posted until a HOD, manager or owner approves it. */
+function askNotice(name){dlgAlert('You are not allowed to post this ('+name+') yourself.\n\nYour request has been sent to your HOD or manager. Nothing is posted on the room or folio until it is approved.\n\nYou will get a message in the bell (Messages) when it is approved or rejected.','Request sent')}
+function approvalReply(a,status,reason){if(!a||!a.byId)return;const who=user().name;
+  inboxPush(a.byId,status==='approved'?('Your request was approved by '+who+' and is posted: '+(a.title||'')):('Your request was rejected by '+who+': '+(a.title||'')+(reason?'. Reason: '+reason:'')),'approval')}
 function releaseSettled(B,group,why){B.lines.forEach(x=>{if(x.settledBy===group){x.settled=false;x.settledBy='';x.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:why})}})}
 function applyVoid(B,l,why){const fol=B.lines.some(x=>x.group===l.group&&x.kind==='payrec')?4:l.folio;const sh=curShift();
   const c=addLine(H,B,{bd:H.set.bd,shift:sh,user:user().name,folio:fol,code:l.code,desc:'Void Payment - '+(l.method||l.desc),ref:l.ref,amt:-l.amt,kind:'corrpay',group:l.group,method:l.method,vat:false,remark:why||''});
@@ -12428,6 +12523,11 @@ function applyApproval(ap){const B=bookingById(ap.bookingId);if(!B){toast('That 
   if(ap.action==='void'){const l=B.lines.find(x=>x.id===ap.lineId);if(!l){toast('That payment line is gone.');return false}if(B.lines.some(x=>x.group===l.group&&x.kind==='corrpay')){toast('This payment is already corrected.');return false}applyVoid(B,l,ap.reason||ap.title);return true}
   if(ap.action==='refund'){if(curShift()&&curShift().noShift){toast('A refund is approved by someone who signs in with a shift.');return false}postPayment(H,B,ap.code,ap.amt,{bd:H.set.bd,shift:curShift(),user:user().name,folio:ap.folio||1,remark:ap.remark||'',desc:ap.desc||'',ref:ap.ref||''});log('Approved refund '+m2(ap.amt)+' RSVN '+resOf(B).no,B.id);return true}
   if(ap.action==='rebate'){addLine(H,B,{bd:ap.bd||H.set.bd,shift:curShift(),user:user().name,folio:ap.folio||1,code:ap.code,desc:ap.desc,ref:ap.ref||'',amt:ap.amt,kind:'post',remark:ap.remark||'',vat:!!ap.vat});log('Approved rebate '+ap.code+' RSVN '+resOf(B).no,B.id);return true}
+  if(ap.action==='ps'){const kind=ap.psKind,ctx={bd:H.set.bd,shift:curShift(),user:user().name},a=+ap.amt,why=(ap.remark||'')+' (asked by '+(ap.by||'')+', approved by '+user().name+')';let l,cn=null;
+    if(kind==='refund'){if(psPaid(B)<=0.004||a>psPaid(B)+0.004){toast('The folio changed: the refund is more than what was paid.');return false}l=psRefund(H,B,Object.assign({},ctx,{code:ap.code,amt:a,ref:ap.ref||'',remark:why}));cn=psIssue(H,B,'refund',l,why,ctx);histB(B,'Refund '+m2(a)+' after check-out ('+l.method+'): '+why);log('Approved refund '+m2(a)+' RSVN '+resOf(B).no,B.id)}
+    else if(kind==='rebate'){const pool=psPools(B).find(p=>p.key===ap.poolKey);if(!pool||a>pool.amt+0.004){toast('The charge changed: the rebate is more than what is left.');return false}l=psRebate(H,B,pool,a,Object.assign({},ctx,{ref:ap.ref||'',remark:why}));cn=psIssue(H,B,'rebate',l,why,ctx);histB(B,'Rebate '+m2(a)+' '+pool.desc+' after check-out: '+why);log('Approved rebate '+m2(a)+' RSVN '+resOf(B).no,B.id)}
+    else{if(a>psCredit(B)+0.004){toast('The folio changed: there is no such credit.');return false}l=psAdjust(H,B,ap.code,a,Object.assign({},ctx,{ref:ap.ref||'',remark:why}));histB(B,'Adjust (+) '+m2(a)+' '+l.desc+' after check-out: '+why);log('Approved adjust (+) '+m2(a)+' RSVN '+resOf(B).no,B.id)}
+    return true}
   return false}
 function chargeTarget(B,code){const r=resOf(B);if(!r||!r.groupId)return B;const g=(H.groups||[]).find(x=>x.id===r.groupId);if(!g)return B;
   const tc=TCODES.find(c=>c.code===code)||{};const hit=(g.routing||[]).find(x=>x.on!==false&&(x.match==='ALL'||x.match===code||x.match===(tc.dept||'')||x.match===(tc.tab||'')));
@@ -12540,8 +12640,9 @@ VIEWS['set.approve']=el=>{
   const list=(H.approvals||[]).slice().sort((a,b)=>b.at-a.at);
   el.innerHTML=pageHead('Approvals',`<span class="sub">${list.filter(a=>a.status==='pending').length} waiting</span>`)+`<div class="panel scroll">${approvalTable(list,canApprove())}</div>
     <p class="sub">VAT rebate, non-VAT rebate, refund and void wait here when this hotel asks for approval. A person with the Approve permission (HOD, manager, owner) approves them, never the person who asked. Each role has an amount limit set in the Security Center; a larger amount waits for the owner or the provider. Correct payment on today’s date does not wait.</p>`;
-  const decide=(id,status)=>{const a=(H.approvals||[]).find(x=>x.id===id);if(!a||a.status!=='pending')return;const d=canDecide(a);if(!d.ok){toast(d.why);return}
-    if(status==='approved'&&!applyApproval(a))return;a.status=status;a.decidedAt=Date.now();a.decidedBy=user().name;log('Approval '+status+': '+(a.title||''));refresh();toast(status==='approved'?'Approved and posted':'Rejected')};
+  const decide=async(id,status)=>{const a=(H.approvals||[]).find(x=>x.id===id);if(!a||a.status!=='pending')return;const d=canDecide(a);if(!d.ok){toast(d.why);return}
+    let reason='';if(status==='rejected'){const r=await dlgAsk('Reason for rejecting (the person who asked will read it):','');if(r===null||r===undefined)return;reason=String(r).trim()}
+    if(status==='approved'&&!applyApproval(a))return;a.status=status;a.reason=reason||undefined;a.decidedAt=Date.now();a.decidedBy=user().name;approvalReply(a,status,reason);log('Approval '+status+': '+(a.title||''));refresh();toast(status==='approved'?'Approved and posted':'Rejected')};
   $$('[data-apy]',el).forEach(b=>b.onclick=()=>decide(b.dataset.apy,'approved'));
   $$('[data-apn]',el).forEach(b=>b.onclick=()=>decide(b.dataset.apn,'rejected'));
 };
@@ -12858,8 +12959,8 @@ VIEWS['prov.security']=el=>{
     const purge=async g=>{if(!await dlgConfirm(`Purge personal data for ${gName(g)}? Folio amounts stay. This is not undone.`))return false;purgeGuest(g);provLog('Purged guest data '+g.profileId+' at '+H.code);return true};
     $$('[data-pg]',box).forEach(b=>b.onclick=async()=>{const g=H.guests.find(x=>x.id===b.dataset.pg);if(g&&await purge(g)){saveDB();paint()}});
     if($('#secAll',box))$('#secAll',box).onclick=async ()=>{if(!await dlgConfirm(`Purge personal data for ${due.length} guests? Folio amounts stay.`))return;due.forEach(x=>purgeGuest(x.g));provLog('Purged '+due.length+' guest profiles at '+H.code);saveDB();paint();toast('Listed guests purged')};
-    $$('[data-apy]',box).forEach(b=>b.onclick=()=>{const a=H.approvals.find(x=>x.id===b.dataset.apy);if(!a)return;if(applyApproval(a)){a.status='approved';a.decidedAt=Date.now();a.decidedBy=user().name;provLog('Approved '+a.title);saveDB();paint()}});
-    $$('[data-apn]',box).forEach(b=>b.onclick=()=>{const a=H.approvals.find(x=>x.id===b.dataset.apn);if(!a)return;a.status='rejected';a.decidedAt=Date.now();a.decidedBy=user().name;provLog('Rejected '+a.title);saveDB();paint()});
+    $$('[data-apy]',box).forEach(b=>b.onclick=()=>{const a=H.approvals.find(x=>x.id===b.dataset.apy);if(!a)return;if(applyApproval(a)){a.status='approved';a.decidedAt=Date.now();a.decidedBy=user().name;approvalReply(a,'approved');provLog('Approved '+a.title);saveDB();paint()}});
+    $$('[data-apn]',box).forEach(b=>b.onclick=()=>{const a=H.approvals.find(x=>x.id===b.dataset.apn);if(!a)return;a.status='rejected';a.decidedAt=Date.now();a.decidedBy=user().name;approvalReply(a,'rejected','');provLog('Rejected '+a.title);saveDB();paint()});
   };
   bindPicker(el);const sel=$('#pvH',el);if(sel)sel.addEventListener('change',()=>setTimeout(paint,0));paint();
 };
