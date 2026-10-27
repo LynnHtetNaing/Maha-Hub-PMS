@@ -1046,6 +1046,18 @@ html .modal .mx:hover,html .modal .mx:focus-visible{background:#c0392b;color:#ff
 html[data-skin="modern"] .modal .mx,html .modal.ncenter .mx{background:rgba(255,255,255,.24);color:#fff;width:40px;height:40px;font-size:30px}
 html[data-skin="modern"] .modal .mx:hover,html[data-skin="modern"] .modal .mx:focus-visible{background:#d63a2f;color:#fff}
 html[data-skin="modern"][data-mode=dark] .modal .mhead .mx{background:rgba(255,255,255,.2)}
+/* Dark: small icons and date buttons */
+html[data-skin="modern"][data-mode=dark] .sic{color:#cfe3f0}
+html[data-skin="modern"][data-mode=dark] button.sic:hover{color:#ffd23f}
+html[data-skin="modern"][data-mode=dark] .sic.ok{color:#6fb8ff}
+html[data-skin="modern"][data-mode=dark] .sic.ready{color:#4ade80}
+html[data-skin="modern"][data-mode=dark] .sic.msg{color:#ff9a85}
+html[data-skin="modern"][data-mode=dark] .sic.back{color:#7cc4ff}
+html[data-skin="modern"][data-mode=dark] .sic.dep{color:#ffd23f}
+html[data-skin="modern"][data-mode=dark] .dpb,html[data-skin="modern"][data-mode=dark] .ufbar .dpb,html[data-skin="modern"][data-mode=dark] .fcf .dpb{background:color-mix(in srgb,var(--m-card,#0f1b2b) 80%,#fff 14%);border-color:color-mix(in srgb,var(--m-card,#0f1b2b) 55%,#fff 30%);color:#dcecf7;border-radius:0 8px 8px 0;transition:background .15s,color .15s}
+html[data-skin="modern"][data-mode=dark] .dpb:hover,html[data-skin="modern"][data-mode=dark] .dpb:focus-visible{background:var(--a1,#0e8a82);color:#fff}
+html[data-skin="modern"][data-mode=dark] .dpb svg{stroke:currentColor}
+html[data-skin="modern"][data-mode=dark] .dpk,html[data-skin="modern"][data-mode=dark] .ufbar .dpk{border-color:color-mix(in srgb,var(--m-card,#0f1b2b) 55%,#fff 30%)}
 /* Room totals banner */
 .rtot{margin:0 0 14px}.rtot.rtbad{border-left:5px solid #dc2626}.rtot.rtok{border-left:5px solid #16a34a}.rtrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.rtc{padding:3px 12px;border-radius:99px;font-weight:700;font-size:12.5px;background:#e6f4ec;color:#15803d}.rtc.no{background:#fde8e8;color:#b3261e}
 html[data-skin="modern"][data-mode=dark] .rtc{background:#12301c;color:#9be3ab}html[data-skin="modern"][data-mode=dark] .rtc.no{background:#3a1417;color:#ffb4ad}
@@ -8987,11 +8999,17 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
   paint();setTimeout(()=>$('#niC',m).focus(),50);
 }
 /* simple calculator pad for amount fields */
-function calcPad(box,input,after){if(box.innerHTML){box.innerHTML='';return}
-  box.innerHTML=`<div class="cpad"><input class="cexp" readonly value="${esc(input.value)}">${['7','8','9','÷','4','5','6','×','1','2','3','−','0','.','C','+'].map(k=>`<button type="button" data-k="${k}">${k}</button>`).join('')}<button type="button" class="ceq" data-k="=">= Use amount</button></div>`;
-  const ex=$('.cexp',box);$$('[data-k]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(k==='C'){ex.value='';return}
-    if(k==='='){const s=ex.value.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');if(!/^[0-9+\-*/. ]+$/.test(s)){toast('Check the calculation.');return}let v;try{v=Function('"use strict";return ('+s+')')()}catch(e){v=NaN}
-      if(!isFinite(v)){toast('Check the calculation.');return}input.value=r2(v).toFixed(2);box.innerHTML='';after&&after();return}ex.value+=k})}
+function calcPad(box,input,after){if(box.innerHTML){box.innerHTML='';input.focus();return}
+  box.innerHTML=`<div class="cpad"><input class="cexp" inputmode="decimal" autocomplete="off" aria-label="Calculation" placeholder="Type or tap, then press Enter" value="${esc(input.value)}">${['7','8','9','÷','4','5','6','×','1','2','3','−','0','.','C','+'].map(k=>`<button type="button" data-k="${k}">${k}</button>`).join('')}<button type="button" class="ceq" data-k="=">= Use amount</button></div>`;
+  /* The keyboard of the phone or computer works too: digits, + - * / x, Backspace, Enter (= use the amount) and Esc (close). */
+  const ex=$('.cexp',box);
+  const clean=t=>String(t).replace(/\*/g,'×').replace(/\//g,'÷').replace(/[xX]/g,'×').replace(/-/g,'−').replace(/[^0-9+−×÷. ]/g,'');
+  const use=()=>{const s=ex.value.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');if(!/^[0-9+\-*/. ]+$/.test(s)){toast('Check the calculation.');return}let v;try{v=Function('"use strict";return ('+s+')')()}catch(e){v=NaN}
+    if(!isFinite(v)){toast('Check the calculation.');return}input.value=r2(v).toFixed(2);box.innerHTML='';input.dispatchEvent(new Event('input',{bubbles:true}));after&&after();input.focus()};
+  ex.oninput=()=>{const c=clean(ex.value);if(c!==ex.value){const p=ex.selectionStart-(ex.value.length-c.length);ex.value=c;try{ex.setSelectionRange(p,p)}catch(e){}}};
+  ex.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();use()}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();box.innerHTML='';input.focus()}};
+  $$('[data-k]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(k==='C'){ex.value='';ex.focus();return}if(k==='='){use();return}ex.value+=k;ex.focus()});
+  ex.focus();ex.select()}
 
 /* ---------- Payment / Advance payment pop-up (photo style, 3 lines each) ---------- */
 /* ---- Reservation deposits: one window with every deposit of the reservation. Add more, Correct post (until Close Day), Refund (after Close Day). ---- */
