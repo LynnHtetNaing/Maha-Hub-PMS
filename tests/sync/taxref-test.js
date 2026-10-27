@@ -241,7 +241,7 @@ T('starting number is never lower than the highest number already issued', /high
   const recycleCode = src.slice(rb, cbk);
   T('the Recycle bin page now shows only the deleted hotels', !/chainBlock|Chain \/ Group|invoice_scope|Tax invoice numbers/.test(recycleCode));
   const profile = src.slice(src.indexOf(" profile(box){"), src.indexOf(" tax(box){"));
-  T('the hotel profile no longer holds the Chain / Group panel', !/chainBox|chainBlock/.test(profile));
+  T('the hotel profile lets the provider choose the chain (chainBlock, provider only)', /chBox/.test(profile) && /chainBlock/.test(profile) && /provider/.test(profile));
 
   /* ---------------- 4. the server side ---------------- */
   const mig = fs.readFileSync('supabase/migrations/20261016_021_invoice_manual_format.sql', 'utf8');
