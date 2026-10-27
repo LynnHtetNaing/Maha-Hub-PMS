@@ -1193,8 +1193,7 @@ html[data-mode=dark] .txmodal .pinfo{color:#e6eef6}
 .mso{padding:9px 12px;border-radius:9px;font-weight:600;cursor:pointer;white-space:nowrap}.mso:hover,.mso.h{background:#e3f6f1;color:#0b6f69}.mso.on{background:#0e8a82;color:#fff}.mso.dis{opacity:.4;cursor:not-allowed}.msg{padding:8px 12px 4px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6b8a7c}
 html[data-mode=dark] .msel{background:#101d2e;border-color:#2c3f55;color:#e6eef6;box-shadow:0 14px 34px rgba(0,0,0,.65)}html[data-mode=dark] .mso:hover,html[data-mode=dark] .mso.h{background:#0f3a3c;color:#7be0d6}html[data-mode=dark] .mso.on{background:#14a39a;color:#fff}html[data-mode=dark] .msg{color:#8aa4ba}
 /* Toolbar icon buttons: thicker signs, and a thicker rim in Light */
-.tbtn svg,.aric svg{stroke-width:2.5}
-html:not([data-mode=dark]) .tbtn{border-width:2px!important;border-color:color-mix(in srgb,var(--accent,#0e8a82) 55%,#cfdcd5)!important}
+html:not([data-mode=dark]) .gqtb .tbtn{border-width:2px!important;border-color:color-mix(in srgb,var(--accent,#0e8a82) 55%,#cfdcd5)!important}
 html:not([data-mode=dark]) .aric{border-width:2px}
 /* Advance rate setup: currency of a night */
 .aramt{display:grid;grid-template-columns:1fr 100px;gap:8px}.aramt .arfld{min-width:0}.arrate{grid-column:1/-1}.arrt{display:flex;align-items:center;gap:10px;font-weight:700}.arrt input{max-width:170px}
@@ -2621,6 +2620,7 @@ function shapeHotel(h){
   h.set.systems=Object.assign({reach:false,connect:false,sales:false},h.set.systems||{});
   /* a system that is not released starts Closed for every hotel; the provider opens it for a hotel when it is released */
   if(!h.set._sysClosedMig){h.set._sysClosedMig=1;if(h.set.package!=='fullpkg')h.set.systems.sales=false}
+  if(!h.set._sysClosedMig2){h.set._sysClosedMig2=1;['reach','connect','sales'].forEach(k=>{if(!RELEASED_SYSTEMS.includes(k))h.set.systems[k]=false})}
   (h.users||[]).forEach(u=>{u.systems=Object.assign({hub:true,connect:true,book:true,reach:true,sales:true},u.systems||{})});
   h.set.rules=Object.assign({},DEFAULT_RULES,h.set.rules||{});
   if(!h.set.codeVat||typeof h.set.codeVat!=='object'||Array.isArray(h.set.codeVat))h.set.codeVat={};
@@ -6845,6 +6845,8 @@ function ecosystemDir(){return appPrefix()+'/ecosystem/'}
    an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
 const RELEASED_SYSTEMS=['hub'];
 function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
+/* The note under a system in Provider › Systems follows the system's state and whether it is released */
+function sysNote(kind,open){const rel=RELEASED_SYSTEMS.includes(kind);return rel?(open?'Open: hotel staff can use it.':'Closed: hidden from hotel staff.'):(open?'Open for this hotel, but not released yet: staff cannot use it until the release.':'Closed. Not released yet.')}
 function sysAllowed(kind){return RELEASED_SYSTEMS.includes(kind)||isOwnerSession()}
 const ENTRY_KINDS=['connect','reach','sales','book'];
 function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
@@ -10769,21 +10771,21 @@ VIEWS['prov.systems']=el=>{
       <div class="featgrid mt" style="grid-template-columns:1fr">
         <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha PMS</b><div class="sub">Property operations</div></span>
           <span class="row gap"><span class="pst on">Always on</span><button class="btn sm ghost" data-enter="${h.code}" type="button">Open PMS</button></span></div>
-        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Connect</b><div class="sub">Channel distribution</div></span>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Connect</b><div class="sub">Channel distribution · ${sysNote('connect',connectOn(h))}</div></span>
           <span class="row gap"><span class="pst ${connectOn(h)?'on':'off'}">${connectOn(h)?'Open':'Closed'}</span>
           <button class="btn sm ${connectOn(h)?'ghost':'gold'}" data-connect="${h.code}" type="button">${connectOn(h)?'Close':'Open for hotel'}</button>
           <a class="btn sm gold" href="${esc(connectUrlFor(h))}" target="_blank" rel="noopener">Open app</a>
           <button class="btn sm ghost" data-pub="${h.code}" type="button" title="Publish hotel snapshot into Connect">Publish</button></span></div>
-        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Reach</b><div class="sub">Marketing &amp; engagement</div></span>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Reach</b><div class="sub">Marketing &amp; engagement · ${sysNote('reach',reachOn(h))}</div></span>
           <span class="row gap"><span class="pst ${reachOn(h)?'on':'off'}">${reachOn(h)?'Open':'Closed'}</span>
           <button class="btn sm ${reachOn(h)?'ghost':'gold'}" data-reach="${h.code}" type="button">${reachOn(h)?'Close':'Open for hotel'}</button>
           <a class="btn sm gold" href="${esc(reachUrl(h))}" target="_blank" rel="noopener">Open app</a></span></div>
-        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Booking</b><div class="sub">Direct booking engine</div></span>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Booking</b><div class="sub">Direct booking engine · ${sysNote('book',bookOn(h))}</div></span>
           <span class="row gap"><span class="pst ${bookOn(h)?'on':'off'}">${bookOn(h)?'Enabled':'Off'}</span>
           <button class="btn sm ${bookOn(h)?'ghost':'gold'}" data-book="${h.code}" type="button">${bookOn(h)?'Disable':'Enable for hotel'}</button>
           <a class="btn sm gold" href="${esc(bookUrlFor(h))}" target="_blank" rel="noopener">Open app</a>
           <button class="btn sm ghost" data-booksetup="${h.code}" type="button">Setup</button></span></div>
-        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Sales</b><div class="sub">Leads, quotes and MSA</div></span>
+        <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Sales</b><div class="sub">Leads, quotes and MSA · ${sysNote('sales',salesOn(h))}</div></span>
           <span class="row gap"><span class="pst ${salesOn(h)?'on':'off'}">${salesOn(h)?'Open':'Closed'}</span>
           <button class="btn sm ${salesOn(h)?'ghost':'gold'}" data-saleshotel="${h.code}" type="button">${salesOn(h)?'Close':'Open for hotel'}</button>
           <a class="btn sm gold" href="${esc(sysUrl('sales',h))}" target="_blank" rel="noopener">Open app</a></span></div>
