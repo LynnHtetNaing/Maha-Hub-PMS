@@ -1114,6 +1114,30 @@ html[data-skin="modern"][data-mode=dark] .btab.on{background:#14a39a;border-colo
   .gq .gqtab{height:40px;padding:0 12px}
   .gq .gq3{grid-template-columns:1fr}
 }
+/* Phone: more pages (Frontend / Backend choice, filter bars, reports) */
+@media (max-width:700px){
+  .selpg .sp-sheet .sp-sys,.selpg .sp-sys{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;padding:12px 0 6px!important;margin:8px 0!important}
+  .selpg .sp-sheet .sp-tile,.selpg .sp-tile{padding:14px 12px!important;border-radius:16px!important;min-height:0!important;min-width:0}
+  .selpg .sp-sheet .sp-tile .ic,.selpg .sp-tile .ic{width:36px;height:36px;border-radius:11px}.selpg .sp-tile .ic svg{width:20px;height:20px}
+  .selpg .sp-sheet .sp-tile h3,.selpg .sp-tile h3{font-size:17px!important;margin:10px 0 0!important}
+  .selpg .sp-tile::before,.selpg .sp-tile::after{right:-30px;top:-30px;width:100px;height:100px}
+  .selpg .sp-card.sp-sheet{padding:18px 14px 20px!important}
+  .ufbar{gap:8px}
+  html .ufbar label.ufl,html[data-skin="modern"] .ufbar label.ufl{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:2px!important;width:100%;padding:6px 10px!important}
+  html .ufbar label.ufl input,html .ufbar label.ufl select,html .ufbar .ufq{width:100%!important;min-width:0!important;max-width:none}
+  html .ufbar label.ufl .dpk{display:flex!important;width:100%;align-items:stretch}
+  html .ufbar label.ufl .dpk input:not(.dph){flex:1 1 auto;width:auto!important;min-width:0}
+  html .ufbar label.ufl .dpb{flex:0 0 40px;width:40px!important;height:40px!important}
+}
+@media (max-width:900px){
+  .rpoverlay{overflow:auto;-webkit-overflow-scrolling:touch}
+  .rpoverlay .rp{height:auto!important;min-height:100%;display:block!important}
+  .rpoverlay .rptop{flex-wrap:wrap;gap:6px}
+  .rpoverlay .rpb{display:block!important;height:auto!important}
+  .rpoverlay .rpl{max-height:38vh;border-right:0;border-bottom:1px solid var(--line)}
+  .rpoverlay .rpr{display:block!important}
+  .rpoverlay .rpview{min-height:78vh;flex:none;overflow:auto;padding:10px}
+}
 /* Our own drop-down list */
 .msel{position:fixed;z-index:9999;padding:6px;border-radius:14px;border:1px solid #cfdcd5;background:#fff;color:#0d2a24;box-shadow:0 14px 34px rgba(0,0,0,.25);overflow:auto;font-size:14px}
 .mso{padding:9px 12px;border-radius:9px;font-weight:600;cursor:pointer;white-space:nowrap}.mso:hover,.mso.h{background:#e3f6f1;color:#0b6f69}.mso.on{background:#0e8a82;color:#fff}.mso.dis{opacity:.4;cursor:not-allowed}.msg{padding:8px 12px 4px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6b8a7c}
@@ -4186,7 +4210,7 @@ function viewKeys(v){if(!v||v==='set.features')return [];if(v==='reports')return
   (typeof MENU!=='undefined'?MENU:[]).forEach(m=>{(m.items||[]).forEach(x=>{if(x[1]===v&&x[3])keys.push(x[3])})});return keys}
 function viewAllowed(v){const keys=viewKeys(v);if(!keys.length)return true;return keys.some(k=>feat(k))}
 let ENTRY_QUIET=null;   /* the page opened by itself on entry: the left menu marks no title until the person chooses one */
-function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];const v=prefer.find(v=>viewAllowed(v))||'set.features';ENTRY_QUIET={v,pending:true};return v}
+function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];const v=prefer.find(v=>viewAllowed(v))||'set.features';ENTRY_QUIET={v,pending:true};try{MSB_OPEN={}}catch(e){}return v}
 function menuFeature(v){const keys=viewKeys(v);return keys[0]||''}
 function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);const plans=[['essential','Essential'],['front','Front Office'],['full','Full PMS'],['custom','Custom']];
   const pkg=H.set&&H.set.package;
@@ -7170,7 +7194,8 @@ function modernNavInit(){
 function msbMark(){
   const nav=$('#msbnav');if(!nav)return;
   let grp='',title='';
-  $$('.mit',nav).forEach(b=>{const on=b.dataset.go===VIEW,quiet=!!(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW);b.classList.toggle('on',on&&!quiet);if(on&&!grp){grp=b.closest('.mg').dataset.gt||'';title=b.dataset.t||'';MSB_OPEN[grp]=true;b.closest('.mg').classList.add('open')}});
+  if(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW)$$('.mg.open',nav).forEach(g=>g.classList.remove('open'));   /* the first page opens no menu group */
+  $$('.mit',nav).forEach(b=>{const on=b.dataset.go===VIEW,quiet=!!(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW);b.classList.toggle('on',on&&!quiet);if(on&&!grp){grp=b.closest('.mg').dataset.gt||'';title=b.dataset.t||'';if(!quiet){MSB_OPEN[grp]=true;b.closest('.mg').classList.add('open')}}});
   const h=$('#view h1'),h1=h?h.textContent.replace(/\s+/g,' ').trim():'';
   const c=$('#mcrumb');if(c)c.innerHTML='Workspace'+(grp?' / '+esc(grp):'')+(title||h1?' / <b>'+esc(title||h1)+'</b>':'')}
 function shellHTML(){
@@ -7405,6 +7430,7 @@ function ecoPreviewHotel(){
   return code?DB.hotels[code]:{code:'',set:{name:'Maha Hub',systems:{}},roomTypes:[],rateCodes:[],rooms:[]};
 }
 function showLogin(msg){
+  try{applySkin()}catch(e){}   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme */
   if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
   document.body.classList.add('eco-noscroll');
@@ -12099,7 +12125,7 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
     <div class="rpacts"><button class="btn rpact axl" id="rpX" title="Download Excel">${ic('xls')}<span>Excel</span></button><button class="btn rpact apd" id="rpPdf" title="Download PDF (Save as PDF in the print window)">${ic('pdf')}<span>PDF</span></button><button class="btn rpact apr" id="rpPr" title="Print">${ic('print')}<span>Print</span></button></div></div></div>`;
   const val=()=>{if($('#rpT',root))RP.to=$('#rpT',root).value;RP.from=$('#rpF',root)?$('#rpF',root).value:RP.to;if(d.mode==='today'){RP.from=RP.to=bd}if(RP.from>RP.to){const t=RP.from;RP.from=RP.to;RP.to=t}if($('#rpS',root))RP.shift=$('#rpS',root).value;if($('#rpSN',root))RP.shiftName=$('#rpSN',root).value;if($('#rpCv',root))RP.cv=$('#rpCv',root).value;RP.o=RP.o||{};delete RP.o.view;$$('[data-ro]',root).forEach(x=>{RP.o[x.dataset.ro]=x.value})};
   $('#rpRun',root).onclick=()=>{val();RP.page=1;runReport(root)};$$('[data-ro]',root).forEach(x=>x.onchange=()=>$('#rpRun',root).click());
-  const zoom=z=>{RP.zoom=Math.max(.4,Math.min(2,z));{const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%'}const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
+  const zoom=z=>{RP.zoom=Math.max(.2,Math.min(2,z));{const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%'}const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
   $('#rpZo',root).onclick=()=>zoom(RP.zoom-.1);$('#rpZi',root).onclick=()=>zoom(RP.zoom+.1);$('#rpFit',root).onclick=()=>{const v=$('#rpview',root),pg=$('.rpage',v);if(pg)zoom((v.clientWidth-40)/pg.offsetWidth)};
   $('#rpX',root).onclick=()=>{loadFresh();val();xlsDownload(d,{from:RP.from,to:RP.to,shift:RP.shift},reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o}))};
   const pr=()=>{const p=$('#print');p.innerHTML=$('#rpview',root).innerHTML;document.body.classList.add('printing','printrep');window.print();setTimeout(()=>document.body.classList.remove('printing','printrep'),500)};
@@ -12108,7 +12134,7 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
 function loadFresh(){if(!document.body.classList.contains('rpmode'))return;   /* on top of the live page the data is already current; only a separate reports tab needs to re-read it */
   const code=H&&H.code;try{const raw=localStorage.getItem(DBKEY)||localStorage.getItem(DBKEY4);const d=raw?JSON.parse(raw):null;if(d&&d.hotels){const live=DB&&DB.session;DB=migrateDB(d);DB.session=live&&sessionValid(live)?live:null;if(DB.session)writeLiveSession(DB.session);else clearLiveSession();H=(code&&DB.hotels[code])||(DB.session&&DB.hotels[DB.session.hotel])||H}}catch(e){}}
 function runReport(root){loadFresh();const d=REPORTS.find(r=>r.code===RP.code);const v=$('#rpview',root);
-  try{const res=reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o});v.innerHTML=`<div class="rpages">${res.html}</div>`;$$('[data-gp]',v).forEach(t=>t.onclick=()=>guestProfile(t.dataset.gp));v.style.setProperty('--z',RP.zoom);}
+  try{const res=reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o});v.innerHTML=`<div class="rpages">${res.html}</div>`;$$('[data-gp]',v).forEach(t=>t.onclick=()=>guestProfile(t.dataset.gp));if(innerWidth<900){const pg=$('.rpage',v);if(pg&&pg.offsetWidth)RP.zoom=Math.max(.45,Math.min(1,(v.clientWidth-20)/pg.offsetWidth));const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%';setTimeout(()=>{try{v.scrollIntoView({block:'start'})}catch(e){}},30)}v.style.setProperty('--z',RP.zoom);}
   catch(e){v.innerHTML=`<div class="rpempty"><h2>This report could not run</h2><p>${esc(e.message)}</p></div>`;console.error(e)}}
 function openReportsOverlay(){const o=document.createElement('div');o.className='rpoverlay';document.body.appendChild(o);renderReports(o,true)}
 
