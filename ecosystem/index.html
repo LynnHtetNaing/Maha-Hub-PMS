@@ -7519,7 +7519,13 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
 /* Opening the same page again (after a click such as Open or Lock) keeps the place where the person was working. A different page starts at the top. */
 let RENDER_KEY='';
 function scrollSnap(){const o=[];let e=document.getElementById('view');while(e&&e!==document.documentElement){if(e.scrollTop>0)o.push([e,e.scrollTop]);e=e.parentElement}return {y:window.scrollY||0,els:o}}
+/* While a page is being redrawn, a programmatic focus (or an autofocus box) must not scroll the page, and the place is put back a few times
+   in the next moments unless the person scrolls by themself. */
+let SCROLL_GUARD=0,_userScrolled=false;
+(()=>{const of=HTMLElement.prototype.focus;HTMLElement.prototype.focus=function(o){if(Date.now()<SCROLL_GUARD)o=Object.assign({preventScroll:true},o||{});return of.call(this,o)};
+  ['wheel','touchmove','keydown','mousedown'].forEach(ev=>window.addEventListener(ev,()=>{_userScrolled=true},{passive:true,capture:true}))})();
 function scrollBack(sn){window.scrollTo(0,sn.y);sn.els.forEach(([e,t])=>{if(e.isConnected)e.scrollTop=t})}
+function scrollKeep(sn,rkey){SCROLL_GUARD=Date.now()+900;_userScrolled=false;[0,60,200,450,800].forEach(ms=>setTimeout(()=>{if(RENDER_KEY===rkey&&(ms===0||!_userScrolled))scrollBack(sn)},ms))}
 function render(){
   if(!DB.session){showLogin();return}
   if(typeof applyHotelCodes==='function')applyHotelCodes();
@@ -7529,7 +7535,7 @@ function render(){
   const f=VIEWS[VIEW]||VIEWS[user().provider?'prov.home':'fo.status'];
   try{applyFxCss()}catch(e){}
   const el=$('#view');if(!el)return;const rkey=VIEW+'|'+(typeof VARG==='object'?JSON.stringify(VARG):String(VARG)),keep=rkey===RENDER_KEY?scrollSnap():null;RENDER_KEY=rkey;
-  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep){scrollBack(keep);setTimeout(()=>{if(RENDER_KEY===rkey)scrollBack(keep)},80)}else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
+  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep)scrollKeep(keep,rkey);else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
 }
 function refresh(){saveDB();render()}
 
@@ -9475,7 +9481,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     $$('[data-pt]',m).forEach(b=>b.onclick=()=>{save();payTab=b.dataset.pt;paint()});
     if($('#pyPayT',m)){$('#pyPayT',m).onclick=()=>{if(noBill)return;save();payRef=false;paint()};$('#pyRefT',m).onclick=()=>{save();payRef=true;paint()}}
     $$('[data-pc]',m).forEach(b=>b.onclick=()=>pick(b.dataset.pc));
-    if($('#pyDef',m))$('#pyDef',m).onclick=()=>{if(cardCode)pick(cardCode.code);else pick('905')};
+    if($('#pyDef',m))$('#pyDef',m).onclick=()=>{if(cardCode)pick(cardCode.code);else{const first=codes().find(c=>c.ptab==='CREDIT CARD'&&!c.refund);if(first)pick(first.code)}};
     $('#pyC',m).oninput=()=>{const q=$('#pyC',m).value.trim().toLowerCase();const ex=codes().find(c=>c.code===q);if(ex){pick(ex.code);return}
       const hits=q?codes().filter(c=>c.code.startsWith(q)||c.desc.toLowerCase().includes(q)).slice(0,8):[];
       $('#pyHits',m).innerHTML=hits.length?`<div class="nihits">${hits.map(c=>`<button data-ph="${c.code}"><b>${c.code}</b> ${esc(c.desc)}</button>`).join('')}</div>`:'';$$('[data-ph]',m).forEach(b=>b.onclick=()=>pick(b.dataset.ph))};
@@ -10782,7 +10788,9 @@ let _catApplied=[];function applyCatalog(){const cat=DB.catalog||(DB.catalog={ch
   TCODES.forEach(c=>{c.hidden=!!cat.hidden[c.refFor||c.rebFor||c.adjFor||c.code]})}
 function migratePerms(){Object.values(DB.hotels).forEach(h=>{if(h._aiMig)return;h.users.forEach(u=>{if(u.role==='Manager'){['ai.guest','ai.revenue'].forEach(p=>{if(!u.perms.includes(p))u.perms.push(p)})}else if(u.role==='Front desk'&&!u.perms.includes('ai.guest'))u.perms.push('ai.guest')});h._aiMig=true});Object.values(DB.hotels).forEach(h=>{if(h._apMig)return;h.users.forEach(u=>{if((u.role==='Manager'||u.owner||u.protected||(u.perms||[]).includes('setup'))&&!(u.perms||[]).includes('approve'))u.perms.push('approve')});h._apMig=true})}
 let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_extraApplied.forEach(c=>{const i=TCODES.indexOf(c);if(i>=0)TCODES.splice(i,1)});_extraApplied=[];if(!H)return;(H.extraCodes||[]).forEach(c=>{if(!TCODES.some(x=>x.code===c.code)){TCODES.push(c);_extraApplied.push(c)}});addChargeRelatives(_extraApplied.filter(c=>c.type==='c'||c.type===undefined),{custom:true}).forEach(c=>{TCODES.push(c);_extraApplied.push(c)})}
-const payEnabled=c=>!c.hidden&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
+/* Retired from the screens: staff choose the card by its brand (Visa, Master...), not by a general Credit Card or OTA Virtual Card. The codes stay for old postings and reports. */
+const LEGACY_PAY=['905','915'];
+const payEnabled=c=>!c.hidden&&!LEGACY_PAY.includes(c.refFor||c.code)&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
 function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
 function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
 VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();go('prov.home')};
@@ -11190,7 +11198,7 @@ const SEC={
     validate:d=>{if(d.some(c=>!/^\d{3,4}$/.test(String(c.code))))return 'Codes are 3 or 4 digits.';if(d.some(c=>!c.desc))return 'Every code needs a description.';const std=TCODES.filter(x=>!_extraApplied.includes(x)).map(x=>x.code);if(d.some(c=>std.includes(String(c.code))))return 'That code number is already a standard code.';if(new Set(d.map(c=>String(c.code))).size!==d.length)return 'Codes must be different.';return ''},
     save:d=>{H.extraCodes=d.map(c=>{const code=String(c.code),vat=Object.prototype.hasOwnProperty.call(H.set.codeVat,code)?!!H.set.codeVat[code]:c.vat!==false;return {code,desc:c.desc,type:'c',vat,dept:'Other',tab:c.tab}});applyHotelCodes();provLog(`Charge codes saved for ${H.code}`);saved()}});
    $$('[data-vat]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;const code=b.dataset.vat,tc=TCODES.find(c=>c.code===code)||{code,type:'c',vat:true},next=!chargeVat(tc);H.set.codeVat[code]=next;const ex=(H.extraCodes||[]).find(c=>c.code===code);if(ex)ex.vat=next;provLog(`${next?'Opened VAT':'Closed VAT (Non-VAT)'} for ${code} at ${H.code}`);saved(next?'VAT':'Non-VAT')})},
- pay(box){shapeHotel(H);const off=H.set.payOff||(H.set.payOff={});const list=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!c.hidden);
+ pay(box){shapeHotel(H);const off=H.set.payOff||(H.set.payOff={});const list=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!c.hidden&&!LEGACY_PAY.includes(c.code));
    const badge=c=>payLogoSource(c)==='auto'?'<span class="autoadd">Auto Added</span>':payLogo(c)?'<span class="autoadd hotel">This hotel</span>':'<span class="sub">No logo yet</span>';
    box.innerHTML=secHead('10. Payment methods','A logo added here is Auto Added for every hotel. Open the method for this hotel and staff see that logo on the payment screen. Close it and the method and its logo stay off this hotel. Refunds use the same logo.')+`<div class="btns"><button class="btn ghost sm" id="pyAll">Switch all on</button><button class="btn ghost sm" id="pyNone">Switch all off</button></div>
    ${PAY_TABS.map(tab=>`<div class="panel mt"><div class="ph">${tab}</div><div class="paygrid">${list.filter(c=>c.ptab===tab).map(c=>`<label class="payitem ${off[c.code]?'':'on'}"><input type="checkbox" data-pay="${c.code}" ${off[c.code]?'':'checked'}><span class="pic">${payIcon(c,26)}</span><span class="paymeta"><b>${c.code}</b> ${esc(c.desc)}${c.region?` <em class="rg">${esc(c.region)}</em>`:''}<br>${badge(c)}</span><label class="btn sm ghost plup" title="Auto-add this logo for every hotel">${ic('upload',13)}<input type="file" accept="image/*" data-plg="${c.code}" hidden></label></label>`).join('')}</div></div>`).join('')}
@@ -11390,7 +11398,7 @@ function titlesPanelHtml(){
 const PAYLOGO_LIMIT=3000000;
 function hotelLogosFound(){const out={};Object.values(DB.hotels||{}).forEach(h=>{const pl=(h.set&&h.set.payLogos)||{};Object.keys(pl).forEach(k=>{if(pl[k]&&!(DB.payLogos&&DB.payLogos[k])&&!out[k])out[k]={logo:pl[k],hotel:h.code}})});return out}
 function fileToLogo(file){return new Promise((res,rej)=>{if(file.size>2e6){rej(new Error('over 2 MB'));return}const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);res(cv.toDataURL('image/png'))};img.onerror=()=>rej(new Error('not an image'));img.src=rd.result};rd.onerror=()=>rej(new Error('unreadable'));rd.readAsDataURL(file)})}
-function logosPanelHtml(){const found=hotelLogosFound(),n=Object.keys(found).length,have=Object.keys(DB.payLogos||{}).length,total=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto).length;
+function logosPanelHtml(){const found=hotelLogosFound(),n=Object.keys(found).length,have=Object.keys(DB.payLogos||{}).length,total=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!LEGACY_PAY.includes(c.code)).length;
   return `<div class="panel mt"><div class="ph">Payment logos (all hotels)</div><div class="pad"><p class="sub" style="padding:0 0 10px">${have} of ${total} payment methods have a logo in the catalog. A logo added here shows at every hotel that has opened that payment method, in the Payment window and on receipts. Refund options use the same logo.</p>
    <div class="btns" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn gold sm" id="lgCollect" ${n?'':'disabled'}>${ic('upload',13)} Use the ${n} logo${n===1?'':'s'} already uploaded in hotels for all hotels</button><label class="btn sm ghost">${ic('upload',13)} Upload many logos<input type="file" id="lgBulk" accept="image/*" multiple hidden></label></div>
    <p class="sub" style="padding:10px 0 0">${n?'Found in hotels, not in the catalog yet: '+Object.keys(found).slice(0,14).join(', ')+(n>14?' …':'')+'. ':''}To upload many at once, name each file with the payment code, for example <b>920.png</b> or <b>920-truemoney.png</b>. The number at the start of the name is the code.</p><div id="lgMsg" class="sub" style="padding:6px 0 0"></div></div></div>`}
@@ -11399,12 +11407,12 @@ function bindLogoTools(el){
   const saveLogos=(add,what)=>{const next=Object.assign({},DB.payLogos||{},add);if(JSON.stringify(next).length>PAYLOGO_LIMIT){toast('These logos are too large to share with every hotel. Use fewer or smaller images.');return false}DB.payLogos=next;provLog(what);saveDB();return true};
   if($('#lgCollect',el))$('#lgCollect',el).onclick=()=>{const found=hotelLogosFound(),add={};Object.keys(found).forEach(k=>add[k]=found[k].logo);if(!Object.keys(add).length)return;
     if(saveLogos(add,'Moved '+Object.keys(add).length+' hotel payment logos into the catalog for all hotels')){toast(Object.keys(add).length+' logos now show at every hotel that has opened that payment method.');render()}};
-  if($('#lgBulk',el))$('#lgBulk',el).onchange=async e=>{const files=[...e.target.files],add={},skipped=[];const known=new Set(TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto).map(c=>c.code));
+  if($('#lgBulk',el))$('#lgBulk',el).onchange=async e=>{const files=[...e.target.files],add={},skipped=[];const known=new Set(TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!LEGACY_PAY.includes(c.code)).map(c=>c.code));
     for(const file of files){const m=file.name.match(/^(\d{3,4})/);if(!m||!known.has(m[1])){skipped.push(file.name);continue}try{add[m[1]]=await fileToLogo(file)}catch(err){skipped.push(file.name+' ('+err.message+')')}}
     const n=Object.keys(add).length;if(!n){msg('No logo was added. '+(skipped.length?'Not used: '+skipped.join(', ')+'.':''));return}
     if(saveLogos(add,'Uploaded '+n+' payment logos in bulk (all hotels)')){toast(n+' logo'+(n===1?'':'s')+' added for all hotels.'+(skipped.length?' '+skipped.length+' file(s) skipped.':''));render()}}}
 VIEWS['prov.catalog']=el=>{applyCatalog();const cat=DB.catalog;
-  const ch=TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.rel),py=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto);
+  const ch=TCODES.filter(c=>c.type==='c'&&!c.auto&&!c.rel),py=TCODES.filter(c=>c.type==='p'&&!c.refund&&!c.auto&&!LEGACY_PAY.includes(c.code));
   el.innerHTML=pageHead('Code catalog – all hotels')+`${titlesPanelHtml()}${logosPanelHtml()}<p class="sub">Codes here are available to every hotel. Hide a code to remove it from every hotel's posting and payment screens (old records keep it). Every charge code also has its own Rebate and Adjust (+), and every payment method its Refund. They are added by themselves and open or hide together with their code. Your own codes can be deleted. A payment logo uploaded here is Auto Added for every hotel, and each hotel shows it when that method is open. VAT or Non-VAT for each post is opened or closed on the hotel, under Charge codes. Every change is recorded in the amendment log.</p>
    <div class="panel mt"><div class="ph">Payment methods</div><div class="btns pad"><button class="btn gold sm" id="ctAddP">${ic('plus',13)} Add payment method</button></div><table class="grid"><tr><th>Logo</th><th>Code</th><th>Name</th><th>Tab</th><th>Region</th><th>Status</th><th></th></tr>
     ${py.map(c=>`<tr class="${c.hidden?'muted':''}"><td>${payIcon(c,24)}${(DB.payLogos&&DB.payLogos[c.code])?'<div class="autoadd">Auto Added</div>':''}</td><td>${c.code}</td><td>${esc(c.desc)}${c.custom?' <span class="pill b">own</span>':''}</td><td>${c.ptab}</td><td>${esc(c.region||'')}</td><td>${c.hidden?'<span class="pill r">Hidden</span>':'<span class="pill g">Available</span>'}</td>
