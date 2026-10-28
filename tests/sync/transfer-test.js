@@ -38,3 +38,10 @@ console.log('transfer pop-up ok');
  if(!s7.includes('function approvalWatch()')||!s7.includes('setInterval(approvalWatch,10000);'))fail('approvers are told about waiting requests without reloading');
  if(!s7.includes("'New approval request: '"))fail('a message when a new request arrives');
  console.log('approval alert ok');}
+{const s8=fs.readFileSync(process.argv[2],'utf8');
+ if(!s8.includes('const approvalSig=a=>')||!s8.includes("if(dup){queueApproval.dup=dup;"))fail('the same request cannot be sent twice while it waits');
+ if(!s8.includes('const lineBlock=(B,l)=>pendingLineMsg(B,l)||('))fail('lines with a waiting request are blocked for other actions');
+ if(!s8.includes('function applyApproval(ap){APPROVING=ap&&ap.id||\'\';try{return applyApprovalCore(ap)}finally{APPROVING=\'\'}}'))fail('the approver is not blocked by the request being applied');
+ if(!s8.includes('${pendingBanner(B)}<div class="folios">')||!s8.includes('>REQUEST</span>'))fail('the folio shows a banner and a REQUEST tag');
+ if(!s8.includes("dlgAlert('The same request is already waiting for approval."))fail('a clear message when the same request is already waiting');
+ console.log('duplicate requests ok');}

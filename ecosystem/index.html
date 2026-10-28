@@ -1423,6 +1423,8 @@ html.is-app .eco-login-inner{background:#fff;border-radius:20px;padding:22px 18p
 html.is-app .eco-btn.gold,html.is-app #lgGo{background:#113732!important;border-color:#113732!important;color:#fff!important;box-shadow:0 8px 20px rgba(17,55,50,.28)!important}
 html.is-app .eco-link.gold,html.is-app .eco-back{color:#0f6e5a!important}
 html.is-app .eco-field:focus-within{border-color:#3fcf9f!important;box-shadow:0 0 0 2px rgba(63,207,159,.35)!important}
+.lockbar.reqbar{background:#fff4d6;border:1px solid #e8c766;color:#6b4e00;margin:0 0 8px}.offtag.reqtag{background:#e8a317;color:#fff}
+html[data-mode=dark] .lockbar.reqbar,html[data-skin="modern"][data-mode=dark] .lockbar.reqbar{background:rgba(232,163,23,.16)!important;border-color:#c98f12!important;color:#ffd77a!important}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -9557,7 +9559,7 @@ let folSel=null,folAct={},folClickT=null;
 const folLocked=(B,f)=>!!(B.locks&&B.locks[f]);
 const frozen=l=>!!l.offset;
 const payLocked=l=>!!(l&&l.kind==='pay'&&l.fixed&&!l.adv&&!l.deposit);
-const lineBlock=(B,l)=>frozen(l)?`This transaction is offset (frozen)${l.offsetBy?' by '+l.offsetBy:''}${l.offsetWhy?': '+l.offsetWhy:''}. Nothing more can be done with it.`:l.settled?`This line is frozen by the payment on folio ${l.folio} until a correct payment. After Close Day it stays frozen.`:payLocked(l)?'This payment stays on the folio where it was posted.':folLocked(B,l.folio)?`Folio ${l.folio} is locked. Unlock it first.`:'';
+const lineBlock=(B,l)=>pendingLineMsg(B,l)||(frozen(l)?`This transaction is offset (frozen)${l.offsetBy?' by '+l.offsetBy:''}${l.offsetWhy?': '+l.offsetWhy:''}. Nothing more can be done with it.`:l.settled?`This line is frozen by the payment on folio ${l.folio} until a correct payment. After Close Day it stays frozen.`:payLocked(l)?'This payment stays on the folio where it was posted.':folLocked(B,l.folio)?`Folio ${l.folio} is locked. Unlock it first.`:'');
 function folioPane(el,id,onRe){
   const B=bookingById(id);if(!B){el.innerHTML='<div class="empty">Folio not found.</div>';return}
   const r=resOf(B),g=G(B.guestId),co=CO(r.companyId),total=bal(B),closed=closedBooking(B),back=canCheckBack(B);
@@ -9571,10 +9573,10 @@ function folioPane(el,id,onRe){
       ${sharersHtml(B)}<div class="fline2">${co?esc(coTag(co)):''}</div><div class="ftot">Total Amount: <b class="${total!==0?'red':''}">${m2(total)}</b>${bForeign(B)?` <span class="curtag" title="1 ${esc(bCur(B))} = ${B.curRate} ${esc(curMain())}">${esc(bCur(B))}</span>`:''}</div>
       ${closed?'<div class="lockbar sm">Closed by Close Day. This folio is read-only. A rebate, refund or void needs approval.</div>':B.status==='out'?'<div class="lockbar sm">Checked out (O). The room is vacant dirty (VD). Check in back returns the guest to the same room while it is still vacant, until Close Day.</div>':''}</div>
     <div class="fhr"><div class="rmk">Remark <span>${ic('detail',12)}</span></div><div class="rmkb">${esc(rateLine(B))}<br>${esc(B.remark)}</div></div></div>
-   <div class="folios">${(one?[1]:[1,2,3,4]).map(f=>{const ls=one?B.lines.filter(l=>!(l.folio===4&&(l.kind==='payoff'||l.kind==='payrec'))).sort((a,b)=>(a.time||0)-(b.time||0)):B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=one?r2(sum(ls,l=>l.amt)):folioBal(B,f),mx=folioMixed(B,ls);
+   ${pendingBanner(B)}<div class="folios">${(one?[1]:[1,2,3,4]).map(f=>{const ls=one?B.lines.filter(l=>!(l.folio===4&&(l.kind==='payoff'||l.kind==='payrec'))).sort((a,b)=>(a.time||0)-(b.time||0)):B.lines.filter(l=>l.folio===f).sort(lineOrder),fb=one?r2(sum(ls,l=>l.amt)):folioBal(B,f),mx=folioMixed(B,ls);
      return `<div class="folio ${f===act?'act':''}" data-fa="${f}"><div class="fh" title="Select Folio ${f}. To print it, use the print icon above."><span>Folio ${one?1:f}${f===act?' ✱':''}${folLocked(B,one?1:f)?' '+ic('lock',13)+' Locked':''}</span><span class="sp"></span>Outstanding amount <span class="fob ${fb!==0?'red':''}">${ls.length?m2(fb):''}</span></div>
       <div class="fbody"><table class="fl"><tr><th>Date</th><th>Code</th><th>Description</th><th>Reference#</th><th class="n">Amount</th></tr>
-      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${!one&&folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${mx?`<div class="amtc"><span>${esc(curSym(curLineCur(B,l)))}</span><span>${m2(curLineAmt(B,l))}</span></div>${curLineCur(B,l)!==bCur(B)?`<span class="fxtag">${esc(curSym(bCur(B)))}${m2(l.amt)}${curLineCur(B,l)!==curMain()?' @ '+l.fr:''}</span>`:''}`:m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
+      ${ls.map(l=>`<tr class="${lineCls(l)} ${folSel===l.id?'sel':''}" data-l="${l.id}"><td>${fd(l.orgDate||l.bd)}</td><td>${l.code}</td><td>${esc(l.desc)}${frozen(l)?' <span class="offtag">OFFSET</span>':''}${pendingForLine(B,l)?' <span class="offtag reqtag" title="A request for this line is waiting for approval">REQUEST</span>':''}${!one&&folSel===l.id&&!l.fixed&&!frozen(l)&&!l.settled&&!payLocked(l)&&!folLocked(B,f)&&can('move')?`<div class="mvb">${[1,2,3,4].filter(x=>x!==f).map(x=>`<button data-mv="${x}" title="Move to folio ${x}">${x}</button>`).join('')}</div>`:''}</td><td>${esc(l.ref)}</td><td class="n">${mx?`<div class="amtc"><span>${esc(curSym(curLineCur(B,l)))}</span><span>${m2(curLineAmt(B,l))}</span></div>${curLineCur(B,l)!==bCur(B)?`<span class="fxtag">${esc(curSym(bCur(B)))}${m2(l.amt)}${curLineCur(B,l)!==curMain()?' @ '+l.fr:''}</span>`:''}`:m2(l.amt)}</td></tr>`).join('')}</table></div></div>`}).join('')}</div>
    <p class="sub">Single-click a line to select it and show the folio numbers that move it. Double-click a line to open it. Click a folio bar to make it the active folio. To print a Guest Folio, click the print icon in the toolbar. The grey (+) on Folio 4 can move. The red (−) on Folio 4, and the advance credit (−) on this folio, each print a receipt / tax invoice with the card and remark. A charge remark stays in the transaction window. A normal payment freezes the lines already on that folio and posts one red receipt line.</p>`;
   const reopen=()=>{saveDB();onRe?onRe():folioPane(el,id)};
   const actNow=()=>folAct[B.id]||1;
@@ -10070,7 +10072,7 @@ function moveToRoom(B,l,after,folio){if(!fxGuard('fx.folio.move'))return;
   const movable=x=>!x.fixed&&!payLocked(x)&&!lineBlock(B,x);
   const folLines=()=>B.lines.filter(x=>x.folio===srcF&&movable(x));
   if(l&&!movable(l)&&!folLines().length){toast(lineBlock(B,l)||'This payment stays on the folio where it was posted.');return}
-  if(!l&&!folLines().length){toast('Folio '+srcF+' has no line that can move.');return}
+  if(!l&&!folLines().length){const pend=B.lines.find(x=>x.folio===srcF&&pendingForLine(B,x));toast(pend?pendingLineMsg(B,pend):'Folio '+srcF+' has no line that can move.');return}
   if(folLocked(B,srcF)){toast(`Folio ${srcF} is locked. Unlock it first.`);return}
   let mode=(l&&movable(l))?'line':'folio',pick=null,pf=1;
   const moveSet=()=>mode==='line'?[l]:folLines();
@@ -13187,11 +13189,24 @@ function approvalWatch(){try{if(typeof DB==='undefined'||!DB||!DB.session||!H||!
 if(typeof document!=='undefined')setInterval(approvalWatch,10000);
 function approvalsForMe(){return (H&&H.approvals||[]).filter(a=>a.status==='pending'&&canDecide(a).ok)}
 function needsApproval(kind){const a=(H.set&&H.set.approvals)||{};return a[kind]!==false}
-function queueApproval(req){H.approvals=H.approvals||[];H.approvals.unshift(Object.assign({id:'ap'+uid(),status:'pending',at:Date.now(),bd:H.set.bd,by:user().name,byId:user().id},req));log('Approval requested: '+(req.title||req.action));saveDB();paintNotifBadge();toast('Sent for approval. A person with the Approve permission opens Approvals.')}
+/* Requests that are already waiting. They stop a second person from sending the same request, they warn people on the folio, and they freeze the lines they ask about until the decision. */
+let APPROVING='';
+const reqLineIds=a=>a.lineIds||(a.lineId?[a.lineId]:[]);
+const pendingReqs=B=>(H&&H.approvals||[]).filter(a=>a.status==='pending'&&(a.bookingId===B.id||a.toId===B.id));
+const pendingForLine=(B,l)=>(H&&H.approvals||[]).find(a=>a.status==='pending'&&a.bookingId===B.id&&reqLineIds(a).includes(l.id));
+const pendingLineMsg=(B,l)=>{const p=pendingForLine(B,l);return p&&p.id!==APPROVING?'A request for this line is already waiting for approval (asked by '+p.by+'). Wait for the decision.':''};
+const approvalSig=a=>(a.bookingId||'')+'|'+(a.kind||a.action||'')+'|'+(reqLineIds(a).length?reqLineIds(a).slice().sort().join(','):[a.code||'',a.amt==null?'':a.amt,a.folio||'',a.poolKey||''].join('~'));
+function pendingBanner(B){const L=pendingReqs(B);if(!L.length)return '';
+  return '<div class="lockbar sm reqbar"><b>⏳ '+L.length+' request'+(L.length===1?'':'s')+' waiting for approval on this room.</b> '+L.slice(0,3).map(a=>esc(a.title||a.action)+' <span class="sub">— asked by '+esc(a.by||'')+', '+fdt(a.at)+'</span>').join(' · ')+(L.length>3?' · …':'')+' Please wait for the decision before sending it again.</div>'}
+function queueApproval(req){H.approvals=H.approvals||[];
+  const sig=approvalSig(req),dup=H.approvals.find(a=>a.status==='pending'&&approvalSig(a)===sig);
+  if(dup){queueApproval.dup=dup;toast('The same request is already waiting for approval (asked by '+(dup.by||'')+').');return false}
+  queueApproval.dup=null;
+  H.approvals.unshift(Object.assign({id:'ap'+uid(),status:'pending',at:Date.now(),bd:H.set.bd,by:user().name,byId:user().id},req));log('Approval requested: '+(req.title||req.action));saveDB();paintNotifBadge();toast('Sent for approval. A person with the Approve permission opens Approvals.');return true}
 /* A person without the permission may still fill in the function. It becomes a request: nothing is posted until a HOD, manager or owner approves it. */
 /* Provider switch per hotel: may people without the permission fill in the function and send it as a request? Off: they are blocked with the not-eligible message. */
 function reqFlowOn(){return !!(H&&H.set&&H.set.approvals&&H.set.approvals.requests)}
-function askNotice(name){dlgAlert('You are not allowed to post this ('+name+') yourself.\n\nYour request has been sent to your HOD or manager. Nothing is posted on the room or folio until it is approved.\n\nYou will get a message in the bell (Messages) when it is approved or rejected.','Request sent')}
+function askNotice(name){if(queueApproval.dup){const d=queueApproval.dup;queueApproval.dup=null;dlgAlert('The same request is already waiting for approval.\n\n'+(d.title||d.action)+'\nAsked by '+(d.by||'')+', '+fdt(d.at)+'.\n\nThere is no need to send it again. You will get a message in the bell when it is decided.','Already requested');return}dlgAlert('You are not allowed to post this ('+name+') yourself.\n\nYour request has been sent to your HOD or manager. Nothing is posted on the room or folio until it is approved.\n\nYou will get a message in the bell (Messages) when it is approved or rejected.','Request sent')}
 function approvalReply(a,status,reason){if(!a||!a.byId)return;const who=user().name;
   inboxPush(a.byId,status==='approved'?('Your request was approved by '+who+' and is posted: '+(a.title||'')):('Your request was rejected by '+who+': '+(a.title||'')+(reason?'. Reason: '+reason:'')),'approval')}
 function releaseSettled(B,group,why){B.lines.forEach(x=>{if(x.settledBy===group){x.settled=false;x.settledBy='';x.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:why})}})}
@@ -13200,7 +13215,8 @@ function applyVoid(B,l,why,asU){const fol=B.lines.some(x=>x.group===l.group&&x.k
   l.hist.push({at:Date.now(),user:asU||user().name,shift:sh?sh.name:'',a:'Void payment '+c.sys+': '+(why||'')});
   releaseSettled(B,l.group,'Opened again because the payment was voided');
   if(typeof refreshCityItems==='function')refreshCityItems(H);log(`Void payment ${l.method||l.desc} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no}`,B.id)}
-function applyApproval(ap){const B=bookingById(ap.bookingId);if(!B){toast('That booking is no longer on file.');return false}
+function applyApproval(ap){APPROVING=ap&&ap.id||'';try{return applyApprovalCore(ap)}finally{APPROVING=''}}
+function applyApprovalCore(ap){const B=bookingById(ap.bookingId);if(!B){toast('That booking is no longer on file.');return false}
   const asU=ap.by||user().name,ok=' (approved by '+user().name+')';
   if(ap.action==='move'){const T=bookingById(ap.toId);if(!T){toast('That room is no longer on file.');return false}
     const lines=(ap.lineIds||[]).map(id=>B.lines.find(x=>x.id===id)).filter(Boolean);
