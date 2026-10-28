@@ -47,3 +47,6 @@ console.log('staff page ok');
 {const s3=fs.readFileSync(process.argv[2],'utf8');
  if(/(^|\n|\})\.rtc\{padding:3px 12px/.test(s3)||/\[data-mode=dark\] \.rtc\{background/.test(s3))fail('the room-total chip style must not hit the report filter bar (.rptool .rtc)');
  console.log('report filter bar ok');}
+{const s4=fs.readFileSync(process.argv[2],'utf8');
+ if(!s4.includes("id='lgNoSys'")||!s4.includes('No system is open for this account yet'))fail('login must explain when no system is open for the typed username');
+ console.log('login message ok');}
