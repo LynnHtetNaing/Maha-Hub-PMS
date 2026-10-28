@@ -1399,8 +1399,8 @@ html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true]
 .modal.ppmodal .mbody>.btns{margin:0 0 16px!important;padding:4px 2px 0!important;align-items:center}
 /* Invoice: signatures stay well inside the paper; totals only on the last page */
 .ppage.port.inv{padding-bottom:20mm!important}
-.inv .ivt td{padding:5px 6px}.inv .ivtot{margin-top:10px}.inv .ivtot td{padding:3px 8px}.inv .ivtot tr.grand td{padding:5px 8px}.inv .ivw{margin-top:8px}.inv .ivfoot{padding-top:6px}.inv .ivfoot p{margin:0}.inv .sigs{margin-top:24px}
-.inv .ivcont{margin-top:auto;text-align:right;font-style:italic;font-size:12px;color:#444}
+.inv .ivt td{padding:5px 6px}.inv .ivtot{margin-top:10px}.inv .ivtot td{padding:3px 8px}.inv .ivtot tr.grand td{padding:5px 8px}.inv .ivw{margin-top:8px}.inv .ivfoot{padding-top:6px}.inv .ivfoot p{margin:0}.inv .sigs{margin-top:60px}
+.inv .ivcont{margin-top:8px;text-align:right;font-style:italic;font-size:12px;color:#444}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -10183,8 +10183,8 @@ function billFields(B){const r=resOf(B),co=CO(r.companyId),billable=co&&co.code!
     ${fld('Bill name',`<input id="ivN" value="${esc(b.name||'')}">`)}${fld('Tax ID',`<input id="ivT" value="${esc(b.tax||'')}">`)}
     ${fld('Address',`<input id="ivA" value="${esc(b.addr||'')}">`,'span2')}${fld('Branch',`<input id="ivBr" value="${esc(b.branch||'')}">`)}`}}
 function readBill(m){return {bill:$('#ivB',m).value,other:{name:$('#ivN',m).value.trim(),addr:$('#ivA',m).value.trim(),tax:$('#ivT',m).value.trim(),branch:$('#ivBr',m).value.trim()},copies:$('#ivC',m).value,style:$('#ivS',m)?$('#ivS',m).value:'detail',folio:$('#ivF',m)?+$('#ivF',m).value:1}}
-/* Invoice pages. A page that continues holds up to DOC_ROWS_FULL lines and shows no totals. Only the LAST page shows the totals box, the amount in words and the signatures, so it holds fewer lines (DOC_ROWS_LAST) and the signatures always sit well inside the paper. */
-const DOC_ROWS_FULL=18,DOC_ROWS_LAST=5;
+/* Invoice pages. The template is the same on every page (logo, hotel, guest box, then the lines area, then the disclaimer and the signatures at the bottom). A page that continues holds up to DOC_ROWS_FULL lines. Only the LAST page also shows the totals box and the amount in words under its lines, so it holds fewer lines (DOC_ROWS_LAST). */
+const DOC_ROWS_FULL=12,DOC_ROWS_LAST=5;
 function flattenDoc(rows){const flat=[];rows.forEach(x=>{flat.push({t:'l',x});if(x.card&&x.card.last4)flat.push({t:'c',x});if(x.remark)flat.push({t:'r',x});if(x.note)flat.push({t:'n',text:x.note})});return flat}
 function chunkDoc(flat){if(!flat.length)return [[]];const pages=[];let i=0;
   while(flat.length-i>DOC_ROWS_LAST){const left=flat.length-i;
@@ -10210,8 +10210,8 @@ function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spe
     return `<div class="ppage port inv">${hotelHead()}<div class="ivtitlebar"><div class="ivtitle${spec.guest?' guest':''}">${spec.guest?'GUEST FOLIO':spec.credit?'CREDIT NOTE':'RECEIPT / TAX INVOICE'}</div></div>
      <div class="ivinfo"><table>${left}</table><table>${right}</table></div>
      <table class="ivt"><tr><th>DATE</th><th>DESCRIPTION</th><th>REFERENCE</th><th class="n">AMOUNT${bForeign(B)?' ('+esc(B.cur)+')':''}</th></tr>${rows.map(docRowHtml).join('')}</table>
-     ${isLast?totals:''}${isLast?`<div class="ivfoot"><p>${spec.credit?'This credit note corrects the amount charged on the folio above. It does not change the number of the original tax invoice.':'I agree that my liability for this invoice is not waived and agree to be held personally liable in the event that the indicated person, company or association fails to pay for any part of the full amount of these charges.'}</p>
-      <div class="sigs"><div><span></span>Guest's Signature</div><div><span></span>Cashier's Signature<br><b>${esc(user().name.toUpperCase())}</b></div></div></div>`:'<div class="ivcont">Continued on the next page</div>'}</div>`};
+     ${isLast?totals:'<div class="ivcont">Continued on the next page</div>'}<div class="ivfoot"><p>${spec.credit?'This credit note corrects the amount charged on the folio above. It does not change the number of the original tax invoice.':'I agree that my liability for this invoice is not waived and agree to be held personally liable in the event that the indicated person, company or association fails to pay for any part of the full amount of these charges.'}</p>
+      <div class="sigs"><div><span></span>Guest's Signature</div><div><span></span>Cashier's Signature<br><b>${esc(user().name.toUpperCase())}</b></div></div></div></div>`};
   return {html:sets.map(lb=>pages.map((c,i)=>page(c,i,lb)).join('')).join(''),sets,pages:pages.length,bt}}
 /* A remark typed on a charge stays in the transaction window. It is left off a guest folio and off a payment receipt.
    The folio 1 advance credit is the same on those two prints. Its card and remark are printed only on the receipt / tax invoice. */
