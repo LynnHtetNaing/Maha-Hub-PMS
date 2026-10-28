@@ -1256,7 +1256,19 @@ html[data-mode=dark] .achip{background:#1a2c42;color:#b8cde0}html[data-mode=dark
 html[data-mode=dark] .anfoot{border-color:#26394f}html[data-mode=dark] .anring{background:conic-gradient(var(--c) calc(var(--p)*1%),#26394f 0)}html[data-mode=dark] .anring.ok{--c:#14a39a}html[data-mode=dark] .anring b{background:#14243a}
 html[data-mode=dark] .anwho a,html[data-mode=dark] .andone{color:#7be0d6}
 html[data-mode=dark] .depbar.due{background:#4a1b1d;color:#ffb4ad}html[data-mode=dark] .depbar.ok{background:#12403f;color:#7be0d6}
-@media (max-width:700px){.depbar{flex-wrap:wrap}.cdback .btn{margin-left:auto}}
+@media (max-width:700px){.depbar{flex-wrap:wrap}.depbar .sp{flex:0 0 100%;height:0}.cdback .btn{margin-left:auto}}
+/* Reservation status chips (IH, Confirmed, ...) in Dark: shaded background, readable text */
+html[data-mode=dark] .st{background:rgba(255,255,255,.1)!important;color:#d6e4ef!important}
+html[data-mode=dark] .st-inhouse,html[data-mode=dark] .st-ih{background:rgba(52,211,153,.2)!important;color:#7ef0bd!important}
+html[data-mode=dark] .st-i{background:rgba(56,189,248,.2)!important;color:#8fd6f7!important}
+html[data-mode=dark] .st-confirmed{background:rgba(96,165,250,.22)!important;color:#a9cfff!important}
+html[data-mode=dark] .st-tentative{background:rgba(250,204,21,.18)!important;color:#f6d36b!important}
+html[data-mode=dark] .st-out,html[data-mode=dark] .st-o{background:rgba(248,113,113,.2)!important;color:#ffb4ad!important}
+html[data-mode=dark] .st-cancelled,html[data-mode=dark] .st-noshow{background:rgba(244,114,182,.16)!important;color:#f5b5d3!important}
+/* Phone: Departure title with Full list and the due number on the same line */
+@media (max-width:900px){.dep2pg .phead.withact{flex-wrap:nowrap!important;align-items:center!important;gap:8px!important}.dep2pg .phead.withact h1{flex:1 1 auto!important;width:auto!important;min-width:0!important}.dep2pg .phead.withact .pact{width:auto!important;max-width:none!important;flex:none!important;flex-wrap:nowrap!important;gap:8px!important}.dep2pg .phead.withact .pact .btn{height:36px!important;padding:0 12px!important;width:auto!important}}
+/* Phone: reservation toolbar. Icons stay where they are, the status chip sits at the end of the icon rows, Confirmation and Deposit invoice go side by side on their own row */
+@media (max-width:700px){.toolbar.rtb .tbtn{order:0}.toolbar.rtb .sp{order:1;flex:1 1 0}.toolbar.rtb .st{order:2}.toolbar.rtb .tsep{order:3;flex:0 0 100%;width:100%;height:0;margin:0;background:none;border:0}.toolbar.rtb>.btn{order:4;flex:1 1 calc(50% - 4px);justify-content:center;min-height:40px}}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#d7f0ea;color:#0b6f69;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#0e8a82;color:#fff;border:0}
 html[data-mode=dark] .cdback{background:#12403f;color:#7be0d6}html[data-mode=dark] .cdback .btn{background:#14a39a;color:#06201f}
@@ -8422,7 +8434,7 @@ VIEWS['fo.departures2']=(el,id)=>{
   if(id)DS.sel=id;const all=departuresDue(),vis=all.filter(b=>sideMatch(DS,b,DS.q));
   if(!(CDBACK&&DS.sel&&bookingById(DS.sel))&&(!DS.sel||!all.find(b=>b.id===DS.sel)))DS.sel=(vis[0]||all[0]||{}).id||null;
   const re=()=>VIEWS['fo.departures2'](el);
-  el.innerHTML=cdBackBar()+pageHead('Departures',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} due</span>`,'act')+`<div id="arDetail"></div>`;cdBackBind(el);
+  el.innerHTML='<div class="dep2pg">'+cdBackBar()+pageHead('Departures',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} due</span>`,'act')+`<div id="arDetail"></div></div>`;cdBackBind(el);
   $('#toFull',el).onclick=()=>go('fo.departures');
   const B=DS.sel&&bookingById(DS.sel);const box=$('#arDetail',el);
   if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}">Balance <b>${m2(bb)} ${bCur(B)}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}<span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
@@ -8614,7 +8626,7 @@ function reservationScreen(box,r,B,o={}){
     mode==='restricted'?`<div class="lockbar">The first night is closed. Only the departure date and the rates of today and upcoming nights can be changed. Guest details can still be edited.</div>`:
     B.status==='noshow'?`<div class="lockbar">No-show recorded for business date ${fd(B.statusDate)}. It can be recalled only on that business date.</div>`:'';
   box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
-   <div class="toolbar">${tb('aSave','save','Save changes',!(canEd||GE))}${tb('aProf','idc','Guest profile')}${tb('aRate','cal','Advance rate setup')}${tb('aNotif','bell','Notifications')}${tb('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tb('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
+   <div class="toolbar rtb">${tb('aSave','save','Save changes',!(canEd||GE))}${tb('aProf','idc','Guest profile')}${tb('aRate','cal','Advance rate setup')}${tb('aNotif','bell','Notifications')}${tb('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tb('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
      ${tb('aReg','card','Print registration card',!can('print'))}${B.status==='inhouse'?tb('aShare','user','Add a guest sharing this room (guests staying with the main guest)',!(can('profile')||can('res.edit')||can('checkin'))):''}${(['confirmed','tentative'].includes(B.status)||resDeps(B).length)?tb('aDep','dollar',resDeps(B).length?'Reservation deposits (see, add, correct, refund)':'Reservation Deposit',!can('pay')&&!resDeps(B).length):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tb('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tb('aFol','folder','Open folio'):''}<span class="tsep"></span>${acts.join('')}
      ${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="sp"></span>${stBadge(B)}</div>
    ${lockNote}
