@@ -1370,6 +1370,13 @@ html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important
 .upage .posin{width:118px;height:30px}.upage .pptbl select{height:30px;max-width:118px}.upage .pptbl td,.upage .pptbl th{padding-left:8px!important;padding-right:8px!important;font-size:12.5px}.uact .btn{padding:0 8px;font-size:11.5px}.uact{gap:5px}.upage .pptbl td:first-child{max-width:170px}.upage .pptbl td .sub{display:block;margin:0}.uat{margin:2px 0 0!important;font-size:11px}.uns{display:block;font-size:11px;opacity:.75;margin-top:2px}.uns input{margin-right:4px}
 .udet .ppg{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}.udet .ppg>span:first-child{flex:1}.udet .ppcnt{font-size:11.5px;font-weight:700;letter-spacing:0;text-transform:none;opacity:.85}.udet .ppcar{transition:transform .15s;font-size:14px}.udet .ppg[aria-expanded=false] .ppcar{transform:rotate(-90deg)}
 .udet .ppfrow{display:flex;gap:10px;align-items:center;margin:6px 0}.udet .ppfrow .ppfind{flex:1;margin:0}.udet .ugrp[hidden],.udet .ppgb[hidden]{display:none}
+.udet .usys{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 0 4px}.udet .usys[hidden]{display:none!important}
+.udet .usy{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:104px;padding:12px 10px;border-radius:14px;border:2px solid transparent;text-align:center;font:inherit;color:inherit;border-bottom:2px solid transparent}.udet .usy[hidden]{display:none}.udet .usy b{font-size:14.5px}.udet .usy small{font-size:12px;opacity:.9}.udet .usi{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.55)}
+.udet .usi{flex:none;width:40px!important;height:40px!important;min-height:0}.udet .usi svg{width:22px!important;height:22px!important}.udet .usi img{width:28px!important;height:28px!important;max-width:none;object-fit:contain;filter:none}
+.udet button.usy{cursor:pointer}.udet button.usy:hover{filter:brightness(.97);transform:translateY(-1px)}
+.udet .usy.open{background:#d7f0ea;border-color:#27a37a;color:#0b5f43}.udet .usy.shut{background:#fde4e1;border-color:#d9534f;color:#a02420}.udet .usy.soon{background:#e8edf0;border-color:#cfd8de;color:#6b7c85}.udet .usy.soon .usi{opacity:.6}
+html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.16);border-color:#34d399;color:#7ef0bd}html[data-mode=dark] .udet .usy.shut{background:rgba(248,113,113,.16);border-color:#f87171;color:#ffb4ad}html[data-mode=dark] .udet .usy.soon{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#93a6b5}html[data-mode=dark] .udet .usi{background:rgba(255,255,255,.1)}
+@media (max-width:640px){.udet .usys{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -10899,7 +10906,16 @@ function ppPermRows(u,edit){
 }
 function ppSysRows(u,edit){
   shapeHotel(H);const list=hotelSystems(H);
-  return ppGroup('Hotel systems',list.filter(s=>userHasSystem(u,s.kind)).length+' of '+list.length+' Open',list.map(s=>{const on=userHasSystem(u,s.kind);return '<div class="ppr" data-pq="'+esc(s.name.toLowerCase())+'"><span><b>'+esc(s.name)+'</b><small class="sub"> '+(s.hotel?'Open for this hotel':'Closed for this hotel')+'</small></span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-su="'+u.id+'" data-sk="'+s.kind+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join(''));
+  const tile=(cls,icon,name,line,attrs,tag)=>'<'+tag+' '+(tag==='button'?'type="button" ':'')+'class="ppr usy '+cls+'" data-pq="'+esc(name.toLowerCase())+'" '+attrs+'><span class="usi">'+icon+'</span><b>'+esc(name)+'</b><small>'+esc(line)+'</small></'+tag+'>';
+  let nOpen=0;
+  const real=list.map(sy=>{
+    if(!RELEASED_SYSTEMS.includes(sy.kind))return tile('soon',ecoCardSvg(sy.tone),sy.name,'Coming soon','','div');
+    const on=userHasSystem(u,sy.kind),eff=on&&sy.hotel;if(eff)nOpen++;
+    const line=eff?'Open':(!sy.hotel?'Locked · closed for this hotel':'Locked');
+    return tile(eff?'open':'shut',ecoCardSvg(sy.tone),sy.name,line,edit?'data-su="'+u.id+'" data-sk="'+sy.kind+'" title="'+(on?'Press to lock':'Press to open')+'"':'',edit?'button':'div');
+  });
+  const soon=ECO_SOON.map(x=>tile('soon',ecoCardSvg(''),x.name,'Coming soon','','div'));
+  return ppGroup('Hotel systems',nOpen+' Open · '+(list.length+ECO_SOON.length)+' systems',real.join('')+soon.join('')).replace('<div class="ppgb"','<div class="ppgb usys"');
 }
 function ppPopupHtml(u,edit){
   const st=ppState(u);
