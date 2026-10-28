@@ -1403,6 +1403,17 @@ html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true]
 .inv .ivcont{margin-top:8px;text-align:right;font-style:italic;font-size:12px;color:#444}
 .ucmpbar{display:flex;align-items:center;gap:16px;margin:8px 0 16px}.ucmptitle{margin:0;font-size:20px;font-weight:800;letter-spacing:.01em}
 .ucmpwrap>p.sub{margin:0 0 14px!important;line-height:1.6;max-width:900px}
+/* Phone app: calm light start, welcome layer */
+html.is-app .mh-boot{background:#f4faf7!important}html.is-app .mh-boot>*{visibility:hidden}
+.appw{position:fixed;inset:0;z-index:3000;overflow:hidden;font-family:"Noto Sans",system-ui,sans-serif;transition:opacity .22s ease}.appw.out{opacity:0}
+.appw-bg{position:absolute;inset:0;background:linear-gradient(180deg,#f7fcf9 0%,#eaf6f0 100%)}
+.appw-blk{position:absolute;border-radius:16px;background:linear-gradient(160deg,#dff3ea,#c9eadd);opacity:.8}
+.appw-logo{position:absolute;top:14%;left:0;right:0;text-align:center}.appw-logo img{width:96px;height:96px;border-radius:23px;box-shadow:0 8px 22px rgba(15,110,90,.25)}
+.appw-logo b{display:block;margin-top:14px;font:700 24px "Cinzel",Georgia,serif;letter-spacing:.22em;color:#113732}.appw-logo small{display:block;margin-top:5px;font-size:11px;letter-spacing:.22em;color:#3a8f78}
+.appw-act{position:absolute;left:22px;right:22px;bottom:21%}
+.appw-go{width:100%;height:56px;border:0;border-radius:14px;background:#113732;color:#fff;font:700 18px "Noto Sans",sans-serif;box-shadow:0 8px 20px rgba(17,55,50,.3);cursor:pointer}.appw-go:active{transform:scale(.99)}
+.appw-sec{text-align:center;margin-top:14px;font-size:13px;color:#35504a}.appw-reg{text-align:center;margin-top:10px;font-size:13px;color:#35504a}.appw-reg a{color:#0f6e5a;font-weight:700;text-decoration:underline}
+.appw-city{position:absolute;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));width:calc(100% - 20px);opacity:.9}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -2305,7 +2316,7 @@ html[data-skin="modern"] #cnote .cn svg{width:16px;height:16px}
 }
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
-</head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
+<script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="/brand/maha/pms-icon-96.png";
 const LOGO_LOCKUP="/brand/maha/solutions-lockup-dark.png";const ICON_BAR="/brand/maha/gate-small.png";
 const ECO_HERO="/brand/login-hero-bg.jpg";
@@ -7998,6 +8009,8 @@ function refresh(){try{ulSafety()}catch(e){}saveDB();render()}
 
 /* ---------- login + ecosystem (Maha Hub compound) ---------- */
 let lgProvider=false,lgShift=null,lgTargetSys=null,lgPickAnim=null,fails=0,lockUntil=0;
+const IS_APP=document.documentElement.classList.contains('is-app');   /* the installed phone app: no system chooser, a welcome layer first, a Property ID line */
+let APPW_DONE=false;
 function suggestShift(){const h=+tzp(Date.now(),dispZone()).h;return h>=6&&h<14?'Morning':h>=14&&h<22?'Afternoon':'Night'}
 function ecoSysLabel(kind){
   return ({hub:'Maha PMS',connect:'Maha Connect',book:'Maha Booking',reach:'Maha Reach',sales:'Maha Sales'}[kind])||'Maha Hub';
@@ -8011,6 +8024,7 @@ function showLogin(msg){
   try{applySkin()}catch(e){}   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme */
   if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
+  if(IS_APP&&!lgProvider)lgTargetSys='hub';
   document.body.classList.add('eco-noscroll');
   const preview=ecoPreviewHotel();shapeHotel(preview);
   if(lgTargetSys&&!hotelSystems(preview,null).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
@@ -8044,6 +8058,7 @@ function showLogin(msg){
       <form class="eco-form" id="lform" onsubmit="return false">
         <label><span>Username</span><div class="eco-field"><span class="eco-ico-in" aria-hidden="true">✉</span><input id="lgUser" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Username"></div></label>
         <label><span>Password</span><div class="eco-field"><span class="eco-ico-in" aria-hidden="true">🔒</span><input id="lgPass" type="password" autocomplete="current-password" placeholder="Password"><button type="button" id="lgEye" aria-label="Show password">👁</button></div></label>
+        ${IS_APP?'<label><span>Property ID</span><div class="eco-field"><span class="eco-ico-in" aria-hidden="true">⌂</span><input id="lgProp" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Property ID"></div></label>':''}
         <div id="lgExtra">
           <div id="shWrap" style="margin-bottom:10px"><span style="display:block;margin-bottom:6px">Shift</span><div class="eco-segs segs">${['Morning','Afternoon','Night'].map(s=>`<button type="button" data-shift="${s}">${s}<small>${{Morning:'06:00–14:00',Afternoon:'14:00–22:00',Night:'22:00–06:00'}[s]}</small></button>`).join('')}</div></div>
           <label id="cashWrap"><span>Opening cash (optional)</span><div class="eco-field"><input id="lgCash" inputmode="decimal" placeholder="0"></div></label>
@@ -8057,7 +8072,7 @@ function showLogin(msg){
       
     </div>
   </aside></div>`;
-  try{const rem=localStorage.getItem('maha.rememberUser');if(rem&&$('#lgRemember')){$('#lgRemember').checked=true;$('#lgUser').value=rem}}catch(e){}
+  try{const rem=localStorage.getItem('maha.rememberUser');if(rem&&$('#lgRemember')){$('#lgRemember').checked=true;$('#lgUser').value=rem;const rp=localStorage.getItem('maha.rememberProp');if(rp&&$('#lgProp'))$('#lgProp').value=rp}}catch(e){}
   const setShift=v=>{lgShift=v;$$('[data-shift]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.shift===v?'true':'false'))};
   $$('[data-shift]').forEach(b=>b.onclick=()=>setShift(b.dataset.shift));setShift(lgShift||suggestShift());
   let panelWasOpen=lgOpen;
@@ -8122,7 +8137,7 @@ function showLogin(msg){
     const h=f?f.h:ecoPreviewHotel();shapeHotel(h);
     const u=f?f.u:null;
     const none=!!u&&!hotelSystems(h,u).some(s=>s.open);   /* nothing is open for this person: keep the sign-in box and explain, do not fall back to the system list */
-    if(lgTargetSys&&!none&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
+    if(lgTargetSys&&!IS_APP&&!none&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
     const cardsHtml=ecoAvailableCards(h,true,lgTargetSys,u);
     if(box.dataset.sig!==cardsHtml){box.innerHTML=cardsHtml;box.dataset.sig=cardsHtml;$$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b))}   /* rebuilt only when the cards really change: no flashing */
     let nm=$('#lgNoSys');if(!nm){nm=document.createElement('p');nm.id='lgNoSys';nm.className='eco-nosys';const er=$('#lgErr');if(er&&er.parentNode)er.parentNode.insertBefore(nm,er)}
@@ -8143,7 +8158,8 @@ function showLogin(msg){
     const night=!!(u&&nightOkFor(u,h));$$('[data-shift]').forEach(b=>{if(b.dataset.shift==='Night'){b.disabled=!night;b.title=night?'Night shift, 22:00 to 06:00':'Night shift is for Front Office and HOD'}});if(!night&&lgShift==='Night')setShift('Afternoon');
   };
   $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
-  $('#lgAllSys').onclick=()=>{lgTargetSys=null;lgPickAnim=null;applySysPath(null);syncSelect()};
+  $('#lgAllSys').onclick=()=>{if(IS_APP){appWelcomeShow();return}lgTargetSys=null;lgPickAnim=null;applySysPath(null);syncSelect()};
+  if(IS_APP){['#lgAllSys','#lgBack'].forEach(q=>{const b=$(q);if(b)b.textContent='‹ Back'})}
   $('#lgBack').onclick=()=>$('#lgAllSys').click();
   document.querySelector('.eco-login').addEventListener('mousedown',e=>{if(e.target===e.currentTarget)$('#lgAllSys').click()});   /* a click outside the box goes back to all systems */
   setTimeout(()=>{const b=$('#lgCards');if(b)b.classList.add('is-ready')},1400);                                                   /* the entrance animation plays once only */
@@ -8151,9 +8167,21 @@ function showLogin(msg){
   $('#lgEye').onclick=()=>{const i=$('#lgPass');i.type=i.type==='password'?'text':'password';$('#lgEye').setAttribute('aria-label',i.type==='password'?'Show password':'Hide password')};
   $('#lgForgot').onclick=()=>toast('Ask Maha Hub support to reset your password.');
   $('#lgSupport').onclick=()=>{location.href='mailto:support@maha-hub.com?subject=Maha%20Hub%20support'};
-  ['lgUser','lgPass','lgCash'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doLogin()}})});
+  ['lgUser','lgPass','lgProp','lgCash'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doLogin()}})});
   $('#lgGo').onclick=doLogin;if(lgTargetSys)applySysPath(lgTargetSys);paint();$('#lgErr').textContent=msg||'';
   if(lgOpen)setTimeout(()=>{const f=$('#lgUser');f&&f.focus({preventScroll:true})},40);
+  if(IS_APP&&!APPW_DONE)appWelcomeShow();
+}
+/* Phone app only: the first thing a signed-out person sees is this welcome layer. Login opens the PMS sign-in inside the app. */
+function appWelcomeShow(){
+  if(document.getElementById('appWelcome'))return;
+  const o=document.createElement('div');o.id='appWelcome';o.className='appw';o.setAttribute('role','dialog');o.setAttribute('aria-label','Welcome to Maha PMS');
+  o.innerHTML='<div class="appw-bg" aria-hidden="true"></div><i class="appw-blk" style="width:90px;height:56px;right:-14px;top:9%"></i><i class="appw-blk" style="width:86px;height:86px;right:-6px;top:26%"></i><i class="appw-blk" style="width:86px;height:86px;right:26%;top:32%"></i><i class="appw-blk" style="width:62px;height:62px;left:-12px;top:46%"></i>'+
+   '<div class="appw-logo"><img src="/brand/pms/icon-192.png" alt="" width="96" height="96"><b>MAHA PMS</b><small>MAHA HUB GROUP OF COMPANIES</small></div>'+
+   '<div class="appw-act"><button type="button" class="appw-go" id="appwGo">Login</button><div class="appw-sec">🔒 Secure sign-in for Maha PMS teams</div><div class="appw-reg">Not registered yet? <a href="https://maha-hub.com/contact" target="_blank" rel="noopener">Contact Maha</a></div></div>'+
+   '<svg class="appw-city" viewBox="0 0 300 90" fill="none" stroke="#9fd6c2" stroke-width="1.6" aria-hidden="true"><path d="M4 86h292"/><rect x="14" y="56" width="34" height="30"/><rect x="58" y="34" width="40" height="52"/><rect x="108" y="60" width="36" height="26"/><rect x="154" y="28" width="44" height="58"/><rect x="208" y="10" width="46" height="76"/><path d="M268 86V50M268 50c-14-4-20 4-22 10M268 50c14-4 20 4 22 10"/><path d="M24 62h14M24 70h14M68 44h20M68 54h20M68 64h20M164 38h24M164 48h24M164 58h24M218 20h26M218 32h26M218 44h26"/></svg>';
+  document.body.appendChild(o);
+  $('#appwGo',o).onclick=()=>{APPW_DONE=true;o.classList.add('out');setTimeout(()=>{o.remove();const u=$('#lgUser');u&&u.focus({preventScroll:true})},220)};
 }
 function openSystemsSwitcher(){
   if(!H||!DB.session){showLogin();return}
@@ -8183,7 +8211,7 @@ function doLogin(){
   if(Date.now()<lockUntil){err.textContent=`Too many wrong attempts. Try again in ${Math.ceil((lockUntil-Date.now())/1000)} seconds.`;return}
   const un=$('#lgUser').value.trim().toLowerCase(),pw=$('#lgPass').value;
   if(!un||!pw){err.textContent='Enter your username and password.';return}
-  try{if($('#lgRemember')&&$('#lgRemember').checked)localStorage.setItem('maha.rememberUser',un);else localStorage.removeItem('maha.rememberUser')}catch(e){}
+  try{if($('#lgRemember')&&$('#lgRemember').checked){localStorage.setItem('maha.rememberUser',un);if($('#lgProp'))localStorage.setItem('maha.rememberProp',$('#lgProp').value.trim().toUpperCase())}else{localStorage.removeItem('maha.rememberUser');localStorage.removeItem('maha.rememberProp')}}catch(e){}
   const fail=()=>{fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}err.textContent='Username or password is not correct.';$('#lgPass').value='';$('#lgPass').focus()};
   const pv=MahaAuth.on()?null:DB.providers.find(x=>x.username===un);if(pv){if(pv.hash!==pwHash(pv.salt,pw))return fail();fails=0;
     const finish=(how)=>{const first=Object.keys(DB.hotels)[0];DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=DB.hotels[first];
@@ -8202,12 +8230,17 @@ function doLogin(){
   const f=findStaff(un);if(!f)return fail();const {h,u}=f;if(u.active===false||u.hash!==pwHash(u.salt,pw))return fail();
   staffEnter(h,u);
   function staffEnter(h,u){const hc=h.code;
+  const propEl=$('#lgProp');   /* phone app: the Property ID must match the hotel of this username */
+  if(propEl){const want=propEl.value.trim().toUpperCase();
+    if(!want){if(MahaAuth.on())MahaAuth.signOut();err.textContent='Enter your Property ID.';return}
+    if(want!==String(hc).toUpperCase()){if(MahaAuth.on())MahaAuth.signOut();fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}err.textContent='Username, password or Property ID is not correct.';return}}
   const enterStaffSystem=(h)=>{
     const who=u.username,shift=s.name;
     const list=hotelSystems(h,u);
     let sys=lgTargetSys||'hub';
     let avail=list.find(x=>x.kind===sys&&x.open);
     if(!avail){
+      if(IS_APP){toast('Maha PMS is not open for your account. Ask the provider to open it.');signOut(true);return}
       const fallback=list.find(x=>x.open);
       if(!fallback){toast('No system is open for your account.');signOut(true);return}
       toast(ecoSysLabel(sys)+' is closed for your account. Opening '+fallback.name+'.');
