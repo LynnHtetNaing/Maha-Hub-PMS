@@ -1,6 +1,6 @@
 ﻿/* Maha Hub PMS â€” offline shell. Hotel data stays in IndexedDB / localStorage, not in this cache. */
-const CACHE='mahahub-mh5-83';
-const ASSETS=['/ecosystem/index.html','/manifest.json','/brand/pms/icon-32.png','/brand/pms/icon-48.png','/brand/pms/icon-192.png','/brand/pms/icon-180.png','/brand/pms/icon-512.png','/brand/pms/mark-256.png','/brand/pms/lockup.png','/brand/login-hero-bg.jpg','/brand/ecosystem-hero.jpg'];
+const CACHE='mahahub-mh5-84';
+const ASSETS=['/ecosystem/index.html','/manifest.json','/brand/pms/icon-32.png','/brand/pms/icon-48.png','/brand/pms/icon-192.png','/brand/pms/app-icon-192.png','/brand/pms/app-icon-512.png','/brand/pms/icon-180.png','/brand/pms/icon-512.png','/brand/pms/mark-256.png','/brand/pms/lockup.png','/brand/login-hero-bg.jpg','/brand/ecosystem-hero.jpg'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });

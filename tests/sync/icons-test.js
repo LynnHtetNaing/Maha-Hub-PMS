@@ -15,7 +15,7 @@ for(const f of ['brand/pms/icon-180.png','brand/maha/pms-icon-180.png','brand/pm
 // the manifest gives the phone proper maskable icons
 const man=JSON.parse(fs.readFileSync(R+'manifest.json','utf8'));
 const mk=man.icons.filter(i=>i.purpose==='maskable').map(i=>i.src);
-if(!mk.includes('brand/pms/icon-192-maskable.png')||!mk.includes('brand/pms/icon-512-maskable.png'))fail('manifest maskable icons');
+if(!mk.includes('brand/pms/app-icon-maskable-192.png')||!mk.includes('brand/pms/app-icon-maskable-512.png'))fail('manifest maskable icons');
 if(man.icons.some(i=>i.purpose==='maskable'&&!/maskable/.test(i.src)))fail('a maskable entry still uses the rounded icon');
 for(const i of man.icons)if(!fs.existsSync(R+i.src))fail('manifest icon missing: '+i.src);
 // every icon a page points to exists

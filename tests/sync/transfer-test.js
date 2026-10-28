@@ -20,3 +20,17 @@ console.log('transfer pop-up ok');
  if(!s4.includes('<div class="ucmpbar"><button type="button" class="btn ghost" id="ppCmp">← Users</button><h2 class="ucmptitle">Overview</h2></div>'))fail('Overview header: button and title in their own bar');
  if(!s4.includes('.ucmpbar{display:flex;align-items:center;gap:16px;margin:8px 0 16px}'))fail('Overview header: room between button, title and text');
  console.log('overview header ok');}
+{const s5=fs.readFileSync(process.argv[2],'utf8');
+ if(!s5.includes("['Approvals','set.approve','approve','fn.set.approve']"))fail('Approvals in the menu needs the Approve permission');
+ if(!s5.includes("(x[0]!=='set.approve'||canApprove())"))fail('Approvals shortcut needs the Approve permission');
+ if(!s5.includes("VIEWS['set.approve']=el=>{\n  if(!canApprove()")&&!s5.includes("VIEWS['set.approve']=el=>{\r\n  if(!canApprove()"))fail('Approvals page refuses people without the permission');
+ console.log('approvals access ok');}
+{const s6=fs.readFileSync(process.argv[2],'utf8');
+ if(!s6.includes('function applyMoveLines(B,T,lines,pf,by,note)'))fail('one shared move for the pop-up and for an approved request');
+ if(!s6.includes('data-sc="folio" aria-pressed="false">Whole folio'))fail('transfer: whole folio option');
+ if(s6.includes("allBookings().filter(b=>b.status==='inhouse'&&b.id!==B.id&&match(b,q,k))"))fail('transfer: this room must be searchable too');
+ if(!s6.includes("(this room)")||!s6.includes("disabled title=\"This is the folio the lines are on now\""))fail('transfer: same room, other folio only');
+ if(!s6.includes("const asReq=!can('move')&&reqFlowOn();"))fail('transfer: people without the permission send a request when the hotel allows it');
+ if(!s6.includes("if(ap.action==='move'){const T=bookingById(ap.toId)"))fail('an approved transfer request is applied');
+ if(!s6.includes("moveToRoom(B,curLine(),reopen,actNow())"))fail('the toolbar button passes the active folio');
+ console.log('transfer folio + request ok');}

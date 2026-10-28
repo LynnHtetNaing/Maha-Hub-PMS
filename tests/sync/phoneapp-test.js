@@ -1,0 +1,24 @@
+const fs=require('fs'),path=require('path');
+const src=fs.readFileSync(process.argv[2],'utf8');const man=JSON.parse(fs.readFileSync(path.join(__dirname,'..','..','manifest.json'),'utf8'));
+let fails=0;const T=(n,ok)=>{console.log((ok?'PASS ':'FAIL ')+n);if(!ok)fails++};
+T('the app is recognised before the first paint (installed app or ?source=app)',/matchMedia\("\(display-mode: standalone\)"\)\.matches\|\|navigator\.standalone===true\|\|\/\[\?&\]source=app/.test(src)&&src.includes('document.documentElement.classList.add("is-app")'));
+T('the installed app starts inside the PMS, never on the system chooser',man.start_url==='/solutions-PMS?source=app'&&src.includes("if(IS_APP&&!lgProvider)lgTargetSys='hub';"));
+T('the loading screens and the start colour keep their dark green (only the sign-in page is light)',man.background_color==='#0A3020'&&!src.includes('html.is-app .mh-boot'));
+T('the app never falls back to the system chooser or to another system',src.includes('lgTargetSys&&!IS_APP&&!none')&&src.includes("if(IS_APP){toast('Maha PMS is not open for your account."));
+T('welcome layer: Login, secure line, Not registered yet? Contact Maha',src.includes('id="appwGo">Login</button>')&&src.includes('Secure sign-in for Maha PMS teams')&&src.includes('Not registered yet? <a href="https://maha-hub.com/contact"'));
+T('the welcome layer shows only in the app, once per start',src.includes('if(IS_APP&&!APPW_DONE)appWelcomeShow();')&&src.includes('let APPW_DONE=false;'));
+T('Back returns to the welcome layer in the app',src.includes("if(IS_APP){appWelcomeShow();return}")&&src.includes("['#lgAllSys','#lgBack'].forEach"));
+T('the Property ID line exists only in the app and is checked against the hotel',src.includes("${IS_APP?'<label><span>Property ID</span>")&&src.includes("want!==String(hc).toUpperCase()")&&src.includes("err.textContent='Enter your Property ID.'"));
+T('the browser sign-in is unchanged (everything above is behind IS_APP)',!/\$\{IS_APP\?[^}]*\}[^]{0,0}$/.test('')&&src.includes('const IS_APP=document.documentElement.classList.contains(\'is-app\')'));
+T('the sign-in page wears the welcome look: light mint, white card, dark green button, no dark green background',src.includes('html.is-app .eco-shell{background:linear-gradient(180deg,#f7fcf9 0%,#eaf6f0 100%)!important')&&src.includes('html.is-app .eco-login-inner{background:#fff;border-radius:20px')&&src.includes('html.is-app #lgGo{background:#113732!important')||src.includes('html.is-app .eco-btn.gold,html.is-app #lgGo{background:#113732!important'));
+T('after sign-in the app opens the PMS directly (no Frontend / Backend page)',src.includes('while(hasBackend()&&!IS_APP){'));
+process.exit(fails?1:0);
+{const fs2=require('fs'),p2=require('path');const R=p2.join(__dirname,'..','..');const m2=JSON.parse(fs2.readFileSync(p2.join(R,'manifest.json'),'utf8'));const sw=fs2.readFileSync(p2.join(R,'sw.js'),'utf8');
+ const ok=(n,c)=>{console.log((c?'PASS ':'FAIL ')+n);if(!c)process.exitCode=1};
+ const files=m2.icons.map(i=>p2.join(R,i.src));
+ ok('the app icons are the new gate set (separate normal and maskable icons, all files exist)',m2.icons.length===4&&m2.icons.some(i=>i.purpose==='maskable'&&i.sizes==='512x512')&&m2.icons.some(i=>i.purpose==='any'&&i.sizes==='512x512')&&files.every(f=>fs2.existsSync(f)));
+ ok('the app has its own id (a new app identity picks up the new icon)',m2.id==='/solutions-PMS');
+ ok('the offline shell lists the new icons',sw.includes('/brand/pms/app-icon-192.png')&&sw.includes('/brand/pms/app-icon-512.png'));
+ const png=f=>{const b=fs2.readFileSync(f);return {w:b.readUInt32BE(16),h:b.readUInt32BE(20)}};
+ ok('icon sizes are right',png(files[0]).w===192&&png(files[1]).w===512&&png(files[2]).w===192&&png(files[3]).w===512);
+}
