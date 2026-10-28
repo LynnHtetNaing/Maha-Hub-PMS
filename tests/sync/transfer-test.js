@@ -1,0 +1,10 @@
+const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');
+const fail=m=>{console.log('FAIL',m);process.exit(1)};
+const a=src.indexOf('function moveToRoom('),b=src.indexOf('/* provider: change any field of a line',a);const t=src.slice(a,b);
+if(!/<select id="trF"[^>]*>\s*<option value="room" selected>Room#<\/option>/.test(t))fail('Room# is the default filter');
+for(const k of ['guest','folio','rsvn','cin','cout','all'])if(!t.includes('<option value="'+k+'"'))fail('filter option '+k);
+if(!t.includes("const k=$('#trF',m).value;")||!t.includes('match(b,q,k)'))fail('the search follows the chosen filter');
+if(!t.includes("$('#trF',m).onchange="))fail('changing the filter searches again');
+if(!/\[data-mode=dark\] #trPick \.fseg button\[aria-pressed=true\]\{background:color-mix/.test(src))fail('the chosen folio is a shaded tile in Dark');
+if(/\[data-mode=light\] #trPick/.test(src))fail('Light mode stays as it was');
+console.log('transfer pop-up ok');

@@ -1389,6 +1389,9 @@ html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.18)!important;b
 .syspage .usy{min-height:50px}.syspage button.usy{cursor:pointer}
 .panel.ucmp{overflow:hidden!important;border-radius:18px!important}.ucmp .scroll{border-radius:inherit}.ucmpwrap h3{margin:20px 0 8px!important}.ucmpwrap>p.sub{margin:0 0 6px}
 .ucmp .pm td:first-child .sub{display:block;text-align:left;margin:0}
+/* Transfer transaction (Dark): the chosen folio is a shaded, outlined tile, not just white text */
+html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true]{background:color-mix(in srgb,var(--a1) 38%,transparent)!important;border-color:var(--a1)!important;color:#fff!important;box-shadow:0 0 0 1px var(--a1) inset}
+html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true] small{color:#fff!important;font-weight:700}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -10002,12 +10005,17 @@ async function offsetLine(B,l,after){if(!fxGuard('fx.folio.offset'))return;if(!n
 function moveToRoom(B,l,after){if(!fxGuard('fx.folio.move'))return;if(!need('move'))return;if(!l){toast('Select a line first.');return}if(l.fixed||payLocked(l)){toast('This payment stays on the folio where it was posted.');return}if(lineBlock(B,l)){toast(lineBlock(B,l));return}
   let pick=null,pf=1;
   const m=modal('Transfer transaction',`<div class="trline"><b>${esc(l.code)} ${esc(l.desc)}</b> · ${m2(l.amt)} · from room ${esc(B.room||'')} folio ${l.folio}</div>
-   <div class="row gap mt"><input id="trQ" style="flex:1" placeholder="Guest name, room number, check-in or check-out date (dd/mm/yyyy) or billing folio number" autofocus autocomplete="off"></div>
-   <div class="sub mt">Only in-house guests are searched. Results show as soon as something matches.</div><div id="trR" class="mt"></div><div id="trPick"></div>`,{w:760});
+   <div class="row gap mt"><select id="trF" aria-label="Search by" style="flex:0 0 170px"><option value="room" selected>Room#</option><option value="guest">Guest name</option><option value="folio">Folio# (billing folio number)</option><option value="rsvn">RSVN#</option><option value="cin">Check-in date</option><option value="cout">Check-out date</option><option value="all">All of these</option></select><input id="trQ" style="flex:1" placeholder="Room number" autofocus autocomplete="off"></div>
+   <div class="sub mt">Only in-house guests are searched. Choose what you are searching by on the left. Results show as soon as something matches.</div><div id="trR" class="mt"></div><div id="trPick"></div>`,{w:760});
   const norm=s=>String(s||'').toLowerCase();
-  const match=(b,q)=>{const g=G(b.guestId),r=resOf(b);const hay=[gName(g),g.last+' '+g.first,g.first+' '+g.last,b.room,fd(b.checkinDate||b.arr),fd(b.dep),b.checkinDate||b.arr,b.dep,b.internal,r.no].map(norm).join(' | ');return q.split(/\s+/).every(w=>hay.includes(w))};
+  /* what each filter looks at; the same number can be a room, a folio or an RSVN, so the person says which one */
+  const FIELDS={room:b=>[b.room],guest:b=>{const g=G(b.guestId);return [gName(g),g.last+' '+g.first,g.first+' '+g.last]},folio:b=>[b.internal],rsvn:b=>[resOf(b).no],cin:b=>[fd(b.checkinDate||b.arr),b.checkinDate||b.arr],cout:b=>[fd(b.dep),b.dep]};
+  FIELDS.all=b=>[].concat(FIELDS.room(b),FIELDS.guest(b),FIELDS.folio(b),FIELDS.rsvn(b),FIELDS.cin(b),FIELDS.cout(b));
+  const PH={room:'Room number',guest:'Guest name',folio:'Billing folio number',rsvn:'RSVN number',cin:'Check-in date (dd/mm/yyyy)',cout:'Check-out date (dd/mm/yyyy)',all:'Guest name, room, folio, RSVN or a date (dd/mm/yyyy)'};
+  const match=(b,q,k)=>{const hay=FIELDS[k](b).map(norm).join(' | ');return q.split(/\s+/).every(w=>hay.includes(w))};
   const run=()=>{const q=norm($('#trQ',m).value.trim());const box=$('#trR',m);if(!q){box.innerHTML='';return}
-    const hits=allBookings().filter(b=>b.status==='inhouse'&&b.id!==B.id&&match(b,q)).slice(0,15);
+    const k=$('#trF',m).value;
+    const hits=allBookings().filter(b=>b.status==='inhouse'&&b.id!==B.id&&match(b,q,k)).sort((x,y)=>(FIELDS[k](y).some(v=>norm(v)===q)?1:0)-(FIELDS[k](x).some(v=>norm(v)===q)?1:0)).slice(0,15);
     box.innerHTML=hits.length?`<table class="grid"><tr><th>Room</th><th>Guest name</th><th>Check-in</th><th>Check-out</th><th>Folio#</th><th class="n">Balance</th></tr>${hits.map(b=>`<tr class="click ${pick&&pick.id===b.id?'on':''}" data-tp="${b.id}"><td><b>${esc(b.room)}</b></td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.checkinDate||b.arr)}</td><td>${fd(b.dep)}</td><td>${b.internal}</td><td class="n">${m2(bal(b))}</td></tr>`).join('')}</table>`:'<div class="empty">No in-house guest matches. Check the spelling, room or date.</div>';
     $$('[data-tp]',box).forEach(t=>t.onclick=()=>{pick=bookingById(t.dataset.tp);pf=1;run();paintPick()})};
   const paintPick=()=>{const bx=$('#trPick',m);if(!pick){bx.innerHTML='';return}
@@ -10018,6 +10026,7 @@ function moveToRoom(B,l,after){if(!fxGuard('fx.folio.move'))return;if(!need('mov
     $('#trGo',bx).onclick=()=>{if(!need('move'))return;const T=pick;if(bCur(T)!==bCur(B)){toast('This line is in '+bCur(B)+' and that room is in '+bCur(T)+'. A line cannot move between reservations in different currencies.');return}if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}B.lines=B.lines.filter(x=>x!==l);l.folio=pf;
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:`Transferred from room ${B.room} to room ${T.room} folio ${pf}`});T.lines.push(l);log(`Transferred line ${l.sys} from room ${B.room} to ${T.room} folio ${pf}`,B.id);folSel=null;closeModal(m);after();toast(`Moved to room ${T.room}, folio ${pf}`)}};
   $('#trQ',m).oninput=()=>{pick=null;paintPick();run()};
+  $('#trF',m).onchange=()=>{const q=$('#trQ',m);q.placeholder=PH[$('#trF',m).value];pick=null;paintPick();run();q.focus()};
 }
 
 /* provider: change any field of a line, even on closed days; every change recorded */
