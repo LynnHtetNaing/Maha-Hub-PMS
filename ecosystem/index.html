@@ -1383,7 +1383,7 @@ html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.16);border-colo
 .udet .usy.open{background:#1f9d6b!important;border-color:#1f9d6b!important;color:#fff!important}.udet .usy.shut{background:#d64545!important;border-color:#d64545!important;color:#fff!important}.udet .usy.soon{background:#d3dadf!important;border-color:#d3dadf!important;color:#5b6a74!important}
 html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.18)!important;border-color:#34d399!important;color:#7ef0bd!important}html[data-mode=dark] .udet .usy.shut{background:rgba(248,113,113,.18)!important;border-color:#f87171!important;color:#ffb4ad!important}html[data-mode=dark] .udet .usy.soon{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.14)!important;color:#93a6b5!important}
 @media (max-width:640px){.udet .usys{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-.eco-nosys{width:fit-content;max-width:100%;font-size:13px;font-weight:700;color:#8f1d19;background:rgba(255,255,255,.94);border-radius:10px;padding:7px 14px;text-align:center;margin:10px auto 0;box-shadow:0 2px 10px rgba(0,0,0,.25)}.eco-nosys[hidden]{display:none}
+.eco-nosys{font-size:13px;font-weight:700;line-height:1.35;color:#a02420;background:#fde8e6;border:1px solid #f3b9b4;border-radius:10px;padding:8px 12px;margin:8px 0}.eco-nosys[hidden]{display:none}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -8100,11 +8100,12 @@ function showLogin(msg){
     const f=!lgProvider&&name?findStaff(name):null;
     const h=f?f.h:ecoPreviewHotel();shapeHotel(h);
     const u=f?f.u:null;
-    if(lgTargetSys&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
+    const none=!!u&&!hotelSystems(h,u).some(s=>s.open);   /* nothing is open for this person: keep the sign-in box and explain, do not fall back to the system list */
+    if(lgTargetSys&&!none&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
     const cardsHtml=ecoAvailableCards(h,true,lgTargetSys,u);
     if(box.dataset.sig!==cardsHtml){box.innerHTML=cardsHtml;box.dataset.sig=cardsHtml;$$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b))}   /* rebuilt only when the cards really change: no flashing */
-    let nm=$('#lgNoSys');if(!nm){nm=document.createElement('p');nm.id='lgNoSys';nm.className='eco-nosys';box.parentNode.insertBefore(nm,box.nextSibling)}
-    const none=!!u&&!hotelSystems(h,u).some(s=>s.open);nm.hidden=!none;nm.textContent=none?'No system is open for this account yet. Ask the provider to open one in User Details & Permission.':'';
+    let nm=$('#lgNoSys');if(!nm){nm=document.createElement('p');nm.id='lgNoSys';nm.className='eco-nosys';const er=$('#lgErr');if(er&&er.parentNode)er.parentNode.insertBefore(nm,er)}
+    nm.hidden=!none;nm.textContent=none?'No system is open for this account yet. Ask the provider to open one in User Details & Permission.':'';
     applyPick();
   };
   const hint=()=>{
