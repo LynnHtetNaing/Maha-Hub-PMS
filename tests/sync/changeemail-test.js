@@ -81,7 +81,7 @@ const cut = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a +
   const guard = page.indexOf('DB.session.provider'), btn = perms.indexOf('data-ce=');
   T('Staff & permissions is only for the provider, and the page checks that first', page.indexOf('prov')>=0 && page.indexOf('DB.session.provider')>0 && page.indexOf('DB.session.provider')<200 && btn > 0);
   T('the Change email button only shows with the cloud sign-in on', /MahaAuth\.on\(\)\?'[^]{0,300}data-ce=/.test(perms));
-  T('the popup shows the masked address as a small grey line', /Email: <b data-em=/.test(perms) && /masked_email/.test(perms));
+  T('each staff row shows the masked address as a small grey line', /Email: <b data-em=/.test(perms) && /masked_email/.test(perms));
   T('the page never asks for a table directly (only the provider function)', !/\.from\('maha_trusted_devices'\)|\.from\('maha_login_identities'\)/.test(src));
   const sec = cut("VIEWS['prov.security']=el=>{", 'let _idle,_sessTouch');
   T('the Security Center has the sign-in panel', /id="siBox"/.test(sec) && /signinPanel\(/.test(sec));

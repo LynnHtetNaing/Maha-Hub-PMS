@@ -1363,6 +1363,9 @@ html .modal .mx:active{background:#c0392b;color:#fff}html[data-skin="modern"][da
 @media (max-width:640px){.udet .ubtn3{grid-template-columns:1fr}}
 html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important;border:0!important;box-shadow:none!important}
 .ulx{width:40px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
+.upage .pptbl td{vertical-align:middle;white-space:nowrap}.upage .pptbl tbody tr.pprow{height:auto}.upage .pptbl td.uacts{padding:6px 12px!important}
+.uact{display:flex;gap:6px;margin:3px 0}.uact .btn{height:30px;padding:0 10px;font-size:12px}
+.upage .posin{width:118px;height:30px}.upage .pptbl select{height:30px;max-width:118px}.upage .pptbl td,.upage .pptbl th{padding-left:8px!important;padding-right:8px!important;font-size:12.5px}.uact .btn{padding:0 8px;font-size:11.5px}.uact{gap:5px}.upage .pptbl td:first-child{max-width:170px}.upage .pptbl td:first-child .sub{display:block;margin:0}.uat{margin:2px 0 0!important;font-size:11px}.uns{display:block;font-size:11px;opacity:.75;margin-top:2px}.uns input{margin-right:4px}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -10861,14 +10864,25 @@ function ppMatches(u){
   return true;
 }
 const ppShown=u=>!u.deleted&&ppMatches(u);
-function ppRowHtml(u){
-  const st=ppState(u);
+function ppRowHtml(u,edit){
+  const st=ppState(u),prot=u.owner||u.protected;
   const chip=st==='cancelled'?'<span class="pcp red">Cancelled</span>':st==='inactive'?'<span class="pcp off">Inactive</span>':'<span class="pcp ok">Active</span>';
-  return '<tr class="pprow'+(st==='cancelled'?' ucan':'')+'" data-ppopen="'+u.id+'" tabindex="0"><td><b>'+esc(u.name)+'</b> <span class="sub">'+esc(u.username)+'</span></td><td>'+esc(u.position||u.role||'')+'</td><td>'+esc(u.department||'—')+'</td><td>'+esc(u.role||'')+'</td><td>'+esc(accessText(u))+'</td><td>'+chip+'</td></tr>';
+  let pos=esc(u.position||u.role||''),dep=esc(u.department||'—'),acts='',pre=esc(u.role||'');
+  if(edit&&st!=='cancelled'){
+    pos='<input class="posin" data-pos="'+u.id+'" value="'+esc(u.position||u.role)+'" list="posList" aria-label="Position">';
+    dep='<select data-dept="'+u.id+'" aria-label="Department"><option value="">—</option>'+DEPTS.map(d=>opt(d,d,u.department||'')).join('')+'</select>';
+    pre+='<label class="uns"><input type="checkbox" data-ns="'+u.id+'" '+(u.noShift?'checked':'')+'> no shift</label>';
+  }
+  if(edit){
+    acts=st==='cancelled'
+      ?'<div class="uact"><button type="button" class="btn sm gold" data-act="'+u.id+'">Re-activate</button>'+(prot?'':'<button type="button" class="btn sm red" data-udel="'+u.id+'">Delete</button>')+'</div>'
+      :'<div class="uact">'+(MahaAuth.on()?'<button type="button" class="btn sm ghost" data-ce="'+u.id+'">Change email</button>':'')+'<button type="button" class="btn sm ghost" data-rp="'+u.id+'">Reset password</button><button type="button" class="btn sm ghost" data-prx="'+u.id+'">Apply preset</button></div><div class="uact"><button type="button" class="btn sm ghost" data-term="'+u.id+'">Access term</button><button type="button" class="btn sm ghost" data-act="'+u.id+'">'+(u.active===false?'Activate':'Deactivate')+'</button>'+(prot?'':'<button type="button" class="btn sm red" data-cancel="'+u.id+'">Cancel user</button>')+'</div>';
+  }
+  return '<tr class="pprow'+(st==='cancelled'?' ucan':'')+'" data-ppopen="'+u.id+'" tabindex="0"><td><b>'+esc(u.name)+'</b> <span class="sub">'+esc(u.username)+'</span>'+(edit&&MahaAuth.on()?'<span class="sub">Email: <b data-em="'+esc(u.username)+'">…</b></span>':'')+'</td><td>'+pos+'</td><td>'+dep+'</td><td>'+pre+'</td><td>'+chip+'<div class="sub uat">'+esc(accessText(u))+'</div></td>'+(edit?'<td class="uacts">'+acts+'</td>':'')+'</tr>';
 }
-function ppListHtml(){
+function ppListHtml(edit){
   const rows=H.users.filter(ppShown);
-  return rows.length?rows.map(ppRowHtml).join(''):'<tr><td colspan="6" class="empty">No one matches. Change the search or the filters.</td></tr>';
+  return rows.length?rows.map(u=>ppRowHtml(u,edit)).join(''):'<tr><td colspan="'+(edit?6:5)+'" class="empty">No one matches. Change the search or the filters.</td></tr>';
 }
 function ppPermRows(u,edit){
   const known=new Set(PERM_GROUPS.flatMap(g=>g[1])),groups=PERM_GROUPS.map(g=>[g[0],g[1]]);
@@ -10881,28 +10895,15 @@ function ppSysRows(u,edit){
   return hotelSystems(H).map(s=>{const on=userHasSystem(u,s.kind);return '<div class="ppr"><span><b>'+esc(s.name)+'</b><small class="sub"> '+(s.hotel?'Open for this hotel':'Closed for this hotel')+'</small></span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-su="'+u.id+'" data-sk="'+s.kind+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join('');
 }
 function ppPopupHtml(u,edit){
-  const st=ppState(u),prot=u.owner||u.protected;
+  const st=ppState(u);
   const who='<div class="pph"><span class="ppav">'+esc(ppInitials(u.name))+'</span><div class="ppnm"><b>'+esc(u.name)+'</b><small>'+esc(u.username)+' · '+esc(u.position||u.role||'')+(u.department?' · '+esc(u.department):'')+'</small></div><span style="margin-left:auto">'+(st==='cancelled'?'<span class="pcp red">Cancelled</span>':st==='inactive'?'<span class="pcp off">Inactive</span>':'<span class="pcp ok">Active</span>')+'</span></div>';
-  if(st==='cancelled'){
-    if(!edit)return who+'<p class="sub">This person is cancelled and cannot sign in.'+(u.cancelled&&u.cancelled.reason?' Reason: '+esc(u.cancelled.reason)+'.':'')+'</p>';
-    return who+'<div class="ucx"><p class="sub">This person is cancelled and cannot sign in.'+(u.cancelled&&u.cancelled.reason?' Reason: '+esc(u.cancelled.reason)+'.':'')+'</p><div class="ubtn3 two"><button type="button" class="btn gold" data-act="'+u.id+'">Re-activate</button>'+(prot?'':'<button type="button" class="btn red" data-udel="'+u.id+'">Delete</button>')+'</div></div>';
-  }
-  let top='';
-  if(edit){
-    top='<div class="ubtn3">'+(MahaAuth.on()?'<button type="button" class="btn" data-ce="'+u.id+'">Change email</button>':'')+'<button type="button" class="btn" data-rp="'+u.id+'">Reset password</button><button type="button" class="btn" data-prx="1">Apply preset</button></div>'+
-      '<div class="upre" id="uPre" hidden><span class="sub">A preset is a ready-made set of Open / Locked permissions for a job. Pressing one sets everything for this person at once. You can still change single lines after.</span>'+Object.keys(PRESET).map(k=>'<button type="button" class="btn sm '+(u.role===k?'gold':'ghost')+'" data-prez="'+u.id+'" data-prn="'+esc(k)+'">'+esc(k)+'</button>').join('')+'</div>'+
-      '<div class="ubtn3"><button type="button" class="btn" data-term="'+u.id+'">Access term</button><button type="button" class="btn" data-act="'+u.id+'">'+(u.active===false?'Activate':'Deactivate')+'</button>'+(prot?'':'<button type="button" class="btn red" data-cancel="'+u.id+'">Cancel user</button>')+'</div>'+
-      '<div class="form2 ufact">'+fld('Position (type any title)','<input class="posin" data-pos="'+u.id+'" value="'+esc(u.position||u.role)+'" list="posList" aria-label="Position">')+fld('Department','<select data-dept="'+u.id+'"><option value="">—</option>'+DEPTS.map(d=>opt(d,d,u.department||'')).join('')+'</select>')+'</div>'+
-      '<label class="ppchk"><input type="checkbox" data-ns="'+u.id+'" '+(u.noShift?'checked':'')+'> <span>Signs in without opening a shift</span></label>'+
-      '<p class="sub">Preset now: <b>'+esc(u.role||'')+'</b> · Access term: <b>'+esc(accessText(u))+'</b>'+(MahaAuth.on()?' · Email: <b data-em="'+esc(u.username)+'">…</b>':'')+'</p>';
-  }else{
-    top='<p class="sub">Preset: <b>'+esc(u.role||'')+'</b> · Access term: <b>'+esc(accessText(u))+'</b>. This page only shows what the person has. The provider opens or locks access.</p>';
-  }
-  return who+top+'<div class="ppg">Hotel systems</div>'+ppSysRows(u,edit)+'<div class="ppg">Permissions</div><input type="search" class="ppfind" id="ppFind" placeholder="Find a permission" aria-label="Find a permission"><div id="ppPerms">'+ppPermRows(u,edit)+'</div>';
+  if(st==='cancelled')return who+'<p class="sub">This person is cancelled and cannot sign in.'+(u.cancelled&&u.cancelled.reason?' Reason: '+esc(u.cancelled.reason)+'.':'')+'</p>';
+  const note=edit?'':'<p class="sub">This page only shows what the person has. The provider opens or locks access.</p>';
+  return who+note+'<div class="ppg">Hotel systems</div>'+ppSysRows(u,edit)+'<div class="ppg">Permissions</div><input type="search" class="ppfind" id="ppFind" placeholder="Find a permission" aria-label="Find a permission"><div id="ppPerms">'+ppPermRows(u,edit)+'</div>';
 }
 function openUser(id,edit){
   const u0=H.users.find(x=>x.id===id);if(!u0)return;
-  const m=modal(esc(u0.name),'<div class="udet" id="udBody"></div>',{w:980});
+  const m=modal(esc(u0.name)+' – permissions','<div class="udet" id="udBody"></div>',{w:980});
   const body=m.querySelector('#udBody');
   const paint=()=>{
     const u=H.users.find(x=>x.id===id);if(!u||u.deleted){closeModal(m);return}
@@ -10910,16 +10911,7 @@ function openUser(id,edit){
     body.__after=()=>{render();paint()};
     const f=$('#ppFind',body);
     if(f)f.oninput=()=>{const q=f.value.trim().toLowerCase();$$('#ppPerms .ppr',body).forEach(r=>{r.hidden=!!q&&!r.dataset.pq.includes(q)});$$('#ppPerms .ppg',body).forEach(g=>{let n=g.nextElementSibling,any=false;while(n&&n.classList.contains('ppr')){if(!n.hidden)any=true;n=n.nextElementSibling}g.hidden=!any})};
-    if(!edit)return;
-    permBind(body);
-    const px=$('[data-prx]',body);if(px)px.onclick=()=>{const b=$('#uPre',body);b.hidden=!b.hidden};
-    $$('[data-prez]',body).forEach(b=>b.onclick=()=>{const t=H.users.find(x=>x.id===b.dataset.prez);if(!t)return;PU_preset(t,b.dataset.prn);body.__after()});
-    const d=$('[data-udel]',body);if(d)d.onclick=async()=>{
-      const t=H.users.find(x=>x.id===d.dataset.udel);if(!t||t.owner||t.protected)return;
-      if(!await dlgConfirm('Delete '+t.name+' ('+t.username+') for good? They disappear from this list. Only a record of them is kept, so past logs still show their name.',{yes:'Delete',danger:true}))return;
-      t.deleted={at:Date.now(),by:user().name};
-      H.amend.unshift({at:Date.now(),user:user().name,what:'User deleted – '+t.username,reason:'Delete user'});provLog('Deleted user '+t.username);saveDB();closeModal(m);render();toast(t.username+' is deleted. Only the record is kept.')};
-    if(MahaAuth.on()){const hc=H.code;SignInSec.load(ProvAdmin.call.bind(ProvAdmin),hc,true).then(()=>{$$('[data-em]',body).forEach(x=>{const r=SignInSec.find(hc,x.dataset.em);x.textContent=(r&&r.masked_email)||'—'})}).catch(()=>{})}
+    if(edit)permBind(body);
   };
   paint();
 }
@@ -10949,7 +10941,7 @@ function usersPage(el,prov){
     if(!H){el.innerHTML=pageHead('User Details & Permission')+'<div class="empty">Create a property first.</div>';return}
   }
   const cmpBtn='<button type="button" class="btn ghost" id="ppCmp">'+(PP.tab==='compare'?'Back to users':'Who can do what')+'</button>';
-  const intro=prov?'<p class="sub">Access for people at <b>'+esc(H.set.name)+'</b>. This is not part of the hotel file. Click a person to open or lock each system and permission. A closed hotel system stays hidden even when this person is Open.</p>':'<p class="sub">Click a person to see which systems and permissions are Open or Locked for them. Only the provider can change them.</p>';
+  const intro=prov?'<p class="sub">Access for people at <b>'+esc(H.set.name)+'</b>. This is not part of the hotel file. Use the buttons on each line for the account. Click a person to open or lock each system and permission. A closed hotel system stays hidden even when this person is Open.</p>':'<p class="sub">Click a person to see which systems and permissions are Open or Locked for them. Only the provider can change them.</p>';
   const head=pageHead('User Details & Permission',(prov?provHotelPicker():'')+cmpBtn+(prov?'<button class="btn gold" id="pvU">Add staff</button>':''));
   if(PP.tab==='compare'){
     el.innerHTML=head+cmpHtml();
@@ -10958,18 +10950,30 @@ function usersPage(el,prov){
   }else{
     const depts=[...new Set(H.users.map(u=>u.department).filter(Boolean))].sort();
     el.innerHTML=head+intro+'<div class="upage"><div class="ubar"><input type="search" id="ppQ" class="ppq" placeholder="Search name, username or position" value="'+esc(PP.q)+'" aria-label="Search"><select id="ppD" aria-label="Department"><option value="">All departments</option>'+depts.map(d=>opt(d,d,PP.dept)).join('')+'</select><select id="ppS" aria-label="Status">'+[['active','Active'],['inactive','Inactive'],['cancelled','Cancelled'],['all','All']].map(x=>opt(x[0],x[1],PP.status)).join('')+'</select><span class="sub ppcount" id="ppCount"></span></div>'+
-      '<div class="panel scroll pplist"><table class="grid pptbl"><thead><tr><th>Name</th><th>Position</th><th>Department</th><th>Preset</th><th>Access term</th><th>Status</th></tr></thead><tbody id="ppTb">'+ppListHtml()+'</tbody></table></div></div>'+
+      '<div class="panel scroll pplist"><table class="grid pptbl"><thead><tr><th>Name</th><th>Position</th><th>Department</th><th>Preset</th><th>Status / access term</th>'+(prov?'<th>Actions</th>':'')+'</tr></thead><tbody id="ppTb">'+ppListHtml(prov)+'</tbody></table></div></div>'+
       (prov?'<div class="panel mt" id="chAcc" hidden></div><datalist id="posList">'+POS_LIST.map(x=>'<option value="'+x+'">').join('')+'</datalist>':'');
     if(prov)bindPicker(el);
     $('#ppCmp',el).onclick=()=>{PP.tab='compare';render()};
     const count=()=>{const c=$('#ppCount',el);if(c)c.textContent=H.users.filter(ppShown).length+' of '+H.users.filter(u=>!u.deleted).length+' people'};
-    const bindRows=()=>{$$('[data-ppopen]',el).forEach(tr=>{const go=()=>openUser(tr.dataset.ppopen,prov);tr.onclick=go;tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}}})};
-    const paintList=()=>{$('#ppTb',el).innerHTML=ppListHtml();count();bindRows()};
+    const bindRows=()=>{
+      $$('[data-ppopen]',el).forEach(tr=>{const go=()=>openUser(tr.dataset.ppopen,prov);tr.onclick=e=>{if(e.target.closest('button,input,select,label,a'))return;go()};tr.onkeydown=e=>{if(e.target!==tr)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}}});
+      if(!prov)return;
+      const tb=$('#ppTb',el);permBind(tb);
+      $$('[data-prx]',tb).forEach(b=>b.onclick=e=>{e.stopPropagation();const u=H.users.find(x=>x.id===b.dataset.prx);if(!u)return;
+        const p=tbPop(b,'<div class="ppmenu"><div class="ppmh">Apply preset to '+esc(u.name)+'</div><p class="sub" style="margin:2px 10px 6px;max-width:260px">A preset is a ready-made set of Open / Locked permissions for a job. It sets everything for this person at once. You can still change single lines after.</p>'+Object.keys(PRESET).map(k=>'<button type="button" data-prez="'+esc(k)+'">'+esc(k)+(u.role===k?' ✓':'')+'</button>').join('')+'</div>');
+        $$('[data-prez]',p).forEach(x=>x.onclick=()=>{PU_preset(u,x.dataset.prez);p.hidden=true;render()})});
+      $$('[data-udel]',tb).forEach(d=>d.onclick=async()=>{
+        const t=H.users.find(x=>x.id===d.dataset.udel);if(!t||t.owner||t.protected)return;
+        if(!await dlgConfirm('Delete '+t.name+' ('+t.username+') for good? They disappear from this list. Only a record of them is kept, so past logs still show their name.',{yes:'Delete',danger:true}))return;
+        t.deleted={at:Date.now(),by:user().name};
+        H.amend.unshift({at:Date.now(),user:user().name,what:'User deleted – '+t.username,reason:'Delete user'});provLog('Deleted user '+t.username);saveDB();render();toast(t.username+' is deleted. Only the record is kept.')})};
+    const paintList=()=>{$('#ppTb',el).innerHTML=ppListHtml(prov);count();bindRows()};
     count();bindRows();
     $('#ppQ',el).oninput=e=>{PP.q=e.target.value;paintList()};
     $('#ppD',el).onchange=e=>{PP.dept=e.target.value;paintList()};
     $('#ppS',el).onchange=e=>{PP.status=e.target.value;paintList()};
     if(prov)hotelAccessPanel($('#chAcc',el));
+    if(prov&&MahaAuth.on()){const hc=H.code;SignInSec.load(ProvAdmin.call.bind(ProvAdmin),hc,true).then(()=>{$$('[data-em]',el).forEach(x=>{const r=SignInSec.find(hc,x.dataset.em);x.textContent=(r&&r.masked_email)||'—'})}).catch(()=>{})}
   }
   if(prov){
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});

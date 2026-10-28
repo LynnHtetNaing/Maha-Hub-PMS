@@ -12,8 +12,11 @@ if(!b.includes("pageHead('User Details & Permission'"))fail('page name');
 for(const m of ['id="ppTb"','data-ppopen','function openUser(','modal(esc(u0.name)',"{w:980}",'id="ppFind"'])if(!b.includes(m))fail('missing '+m);
 if(b.includes('data-ppmore')||b.includes('ppMenuHtml'))fail('the 3-dot menu is gone');
 // buttons in the agreed order: row 1 and row 2
-const r1=b.indexOf('data-ce="'),r2=b.indexOf('data-rp="',r1),r3=b.indexOf('data-prx="1"',r2),r4=b.indexOf('data-term="',r3),r5=b.indexOf('data-act="',r4),r6=b.indexOf('data-cancel="',r5);
+const r1=b.indexOf('data-ce="'),r2=b.indexOf('data-rp="',r1),r3=b.indexOf('data-prx="',r2),r4=b.indexOf('data-term="',r3),r5=b.indexOf('data-act="',r4),r6=b.indexOf('data-cancel="',r5);
 if(!(r1>0&&r1<r2&&r2<r3&&r3<r4&&r4<r5&&r5<r6))fail('button order: Change email, Reset password, Apply preset / Access term, Deactivate, Cancel');
+// the pop-up is only permissions: no account buttons inside it
+const pop=b.slice(b.indexOf('function ppPopupHtml('),b.indexOf('function cmpHtml('));
+for(const k of ['data-ce=','data-rp=','data-prx=','data-term=','data-cancel=','data-udel=','data-act='])if(pop.includes(k))fail('pop-up must only hold permissions, found '+k);
 // Open / Locked buttons for the provider, only labels for the hotel
 if(!/class="tog sm '\+\(on\?'on':''\)\+'" data-pu=/.test(b))fail('Open / Locked buttons');
 if(/type="checkbox"[^>]*data-pu/.test(b))fail('permissions must not be switches');
