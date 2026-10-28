@@ -8,3 +8,8 @@ if(!t.includes("$('#trF',m).onchange="))fail('changing the filter searches again
 if(!/\[data-mode=dark\] #trPick \.fseg button\[aria-pressed=true\]\{background:color-mix/.test(src))fail('the chosen folio is a shaded tile in Dark');
 if(/\[data-mode=light\] #trPick/.test(src))fail('Light mode stays as it was');
 console.log('transfer pop-up ok');
+{const s2=fs.readFileSync(process.argv[2],'utf8');
+ if(!s2.includes('<div class="chks nfg">')||!s2.includes("s==='All'?' nfall':''"))fail('notification boxes: grid with All on its own line');
+ if(!/\.chks\.nfg\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/.test(s2)||!/\.chks\.nfg \.nfall\{grid-column:1\/-1\}/.test(s2))fail('4 boxes per line, All on a full line');
+ if(!s2.includes("$$('.chks input:checked',m)"))fail('saving still reads the ticked boxes');
+ console.log('notification boxes ok');}

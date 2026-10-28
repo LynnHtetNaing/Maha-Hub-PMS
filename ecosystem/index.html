@@ -1392,6 +1392,9 @@ html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.18)!important;b
 /* Transfer transaction (Dark): the chosen folio is a shaded, outlined tile, not just white text */
 html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true]{background:color-mix(in srgb,var(--a1) 38%,transparent)!important;border-color:var(--a1)!important;color:#fff!important;box-shadow:0 0 0 1px var(--a1) inset}
 html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true] small{color:#fff!important;font-weight:700}
+/* New notification: the Show-in boxes sit in a grid, 4 to a line, All on a line of its own */
+.chks.nfg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;align-items:center}.chks.nfg .chk{display:flex;align-items:center;gap:8px;margin:0;white-space:nowrap}.chks.nfg .chk input{flex:none;margin:0}.chks.nfg .nfall{grid-column:1/-1}
+@media (max-width:520px){.chks.nfg{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -8322,9 +8325,9 @@ function showNotifs(res,section){const list=notifsFor(res,section);if(!list.leng
 const NSECTIONS=['Reservation','Check-in','Front desk','Billing / Folio','Cashier','Housekeeping','Check-out','Guest inquiry','All'];
 function notifForm(res){if(!need('notif'))return;
   const m=modal('New notification',`<div class="form1">${fld('Message',`<textarea id="nfText" rows="4" autofocus></textarea>`)}
-  <div class="f"><span>Show in (choose one, several or All)</span><div class="chks">${NSECTIONS.map(s=>`<label class="chk"><input type="checkbox" value="${s}" ${s==='Reservation'?'checked':''}> ${s}</label>`).join('')}</div></div>
+  <div class="f"><span>Show in (choose one, several or All)</span><div class="chks nfg">${NSECTIONS.map(s=>`<label class="chk${s==='All'?' nfall':''}"><input type="checkbox" value="${s}" ${s==='Reservation'?'checked':''}> <span>${s}</span></label>`).join('')}</div></div>
   <div class="err" id="nfErr"></div><div class="btns"><button class="btn gold" id="nfSave">Save notification</button><button class="btn ghost" id="nfX">Cancel</button></div></div>
-  ${res.notifs.length?`<h3 class="mt">On this reservation</h3>${res.notifs.map(n=>`<div class="notif ${n.done?'done':''}"><div class="nfrom">From : ${esc(n.from)} · ${esc(n.sections.join(', '))}${n.done?' · done by '+esc(n.done.user):''}</div><div class="ntext">${esc(n.text)}</div></div>`).join('')}`:''}`,{w:560});
+  ${res.notifs.length?`<h3 class="mt">On this reservation</h3>${res.notifs.map(n=>`<div class="notif ${n.done?'done':''}"><div class="nfrom">From : ${esc(n.from)} · ${esc(n.sections.join(', '))}${n.done?' · done by '+esc(n.done.user):''}</div><div class="ntext">${esc(n.text)}</div></div>`).join('')}`:''}`,{w:640});
   $('#nfX',m).onclick=()=>closeModal(m);
   $('#nfSave',m).onclick=()=>{const t=$('#nfText',m).value.trim(),secs=$$('.chks input:checked',m).map(c=>c.value);
     if(!t){$('#nfErr',m).textContent='Write the message first.';return}if(!secs.length){$('#nfErr',m).textContent='Choose at least one section.';return}
