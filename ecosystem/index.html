@@ -9595,7 +9595,7 @@ function folioPane(el,id,onRe){
     });
     const l=curLine(),blocked=!l||l.fixed||frozen(l)||l.settled||payLocked(l)||folLocked(B,l.folio);
     const set=(id,off)=>{const b=$('#'+id,el);if(b)b.disabled=!!off};
-    set('fMove',closed||!can('move')||blocked);
+    {const fa=actNow(),anyMovable=!folLocked(B,fa)&&B.lines.some(x=>x.folio===fa&&!x.fixed&&!frozen(x)&&!x.settled&&!payLocked(x));set('fMove',closed||!(can('move')||reqFlowOn())||(blocked&&!anyMovable))}
     set('fSplit',closed||!can('post')||!l||l.fixed||frozen(l)||l.settled||payLocked(l));
     set('fOff',closed||!can('corrpost')||blocked);
   };
@@ -9618,7 +9618,7 @@ function folioPane(el,id,onRe){
   $('#fPost',el).onclick=()=>postModal(B,reopen,actNow());$('#fPay',el).onclick=()=>payModal(B,reopen,actNow(),'pay');$('#fAdv',el).onclick=()=>payModal(B,reopen,actNow(),'adv');
   $('#fSplit',el).onclick=()=>splitLine(B,curLine(),reopen);$('#fOff',el).onclick=()=>offsetLine(B,curLine(),reopen);
   $('#fLock',el).onclick=async ()=>{if(!need('post'))return;const a=actNow();B.locks=B.locks||{};const on=!B.locks[a];if(on&&!await dlgConfirm(`Lock Folio ${a}? Nothing can be posted, paid, moved, split or changed in it until it is unlocked.`))return;B.locks[a]=on;histB(B,(on?'Locked':'Unlocked')+' folio '+a);log(`${on?'Locked':'Unlocked'} folio ${a} RSVN ${r.no}`,B.id);reopen();toast(on?`Folio ${a} locked`:`Folio ${a} unlocked`)};
-  $('#fMove',el).onclick=()=>moveToRoom(B,curLine(),reopen);
+  $('#fMove',el).onclick=()=>moveToRoom(B,curLine(),reopen,actNow());
   $('#fDet',el).onclick=()=>{const m=modal('Guest information','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=reopen;reservationScreen($('#rdB',m),r,B,{compact:false})};
   $('#fRate',el).onclick=()=>advanceRate(B,reopen);$('#fInv',el).onclick=()=>invoiceChooser(B);$('#fReg',el).onclick=()=>{if(need('print'))printRegCard(B)};
   $('#fNot',el).onclick=()=>notifForm(r);$('#fLog',el).onclick=()=>folioLogs(B);
@@ -10054,12 +10054,33 @@ async function offsetLine(B,l,after){if(!fxGuard('fx.folio.offset'))return;if(!n
   l.offset=true;l.offsetAt=Date.now();l.offsetBy=user().name;l.offsetWhy=why.trim();
   l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:'Offset (frozen): '+why.trim()});log(`Offset (frozen) line ${l.sys} ${l.code} ${m2(l.amt)} RSVN ${resOf(B).no}: ${why.trim()}`,B.id);folSel=null;after();toast('Offset done. The transaction is now frozen.')}
 
-/* ---------- transfer a line to another in-house room: search first (7.28, 7.54) ---------- */
-function moveToRoom(B,l,after){if(!fxGuard('fx.folio.move'))return;if(!need('move'))return;if(!l){toast('Select a line first.');return}if(l.fixed||payLocked(l)){toast('This payment stays on the folio where it was posted.');return}if(lineBlock(B,l)){toast(lineBlock(B,l));return}
-  let pick=null,pf=1;
-  const m=modal('Transfer transaction',`<div class="trline"><b>${esc(l.code)} ${esc(l.desc)}</b> · ${m2(l.amt)} · from room ${esc(B.room||'')} folio ${l.folio}</div>
+/* ---------- transfer: one line or a whole folio, to another in-house room or to another folio of the same room ---------- */
+/* the move itself; the pop-up and an approved request both use it */
+function applyMoveLines(B,T,lines,pf,by,note){const sh=curShift(),same=T.id===B.id;
+  lines.forEach(l=>{const from=l.folio;l.hist.push({at:Date.now(),user:by,shift:sh?sh.name:'',a:(same?`Moved from folio ${from} to folio ${pf}`:`Transferred from room ${B.room} to room ${T.room} folio ${pf}`)+(note||'')});
+    if(!same)B.lines=B.lines.filter(x=>x!==l);
+    l.folio=pf;if(!same)T.lines.push(l)});
+  const n=lines.length,r=resOf(B);
+  if(same)log(n===1?`Moved line ${lines[0].sys} to folio ${pf} RSVN ${r.no}`:`Moved ${n} lines to folio ${pf} RSVN ${r.no}`,B.id);
+  else log(n===1?`Transferred line ${lines[0].sys} from room ${B.room} to ${T.room} folio ${pf}`:`Transferred ${n} lines from room ${B.room} to ${T.room} folio ${pf}`,B.id)}
+function moveToRoom(B,l,after,folio){if(!fxGuard('fx.folio.move'))return;
+  const asReq=!can('move')&&reqFlowOn();   /* no permission, but the hotel lets people send a request: the function fills in and goes to approval */
+  if(!need(asReq?null:'move'))return;
+  const srcF=l?l.folio:(folio||1);
+  const movable=x=>!x.fixed&&!payLocked(x)&&!lineBlock(B,x);
+  const folLines=()=>B.lines.filter(x=>x.folio===srcF&&movable(x));
+  if(l&&!movable(l)&&!folLines().length){toast(lineBlock(B,l)||'This payment stays on the folio where it was posted.');return}
+  if(!l&&!folLines().length){toast('Folio '+srcF+' has no line that can move.');return}
+  if(folLocked(B,srcF)){toast(`Folio ${srcF} is locked. Unlock it first.`);return}
+  let mode=(l&&movable(l))?'line':'folio',pick=null,pf=1;
+  const moveSet=()=>mode==='line'?[l]:folLines();
+  const m=modal('Transfer transaction',`<div class="trline" id="trLine"></div>
+   <div class="segs mt" id="trScope" ${l&&movable(l)?'':'style="display:none"'}><button type="button" data-sc="line" aria-pressed="true">This line</button><button type="button" data-sc="folio" aria-pressed="false">Whole folio ${srcF}</button></div>
    <div class="row gap mt"><select id="trF" aria-label="Search by" style="flex:0 0 170px"><option value="room" selected>Room#</option><option value="guest">Guest name</option><option value="folio">Folio# (billing folio number)</option><option value="rsvn">RSVN#</option><option value="cin">Check-in date</option><option value="cout">Check-out date</option><option value="all">All of these</option></select><input id="trQ" style="flex:1" placeholder="Room number" autofocus autocomplete="off"></div>
-   <div class="sub mt">Only in-house guests are searched. Choose what you are searching by on the left. Results show as soon as something matches.</div><div id="trR" class="mt"></div><div id="trPick"></div>`,{w:760});
+   <div class="sub mt">Only in-house guests are searched. This room is included, so you can move to another folio of the same room. Results show as soon as something matches.${asReq?' <b>You will send this as a request for approval.</b>':''}</div><div id="trR" class="mt"></div><div id="trPick"></div>`,{w:760});
+  const paintHead=()=>{const set=moveSet(),tot=r2(sum(set,x=>x.amt)),stay=B.lines.filter(x=>x.folio===srcF).length-folLines().length;
+    $('#trLine',m).innerHTML=mode==='line'?`<b>${esc(l.code)} ${esc(l.desc)}</b> · ${m2(l.amt)} · from room ${esc(B.room||'')} folio ${l.folio}`:`<b>Whole folio ${srcF}</b> · ${set.length} line${set.length===1?'':'s'} · ${m2(tot)} · from room ${esc(B.room||'')}${stay>0?' · '+stay+' payment / frozen line'+(stay===1?'':'s')+' stay on this folio':''}`;
+    $$('[data-sc]',m).forEach(b=>b.setAttribute('aria-pressed',b.dataset.sc===mode?'true':'false'))};
   const norm=s=>String(s||'').toLowerCase();
   /* what each filter looks at; the same number can be a room, a folio or an RSVN, so the person says which one */
   const FIELDS={room:b=>[b.room],guest:b=>{const g=G(b.guestId);return [gName(g),g.last+' '+g.first,g.first+' '+g.last]},folio:b=>[b.internal],rsvn:b=>[resOf(b).no],cin:b=>[fd(b.checkinDate||b.arr),b.checkinDate||b.arr],cout:b=>[fd(b.dep),b.dep]};
@@ -10068,18 +10089,27 @@ function moveToRoom(B,l,after){if(!fxGuard('fx.folio.move'))return;if(!need('mov
   const match=(b,q,k)=>{const hay=FIELDS[k](b).map(norm).join(' | ');return q.split(/\s+/).every(w=>hay.includes(w))};
   const run=()=>{const q=norm($('#trQ',m).value.trim());const box=$('#trR',m);if(!q){box.innerHTML='';return}
     const k=$('#trF',m).value;
-    const hits=allBookings().filter(b=>b.status==='inhouse'&&b.id!==B.id&&match(b,q,k)).sort((x,y)=>(FIELDS[k](y).some(v=>norm(v)===q)?1:0)-(FIELDS[k](x).some(v=>norm(v)===q)?1:0)).slice(0,15);
-    box.innerHTML=hits.length?`<table class="grid"><tr><th>Room</th><th>Guest name</th><th>Check-in</th><th>Check-out</th><th>Folio#</th><th class="n">Balance</th></tr>${hits.map(b=>`<tr class="click ${pick&&pick.id===b.id?'on':''}" data-tp="${b.id}"><td><b>${esc(b.room)}</b></td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.checkinDate||b.arr)}</td><td>${fd(b.dep)}</td><td>${b.internal}</td><td class="n">${m2(bal(b))}</td></tr>`).join('')}</table>`:'<div class="empty">No in-house guest matches. Check the spelling, room or date.</div>';
-    $$('[data-tp]',box).forEach(t=>t.onclick=()=>{pick=bookingById(t.dataset.tp);pf=1;run();paintPick()})};
+    const hits=allBookings().filter(b=>b.status==='inhouse'&&match(b,q,k)).sort((x,y)=>(FIELDS[k](y).some(v=>norm(v)===q)?1:0)-(FIELDS[k](x).some(v=>norm(v)===q)?1:0)).slice(0,15);
+    box.innerHTML=hits.length?`<table class="grid"><tr><th>Room</th><th>Guest name</th><th>Check-in</th><th>Check-out</th><th>Folio#</th><th class="n">Balance</th></tr>${hits.map(b=>`<tr class="click ${pick&&pick.id===b.id?'on':''}" data-tp="${b.id}"><td><b>${esc(b.room)}</b>${b.id===B.id?' <span class="sub">(this room)</span>':''}</td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.checkinDate||b.arr)}</td><td>${fd(b.dep)}</td><td>${b.internal}</td><td class="n">${m2(bal(b))}</td></tr>`).join('')}</table>`:'<div class="empty">No in-house guest matches.</div>';
+    $$('[data-tp]',box).forEach(t=>t.onclick=()=>{pick=bookingById(t.dataset.tp);pf=1;if(pick.id===B.id&&pf===srcF)pf=srcF===1?2:1;run();paintPick()})};
   const paintPick=()=>{const bx=$('#trPick',m);if(!pick){bx.innerHTML='';return}
-    bx.innerHTML=`<div class="panel pad mt"><div><b>Transfer to room ${esc(pick.room)}</b> · ${esc(gName(G(pick.guestId)))} · folio# ${pick.internal}</div>
-     <div class="segs fseg mt">${[1,2,3,4].map(x=>`<button type="button" data-tf="${x}" aria-pressed="${x===pf}">Folio ${x}<small>${m2(folioBal(pick,x))}</small></button>`).join('')}</div>
-     <div class="btns end"><button class="btn ghost" id="trX">Cancel</button><button class="btn gold" id="trGo">Transfer</button></div></div>`;
-    $$('[data-tf]',bx).forEach(b=>b.onclick=()=>{pf=+b.dataset.tf;paintPick()});$('#trX',bx).onclick=()=>closeModal(m);
-    $('#trGo',bx).onclick=()=>{if(!need('move'))return;const T=pick;if(bCur(T)!==bCur(B)){toast('This line is in '+bCur(B)+' and that room is in '+bCur(T)+'. A line cannot move between reservations in different currencies.');return}if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}B.lines=B.lines.filter(x=>x!==l);l.folio=pf;
-      l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:`Transferred from room ${B.room} to room ${T.room} folio ${pf}`});T.lines.push(l);log(`Transferred line ${l.sys} from room ${B.room} to ${T.room} folio ${pf}`,B.id);folSel=null;closeModal(m);after();toast(`Moved to room ${T.room}, folio ${pf}`)}};
+    const same=pick.id===B.id,set=moveSet();
+    bx.innerHTML=`<div class="panel pad mt"><div><b>Transfer to ${same?'another folio of this room':'room '+esc(pick.room)}</b> · ${esc(gName(G(pick.guestId)))} · folio# ${pick.internal} · ${set.length} line${set.length===1?'':'s'}</div>
+     <div class="segs fseg mt">${[1,2,3,4].map(x=>{const off=same&&x===srcF;return `<button type="button" data-tf="${x}" aria-pressed="${x===pf}" ${off?'disabled title="This is the folio the lines are on now"':''}>Folio ${x}<small>${m2(folioBal(pick,x))}</small></button>`}).join('')}</div>
+     <div class="btns end"><button class="btn ghost" id="trX">Cancel</button><button class="btn gold" id="trGo">${asReq?'Send request':'Transfer'}</button></div></div>`;
+    $$('[data-tf]',bx).forEach(b=>b.onclick=()=>{if(b.disabled)return;pf=+b.dataset.tf;paintPick()});$('#trX',bx).onclick=()=>closeModal(m);
+    $('#trGo',bx).onclick=()=>{if(!asReq&&!need('move'))return;const T=pick,set2=moveSet();
+      if(!set2.length){toast('There is nothing to move.');return}
+      if(T.id!==B.id&&bCur(T)!==bCur(B)){toast('These lines are in '+bCur(B)+' and that room is in '+bCur(T)+'. A line cannot move between reservations in different currencies.');return}
+      if(T.id===B.id&&pf===srcF){toast('Choose a different folio.');return}
+      if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}
+      const tot=r2(sum(set2,x=>x.amt));
+      if(asReq){queueApproval({action:'move',kind:'move',noPerm:true,bookingId:B.id,toId:T.id,toFolio:pf,fromFolio:srcF,lineIds:set2.map(x=>x.id),amt:Math.abs(tot),title:`Transfer ${set2.length} line${set2.length===1?'':'s'} (${m2(tot)}) from room ${B.room} folio ${srcF} to ${T.id===B.id?'folio '+pf+' of the same room':'room '+T.room+' folio '+pf}`});askNotice('Transfer');closeModal(m);after();return}
+      applyMoveLines(B,T,set2,pf,user().name);folSel=null;closeModal(m);after();toast(T.id===B.id?`Moved ${set2.length} line${set2.length===1?'':'s'} to folio ${pf}`:`Moved to room ${T.room}, folio ${pf}`)}};
+  $$('[data-sc]',m).forEach(b=>b.onclick=()=>{mode=b.dataset.sc;if(pick&&pick.id===B.id&&pf===srcF)pf=srcF===1?2:1;paintHead();paintPick()});
   $('#trQ',m).oninput=()=>{pick=null;paintPick();run()};
   $('#trF',m).onchange=()=>{const q=$('#trQ',m);q.placeholder=PH[$('#trF',m).value];pick=null;paintPick();run();q.focus()};
+  paintHead();
 }
 
 /* provider: change any field of a line, even on closed days; every change recorded */
@@ -13164,6 +13194,12 @@ function applyVoid(B,l,why,asU){const fol=B.lines.some(x=>x.group===l.group&&x.k
   if(typeof refreshCityItems==='function')refreshCityItems(H);log(`Void payment ${l.method||l.desc} ${m2(Math.abs(l.amt))} RSVN ${resOf(B).no}`,B.id)}
 function applyApproval(ap){const B=bookingById(ap.bookingId);if(!B){toast('That booking is no longer on file.');return false}
   const asU=ap.by||user().name,ok=' (approved by '+user().name+')';
+  if(ap.action==='move'){const T=bookingById(ap.toId);if(!T){toast('That room is no longer on file.');return false}
+    const lines=(ap.lineIds||[]).map(id=>B.lines.find(x=>x.id===id)).filter(Boolean);
+    if(lines.length!==(ap.lineIds||[]).length||lines.some(x=>x.folio!==ap.fromFolio||x.fixed||payLocked(x)||lineBlock(B,x))){toast('The folio changed. Those lines can no longer be moved.');return false}
+    if(T.id!==B.id&&bCur(T)!==bCur(B)){toast('The two rooms are in different currencies.');return false}
+    if(folLocked(T,ap.toFolio)){toast('Folio '+ap.toFolio+' is locked.');return false}
+    applyMoveLines(B,T,lines,ap.toFolio,asU,ok);return true}
   if(ap.action==='void'){const l=B.lines.find(x=>x.id===ap.lineId);if(!l){toast('That payment line is gone.');return false}if(B.lines.some(x=>x.group===l.group&&x.kind==='corrpay')){toast('This payment is already corrected.');return false}applyVoid(B,l,(ap.reason||ap.title)+ok,asU);return true}
   if(ap.action==='refund'){if(curShift()&&curShift().noShift){toast('A refund is approved by someone who signs in with a shift.');return false}postPayment(H,B,ap.code,ap.amt,{bd:H.set.bd,shift:curShift(),user:asU,folio:ap.folio||1,remark:(ap.remark||'')+ok,desc:ap.desc||'',ref:ap.ref||''});log('Approved refund '+m2(ap.amt)+' RSVN '+resOf(B).no,B.id);return true}
   if(ap.action==='rebate'){addLine(H,B,{bd:ap.bd||H.set.bd,shift:curShift(),user:asU,folio:ap.folio||1,code:ap.code,desc:ap.desc,ref:ap.ref||'',amt:ap.amt,kind:'post',remark:(ap.remark||'')+ok,vat:!!ap.vat});log('Approved rebate '+ap.code+' RSVN '+resOf(B).no,B.id);return true}
@@ -13598,7 +13634,7 @@ VIEWS['prov.security']=el=>{
     const closed=(H.shifts||[]).filter(s=>s.status==='closed').slice(-12).reverse();
     box.innerHTML=`${MahaAuth.on()?'<div class="panel" id="siBox"></div>':''}<div class="cols2${MahaAuth.on()?' mt':''}"><div class="panel pad"><h3>Auto-lock</h3><p class="sub">After this many quiet minutes the screen asks for the password. The shift stays open. 0 turns it off.</p>
       ${fld('Minutes',`<input id="secIdle" class="n" value="${H.set.idleMin==null?15:H.set.idleMin}">`)}<button class="btn" id="secIdleS">Save</button>
-      <h3 class="mt">Approvals for this hotel</h3><label class="chk"><input type="checkbox" data-ap="requests" ${reqFlowOn()?'checked':''}> <b>Staff without the permission may send a request</b> (Refund, Rebate, Adjust (+), Correct payment) to a HOD, manager or owner</label><p class="sub">${(H.users||[]).some(u=>u.active!==false&&!u.cancelled&&(u.perms||[]).includes('approve'))?'Off: those people are blocked with the message "You are not eligible to do this function".':'<b style="color:#b3261e">Nobody in this hotel has the Approve permission yet.</b> Give it to a HOD, manager or owner before you switch this on.'}</p><p class="sub">People who do have the permission can also be made to ask for approval for these:</p><div class="featgrid">${[['vatRebate','VAT rebate'],['nonVatRebate','Non-VAT rebate'],['refund','Refund'],['voidPay','Void payment']].map(([k,l])=>`<label class="chk"><input type="checkbox" data-ap="${k}" ${needsApproval(k)?'checked':''}> ${l}</label>`).join('')}</div><div class="form2 mt">${fld('HOD can approve up to',`<input id="apHod" class="n" value="${(H.set.approvalLimits||{}).hod}">`)}${fld('Manager can approve up to',`<input id="apMgr" class="n" value="${(H.set.approvalLimits||{}).mgr}">`)}</div><p class="sub">Amounts in the hotel currency. 0 means no limit. The owner and the provider have no limit. A request cannot be approved by the person who made it. Larger amounts show in the provider’s Approvals inbox.</p><button class="btn mt" id="secAp">Save approvals</button></div>
+      <h3 class="mt">Approvals for this hotel</h3><label class="chk"><input type="checkbox" data-ap="requests" ${reqFlowOn()?'checked':''}> <b>Staff without the permission may send a request</b> (Refund, Rebate, Adjust (+), Correct payment, Transfer) to a HOD, manager or owner</label><p class="sub">${(H.users||[]).some(u=>u.active!==false&&!u.cancelled&&(u.perms||[]).includes('approve'))?'Off: those people are blocked with the message "You are not eligible to do this function".':'<b style="color:#b3261e">Nobody in this hotel has the Approve permission yet.</b> Give it to a HOD, manager or owner before you switch this on.'}</p><p class="sub">People who do have the permission can also be made to ask for approval for these:</p><div class="featgrid">${[['vatRebate','VAT rebate'],['nonVatRebate','Non-VAT rebate'],['refund','Refund'],['voidPay','Void payment']].map(([k,l])=>`<label class="chk"><input type="checkbox" data-ap="${k}" ${needsApproval(k)?'checked':''}> ${l}</label>`).join('')}</div><div class="form2 mt">${fld('HOD can approve up to',`<input id="apHod" class="n" value="${(H.set.approvalLimits||{}).hod}">`)}${fld('Manager can approve up to',`<input id="apMgr" class="n" value="${(H.set.approvalLimits||{}).mgr}">`)}</div><p class="sub">Amounts in the hotel currency. 0 means no limit. The owner and the provider have no limit. A request cannot be approved by the person who made it. Larger amounts show in the provider’s Approvals inbox.</p><button class="btn mt" id="secAp">Save approvals</button></div>
       <div class="panel pad"><h3>Owner account</h3>${own.map(u=>`<p><b>${esc(u.username)}</b> · ${esc(u.position||u.role)} · protected</p>`).join('')||'<p class="sub">No owner is marked yet. The first manager is protected when the hotel file is opened.</p>'}
       <p class="sub">A manager cannot deactivate this account. It stays on the hotel.</p>
       <h3 class="mt">Closed shifts</h3><table class="grid"><tr><th>User</th><th>Shift</th><th>Date</th><th></th></tr>${closed.map(s=>`<tr><td>${esc(s.userName)}</td><td>${esc(s.name)}</td><td>${fd(s.bd)}</td><td>${s.reopenOk?'<span class="pill g">May open again</span>':`<button class="btn sm" data-re="${s.id}">Allow again</button>`}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No closed shift on this file yet.</td></tr>'}</table></div></div>
