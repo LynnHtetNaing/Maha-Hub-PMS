@@ -65,3 +65,10 @@ console.log('staff page ok');
  for(const k of ["const nv=!reachOn(h);h.set.systems.reach=nv;","const nv=!connectOn(h);h.set.systems.connect=nv;","const nv=!salesOn(h);h.set.systems.sales=nv;","const nv=!bookOn(h);h.set.google.enabled=nv;"])if(!s7.includes(k))fail('Systems page toggle must read the new value before assigning: '+k);
  if(/set\.systems\.[a-z]+=!\w+On\(h\)/.test(s7)||/google\.enabled=!bookOn\(h\)/.test(s7))fail('a toggle assigns into an object that the check rebuilds');
  console.log('systems page toggles ok');}
+{const s8=fs.readFileSync(process.argv[2],'utf8');
+ const v=s8.indexOf("VIEWS['prov.systems']=el=>{"),e=s8.indexOf("VIEWS['prov.rules']=el=>{",v);const b8=s8.slice(v,e);
+ if(!b8.includes("const hotelCard=h=>{")||!b8.includes("class=\"usys\""))fail('Systems page: one card per hotel with the system boxes');
+ if(!b8.includes("RELEASED_SYSTEMS.includes(k)"))fail('Systems page: unreleased systems are grey and cannot be pressed');
+ for(const a of ['data-connect','data-book','data-reach','data-saleshotel','data-enter','data-pub','data-booksetup','cxSaveHost','bkSaveHost'])if(!b8.includes(a))fail('Systems page lost: '+a);
+ if(!b8.includes('Build and test the apps (provider only)'))fail('build and test section');
+ console.log('systems page ok');}
