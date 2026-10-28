@@ -1377,6 +1377,8 @@ html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important
 .udet .usy.open{background:#d7f0ea;border-color:#27a37a;color:#0b5f43}.udet .usy.shut{background:#fde4e1;border-color:#d9534f;color:#a02420}.udet .usy.soon{background:#e8edf0;border-color:#cfd8de;color:#6b7c85}.udet .usy.soon .usi{opacity:.6}
 html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.16);border-color:#34d399;color:#7ef0bd}html[data-mode=dark] .udet .usy.shut{background:rgba(248,113,113,.16);border-color:#f87171;color:#ffb4ad}html[data-mode=dark] .udet .usy.soon{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#93a6b5}html[data-mode=dark] .udet .usi{background:rgba(255,255,255,.1)}
 @media (max-width:640px){.udet .usys{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.udet .ppgs{cursor:default}.udet .usys{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important;gap:8px!important;padding:10px 0 4px!important}
+.udet .usy{min-height:46px!important;padding:5px 10px!important;border-radius:10px!important;border-width:1.5px!important;gap:0!important}.udet .usy b{font-size:13px!important}.udet .usy small{font-size:11px!important}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -10906,16 +10908,16 @@ function ppPermRows(u,edit){
 }
 function ppSysRows(u,edit){
   shapeHotel(H);const list=hotelSystems(H);
-  const tile=(cls,icon,name,line,attrs,tag)=>'<'+tag+' '+(tag==='button'?'type="button" ':'')+'class="ppr usy '+cls+'" data-pq="'+esc(name.toLowerCase())+'" '+attrs+'><span class="usi">'+icon+'</span><b>'+esc(name)+'</b><small>'+esc(line)+'</small></'+tag+'>';
+  const tile=(cls,icon,name,line,attrs,tag)=>'<'+tag+' '+(tag==='button'?'type="button" ':'')+'class="ppr usy '+cls+'" data-pq="'+esc(name.toLowerCase())+'" '+attrs+'><b>'+esc(name)+'</b><small>'+esc(line)+'</small></'+tag+'>';
   let nOpen=0;
   const real=list.map(sy=>{
-    if(!RELEASED_SYSTEMS.includes(sy.kind))return tile('soon',ecoCardSvg(sy.tone),sy.name,'Coming soon','','div');
+    if(!RELEASED_SYSTEMS.includes(sy.kind))return tile('soon','',sy.name,'Coming soon','','div');
     const on=userHasSystem(u,sy.kind),eff=on&&sy.hotel;if(eff)nOpen++;
     const line=eff?'Open':(!sy.hotel?'Locked · closed for this hotel':'Locked');
-    return tile(eff?'open':'shut',ecoCardSvg(sy.tone),sy.name,line,edit?'data-su="'+u.id+'" data-sk="'+sy.kind+'" title="'+(on?'Press to lock':'Press to open')+'"':'',edit?'button':'div');
+    return tile(eff?'open':'shut','',sy.name,line,edit?'data-su="'+u.id+'" data-sk="'+sy.kind+'" title="'+(on?'Press to lock':'Press to open')+'"':'',edit?'button':'div');
   });
-  const soon=ECO_SOON.map(x=>tile('soon',ecoCardSvg(''),x.name,'Coming soon','','div'));
-  return ppGroup('Hotel systems',nOpen+' Open · '+(list.length+ECO_SOON.length)+' systems',real.join('')+soon.join('')).replace('<div class="ppgb"','<div class="ppgb usys"');
+  const soon=ECO_SOON.map(x=>tile('soon','',x.name,'Coming soon','','div'));
+  return '<div class="ppg ppgs"><span>Hotel systems</span><span class="ppcnt">'+nOpen+' Open · '+(list.length+ECO_SOON.length)+' systems</span></div><div class="usys">'+real.join('')+soon.join('')+'</div>';
 }
 function ppPopupHtml(u,edit){
   const st=ppState(u);
@@ -10937,7 +10939,7 @@ function openUser(id,edit){
     const label=()=>{const every=[...grp].every(g=>ppOpen(g.dataset.g));all.textContent=every?'Close all groups':'Open all groups'};
     if(f){f.oninput=apply;label()}
     if(all)all.onclick=()=>{const every=[...grp].every(g=>ppOpen(g.dataset.g));grp.forEach(g=>{PP.open[g.dataset.g]=!every});f.value='';apply();label()};
-    body.querySelectorAll('.ppg').forEach(h=>{const t=()=>{const g=h.parentNode;PP.open[g.dataset.g]=!ppOpen(g.dataset.g);apply();label()};h.onclick=t;h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t()}}});
+    body.querySelectorAll('.ppg[data-ppg]').forEach(h=>{const t=()=>{const g=h.parentNode;PP.open[g.dataset.g]=!ppOpen(g.dataset.g);apply();label()};h.onclick=t;h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t()}}});
     if(edit)permBind(body);
   };
   paint();
