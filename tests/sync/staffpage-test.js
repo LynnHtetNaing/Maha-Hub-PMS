@@ -58,3 +58,7 @@ console.log('staff page ok');
 {const s6=fs.readFileSync(process.argv[2],'utf8');
  if(!s6.includes("const hotelOn={connect:connectOn,reach:reachOn,sales:salesOn,book:bookOn}[k];"))fail('opening a system for a person also opens it for the hotel');
  console.log('hotel opens with the person ok');}
+{const s7=fs.readFileSync(process.argv[2],'utf8');
+ for(const k of ["const nv=!reachOn(h);h.set.systems.reach=nv;","const nv=!connectOn(h);h.set.systems.connect=nv;","const nv=!salesOn(h);h.set.systems.sales=nv;","const nv=!bookOn(h);h.set.google.enabled=nv;"])if(!s7.includes(k))fail('Systems page toggle must read the new value before assigning: '+k);
+ if(/set\.systems\.[a-z]+=!\w+On\(h\)/.test(s7)||/google\.enabled=!bookOn\(h\)/.test(s7))fail('a toggle assigns into an object that the check rebuilds');
+ console.log('systems page toggles ok');}
