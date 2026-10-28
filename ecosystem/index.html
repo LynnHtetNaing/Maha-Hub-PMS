@@ -10924,7 +10924,7 @@ function ppSysRows(u,edit){
     if(!RELEASED_SYSTEMS.includes(sy.kind))return tile('soon','',sy.name,'Coming soon','','div');
     const on=userHasSystem(u,sy.kind),eff=on&&sy.hotel;if(eff)nOpen++;
     const line=eff?'Open':(!sy.hotel?'Locked · closed for this hotel':'Locked');
-    return tile(eff?'open':'shut','',sy.name,line,edit?'data-su="'+u.id+'" data-sk="'+sy.kind+'" title="'+(on?'Press to lock':'Press to open')+'"':'',edit?'button':'div');
+    return tile(eff?'open':'shut','',sy.name,line,edit?'data-su="'+u.id+'" data-sk="'+sy.kind+'" title="'+(on?'Press to lock for this person':(sy.hotel?'Press to open':'Press to open (also opens it for the hotel)'))+'"':'',edit?'button':'div');
   });
   const soon=ECO_SOON.map(x=>tile('soon','',x.name,'Coming soon','','div'));
   return '<div class="usys" title="'+nOpen+' Open of '+(list.length+ECO_SOON.length)+' systems">'+real.join('')+soon.join('')+'</div>';
@@ -10965,7 +10965,11 @@ function permBind(root){
   $$('[data-ce]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.ce);if(u)signinEmailDialog(H.code,u.username,()=>R())});
   $$('[data-pos]',root).forEach(i=>i.onchange=()=>{const u=H.users.find(x=>x.id===i.dataset.pos),v=i.value.trim();if(!v){i.value=u.position||u.role;toast('Enter a position title.');return}const old=u.position||u.role;u.position=v;H.amend.unshift({at:Date.now(),user:user().name,what:`Position of ${u.username}: ${old} → ${v}`,reason:'Position change'});provLog(`Position of ${u.username}: ${old} → ${v}`);saveDB();toast('Position saved')});
   $$('[data-dept]',root).forEach(s=>s.onchange=()=>{const u=H.users.find(x=>x.id===s.dataset.dept);if(!u)return;const old=u.department||'';u.department=s.value;H.amend.unshift({at:Date.now(),user:user().name,what:`Department of ${u.username}: ${old||'none'} → ${s.value||'none'}`,reason:'Department change'});provLog(`Department of ${u.username}: ${old||'none'} → ${s.value||'none'}`);saveDB();toast('Department saved')});
-  $$('[data-su]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();R()});
+  $$('[data-su]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;
+    /* opening a system for a person also opens it for the hotel when the hotel still has it closed (otherwise the box would stay red) */
+    const hotelOn={connect:connectOn,reach:reachOn,sales:salesOn,book:bookOn}[k];
+    if(!on&&hotelOn&&!hotelOn(H)){H.set.package='';if(k==='book')H.set.google.enabled=true;else H.set.systems[k]=true;H.amend.unshift({at:Date.now(),user:user().name,what:`Opened ${ecoSysLabel(k)} for the hotel ${H.code}`,reason:'System access'});provLog(`Opened ${ecoSysLabel(k)} for ${H.code}`);toast(ecoSysLabel(k)+' is now open for this hotel as well.')}
+    H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();R()});
   $$('[data-pu]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();R()});
   $$('[data-term]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.term);if(u)accessModal(u,()=>R())});
   $$('[data-cancel]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.cancel);if(!u)return;if(u.owner||u.protected){toast('The owner account is protected.');return}cancelUserModal(u,()=>R())});

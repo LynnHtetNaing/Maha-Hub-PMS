@@ -55,3 +55,6 @@ console.log('staff page ok');
  if(!s5.includes("if(!h.set._salesUserMig){h.set._salesUserMig=1;(h.users||[]).forEach(u=>{u.systems.sales=false})}"))fail('Sales starts Closed for every existing person');
  if(!/mkUser[^\n]*systems:\{hub:true,connect:true,book:true,reach:true,sales:false\}/.test(s5))fail('new people start with Sales Closed');
  console.log('sales closed ok');}
+{const s6=fs.readFileSync(process.argv[2],'utf8');
+ if(!s6.includes("const hotelOn={connect:connectOn,reach:reachOn,sales:salesOn,book:bookOn}[k];"))fail('opening a system for a person also opens it for the hotel');
+ console.log('hotel opens with the person ok');}
