@@ -10922,9 +10922,10 @@ function ppSysRows(u,edit){
   let nOpen=0;
   const real=list.map(sy=>{
     if(!RELEASED_SYSTEMS.includes(sy.kind))return tile('soon','',sy.name,'Coming soon','','div');
+    if(edit&&!sy.hotel)return tile('shut','',sy.name,'Open at Systems first','data-need="'+esc(sy.name)+'" title="Closed for this hotel. Open it first at Systems."','button');
     const on=userHasSystem(u,sy.kind),eff=on&&sy.hotel;if(eff)nOpen++;
     const line=eff?'Open':(!sy.hotel?'Locked · closed for this hotel':'Locked');
-    return tile(eff?'open':'shut','',sy.name,line,edit?'data-su="'+u.id+'" data-sk="'+sy.kind+'" title="'+(on?'Press to lock for this person':(sy.hotel?'Press to open':'Press to open (also opens it for the hotel)'))+'"':'',edit?'button':'div');
+    return tile(eff?'open':'shut','',sy.name,line,edit?'data-su="'+u.id+'" data-sk="'+sy.kind+'" title="'+(on?'Press to lock for this person':'Press to open for this person')+'"':'',edit?'button':'div');
   });
   const soon=ECO_SOON.map(x=>tile('soon','',x.name,'Coming soon','','div'));
   return '<div class="usys" title="'+nOpen+' Open of '+(list.length+ECO_SOON.length)+' systems">'+real.join('')+soon.join('')+'</div>';
@@ -10950,7 +10951,7 @@ function openUser(id,edit){
     if(f){f.oninput=apply;label()}
     if(all)all.onclick=()=>{const every=[...grp].every(g=>ppOpen(g.dataset.g));grp.forEach(g=>{PP.open[g.dataset.g]=!every});f.value='';apply();label()};
     body.querySelectorAll('.ppg[data-ppg]').forEach(h=>{const t=()=>{const g=h.parentNode;PP.open[g.dataset.g]=!ppOpen(g.dataset.g);apply();label()};h.onclick=t;h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t()}}});
-    if(edit)permBind(body);
+    if(edit){permBind(body);body.querySelectorAll('[data-need]').forEach(b=>b.onclick=()=>toast(b.dataset.need+' is closed for this hotel. Open it first at Systems, then open it for the person.'))}
   };
   paint();
 }
@@ -10966,9 +10967,7 @@ function permBind(root){
   $$('[data-pos]',root).forEach(i=>i.onchange=()=>{const u=H.users.find(x=>x.id===i.dataset.pos),v=i.value.trim();if(!v){i.value=u.position||u.role;toast('Enter a position title.');return}const old=u.position||u.role;u.position=v;H.amend.unshift({at:Date.now(),user:user().name,what:`Position of ${u.username}: ${old} → ${v}`,reason:'Position change'});provLog(`Position of ${u.username}: ${old} → ${v}`);saveDB();toast('Position saved')});
   $$('[data-dept]',root).forEach(s=>s.onchange=()=>{const u=H.users.find(x=>x.id===s.dataset.dept);if(!u)return;const old=u.department||'';u.department=s.value;H.amend.unshift({at:Date.now(),user:user().name,what:`Department of ${u.username}: ${old||'none'} → ${s.value||'none'}`,reason:'Department change'});provLog(`Department of ${u.username}: ${old||'none'} → ${s.value||'none'}`);saveDB();toast('Department saved')});
   $$('[data-su]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.su);if(!u)return;shapeHotel(H);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;
-    /* opening a system for a person also opens it for the hotel when the hotel still has it closed (otherwise the box would stay red) */
-    const hotelOn={connect:connectOn,reach:reachOn,sales:salesOn,book:bookOn}[k];
-    if(!on&&hotelOn&&!hotelOn(H)){H.set.package='';if(k==='book')H.set.google.enabled=true;else H.set.systems[k]=true;H.amend.unshift({at:Date.now(),user:user().name,what:`Opened ${ecoSysLabel(k)} for the hotel ${H.code}`,reason:'System access'});provLog(`Opened ${ecoSysLabel(k)} for ${H.code}`);toast(ecoSysLabel(k)+' is now open for this hotel as well.')}
+    if(!on&&{connect:connectOn,reach:reachOn,sales:salesOn,book:bookOn}[k]&&!{connect:connectOn,reach:reachOn,sales:salesOn,book:bookOn}[k](H)){u.systems[k]=false;toast(ecoSysLabel(k)+' is closed for this hotel. Open it first at Systems, then open it for the person.');return}
     H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();R()});
   $$('[data-pu]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.pu),p=b.dataset.pp,on=u.perms.includes(p);u.perms=on?u.perms.filter(x=>x!==p):u.perms.concat(p);H.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} "${PERMS.find(x=>x[0]===p)[1]}" for ${u.username}`,reason:'Permission change'});provLog(`${on?'Locked':'Opened'} ${p} for ${u.username}`);saveDB();R()});
   $$('[data-term]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.term);if(u)accessModal(u,()=>R())});
@@ -11520,21 +11519,21 @@ VIEWS['prov.systems']=el=>{
           <span class="row gap"><span class="pst on">Always on</span><button class="btn sm ghost" data-enter="${h.code}" type="button">Open PMS</button></span></div>
         <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Connect</b><div class="sub">Channel distribution · ${sysNote('connect',connectOn(h))}</div></span>
           <span class="row gap"><span class="pst ${connectOn(h)?'on':'off'}">${connectOn(h)?'Open':'Closed'}</span>
-          <button class="btn sm ${connectOn(h)?'ghost':'gold'}" data-connect="${h.code}" type="button">${connectOn(h)?'Close':'Open for hotel'}</button>
+          <button class="btn sm ${connectOn(h)?'ghost':'gold'}" data-connect="${h.code}" type="button" ${(!connectOn(h)&&!RELEASED_SYSTEMS.includes('connect'))?'disabled title="Not released yet"':''}>${connectOn(h)?'Close':(RELEASED_SYSTEMS.includes('connect')?'Open for hotel':'Not released')}</button>
           <a class="btn sm gold" href="${esc(connectUrlFor(h))}" target="_blank" rel="noopener">Open app</a>
           <button class="btn sm ghost" data-pub="${h.code}" type="button" title="Publish hotel snapshot into Connect">Publish</button></span></div>
         <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Reach</b><div class="sub">Marketing &amp; engagement · ${sysNote('reach',reachOn(h))}</div></span>
           <span class="row gap"><span class="pst ${reachOn(h)?'on':'off'}">${reachOn(h)?'Open':'Closed'}</span>
-          <button class="btn sm ${reachOn(h)?'ghost':'gold'}" data-reach="${h.code}" type="button">${reachOn(h)?'Close':'Open for hotel'}</button>
+          <button class="btn sm ${reachOn(h)?'ghost':'gold'}" data-reach="${h.code}" type="button" ${(!reachOn(h)&&!RELEASED_SYSTEMS.includes('reach'))?'disabled title="Not released yet"':''}>${reachOn(h)?'Close':(RELEASED_SYSTEMS.includes('reach')?'Open for hotel':'Not released')}</button>
           <a class="btn sm gold" href="${esc(reachUrl(h))}" target="_blank" rel="noopener">Open app</a></span></div>
         <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Booking</b><div class="sub">Direct booking engine · ${sysNote('book',bookOn(h))}</div></span>
           <span class="row gap"><span class="pst ${bookOn(h)?'on':'off'}">${bookOn(h)?'Enabled':'Off'}</span>
-          <button class="btn sm ${bookOn(h)?'ghost':'gold'}" data-book="${h.code}" type="button">${bookOn(h)?'Disable':'Enable for hotel'}</button>
+          <button class="btn sm ${bookOn(h)?'ghost':'gold'}" data-book="${h.code}" type="button" ${(!bookOn(h)&&!RELEASED_SYSTEMS.includes('book'))?'disabled title="Not released yet"':''}>${bookOn(h)?'Disable':(RELEASED_SYSTEMS.includes('book')?'Enable for hotel':'Not released')}</button>
           <a class="btn sm gold" href="${esc(bookUrlFor(h))}" target="_blank" rel="noopener">Open app</a>
           <button class="btn sm ghost" data-booksetup="${h.code}" type="button">Setup</button></span></div>
         <div class="row gap" style="justify-content:space-between;align-items:center"><span><b>Maha Sales</b><div class="sub">Leads, quotes and MSA · ${sysNote('sales',salesOn(h))}</div></span>
           <span class="row gap"><span class="pst ${salesOn(h)?'on':'off'}">${salesOn(h)?'Open':'Closed'}</span>
-          <button class="btn sm ${salesOn(h)?'ghost':'gold'}" data-saleshotel="${h.code}" type="button">${salesOn(h)?'Close':'Open for hotel'}</button>
+          <button class="btn sm ${salesOn(h)?'ghost':'gold'}" data-saleshotel="${h.code}" type="button" ${(!salesOn(h)&&!RELEASED_SYSTEMS.includes('sales'))?'disabled title="Not released yet"':''}>${salesOn(h)?'Close':(RELEASED_SYSTEMS.includes('sales')?'Open for hotel':'Not released')}</button>
           <a class="btn sm gold" href="${esc(sysUrl('sales',h))}" target="_blank" rel="noopener">Open app</a></span></div>
       </div></div>`).join('')}</div>`;
   $('#cxSaveHost',el).onclick=()=>{const v=($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782';localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
@@ -11543,13 +11542,13 @@ VIEWS['prov.systems']=el=>{
   if($('#cxStripe',el))$('#cxStripe',el).onclick=()=>go('prov.stripe');
   if($('#cxRules',el))$('#cxRules',el).onclick=()=>go('prov.rules');
   if($('#cxDist',el))$('#cxDist',el).onclick=()=>go('prov.distribution');
-  $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);h.set.package='';const nv=!reachOn(h);h.set.systems.reach=nv;   /* work out the new value first: reachOn() rebuilds h.set.systems, so assigning into the old object was lost */
+  $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);if(!reachOn(h)&&!RELEASED_SYSTEMS.includes('reach')){toast('Maha Reach is not released yet.');return}h.set.package='';const nv=!reachOn(h);h.set.systems.reach=nv;   /* work out the new value first: reachOn() rebuilds h.set.systems, so assigning into the old object was lost */
     provLog(`${h.set.systems.reach?'Opened':'Closed'} Maha Reach for ${h.code}`);saveDB();render();toast(h.set.systems.reach?`Maha Reach is open for ${h.code}. Credits apply inside Reach.`:`Maha Reach is closed for ${h.code}.`)});
-  $$('[data-connect]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.connect];if(!h)return;shapeHotel(h);h.set.package='';const nv=!connectOn(h);h.set.systems.connect=nv;
+  $$('[data-connect]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.connect];if(!h)return;shapeHotel(h);if(!connectOn(h)&&!RELEASED_SYSTEMS.includes('connect')){toast('Maha Connect is not released yet.');return}h.set.package='';const nv=!connectOn(h);h.set.systems.connect=nv;
     provLog(`${h.set.systems.connect?'Opened':'Closed'} Maha Connect for ${h.code}`);saveDB();render();toast(h.set.systems.connect?`Maha Connect is open for ${h.code}. Foundation only — not live on OTAs.`:`Maha Connect is closed for ${h.code}.`)});
-  $$('[data-saleshotel]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.saleshotel];if(!h)return;shapeHotel(h);h.set.package='';const nv=!salesOn(h);h.set.systems.sales=nv;
+  $$('[data-saleshotel]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.saleshotel];if(!h)return;shapeHotel(h);if(!salesOn(h)&&!RELEASED_SYSTEMS.includes('sales')){toast('Maha Sales is not released yet.');return}h.set.package='';const nv=!salesOn(h);h.set.systems.sales=nv;
     provLog(`${h.set.systems.sales?'Opened':'Closed'} Maha Sales for ${h.code}`);saveDB();render();toast(h.set.systems.sales?`Maha Sales is open for ${h.code}.`:`Maha Sales is closed for ${h.code}.`)});
-  $$('[data-book]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.book];if(!h)return;shapeHotel(h);h.set.package='';const nv=!bookOn(h);h.set.google.enabled=nv;
+  $$('[data-book]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.book];if(!h)return;shapeHotel(h);if(!bookOn(h)&&!RELEASED_SYSTEMS.includes('book')){toast('Maha Booking is not released yet.');return}h.set.package='';const nv=!bookOn(h);h.set.google.enabled=nv;
     provLog(`${h.set.google.enabled?'Enabled':'Disabled'} Maha Booking for ${h.code}`);saveDB();render();toast(h.set.google.enabled?`Maha Booking enabled for ${h.code}.`:`Maha Booking disabled for ${h.code}.`)});
   $$('[data-pub]',el).forEach(b=>b.onclick=async()=>{
     const h=DB.hotels[b.dataset.pub];if(!h)return;

@@ -56,7 +56,10 @@ console.log('staff page ok');
  if(!/mkUser[^\n]*systems:\{hub:true,connect:true,book:true,reach:true,sales:false\}/.test(s5))fail('new people start with Sales Closed');
  console.log('sales closed ok');}
 {const s6=fs.readFileSync(process.argv[2],'utf8');
- if(!s6.includes("const hotelOn={connect:connectOn,reach:reachOn,sales:salesOn,book:bookOn}[k];"))fail('opening a system for a person also opens it for the hotel');
+ if(s6.includes('const hotelOn={connect:connectOn'))fail('a person box must not open the hotel by itself any more');
+ if(!s6.includes('Open at Systems first'))fail('a person box says to open it at Systems first');
+ if(!s6.includes('is closed for this hotel. Open it first at Systems, then open it for the person.'))fail('message when the hotel has it closed');
+ for(const k of ['reach','connect','sales','book'])if(!s6.includes("RELEASED_SYSTEMS.includes('"+k+"')"))fail('Systems page needs a release check for '+k);
  console.log('hotel opens with the person ok');}
 {const s7=fs.readFileSync(process.argv[2],'utf8');
  for(const k of ["const nv=!reachOn(h);h.set.systems.reach=nv;","const nv=!connectOn(h);h.set.systems.connect=nv;","const nv=!salesOn(h);h.set.systems.sales=nv;","const nv=!bookOn(h);h.set.google.enabled=nv;"])if(!s7.includes(k))fail('Systems page toggle must read the new value before assigning: '+k);
