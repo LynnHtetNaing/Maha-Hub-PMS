@@ -1,0 +1,13 @@
+const fs=require('fs'),path=require('path');
+const root=path.join(__dirname,'..','..');
+const page=fs.readFileSync(path.join(root,'reset-password.html'),'utf8');
+const mail=fs.readFileSync(path.join(root,'supabase','email-templates','reset-password.html'),'utf8');
+let fails=0;const T=(n,ok)=>{console.log((ok?'PASS ':'FAIL ')+n);if(!ok)fails++};
+T('big username box with Copy button on the password form',/id="rp-who"[^>]*class="who"/.test(page)&&page.includes('id="rp-copy"')&&page.includes('YOUR USERNAME'));
+T('reminder line above Save password',page.indexOf('id="rp-rem"')>0&&page.indexOf('id="rp-rem"')<page.indexOf('id="rp-go"'));
+T('success screen shows the username, Copy and Sign in now',page.includes('id="rp-done-u"')&&page.includes('id="rp-copy2"')&&/href="\/solutions">Sign in now/.test(page));
+T('username comes from the account, set once the link is checked',page.includes("user_metadata.maha_username")&&page.includes("$('rp-uname').textContent = username"));
+T('no password is ever shown or stored on the page',!/localStorage|sessionStorage|console\.log/.test(page));
+T('email has a boxed username shown only when known',mail.includes('{{ if .Data.maha_username }}')&&mail.includes('{{ .Data.maha_username }}')&&mail.includes('{{ end }}'));
+T('email keeps the one-time link and the 24 hours line',mail.includes('{{ .ConfirmationURL }}')&&mail.includes('24 hours'));
+process.exit(fails?1:0);
