@@ -1255,6 +1255,11 @@ html[data-mode=dark] .anncard{background:#14243a;border-color:#2a3f57;color:#e6e
 html[data-mode=dark] .achip{background:#1a2c42;color:#b8cde0}html[data-mode=dark] .achip.imp{background:#4a1b1d;color:#ffb4ad}html[data-mode=dark] .achip.nor{background:#12403f;color:#7be0d6}html[data-mode=dark] .achip.adm{background:#1d2a52;color:#a9bdff}
 html[data-mode=dark] .anfoot{border-color:#26394f}html[data-mode=dark] .anring{background:conic-gradient(var(--c) calc(var(--p)*1%),#26394f 0)}html[data-mode=dark] .anring.ok{--c:#14a39a}html[data-mode=dark] .anring b{background:#14243a}
 html[data-mode=dark] .anwho a,html[data-mode=dark] .andone{color:#7be0d6}
+html[data-mode=dark] .depbar.due{background:#4a1b1d;color:#ffb4ad}html[data-mode=dark] .depbar.ok{background:#12403f;color:#7be0d6}
+@media (max-width:700px){.depbar{flex-wrap:wrap}.cdback .btn{margin-left:auto}}
+/* Close Day pull-back bar on the Folio and Departure pages */
+.cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#d7f0ea;color:#0b6f69;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#0e8a82;color:#fff;border:0}
+html[data-mode=dark] .cdback{background:#12403f;color:#7be0d6}html[data-mode=dark] .cdback .btn{background:#14a39a;color:#06201f}
 /* Own photo in the profile button and on My profile */
 .tbprof{overflow:hidden;padding:0}.tbphoto{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}.mpav{overflow:hidden}.mpav img{width:100%;height:100%;object-fit:cover}
 /* Dark: transaction detail window (tabs, calculator button, coloured values, number pills) */
@@ -7639,6 +7644,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
   if(ENTRY_QUIET&&ENTRY_QUIET.pending)ENTRY_QUIET.pending=false;else ENTRY_QUIET=null;
+  if(!['bill.open','fo.departures2','cd.close'].includes(v))CDBACK=null;if(v==='cd.close')CDBACK=null;
   VIEW=v;VARG=arg===undefined?null:arg;closeMenus();render()}
 /* Opening the same page again (after a click such as Open or Lock) keeps the place where the person was working. A different page starts at the top. */
 let RENDER_KEY='';
@@ -8408,17 +8414,20 @@ VIEWS['fo.departures']=(el,arg)=>{
   $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);go(B.status==='inhouse'&&B.dep<=H.set.bd?'fo.departures2':'res.open',B.id)});
 };
 let DS={by:'room',q:'',sel:null};
+/* Close Day pull-back: set when a Close Day fix button opened the Folio or Departure page, so a bar at the top can bring the person back */
+let CDBACK=null;
+const cdBackBar=()=>CDBACK?'<div class="cdback"><span>You came from <b>Close Day</b></span><span class="sp"></span><button type="button" class="btn sm" id="cdBackBtn">Back to Close Day</button></div>':'';
+const cdBackBind=el=>{const b=$('#cdBackBtn',el);if(b)b.onclick=()=>{CDBACK=null;go('cd.close')}};
 VIEWS['fo.departures2']=(el,id)=>{
   if(id)DS.sel=id;const all=departuresDue(),vis=all.filter(b=>sideMatch(DS,b,DS.q));
-  if(!DS.sel||!all.find(b=>b.id===DS.sel))DS.sel=(vis[0]||all[0]||{}).id||null;
+  if(!(CDBACK&&DS.sel&&bookingById(DS.sel))&&(!DS.sel||!all.find(b=>b.id===DS.sel)))DS.sel=(vis[0]||all[0]||{}).id||null;
   const re=()=>VIEWS['fo.departures2'](el);
-  el.innerHTML=pageHead('Departures',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} due</span>`,'act')+`<div class="split"><div class="panel bfleft" id="sideL"></div><div id="arDetail"></div></div>`;
+  el.innerHTML=cdBackBar()+pageHead('Departures',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} due</span>`,'act')+`<div id="arDetail"></div>`;cdBackBind(el);
   $('#toFull',el).onclick=()=>go('fo.departures');
-  sideSearch($('#sideL',el),{title:'FRONT OFFICE / DEPARTURES',st:DS,rows:departuresDue,mode:'dep',pick:x=>{DS.sel=x;re()},rerender:re});
   const B=DS.sel&&bookingById(DS.sel);const box=$('#arDetail',el);
   if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}">Balance <b>${m2(bb)} ${bCur(B)}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}<span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
     reservationScreen($('#dRes',box),resOf(B),B,{compact:true});
-    $('#dFol',box).onclick=()=>go('bill.open',B.id);$('#dCo',box).onclick=async()=>{if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(await checkOut(B))re()};
+    $('#dFol',box).onclick=()=>go('bill.open',B.id);$('#dCo',box).onclick=async()=>{if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(await checkOut(B)){if(CDBACK){CDBACK=null;go('cd.close')}else re()}};
     showNotifs(resOf(B),'Check-out')}else box.innerHTML='<div class="panel empty">No departure selected.</div>';
 };
 
@@ -9060,7 +9069,7 @@ function billingSplit(el,id){
   const extra=BF.sel&&bookingById(BF.sel);const keep=extra&&extra.status!=='inhouse'?extra:null;
   const rowsF=()=>{const a=allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b)));return keep?[keep].concat(a.filter(b=>b.id!==keep.id)):a};
   if(BF.sel&&!rowsF().find(b=>b.id===BF.sel))BF.sel=null;
-  el.innerHTML=pageHead('Billing / Folio','<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';
+  el.innerHTML=cdBackBar()+pageHead('Billing / Folio','<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';cdBackBind(el);
   bfSearchBar($('#bfSearch',el),rowsF,x=>{BF.sel=x;billingSplit(el)});
   const pane=$('#bfPane',el);if(BF.sel)folioPane(pane,BF.sel,()=>billingSplit(el));else pane.innerHTML='<div class="panel empty">Type a room number or guest name above, then press Search.</div>';
 }
@@ -10103,7 +10112,7 @@ VIEWS['cd.close']=el=>{
   const bd=H.set.bd,ih=tonightIH(),R=cdReady(),iss=R.iss,errs=iss.filter(i=>i.block),warns=iss.filter(i=>!i.block),allDisc=roomDiscrepancies(),posted=ih.filter(roomPostedTonight);
   const nightOk=!ruleOn(H,'closeDayNightOnly')||onNightShift();
   const act=i=>i.k==='arr'?`<button class="btn sm" data-cdci="${i.id}">Check in</button> <button class="btn sm ghost" data-cdns="${i.id}">No-show</button>`:
-    i.k==='dep'?`<button class="btn sm" data-cdfo="${i.id}">Folio / check out</button> <button class="btn sm ghost" data-ores="${i.id}">Extend</button>`:
+    i.k==='dep'?`<button class="btn sm" data-cdfo="${i.id}">Folio / check out</button> <button class="btn sm ghost" data-cdext="${i.id}">Extend</button>`:
     i.k==='shift'?(can('closeothers')?`<button class="btn sm" data-cdsh="${i.sid}">Close shift</button>`:'<span class="sub">Ask the user to close it</span>'):
     i.k==='post'?`<button class="btn sm" data-cdpost="1">Post room</button>`:i.k==='rate'?`<button class="btn sm" data-cdrate="${i.id}">Rate setup</button>`:i.id?`<button class="btn sm ghost" data-ores="${i.id}">Open</button>`:'';
   const tabs={guest:`<table class="grid"><tr><th>RSVN#</th><th>Room#</th><th>Guest name</th><th>Arrival</th><th>Departure</th><th>Rate code</th><th class="n">Tonight's rate</th><th class="n">Standard rate</th><th>Status</th></tr>
@@ -10123,7 +10132,8 @@ VIEWS['cd.close']=el=>{
   $$('[data-ct]',el).forEach(b=>b.onclick=()=>{cdTab=b.dataset.ct;render()});$$('[data-ores]',el).forEach(b=>b.onclick=()=>go('res.open',b.dataset.ores));
   $$('[data-cdci]',el).forEach(b=>b.onclick=async()=>{if(await checkInUI(bookingById(b.dataset.cdci)))render()});
   $$('[data-cdns]',el).forEach(b=>b.onclick=async()=>{if(await markNoShow(bookingById(b.dataset.cdns)))refresh()});
-  $$('[data-cdfo]',el).forEach(b=>b.onclick=()=>go('fo.departures2',b.dataset.cdfo));
+  $$('[data-cdfo]',el).forEach(b=>b.onclick=()=>{CDBACK={id:b.dataset.cdfo};go('bill.open',b.dataset.cdfo)});
+  $$('[data-cdext]',el).forEach(b=>b.onclick=()=>{DS.sel=b.dataset.cdext;CDBACK={id:b.dataset.cdext};go('fo.departures2',b.dataset.cdext)});
   $$('[data-cdrate]',el).forEach(b=>b.onclick=()=>advanceRate(bookingById(b.dataset.cdrate),render));
   $$('[data-cdpost]',el).forEach(b=>b.onclick=()=>$('#cdP',el).click());
   $$('[data-cdsh]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cdsh),tt=shiftTotals(o);const c=await dlgAsk(`Counted cash for ${o.userName} (expected ${m2(tt.expected)}):`,tt.expected);if(c===null)return;const xc=await curCountOthers(tt,o);if(xc===null)return;
