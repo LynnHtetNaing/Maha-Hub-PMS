@@ -1387,6 +1387,20 @@ html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.18)!important;b
 .syspage .syscard{margin:0 0 14px}.syspage .usleg{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 14px;font-size:12.5px;opacity:.85}.syspage .usleg i{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:5px}
 .syspage .sysact{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.syspage .sysact .btn{height:30px;display:inline-flex;align-items:center;text-decoration:none}
 .syspage .usy{min-height:50px}.syspage button.usy{cursor:pointer}
+.panel.ucmp{overflow:hidden!important;border-radius:18px!important}.ucmp .scroll{border-radius:inherit}.ucmpwrap h3{margin:20px 0 8px!important}.ucmpwrap>p.sub{margin:0 0 6px}
+.ucmp .pm td:first-child .sub{display:block;text-align:left;margin:0}
+/* Transfer transaction (Dark): the chosen folio is a shaded, outlined tile, not just white text */
+html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true]{background:color-mix(in srgb,var(--a1) 38%,transparent)!important;border-color:var(--a1)!important;color:#fff!important;box-shadow:0 0 0 1px var(--a1) inset}
+html[data-skin="modern"][data-mode=dark] #trPick .fseg button[aria-pressed=true] small{color:#fff!important;font-weight:700}
+/* New notification: the Show-in boxes sit in a grid, 4 to a line, All on a line of its own */
+.chks.nfg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;align-items:center}.chks.nfg .chk{display:flex;align-items:center;gap:8px;margin:0;white-space:nowrap}.chks.nfg .chk input{flex:none;margin:0}.chks.nfg .nfall{grid-column:1/-1}
+@media (max-width:520px){.chks.nfg{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Print preview: air between the Print / Mail row and the document below it */
+.modal.ppmodal .mbody>.btns{margin:0 0 16px!important;padding:4px 2px 0!important;align-items:center}
+/* Invoice: signatures stay well inside the paper; totals only on the last page */
+.ppage.port.inv{padding-bottom:20mm!important}
+.inv .ivt td{padding:5px 6px}.inv .ivtot{margin-top:10px}.inv .ivtot td{padding:3px 8px}.inv .ivtot tr.grand td{padding:5px 8px}.inv .ivw{margin-top:8px}.inv .ivfoot{padding-top:6px}.inv .ivfoot p{margin:0}.inv .sigs{margin-top:24px}
+.inv .ivcont{margin-top:auto;text-align:right;font-style:italic;font-size:12px;color:#444}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -8317,9 +8331,9 @@ function showNotifs(res,section){const list=notifsFor(res,section);if(!list.leng
 const NSECTIONS=['Reservation','Check-in','Front desk','Billing / Folio','Cashier','Housekeeping','Check-out','Guest inquiry','All'];
 function notifForm(res){if(!need('notif'))return;
   const m=modal('New notification',`<div class="form1">${fld('Message',`<textarea id="nfText" rows="4" autofocus></textarea>`)}
-  <div class="f"><span>Show in (choose one, several or All)</span><div class="chks">${NSECTIONS.map(s=>`<label class="chk"><input type="checkbox" value="${s}" ${s==='Reservation'?'checked':''}> ${s}</label>`).join('')}</div></div>
+  <div class="f"><span>Show in (choose one, several or All)</span><div class="chks nfg">${NSECTIONS.map(s=>`<label class="chk${s==='All'?' nfall':''}"><input type="checkbox" value="${s}" ${s==='Reservation'?'checked':''}> <span>${s}</span></label>`).join('')}</div></div>
   <div class="err" id="nfErr"></div><div class="btns"><button class="btn gold" id="nfSave">Save notification</button><button class="btn ghost" id="nfX">Cancel</button></div></div>
-  ${res.notifs.length?`<h3 class="mt">On this reservation</h3>${res.notifs.map(n=>`<div class="notif ${n.done?'done':''}"><div class="nfrom">From : ${esc(n.from)} · ${esc(n.sections.join(', '))}${n.done?' · done by '+esc(n.done.user):''}</div><div class="ntext">${esc(n.text)}</div></div>`).join('')}`:''}`,{w:560});
+  ${res.notifs.length?`<h3 class="mt">On this reservation</h3>${res.notifs.map(n=>`<div class="notif ${n.done?'done':''}"><div class="nfrom">From : ${esc(n.from)} · ${esc(n.sections.join(', '))}${n.done?' · done by '+esc(n.done.user):''}</div><div class="ntext">${esc(n.text)}</div></div>`).join('')}`:''}`,{w:640});
   $('#nfX',m).onclick=()=>closeModal(m);
   $('#nfSave',m).onclick=()=>{const t=$('#nfText',m).value.trim(),secs=$$('.chks input:checked',m).map(c=>c.value);
     if(!t){$('#nfErr',m).textContent='Write the message first.';return}if(!secs.length){$('#nfErr',m).textContent='Choose at least one section.';return}
@@ -10000,12 +10014,17 @@ async function offsetLine(B,l,after){if(!fxGuard('fx.folio.offset'))return;if(!n
 function moveToRoom(B,l,after){if(!fxGuard('fx.folio.move'))return;if(!need('move'))return;if(!l){toast('Select a line first.');return}if(l.fixed||payLocked(l)){toast('This payment stays on the folio where it was posted.');return}if(lineBlock(B,l)){toast(lineBlock(B,l));return}
   let pick=null,pf=1;
   const m=modal('Transfer transaction',`<div class="trline"><b>${esc(l.code)} ${esc(l.desc)}</b> · ${m2(l.amt)} · from room ${esc(B.room||'')} folio ${l.folio}</div>
-   <div class="row gap mt"><input id="trQ" style="flex:1" placeholder="Guest name, room number, check-in or check-out date (dd/mm/yyyy) or billing folio number" autofocus autocomplete="off"></div>
-   <div class="sub mt">Only in-house guests are searched. Results show as soon as something matches.</div><div id="trR" class="mt"></div><div id="trPick"></div>`,{w:760});
+   <div class="row gap mt"><select id="trF" aria-label="Search by" style="flex:0 0 170px"><option value="room" selected>Room#</option><option value="guest">Guest name</option><option value="folio">Folio# (billing folio number)</option><option value="rsvn">RSVN#</option><option value="cin">Check-in date</option><option value="cout">Check-out date</option><option value="all">All of these</option></select><input id="trQ" style="flex:1" placeholder="Room number" autofocus autocomplete="off"></div>
+   <div class="sub mt">Only in-house guests are searched. Choose what you are searching by on the left. Results show as soon as something matches.</div><div id="trR" class="mt"></div><div id="trPick"></div>`,{w:760});
   const norm=s=>String(s||'').toLowerCase();
-  const match=(b,q)=>{const g=G(b.guestId),r=resOf(b);const hay=[gName(g),g.last+' '+g.first,g.first+' '+g.last,b.room,fd(b.checkinDate||b.arr),fd(b.dep),b.checkinDate||b.arr,b.dep,b.internal,r.no].map(norm).join(' | ');return q.split(/\s+/).every(w=>hay.includes(w))};
+  /* what each filter looks at; the same number can be a room, a folio or an RSVN, so the person says which one */
+  const FIELDS={room:b=>[b.room],guest:b=>{const g=G(b.guestId);return [gName(g),g.last+' '+g.first,g.first+' '+g.last]},folio:b=>[b.internal],rsvn:b=>[resOf(b).no],cin:b=>[fd(b.checkinDate||b.arr),b.checkinDate||b.arr],cout:b=>[fd(b.dep),b.dep]};
+  FIELDS.all=b=>[].concat(FIELDS.room(b),FIELDS.guest(b),FIELDS.folio(b),FIELDS.rsvn(b),FIELDS.cin(b),FIELDS.cout(b));
+  const PH={room:'Room number',guest:'Guest name',folio:'Billing folio number',rsvn:'RSVN number',cin:'Check-in date (dd/mm/yyyy)',cout:'Check-out date (dd/mm/yyyy)',all:'Guest name, room, folio, RSVN or a date (dd/mm/yyyy)'};
+  const match=(b,q,k)=>{const hay=FIELDS[k](b).map(norm).join(' | ');return q.split(/\s+/).every(w=>hay.includes(w))};
   const run=()=>{const q=norm($('#trQ',m).value.trim());const box=$('#trR',m);if(!q){box.innerHTML='';return}
-    const hits=allBookings().filter(b=>b.status==='inhouse'&&b.id!==B.id&&match(b,q)).slice(0,15);
+    const k=$('#trF',m).value;
+    const hits=allBookings().filter(b=>b.status==='inhouse'&&b.id!==B.id&&match(b,q,k)).sort((x,y)=>(FIELDS[k](y).some(v=>norm(v)===q)?1:0)-(FIELDS[k](x).some(v=>norm(v)===q)?1:0)).slice(0,15);
     box.innerHTML=hits.length?`<table class="grid"><tr><th>Room</th><th>Guest name</th><th>Check-in</th><th>Check-out</th><th>Folio#</th><th class="n">Balance</th></tr>${hits.map(b=>`<tr class="click ${pick&&pick.id===b.id?'on':''}" data-tp="${b.id}"><td><b>${esc(b.room)}</b></td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.checkinDate||b.arr)}</td><td>${fd(b.dep)}</td><td>${b.internal}</td><td class="n">${m2(bal(b))}</td></tr>`).join('')}</table>`:'<div class="empty">No in-house guest matches. Check the spelling, room or date.</div>';
     $$('[data-tp]',box).forEach(t=>t.onclick=()=>{pick=bookingById(t.dataset.tp);pf=1;run();paintPick()})};
   const paintPick=()=>{const bx=$('#trPick',m);if(!pick){bx.innerHTML='';return}
@@ -10016,6 +10035,7 @@ function moveToRoom(B,l,after){if(!fxGuard('fx.folio.move'))return;if(!need('mov
     $('#trGo',bx).onclick=()=>{if(!need('move'))return;const T=pick;if(bCur(T)!==bCur(B)){toast('This line is in '+bCur(B)+' and that room is in '+bCur(T)+'. A line cannot move between reservations in different currencies.');return}if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}B.lines=B.lines.filter(x=>x!==l);l.folio=pf;
       l.hist.push({at:Date.now(),user:user().name,shift:curShift().name,a:`Transferred from room ${B.room} to room ${T.room} folio ${pf}`});T.lines.push(l);log(`Transferred line ${l.sys} from room ${B.room} to ${T.room} folio ${pf}`,B.id);folSel=null;closeModal(m);after();toast(`Moved to room ${T.room}, folio ${pf}`)}};
   $('#trQ',m).oninput=()=>{pick=null;paintPick();run()};
+  $('#trF',m).onchange=()=>{const q=$('#trQ',m);q.placeholder=PH[$('#trF',m).value];pick=null;paintPick();run();q.focus()};
 }
 
 /* provider: change any field of a line, even on closed days; every change recorded */
@@ -10163,9 +10183,15 @@ function billFields(B){const r=resOf(B),co=CO(r.companyId),billable=co&&co.code!
     ${fld('Bill name',`<input id="ivN" value="${esc(b.name||'')}">`)}${fld('Tax ID',`<input id="ivT" value="${esc(b.tax||'')}">`)}
     ${fld('Address',`<input id="ivA" value="${esc(b.addr||'')}">`,'span2')}${fld('Branch',`<input id="ivBr" value="${esc(b.branch||'')}">`)}`}}
 function readBill(m){return {bill:$('#ivB',m).value,other:{name:$('#ivN',m).value.trim(),addr:$('#ivA',m).value.trim(),tax:$('#ivT',m).value.trim(),branch:$('#ivBr',m).value.trim()},copies:$('#ivC',m).value,style:$('#ivS',m)?$('#ivS',m).value:'detail',folio:$('#ivF',m)?+$('#ivF',m).value:1}}
-const DOC_ROWS=8;
+/* Invoice pages. A page that continues holds up to DOC_ROWS_FULL lines and shows no totals. Only the LAST page shows the totals box, the amount in words and the signatures, so it holds fewer lines (DOC_ROWS_LAST) and the signatures always sit well inside the paper. */
+const DOC_ROWS_FULL=18,DOC_ROWS_LAST=5;
 function flattenDoc(rows){const flat=[];rows.forEach(x=>{flat.push({t:'l',x});if(x.card&&x.card.last4)flat.push({t:'c',x});if(x.remark)flat.push({t:'r',x});if(x.note)flat.push({t:'n',text:x.note})});return flat}
-function chunkDoc(flat){if(!flat.length)return [[]];const pages=[];let i=0;while(i<flat.length){let n=Math.min(DOC_ROWS,flat.length-i);if(n===DOC_ROWS){const last=flat[i+n-1],nxt=flat[i+n];if(last&&last.t==='l'&&nxt&&nxt.t!=='l'&&n>1)n--}pages.push(flat.slice(i,i+n));i+=n}return pages}
+function chunkDoc(flat){if(!flat.length)return [[]];const pages=[];let i=0;
+  while(flat.length-i>DOC_ROWS_LAST){const left=flat.length-i;
+    let n=left<=DOC_ROWS_FULL?Math.max(Math.ceil(left/2),left-DOC_ROWS_LAST):DOC_ROWS_FULL;   /* what remains must fit on the last page */
+    const last=flat[i+n-1],nxt=flat[i+n];if(last&&last.t==='l'&&nxt&&nxt.t!=='l'&&n>1)n--;     /* a line stays with its card / remark rows */
+    pages.push(flat.slice(i,i+n));i+=n}
+  pages.push(flat.slice(i));return pages}
 function docRowHtml(c){if(c.t==='e')return '<tr class="ivpad"><td>&nbsp;</td><td></td><td></td><td></td></tr>';if(c.t==='l')return `<tr><td>${fd(c.x.bd)}</td><td>${esc(c.x.desc)}${c.x.fx?` <span class="ivfx">${esc(c.x.fx.fc)} ${m2(Math.abs(c.x.fx.fa))}${c.x.fx.fc!==curMain()?' @ '+c.x.fx.fr:''}</span>`:''}</td><td>${esc(c.x.ref||'')}</td><td class="n">${m2(c.x.amt)}</td></tr>`;if(c.t==='c')return `<tr class="ivrm"><td></td><td colspan="3">${esc(cardMaskLine(c.x.card))}</td></tr>`;if(c.t==='r')return `<tr class="ivrm"><td colspan="4">${esc(c.x.remark)}</td></tr>`;return `<tr class="ivrm"><td colspan="4">${esc(c.text||'')}</td></tr>`}
 const docCurWord=B=>{const w=B&&bForeign(B)?curInfo(H,B.cur).word:H.set.curWord;return w.charAt(0)+w.slice(1).toLowerCase()};
 /* the extra line under the words: the value in the main currency, at the rate staff typed */
@@ -10177,15 +10203,15 @@ function hotelHead(){return `<div class="ivh"><div><b class="ivn">${esc(H.set.na
 function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spec.billTo,spec.billTo==='other'?spec.other:null),pages=chunkDoc(flattenDoc(spec.rows)),now=fd(todayZ())+' '+tms(Date.now());
   const sets=spec.copies==='copy'?['COPY']:spec.copies==='original'?['ORIGINAL']:['ORIGINAL','COPY'];
   const totals=spec.credit?creditTotals(spec,B):moneyTotals(spec,B);const coName=companyLine(B,bt);
-  const page=(chunk,pi,label)=>{const rows=chunk.slice();while(rows.length<DOC_ROWS)rows.push({t:'e'});
+  const page=(chunk,pi,label)=>{const isLast=pi===pages.length-1,rows=chunk.slice();while(rows.length<(isLast?DOC_ROWS_LAST:DOC_ROWS_FULL))rows.push({t:'e'});
     const head=spec.guest?`<b>Folio ${spec.folio}</b>`:spec.credit?`<b>CREDIT NOTE NO. ${spec.inv.no} (${label})</b>`:`<b>TAX INVOICE NO. ${invRef(spec.inv)} (${label})</b>`;
     const left=`<tr><td colspan="2">${head}</td></tr><tr><td>Guest Name</td><td>: ${esc(gName(g))}</td></tr><tr><td>Room Number</td><td>: ${esc(B.room||'')}</td></tr>${spec.credit?`<tr><td>Credit for</td><td>: ${esc(spec.cn.label)} (RSVN ${r.no})</td></tr><tr><td>Reason</td><td>: ${esc(spec.cn.reason)}</td></tr>`:''}<tr><td>Company</td><td>: ${esc(coName)}</td></tr><tr><td>Tax ID/Gst Pass</td><td>: ${esc(bt.tax||'')}</td></tr><tr><td>Address</td><td>: ${esc(bt.addr||'')}</td></tr>`;
     const right=`<tr><td>Page#</td><td>: ${pi+1} / ${pages.length}</td></tr><tr><td>Folio No.</td><td>: ${B.internal}</td></tr><tr><td>Arrival</td><td>: ${fd(B.arr)}</td></tr><tr><td>Departure</td><td>: ${fd(B.dep)}</td></tr><tr><td>No. of guest</td><td>: ${B.adults+B.children}</td></tr><tr><td>Printed Date/Time</td><td>: ${now}</td></tr><tr><td>${spec.guest?'Folio Date':spec.credit?'Credit Note Date':'Tax Invoice Date'}</td><td>: ${fd(spec.guest?H.set.bd:spec.inv.bd)}</td></tr>`;
     return `<div class="ppage port inv">${hotelHead()}<div class="ivtitlebar"><div class="ivtitle${spec.guest?' guest':''}">${spec.guest?'GUEST FOLIO':spec.credit?'CREDIT NOTE':'RECEIPT / TAX INVOICE'}</div></div>
      <div class="ivinfo"><table>${left}</table><table>${right}</table></div>
      <table class="ivt"><tr><th>DATE</th><th>DESCRIPTION</th><th>REFERENCE</th><th class="n">AMOUNT${bForeign(B)?' ('+esc(B.cur)+')':''}</th></tr>${rows.map(docRowHtml).join('')}</table>
-     ${totals}<div class="ivfoot"><p>${spec.credit?'This credit note corrects the amount charged on the folio above. It does not change the number of the original tax invoice.':'I agree that my liability for this invoice is not waived and agree to be held personally liable in the event that the indicated person, company or association fails to pay for any part of the full amount of these charges.'}</p>
-      <div class="sigs"><div><span></span>Guest's Signature</div><div><span></span>Cashier's Signature<br><b>${esc(user().name.toUpperCase())}</b></div></div></div></div>`};
+     ${isLast?totals:''}${isLast?`<div class="ivfoot"><p>${spec.credit?'This credit note corrects the amount charged on the folio above. It does not change the number of the original tax invoice.':'I agree that my liability for this invoice is not waived and agree to be held personally liable in the event that the indicated person, company or association fails to pay for any part of the full amount of these charges.'}</p>
+      <div class="sigs"><div><span></span>Guest's Signature</div><div><span></span>Cashier's Signature<br><b>${esc(user().name.toUpperCase())}</b></div></div></div>`:'<div class="ivcont">Continued on the next page</div>'}</div>`};
   return {html:sets.map(lb=>pages.map((c,i)=>page(c,i,lb)).join('')).join(''),sets,pages:pages.length,bt}}
 /* A remark typed on a charge stays in the transaction window. It is left off a guest folio and off a payment receipt.
    The folio 1 advance credit is the same on those two prints. Its card and remark are printed only on the receipt / tax invoice. */
@@ -10960,7 +10986,7 @@ function openUser(id,edit){
 }
 function cmpHtml(){
   const live=H.users.filter(u=>!u.cancelled&&!u.deleted);
-  return '<p class="sub">Who has what. A tick means Open, a dash means Locked. Nothing can be changed here. Permission names and people\'s names stay fixed while you scroll.</p><h3>Systems for each person</h3><div class="panel ppmat ucmp">'+systemMatrix(live,false)+'</div><h3 class="mt">PMS permissions</h3><div class="panel ppmat ucmp">'+permMatrix(live,false)+'</div>';
+  return '<div class="ucmpwrap"><p class="sub">Who has what. A tick means Open, a dash means Locked. Nothing can be changed here. Permission names and people\'s names stay fixed while you scroll.</p><h3>Systems for each person</h3><div class="panel ppmat ucmp">'+systemMatrix(live,false)+'</div><h3 class="mt">PMS permissions</h3><div class="panel ppmat ucmp">'+permMatrix(live,false)+'</div></div>';
 }
 function permBind(root){
   const R=()=>{(root.__after||render)()};
@@ -10986,16 +11012,15 @@ function usersPage(el,prov){
     if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
     if(!H){el.innerHTML=pageHead('User Details & Permission')+'<div class="empty">Create a property first.</div>';return}
   }
-  const cmpBtn='<button type="button" class="btn ghost" id="ppCmp">'+(PP.tab==='compare'?'Back to users':'Who can do what')+'</button>';
   const intro=prov?'<p class="sub">Access for people at <b>'+esc(H.set.name)+'</b>. This is not part of the hotel file. Use the buttons on each line for the account. Click a person to open or lock each system and permission. A closed hotel system stays hidden even when this person is Open.</p>':'<p class="sub">Click a person to see which systems and permissions are Open or Locked for them. Only the provider can change them.</p>';
-  const head=pageHead('User Details & Permission',(prov?provHotelPicker():'')+cmpBtn+(prov?'<button class="btn gold" id="pvU">Add staff</button>':''));
+  const head=pageHead('User Details & Permission',(prov?provHotelPicker():'')+(prov?'<button class="btn gold" id="pvU">Add staff</button>':''));
   if(PP.tab==='compare'){
-    el.innerHTML=head+cmpHtml();
+    el.innerHTML=head+'<div class="ubar"><button type="button" class="btn ghost" id="ppCmp">← Users</button><b style="font-size:16px">Overview</b></div>'+cmpHtml();
     if(prov)bindPicker(el);
     $('#ppCmp',el).onclick=()=>{PP.tab='people';render()};
   }else{
     const depts=[...new Set(H.users.map(u=>u.department).filter(Boolean))].sort();
-    el.innerHTML=head+intro+'<div class="upage"><div class="ubar"><input type="search" id="ppQ" class="ppq" placeholder="Search name, username or position" value="'+esc(PP.q)+'" aria-label="Search"><select id="ppD" aria-label="Department"><option value="">All departments</option>'+depts.map(d=>opt(d,d,PP.dept)).join('')+'</select><select id="ppS" aria-label="Status">'+[['active','Active'],['inactive','Inactive'],['cancelled','Cancelled'],['all','All']].map(x=>opt(x[0],x[1],PP.status)).join('')+'</select><span class="sub ppcount" id="ppCount"></span></div>'+
+    el.innerHTML=head+intro+'<div class="upage"><div class="ubar"><input type="search" id="ppQ" class="ppq" placeholder="Search name, username or position" value="'+esc(PP.q)+'" aria-label="Search"><select id="ppD" aria-label="Department"><option value="">All departments</option>'+depts.map(d=>opt(d,d,PP.dept)).join('')+'</select><select id="ppS" aria-label="Status">'+[['active','Active'],['inactive','Inactive'],['cancelled','Cancelled'],['all','All']].map(x=>opt(x[0],x[1],PP.status)).join('')+'</select><span class="sub ppcount" id="ppCount"></span><button type="button" class="btn ghost" id="ppCmp" title="See who has what, side by side">Overview</button></div>'+
       '<div class="panel scroll pplist"><table class="grid pptbl"><thead><tr><th>Name</th><th>Username</th><th>Position</th><th>Department</th><th>Preset</th><th>Status / access term</th>'+(prov?'<th>Actions</th>':'')+'</tr></thead><tbody id="ppTb">'+ppListHtml(prov)+'</tbody></table></div></div>'+
       (prov?'<div class="panel mt" id="chAcc" hidden></div><datalist id="posList">'+POS_LIST.map(x=>'<option value="'+x+'">').join('')+'</datalist>':'');
     if(prov)bindPicker(el);
