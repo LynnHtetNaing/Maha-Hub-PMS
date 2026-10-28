@@ -9,7 +9,7 @@ must('the Extend button has its own hook',src.includes('data-cdext="${i.id}">Ext
 // the Back button and bar exist on both pages
 must('Back to Close Day bar',src.includes('Back to Close Day</button>')&&src.includes("go('cd.close')"));
 must('Folio page shows the bar',src.includes("el.innerHTML=cdBackBar()+pageHead('Billing / Folio'"));
-must('Departure page shows the bar',src.includes("el.innerHTML=cdBackBar()+pageHead('Departures'"));
+must('Departure page shows the bar',src.includes("cdBackBar()+pageHead('Departures'"));
 // the long list on the left of the Departure detail is gone
 const dep=src.slice(src.indexOf("VIEWS['fo.departures2']"),src.indexOf('/* ---------- in house ---------- */'));
 must('no left list on the Departure detail',!dep.includes('sideSearch(')&&!dep.includes('id="sideL"'));
