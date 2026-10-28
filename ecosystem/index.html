@@ -2859,7 +2859,9 @@ function shapeHotel(h){
   /* a system that is not released starts Closed for every hotel; the provider opens it for a hotel when it is released */
   if(!h.set._sysClosedMig){h.set._sysClosedMig=1;if(h.set.package!=='fullpkg')h.set.systems.sales=false}
   if(!h.set._sysClosedMig2){h.set._sysClosedMig2=1;['reach','connect','sales'].forEach(k=>{if(!RELEASED_SYSTEMS.includes(k))h.set.systems[k]=false})}
-  (h.users||[]).forEach(u=>{u.systems=Object.assign({hub:true,connect:true,book:true,reach:true,sales:true},u.systems||{})});
+  (h.users||[]).forEach(u=>{u.systems=Object.assign({hub:true,connect:true,book:true,reach:true,sales:false},u.systems||{})});
+  /* Maha Sales is released but starts Closed for every person; the provider opens it for each person */
+  if(!h.set._salesUserMig){h.set._salesUserMig=1;(h.users||[]).forEach(u=>{u.systems.sales=false})}
   h.set.rules=Object.assign({},DEFAULT_RULES,h.set.rules||{});
   if(!h.set.codeVat||typeof h.set.codeVat!=='object'||Array.isArray(h.set.codeVat))h.set.codeVat={};
   if(!h.set.payLogos||typeof h.set.payLogos!=='object'||Array.isArray(h.set.payLogos))h.set.payLogos={};
@@ -4013,7 +4015,7 @@ function cloudFormHtml(){return `<label class="f"><span>Project URL</span><input
   <label class="f"><span>Publishable key</span><input id="clKey" placeholder="sb_publishable_..." autocomplete="off" spellcheck="false" value="${esc(CLOUD_PUBLISHABLE)}"></label>
   <label class="f"><span>Passphrase</span><input id="clPass" type="password" autocomplete="new-password"></label>
   <div class="sub" id="clSt"></div>`}
-function mkUser(id,username,name,role,pw){const salt=newSalt();return {id,username,name,role,salt,hash:pwHash(salt,pw),active:true,perms:[...(PRESET[role]||[])],systems:{hub:true,connect:true,book:true,reach:true,sales:true}}}
+function mkUser(id,username,name,role,pw){const salt=newSalt();return {id,username,name,role,salt,hash:pwHash(salt,pw),active:true,perms:[...(PRESET[role]||[])],systems:{hub:true,connect:true,book:true,reach:true,sales:false}}}
 
 /* ---------- seed ---------- */
 function seedDB(){
@@ -7248,7 +7250,7 @@ function ecosystemDir(){return appPrefix()+'/ecosystem/'}
    those systems look for it and send everybody else to the sign-in page. */
 /* Release gate: a system that is not yet open for sale and distribution cannot be opened from anywhere (the Main page, the switcher, a typed address,
    an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
-const RELEASED_SYSTEMS=['hub'];
+const RELEASED_SYSTEMS=['hub','sales'];
 function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
 /* The note under a system in Provider › Systems follows the system's state and whether it is released */
 function sysNote(kind,open){const rel=RELEASED_SYSTEMS.includes(kind);return rel?(open?'Open: hotel staff can use it.':'Closed: hidden from hotel staff.'):(open?'Open for this hotel, but not released yet: staff cannot use it until the release.':'Closed. Not released yet.')}
