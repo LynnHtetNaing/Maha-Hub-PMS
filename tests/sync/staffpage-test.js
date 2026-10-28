@@ -2,26 +2,37 @@ const fs=require('fs');
 const src=fs.readFileSync(process.argv[2],'utf8');
 const fail=m=>{console.log('FAIL',m);process.exit(1)};
 const i=src.indexOf("const PP={q:"),j=src.indexOf("VIEWS['prov.amend']=el=>{",i);
-if(i<0||j<0)fail('staff page not found');
+if(i<0||j<0)fail('user page not found');
 const b=src.slice(i,j);
-// the page: slim list, one person's page, compare table
-for(const m of ['id="ppTb"','data-ppopen','data-ppmore','data-pptab="people"','data-pptab="compare"','data-ppsub="perms"','id="ppFind"','ppmat'])if(!b.includes(m))fail('missing '+m);
-// Open / Locked buttons, not on/off switches
-if(!/class="tog sm '\+\(on\?'on':''\)\+'" data-pu=/.test(b))fail('permissions must use the Open / Locked buttons');
-if(!b.includes("(on?'Open':'Locked')"))fail('Open / Locked text');
-if(/type="checkbox"[^>]*data-pu/.test(b))fail('permissions must not be checkboxes or switches');
-// every existing action is kept
-for(const k of ['data-ns','data-ce','data-pos','data-dept','data-su','data-pu','data-term','data-cancel','data-pre','data-rp','data-act'])if(!b.includes("$$('["+k+"]',root)"))fail('action not kept: '+k);
-// the menu has the same actions, the owner cannot be cancelled
-for(const m of ['Change email','Reset password','Access term','Apply preset','Deactivate','Cancel user'])if(!b.includes(m))fail('menu entry '+m);
-if(!b.includes("const prot=u.owner||u.protected;"))fail('the owner stays protected');
-// a cancelled person is a record with one button
-if(!b.includes('Restore access'))fail('Restore access');
-// every permission belongs to a group (new ones go to Other)
+// one page for the provider and the hotel (hotel = view only)
+if(!b.includes("VIEWS['prov.perms']=el=>usersPage(el,true);"))fail('provider page');
+if(!/VIEWS\['set\.users'\]=el=>usersPage\(el,false\);/.test(src))fail('hotel page must be the same page, view only');
+if(!b.includes("pageHead('User Details & Permission'"))fail('page name');
+// full-width list, click opens a pop-up with the red close button (the normal modal)
+for(const m of ['id="ppTb"','data-ppopen','function openUser(','modal(esc(u0.name)',"{w:980}",'id="ppFind"'])if(!b.includes(m))fail('missing '+m);
+if(b.includes('data-ppmore')||b.includes('ppMenuHtml'))fail('the 3-dot menu is gone');
+// buttons in the agreed order: row 1 and row 2
+const r1=b.indexOf('data-ce="'),r2=b.indexOf('data-rp="',r1),r3=b.indexOf('data-prx="1"',r2),r4=b.indexOf('data-term="',r3),r5=b.indexOf('data-act="',r4),r6=b.indexOf('data-cancel="',r5);
+if(!(r1>0&&r1<r2&&r2<r3&&r3<r4&&r4<r5&&r5<r6))fail('button order: Change email, Reset password, Apply preset / Access term, Deactivate, Cancel');
+// Open / Locked buttons for the provider, only labels for the hotel
+if(!/class="tog sm '\+\(on\?'on':''\)\+'" data-pu=/.test(b))fail('Open / Locked buttons');
+if(/type="checkbox"[^>]*data-pu/.test(b))fail('permissions must not be switches');
+if(!b.includes("edit?'<button type=\"button\" class=\"tog sm"))fail('hotel side must not get buttons');
+// cancelled person: only Re-activate and Delete; delete keeps a record only
+if(!b.includes('Re-activate')||!b.includes('data-udel='))fail('cancelled person buttons');
+if(!b.includes("t.deleted={at:Date.now()")||!b.includes("'User deleted – '"))fail('delete keeps a record');
+if(!b.includes('const ppShown=u=>!u.deleted&&ppMatches(u)'))fail('deleted people leave the list');
+// every permission shows (new ones go to Other)
 if(!b.includes("groups.push(['Other',extra])"))fail('new permissions must still show up');
-// the compare table is frozen
-if(!/\.ppmat \.pm th:first-child,\.ppmat \.pm td:first-child\{position:sticky;left:0/.test(src))fail('first column must be frozen');
-if(!/\.ppmat \.pm tr:first-child th\{position:sticky;top:0/.test(src))fail('header row must be frozen');
-// a copied "$$(" must never have turned into "$(" in this block
+// all old actions still bound
+for(const k of ['data-ns','data-ce','data-pos','data-dept','data-su','data-pu','data-term','data-cancel','data-rp','data-act'])if(!b.includes("$$('["+k+"]',root)"))fail('action not kept: '+k);
 if(/\n\s*\$\('\[data-[a-z]+\]',root\)\.forEach/.test(b))fail('broken selector copy');
+// compare page: read-only ticks, names frozen, rounded
+if(!b.includes('Nothing can be changed here'))fail('compare is read only');
+if(!/\.ppmat \.pm th:first-child,\.ppmat \.pm td:first-child\{position:sticky;left:0/.test(src))fail('first column must be frozen');
+if(!/\.ucmp \.panel\{overflow:hidden;border-radius:14px\}/.test(src))fail('rounded corners');
+// the old print-preview class .ppwrap must not be restyled
+if(/\.ppwrap\{display:grid/.test(src))fail('.ppwrap belongs to the print preview');
+// close button turns red on press
+if(!/html \.modal \.mx:active\{background:#c0392b/.test(src))fail('red close on press');
 console.log('staff page ok');

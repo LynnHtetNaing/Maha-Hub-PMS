@@ -1,7 +1,7 @@
 const fs=require('fs');
 const src=fs.readFileSync(process.argv[2],'utf8');
 const fail=m=>{console.log('FAIL',m);process.exit(1)};
-const i=src.indexOf('function mailWhy(code){'),j=src.indexOf("VIEWS['prov.perms']=el=>{",i);
+const i=src.indexOf('function mailWhy(code){'),j=src.indexOf('const PP={q:',i);
 if(i<0||j<0)fail('mailWhy not found');
 eval(src.slice(i,j)+';globalThis.W=mailWhy');
 const has=(t,w)=>{if(!t.includes(w))fail('"'+t+'" should mention "'+w+'"')};
