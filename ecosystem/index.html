@@ -277,7 +277,7 @@ table.grid.pm .tog{display:inline-flex;align-items:center;justify-content:center
 .mh-orb i:nth-child(2){inset:14px;border-bottom-color:#7fd6bd;border-left-color:rgba(127,214,189,.22);animation:mhSpin 3.4s linear infinite reverse}
 .mh-orb i:nth-child(3){inset:28px;border:1px dashed rgba(233,242,236,.28);animation:mhSpin 18s linear infinite}
 .mh-orb b{position:absolute;inset:34px;border-radius:50%;background:radial-gradient(circle,rgba(198,167,106,.30),rgba(198,167,106,0) 70%);animation:mhPulse 2.4s ease-in-out infinite}
-.mh-orb img{position:relative;width:78px;height:78px;border-radius:20px;box-shadow:0 0 28px rgba(198,167,106,.35);animation:mhFloat 3.2s ease-in-out infinite}
+.mh-orb img{position:relative;width:58px;height:auto;border-radius:0;box-shadow:none;filter:drop-shadow(0 0 14px rgba(198,167,106,.45));animation:mhFloat 3.2s ease-in-out infinite}
 .mh-name{font-weight:700;font-size:15px;letter-spacing:.55em;text-indent:.55em;text-transform:uppercase;background:linear-gradient(90deg,#9fb8ac 0%,#fff 45%,#e6cf95 55%,#9fb8ac 100%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:mhShimmer 3.2s linear infinite}
 .mh-bar{width:min(240px,62vw);height:3px;border-radius:3px;background:rgba(233,242,236,.14);overflow:hidden}
 .mh-bar i{display:block;height:100%;width:42%;border-radius:3px;background:linear-gradient(90deg,transparent,#c6a76a,#7fd6bd,transparent);animation:mhSlide 1.5s ease-in-out infinite}
@@ -2199,7 +2199,7 @@ html[data-skin="modern"] #cnote .cn svg{width:16px;height:16px}
 }
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
-</head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/pms-icon-96.png" alt="" width="62" height="62"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
+</head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="/brand/maha/pms-icon-96.png";
 const LOGO_LOCKUP="/brand/maha/solutions-lockup-dark.png";const ICON_BAR="/brand/maha/gate-small.png";
 const ECO_HERO="/brand/login-hero-bg.jpg";
@@ -7604,6 +7604,7 @@ function showImportantAnnouncements(){try{const se=DB&&DB.session;if(!se||se.pro
   const m=modal('Important announcement',list.map(a=>'<div class="anncard imp"><div class="annh"><b>'+esc(a.title)+'</b>'+(a.prov?'<span class="pill b">Administrator</span>':'')+'</div><div class="sub">'+esc(a.by||'')+' · '+fdt(a.at)+'</div><div class="annt">'+esc(a.text)+'</div></div>').join('')+'<div class="btns end"><button class="btn gold" id="anRead">I have read this</button></div>',{w:600});
   $('#anRead',m).onclick=()=>{list.forEach(a=>annMarkRead(a,u.id));saveDB();try{paintNotifBadge()}catch(e){}closeModal(m)}}catch(e){}}
 function renderShell(){
+  if(SEL_ON)return;
   if(/solutions-pms/i.test(location.pathname)){document.title=tabTitleFor();try{setTabIcons('hub')}catch(e){}}
   document.body.classList.remove('eco-noscroll');
   applyDensity(densityMode());
@@ -7699,6 +7700,7 @@ function scrollBack(sn){window.scrollTo(0,sn.y);sn.els.forEach(([e,t])=>{if(e.is
 function scrollKeep(sn,rkey){SCROLL_GUARD=Date.now()+900;_userScrolled=false;[0,60,200,450,800].forEach(ms=>setTimeout(()=>{if(RENDER_KEY===rkey&&(ms===0||!_userScrolled))scrollBack(sn)},ms))}
 function render(){
   if(!DB.session){showLogin();return}
+  if(SEL_ON)return;
   if(typeof applyHotelCodes==='function')applyHotelCodes();
   if(DB.session.provider&&!DB.session.inHotel&&!/^prov\./.test(VIEW)&&VIEW!=='set.backup'&&VIEW!=='ai.revenue'){VIEW='prov.home';VARG=null}
   if(VIEW==='sys.pick'){VIEW=firstHotelView();VARG=null;setTimeout(openSystemsSwitcher,0)}
@@ -10476,7 +10478,7 @@ html[data-skin="modern"] .areasw button{background:none!important;box-shadow:non
 `;
 function ensureFlowCss(){if(document.getElementById('flowCss'))return;const s=document.createElement('style');s.id='flowCss';s.textContent=FLOW_CSS;document.head.appendChild(s)}
 function loadingShow(msg){ensureFlowCss();let o=document.getElementById('mhLoad');if(!o){o=document.createElement('div');o.id='mhLoad';document.body.appendChild(o)}
-  o.classList.remove('out');o.innerHTML=`<div class="mh-boot" role="status" aria-live="polite"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="${ICON}" alt="" width="62" height="62"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">${esc(msg||'Preparing your hotel')}<span>_</span></div></div></div>`;return o}
+  o.classList.remove('out');o.innerHTML=`<div class="mh-boot" role="status" aria-live="polite"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">${esc(msg||'Preparing your hotel')}<span>_</span></div></div></div>`;return o}
 function loadingHide(){const o=document.getElementById('mhLoad');if(!o)return;o.classList.add('out');setTimeout(()=>{if(o.classList.contains('out'))o.remove()},450)}
 async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r;try{r=await fn()}finally{await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));loadingHide()}return r}
 /* ---- who sees what ---- */
@@ -10496,12 +10498,14 @@ async function switchAreaTo(a){if(!hasBackend()||a===curArea())return;
   await withLoading(a==='back'?'Opening Backend':'Opening Frontend',1600,async()=>{setArea(a)});
   renderShell();go(a==='back'?firstBackendView():firstHotelView())}
 /* ---- the two pages ---- */
+/* While Select Property / Select System is on screen, a background redraw (for example the cloud copy arriving after sign-in) must not replace it */
+let SEL_ON=false;
 function selPrefs(){let mode='light',pal='emerald';try{mode=localStorage.getItem('maha.pref.mode')==='dark'?'dark':'light';pal=localStorage.getItem('maha.pref.pal')||'emerald'}catch(e){}return {mode,pal}}
-function selShell(inner){ensureFlowCss();const p=selPrefs(),u=user();
+function selShell(inner){SEL_ON=true;ensureFlowCss();const p=selPrefs(),u=user();
   document.documentElement.removeAttribute('data-skin');
   document.getElementById('app').innerHTML=`<div class="selpg ${p.mode==='dark'?'dark':''}" data-pal="${esc(p.pal)}"><header class="sp-top"><div class="sp-logo"><img src="${ICON}" alt="">Maha PMS</div><div class="sp-right"><span>${esc(u.name||'')}</span><button type="button" class="sp-pill" id="spMode">${p.mode==='dark'?'Light mode':'Dark mode'}</button><button type="button" class="sp-pill" id="spOut">Sign out</button></div></header><main class="sp-body">${inner}</main></div>`;
   $('#spMode').onclick=()=>{try{localStorage.setItem('maha.pref.mode',p.mode==='dark'?'light':'dark')}catch(e){}const el=document.querySelector('.selpg');if(el){el.classList.toggle('dark');$('#spMode').textContent=el.classList.contains('dark')?'Light mode':'Dark mode'}};
-  $('#spOut').onclick=()=>{signOut(true)}}
+  $('#spOut').onclick=()=>{SEL_ON=false;signOut(true)}}
 async function loadPropertyList(){
   const t=await MahaAuth.fresh();if(!t)throw new Error('auth');const props=await MahaAuth.properties(t);let rows=null;
   try{rows=await MahaAuth.rest('maha_properties?select=property_code,name,country&property_code=not.is.null',t)}catch(e){try{rows=await MahaAuth.rest('maha_properties?select=property_code,name&property_code=not.is.null',t)}catch(e2){rows=[]}}
@@ -10523,18 +10527,18 @@ function selectSystemPage(h,multi){return new Promise(res=>{
   $$('[data-sys]').forEach(b=>b.onclick=()=>res(b.dataset.sys));if($('#spChg'))$('#spChg').onclick=()=>res('change')})}
 /* ---- the route after sign-in, and when changing property later ---- */
 async function openPropertyChoice(props,current,canCancel){
-  for(;;){
-    const code=await selectPropertyPage(props,current,canCancel);
+  try{for(;;){
+    const code=await selectPropertyPage(props,current,canCancel);SEL_ON=false;
     if(code===current)return true;
     const p=props.find(x=>x.code===code);
     const ok=await withLoading('Opening '+(p?p.name:code),2000,()=>switchHotelCore(code,p&&p.id));
-    if(ok)return true}}
+    if(ok)return true}}finally{SEL_ON=false}}
 async function chooseAreaAndEnter(props,welcome){
   const multi=props&&props.length>1;setArea('front');
-  while(hasBackend()){
-    const a=await selectSystemPage(H,multi);
+  try{while(hasBackend()){
+    const a=await selectSystemPage(H,multi);SEL_ON=false;
     if(a==='change'){await openPropertyChoice(props,H.code,false);setArea('front');continue}
-    setArea(a);break}
+    setArea(a);break}}finally{SEL_ON=false}
   await withLoading(curArea()==='back'?'Opening Backend':'Opening Frontend',1800,async()=>{});
   applySysPath('hub');renderShell();go(curArea()==='back'?firstBackendView():firstHotelView());if(welcome)toast(welcome)}
 async function afterLoginRoute(h,who,shift){
@@ -10544,7 +10548,7 @@ async function afterLoginRoute(h,who,shift){
     await withLoading('Signing you in',2000,async()=>{if(MahaAuth.on()&&DB.session&&!DB.session.provider){try{props=await loadPropertyList()}catch(e){props=[]}}});
     if(props.length>1)await openPropertyChoice(props,h.code,false);
     await chooseAreaAndEnter(props,welcome)
-  }catch(e){loadingHide();applySysPath('hub');renderShell();go(firstHotelView());toast(welcome)}}
+  }catch(e){SEL_ON=false;loadingHide();applySysPath('hub');renderShell();go(firstHotelView());toast(welcome)}}
 async function changePropertyFlow(){
   if(!MahaAuth.on()||!DB.session||DB.session.provider)return;
   let props=[];await withLoading('Loading your properties',1400,async()=>{try{props=await loadPropertyList()}catch(e){props=[]}});
