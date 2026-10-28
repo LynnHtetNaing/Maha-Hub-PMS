@@ -7953,7 +7953,7 @@ function stayMark(B){if(!B)return {k:'',cls:'',label:''};const bd=H&&H.set&&H.se
   if(B.status==='out')return {k:'CO',cls:'co',label:'Checked Out'};
   if(B.status==='inhouse'){if(bd&&B.dep<=bd)return {k:'DO',cls:'do',label:'Due Out'};if(B.checkinDate===bd)return {k:'CI',cls:'ci',label:'Checked In'};return {k:'IH',cls:'ih',label:'In House'}}
   if(B.status==='confirmed'){if(bd&&B.arr<=bd)return {k:'DI',cls:'di',label:'Due In'};return {k:'B',cls:'conf',label:'Confirmed'}}
-  if(B.status==='tentative')return {k:'T',cls:'ten',label:'Tentative'};
+  if(B.status==='tentative'){if(bd&&B.arr<=bd)return {k:'DI',cls:'di',label:'Due In'};return {k:'T',cls:'ten',label:'Tentative'}}
   if(B.status==='cancelled')return {k:'X',cls:'cx',label:'Cancelled'};
   if(B.status==='noshow')return {k:'NS',cls:'ns',label:'No Show'};
   return {k:B.status||'',cls:B.status||'',label:B.status||''}}
@@ -8396,13 +8396,13 @@ function assignArrival(id){
     closeModal(m);refresh();toast(d.block?`Room ${B.room} blocked`:d.unblock?`Block cleared. Room ${B.room} stays assigned.`:d.assign?`Room ${d.assign} assigned`:'Nothing changed')}
 }
 VIEWS['fo.arrivals']=(el,arg)=>{
-  const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to));
+  const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to).filter(b=>['confirmed','tentative'].includes(b.status)&&b.arr<=H.set.bd));
   el.innerHTML=pageHead('Arrivals',`<label class="ufl">From date ${ufDate('arF',sp.from)}</label><label class="ufl">To date ${ufDate('arT',sp.to)}</label><label class="ufl">Sort by <select id="arS">${ARR_SORT.map(([k,l])=>`<option value="${k}" ${arrSort===k?'selected':''}>${l}</option>`).join('')}</select></label><button type="button" class="btn gold" id="arGo">${ic('search',16)} Search</button>`,'under')+
-  `<p class="sub">The same From and To date shows that one day. Today also keeps arrivals that are still waiting from an earlier day. Click a reservation to open it, or the green icon to check the guest in. Right-click a reservation to assign a room or to block it (a blocked reservation turns grey). Signs: VIP guest, $ deposit received. The Status is at the end of the line.</p><div class="panel"><table class="grid arrfit">
+  `<p class="sub">This page shows only guests who are due in and still waiting to check in. Checked-in, no-show, cancelled and future bookings are in Reservation List / Change. Click a reservation to open it, or the green icon to check the guest in. Right-click a reservation to assign a room or to block it (a blocked reservation turns grey). Signs: VIP guest, $ deposit received. The Status is at the end of the line.</p><div class="panel"><table class="grid arrfit">
    <tr><th></th><th>RSVN#</th><th>Room</th><th>Room type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Rate total</th><th>ETA / Flight</th><th>Status</th><th class="c">Check in</th></tr>
    ${list.map(b=>{const r=resOf(b),g=G(b.guestId);
      return `<tr class="click ${b.roomBlock?'rblk':''}" data-open="${b.id}" title="${b.roomBlock?esc('Room '+b.room+' blocked: '+b.roomBlock.reason+'. Right-click to change.'):'Right-click to assign or block a room'}"><td>${stIcons(b,'')}</td><td>${r.no}</td><td>${b.room?esc(b.room):'<span class="bad">—</span>'}</td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n">${m2(stayTotal(b))}</td><td>${esc(b.eta)}${b.flightArr?' · '+esc(b.flightArr)+' '+esc(b.flightArrTime):''}</td><td class="nowrap">${stBadge(b)}</td><td class="c">${b.arr<=H.set.bd&&['confirmed','tentative'].includes(b.status)?`<button type="button" class="sic cibig" data-ci="${b.id}" title="Check in" aria-label="Check in">${ic('bed',22)}</button>`:'<span class="sub">—</span>'}</td></tr>`}).join('')||`<tr><td colspan="15" class="empty">${sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\'s arrivals are checked in.<br><span class="sub">Checked-in guests are now in <b>In House</b> and <b>Reservation List / Change</b>.</span>':'No arrivals in this period.'}</td></tr>`}
-   <tr class="tot"><td colspan="5">Total</td><td>${sum(list,b=>b.adults)}/${sum(list,b=>b.children)}</td><td colspan="2">${list.length} room(s)</td><td class="n">${sum(list,nights)}</td><td colspan="5"></td></tr></table></div>`;
+   <tr class="tot"><td colspan="5">Total</td><td>${sum(list,b=>b.adults)}/${sum(list,b=>b.children)}</td><td colspan="2">${list.length} room(s)</td><td class="n">${sum(list,nights)}</td><td colspan="6"></td></tr></table></div>`;
   const pick=()=>{const spn=readPair(el,'arF','arT');if(!spn){toast('Enter From date and To date as dd/mm/yyyy.');return}go('fo.arrivals',spn)};
   $('#arGo',el).onclick=()=>{arrSort=$('#arS',el).value;pick()};bindDatePick(el);
   bindSide(el,'',()=>render());
@@ -8414,18 +8414,20 @@ VIEWS['fo.arrivals2']=(el,id)=>{
   if(id)AS.sel=id;const all=pendingArrivals(),vis=all.filter(b=>sideMatch(AS,b,AS.q));
   if(!AS.sel||!all.find(b=>b.id===AS.sel))AS.sel=(vis[0]||all[0]||{}).id||null;
   const re=()=>VIEWS['fo.arrivals2'](el);
-  el.innerHTML=pageHead('Arrivals',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} expected</span>`,'act')+`<div class="split"><div class="panel bfleft" id="sideL"></div><div id="arDetail"></div></div>`;
+  el.innerHTML='<div class="dep2pg">'+pageHead('Arrivals',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} expected</span>`,'act')+`<div id="arDetail"></div></div>`;
   $('#toFull',el).onclick=()=>go('fo.arrivals');
-  sideSearch($('#sideL',el),{title:'FRONT OFFICE / ARRIVALS',st:AS,rows:pendingArrivals,mode:'arr',pick:x=>{AS.sel=x;re()},rerender:re});
   const B=AS.sel&&bookingById(AS.sel);const box=$('#arDetail',el);
-  if(B){reservationScreen(box,resOf(B),B,{compact:true});showNotifs(resOf(B),'Check-in')}else box.innerHTML='<div class="panel empty">No arrival selected.</div>';
+  if(B){const dp=depAmt(B);box.innerHTML=`<div class="depbar arbar ${B.room?'ok':'due'}"><span class="dtx">Due in ${fd(B.arr)} · ${B.room?'Room '+esc(B.room):'assign a room before check-in'}${dp>0.004?' · deposit '+m2(dp)+' '+bCur(B):''}</span><span class="sp"></span><button class="btn sm gold" id="aCiGo">Check in</button></div><div id="aRes"></div>`;
+    reservationScreen($('#aRes',box),resOf(B),B,{});
+    $('#aCiGo',box).onclick=async()=>{if(await checkInUI(B))re()};
+    showNotifs(resOf(B),'Check-in')}else box.innerHTML='<div class="panel empty">All of today\'s arrivals are checked in.<br><span class="sub">Checked-in guests are now in <b>In House</b> and <b>Reservation List / Change</b>.</span></div>';
 };
 
 /* ---------- Departures: same pattern ---------- */
 VIEWS['fo.departures']=(el,arg)=>{
-  const sp=dateSpan(arg);const list=departuresIn(sp.from,sp.to).sort((a,b)=>a.dep.localeCompare(b.dep)||(a.room||'').localeCompare(b.room||''));
+  const sp=dateSpan(arg);const list=departuresIn(sp.from,sp.to).filter(b=>b.status==='inhouse'&&b.dep<=H.set.bd).sort((a,b)=>a.dep.localeCompare(b.dep)||(a.room||'').localeCompare(b.room||''));
   el.innerHTML=pageHead('Departures',`<label class="ufl">From date ${ufDate('dpF',sp.from)}</label><label class="ufl">To date ${ufDate('dpT',sp.to)}</label><button type="button" class="btn gold" id="dpGo">${ic('search',16)} Search</button>`,'under')+
-  `<p class="sub">The same From and To date shows that one day. Today also keeps departures still in house from an earlier day. Click a reservation to open it.</p><div class="panel scroll"><table class="grid">
+  `<p class="sub">This page shows only guests who are due out and still in house. Checked-out guests are in Billing / Folio Inquiry and Reservation List / Change. Click a reservation to open it.</p><div class="panel scroll"><table class="grid">
   <tr><th></th><th>RSVN#</th><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th>Status</th></tr>
   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr class="click" data-open="${b.id}"><td class="nowrap">${stIcons(b,'')}</td><td>${r.no}</td><td><b>${esc(b.room||'—')}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${stBadge(b)}</td></tr>`}).join('')||`<tr><td colspan="12" class="empty">${sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\'s departures are checked out.<br><span class="sub">Checked-out guests are now in <b>Billing / Folio Inquiry</b> and <b>Reservation List / Change</b>.</span>':'No departures in this period.'}</td></tr>`}</table></div>`;
   const pick=()=>{const spn=readPair(el,'dpF','dpT');if(!spn){toast('Enter From date and To date as dd/mm/yyyy.');return}go('fo.departures',spn)};
@@ -8446,7 +8448,7 @@ VIEWS['fo.departures2']=(el,id)=>{
   $('#toFull',el).onclick=()=>go('fo.departures');
   const B=DS.sel&&bookingById(DS.sel);const box=$('#arDetail',el);
   if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}"><span class="dtx">Balance <b>${m2(bb)} ${bCur(B)}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}</span><span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
-    reservationScreen($('#dRes',box),resOf(B),B,{compact:true});
+    reservationScreen($('#dRes',box),resOf(B),B,{});
     $('#dFol',box).onclick=()=>go('bill.open',B.id);$('#dCo',box).onclick=async()=>{if(ruleOn(H,'requireZeroBalanceCheckout')&&Math.abs(bal(B))>0.004){go('bill.open',B.id);toast('Settle the folio to 0.00, then check out.');return}if(await checkOut(B)){if(CDBACK){CDBACK=null;go('cd.close')}else re()}};
     showNotifs(resOf(B),'Check-out')}else box.innerHTML='<div class="panel empty">No departure selected.</div>';
 };
@@ -8709,7 +8711,8 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
   if(q('#aCan'))q('#aCan').onclick=async ()=>{if(!need('res.cancel'))return;if(B.lines.some(l=>isCharge(l))){toast('Charges are already posted. Correct them before cancelling.');return}if(Math.abs(bal(B))>0.004){toast('This booking holds a deposit. Refund or move it before cancelling.');return}
     if(!await dlgConfirm(`Cancel RSVN ${r.no} for ${gName(g)}?`))return;B.status='cancelled';B.statusDate=H.set.bd;histB(B,'Cancelled');log('Cancelled RSVN '+r.no);reopen()};
   if(q('#aNS'))q('#aNS').onclick=async()=>{if(await markNoShow(B))reopen()};
-  if(q('#aRecall'))q('#aRecall').onclick=()=>{if(!need('res.cancel'))return;if(B.statusDate!==H.set.bd){toast('This no-show is locked by Close Day.');return}
+  if(q('#aRecall'))q('#aRecall').onclick=async()=>{if(!need('res.cancel'))return;if(B.statusDate!==H.set.bd){toast('This no-show is locked by Close Day.');return}
+    if(!await dlgConfirm('Recall this no-show?\n\n• RSVN '+r.no+' becomes Confirmed again\n• The guest is expected today'))return;
     if(B.arr<H.set.bd){const keep=B.nightly,fbk=nightRate(H,B);B.arr=H.set.bd;B.nightly={};dates(B.arr,B.dep).forEach(d=>B.nightly[d]=keep[d]??fbk)}
     if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'No-show recalled');log('Recalled no-show RSVN '+r.no);reopen();toast('No-show recalled. The guest is expected today.')};
   if(q('#aReinst'))q('#aReinst').onclick=()=>{if(!need('res.cancel'))return;if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'Reinstated');log('Reinstated RSVN '+r.no);reopen()};
