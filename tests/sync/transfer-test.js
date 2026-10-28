@@ -34,3 +34,7 @@ console.log('transfer pop-up ok');
  if(!s6.includes("if(ap.action==='move'){const T=bookingById(ap.toId)"))fail('an approved transfer request is applied');
  if(!s6.includes("moveToRoom(B,curLine(),reopen,actNow())"))fail('the toolbar button passes the active folio');
  console.log('transfer folio + request ok');}
+{const s7=fs.readFileSync(process.argv[2],'utf8');
+ if(!s7.includes('function approvalWatch()')||!s7.includes('setInterval(approvalWatch,10000);'))fail('approvers are told about waiting requests without reloading');
+ if(!s7.includes("'New approval request: '"))fail('a message when a new request arrives');
+ console.log('approval alert ok');}

@@ -13177,6 +13177,14 @@ const approvalBig=a=>{const l=(H&&H.set&&H.set.approvalLimits)||{mgr:50000};retu
 function canDecide(a){const u=user();if(!canApprove())return {ok:false,why:'You do not have the Approve permission.'};
   if(a.byId?a.byId===u.id:a.by===u.name)return {ok:false,why:'You made this request. Another person approves it.'};
   if(approvalAmt(a)>approvalLimitFor(approvalLevel()))return {ok:false,why:'Over your limit. The owner or the provider approves it.'};return {ok:true}}
+/* An approver is told about waiting requests without having to reload: the bell number is refreshed every few seconds and a message appears when a new request arrives (from another device or person). */
+let _apSeen=new Set(),_apInit=false,_apFor='';
+function approvalWatch(){try{if(typeof DB==='undefined'||!DB||!DB.session||!H||!canApprove())return;
+  if(_apFor!==DB.session.userId){_apFor=DB.session.userId;_apSeen=new Set();_apInit=false}
+  paintNotifBadge();const list=approvalsForMe(),fresh=list.filter(a=>!_apSeen.has(a.id));list.forEach(a=>_apSeen.add(a.id));
+  if(!_apInit){_apInit=true;if(list.length)toast(list.length+' approval'+(list.length===1?'':'s')+' waiting for you. Open the bell, then Approvals.');return}
+  if(fresh.length)toast('New approval request: '+fresh[0].title+(fresh.length>1?' (+'+(fresh.length-1)+' more)':'')+'. Open the bell, then Approvals.')}catch(e){}}
+if(typeof document!=='undefined')setInterval(approvalWatch,10000);
 function approvalsForMe(){return (H&&H.approvals||[]).filter(a=>a.status==='pending'&&canDecide(a).ok)}
 function needsApproval(kind){const a=(H.set&&H.set.approvals)||{};return a[kind]!==false}
 function queueApproval(req){H.approvals=H.approvals||[];H.approvals.unshift(Object.assign({id:'ap'+uid(),status:'pending',at:Date.now(),bd:H.set.bd,by:user().name,byId:user().id},req));log('Approval requested: '+(req.title||req.action));saveDB();paintNotifBadge();toast('Sent for approval. A person with the Approve permission opens Approvals.')}
