@@ -13,3 +13,6 @@ console.log('transfer pop-up ok');
  if(!/\.chks\.nfg\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/.test(s2)||!/\.chks\.nfg \.nfall\{grid-column:1\/-1\}/.test(s2))fail('4 boxes per line, All on a full line');
  if(!s2.includes("$$('.chks input:checked',m)"))fail('saving still reads the ticked boxes');
  console.log('notification boxes ok');}
+{const s3=fs.readFileSync(process.argv[2],'utf8');
+ if(!s3.includes('.modal.ppmodal .mbody>.btns{margin:0 0 16px!important;padding:4px 2px 0!important'))fail('print preview: air around the Print / Mail row');
+ console.log('print preview spacing ok');}
