@@ -20,3 +20,8 @@ console.log('transfer pop-up ok');
  if(!s4.includes('<div class="ucmpbar"><button type="button" class="btn ghost" id="ppCmp">← Users</button><h2 class="ucmptitle">Overview</h2></div>'))fail('Overview header: button and title in their own bar');
  if(!s4.includes('.ucmpbar{display:flex;align-items:center;gap:16px;margin:8px 0 16px}'))fail('Overview header: room between button, title and text');
  console.log('overview header ok');}
+{const s5=fs.readFileSync(process.argv[2],'utf8');
+ if(!s5.includes("['Approvals','set.approve','approve','fn.set.approve']"))fail('Approvals in the menu needs the Approve permission');
+ if(!s5.includes("(x[0]!=='set.approve'||canApprove())"))fail('Approvals shortcut needs the Approve permission');
+ if(!s5.includes("VIEWS['set.approve']=el=>{\n  if(!canApprove()")&&!s5.includes("VIEWS['set.approve']=el=>{\r\n  if(!canApprove()"))fail('Approvals page refuses people without the permission');
+ console.log('approvals access ok');}
