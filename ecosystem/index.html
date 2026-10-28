@@ -1303,9 +1303,9 @@ html[data-skin="modern"] .rptop .tbwm{color:#fff;text-shadow:0 1px 8px rgba(8,16
 /* User Logs page: Light, Dark and phone */
 .ulpanel{padding:0!important;overflow:hidden}.ulbar{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 14px;font-size:12.5px;color:var(--mut,#52705f)}.ulpg{display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:10px 14px}
 .ulgrid td{vertical-align:top}.ulgrid .ulw{white-space:nowrap;font-variant-numeric:tabular-nums}.ulgrid .ula{min-width:220px;word-break:break-word}
-.ult{display:inline-block;border-radius:7px;padding:2px 9px;font-size:11.5px;font-weight:800;white-space:nowrap;background:#e6ecef;color:#3d5260}
-.ult.si{background:#d7f0ea;color:#0b6f69}.ult.re{background:#dbe8fb;color:#1d4e9e}.ult.pa{background:#fdeed2;color:#8a5a08}.ult.cd{background:#e8e2f7;color:#5b3fa8}.ult.rm{background:#e4f2d9;color:#3d6a1b}.ult.su{background:#fde9d7;color:#8a4a10}.ult.pr{background:#e6e8fb;color:#3b46a8}.ult.dn{background:#fde4e1;color:#b3261e}.ult.sc{background:#eef1f3;color:#5b6b76}
-html[data-mode=dark] .ult{background:rgba(255,255,255,.1);color:#cfe1ee}html[data-mode=dark] .ult.si{background:rgba(52,211,153,.18);color:#7ef0bd}html[data-mode=dark] .ult.re{background:rgba(96,165,250,.2);color:#a9cfff}html[data-mode=dark] .ult.pa{background:rgba(250,204,21,.17);color:#f6d36b}html[data-mode=dark] .ult.cd{background:rgba(167,139,250,.2);color:#cdbfff}html[data-mode=dark] .ult.rm{background:rgba(132,204,22,.17);color:#bef264}html[data-mode=dark] .ult.su{background:rgba(251,146,60,.18);color:#fdba74}html[data-mode=dark] .ult.pr{background:rgba(129,140,248,.2);color:#c7d2fe}html[data-mode=dark] .ult.dn{background:rgba(248,113,113,.2);color:#ffb4ad}html[data-mode=dark] .ult.sc{background:rgba(255,255,255,.07);color:#9fb3c2}
+/* User Logs page: plain and dense, so many lines are easy to scan */
+.ult{font-weight:600;white-space:nowrap}.ult.dn{color:#b3261e;font-weight:800}html[data-mode=dark] .ult.dn{color:#ffb4ad}
+.ulgrid th{font-size:11.5px;padding:6px 8px}.ulgrid td{padding:4px 8px!important;font-size:12.5px;line-height:1.35}.ulgrid tbody tr:nth-child(even) td{background:rgba(128,150,140,.07)}.ulgrid td .sub{font-size:11px;opacity:.75}
 @media (max-width:700px){.ulgrid thead{display:none}.ulgrid,.ulgrid tbody,.ulgrid tr,.ulgrid td{display:block;width:100%}.ulgrid tr{padding:10px 14px;border-bottom:1px solid rgba(128,150,140,.25)}.ulgrid td{padding:2px 0!important;border:0!important}.ulgrid td::before{content:attr(data-l) ": ";font-weight:700;opacity:.6;font-size:11.5px}.ulgrid td[data-l=Field]::before,.ulgrid td[data-l=When]::before{content:""}.ulgrid .ula{min-width:0;font-weight:600}.ulbar{flex-wrap:wrap}}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
@@ -4432,7 +4432,7 @@ const ULOG=(()=>{
   }
   return {add,send,query,fetchAll,flushNow,cloudOn};
 })();
-function ulWhen(t){const q=tzp(t,dispZone());return q.d+'/'+q.m+'/'+q.y+' '+q.h+':'+q.mi+':'+String(new Date(t).getSeconds()).padStart(2,'0')}
+function ulWhen(t){const q=tzp(t,dispZone());return q.d+'/'+q.m+'/'+q.y+' '+q.h+':'+q.mi+':'+q.s}
 const UL_VIEW_NAMES={'res.open':'Reservation','bill.open':'Folio','fo.arrivals2':'Arrival detail','fo.departures2':'Departure detail'};
 function ulViewName(v){
   if(!ulViewName.m){const m={};try{MENU.forEach(g=>(g.items||[]).forEach(it=>{m[it[1]]=it[0]}));PROV_MENU.forEach(g=>(g.items||[]).forEach(it=>{m[it[1]]=it[0]}))}catch(e){}ulViewName.m=Object.assign(m,UL_VIEW_NAMES)}
@@ -10843,8 +10843,9 @@ async function ulPid(code){
   return null;
 }
 function ulTitleClass(t){return {'Sign in / out':'si','Screen':'sc','Reservation':'re','Folio & payments':'pa','Cashier & Close Day':'cd','Rooms & housekeeping':'rm','Setup & staff':'su','Print & export':'pr','Denied':'dn'}[t]||'ot'}
-function ulRowsHtml(rows){
-  return rows.map(x=>'<tr><td data-l="When" class="ulw">'+esc(ulWhen(x.at))+'</td><td data-l="User"><b>'+esc(x.user||'')+'</b></td><td data-l="Shift">'+esc(x.shift||'')+'</td><td data-l="Field"><span class="ult '+ulTitleClass(x.t)+'">'+esc(x.t||'Other')+'</span></td><td data-l="What they did" class="ula">'+esc(x.a||'')+'</td><td data-l="Reference">'+esc(x.ref||'')+'</td></tr>').join('');
+function ulRowsHtml(rows,hz){
+  const note=hz&&hz!==PROVIDER_ZONE?(x=>{const q=tzp(x.at,hz);return ' <span class="sub">(hotel time '+q.h+':'+q.mi+':'+q.s+')</span>'}):(()=>'');
+  return rows.map(x=>'<tr><td data-l="When" class="ulw">'+esc(ulWhen(x.at))+note(x)+'</td><td data-l="User"><b>'+esc(x.user||'')+'</b></td><td data-l="Shift">'+esc(x.shift||'')+'</td><td data-l="Field"><span class="ult '+ulTitleClass(x.t)+'">'+esc(x.t||'Other')+'</span></td><td data-l="What they did" class="ula">'+esc(x.a||'')+'</td><td data-l="Reference">'+esc(x.ref||'')+'</td></tr>').join('');
 }
 function ulDownload(name,rows){
   const th='<tr><th>Business date</th><th>Date and time</th><th>User</th><th>Shift</th><th>Field / Title</th><th>What they did</th><th>Reference</th></tr>';
@@ -10886,7 +10887,7 @@ function userLogsPage(el,prov){
     const pages=Math.max(1,Math.ceil(r.total/UL_PER));
     const pg=pages<2?'':'<div class="ulpg">'+(page>0?'<button type="button" class="btn sm ghost" data-pg="'+(page-1)+'">‹ Newer</button>':'')+'<span>Page '+(page+1)+' of '+pages+'</span>'+(page<pages-1?'<button type="button" class="btn sm ghost" data-pg="'+(page+1)+'">Older ›</button>':'')+'</div>';
     box.innerHTML='<div class="ulbar"><span><b>'+r.total.toLocaleString()+'</b> record'+(r.total===1?'':'s')+' found'+(r.source==='device'?' <span class="pill y" title="The cloud copy could not be reached, so only this computer\'s records are shown">this computer only</span>':'')+'</span><span>Newest first</span></div>'+
-      (r.rows.length?'<table class="grid ulgrid"><thead><tr><th>When</th><th>User</th><th>Shift</th><th>Field / Title</th><th>What they did</th><th>Reference</th></tr></thead><tbody>'+ulRowsHtml(r.rows)+'</tbody></table>':'<div class="empty">No records for these filters.</div>')+pg;
+      (r.rows.length?'<table class="grid ulgrid"><thead><tr><th>When</th><th>User</th><th>Shift</th><th>Field / Title</th><th>What they did</th><th>Reference</th></tr></thead><tbody>'+ulRowsHtml(r.rows,prov?(H.set&&H.set.tz):'')+'</tbody></table>':'<div class="empty">No records for these filters.</div>')+pg;
     $$('[data-pg]',box).forEach(b=>b.onclick=()=>run(+b.dataset.pg));
   };
   $('#ulGo',el).onclick=()=>run(0);
