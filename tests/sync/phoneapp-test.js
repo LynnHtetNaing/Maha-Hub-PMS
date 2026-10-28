@@ -10,4 +10,7 @@ T('the welcome layer shows only in the app, once per start',src.includes('if(IS_
 T('Back returns to the welcome layer in the app',src.includes("if(IS_APP){appWelcomeShow();return}")&&src.includes("['#lgAllSys','#lgBack'].forEach"));
 T('the Property ID line exists only in the app and is checked against the hotel',src.includes("${IS_APP?'<label><span>Property ID</span>")&&src.includes("want!==String(hc).toUpperCase()")&&src.includes("err.textContent='Enter your Property ID.'"));
 T('the browser sign-in is unchanged (everything above is behind IS_APP)',!/\$\{IS_APP\?[^}]*\}[^]{0,0}$/.test('')&&src.includes('const IS_APP=document.documentElement.classList.contains(\'is-app\')'));
+T('the sign-in page wears the welcome look: light mint, white card, dark green button, no dark green background',src.includes('html.is-app .eco-shell{background:linear-gradient(180deg,#f7fcf9 0%,#eaf6f0 100%)!important')&&src.includes('html.is-app .eco-login-inner{background:#fff;border-radius:20px')&&src.includes('html.is-app #lgGo{background:#113732!important')||src.includes('html.is-app .eco-btn.gold,html.is-app #lgGo{background:#113732!important'));
+T('every loading screen in the app is light',src.includes('html.is-app .mh-boot{background:linear-gradient(180deg,#f7fcf9 0%,#eaf6f0 100%)!important'));
+T('after sign-in the app opens the PMS directly (no Frontend / Backend page)',src.includes('while(hasBackend()&&!IS_APP){'));
 process.exit(fails?1:0);
