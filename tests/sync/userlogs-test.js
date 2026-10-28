@@ -53,3 +53,9 @@ must('batch size is limited',sql.includes('jsonb_array_length(lines) > 300'));
 must('lines are stamped with the real account',sql.includes('uid,')&&sql.includes('uid uuid := (select auth.uid())'));
 must('sending twice stores once',sql.includes('on conflict (property_id, id) do nothing'));
 console.log('userlogs ok');
+// retention: screens and prints/exports are removed after 90 days, everything else is kept
+{const sql2=fs.readFileSync(__dirname+'/../../supabase/migrations/20261028120000_user_logs.sql','utf8');
+ if(!sql2.includes("g.title in ('Screen', 'Print & export')")||!sql2.includes('g.bd < current_date - 90'))fail('90-day cleanup missing');
+ if(/delete\s+from\s+public\.maha_user_logs[^;]*title\s*(<>|!=|not in)/i.test(sql2))fail('the cleanup must only name the two unimportant titles');
+ if(!sql2.includes('revoke all on public.maha_user_logs_state from public, anon, authenticated;'))fail('state table must be closed');
+ console.log('retention ok');}

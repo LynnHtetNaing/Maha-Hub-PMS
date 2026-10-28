@@ -28,6 +28,16 @@ create index if not exists maha_user_logs_title_idx on public.maha_user_logs(pro
 alter table public.maha_user_logs enable row level security;
 revoke all on public.maha_user_logs from public, anon, authenticated;
 
+-- Retention: lines about opened screens and about prints / exports / downloads are not important after 90 days, so they are
+-- removed then (once a day per hotel, when that hotel sends its next batch). Everything else (sign in and out, changes,
+-- payments, refused attempts, ...) is kept for ever.
+create table if not exists public.maha_user_logs_state (
+  property_id uuid primary key references public.maha_properties(id) on delete cascade,
+  pruned_on   date not null default current_date
+);
+alter table public.maha_user_logs_state enable row level security;
+revoke all on public.maha_user_logs_state from public, anon, authenticated;
+
 -- Send a batch of lines (up to 300). A bad line is skipped, the rest are kept. Returns how many were new.
 create or replace function public.maha_user_logs_push(target_property uuid, lines jsonb)
 returns integer
@@ -72,6 +82,14 @@ begin
       continue;
     end;
   end loop;
+  if not exists (select 1 from public.maha_user_logs_state st where st.property_id = target_property and st.pruned_on = current_date) then
+    delete from public.maha_user_logs g
+    where g.property_id = target_property
+      and g.title in ('Screen', 'Print & export')
+      and g.bd < current_date - 90;
+    insert into public.maha_user_logs_state (property_id, pruned_on) values (target_property, current_date)
+    on conflict (property_id) do update set pruned_on = current_date;
+  end if;
   return n;
 end;
 $$;
