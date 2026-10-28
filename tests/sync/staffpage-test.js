@@ -33,7 +33,8 @@ if(/\n\s*\$\('\[data-[a-z]+\]',root\)\.forEach/.test(b))fail('broken selector co
 // compare page: read-only ticks, names frozen, rounded
 if(!b.includes('Nothing can be changed here'))fail('compare is read only');
 if(!/\.ppmat \.pm th:first-child,\.ppmat \.pm td:first-child\{position:sticky;left:0/.test(src))fail('first column must be frozen');
-if(!/\.ucmp \.panel\{overflow:hidden;border-radius:14px\}/.test(src))fail('rounded corners');
+if(!/\.panel\.ucmp\{overflow:hidden!important;border-radius:18px!important\}/.test(src))fail('rounded corners');
+if(!b.includes('>Overview</button>'))fail('Overview button beside the filters');
 // the old print-preview class .ppwrap must not be restyled
 if(/\.ppwrap\{display:grid/.test(src))fail('.ppwrap belongs to the print preview');
 // close button turns red on press
