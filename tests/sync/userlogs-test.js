@@ -60,7 +60,7 @@ console.log('userlogs ok');
  if(!sql2.includes('revoke all on public.maha_user_logs_state from public, anon, authenticated;'))fail('state table must be closed');
  console.log('retention ok');}
 // the Close Day file is a switch in Hotel Settings, off by default
-{if(!src.includes("if(H.set&&H.set.ulogFile){try{const nUl=await ulExportDay(bd)"))fail('Close Day file must only run when the hotel switched it on');
+{if(!src.includes("if(H&&H.set&&H.set.ulogFile){try{const nUl=await ulExportDay(bd)"))fail('Close Day file must only run when the hotel switched it on');
  if(!src.includes("id=\"sUlf\" ${s.ulogFile?'checked':''}"))fail('the switch must default to off');
  if(!src.includes("s.ulogFile=!!($('#sUlf',el)&&$('#sUlf',el).checked);"))fail('the switch must be saved');
  // an open tab is told when the site was updated

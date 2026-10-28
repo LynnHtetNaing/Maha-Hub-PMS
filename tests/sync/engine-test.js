@@ -93,7 +93,7 @@ const open=async(d,code,pid)=>{const r=await d.sync.open(code,pid);if(r&&r.recor
   await A.sync.syncOnce();await B.sync.syncOnce();await A.sync.syncOnce();
   const c1=A.api.getDB().hotels.H1.reservations.find(x=>x.id==='r1'),c2=B.api.getDB().hotels.H1.reservations.find(x=>x.id==='r1');
   T('same field edited twice -> first saved wins, both converge',c1.status==='out'&&c2.status==='out',c1.status+'/'+c2.status);
-  T('loser was told (toast + conflict list)',B.sync.conflicts.length===1&&B.toasts.some(t=>/Another device changed/.test(t)));
+  T('the other device is merged silently (kept in the conflict list, no message on screen)',B.sync.conflicts.length===1&&!B.toasts.some(t=>/Another device changed/.test(t)));
   /* delete propagates */
   const gi=A.api.getDB().hotels.H1.guests.findIndex(x=>x.id==='g3');A.api.getDB().hotels.H1.guests.splice(gi,1);
   await A.sync.syncOnce();await B.sync.syncOnce();

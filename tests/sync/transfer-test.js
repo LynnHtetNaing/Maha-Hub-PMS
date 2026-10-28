@@ -45,3 +45,6 @@ console.log('transfer pop-up ok');
  if(!s8.includes('${pendingBanner(B)}<div class="folios">')||!s8.includes('>REQUEST</span>'))fail('the folio shows a banner and a REQUEST tag');
  if(!s8.includes("dlgAlert('The same request is already waiting for approval."))fail('a clear message when the same request is already waiting');
  console.log('duplicate requests ok');}
+{const s9=fs.readFileSync(process.argv[2],'utf8');
+ if(!s9.includes("if(H&&H.set&&H.set.ulogFile){try{const nUl=await ulExportDay(bd);"))fail('Close Day: the finish screen must not depend on H still being loaded');
+ console.log('close day finish guard ok');}

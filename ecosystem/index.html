@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
+<meta name="maha-build" content="f3b7e3c3cf">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -3630,7 +3631,7 @@ function msNewSync(){return {
       }
       await this.ensureLeases();
       if(remote||sent||this.cursor!==cur0||this.persistDue){this.persist();this.persistDue=false}this.offline=false;this.lastError=null;
-      if(lost.length){this.conflicts.push(...lost);if(typeof toast==='function')toast('Another device changed '+lost.length+' record'+(lost.length>1?'s':'')+' you also edited. The latest cloud copy was kept.')}
+      if(lost.length){this.conflicts.push(...lost)}   /* silent: the latest cloud copy is kept and nobody needs to be told */
       if(remote&&this.onRemote)this.onRemote(remote);
       return 'ok';
     }catch(e){
@@ -4565,10 +4566,16 @@ const ULOG=(()=>{
 /* New version prompt: after the site is updated, a tab that stays open keeps the old screens until it is reloaded. */
 function watchNewVersion(){
   if(watchNewVersion.on||typeof fetch==='undefined')return;watchNewVersion.on=true;
-  let first=null,shown=false;
-  const sig=r=>{const e=r.headers.get('etag')||'',m=r.headers.get('last-modified')||'';return e||m?e+'|'+m:''};
-  const ask=async()=>{try{const r=await fetch('/ecosystem/index.html',{method:'HEAD',cache:'no-store'});if(!r.ok)return;const v=sig(r);if(!v)return;if(first===null){first=v;return}
-    if(v!==first&&!shown){shown=true;const b=document.createElement('div');b.className='newver';b.setAttribute('role','status');b.innerHTML='<span>A new version of Maha PMS is ready.</span><button type="button" class="nvgo">Reload now</button><button type="button" class="nvlater">Later</button>';document.body.appendChild(b);b.querySelector('.nvgo').onclick=()=>location.reload();b.querySelector('.nvlater').onclick=()=>{b.remove();setTimeout(()=>{shown=false},30*60*1000)}}}catch(e){}};
+  /* The page carries a build stamp (a hash of the file). A new version is announced only when the stamp of the published file differs from the stamp this page loaded with.
+     Server headers (ETag, Last-Modified) are not used: different servers give different ones for the same file and used to cause false alarms. */
+  const mine=(document.querySelector('meta[name="maha-build"]')||{}).content||'';
+  if(!mine||mine==='0')return;
+  let shown=false;
+  const ask=async()=>{try{
+    const r=await fetch('/ecosystem/index.html',{headers:{Range:'bytes=0-6143'},cache:'no-store'});if(!r.ok&&r.status!==206)return;
+    const m=/<meta name="maha-build" content="([^"]*)">/.exec(await r.text());const v=m?m[1]:'';
+    if(!v||v==='0'||v===mine||shown)return;
+    shown=true;const bar=document.createElement('div');bar.className='newver';bar.setAttribute('role','status');bar.innerHTML='<span>A new version of Maha PMS is ready.</span><button type="button" class="nvgo">Reload now</button><button type="button" class="nvlater">Later</button>';document.body.appendChild(bar);bar.querySelector('.nvgo').onclick=()=>location.reload();bar.querySelector('.nvlater').onclick=()=>{bar.remove();setTimeout(()=>{shown=false},30*60*1000)}}catch(e){}};
   ask();
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ask()});
   setInterval(ask,20*60*1000);
@@ -10606,7 +10613,7 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
       await wait(260);
       stSet(i,'done');pct((i+1)/work.length*100);await wait(240)}
     line('Business date '+fd(bd)+' is closed','done','ok');await wait(500);
-    if(H.set&&H.set.ulogFile){try{const nUl=await ulExportDay(bd);if(nUl)line('User logs of '+fd(bd)+' saved to a file',nUl+' records','ok')}catch(e){}}
+    if(H&&H.set&&H.set.ulogFile){try{const nUl=await ulExportDay(bd);if(nUl)line('User logs of '+fd(bd)+' saved to a file',nUl+' records','ok')}catch(e){}}
     o.classList.add('fin');$o('#cdfT').textContent='Business date '+fd(bd)+' is closed';$o('#cdfSm').textContent='complete';
     $o('.cdf-date').innerHTML='<span>The hotel is now on</span><span class="nx big">'+esc(fd(nd))+'</span>';
     let n=6;const msg='Your shift is closed. Business date '+fd(bd)+' is closed. Sign in to open a new shift.';
