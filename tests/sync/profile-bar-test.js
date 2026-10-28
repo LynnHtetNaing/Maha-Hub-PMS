@@ -12,3 +12,8 @@ if(/class="tbhotel"/.test(shell))fail('the name block must not stay in the top b
 if(!src.includes("if(open&&!open.hidden&&open._anchor===anchor){open.hidden=true"))fail('pressing the same icon again must close its menu');
 if(!src.includes("anchor.closest('.msb')"))fail('the profile menu must open to the right of the left menu');
 console.log('profile bar ok');
+// Property setup counts every section that has a clear done-rule
+{const i=src.indexOf('function setupChecks(h){'),j=src.indexOf('function roomTotalsBanner(',i);const b=src.slice(i,j);
+ for(const k of ["k:'bd'","k:'plan'","k:'companies'"])if(!b.includes('{'+k))fail('setup check missing: '+k);
+ const n=(b.match(/\{k:'/g)||[]).length;if(n<14)fail('expected at least 14 setup checks, found '+n);
+ console.log('setup checks ok ('+n+')');}

@@ -11555,12 +11555,15 @@ function setupChecks(h){const s=h.set,g=s.google||{};
   return [
   {k:'profile',t:'Hotel profile',ok:!!(s.name&&s.legal&&s.addr&&s.taxId&&s.phone)},
   {k:'tax',t:'Currency, tax and service',ok:!!(s.cur&&s.curWord&&s.taxName!=null)},
+  {k:'bd',t:'Business date and times',ok:!!(s.bd&&/^\d{4}-\d\d-\d\d$/.test(s.bd)&&s.checkIn&&s.checkOut)},
   {k:'floors',t:'Floors',ok:(h.floors||[]).length>0||new Set(rooms.map(r=>r.floor)).size>0},
   {k:'types',t:'Room types',ok:types.length>0},
   {k:'rooms',t:'Rooms',ok:rooms.length>0&&rooms.every(r=>r.type&&r.floor)},
   {k:'allot',t:'Room totals',ok:roomTotalsOk(h)},
+  {k:'plan',t:'Floor plan',ok:(()=>{const fl=[...new Set(rooms.map(r=>r.floor).filter(x=>x!=null&&x!==''))];return fl.length>0&&fl.every(x=>h.floorPlans&&h.floorPlans[x])})()},
   {k:'rates',t:'Rate codes',ok:h.rateCodes.some(r=>r.kind!=='zero')&&types.length>0},
   {k:'pay',t:'Payment methods',ok:TCODES.some(c=>c.type==='p'&&!c.refund&&!c.auto&&!(h.set.payOff||{})[c.code])},
+  {k:'companies',t:'Companies and agents',ok:(h.companies||[]).length>0},
   {k:'staff',t:'Staff & permissions',ok:h.users.some(u=>u.role==='Manager'&&u.active!==false)},
   {k:'terms',t:'Terms & Conditions',ok:true},
   {k:'google',t:'Direct booking & Google metadata',ok:!g.enabled||!!(g.lat&&g.lng&&g.countryCode&&g.cancelPolicy)}]}
