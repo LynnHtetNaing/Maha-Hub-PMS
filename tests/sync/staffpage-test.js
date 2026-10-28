@@ -47,3 +47,11 @@ console.log('staff page ok');
 {const s3=fs.readFileSync(process.argv[2],'utf8');
  if(/(^|\n|\})\.rtc\{padding:3px 12px/.test(s3)||/\[data-mode=dark\] \.rtc\{background/.test(s3))fail('the room-total chip style must not hit the report filter bar (.rptool .rtc)');
  console.log('report filter bar ok');}
+{const s4=fs.readFileSync(process.argv[2],'utf8');
+ if(!s4.includes("id='lgNoSys'")||!s4.includes('No system is open for this account yet'))fail('login must explain when no system is open for the typed username');
+ console.log('login message ok');}
+{const s5=fs.readFileSync(process.argv[2],'utf8');
+ if(!s5.includes("const RELEASED_SYSTEMS=['hub','sales'];"))fail('Sales is a released system');
+ if(!s5.includes("if(!h.set._salesUserMig){h.set._salesUserMig=1;(h.users||[]).forEach(u=>{u.systems.sales=false})}"))fail('Sales starts Closed for every existing person');
+ if(!/mkUser[^\n]*systems:\{hub:true,connect:true,book:true,reach:true,sales:false\}/.test(s5))fail('new people start with Sales Closed');
+ console.log('sales closed ok');}

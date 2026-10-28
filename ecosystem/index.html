@@ -1383,6 +1383,7 @@ html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.16);border-colo
 .udet .usy.open{background:#1f9d6b!important;border-color:#1f9d6b!important;color:#fff!important}.udet .usy.shut{background:#d64545!important;border-color:#d64545!important;color:#fff!important}.udet .usy.soon{background:#d3dadf!important;border-color:#d3dadf!important;color:#5b6a74!important}
 html[data-mode=dark] .udet .usy.open{background:rgba(52,211,153,.18)!important;border-color:#34d399!important;color:#7ef0bd!important}html[data-mode=dark] .udet .usy.shut{background:rgba(248,113,113,.18)!important;border-color:#f87171!important;color:#ffb4ad!important}html[data-mode=dark] .udet .usy.soon{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.14)!important;color:#93a6b5!important}
 @media (max-width:640px){.udet .usys{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+.eco-nosys{font-size:13px;font-weight:700;line-height:1.35;color:#a02420;background:#fde8e6;border:1px solid #f3b9b4;border-radius:10px;padding:8px 12px;margin:8px 0}.eco-nosys[hidden]{display:none}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -2858,7 +2859,9 @@ function shapeHotel(h){
   /* a system that is not released starts Closed for every hotel; the provider opens it for a hotel when it is released */
   if(!h.set._sysClosedMig){h.set._sysClosedMig=1;if(h.set.package!=='fullpkg')h.set.systems.sales=false}
   if(!h.set._sysClosedMig2){h.set._sysClosedMig2=1;['reach','connect','sales'].forEach(k=>{if(!RELEASED_SYSTEMS.includes(k))h.set.systems[k]=false})}
-  (h.users||[]).forEach(u=>{u.systems=Object.assign({hub:true,connect:true,book:true,reach:true,sales:true},u.systems||{})});
+  (h.users||[]).forEach(u=>{u.systems=Object.assign({hub:true,connect:true,book:true,reach:true,sales:false},u.systems||{})});
+  /* Maha Sales is released but starts Closed for every person; the provider opens it for each person */
+  if(!h.set._salesUserMig){h.set._salesUserMig=1;(h.users||[]).forEach(u=>{u.systems.sales=false})}
   h.set.rules=Object.assign({},DEFAULT_RULES,h.set.rules||{});
   if(!h.set.codeVat||typeof h.set.codeVat!=='object'||Array.isArray(h.set.codeVat))h.set.codeVat={};
   if(!h.set.payLogos||typeof h.set.payLogos!=='object'||Array.isArray(h.set.payLogos))h.set.payLogos={};
@@ -4012,7 +4015,7 @@ function cloudFormHtml(){return `<label class="f"><span>Project URL</span><input
   <label class="f"><span>Publishable key</span><input id="clKey" placeholder="sb_publishable_..." autocomplete="off" spellcheck="false" value="${esc(CLOUD_PUBLISHABLE)}"></label>
   <label class="f"><span>Passphrase</span><input id="clPass" type="password" autocomplete="new-password"></label>
   <div class="sub" id="clSt"></div>`}
-function mkUser(id,username,name,role,pw){const salt=newSalt();return {id,username,name,role,salt,hash:pwHash(salt,pw),active:true,perms:[...(PRESET[role]||[])],systems:{hub:true,connect:true,book:true,reach:true,sales:true}}}
+function mkUser(id,username,name,role,pw){const salt=newSalt();return {id,username,name,role,salt,hash:pwHash(salt,pw),active:true,perms:[...(PRESET[role]||[])],systems:{hub:true,connect:true,book:true,reach:true,sales:false}}}
 
 /* ---------- seed ---------- */
 function seedDB(){
@@ -7247,7 +7250,7 @@ function ecosystemDir(){return appPrefix()+'/ecosystem/'}
    those systems look for it and send everybody else to the sign-in page. */
 /* Release gate: a system that is not yet open for sale and distribution cannot be opened from anywhere (the Main page, the switcher, a typed address,
    an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
-const RELEASED_SYSTEMS=['hub'];
+const RELEASED_SYSTEMS=['hub','sales'];
 function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
 /* The note under a system in Provider › Systems follows the system's state and whether it is released */
 function sysNote(kind,open){const rel=RELEASED_SYSTEMS.includes(kind);return rel?(open?'Open: hotel staff can use it.':'Closed: hidden from hotel staff.'):(open?'Open for this hotel, but not released yet: staff cannot use it until the release.':'Closed. Not released yet.')}
@@ -8099,9 +8102,12 @@ function showLogin(msg){
     const f=!lgProvider&&name?findStaff(name):null;
     const h=f?f.h:ecoPreviewHotel();shapeHotel(h);
     const u=f?f.u:null;
-    if(lgTargetSys&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
+    const none=!!u&&!hotelSystems(h,u).some(s=>s.open);   /* nothing is open for this person: keep the sign-in box and explain, do not fall back to the system list */
+    if(lgTargetSys&&!none&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&s.open))lgTargetSys=null;
     const cardsHtml=ecoAvailableCards(h,true,lgTargetSys,u);
     if(box.dataset.sig!==cardsHtml){box.innerHTML=cardsHtml;box.dataset.sig=cardsHtml;$$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b))}   /* rebuilt only when the cards really change: no flashing */
+    let nm=$('#lgNoSys');if(!nm){nm=document.createElement('p');nm.id='lgNoSys';nm.className='eco-nosys';const er=$('#lgErr');if(er&&er.parentNode)er.parentNode.insertBefore(nm,er)}
+    nm.hidden=!none;nm.textContent=none?'No system is open for this account yet. Ask the provider to open one in User Details & Permission.':'';
     applyPick();
   };
   const hint=()=>{
