@@ -16,3 +16,7 @@ console.log('transfer pop-up ok');
 {const s3=fs.readFileSync(process.argv[2],'utf8');
  if(!s3.includes('.modal.ppmodal .mbody>.btns{margin:0 0 16px!important;padding:4px 2px 0!important'))fail('print preview: air around the Print / Mail row');
  console.log('print preview spacing ok');}
+{const s4=fs.readFileSync(process.argv[2],'utf8');
+ if(!s4.includes('<div class="ucmpbar"><button type="button" class="btn ghost" id="ppCmp">← Users</button><h2 class="ucmptitle">Overview</h2></div>'))fail('Overview header: button and title in their own bar');
+ if(!s4.includes('.ucmpbar{display:flex;align-items:center;gap:16px;margin:8px 0 16px}'))fail('Overview header: room between button, title and text');
+ console.log('overview header ok');}
