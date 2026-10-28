@@ -13,3 +13,12 @@ T('the browser sign-in is unchanged (everything above is behind IS_APP)',!/\$\{I
 T('the sign-in page wears the welcome look: light mint, white card, dark green button, no dark green background',src.includes('html.is-app .eco-shell{background:linear-gradient(180deg,#f7fcf9 0%,#eaf6f0 100%)!important')&&src.includes('html.is-app .eco-login-inner{background:#fff;border-radius:20px')&&src.includes('html.is-app #lgGo{background:#113732!important')||src.includes('html.is-app .eco-btn.gold,html.is-app #lgGo{background:#113732!important'));
 T('after sign-in the app opens the PMS directly (no Frontend / Backend page)',src.includes('while(hasBackend()&&!IS_APP){'));
 process.exit(fails?1:0);
+{const fs2=require('fs'),p2=require('path');const R=p2.join(__dirname,'..','..');const m2=JSON.parse(fs2.readFileSync(p2.join(R,'manifest.json'),'utf8'));const sw=fs2.readFileSync(p2.join(R,'sw.js'),'utf8');
+ const ok=(n,c)=>{console.log((c?'PASS ':'FAIL ')+n);if(!c)process.exitCode=1};
+ const files=m2.icons.map(i=>p2.join(R,i.src));
+ ok('the app icons are the new gate set (separate normal and maskable icons, all files exist)',m2.icons.length===4&&m2.icons.some(i=>i.purpose==='maskable'&&i.sizes==='512x512')&&m2.icons.some(i=>i.purpose==='any'&&i.sizes==='512x512')&&files.every(f=>fs2.existsSync(f)));
+ ok('the app has its own id (a new app identity picks up the new icon)',m2.id==='/solutions-PMS');
+ ok('the offline shell lists the new icons',sw.includes('/brand/pms/app-icon-192.png')&&sw.includes('/brand/pms/app-icon-512.png'));
+ const png=f=>{const b=fs2.readFileSync(f);return {w:b.readUInt32BE(16),h:b.readUInt32BE(20)}};
+ ok('icon sizes are right',png(files[0]).w===192&&png(files[1]).w===512&&png(files[2]).w===192&&png(files[3]).w===512);
+}
