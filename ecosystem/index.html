@@ -1368,6 +1368,8 @@ html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important
 .upage .pptbl td{vertical-align:middle;white-space:nowrap}.upage .pptbl tbody tr.pprow{height:auto}.upage .pptbl td.uacts{padding:6px 12px!important}
 .uact{display:flex;gap:6px;margin:3px 0}.uact .btn{height:30px;padding:0 10px;font-size:12px}
 .upage .posin{width:118px;height:30px}.upage .pptbl select{height:30px;max-width:118px}.upage .pptbl td,.upage .pptbl th{padding-left:8px!important;padding-right:8px!important;font-size:12.5px}.uact .btn{padding:0 8px;font-size:11.5px}.uact{gap:5px}.upage .pptbl td:first-child{max-width:170px}.upage .pptbl td .sub{display:block;margin:0}.uat{margin:2px 0 0!important;font-size:11px}.uns{display:block;font-size:11px;opacity:.75;margin-top:2px}.uns input{margin-right:4px}
+.udet .ppg{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}.udet .ppg>span:first-child{flex:1}.udet .ppcnt{font-size:11.5px;font-weight:700;letter-spacing:0;text-transform:none;opacity:.85}.udet .ppcar{transition:transform .15s;font-size:14px}.udet .ppg[aria-expanded=false] .ppcar{transform:rotate(-90deg)}
+.udet .ppfrow{display:flex;gap:10px;align-items:center;margin:6px 0}.udet .ppfrow .ppfind{flex:1;margin:0}.udet .ugrp[hidden],.udet .ppgb[hidden]{display:none}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -10855,7 +10857,7 @@ function PU_preset(u,name){u.perms=[...PRESET[name]];u.role=name;provLog(`Applie
 /* ---------- Staff & permissions (provider): a slim list of people, one person's page, and a frozen compare table ---------- */
 const PP={q:'',dept:'',status:'active',tab:'people',sub:'perms',sel:null};
 const POS_LIST=['General Manager','Hotel Manager','Owner','Revenue Manager','Front Office Manager','Duty Manager','Front Desk Agent','Guest Service Agent','Night Auditor','Reservation Agent','Cashier','Housekeeping Supervisor','Room Attendant','Accountant','Sales Manager'];
-const PERM_GROUPS=[['Reservations',['res.create','res.edit','res.cancel','checkin','checkout','rate','currency']],['Folio and payments',['post','pay','corrpost','corrpay','move','refund','rebate','adjust','hkpost']],['Printing, guests and rooms',['print','profile','docs','notif','hk']],['Reports and logs',['reports','userlogs']],['Cashier and approvals',['closeothers','approve','announce']],['Hotel setup',['setup']],['AI helpers',['ai.guest','ai.revenue']]];
+const PERM_GROUPS=[['Reservations',['res.create','res.edit','res.cancel','checkin','checkout','rate','currency']],['Folio and payments',['post','pay','corrpost','corrpay','move','refund','rebate','adjust','hkpost']],['Printing, guests and rooms',['print','profile','docs','notif','hk']],['Reports and logs',['reports','userlogs']],['Cashier and approvals',['closeothers','approve','announce']],['Hotel setup',['setup']]];
 const ppInitials=n=>String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
 const ppState=u=>u.cancelled?'cancelled':u.active===false?'inactive':'active';
 function ppMatches(u){
@@ -10886,22 +10888,25 @@ function ppListHtml(edit){
   const rows=H.users.filter(ppShown);
   return rows.length?rows.map(u=>ppRowHtml(u,edit)).join(''):'<tr><td colspan="'+(edit?7:6)+'" class="empty">No one matches. Change the search or the filters.</td></tr>';
 }
+const ppOpen=g=>{PP.open=PP.open||{'Hotel systems':true};return !!PP.open[g]};
+function ppGroup(name,count,rowsHtml){return '<div class="ugrp" data-g="'+esc(name)+'"><div class="ppg" data-ppg="'+esc(name)+'" role="button" tabindex="0" aria-expanded="'+(ppOpen(name)?'true':'false')+'"><span>'+esc(name)+'</span><span class="ppcnt">'+esc(count)+'</span><span class="ppcar">▾</span></div><div class="ppgb"'+(ppOpen(name)?'':' hidden')+'>'+rowsHtml+'</div></div>'}
 function ppPermRows(u,edit){
   const known=new Set(PERM_GROUPS.flatMap(g=>g[1])),groups=PERM_GROUPS.map(g=>[g[0],g[1]]);
-  const extra=PERMS.map(p=>p[0]).filter(k=>!known.has(k));if(extra.length)groups.push(['Other',extra]);
+  const extra=PERMS.map(p=>p[0]).filter(k=>!known.has(k)&&!/^ai\./.test(k));if(extra.length)groups.push(['Other',extra]);
   return groups.map(g=>{const items=g[1].map(k=>PERMS.find(p=>p[0]===k)).filter(Boolean);if(!items.length)return '';
-    return '<div class="ppg">'+esc(g[0])+'</div>'+items.map(p=>{const on=u.perms.includes(p[0]);return '<div class="ppr" data-pq="'+esc(p[1].toLowerCase())+'"><span>'+esc(p[1])+'</span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-pu="'+u.id+'" data-pp="'+p[0]+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join('')}).join('');
+    const n=items.filter(p=>u.perms.includes(p[0])).length;
+    return ppGroup(g[0],n+' of '+items.length+' Open',items.map(p=>{const on=u.perms.includes(p[0]);return '<div class="ppr" data-pq="'+esc(p[1].toLowerCase())+'"><span>'+esc(p[1])+'</span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-pu="'+u.id+'" data-pp="'+p[0]+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join(''))}).join('');
 }
 function ppSysRows(u,edit){
-  shapeHotel(H);
-  return hotelSystems(H).map(s=>{const on=userHasSystem(u,s.kind);return '<div class="ppr"><span><b>'+esc(s.name)+'</b><small class="sub"> '+(s.hotel?'Open for this hotel':'Closed for this hotel')+'</small></span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-su="'+u.id+'" data-sk="'+s.kind+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join('');
+  shapeHotel(H);const list=hotelSystems(H);
+  return ppGroup('Hotel systems',list.filter(s=>userHasSystem(u,s.kind)).length+' of '+list.length+' Open',list.map(s=>{const on=userHasSystem(u,s.kind);return '<div class="ppr" data-pq="'+esc(s.name.toLowerCase())+'"><span><b>'+esc(s.name)+'</b><small class="sub"> '+(s.hotel?'Open for this hotel':'Closed for this hotel')+'</small></span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-su="'+u.id+'" data-sk="'+s.kind+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join(''));
 }
 function ppPopupHtml(u,edit){
   const st=ppState(u);
   const who='<div class="pph"><span class="ppav">'+esc(ppInitials(u.name))+'</span><div class="ppnm"><b>'+esc(u.name)+'</b><small>'+esc(u.username)+' · '+esc(u.position||u.role||'')+(u.department?' · '+esc(u.department):'')+'</small></div><span style="margin-left:auto">'+(st==='cancelled'?'<span class="pcp red">Cancelled</span>':st==='inactive'?'<span class="pcp off">Inactive</span>':'<span class="pcp ok">Active</span>')+'</span></div>';
   if(st==='cancelled')return who+'<p class="sub">This person is cancelled and cannot sign in.'+(u.cancelled&&u.cancelled.reason?' Reason: '+esc(u.cancelled.reason)+'.':'')+'</p>';
   const note=edit?'':'<p class="sub">This page only shows what the person has. The provider opens or locks access.</p>';
-  return who+note+'<div class="ppg">Hotel systems</div>'+ppSysRows(u,edit)+'<div class="ppg">Permissions</div><input type="search" class="ppfind" id="ppFind" placeholder="Find a permission" aria-label="Find a permission"><div id="ppPerms">'+ppPermRows(u,edit)+'</div>';
+  return who+note+'<div class="ppfrow"><input type="search" class="ppfind" id="ppFind" placeholder="Find a permission" aria-label="Find a permission"><button type="button" class="btn sm ghost" id="ppAll">Open all groups</button></div><div id="ppPerms">'+ppSysRows(u,edit)+ppPermRows(u,edit)+'</div>';
 }
 function openUser(id,edit){
   const u0=H.users.find(x=>x.id===id);if(!u0)return;
@@ -10911,8 +10916,12 @@ function openUser(id,edit){
     const u=H.users.find(x=>x.id===id);if(!u||u.deleted){closeModal(m);return}
     body.innerHTML=ppPopupHtml(u,edit);
     body.__after=()=>{render();paint()};
-    const f=$('#ppFind',body);
-    if(f)f.oninput=()=>{const q=f.value.trim().toLowerCase();$$('#ppPerms .ppr',body).forEach(r=>{r.hidden=!!q&&!r.dataset.pq.includes(q)});$$('#ppPerms .ppg',body).forEach(g=>{let n=g.nextElementSibling,any=false;while(n&&n.classList.contains('ppr')){if(!n.hidden)any=true;n=n.nextElementSibling}g.hidden=!any})};
+    const f=$('#ppFind',body),all=$('#ppAll',body),grp=body.querySelectorAll('.ugrp');
+    const apply=()=>{const q=f.value.trim().toLowerCase();grp.forEach(g=>{let any=false;g.querySelectorAll('.ppr').forEach(r=>{const hit=!q||r.dataset.pq.includes(q);r.hidden=!hit;if(hit)any=true});g.hidden=!any;g.querySelector('.ppgb').hidden=q?!any:!ppOpen(g.dataset.g);g.querySelector('.ppg').setAttribute('aria-expanded',g.querySelector('.ppgb').hidden?'false':'true')})};
+    const label=()=>{const every=[...grp].every(g=>ppOpen(g.dataset.g));all.textContent=every?'Close all groups':'Open all groups'};
+    if(f){f.oninput=apply;label()}
+    if(all)all.onclick=()=>{const every=[...grp].every(g=>ppOpen(g.dataset.g));grp.forEach(g=>{PP.open[g.dataset.g]=!every});f.value='';apply();label()};
+    body.querySelectorAll('.ppg').forEach(h=>{const t=()=>{const g=h.parentNode;PP.open[g.dataset.g]=!ppOpen(g.dataset.g);apply();label()};h.onclick=t;h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();t()}}});
     if(edit)permBind(body);
   };
   paint();

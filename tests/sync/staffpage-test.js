@@ -39,3 +39,8 @@ if(/\.ppwrap\{display:grid/.test(src))fail('.ppwrap belongs to the print preview
 // close button turns red on press
 if(!/html \.modal \.mx:active\{background:#c0392b/.test(src))fail('red close on press');
 console.log('staff page ok');
+{const s2=fs.readFileSync(process.argv[2],'utf8');
+ if(s2.includes("['AI helpers'"))fail('AI helpers group is gone');
+ if(!s2.includes("!/^ai\\./.test(k)")&&!s2.includes("!/^ai\./.test(k)"))fail("AI permissions must not show in Other");
+ if(!s2.includes('function ppGroup(name,count,rowsHtml)'))fail('permission groups open and close');
+ console.log('groups ok');}
