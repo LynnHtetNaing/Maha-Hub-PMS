@@ -1361,6 +1361,8 @@ html[data-mode=dark] .udet .upre{background:rgba(255,255,255,.06)}
 html[data-mode=dark] .utick{color:#7ef0bd}
 html .modal .mx:active{background:#c0392b;color:#fff}html[data-skin="modern"][data-mode=dark] .modal .mhead .mx:active{background:#d63a2f;color:#fff}
 @media (max-width:640px){.udet .ubtn3{grid-template-columns:1fr}}
+html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important;border:0!important;box-shadow:none!important}
+.ulx{width:40px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -4446,7 +4448,7 @@ const ULOG=(()=>{
     }catch(e){}
   }
   const days=(f,t)=>{const out=[];let d=f;for(let i=0;i<400&&d<=t;i++){out.push(d);d=addD(d,1)}return out};
-  const keep=(x,title,user)=>(!title||x.t===title)&&(!user||x.user===user);
+  const keep=(x,title,user)=>(!title||x.t===title)&&(!user||(Array.isArray(user)?user.includes(x.user):x.user===user));
   async function localRows(code,f,t,title,user){
     const rows=[];
     for(const d of days(f,t)){((await get(code+'|'+d).catch(()=>null))||[]).forEach(x=>{if(keep(x,title,user))rows.push(x)})}
@@ -4455,7 +4457,17 @@ const ULOG=(()=>{
     return rows;
   }
   /* o: {code,pid,from,to,title,user,offset,limit}. Cloud first (every device), this device's not-yet-sent lines added on the first page. */
+  /* o.user may be a list (a person's username and written name): the lines of all spellings are merged */
   async function query(o){
+    const us=Array.isArray(o.user)?[...new Set(o.user.filter(Boolean))]:o.user;
+    if(!Array.isArray(us)||us.length<2)return queryOne(Object.assign({},o,{user:Array.isArray(us)?(us[0]||''):us}));
+    const off=o.offset||0,lim=o.limit||100;
+    const parts=await Promise.all(us.map(u=>queryOne(Object.assign({},o,{user:u,offset:0,limit:off+lim}))));
+    const seen=new Set(),rows=[];parts.forEach(p=>p.rows.forEach(x=>{if(!seen.has(x.id)){seen.add(x.id);rows.push(x)}}));
+    rows.sort((x,y)=>(y.at-x.at)||(x.id<y.id?1:-1));
+    return {rows:rows.slice(off,off+lim),total:parts.reduce((n,p)=>n+p.total,0),source:parts.some(p=>p.source==='device')?'device':'cloud'};
+  }
+  async function queryOne(o){
     const lim=o.limit||100,off=o.offset||0;
     if(o.pid){
       try{
@@ -11053,8 +11065,9 @@ function userLogsPage(el,prov){
     el.innerHTML=pageHead('User Logs')+'<div class="panel empty">You do not have access to the User Logs. The owner or the provider can open it for your account in Staff &amp; permissions.</div>';return}
   const bd=H.set.bd;
   if(!UL.from||UL.hotel!==H.code){UL={hotel:H.code,from:bd,to:bd,title:'',user:'',page:0}}
-  const users=[...new Set((H.users||[]).map(u=>u.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  el.innerHTML=pageHead('User Logs',(prov?provHotelPicker():'')+'<label class="ufl">From date '+ufDate('ulF',UL.from)+'</label><label class="ufl">To date '+ufDate('ulT',UL.to)+'</label><label class="ufl">Field / Title <select id="ulTt"><option value="">All</option>'+UL_TITLES.map(t=>opt(t,t,UL.title)).join('')+'</select></label><label class="ufl">User <select id="ulUs"><option value="">All users</option>'+users.map(n=>opt(n,n,UL.user)).join('')+'</select></label><button type="button" class="btn gold" id="ulGo">'+ic('search',16)+' Search</button><button type="button" class="btn ghost" id="ulXl">Excel</button>','under')+
+  const users=(H.users||[]).filter(u=>u.username).slice().sort((a,b)=>String(a.name||a.username).localeCompare(String(b.name||b.username)));
+  const ulWho=v=>{const u=(H.users||[]).find(x=>x.username===v);return u?[...new Set([u.username,u.name,String(u.name||'').toLowerCase()].filter(Boolean))]:(v||'')};
+  el.innerHTML=pageHead('User Logs',(prov?provHotelPicker():'')+'<label class="ufl">From date '+ufDate('ulF',UL.from)+'</label><label class="ufl">To date '+ufDate('ulT',UL.to)+'</label><label class="ufl">Field / Title <select id="ulTt"><option value="">All</option>'+UL_TITLES.map(t=>opt(t,t,UL.title)).join('')+'</select></label><label class="ufl">User <select id="ulUs"><option value="">All users</option>'+users.map(u=>opt(u.username,(u.name||u.username)+' ('+u.username+')',UL.user)).join('')+'</select></label><button type="button" class="btn gold" id="ulGo">'+ic('search',16)+' Search</button><button type="button" class="btn ghost ulx" id="ulXl" title="Download Excel" aria-label="Download Excel">'+ic('xls',18)+'</button>','under')+
     '<p class="sub">Every action of every user is recorded here: sign in and out, screens opened, changes, payments, prints and refused attempts. Dates are business dates. Read only: nobody can change or delete a line.</p><div class="panel ulpanel" id="ulRes"><div class="empty">Press Search.</div></div>';
   if(prov)bindPicker(el);
   bindDatePick(el);
@@ -11064,7 +11077,7 @@ function userLogsPage(el,prov){
     if(!read())return;UL.page=page;
     const box=$('#ulRes',el);box.innerHTML='<div class="empty">Loading...</div>';
     const c=await ctx();
-    const r=await ULOG.query({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:UL.user,offset:page*UL_PER,limit:UL_PER});
+    const r=await ULOG.query({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:ulWho(UL.user),offset:page*UL_PER,limit:UL_PER});
     if(!$('#ulRes',el))return;
     const pages=Math.max(1,Math.ceil(r.total/UL_PER));
     const pg=pages<2?'':'<div class="ulpg">'+(page>0?'<button type="button" class="btn sm ghost" data-pg="'+(page-1)+'">‹ Newer</button>':'')+'<span>Page '+(page+1)+' of '+pages+'</span>'+(page<pages-1?'<button type="button" class="btn sm ghost" data-pg="'+(page+1)+'">Older ›</button>':'')+'</div>';
@@ -11075,7 +11088,7 @@ function userLogsPage(el,prov){
   $('#ulGo',el).onclick=()=>run(0);
   $('#ulXl',el).onclick=async()=>{
     if(!read())return;const btn=$('#ulXl',el);btn.disabled=true;
-    try{const c=await ctx();const rows=await ULOG.fetchAll({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:UL.user},60000);
+    try{const c=await ctx();const rows=await ULOG.fetchAll({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:ulWho(UL.user)},60000);
       if(!rows.length){toast('No records for these filters.');return}
       ulDownload('UserLogs_'+c.code+'_'+UL.from+(UL.to!==UL.from?'_to_'+UL.to:'')+'.xls',rows);
       ULOG.add('Exported user logs file ('+rows.length+' records, '+fd(UL.from)+(UL.to!==UL.from?' to '+fd(UL.to):'')+')',null,'Print & export');
