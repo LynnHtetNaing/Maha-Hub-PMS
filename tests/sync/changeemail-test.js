@@ -77,11 +77,11 @@ const cut = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a +
   T('two different addresses: nothing is sent and the window stays open', w.called.length === 0 && w.closed === 0 && /not the same/.test(w.err));
 
   /* where the buttons are */
-  const perms = cut("VIEWS['prov.perms']=el=>{", "VIEWS['prov.amend']");
-  const guard = perms.indexOf('DB.session.provider'), btn = perms.indexOf('data-ce=');
-  T('Staff & permissions is only for the provider, and the button comes after that check', guard > 0 && guard < 120 && btn > guard);
-  T('the Change email button only shows with the cloud sign-in on', /MahaAuth\.on\(\)\?`<button class="btn sm ghost" data-ce=/.test(perms));
-  T('each staff row shows the masked address as a small grey line', /class="sub" data-em=/.test(perms) && /masked_email/.test(perms));
+  const perms = cut("const PP={q:", "VIEWS['prov.amend']"), page = perms.slice(perms.indexOf("VIEWS['prov.perms']=el=>{"));
+  const guard = page.indexOf('DB.session.provider'), btn = perms.indexOf('data-ce=');
+  T('Staff & permissions is only for the provider, and the page checks that first', guard > 0 && guard < 120 && btn > 0);
+  T('the Change email button only shows with the cloud sign-in on', /MahaAuth\.on\(\)\?'[^]{0,300}data-ce=/.test(perms));
+  T('each staff row shows the masked address as a small grey line', /class="sub">Email: <b data-em=/.test(perms) && /masked_email/.test(perms));
   T('the page never asks for a table directly (only the provider function)', !/\.from\('maha_trusted_devices'\)|\.from\('maha_login_identities'\)/.test(src));
   const sec = cut("VIEWS['prov.security']=el=>{", 'let _idle,_sessTouch');
   T('the Security Center has the sign-in panel', /id="siBox"/.test(sec) && /signinPanel\(/.test(sec));
