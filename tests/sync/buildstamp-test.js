@@ -1,0 +1,10 @@
+const fs=require('fs'),crypto=require('crypto');
+const src=fs.readFileSync(process.argv[2],'utf8').replace(/\r\n/g,'\n');
+let fails=0;const T=(n,ok)=>{console.log((ok?'PASS ':'FAIL ')+n);if(!ok)fails++};
+const RE=/<meta name="maha-build" content="([^"]*)">/;const m=RE.exec(src);
+T('the page carries a build stamp near the top',!!m&&src.indexOf(m[0])<6000);
+const want=crypto.createHash('sha1').update(src.replace(RE,'<meta name="maha-build" content="0">')).digest('hex').slice(0,10);
+T('the stamp is current (run: node tools/stamp-build.js)',!!m&&m[1]===want);
+T('the new-version bar compares the stamp, not the server headers',src.includes("meta[name=\"maha-build\"]")&&!src.includes("r.headers.get('etag')"));
+T('a sync merge of the same record is silent (no toast)',!/toast\('Another device changed '\+lost\.length/.test(src));
+process.exit(fails?1:0);
