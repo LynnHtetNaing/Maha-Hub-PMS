@@ -11,6 +11,8 @@ const withExtra=[];for(let i=0;i<9;i++){withExtra.push({desc:'L'+i,card:{last4:'
 const pg=api.chunkDoc(api.flattenDoc(withExtra));
 T('a line is never separated from its card and remark rows',pg.every(p=>!(p[p.length-1].t==='l')||pg.indexOf(p)===pg.length-1));
 /* the totals, the words and the signatures are on the last page only */
-T('totals and signatures are drawn on the last page only',/\$\{isLast\?totals:''\}\$\{isLast\?`<div class="ivfoot">/.test(src)&&src.includes('Continued on the next page'));
+T('the totals and the amount in words are drawn on the last page only',src.includes("${isLast?totals:'<div class=\"ivcont\">Continued on the next page</div>'}<div class=\"ivfoot\">"));
+T('the disclaimer and the signatures are on EVERY page (the template is fixed)',!src.includes('isLast?`<div class="ivfoot">')&&src.includes("Cashier's Signature<br>"));
+T('more room between the disclaimer and the signatures',src.includes('.inv .sigs{margin-top:60px}'));
 T('the signatures keep a clear margin above the bottom edge',/\.ppage\.port\.inv\{padding-bottom:20mm!important\}/.test(src));
 process.exit(fails?1:0);
