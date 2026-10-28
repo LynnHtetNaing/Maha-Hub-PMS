@@ -3,7 +3,7 @@ const src=fs.readFileSync(process.argv[2],'utf8');const man=JSON.parse(fs.readFi
 let fails=0;const T=(n,ok)=>{console.log((ok?'PASS ':'FAIL ')+n);if(!ok)fails++};
 T('the app is recognised before the first paint (installed app or ?source=app)',/matchMedia\("\(display-mode: standalone\)"\)\.matches\|\|navigator\.standalone===true\|\|\/\[\?&\]source=app/.test(src)&&src.includes('document.documentElement.classList.add("is-app")'));
 T('the installed app starts inside the PMS, never on the system chooser',man.start_url==='/solutions-PMS?source=app'&&src.includes("if(IS_APP&&!lgProvider)lgTargetSys='hub';"));
-T('the start colour matches the welcome layer',man.background_color==='#f4faf7');
+T('the loading screens and the start colour keep their dark green (only the sign-in page is light)',man.background_color==='#0A3020'&&!src.includes('html.is-app .mh-boot'));
 T('the app never falls back to the system chooser or to another system',src.includes('lgTargetSys&&!IS_APP&&!none')&&src.includes("if(IS_APP){toast('Maha PMS is not open for your account."));
 T('welcome layer: Login, secure line, Not registered yet? Contact Maha',src.includes('id="appwGo">Login</button>')&&src.includes('Secure sign-in for Maha PMS teams')&&src.includes('Not registered yet? <a href="https://maha-hub.com/contact"'));
 T('the welcome layer shows only in the app, once per start',src.includes('if(IS_APP&&!APPW_DONE)appWelcomeShow();')&&src.includes('let APPW_DONE=false;'));
@@ -11,6 +11,5 @@ T('Back returns to the welcome layer in the app',src.includes("if(IS_APP){appWel
 T('the Property ID line exists only in the app and is checked against the hotel',src.includes("${IS_APP?'<label><span>Property ID</span>")&&src.includes("want!==String(hc).toUpperCase()")&&src.includes("err.textContent='Enter your Property ID.'"));
 T('the browser sign-in is unchanged (everything above is behind IS_APP)',!/\$\{IS_APP\?[^}]*\}[^]{0,0}$/.test('')&&src.includes('const IS_APP=document.documentElement.classList.contains(\'is-app\')'));
 T('the sign-in page wears the welcome look: light mint, white card, dark green button, no dark green background',src.includes('html.is-app .eco-shell{background:linear-gradient(180deg,#f7fcf9 0%,#eaf6f0 100%)!important')&&src.includes('html.is-app .eco-login-inner{background:#fff;border-radius:20px')&&src.includes('html.is-app #lgGo{background:#113732!important')||src.includes('html.is-app .eco-btn.gold,html.is-app #lgGo{background:#113732!important'));
-T('every loading screen in the app is light',src.includes('html.is-app .mh-boot{background:linear-gradient(180deg,#f7fcf9 0%,#eaf6f0 100%)!important'));
 T('after sign-in the app opens the PMS directly (no Frontend / Backend page)',src.includes('while(hasBackend()&&!IS_APP){'));
 process.exit(fails?1:0);
