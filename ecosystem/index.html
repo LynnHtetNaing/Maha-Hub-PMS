@@ -1300,6 +1300,13 @@ html[data-skin="modern"] .msb-top img.msb-gate{width:40px;height:40px;padding:6p
 /* Report bar (Modern): the gate on a soft plaque so it reads on the bright gradient, name in white */
 html[data-skin="modern"] .rptop .tblogo{width:46px!important;height:46px!important;padding:7px;border-radius:13px!important;object-fit:contain;background:rgba(8,16,36,.42);border:1px solid rgba(255,255,255,.32);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 6px 16px -8px rgba(0,0,0,.5)}
 html[data-skin="modern"] .rptop .tbwm{color:#fff;text-shadow:0 1px 8px rgba(8,16,36,.35)}html[data-skin="modern"] .rptop .tbsep{background:rgba(255,255,255,.45)}
+/* User Logs page: Light, Dark and phone */
+.ulpanel{padding:0!important;overflow:hidden}.ulbar{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 14px;font-size:12.5px;color:var(--mut,#52705f)}.ulpg{display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:10px 14px}
+.ulgrid td{vertical-align:top}.ulgrid .ulw{white-space:nowrap;font-variant-numeric:tabular-nums}.ulgrid .ula{min-width:220px;word-break:break-word}
+/* User Logs page: plain and dense, so many lines are easy to scan */
+.ult{font-weight:600;white-space:nowrap}.ult.dn{color:#b3261e;font-weight:800}html[data-mode=dark] .ult.dn{color:#ffb4ad}
+.ulgrid th{font-size:11.5px;padding:6px 8px}.ulgrid td{padding:4px 8px!important;font-size:12.5px;line-height:1.35}.ulgrid tbody tr:nth-child(even) td{background:rgba(128,150,140,.07)}.ulgrid td .sub{font-size:11px;opacity:.75}
+@media (max-width:700px){.ulgrid thead{display:none}.ulgrid,.ulgrid tbody,.ulgrid tr,.ulgrid td{display:block;width:100%}.ulgrid tr{padding:10px 14px;border-bottom:1px solid rgba(128,150,140,.25)}.ulgrid td{padding:2px 0!important;border:0!important}.ulgrid td::before{content:attr(data-l) ": ";font-weight:700;opacity:.6;font-size:11.5px}.ulgrid td[data-l=Field]::before,.ulgrid td[data-l=When]::before{content:""}.ulgrid .ula{min-width:0;font-weight:600}.ulbar{flex-wrap:wrap}}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -2400,8 +2407,9 @@ const PERMS=[
  ['rate','Change nightly rates (advance rate setup)'],['print','Print invoices and registration cards'],['hk','Change housekeeping status'],
  ['notif','Create notifications'],['profile','Edit guest profiles'],['docs','View guest documents and ID numbers'],
  ['reports','Open reports'],['ai.guest','AI guest reply & translation'],['ai.revenue','AI revenue & forecast insights'],['hkpost','Post housekeeping charges (Mini Bar, Missing / Damage, Laundry, Misc.) from HK Folio'],['closeothers','Close other staff members\' shifts'],['refund','Refund money to a guest after check-out'],['rebate','Rebate (reduce) a charge after check-out'],['adjust','Adjust (+) an overpayment after check-out'],['currency','Choose a reservation currency (only when the provider opened more currencies)'],['approve','Approve requests (rebate, refund, void) made by others'],['announce','Post announcements to staff'],['setup','Hotel setup']];
+PERMS.push(['userlogs','View user logs (User Logs page)']);
 const PRESET={
- Manager:PERMS.map(p=>p[0]),
+ Manager:PERMS.map(p=>p[0]).filter(p=>p!=='userlogs'),
  'Front desk':['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','move','rate','print','hk','notif','profile','docs','reports','ai.guest'],
  HOD:['res.create','res.edit','res.cancel','checkin','checkout','post','pay','corrpost','corrpay','move','rate','print','hk','notif','profile','docs','reports','ai.guest','approve','announce'],
  Housekeeping:['hk','hkpost','notif']};
@@ -2787,6 +2795,7 @@ function shapeHotel(h){
   h.amend=h.amend||[];h.audits=h.audits||[];h.logs=h.logs||[];h.invoices=h.invoices||[];
   h.edcLinks=Array.isArray(h.edcLinks)?h.edcLinks:[];
   if(h.users&&h.users.length&&!h.users.some(u=>u.owner)){const m=h.users.find(u=>u.role==='Manager')||h.users[0];m.owner=true;m.protected=true}
+  (h.users||[]).forEach(u=>{if(u.owner&&Array.isArray(u.perms)&&!u.perms.includes('userlogs'))u.perms.push('userlogs')});
 }
 function migrateDB(db){
   if(!db||!db.hotels||(db.version||0)<4) return seedDB();
@@ -4300,7 +4309,7 @@ function user(){const se=DB&&DB.session;if(!se)return {name:'Signed out',perms:[
   const u=H&&H.users.find(u=>u.id===se.userId);if(!u)return {name:'Unknown',perms:[]};
   /* records, reports and invoices always show the username created by the provider – never the personal name the user types in their profile */
   return {...u,name:u.username,accountName:u.name,position:u.position||u.role}}
-const can=p=>{const u=user();return !!u.provider||(u.perms||[]).includes(p)};
+const can=p=>{const u=user();return !!u.provider||(u.perms||[]).includes(p)||(p==='userlogs'&&!!u.owner)};
 /* ---- No shift: people the provider ticked sign in without opening a shift ---- */
 function noShiftVirtual(se,u,bd){return {id:'ns-'+((se&&se.userId)||''),userId:se&&se.userId,userName:u?u.username:'',name:'No shift',bd,openAt:(se&&se.at)||Date.now(),openCash:0,status:'open',virtual:true,noShift:true}}
 const openCashierShifts=h=>((h&&h.shifts)||[]).filter(s=>s.status==='open');
@@ -4310,7 +4319,150 @@ const noShiftSessionOk=(se,u)=>!(se&&se.noShift)||!!(u&&u.noShift);
 function switchChoices(props,names,current){return (props||[]).map(p=>({code:p.code,id:p.id,name:(names&&names[p.code])||p.code,current:p.code===current})).sort((a,b)=>a.code<b.code?-1:a.code>b.code?1:0)}
 /* ---- end No shift ---- */
 function curShift(){const se=DB&&DB.session;if(se&&se.provider&&se.inHotel&&H){const p=DB.providers.find(x=>x.id===se.userId);return {id:'prov-'+se.userId,userId:se.userId,userName:p?p.username:'provider',name:'Provider',bd:H.set.bd,openAt:se.at||Date.now(),openCash:0,status:'open',virtual:true}}if(se&&se.noShift&&!se.provider&&H){const nu=(H.users||[]).find(x=>x.id===se.userId);return noShiftVirtual(se,nu,H.set.bd)}return se&&se.shiftId&&H?H.shifts.find(s=>s.id===se.shiftId&&s.status==='open')||null:null}
-function log(a,ref){if(!H)return;if(DB.session&&DB.session.provider&&DB.session.inHotel){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H.code,a:'[in hotel] '+a})}const s=curShift();H.logs.unshift({at:Date.now(),bd:H.set.bd,user:user().name,shift:s?s.name:(user().provider?'Provider':''),a,ref:ref||null});if(H.logs.length>800)H.logs.length=800}
+/* ================= User logs: every action is a record =================
+   The page reads these records. They are kept in two places so the page is complete on every computer and the system stays fast:
+   1. this device: its own store (IndexedDB), one bucket per business date, written in the background. It is NOT part of the synced hotel file.
+   2. the cloud table maha_user_logs: every line is also sent in small batches in the background (append only).
+   Nobody can edit or delete a line. The "Field / Title" filter uses the titles below. */
+const UL_TITLES=['Sign in / out','Screen','Reservation','Folio & payments','Cashier & Close Day','Rooms & housekeeping','Setup & staff','Print & export','Denied','Other'];
+function ulTitle(a){
+  const s=String(a||'');
+  if(/^Tried .* without permission/.test(s))return 'Denied';
+  if(/^Opened screen /.test(s))return 'Screen';
+  if(/^(Printed|Emailed|Exported|Downloaded)/.test(s))return 'Print & export';
+  if(/^(Signed (in|out)|Opened .* shift|Switched to another hotel)/.test(s))return 'Sign in / out';
+  if(/^(Posted|Void payment|Refund|Rebate|Correct (post|payment)|Moved line|Edited line|Split line|Transferred line|Offset|Adjust \(\+\)|City ledger|Credit note|No-show charge|EDC keyed|Wiped EDC|Reservation deposit|Approved (refund|rebate|adjust|correct)|Supplier|Commission)/.test(s))return 'Folio & payments';
+  if(/^(Close Day|Post room|Closed |Petty cash|Room discrepancy|Purged)/.test(s))return 'Cashier & Close Day';
+  if(/^(Cancelled|Reinstated) user/.test(s))return 'Setup & staff';
+  if(/RSVN|^(Cancelled|Checked|Assigned room|Blocked room|Cleared room block|No-show|Recalled|Reinstated|Rate change|Advance rate (copy|reset)|Added (room|sharing)|Copied|Amended|Group created|Rooming list|Routing|Sharing guest|Guest profile|Notification)/.test(s))return 'Reservation';
+  if(/^(Room |Dummy room)/.test(s))return 'Rooms & housekeeping';
+  if(/^(Hotel|Payment logo|Advance rate code|Added company|Duty roster|Announcement|Approval|Updated own profile|Confirmation letter|Allotment|Created |Saved|Staff|Position|Department|Applied preset|Password|Activated|Deactivated|Locked|Opened )/.test(s))return 'Setup & staff';
+  return 'Other';
+}
+const ULOG=(()=>{
+  const KEEP_DAYS=120,BATCH=250;
+  let dbp=null,pending=[],unsent=null,unsentCode='',flushT=null,sending=false,blocked=false,trimmed='';
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{try{const q=indexedDB.open('maha-ulogs',1);q.onupgradeneeded=()=>q.result.createObjectStore('days');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)}catch(e){rej(e)}}));
+  const get=k=>open().then(db=>new Promise((res,rej)=>{const r=db.transaction('days','readonly').objectStore('days').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
+  const put=(k,v)=>open().then(db=>new Promise((res,rej)=>{const tx=db.transaction('days','readwrite');tx.objectStore('days').put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)}));
+  const del=k=>open().then(db=>new Promise((res,rej)=>{const tx=db.transaction('days','readwrite');tx.objectStore('days').delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)}));
+  const allKeys=()=>open().then(db=>new Promise((res,rej)=>{const r=db.transaction('days','readonly').objectStore('days').getAllKeys();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)}));
+  const cloudOn=code=>{try{return !!(MahaAuth.on()&&MahaSync.pid&&MahaSync.code===code&&DB.session&&!DB.session.provider)}catch(e){return false}};
+  async function loadUnsent(code){if(unsent&&unsentCode===code)return;unsentCode=code;unsent=(await get('unsent|'+code).catch(()=>null))||[]}
+  async function flushNow(){
+    clearTimeout(flushT);flushT=null;
+    if(!pending.length)return;
+    const batch=pending;pending=[];
+    try{
+      const byDay={},byCode={};
+      batch.forEach(p=>{(byDay[p.code+'|'+p.line.bd]=byDay[p.code+'|'+p.line.bd]||[]).push(p.line);(byCode[p.code]=byCode[p.code]||[]).push(p.line)});
+      for(const k of Object.keys(byDay)){const cur=(await get(k).catch(()=>null))||[];await put(k,byDay[k].slice().reverse().concat(cur))}
+      for(const c of Object.keys(byCode)){await loadUnsent(c);unsent.push(...byCode[c]);await put('unsent|'+c,unsent)}
+    }catch(e){pending=batch.concat(pending)}
+  }
+  const schedule=()=>{if(!flushT)flushT=setTimeout(()=>{flushNow().then(()=>setTimeout(send,3000))},1500)};
+  function add(a,ref,t){
+    if(!H||!H.code||!H.set)return;
+    const u=user()||{},s=(typeof curShift==='function')?curShift():null,now=Date.now();
+    pending.push({code:H.code,line:{id:'l'+now.toString(36)+Math.random().toString(36).slice(2,8),at:now,bd:H.set.bd,user:u.name||'',shift:s?s.name:(u.provider?'Provider':''),t:t||ulTitle(a),a:String(a).slice(0,800),ref:ref||null}});
+    schedule();
+  }
+  async function send(){
+    if(sending||blocked)return;
+    const code=H&&H.code;if(!code||!cloudOn(code))return;
+    sending=true;
+    try{
+      await flushNow();await loadUnsent(code);
+      while(unsent.length){
+        const b=unsent.slice(0,BATCH);
+        await MahaAuth.rpc('maha_user_logs_push',{target_property:MahaSync.pid,lines:b.map(x=>({id:x.id,at:new Date(x.at).toISOString(),bd:x.bd,user:x.user,shift:x.shift,t:x.t,a:x.a,ref:x.ref}))});
+        unsent.splice(0,b.length);await put('unsent|'+code,unsent);
+      }
+      if(trimmed!==code){trimmed=code;trim(code)}
+    }catch(e){
+      /* the account may not write logs for this hotel (for example the provider): keep the lines on this device and stop trying */
+      if(/not-allowed|42501|403|401/i.test(String((e&&(e.message||e.code||e.status))||e)))blocked=true;
+    }finally{sending=false}
+  }
+  /* local buckets older than KEEP_DAYS are removed only when they are safely in the cloud (nothing waiting to be sent from that day) */
+  async function trim(code){
+    try{
+      const cutoff=addD(H.set.bd,-KEEP_DAYS),waiting=new Set((unsent||[]).map(x=>x.bd));
+      for(const k of await allKeys()){if(typeof k==='string'&&k.startsWith(code+'|')){const d=k.slice(code.length+1);if(/^\d{4}-\d\d-\d\d$/.test(d)&&d<cutoff&&!waiting.has(d))await del(k)}}
+    }catch(e){}
+  }
+  const days=(f,t)=>{const out=[];let d=f;for(let i=0;i<400&&d<=t;i++){out.push(d);d=addD(d,1)}return out};
+  const keep=(x,title,user)=>(!title||x.t===title)&&(!user||x.user===user);
+  async function localRows(code,f,t,title,user){
+    const rows=[];
+    for(const d of days(f,t)){((await get(code+'|'+d).catch(()=>null))||[]).forEach(x=>{if(keep(x,title,user))rows.push(x)})}
+    pending.forEach(p=>{if(p.code===code&&p.line.bd>=f&&p.line.bd<=t&&keep(p.line,title,user))rows.push(p.line)});
+    rows.sort((x,y)=>(y.at-x.at)||(x.id<y.id?1:-1));
+    return rows;
+  }
+  /* o: {code,pid,from,to,title,user,offset,limit}. Cloud first (every device), this device's not-yet-sent lines added on the first page. */
+  async function query(o){
+    const lim=o.limit||100,off=o.offset||0;
+    if(o.pid){
+      try{
+        const r=await MahaAuth.rpc('maha_user_logs_pull',{target_property:o.pid,from_bd:o.from,to_bd:o.to,p_title:o.title||null,p_user:o.user||null,p_limit:lim,p_offset:off});
+        if(r&&Array.isArray(r.rows)){
+          let rows=r.rows.map(x=>({id:x.id,at:Date.parse(x.at),bd:x.bd,user:x.user,shift:x.shift,t:x.t,a:x.a,ref:x.ref})),total=+r.total||0;
+          if(o.code===(H&&H.code)){
+            await flushNow().catch(()=>{});await loadUnsent(o.code).catch(()=>{});
+            const have=new Set(rows.map(x=>x.id)),extra=(unsent||[]).filter(x=>x.bd>=o.from&&x.bd<=o.to&&keep(x,o.title,o.user));
+            const fresh=extra.filter(x=>!have.has(x.id));
+            total+=fresh.length;if(off===0)rows=fresh.concat(rows).sort((x,y)=>(y.at-x.at)||(x.id<y.id?1:-1)).slice(0,lim);
+          }
+          return {rows,total,source:'cloud'};
+        }
+      }catch(e){}
+    }
+    const all=await localRows(o.code,o.from,o.to,o.title,o.user);
+    return {rows:all.slice(off,off+lim),total:all.length,source:'device'};
+  }
+  async function fetchAll(o,cap){
+    const out=[];let off=0;const lim=1000,max=cap||60000;
+    for(;;){const r=await query(Object.assign({},o,{offset:off,limit:lim}));out.push(...r.rows);off+=lim;if(!r.rows.length||off>=r.total||out.length>=max)break}
+    return out;
+  }
+  if(typeof document!=='undefined'){
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushNow()});
+    setInterval(()=>{try{send()}catch(e){}},30000);
+  }
+  return {add,send,query,fetchAll,flushNow,cloudOn};
+})();
+function ulWhen(t){const q=tzp(t,dispZone());return q.d+'/'+q.m+'/'+q.y+' '+q.h+':'+q.mi+':'+q.s}
+const UL_VIEW_NAMES={'res.open':'Reservation','bill.open':'Folio','fo.arrivals2':'Arrival detail','fo.departures2':'Departure detail'};
+function ulViewName(v){
+  if(!ulViewName.m){const m={};try{MENU.forEach(g=>(g.items||[]).forEach(it=>{m[it[1]]=it[0]}));PROV_MENU.forEach(g=>(g.items||[]).forEach(it=>{m[it[1]]=it[0]}))}catch(e){}ulViewName.m=Object.assign(m,UL_VIEW_NAMES)}
+  return ulViewName.m[v]||v;
+}
+let _ulScr={k:'',t:0};
+/* every screen a person opens (not written into the synced hotel log list, only the User Logs records) */
+function ulScreen(v,arg){
+  if(!H||!DB.session)return;
+  if(DB.session.provider&&!DB.session.inHotel)return;
+  if(v==='sys.pick'||v==='set.userlogs'||v==='prov.userlogs')return;
+  let x='';
+  if(typeof arg==='string'&&arg){try{const b=bookingById(arg);if(b)x=' (RSVN '+resOf(b).no+(b.room?', room '+b.room:'')+')'}catch(e){}}
+  const k=v+'|'+x,now=Date.now();
+  if(k===_ulScr.k&&now-_ulScr.t<8000)return;
+  _ulScr={k,t:now};
+  ULOG.add('Opened screen '+ulViewName(v)+x,null,'Screen');
+}
+/* safety net: when something is saved and no itemised record was written just before, a plain record is still written */
+let _ulLastLog=0;
+function ulSafety(msg){
+  if(!H||!DB.session||(DB.session.provider&&!DB.session.inHotel))return;
+  if(Date.now()-_ulLastLog<2500)return;
+  _ulLastLog=Date.now();
+  ULOG.add('Saved changes on '+ulViewName(VIEW)+(msg?' ('+String(msg).slice(0,120)+')':''),null,/^(set\.|profile\.|prov\.)/.test(VIEW)?'Setup & staff':'Other');
+}
+function ulDenied(perm){
+  try{const p=(PERMS.find(x=>x[0]===perm)||[])[1]||perm;ULOG.add('Tried "'+p+'" without permission',null,'Denied')}catch(e){}
+}
+function log(a,ref){if(!H)return;if(DB.session&&DB.session.provider&&DB.session.inHotel){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H.code,a:'[in hotel] '+a})}const s=curShift();H.logs.unshift({at:Date.now(),bd:H.set.bd,user:user().name,shift:s?s.name:(user().provider?'Provider':''),a,ref:ref||null});if(H.logs.length>800)H.logs.length=800;_ulLastLog=Date.now();try{ULOG.add(a,ref)}catch(e){}}
 /* Close Day and Post room: open to every position, but only on the Night shift (the provider may also run it) */
 const onNightShift=()=>{const s=curShift();return !!(user().isProv||(s&&s.name==='Night'))};
 function nightOkFor(u,h){if(!u)return false;h=h||H;if(h&&!ruleOn(h,'nightShiftRestrictedRoles'))return true;const blob=((u.role||'')+' '+(u.position||'')).toLowerCase();if(/housekeep/.test(blob))return false;return /front|hod|head of|manager|owner|night|duty|provider/.test(blob)}
@@ -4445,7 +4597,7 @@ function need(perm){
   if(user().provider){toast('Provider accounts change records from the Provider console only.');return false}
   if(H&&H.active===false){toast('This hotel is not active. Please contact Maha Hub support.');signOut(true);return false}
   if(!curShift()){toast('Your shift is closed. Sign in again to open a new shift.');signOut(true);return false}
-  if(perm&&!can(perm)){toast('You do not have permission for this. The provider can open it for your account.');return false}
+  if(perm&&!can(perm)){ulDenied(perm);toast('You do not have permission for this. The provider can open it for your account.');return false}
   return true}
 const lineCtx=ov=>{const s=ov||curShift();return {bd:H.set.bd,shift:s,user:user().name}};
 function histB(B,what){const s=curShift();B.hist.push({at:Date.now(),bd:H.set.bd,user:user().name,shift:s?s.name:'',what})}
@@ -6856,11 +7008,11 @@ const MENU=[
  {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty']]},
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
- {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
+ {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['User Logs','set.userlogs','userlogs'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
 const PROV_MENU=[
  {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
  {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Chains / Groups','prov.chains'],['Recycle bin','prov.recycle']]},
- {t:'Records',items:[['Announcements','prov.announce'],['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log']]},
+ {t:'Records',items:[['Announcements','prov.announce'],['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log'],['User Logs','prov.userlogs']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 /* ---- Our own drop-down list: used on every select instead of the browser list. Keyboard still works on the closed select. ---- */
 const MahaSel=(()=>{let pop=null,cur=null;
@@ -7568,8 +7720,8 @@ function ncTabs(m){
 function msgPane(m,mark,tabs){const box=$('#ncMsg',m),list=inboxMine();
   box.innerHTML='<div class="btns" style="justify-content:flex-end;margin-bottom:8px"><button class="btn sm ghost" id="ibAll" '+(list.some(x=>!x.read)?'':'disabled')+'>Mark all as read</button></div>'+
     (list.map(x=>'<div class="anncard'+(x.read?' read':'')+'"><div class="annh"><b>'+(x.kind==='approval'?'Approval':'Message')+'</b><span class="sub">'+fdt(x.at)+'</span>'+(x.read?'':'<span class="pill y">New</span>')+'</div><div class="annt">'+esc(x.text)+'</div>'+(x.read?'':'<div class="btns" style="justify-content:flex-start"><button class="btn sm ghost" data-ibr="'+x.id+'">Mark as read</button></div>')+'</div>').join('')||'<div class="empty nempty">No messages.</div>');
-  $$('[data-ibr]',box).forEach(b=>b.onclick=()=>{const x=(H.inbox||[]).find(y=>y.id===b.dataset.ibr);if(x){x.read=true;saveDB();mark();tabs();msgPane(m,mark,tabs)}});
-  if($('#ibAll',box))$('#ibAll',box).onclick=()=>{inboxMine().forEach(x=>{x.read=true});saveDB();mark();tabs();msgPane(m,mark,tabs)}}
+  $$('[data-ibr]',box).forEach(b=>b.onclick=()=>{const x=(H.inbox||[]).find(y=>y.id===b.dataset.ibr);if(x){x.read=true;ULOG.add('Marked a message as read',null,'Other');saveDB();mark();tabs();msgPane(m,mark,tabs)}});
+  if($('#ibAll',box))$('#ibAll',box).onclick=()=>{inboxMine().forEach(x=>{x.read=true});ULOG.add('Marked all messages as read',null,'Other');saveDB();mark();tabs();msgPane(m,mark,tabs)}}
 function annPane(m,mark,tabs){const box=$('#ncAnn',m),u=curStaff(),isP=!!(DB.session&&DB.session.provider),list=annMine(),canPost=can('announce')&&!!H;
   const mine=a=>!a.prov&&canPost;
   box.innerHTML=(canPost?'<div class="btns" style="justify-content:flex-start;margin-bottom:10px"><button class="btn gold" id="anNew">'+ic('plus',15)+' New announcement</button></div>':'')+
@@ -7579,7 +7731,7 @@ function annPane(m,mark,tabs){const box=$('#ncAnn',m),u=curStaff(),isP=!!(DB.ses
       return '<div class="anncard'+(rd?' read':'')+(imp?' imp':'')+'"><div class="anmeta"><span class="achip '+(a.prov?'adm':imp?'imp':'nor')+'">'+(a.prov?'🛡 Administrator':imp?'⚠ Important':'📢 Normal')+'</span><span class="achip">👤 '+esc(a.by||'')+'</span><span class="achip">🕒 '+fdt(a.at)+'</span><span class="achip">🎯 '+esc(annAudText(a))+'</span>'+(a.until?'<span class="achip">until '+fd(a.until)+'</span>':'')+(!rd?'<span class="pill y">New</span>':'')+'</div>'+
         '<div class="annti">'+esc(a.title)+'</div><div class="annt">'+esc(a.text)+'</div>'+(foot||acts?'<div class="anfoot'+(foot?'':' solo')+'">'+foot+(acts?'<div class="btns anbtn">'+acts+'</div>':'')+'</div>':'')+unl+'</div>'}).join('')||'<div class="empty nempty">No announcements.</div>');
   if($('#anNew',box))$('#anNew',box).onclick=()=>annForm(null,()=>{mark();tabs();annPane(m,mark,tabs)});
-  $$('[data-anr]',box).forEach(b=>b.onclick=()=>{const a=list.find(x=>x.id===b.dataset.anr);if(a){annMarkRead(a,u.id);saveDB();mark();tabs();annPane(m,mark,tabs)}});
+  $$('[data-anr]',box).forEach(b=>b.onclick=()=>{const a=list.find(x=>x.id===b.dataset.anr);if(a){annMarkRead(a,u.id);ULOG.add('Marked announcement as read: '+String(a.title||'').slice(0,100),null,'Other');saveDB();mark();tabs();annPane(m,mark,tabs)}});
   $$('[data-anun]',box).forEach(l=>l.onclick=e=>{e.preventDefault();const t=$('#anun-'+l.dataset.anun,box);if(t)t.hidden=!t.hidden});
   $$('[data-ane]',box).forEach(b=>b.onclick=()=>{const a=(H.announcements||[]).find(x=>x.id===b.dataset.ane);if(a)annForm(a,()=>{mark();tabs();annPane(m,mark,tabs)})});
   $$('[data-and]',box).forEach(b=>b.onclick=async()=>{const a=(H.announcements||[]).find(x=>x.id===b.dataset.and);if(!a||!await dlgConfirm('Remove this announcement for everyone?'))return;a.removed=true;log('Announcement removed: '+a.title);saveDB();mark();tabs();annPane(m,mark,tabs)})}
@@ -7605,7 +7757,7 @@ function annForm(a,done,prov){
 function showImportantAnnouncements(){try{const se=DB&&DB.session;if(!se||se.provider||!H||document.querySelector('.modal'))return;const u=curStaff();if(!u)return;
   const list=annForMe().filter(a=>a.prio==='important'&&!annReadAt(a,u.id));if(!list.length)return;
   const m=modal('Important announcement',list.map(a=>'<div class="anncard imp"><div class="annh"><b>'+esc(a.title)+'</b>'+(a.prov?'<span class="pill b">Administrator</span>':'')+'</div><div class="sub">'+esc(a.by||'')+' · '+fdt(a.at)+'</div><div class="annt">'+esc(a.text)+'</div></div>').join('')+'<div class="btns end"><button class="btn gold" id="anRead">I have read this</button></div>',{w:600});
-  $('#anRead',m).onclick=()=>{list.forEach(a=>annMarkRead(a,u.id));saveDB();try{paintNotifBadge()}catch(e){}closeModal(m)}}catch(e){}}
+  $('#anRead',m).onclick=()=>{list.forEach(a=>annMarkRead(a,u.id));ULOG.add('Marked all announcements as read',null,'Other');saveDB();try{paintNotifBadge()}catch(e){}closeModal(m)}}catch(e){}}
 function renderShell(){
   if(SEL_ON)return;
   if(/solutions-pms/i.test(location.pathname)){document.title=tabTitleFor();try{setTabIcons('hub')}catch(e){}}
@@ -7688,6 +7840,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
+  try{ulScreen(v,arg)}catch(e){}
   if(ENTRY_QUIET&&ENTRY_QUIET.pending)ENTRY_QUIET.pending=false;else ENTRY_QUIET=null;
   if(!['bill.open','fo.departures2','cd.close'].includes(v))CDBACK=null;if(v==='cd.close')CDBACK=null;
   VIEW=v;VARG=arg===undefined?null:arg;closeMenus();render()}
@@ -7713,7 +7866,7 @@ function render(){
   const el=$('#view');if(!el)return;const rkey=VIEW+'|'+(typeof VARG==='object'?JSON.stringify(VARG):String(VARG)),keep=rkey===RENDER_KEY?scrollSnap():null;RENDER_KEY=rkey;
   el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep)scrollKeep(keep,rkey);else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
 }
-function refresh(){saveDB();render()}
+function refresh(){try{ulSafety()}catch(e){}saveDB();render()}
 
 /* ---------- login + ecosystem (Maha Hub compound) ---------- */
 let lgProvider=false,lgShift=null,lgTargetSys=null,lgPickAnim=null,fails=0,lockUntil=0;
@@ -9830,7 +9983,7 @@ function prepareMail(o){o=o||{};const to=String(o.to||'').trim();const subject=o
 function fitA4(root){if(!root)return;root.querySelectorAll('.a4fit').forEach(page=>{const inner=page.querySelector(':scope > .a4in');if(!inner)return;inner.style.transform='none';inner.style.width='100%';const cs=getComputedStyle(page);const avail=page.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);const need=inner.scrollHeight;if(avail>40&&need>avail+2){const s=Math.max(0.62,Math.min(1,avail/need));inner.style.transform='scale('+s+')';inner.style.width=(100/s)+'%'}})}
 function printPages(html,title,mail){const m=modal(title+' – preview',`<div class="btns"><button class="btn gold" id="ppP">${ic('print',16)} Print</button><button class="btn" id="ppM">${ic('mail',16)} Mail</button><span class="sub">Mail opens your mail program with this document. Maha Hub records it as prepared.</span></div><div class="ppwrap">${html}</div>`,{w:1000,cls:'ppmodal'});
   setTimeout(()=>fitA4(m),40);
-  $('#ppP',m).onclick=()=>{const p=$('#print');p.innerHTML=html;document.body.classList.add('printing');fitA4(p);window.print();setTimeout(()=>document.body.classList.remove('printing'),500)};
+  $('#ppP',m).onclick=()=>{try{log('Printed: '+title)}catch(e){}const p=$('#print');p.innerHTML=html;document.body.classList.add('printing');fitA4(p);window.print();setTimeout(()=>document.body.classList.remove('printing'),500)};
   $('#ppM',m).onclick=()=>{const text=(mail&&mail.body)||((m.querySelector('.ppwrap')&&m.querySelector('.ppwrap').innerText||'').replace(/\n{3,}/g,'\n\n').trim().slice(0,3500));
     prepareMail(Object.assign({doc:title,subject:title+' · '+((H&&H.set&&H.set.name)||''),body:text},mail||{}))}}
 function defaultBillTo(r){const co=r&&CO(r.companyId);if(co&&co.code!=='WIN'&&co.code!=='DIR')return 'company';return 'guest'}
@@ -10236,6 +10389,7 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
       await wait(260);
       stSet(i,'done');pct((i+1)/work.length*100);await wait(240)}
     line('Business date '+fd(bd)+' is closed','done','ok');await wait(500);
+    try{const nUl=await ulExportDay(bd);if(nUl)line('User logs of '+fd(bd)+' saved to a file',nUl+' records','ok')}catch(e){}
     o.classList.add('fin');$o('#cdfT').textContent='Business date '+fd(bd)+' is closed';$o('#cdfSm').textContent='complete';
     $o('.cdf-date').innerHTML='<span>The hotel is now on</span><span class="nx big">'+esc(fd(nd))+'</span>';
     let n=6;const msg='Your shift is closed. Business date '+fd(bd)+' is closed. Sign in to open a new shift.';
@@ -10491,7 +10645,7 @@ function setArea(a){if(DB&&DB.session){DB.session.area=a==='back'?'back':'front'
 function BACKEND_MENU(){
   const f=v=>{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it;return null};
   const g=(t,ids)=>({t,items:ids.map(f).filter(Boolean)});
-  return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users']),g('Finance & data',['ac.buy']),g('Help',['help.home']),{t:'Report',report:true}]}
+  return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users','set.userlogs']),g('Finance & data',['ac.buy']),g('Help',['help.home']),{t:'Report',report:true}]}
 function areaMenu(src){
   const se=DB&&DB.session;if(!se||se.provider)return src;
   return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
@@ -10598,6 +10752,12 @@ async function switchHotelCore(code,pid){
     writeLiveSession(DB.session);saveDB({nocloud:true});MahaSync.start();closeAllModals();return true;
   }catch(e){await back();toast('Switching did not finish. You are still in '+prev.code+'.')}
 }
+/* Why the mail service refused a reset email, in plain words (the code comes from Supabase and never contains an address) */
+function mailWhy(code){const c=String(code||'');
+  if(/rate_limit/i.test(c))return 'The email was not sent: too many emails were sent in the last hour. Wait about an hour and try again.';
+  if(/unexpected_failure|smtp|500|502|503|email_failed/i.test(c))return 'The email was not sent: the mail service (Resend or SMTP in Supabase) refused it. Check Resend, Emails for the reason, and the SMTP settings in Supabase.';
+  if(/email_address_invalid|invalid/i.test(c))return 'The email was not sent: the address looks wrong. Use Change email to correct it.';
+  return 'The email could not be sent now'+(c?' (reason: '+c+')':'')+'. Try again in a few minutes.'}
 VIEWS['prov.perms']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
   if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
@@ -10619,7 +10779,7 @@ VIEWS['prov.perms']=el=>{
   $$('[data-term]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.term);if(u)accessModal(u,()=>render())});
   $$('[data-cancel]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.cancel);if(!u)return;if(u.owner||u.protected){toast('The owner account is protected.');return}cancelUserModal(u,()=>render())});
   $$('[data-pre]',el).forEach(s=>s.onchange=()=>{if(!s.value)return;const u=H.users.find(x=>x.id===s.dataset.pre);u.perms=[...PRESET[s.value]];u.role=s.value;provLog(`Applied preset ${s.value} to ${u.username}`);saveDB();render()});
-  $$('[data-rp]',el).forEach(b=>b.onclick=async ()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{if(d&&d.invitation_sent===false){toast('The email could not be sent now. Try again in a few minutes.');return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=await dlgAsk(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
+  $$('[data-rp]',el).forEach(b=>b.onclick=async ()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=await dlgAsk(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
   $$('[data-act]',el).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;if(nowActive&&u.cancelled){accessNote(u,'User reinstated',user().name);delete u.cancelled}if(nowActive&&accessWhy(u)==='ended')setTimeout(()=>toast('Their access term has ended. Set a new Access term so they can sign in.'),400);provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();render()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
     $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
@@ -10669,6 +10829,81 @@ VIEWS['prov.terms']=el=>{const t=termsOf(H);
     if(H.set.terms.manual[k])delete H.set.terms.manual[k];else H.set.terms.manual[k]=T[k]?T[k].slice():T.en.map(e=>(TC_MEMORY[e]&&TC_MEMORY[e][k])||e);saveDB();render()});
   $('#tcP',el).onclick=()=>{if(!save())return;const bl=termsBlocks(H);printPages(`<div class="ppage port regb"><div class="rbhead"><img src="${ICON}" alt=""><div><b>${esc(H.set.name)}</b><div class="rbt">TERMS AND CONDITIONS</div></div></div><div class="terms">${bl.map(b=>`<section class="tl tl-${b.k}"><h4>${esc(b.title)}</h4><ol>${b.lines.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section>`).join('')}</div><div class="rbsign"><div><span></span>Guest's Signature</div><div><span></span>Date</div></div></div>`,'Terms & Conditions')};
 };
+/* ---------- User Logs page (hotel: Setup, User Logs. Provider: Records, User Logs) ---------- */
+let UL={hotel:'',from:'',to:'',title:'',user:'',page:0};const UL_PER=100,UL_PID={};
+async function ulPid(code){
+  try{
+    if(!MahaAuth.on())return null;
+    if(MahaSync.code===code&&MahaSync.pid)return MahaSync.pid;
+    if(UL_PID[code])return UL_PID[code];
+    const t=await MahaAuth.fresh();if(!t)return null;
+    const rows=await MahaAuth.rest('maha_properties?select=id&property_code=eq.'+encodeURIComponent(code),t);
+    if(rows&&rows[0]){UL_PID[code]=rows[0].id;return rows[0].id}
+  }catch(e){}
+  return null;
+}
+function ulTitleClass(t){return {'Sign in / out':'si','Screen':'sc','Reservation':'re','Folio & payments':'pa','Cashier & Close Day':'cd','Rooms & housekeeping':'rm','Setup & staff':'su','Print & export':'pr','Denied':'dn'}[t]||'ot'}
+function ulRowsHtml(rows,hz){
+  const note=hz&&hz!==PROVIDER_ZONE?(x=>{const q=tzp(x.at,hz);return ' <span class="sub">(hotel time '+q.h+':'+q.mi+':'+q.s+')</span>'}):(()=>'');
+  return rows.map(x=>'<tr><td data-l="When" class="ulw">'+esc(ulWhen(x.at))+note(x)+'</td><td data-l="User"><b>'+esc(x.user||'')+'</b></td><td data-l="Shift">'+esc(x.shift||'')+'</td><td data-l="Field"><span class="ult '+ulTitleClass(x.t)+'">'+esc(x.t||'Other')+'</span></td><td data-l="What they did" class="ula">'+esc(x.a||'')+'</td><td data-l="Reference">'+esc(x.ref||'')+'</td></tr>').join('');
+}
+function ulDownload(name,rows){
+  const th='<tr><th>Business date</th><th>Date and time</th><th>User</th><th>Shift</th><th>Field / Title</th><th>What they did</th><th>Reference</th></tr>';
+  const body=rows.map(x=>'<tr><td>'+esc(fd(x.bd))+'</td><td>'+esc(ulWhen(x.at))+'</td><td>'+esc(x.user||'')+'</td><td>'+esc(x.shift||'')+'</td><td>'+esc(x.t||'')+'</td><td>'+esc(x.a||'')+'</td><td>'+esc(x.ref||'')+'</td></tr>').join('');
+  const html='<html><head><meta charset="utf-8"></head><body><table border="1">'+th+body+'</table></body></html>';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+html],{type:'application/vnd.ms-excel'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400);
+}
+/* Close Day: the day's records are saved as one file, so a copy exists outside the system */
+async function ulExportDay(bd){
+  if(!H||!H.code)return false;
+  const code=H.code,pid=ULOG.cloudOn(code)?MahaSync.pid:null;
+  const rows=await ULOG.fetchAll({code,pid,from:bd,to:bd},60000);
+  if(!rows.length)return false;
+  ulDownload('UserLogs_'+code+'_'+bd+'.xls',rows);
+  return rows.length;
+}
+function userLogsPage(el,prov){
+  if(prov){
+    if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
+    if(!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
+    if(!H){el.innerHTML=pageHead('User Logs')+'<div class="empty">Create a property first.</div>';return}
+  }else if(!can('userlogs')){
+    el.innerHTML=pageHead('User Logs')+'<div class="panel empty">You do not have access to the User Logs. The owner or the provider can open it for your account in Staff &amp; permissions.</div>';return}
+  const bd=H.set.bd;
+  if(!UL.from||UL.hotel!==H.code){UL={hotel:H.code,from:bd,to:bd,title:'',user:'',page:0}}
+  const users=[...new Set((H.users||[]).map(u=>u.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  el.innerHTML=pageHead('User Logs',(prov?provHotelPicker():'')+'<label class="ufl">From date '+ufDate('ulF',UL.from)+'</label><label class="ufl">To date '+ufDate('ulT',UL.to)+'</label><label class="ufl">Field / Title <select id="ulTt"><option value="">All</option>'+UL_TITLES.map(t=>opt(t,t,UL.title)).join('')+'</select></label><label class="ufl">User <select id="ulUs"><option value="">All users</option>'+users.map(n=>opt(n,n,UL.user)).join('')+'</select></label><button type="button" class="btn gold" id="ulGo">'+ic('search',16)+' Search</button><button type="button" class="btn ghost" id="ulXl">Excel</button>','under')+
+    '<p class="sub">Every action of every user is recorded here: sign in and out, screens opened, changes, payments, prints and refused attempts. Dates are business dates. Read only: nobody can change or delete a line.</p><div class="panel ulpanel" id="ulRes"><div class="empty">Press Search.</div></div>';
+  if(prov)bindPicker(el);
+  bindDatePick(el);
+  const read=()=>{const sp=readPair(el,'ulF','ulT');if(!sp){toast('Enter From date and To date as dd/mm/yyyy.');return null}UL.from=sp.from;UL.to=sp.to;UL.title=$('#ulTt',el).value;UL.user=$('#ulUs',el).value;return sp};
+  const ctx=async()=>({code:H.code,pid:await ulPid(H.code)});
+  const run=async page=>{
+    if(!read())return;UL.page=page;
+    const box=$('#ulRes',el);box.innerHTML='<div class="empty">Loading...</div>';
+    const c=await ctx();
+    const r=await ULOG.query({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:UL.user,offset:page*UL_PER,limit:UL_PER});
+    if(!$('#ulRes',el))return;
+    const pages=Math.max(1,Math.ceil(r.total/UL_PER));
+    const pg=pages<2?'':'<div class="ulpg">'+(page>0?'<button type="button" class="btn sm ghost" data-pg="'+(page-1)+'">‹ Newer</button>':'')+'<span>Page '+(page+1)+' of '+pages+'</span>'+(page<pages-1?'<button type="button" class="btn sm ghost" data-pg="'+(page+1)+'">Older ›</button>':'')+'</div>';
+    box.innerHTML='<div class="ulbar"><span><b>'+r.total.toLocaleString()+'</b> record'+(r.total===1?'':'s')+' found'+(r.source==='device'?' <span class="pill y" title="The cloud copy could not be reached, so only this computer\'s records are shown">this computer only</span>':'')+'</span><span>Newest first</span></div>'+
+      (r.rows.length?'<table class="grid ulgrid"><thead><tr><th>When</th><th>User</th><th>Shift</th><th>Field / Title</th><th>What they did</th><th>Reference</th></tr></thead><tbody>'+ulRowsHtml(r.rows,prov?(H.set&&H.set.tz):'')+'</tbody></table>':'<div class="empty">No records for these filters.</div>')+pg;
+    $$('[data-pg]',box).forEach(b=>b.onclick=()=>run(+b.dataset.pg));
+  };
+  $('#ulGo',el).onclick=()=>run(0);
+  $('#ulXl',el).onclick=async()=>{
+    if(!read())return;const btn=$('#ulXl',el);btn.disabled=true;
+    try{const c=await ctx();const rows=await ULOG.fetchAll({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:UL.user},60000);
+      if(!rows.length){toast('No records for these filters.');return}
+      ulDownload('UserLogs_'+c.code+'_'+UL.from+(UL.to!==UL.from?'_to_'+UL.to:'')+'.xls',rows);
+      ULOG.add('Exported user logs file ('+rows.length+' records, '+fd(UL.from)+(UL.to!==UL.from?' to '+fd(UL.to):'')+')',null,'Print & export');
+      toast(rows.length+' records saved to a file.')}
+    catch(e){toast('The file could not be made. Try a shorter date range.')}
+    finally{btn.disabled=false}};
+  run(0);
+}
+VIEWS['set.userlogs']=el=>userLogsPage(el,false);
+VIEWS['prov.userlogs']=el=>userLogsPage(el,true);
 VIEWS['prov.log']=el=>{
   el.innerHTML=pageHead('Amendment log',provHotelPicker())+`<div class="panel scroll"><table class="grid"><tr><th>When</th><th>By</th><th>RSVN#</th><th>What</th><th>Before</th><th>After</th><th>Reason</th></tr>
    ${H.amend.map(a=>`<tr><td>${fdt(a.at)}</td><td>${esc(a.user)}</td><td>${a.rsvn||''}</td><td>${esc(a.what)}</td><td>${esc(a.before||'')}</td><td>${esc(a.after||'')}</td><td>${esc(a.reason||'')}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No amendments for this hotel.</td></tr>'}</table></div>
@@ -11138,7 +11373,7 @@ function buildPublicCatalog(opt){
     note:'Public catalog for Maha Booking. Not live on Google. No guest, card, or folio data.',
     baseBookUrl:base,hotels,updatedAt:new Date().toISOString()}
 }
-function downloadText(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
+function downloadText(name,text,type){try{log('Downloaded file: '+name)}catch(e){}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type||'text/plain'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
 function googleReadyRow(h){const p=publicHotelFromHub(h);const checks=[
   ['Active',p.active!==false],['Booking on',!!p.bookEnabled],['Name',!!p.name],['Address',!!p.addr],['Phone',!!p.phone],
   ['Lat/Lng',p.lat!=null&&p.lng!=null&&!isNaN(p.lat)&&!isNaN(p.lng)],['Country code',!!(p.countryCode&&p.countryCode.length===2)],
@@ -11301,7 +11536,7 @@ VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>
   $$('[data-go2]',box).forEach(b=>b.onclick=()=>{if(SET_SEC==='rooms'&&b.dataset.go2!=='types'&&b.dataset.go2!=='floors'&&!roomTotalsOk(H)){dlgAlert('The rooms do not add up to the total of each room type.\n\n'+roomTotals(H).filter(x=>!x.ok).map(x=>x.code+': '+x.have+' rooms listed, total '+(x.set?x.allot:'not set')).join('\n')+'\n\nCheck the totals in section 5 or the rooms in section 6, then continue.','Room totals');return}SET_SEC=b.dataset.go2;render()});
 };
 const secHead=(t,d)=>`<h2 class="sut">${esc(t)}</h2>${d?`<p class="sub">${d}</p>`:''}`;
-function saved(msg){saveDB();render();toast(msg||'Saved')}
+function saved(msg){try{ulSafety(msg)}catch(e){}saveDB();render();toast(msg||'Saved')}
 /* generic list editor: rows are edited in place; ↑↓ to move; ✕ to delete */
 function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data=JSON.parse(JSON.stringify(rows));
   const paint=()=>{box.querySelector('.le').innerHTML=`<table class="grid le-t"><tr>${orderable?'<th></th>':''}${cols.map(c=>`<th>${esc(c.h)}</th>`).join('')}<th></th></tr>
@@ -12423,7 +12658,7 @@ function reportPages(def,p){
 }
 function xlsDownload(def,p,res){const cols=res.cols;const body=res.rows.map(r=>r.t==='h'||r.t==='n'?`<tr><td colspan="${cols.length}"><b>${esc(r.text)}</b></td></tr>`:`<tr>${r.c.map(v=>`<td>${r.t!=='r'?'<b>':''}${esc(v)}${r.t!=='r'?'</b>':''}</td>`).join('')}</tr>`).join('');
   const html=`<html><head><meta charset="utf-8"></head><body><table><tr><td colspan="${cols.length}"><b>${esc(H.set.name)}</b></td></tr><tr><td colspan="${cols.length}"><b>${def.code} : ${esc(def.title)}</b></td></tr><tr><td colspan="${cols.length}">Date : ${fd(p.from)} To ${fd(p.to)}</td></tr><tr>${cols.map(c=>`<th>${esc(c.h)}</th>`).join('')}</tr>${body}</table></body></html>`;
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel'}));a.download=`${def.code}_${p.from}_${p.to}.xls`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+  try{log('Exported report '+def.code+' to Excel ('+fd(p.from)+' to '+fd(p.to)+')')}catch(e){}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel'}));a.download=`${def.code}_${p.from}_${p.to}.xls`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
 
 /* ---------- Reports page (4.14–4.19) ---------- */
 let RP={code:null,open:{},zoom:1,page:1,cv:'ALL',o:{}};
@@ -12473,7 +12708,7 @@ function paintTool(root){const d=REPORTS.find(r=>r.code===RP.code);const bd=H.se
   const zoom=z=>{RP.zoom=Math.max(.3,Math.min(3,z));{const zl=$('#rpZl',root);if(zl)zl.textContent=Math.round(RP.zoom*100)+'%'}const v=$('#rpview',root);v.style.setProperty('--z',RP.zoom)};
   $('#rpZo',root).onclick=()=>zoom(RP.zoom-.1);$('#rpZi',root).onclick=()=>zoom(RP.zoom+.1);$('#rpFit',root).onclick=()=>{const v=$('#rpview',root),pg=$('.rpage',v);if(pg)zoom((v.clientWidth-40)/pg.offsetWidth)};
   $('#rpX',root).onclick=()=>{loadFresh();val();xlsDownload(d,{from:RP.from,to:RP.to,shift:RP.shift},reportPages(d,{from:RP.from,to:RP.to,shift:RP.shift,shiftName:RP.shiftName,o:RP.o}))};
-  const pr=()=>{const p=$('#print');p.innerHTML=$('#rpview',root).innerHTML;document.body.classList.add('printing','printrep');window.print();setTimeout(()=>document.body.classList.remove('printing','printrep'),500)};
+  const pr=()=>{try{log('Printed report: '+((($('#rpview',root).querySelector('h1,h2,.rptitle')||{}).textContent)||'report').trim().slice(0,80))}catch(e){}const p=$('#print');p.innerHTML=$('#rpview',root).innerHTML;document.body.classList.add('printing','printrep');window.print();setTimeout(()=>document.body.classList.remove('printing','printrep'),500)};
   $('#rpPr',root).onclick=pr;$('#rpPdf',root).onclick=()=>{toast('In the print window choose "Save as PDF".');setTimeout(pr,300)};
 }
 function loadFresh(){if(!document.body.classList.contains('rpmode'))return;   /* on top of the live page the data is already current; only a separate reports tab needs to re-read it */
@@ -12563,7 +12798,7 @@ VIEWS['ac.buy']=el=>{
       p.pays=p.pays||[];p.pays.push({at:Date.now(),bd:H.set.bd,amt:a,method:$('#ym',m).value,ref:$('#yr',m).value.trim(),user:user().name});
       if(buyOpen(p)<=0.004)p.status='paid';log('Supplier payment '+m2(a)+' '+p.desc);closeModal(m);refresh();toast('Payment recorded')}});
 };
-function downloadBackup(){const keep=DB.session;DB.session=null;const raw=JSON.stringify(DB);DB.session=keep;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([raw],{type:'application/json'}));a.download=`mahahub-backup-${iso(new Date())}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400)}
+function downloadBackup(){try{log('Downloaded a backup of all hotel data')}catch(e){}const keep=DB.session;DB.session=null;const raw=JSON.stringify(DB);DB.session=keep;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([raw],{type:'application/json'}));a.download=`mahahub-backup-${iso(new Date())}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},400)}
 function applyRestore(obj){if(!obj||!obj.hotels){toast('This file is not a Maha Hub backup.');return}
   DB=migrateDB(obj);DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Backup restored. Sign in again.')}
 VIEWS['set.backup']=el=>{
