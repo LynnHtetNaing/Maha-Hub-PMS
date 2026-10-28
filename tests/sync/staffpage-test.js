@@ -44,3 +44,6 @@ console.log('staff page ok');
  if(!s2.includes("!/^ai\\./.test(k)")&&!s2.includes("!/^ai\./.test(k)"))fail("AI permissions must not show in Other");
  if(!s2.includes('function ppGroup(name,count,rowsHtml)'))fail('permission groups open and close');
  console.log('groups ok');}
+{const s3=fs.readFileSync(process.argv[2],'utf8');
+ if(/(^|\n|\})\.rtc\{padding:3px 12px/.test(s3)||/\[data-mode=dark\] \.rtc\{background/.test(s3))fail('the room-total chip style must not hit the report filter bar (.rptool .rtc)');
+ console.log('report filter bar ok');}
