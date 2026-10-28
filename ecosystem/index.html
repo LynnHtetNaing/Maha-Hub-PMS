@@ -1307,6 +1307,10 @@ html[data-skin="modern"] .rptop .tbwm{color:#fff;text-shadow:0 1px 8px rgba(8,16
 .ult{font-weight:600;white-space:nowrap}.ult.dn{color:#b3261e;font-weight:800}html[data-mode=dark] .ult.dn{color:#ffb4ad}
 .ulgrid th{font-size:11.5px;padding:6px 8px}.ulgrid td{padding:4px 8px!important;font-size:12.5px;line-height:1.35}.ulgrid tbody tr:nth-child(even) td{background:rgba(128,150,140,.07)}.ulgrid td .sub{font-size:11px;opacity:.75}
 @media (max-width:700px){.ulgrid thead{display:none}.ulgrid,.ulgrid tbody,.ulgrid tr,.ulgrid td{display:block;width:100%}.ulgrid tr{padding:10px 14px;border-bottom:1px solid rgba(128,150,140,.25)}.ulgrid td{padding:2px 0!important;border:0!important}.ulgrid td::before{content:attr(data-l) ": ";font-weight:700;opacity:.6;font-size:11.5px}.ulgrid td[data-l=Field]::before,.ulgrid td[data-l=When]::before{content:""}.ulgrid .ula{min-width:0;font-weight:600}.ulbar{flex-wrap:wrap}}
+/* New version bar */
+.newver{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:99999;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px);background:#113732;color:#fff;border:1px solid #3fcf9f;border-radius:12px;padding:10px 14px;box-shadow:0 12px 30px rgba(0,0,0,.35);font-size:14px}
+.newver button{border:0;border-radius:9px;padding:7px 14px;font:inherit;font-weight:700;cursor:pointer;background:#e0a23a;color:#2e1f00}.newver .nvlater{background:transparent;color:#cfe6e0;border:1px solid rgba(255,255,255,.3)}
+@media (max-width:700px){.newver{bottom:74px}}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -4432,6 +4436,17 @@ const ULOG=(()=>{
   }
   return {add,send,query,fetchAll,flushNow,cloudOn};
 })();
+/* New version prompt: after the site is updated, a tab that stays open keeps the old screens until it is reloaded. */
+function watchNewVersion(){
+  if(watchNewVersion.on||typeof fetch==='undefined')return;watchNewVersion.on=true;
+  let first=null,shown=false;
+  const sig=r=>{const e=r.headers.get('etag')||'',m=r.headers.get('last-modified')||'';return e||m?e+'|'+m:''};
+  const ask=async()=>{try{const r=await fetch('/ecosystem/index.html',{method:'HEAD',cache:'no-store'});if(!r.ok)return;const v=sig(r);if(!v)return;if(first===null){first=v;return}
+    if(v!==first&&!shown){shown=true;const b=document.createElement('div');b.className='newver';b.setAttribute('role','status');b.innerHTML='<span>A new version of Maha PMS is ready.</span><button type="button" class="nvgo">Reload now</button><button type="button" class="nvlater">Later</button>';document.body.appendChild(b);b.querySelector('.nvgo').onclick=()=>location.reload();b.querySelector('.nvlater').onclick=()=>{b.remove();setTimeout(()=>{shown=false},30*60*1000)}}}catch(e){}};
+  ask();
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ask()});
+  setInterval(ask,20*60*1000);
+}
 function ulWhen(t){const q=tzp(t,dispZone());return q.d+'/'+q.m+'/'+q.y+' '+q.h+':'+q.mi+':'+q.s}
 const UL_VIEW_NAMES={'res.open':'Reservation','bill.open':'Folio','fo.arrivals2':'Arrival detail','fo.departures2':'Departure detail'};
 function ulViewName(v){
@@ -10389,7 +10404,7 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
       await wait(260);
       stSet(i,'done');pct((i+1)/work.length*100);await wait(240)}
     line('Business date '+fd(bd)+' is closed','done','ok');await wait(500);
-    try{const nUl=await ulExportDay(bd);if(nUl)line('User logs of '+fd(bd)+' saved to a file',nUl+' records','ok')}catch(e){}
+    if(H.set&&H.set.ulogFile){try{const nUl=await ulExportDay(bd);if(nUl)line('User logs of '+fd(bd)+' saved to a file',nUl+' records','ok')}catch(e){}}
     o.classList.add('fin');$o('#cdfT').textContent='Business date '+fd(bd)+' is closed';$o('#cdfSm').textContent='complete';
     $o('.cdf-date').innerHTML='<span>The hotel is now on</span><span class="nx big">'+esc(fd(nd))+'</span>';
     let n=6;const msg='Your shift is closed. Business date '+fd(bd)+' is closed. Sign in to open a new shift.';
@@ -10415,11 +10430,13 @@ VIEWS['set.hotel']=el=>{const s=H.set,E=can('setup')&&!user().provider;const d=E
     <div class="panel pad"><h3>Breakfast and auto-lock</h3><div class="form2">
      ${fld('Breakfast per adult ('+esc(s.cur)+')',`<input id="sBf" class="n" inputmode="decimal" value="${m2(s.bfAdult||0)}" ${d}>`)}
      ${fld('Auto-lock after (minutes, 0 = off)',`<input id="sIdle" class="n" inputmode="numeric" value="${s.idleMin==null?15:s.idleMin}" ${d}>`)}
+     <label class="sub ulfsw" style="grid-column:1/-1;display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="sUlf" ${s.ulogFile?'checked':''} ${d} style="margin-top:3px"><span><b>Save a user logs file at Close Day</b><br>One Excel file of that day's User Logs goes to this computer's Downloads folder. Off by default: the full history is already kept in the cloud, and the User Logs page has an Excel button for any dates.</span></label>
     </div></div></div>
    ${E?'<div class="btns"><button class="btn gold" id="sSave">Save settings</button></div>':''}</div>`;
   if(E){$('#sSave',el).onclick=()=>{if(!need('setup'))return;Object.assign(s,{name:$('#sN',el).value.trim()||s.name,legal:$('#sL',el).value.trim(),branch:$('#sB',el).value.trim(),addr:$('#sA',el).value.trim(),taxId:$('#sT',el).value.trim(),phone:$('#sP',el).value.trim(),fax:$('#sF',el).value.trim(),email:$('#sE',el).value.trim(),web:$('#sW',el).value.trim(),checkIn:$('#sCi',el).value.trim(),checkOut:$('#sCo',el).value.trim(),formCode:$('#sRc',el).value.trim(),building:$('#sBl',el).value.trim(),bfAdult:r2(+String($('#sBf',el).value).replace(/,/g,'')),idleMin:Math.max(0,+$('#sIdle',el).value||0)});
     const ak=($('#sAi',el)||{value:''}).value.trim(),gk=($('#sGem',el)||{value:''}).value.trim();if(ak)s.aiKey=ak;if(gk)s.geminiKey=gk;
     const rb=H.rateCodes.find(r=>r.meal==='ABF');if(rb)rb.bfAdult=s.bfAdult;
+    s.ulogFile=!!($('#sUlf',el)&&$('#sUlf',el).checked);
     log('Hotel settings saved');saveDB();renderShell();go('set.hotel');toast('Settings saved')};
     if($('#sLogo',el))$('#sLogo',el).onchange=e=>applyLogoFile(e.target.files[0],()=>{refresh();toast('Logo saved')});
     if($('#sLogoX',el))$('#sLogoX',el).onclick=()=>clearHotelLogo(()=>{refresh();toast('Logo removed')})}};
@@ -13398,7 +13415,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   applyDensity(densityMode());
   loadDB();
   let booted=false;
-  const startApp=()=>{if(booted)return;booted=true;ensureMasterProvider();
+  const startApp=()=>{if(booted)return;booted=true;try{watchNewVersion()}catch(e){}ensureMasterProvider();
     if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('/sw.js').catch(()=>{});
     window.addEventListener('storage',e=>{if((e.key!==DBKEY&&e.key!==DBKEY4)||!e.newValue||location.hash==='#reports')return;
       try{const d=JSON.parse(e.newValue);if(!d||!d.savedAt||d.savedAt<=(DB.savedAt||0))return;

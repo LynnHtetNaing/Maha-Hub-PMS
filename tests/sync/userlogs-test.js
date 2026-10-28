@@ -59,3 +59,11 @@ console.log('userlogs ok');
  if(/delete\s+from\s+public\.maha_user_logs[^;]*title\s*(<>|!=|not in)/i.test(sql2))fail('the cleanup must only name the two unimportant titles');
  if(!sql2.includes('revoke all on public.maha_user_logs_state from public, anon, authenticated;'))fail('state table must be closed');
  console.log('retention ok');}
+// the Close Day file is a switch in Hotel Settings, off by default
+{if(!src.includes("if(H.set&&H.set.ulogFile){try{const nUl=await ulExportDay(bd)"))fail('Close Day file must only run when the hotel switched it on');
+ if(!src.includes("id=\"sUlf\" ${s.ulogFile?'checked':''}"))fail('the switch must default to off');
+ if(!src.includes("s.ulogFile=!!($('#sUlf',el)&&$('#sUlf',el).checked);"))fail('the switch must be saved');
+ // an open tab is told when the site was updated
+ if(!src.includes('function watchNewVersion(')||!src.includes("try{watchNewVersion()}catch(e){}ensureMasterProvider();"))fail('new version prompt missing');
+ if(!src.includes('A new version of Maha PMS is ready.'))fail('new version text');
+ console.log('switch and new-version prompt ok');}
