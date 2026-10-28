@@ -1,0 +1,14 @@
+const fs=require('fs');
+const src=fs.readFileSync(process.argv[2],'utf8');
+const fail=m=>{console.log('FAIL',m);process.exit(1)};
+const i=src.indexOf('function modernShellHTML(){'),j=src.indexOf('function modernNavInit(){',i);
+if(i<0||j<0)fail('modern shell not found');
+const shell=src.slice(i,j);
+if(shell.includes('id="tbHelp"'))fail('the Help icon must not be in the Modern top bar');
+if(!/<aside class="msb"[\s\S]*class="msb-me" id="tbProf"[\s\S]*<\/aside>/.test(shell))fail('the profile must be at the bottom of the left menu');
+if(!shell.includes('id="tbProfM"'))fail('a phone profile icon is needed in the top bar');
+if(!shell.includes('id="modeTog"')||!shell.includes('id="sysPick"')||!shell.includes('id="tbBell"'))fail('moon, system switch and bell stay in the top bar');
+if(/class="tbhotel"/.test(shell))fail('the name block must not stay in the top bar');
+if(!src.includes("if(open&&!open.hidden&&open._anchor===anchor){open.hidden=true"))fail('pressing the same icon again must close its menu');
+if(!src.includes("anchor.closest('.msb')"))fail('the profile menu must open to the right of the left menu');
+console.log('profile bar ok');
