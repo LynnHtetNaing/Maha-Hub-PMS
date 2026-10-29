@@ -72,6 +72,6 @@ const newHotel = () => ({ code: 'H1', set: { name: 'Hotel One', bd: '2026-10-09'
 
   /* the screen */
   T('nothing is shown on screen when another device updates while a window is open; the screen refreshes when the windows close', !/Updated from another device/.test(src) && /if\(!MODALS\.length&&_remotePending\)/.test(src));
-  T('Reports open in their own tab as before (the device copy is written first); the page itself is the fallback when pop-ups are blocked', /function openReportsTab\(o\)\{[^]*?flushDB\(\)[^]*?window\.open\(location\.href\.split\('#'\)\[0\]\+'#reports'\+q,'mahahub-reports'\)[^]*?if\(!w\)\{applyRpTarget\(o\);openReportsOverlay\(\)\}/.test(src));
+  T('Reports open in their own tab as before (the device copy is written first); the page itself is the fallback when pop-ups are blocked', /function openReportsTab\(\)\{[^]*?flushDB\(\)[^]*?window\.open\(location\.href\.split\('#'\)\[0\]\+'#reports','mahahub-reports'\)[^]*?if\(!w\)\{openReportsOverlay\(\)\}/.test(src));
   console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
 })();

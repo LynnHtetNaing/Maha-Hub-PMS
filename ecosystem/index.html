@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="d151b60a00">
+<meta name="maha-build" content="d27b866bcc">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -8500,16 +8500,11 @@ function supabaseSessionExpired(){
 setInterval(()=>{if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return;MahaAuth.fresh().then(t=>{if(!t)supabaseSessionExpired()})},60000);
 
 /* ---------- reports open in their own tab (4.6) ---------- */
-const rpHash=()=>/^#reports(\?|$)/.test(location.hash);
-function rpTargetFromHash(){const m=/^#reports\?(.*)$/.exec(location.hash);if(!m)return null;const q=new URLSearchParams(m[1]);return q.get('code')?{code:q.get('code'),shiftName:q.get('shift')||''}:null}
-function applyRpTarget(o){if(!o||!o.code||!H)return;const d=REPORTS.find(r=>r.code===o.code);if(!d)return;RP.code=o.code;RP.page=1;RP.shiftName=o.shiftName||'';RP.shift='';const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.open[d.g]=true}
-/* o = {code, shiftName}: the report opens at once in the new tab (or over this page if the browser blocks the new tab) */
-function openReportsTab(o){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
+function openReportsTab(){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
   try{flushDB()}catch(e){}   /* the new tab reads the hotel from this device: write it first */
-  const q=o&&o.code?'?code='+encodeURIComponent(o.code)+(o.shiftName?'&shift='+encodeURIComponent(o.shiftName):''):'';
-  if(MOBR()){applyRpTarget(o);openReportsOverlay();return}
-  let w=null;try{w=window.open(location.href.split('#')[0]+'#reports'+q,'mahahub-reports')}catch(e){w=null}
-  if(!w){applyRpTarget(o);openReportsOverlay()}else{try{w.focus()}catch(e){}}}
+  if(MOBR()){openReportsOverlay();return}
+  let w=null;try{w=window.open(location.href.split('#')[0]+'#reports','mahahub-reports')}catch(e){w=null}
+  if(!w){openReportsOverlay()}else{try{w.focus()}catch(e){}}}
 
 /* ---------- global search ---------- */
 function globalSearch(){
@@ -10822,10 +10817,10 @@ VIEWS['cd.shift']=el=>{
     <div class="btns"><button class="btn ghost" id="csRep">Shift report</button><button class="btn gold" id="csGo">Close my shift and sign out</button></div></div>
    </div>
    ${others.length?`<div class="panel mt"><div class="ph">Other open shifts</div><table class="grid"><tr><th>User</th><th>Shift</th><th>Opened</th><th></th></tr>${others.map(o=>`<tr><td>${esc(o.userName)}${(()=>{const ou=H.users.find(x=>x.id===o.userId);return ou&&(ou.cancelled||ou.active===false)?' <span class="sub" style="color:#b3261e">(user cancelled, shift still open)</span>':''})()}</td><td>${o.name}</td><td>${fd(o.bd)} ${tm(o.openAt)}</td><td>${can('closeothers')?`<button class="btn sm ghost" data-cls="${o.id}">Close this shift</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
-  $('#csRep',el).onclick=()=>openReportsTab({code:'CB_04',shiftName:s.name});
+  $('#csRep',el).onclick=()=>{try{const d=REPORTS.find(r=>r.code==='CB_04'),res=reportPages(d,{from:s.bd,to:s.bd,shift:'',shiftName:s.name,o:{}});printPages(res.html,'Shift report - '+s.name+' shift')}catch(e){toast('The shift report could not open.')}};
   {const calc=()=>{const c=$('#csC',el).value.trim(),L=$('#csLeft',el),D=$('#csDiff',el),R=$('#csDiffRow',el);if(c===''){L.textContent='-';D.textContent='-';R.className='';return}
     const left=r2(+c-t.drop),df=r2(left-t.floatIn);L.textContent=m2(left);D.textContent=(df>0?'+':'')+m2(df);R.className=df===0?'ok':'loss'};$('#csC',el).oninput=calc}
-  $('#csGo',el).onclick=async ()=>{const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);const cb={},vb={};let vAny=false;curOthers(H).forEach(k=>{const raw=$('#csC_'+k,el)?$('#csC_'+k,el).value:'',ex=t.cashBy[k]||0;cb[k]=raw===''?(ex===0?0:null):r2(+raw);if(cb[k]!=null){vb[k]=r2(cb[k]-ex);if(vb[k]!==0)vAny=true}});
+  $('#csGo',el).onclick=async ()=>{if(!el._csWarned){el._csWarned=true;$('#csE',el).textContent='Please print the Shift report before you close your shift. Press Close my shift again to close it.';return}const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);const cb={},vb={};let vAny=false;curOthers(H).forEach(k=>{const raw=$('#csC_'+k,el)?$('#csC_'+k,el).value:'',ex=t.cashBy[k]||0;cb[k]=raw===''?(ex===0?0:null):r2(+raw);if(cb[k]!=null){vb[k]=r2(cb[k]-ex);if(vb[k]!==0)vAny=true}});
     if(Object.values(cb).some(x=>x==null)){$('#csE',el).textContent='Count the cash in each currency and enter the amounts.';return}
     if((v!==0||vAny)&&!await dlgConfirm(`Cash variance ${m2(v)}${curOthers(H).map(k=>vb[k]?', '+k+' '+m2(vb[k]):'').join('')}. Close the shift with this variance?`))return;
     Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:cnt,variance:v,note:$('#csN',el).value.trim()},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({[curMain()]:cnt},cb),varianceBy:Object.assign({[curMain()]:v},vb)}:{});log(`Closed ${s.name} shift, variance ${m2(v)}`);saveDB();signOut(true)};
@@ -13409,7 +13404,6 @@ function defaultRange(def){const bd=H.set.bd,lt=H.set.lockedThrough;switch(def.m
 function renderReports(root,overlay){
   if(!DB.session||!H){root.innerHTML=`<div class="rpempty"><img src="${ICON}" alt=""><h2>Sign in first</h2><p>Open Maha Hub in the other tab and sign in, then press Report again.</p></div>`;return}
   if(!can('reports')){root.innerHTML='<div class="rpempty"><h2>No permission</h2><p>Ask the provider to open Reports for your account.</p></div>';return}
-  if(document.body.classList.contains('rpmode')&&RP._t!==location.hash){RP._t=location.hash;applyRpTarget(rpTargetFromHash())}
   try{applySkin()}catch(e){}
   document.title='Reports – '+H.set.name;try{setTabIcons('hub')}catch(e){}
   root.innerHTML=`<div class="rp" data-ms="list"><div class="rpmbar" id="rpmbar"><button type="button" class="mbb txt" id="rpmBack" aria-label="Back">&#8249; System</button><span class="mbt" id="rpmT">REPORTS</span><button type="button" class="mbb" id="rpmFil" aria-label="Show or fold the filters" title="Filters" hidden>&#9881;</button><button type="button" class="mbb" id="rpmZm" aria-label="Zoom" title="Zoom" hidden>&#8981;</button><button type="button" class="mbb" id="rpmMore" aria-label="Excel, PDF, Print" hidden>&#8943;</button><div class="rpmenu" id="rpmMenu" hidden><button type="button" data-rm="rpX">Excel</button><button type="button" data-rm="rpPdf">PDF</button><button type="button" data-rm="rpPr">Print</button></div></div><header class="rptop"><div class="rphl"><div class="tbbrand">${LOGO()}<span class="tbwm">MAHA PMS</span></div><div class="tbsep"></div><span class="rptitle">REPORTS</span></div><div class="rpmid"><div class="bdate">${fdWide(H.set.bd)}</div><div class="ver">Business date</div></div><div class="rpright"><div class="tbhotel"><div class="tbhn">${esc(H.set.name)}</div><div class="tbus">${esc(user().name)}</div></div>${overlay?'<button class="btn sm ghost" id="rpClose">Close reports</button>':''}</div></header>
@@ -14176,14 +14170,13 @@ window.addEventListener('DOMContentLoaded',()=>{
   let booted=false;
   const startApp=()=>{if(booted)return;booted=true;try{watchNewVersion()}catch(e){}ensureMasterProvider();
     if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('/sw.js').catch(()=>{});
-    window.addEventListener('storage',e=>{if((e.key!==DBKEY&&e.key!==DBKEY4)||!e.newValue||rpHash())return;
+    window.addEventListener('storage',e=>{if((e.key!==DBKEY&&e.key!==DBKEY4)||!e.newValue||location.hash==='#reports')return;
       try{const d=JSON.parse(e.newValue);if(!d||!d.savedAt||d.savedAt<=(DB.savedAt||0))return;
         const live=DB.session;DB=migrateDB(d);DB.session=live&&sessionValid(live)?live:null;
         if(DB.session)writeLiveSession(DB.session);else clearLiveSession();
         bindHotel();
         if(!DB.session){showLogin();return}renderShell();render()}catch(err){}});
-    if(rpHash()){document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
-      window.addEventListener('hashchange',()=>{if(rpHash()){RP._t='';renderReports(document.getElementById('app'),false)}});
+    if(location.hash==='#reports'){document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
       window.addEventListener('storage',e=>{if(e.key===DBKEY||e.key===DBKEY4)loadFresh()});return}
     const finish=()=>{
       applyLiveSession();resumeSync();
