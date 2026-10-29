@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="519c5a5516">
+<meta name="maha-build" content="468521dc9d">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7359,12 +7359,13 @@ function cancelUserModal(u,done){
 function hubBaseUrl(){const u=new URL(location.href);let path=u.pathname.replace(/index\.html?$/i,'');path=path.replace(/\/(?:ecosystem(?:\/(?:PMS|Reach|Connect|Booking|Sales))?|solutions(?:-(?:PMS|Reach|Connect|Booking|Sales))?(?:\.html?)?)\/?$/i,'/');if(!path.endsWith('/'))path+='/';return u.origin+path}
 function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book:'Booking',sales:'Sales'}[kind]||''}
 /* Addresses: the Main page is /solutions and the PMS is /solutions-PMS. The other systems keep /ecosystem/<System>/. The old /ecosystem/ and /ecosystem/PMS/ still open and move to the new address. */
-/* The PMS can have its own address, pms.maha-hub.com, which opens straight onto the PMS sign-in (its own sign-in and its own saved data, apart from the other systems).
-   People are sent there from maha-hub.com only when PMS_SPLIT_ON is true: it is switched on at launch, when the address exists. On the address itself everything already works. */
+/* The PMS has its own address, pms.maha-hub.com (its own sign-in and its own saved data, apart from the other systems). It works like the main address:
+   / goes to the Main page (/solutions) where the person chooses a system, and the PMS sign-in is /solutions-PMS there.
+   People are sent from maha-hub.com to the PMS address only when PMS_SPLIT_ON is true: it is switched on at launch, when the address exists. */
 const PMS_SPLIT_ON=false,PMS_HOST='pms.maha-hub.com';
 function onPmsHost(){return String(location.hostname||'').toLowerCase().indexOf('pms.')===0}
 function onMainLiveHost(){const h=String(location.hostname||'').toLowerCase();return h==='maha-hub.com'||h==='www.maha-hub.com'}
-function sysFromPath(){if(onPmsHost())return 'hub';const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
+function sysFromPath(){const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
 function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low.indexOf('/ecosystem'),low.indexOf('/solutions')].filter(x=>x>=0).sort((a,b)=>a-b)[0];return location.origin+(at>=0?path.slice(0,at):'')}
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}
 /* Entry ticket: Maha Connect, Reach and Sales open only from the signed-in Main page. The page leaves a ticket here (12 hours, removed at sign-out);
@@ -7380,8 +7381,7 @@ const ENTRY_KINDS=['connect','reach','sales','book'];
 function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
 function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
 function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';
-  if(kind==='hub'&&onPmsHost())return location.origin+'/'+q;
-  if(kind==='hub'&&PMS_SPLIT_ON&&onMainLiveHost())return 'https://'+PMS_HOST+'/'+q;
+  if(kind==='hub'&&PMS_SPLIT_ON&&onMainLiveHost())return 'https://'+PMS_HOST+'/solutions-PMS'+q;
   if(kind!=='hub'&&onPmsHost())return 'https://maha-hub.com/ecosystem/'+sysSegment(kind)+'/'+q;
   return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
 function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
@@ -7389,8 +7389,8 @@ function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
   if(se&&typeof H!=='undefined'&&H&&H.set&&H.set.name)return 'Maha PMS - '+H.set.name;
   return 'Maha PMS'}
 function setTabIcons(kind){const pre=kind==='hub'?'/brand/maha/pms-icon-':'/brand/maha/icon-';document.querySelectorAll('link[rel="icon"],link[rel="apple-touch-icon"]').forEach(l=>{const m=(l.getAttribute('href')||'').match(/icon-(\d+)\.png/);if(m)l.setAttribute('href',pre+m[1]+'.png')})}
-function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const want=onPmsHost()?'/':!kind?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
-  const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=(seg==='PMS'||onPmsHost())?tabTitleFor():seg?('maha-hub / solutions / '+seg):'maha-hub / solutions';try{setTabIcons(onPmsHost()?'hub':kind)}catch(e){}}
+function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const want=!kind?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
+  const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=seg==='PMS'?tabTitleFor():seg?('maha-hub / solutions / '+seg):'maha-hub / solutions';try{setTabIcons(kind)}catch(e){}}
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
 }
@@ -7995,7 +7995,7 @@ function showImportantAnnouncements(){try{const se=DB&&DB.session;if(!se||se.pro
   $('#anRead',m).onclick=()=>{list.forEach(a=>annMarkRead(a,u.id));ULOG.add('Marked all announcements as read',null,'Other');saveDB();try{paintNotifBadge()}catch(e){}closeModal(m)}}catch(e){}}
 function renderShell(){
   if(SEL_ON)return;
-  if(/solutions-pms/i.test(location.pathname)||onPmsHost()){document.title=tabTitleFor();try{setTabIcons('hub')}catch(e){}}
+  if(/solutions-pms/i.test(location.pathname)){document.title=tabTitleFor();try{setTabIcons('hub')}catch(e){}}
   document.body.classList.remove('eco-noscroll');
   applyDensity(densityMode());
   applySkin();
@@ -8146,7 +8146,7 @@ function ecoPreviewHotel(){
 }
 function showLogin(msg){
   try{applySkin()}catch(e){}   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme */
-  if(/solutions-pms/i.test(location.pathname)||onPmsHost())document.title='Maha PMS';
+  if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
   if(IS_APP&&!lgProvider)lgTargetSys='hub';
   document.body.classList.add('eco-noscroll');

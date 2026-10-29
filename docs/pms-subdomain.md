@@ -3,7 +3,7 @@
 Status: the code is ready and switched OFF. Nothing changes for anyone until the launch steps below.
 
 What it does
-- pms.maha-hub.com opens straight onto the PMS sign-in. It has its own sign-in and its own saved data, apart from the other systems.
+- pms.maha-hub.com works like the main address: it opens the Main page (/solutions) where the person chooses a system, then the PMS sign-in (/solutions-PMS). It has its own sign-in and its own saved data, apart from the other systems.
 - maha-hub.com keeps the website, the Main page (/solutions) and the other systems (Sales and so on).
 - Old PMS addresses (/solutions-PMS, /ecosystem/PMS) on maha-hub.com move to pms.maha-hub.com after launch.
 

@@ -65,7 +65,21 @@ function jwtClaim(token: string, name: string): string {
   }
 }
 
-Deno.serve(async (req) => {
+// The browser sends the address of the page it came from. Only the addresses listed here are answered with that address;
+// MAHA_ALLOWED_ORIGIN (comma separated) may add more. The PMS has its own address, pms.maha-hub.com.
+const ALLOWED_ORIGINS = [...new Set([
+  "https://maha-hub.com", "https://www.maha-hub.com", "https://pms.maha-hub.com",
+  ...(Deno.env.get("MAHA_ALLOWED_ORIGIN") || "").split(",").map((x) => x.trim()).filter(Boolean),
+])];
+const withOrigin = (req: Request, res: Response): Response => {
+  const origin = req.headers.get("Origin") || "";
+  const h = new Headers(res.headers);
+  h.set("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]);
+  h.append("Vary", "Origin");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+};
+
+const handle = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -537,4 +551,6 @@ Deno.serve(async (req) => {
   }
 
   return respond({ error: "unsupported_action" }, 400);
-});
+};
+
+Deno.serve(async (req) => withOrigin(req, await handle(req)));
