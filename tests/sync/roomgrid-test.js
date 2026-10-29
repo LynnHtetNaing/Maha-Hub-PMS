@@ -80,5 +80,34 @@ T('the day highlight fills the whole row (no box by box shade)', src.includes('.
 T('Forecast: no shade behind the page, rounded filters, tabs and buttons with space between, calendar button follows the round corner', src.includes('Forecast page: no shade behind the page') && src.includes('html[data-skin="modern"][data-mode=dark] .fcwrap{background:transparent!important') && src.includes('.fcf .dpb{background:transparent!important'));
 T('Provider console Staff page: the Department box shows its whole text and the list scrolls instead of cutting', src.includes('.upage .pptbl select[data-dept]{max-width:none;width:134px') && src.includes('.upage .pplist{overflow-x:auto;overflow-y:hidden}'));
 T('Forecast buttons: icon and text are centred on one line', src.includes('Forecast buttons: the icon and the text sit on one line, centred') && src.includes('.fcbtns .btn{display:inline-flex!important;align-items:center'));
-T('My Shift & Cashier: payments are plus, refunds and voids are their own minus rows; the expected cash is unchanged', src.includes('const byIn={},byOut={}') && src.includes('Refund · ') && src.includes('− Cash refunded') && src.includes('+ Cash received') && src.includes("expected:r2((s.openCash||0)+(curMulti(H)?(cashBy[curMain()]||0):cash)-paidOut)"));
+/* ---- My Shift & Cashier: float, Expected Cash Drop, petty cash ---- */
+{
+  const code = cut('const isCashPay=', "/* closing somebody else's shift");
+  const mk = (H, lines) => new Function('H', 'allLinesH', 'paymentsIn', 'curMulti', 'curMain', 'curOthers', 'curOfLine', 'isCash', 'isCharge', 'r2', 'sum',
+    code + '\nreturn {shiftTotals,shiftPetty};')(H, () => lines, ls => ls.map(l => ({ l, amt: -l.amt })), () => false, () => 'THB', () => [], () => 'THB', c => c === '900', l => l.amt > 0 && l.code !== '900', v => Math.round(v * 100) / 100, (a, f) => a.reduce((n, x) => n + f(x), 0));
+  const S = { id: 's1', name: 'Morning', bd: '2026-10-20', openCash: 5000, openAt: 1 };
+  const L = [
+    { shiftId: 's1', code: '900', method: 'Cash', amt: -12000 }, { shiftId: 's1', code: '903', method: 'Bank Transfer', amt: -3000 },
+    { shiftId: 's1', code: '900', method: 'Cash', amt: 2000 },     /* a cash refund: the folio line is plus, so the money is minus */
+    { shiftId: 's1', code: '600', method: '', amt: 0 }];
+  const H = { shifts: [S], petty: [{ id: 'p1', dir: 'out', amt: 350, bd: '2026-10-20', shift: 'Morning', shiftId: 's1' }] };
+  let t = mk(H, L).shiftTotals(S);
+  T('cash received stands alone, the refund is its own minus', t.cashIn === 12000 && t.cashOut === -2000);
+  T('Expected Cash Drop = cash received - refund', t.drop === 10000);
+  T('Float in hand = opening - paid out - petty cash (+ petty paid in)', t.floatIn === 4650 && t.pettyOut === 350 && t.pettyIn === 0);
+  T('cash that should be in the drawer = float + drop (the count is checked against it)', t.expected === 14650);
+  H.petty[0].back = { bd: '2026-10-20', shiftId: 's1' };
+  t = mk(H, L).shiftTotals(S);
+  T('petty cash paid in goes back into the float of the shift that receives it', t.pettyIn === 350 && t.floatIn === 5000 && t.drop === 10000 && t.expected === 15000);
+  H.petty[0].back = { bd: '2026-10-21', shiftId: 's2' };
+  t = mk(H, L).shiftTotals(S);
+  T('paid in received in another shift does not change this shift', t.pettyIn === 0 && t.floatIn === 4650);
+  const old = { shifts: [S, { id: 's9', name: 'Morning', bd: '2026-10-20', openAt: 2, openCash: 0 }], petty: [{ id: 'q', dir: 'out', amt: 100, bd: '2026-10-20', shift: 'Morning' }] };
+  T('an old petty line without a shift id belongs to the first shift of that name only', mk(old, []).shiftPetty(S).out === 100 && mk(old, []).shiftPetty(old.shifts[1]).out === 0);
+}
+T('the cashier page: Float, Cash drop and Close shift boxes, Total collected last, no Charges posted line', ['Float (cash in hand)', '− Petty cash', '+ Petty cash paid in', 'Expected Cash Drop', 'id="csLeft"', 'id="csDiffRow"'].every(x => src.includes(x)) && !cut("VIEWS['cd.shift']=el=>{", "VIEWS['cd.close']").includes('Charges posted'));
+T('the login page: the opening cash is required, no (optional)', src.includes('<span>Opening cash</span>') && !src.includes('Opening cash (optional)') && src.includes('Enter your opening cash (type 0 if the drawer is empty).'));
+T('Petty Cash page: Record petty cash, Returned by AP/AR, Not yet returned, Paid in button', ['Record petty cash', 'Returned by AP/AR', 'Not yet returned', 'data-pb='].every(x => src.includes(x)) && !src.includes('>Cash book<'));
+T('CB_04 shows the refund as its own line, the float of each shift, and fills the count lines when the shift is closed', src.includes("'Refund / Void - '") && src.includes("'Float (cash in hand) - '") && src.includes('Cash counted in the drawer : <span>') && src.includes('Left in drawer (closing float) : <span>'));
+T('the Shift report button opens CB_04 for this shift straight away in the new tab', src.includes("openReportsTab({code:'CB_04',shiftName:s.name})") && src.includes("'#reports'+q") && src.includes('function rpTargetFromHash'));
 console.log(fails ? 'FAILED ' + fails : 'all ok'); process.exit(fails ? 1 : 0);

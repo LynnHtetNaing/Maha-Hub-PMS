@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="6753131874">
+<meta name="maha-build" content="d151b60a00">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2436,6 +2436,13 @@ html[data-skin="modern"] .fcbtns .sub,.fcbtns .fcrange,html[data-skin="modern"][
 /* Forecast buttons: the icon and the text sit on one line, centred */
 html[data-skin="modern"] .fcbtns .btn,html[data-skin="modern"][data-mode=dark] .fcbtns .btn{display:inline-flex!important;align-items:center;justify-content:center;gap:8px;line-height:1;padding-top:0;padding-bottom:0}
 html[data-skin="modern"] .fcbtns .btn svg,html[data-skin="modern"][data-mode=dark] .fcbtns .btn svg{flex:none;display:block;margin:0}
+/* My Shift & Cashier: two columns, two rows (each row shares its top and bottom), Close shift runs under both */
+.csg{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch}.csg>.panel{margin:0;display:flex;flex-direction:column}.csg>.panel>table{flex:1 1 auto}.csg>.csclose{grid-column:1/-1}
+.cscl{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px 16px;padding:14px 16px;align-items:start}
+.csres{border:2px solid var(--line);border-radius:12px;overflow:hidden}.csres>div{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border-top:1px solid var(--line)}.csres>div:first-child{border-top:0}
+.csres #csDiffRow.loss{background:rgba(192,57,43,.12);color:#b3261e;font-weight:800}.csres #csDiffRow.ok{color:#1f8f6b;font-weight:800}
+html[data-mode=dark] .csres #csDiffRow.loss{background:rgba(255,110,96,.14);color:#ff8a7c}html[data-mode=dark] .csres #csDiffRow.ok{color:#4ade80}
+@media(max-width:860px){.csg{grid-template-columns:1fr}.csg>.csclose{grid-column:auto}}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -8281,7 +8288,7 @@ function showLogin(msg){
         ${IS_APP?'<label><span>Property ID</span><div class="eco-field"><span class="eco-ico-in" aria-hidden="true">⌂</span><input id="lgProp" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Property ID"></div></label>':''}
         <div id="lgExtra">
           <div id="shWrap" style="margin-bottom:10px"><span style="display:block;margin-bottom:6px">Shift</span><div class="eco-segs segs">${['Morning','Afternoon','Night'].map(s=>`<button type="button" data-shift="${s}">${s}<small>${{Morning:'06:00–14:00',Afternoon:'14:00–22:00',Night:'22:00–06:00'}[s]}</small></button>`).join('')}</div></div>
-          <label id="cashWrap"><span>Opening cash (optional)</span><div class="eco-field"><input id="lgCash" inputmode="decimal" placeholder="0"></div></label>
+          <label id="cashWrap"><span>Opening cash</span><div class="eco-field"><input id="lgCash" inputmode="decimal" placeholder="0"></div></label>
         </div>
         <div class="eco-row auth-row"><label class="eco-check"><input type="checkbox" id="lgRemember"> Remember me</label><button type="button" class="eco-link gold" id="lgForgot">Forgot password?</button></div>
         <div class="eco-err" id="lgErr" role="alert"></div>
@@ -8476,6 +8483,7 @@ function doLogin(){
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
   if(!s){const closed=h.shifts.find(x=>x.userId===u.id&&x.name===lgShift&&x.bd===h.set.bd&&x.status==='closed'&&!x.reopenOk);
     if(closed&&ruleOn(h,'blockClosedShiftReopen')){err.textContent=`The ${lgShift} shift for ${fd(h.set.bd)} is already closed. The provider must allow it to be opened again.`;return}
+    {const ocW=$('#cashWrap');if(ocW&&!ocW.hidden){const ocv=String($('#lgCash').value).trim();if(ocv===''||!(+ocv>=0)){err.textContent='Enter your opening cash (type 0 if the drawer is empty).';return}}}
     s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:Math.max(0,+$('#lgCash').value||0),status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Opened ${s.name} shift`)}
   else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
   writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}}
@@ -8492,11 +8500,16 @@ function supabaseSessionExpired(){
 setInterval(()=>{if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return;MahaAuth.fresh().then(t=>{if(!t)supabaseSessionExpired()})},60000);
 
 /* ---------- reports open in their own tab (4.6) ---------- */
-function openReportsTab(){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
+const rpHash=()=>/^#reports(\?|$)/.test(location.hash);
+function rpTargetFromHash(){const m=/^#reports\?(.*)$/.exec(location.hash);if(!m)return null;const q=new URLSearchParams(m[1]);return q.get('code')?{code:q.get('code'),shiftName:q.get('shift')||''}:null}
+function applyRpTarget(o){if(!o||!o.code||!H)return;const d=REPORTS.find(r=>r.code===o.code);if(!d)return;RP.code=o.code;RP.page=1;RP.shiftName=o.shiftName||'';RP.shift='';const dr=defaultRange(d);RP.from=dr.from;RP.to=dr.to;RP.open[d.g]=true}
+/* o = {code, shiftName}: the report opens at once in the new tab (or over this page if the browser blocks the new tab) */
+function openReportsTab(o){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
   try{flushDB()}catch(e){}   /* the new tab reads the hotel from this device: write it first */
-  if(MOBR()){openReportsOverlay();return}
-  let w=null;try{w=window.open(location.href.split('#')[0]+'#reports','mahahub-reports')}catch(e){w=null}
-  if(!w){openReportsOverlay()}else{try{w.focus()}catch(e){}}}
+  const q=o&&o.code?'?code='+encodeURIComponent(o.code)+(o.shiftName?'&shift='+encodeURIComponent(o.shiftName):''):'';
+  if(MOBR()){applyRpTarget(o);openReportsOverlay();return}
+  let w=null;try{w=window.open(location.href.split('#')[0]+'#reports'+q,'mahahub-reports')}catch(e){w=null}
+  if(!w){applyRpTarget(o);openReportsOverlay()}else{try{w.focus()}catch(e){}}}
 
 /* ---------- global search ---------- */
 function globalSearch(){
@@ -10757,33 +10770,61 @@ function printRegCard(B){
 /* ================= Shift, Close Day, Setup, Provider ================= */
 /* the currency a posted line is in: what was typed, else the currency of its reservation */
 const curOfLine=l=>l.fc||(l.origBooking&&bookingById(l.origBooking)?bCur(bookingById(l.origBooking)):curMain());
+/* Cash of one shift. Cash received stands alone (payments only). A refund or a void is its own minus line.
+   Float (cash in hand) = opening cash (a record of what the person had) - paid out - petty cash paid + petty cash returned.
+   Expected Cash Drop = cash received - cash refunded. The cash that should be in the drawer at the count = float + drop.
+   Paid out and petty cash come off the float; they never change the Expected Cash Drop. */
+const isCashPay=l=>!!l&&(l.method==='Cash'||isCash(l.code));
+/* petty cash of one shift: paid out for the hotel (off the float) and returned by AP/AR (back into the float). Old lines have no shift id: they belong to the first shift of that name on that day. */
+function shiftPetty(s,h){h=h||H;const rows=h.petty||[];
+  const first=(h.shifts||[]).filter(x=>x.bd===s.bd&&x.name===s.name).sort((a,b)=>(a.openAt||0)-(b.openAt||0))[0];
+  const mine=x=>x.shiftId?x.shiftId===s.id:(first&&first.id===s.id&&x.bd===s.bd&&x.shift===s.name);
+  const out=r2(sum(rows.filter(x=>x.dir==='out'&&mine(x)),x=>+x.amt||0));
+  const inn=r2(sum(rows.filter(x=>x.dir==='in'&&mine(x)),x=>+x.amt||0)+sum(rows.filter(x=>x.dir==='out'&&x.back&&x.back.shiftId===s.id),x=>+x.amt||0));
+  return {out,inn}}
 function shiftTotals(s){const ls=allLinesH(H).filter(l=>l.shiftId===s.id);const pays=paymentsIn(ls);const by={};pays.forEach(p=>{by[p.l.method]=(by[p.l.method]||0)+p.amt});
-  const cash=r2(by['Cash']||0),paidOut=r2(sum(ls.filter(l=>l.code==='600'&&isCharge(l)),l=>l.amt));
-  /* with extra currencies: the cash received in each currency, in that currency */
-  const cashBy={},byCur={};if(curMulti(H))pays.forEach(p=>{const c=curOfLine(p.l),a=p.l.fa!=null?-p.l.fa:p.amt;(byCur[c]=byCur[c]||{})[p.l.method]=r2(((byCur[c]||{})[p.l.method]||0)+a);if(p.l.method==='Cash')cashBy[c]=r2((cashBy[c]||0)+a)});
-  /* money in (payments) and money out (refunds and voids) kept apart, for the cashier page; every total above stays the same */
-  const byIn={},byOut={},byCurIn={},byCurOut={},cashByIn={},cashByOut={};
-  pays.forEach(p=>{const m=p.l.method,box=p.amt>=0?byIn:byOut;box[m]=r2((box[m]||0)+p.amt);
-    if(curMulti(H)){const c=curOfLine(p.l),a=p.l.fa!=null?-p.l.fa:p.amt,bc=a>=0?byCurIn:byCurOut,cb=a>=0?cashByIn:cashByOut;(bc[c]=bc[c]||{})[m]=r2(((bc[c]||{})[m]||0)+a);if(m==='Cash')cb[c]=r2((cb[c]||0)+a)}});
-  return {ls,by,cash,paidOut,cashBy,byCur,byIn,byOut,byCurIn,byCurOut,cashIn:r2(byIn['Cash']||0),cashOut:r2(byOut['Cash']||0),cashByIn,cashByOut,expected:r2((s.openCash||0)+(curMulti(H)?(cashBy[curMain()]||0):cash)-paidOut),expectedBy:curMulti(H)?Object.assign({[curMain()]:r2((s.openCash||0)+(cashBy[curMain()]||0)-paidOut)},curOthers(H).reduce((o,c)=>{o[c]=cashBy[c]||0;return o},{})):undefined,charges:r2(sum(ls.filter(isCharge),l=>l.amt))}}
+  const paidOut=r2(sum(ls.filter(l=>l.code==='600'&&isCharge(l)),l=>l.amt));
+  const multi=curMulti(H),main=curMain();
+  const byIn={},byOut={},byCur={},byCurIn={},byCurOut={},cashByIn={},cashByOut={},cashBy={};let cashIn=0,cashOut=0;
+  pays.forEach(p=>{const m=p.l.method,cash=isCashPay(p.l),box=p.amt>=0?byIn:byOut;box[m]=r2((box[m]||0)+p.amt);
+    if(!multi){if(cash){if(p.amt>=0)cashIn=r2(cashIn+p.amt);else cashOut=r2(cashOut+p.amt)}return}
+    const c=curOfLine(p.l),a=p.l.fa!=null?-p.l.fa:p.amt,bc=a>=0?byCurIn:byCurOut,cb=a>=0?cashByIn:cashByOut;
+    (byCur[c]=byCur[c]||{})[m]=r2(((byCur[c]||{})[m]||0)+a);(bc[c]=bc[c]||{})[m]=r2(((bc[c]||{})[m]||0)+a);
+    if(cash){cb[c]=r2((cb[c]||0)+a);cashBy[c]=r2((cashBy[c]||0)+a)}});
+  if(multi){cashIn=cashByIn[main]||0;cashOut=cashByOut[main]||0}
+  const cash=r2(cashIn+cashOut),pet=shiftPetty(s),open=r2(s.openCash||0);
+  const floatIn=r2(open-paidOut-pet.out+pet.inn),drop=r2(cashIn+cashOut);
+  const dropBy={};if(multi)[main].concat(curOthers(H)).forEach(c=>{dropBy[c]=r2((cashByIn[c]||0)+(cashByOut[c]||0))});
+  return {ls,by,cash,paidOut,cashBy,byCur,byIn,byOut,byCurIn,byCurOut,cashIn,cashOut,cashByIn,cashByOut,open,pettyOut:pet.out,pettyIn:pet.inn,floatIn,drop,dropBy,
+    expected:r2(floatIn+drop),
+    expectedBy:multi?Object.assign({[main]:r2(floatIn+drop)},curOthers(H).reduce((o,c)=>{o[c]=dropBy[c]||0;return o},{})):undefined,
+    charges:r2(sum(ls.filter(isCharge),l=>l.amt))}}
 /* closing somebody else's shift: ask the cash counted in each other currency */
 async function curCountOthers(tt,o){const cb={};if(curMulti(H)){for(const k of curOthers(H)){const ex=tt.cashBy[k]||0;const raw=await dlgAsk('Cash counted in '+k+' for '+o.userName+' ('+o.name+'). Expected '+m2(ex)+':',String(ex));if(raw===null)return null;cb[k]=r2(+raw||0)}}
   return {fields:(cnt,t)=>curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({[curMain()]:cnt},cb),varianceBy:Object.assign({[curMain()]:r2(cnt-t.expected)},Object.keys(cb).reduce((o,k)=>{o[k]=r2(cb[k]-(t.cashBy[k]||0));return o},{}))}:{}}}
 VIEWS['cd.shift']=el=>{
   const s=curShift();if(!s){el.innerHTML='<div class="empty">No open shift.</div>';return}if(s.noShift){el.innerHTML=pageHead('My Shift & Cashier')+'<div class="empty">You sign in without a shift, so there is no shift to close. Payments you take are counted in the cashier shift you choose.</div>';return}const t=shiftTotals(s);
   const others=H.shifts.filter(x=>x.status==='open'&&x.id!==s.id);
-  el.innerHTML=pageHead('My Shift & Cashier',`<span class="sub">${esc(s.name)} shift · opened ${tm(s.openAt)} · business date ${fd(s.bd)}</span>`)+`<div class="cols2 shiftv">
+  el.innerHTML=pageHead('My Shift & Cashier',`<span class="sub">${esc(s.name)} shift · opened ${tm(s.openAt)} · business date ${fd(s.bd)}</span>`)+`<div class="csg shiftv">
    <div class="panel"><div class="ph">Collections this shift</div><table class="grid kv">${(()=>{const rowsOf=(inn,out)=>{const r=[];Object.entries(inn).forEach(([k,v])=>{if(v)r.push(`<tr><td>${esc(k)}</td><td class="n">${m2(v)}</td></tr>`)});Object.entries(out).forEach(([k,v])=>{if(v)r.push(`<tr><td>Refund · ${esc(k)}</td><td class="n bad">${m2(v)}</td></tr>`)});return r.join('')};
        if(!curMulti(H))return rowsOf(t.byIn,t.byOut);
        const lab=(o)=>Object.entries(o).flatMap(([c,mm])=>Object.entries(mm).map(([k,v])=>[k+' ('+c+')',v]));
        return rowsOf(Object.fromEntries(lab(t.byCurIn)),Object.fromEntries(lab(t.byCurOut)))})()||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
-     <tr class="tot"><td>Total collected</td><td class="n">${curMulti(H)?Object.entries(t.byCur).map(([c,mm])=>c+' '+m2(sum(Object.values(mm)))).join(' · ')||'0.00':m2(sum(Object.values(t.by)))}</td></tr><tr><td>Charges posted</td><td class="n">${m2(t.charges)}</td></tr></table></div>
-   <div class="panel"><div class="ph">Cash drawer</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(s.openCash||0)}</td></tr><tr><td>+ Cash received${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(curMulti(H)?(t.cashByIn[curMain()]||0):t.cashIn)}</td></tr>${(curMulti(H)?(t.cashByOut[curMain()]||0):t.cashOut)?`<tr><td>− Cash refunded${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n bad">${m2(curMulti(H)?t.cashByOut[curMain()]:t.cashOut)}</td></tr>`:''}<tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr class="tot"><td>Expected cash${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.expected)}</td></tr></table>
-    ${curMulti(H)?`<table class="grid kv mt"><tr><th colspan="2">Cash received in other currencies</th></tr>${curOthers(H).map(c=>`<tr><td>Expected cash (${esc(c)})</td><td class="n">${m2(t.cashBy[c]||0)}</td></tr>`).join('')}</table>`:''}
-    <div class="form2 mt">${fld('Cash counted'+(curMulti(H)?' ('+esc(curMain())+')':''),`<input type="number" id="csC" step="0.01" class="n">`)}${curMulti(H)?curOthers(H).map(c=>fld('Cash counted ('+esc(c)+')',`<input type="number" id="csC_${c}" step="0.01" class="n">`)).join(''):''}${fld('Handover note (optional)',`<input id="csN">`)}</div><div class="err" id="csE"></div>
-    <div class="btns"><button class="btn gold" id="csGo">Close my shift and sign out</button><button class="btn ghost" id="csRep">Shift report</button></div></div></div>
+     <tr class="tot"><td>Total collected</td><td class="n">${curMulti(H)?Object.entries(t.byCur).map(([c,mm])=>c+' '+m2(sum(Object.values(mm)))).join(' · ')||'0.00':m2(sum(Object.values(t.by)))}</td></tr></table></div>
+   <div class="panel"><div class="ph">Float (cash in hand)</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(t.open)}</td></tr><tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr><td>− Petty cash</td><td class="n">${m2(t.pettyOut)}</td></tr><tr><td>+ Petty cash paid in</td><td class="n">${m2(t.pettyIn)}</td></tr><tr class="tot"><td>Float in hand</td><td class="n">${m2(t.floatIn)}</td></tr></table></div>
+   ${curMulti(H)?`<div class="panel"><div class="ph">Other currencies</div><table class="grid kv">${curOthers(H).map(c=>`<tr><td>Cash received (${esc(c)})</td><td class="n">${m2(t.cashByIn[c]||0)}</td></tr><tr><td>− Refund (${esc(c)})</td><td class="n ${(t.cashByOut[c]||0)?'bad':''}">${m2(t.cashByOut[c]||0)}</td></tr><tr class="tot"><td>Expected Cash Drop (${esc(c)})</td><td class="n">${m2(t.dropBy[c]||0)}</td></tr>`).join('')}</table></div>`:''}
+   <div class="panel"><div class="ph">Cash drop</div><table class="grid kv"><tr><td>Cash received${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.cashIn)}</td></tr><tr><td>− Refund (cash)</td><td class="n ${t.cashOut?'bad':''}">${m2(t.cashOut)}</td></tr><tr class="tot"><td>Expected Cash Drop${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.drop)}</td></tr></table></div>
+   <div class="panel csclose"><div class="ph">Close shift</div><div class="cscl">
+    ${fld('Cash counted in the drawer'+(curMulti(H)?' ('+esc(curMain())+')':''),`<input type="number" id="csC" step="0.01" class="n" placeholder="0.00">`)}
+    ${curMulti(H)?curOthers(H).map(c=>fld('Cash counted in the drawer ('+esc(c)+')',`<input type="number" id="csC_${c}" step="0.01" class="n" placeholder="0.00">`)).join(''):''}
+    <div class="csres"><div><span>Drop to the safe</span><b>${m2(t.drop)}</b></div><div><span>Left in drawer (closing float)</span><b id="csLeft">-</b></div><div><span>Float in hand expected</span><b>${m2(t.floatIn)}</b></div><div id="csDiffRow"><span>Difference</span><b id="csDiff">-</b></div></div>
+    ${fld('Handover note (optional)',`<input id="csN">`)}</div><div class="err" id="csE"></div>
+    <div class="btns"><button class="btn ghost" id="csRep">Shift report</button><button class="btn gold" id="csGo">Close my shift and sign out</button></div></div>
+   </div>
    ${others.length?`<div class="panel mt"><div class="ph">Other open shifts</div><table class="grid"><tr><th>User</th><th>Shift</th><th>Opened</th><th></th></tr>${others.map(o=>`<tr><td>${esc(o.userName)}${(()=>{const ou=H.users.find(x=>x.id===o.userId);return ou&&(ou.cancelled||ou.active===false)?' <span class="sub" style="color:#b3261e">(user cancelled, shift still open)</span>':''})()}</td><td>${o.name}</td><td>${fd(o.bd)} ${tm(o.openAt)}</td><td>${can('closeothers')?`<button class="btn sm ghost" data-cls="${o.id}">Close this shift</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
-  $('#csRep',el).onclick=()=>{openReportsTab();toast('Open "Shift by Shift Cashier" under Cashier & Billing.')};
+  $('#csRep',el).onclick=()=>openReportsTab({code:'CB_04',shiftName:s.name});
+  {const calc=()=>{const c=$('#csC',el).value.trim(),L=$('#csLeft',el),D=$('#csDiff',el),R=$('#csDiffRow',el);if(c===''){L.textContent='-';D.textContent='-';R.className='';return}
+    const left=r2(+c-t.drop),df=r2(left-t.floatIn);L.textContent=m2(left);D.textContent=(df>0?'+':'')+m2(df);R.className=df===0?'ok':'loss'};$('#csC',el).oninput=calc}
   $('#csGo',el).onclick=async ()=>{const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-t.expected);const cb={},vb={};let vAny=false;curOthers(H).forEach(k=>{const raw=$('#csC_'+k,el)?$('#csC_'+k,el).value:'',ex=t.cashBy[k]||0;cb[k]=raw===''?(ex===0?0:null):r2(+raw);if(cb[k]!=null){vb[k]=r2(cb[k]-ex);if(vb[k]!==0)vAny=true}});
     if(Object.values(cb).some(x=>x==null)){$('#csE',el).textContent='Count the cash in each currency and enter the amounts.';return}
     if((v!==0||vAny)&&!await dlgConfirm(`Cash variance ${m2(v)}${curOthers(H).map(k=>vb[k]?', '+k+' '+m2(vb[k]):'').join('')}. Close the shift with this variance?`))return;
@@ -12854,21 +12895,37 @@ const payDesc=(code,dep)=>tcOf(code).desc+(dep?' - Reservation Deposit':'');
 const isCash=code=>(TCODES.find(c=>c.code===code)||{}).ptab==='CASH';
 function closeShiftSummary(p){
   const ls=shiftPayLines(p),rows=[];let total=0;
-  const block=(title,dep)=>{const part=ls.filter(l=>!!l.deposit===dep);if(!part.length)return;if(title)rows.push({t:'h',text:title});
-    SHIFTS.filter(sh=>part.some(l=>l.shiftName===sh)).forEach(sh=>{const a=part.filter(l=>l.shiftName===sh);rows.push({t:'h',text:sh+' Shift'});let cash=0;
-      [...new Set(a.map(l=>psBase(l.code)))].forEach(code=>{const x=a.filter(l=>psBase(l.code)===code),amt=r2(sum(x,l=>l.amt));if(isCash(code))cash+=amt;
-        rows.push({t:'r',c:[code,x.filter(l=>l.kind==='payrec'||l.kind==='pay').length,payDesc(code,dep),sh+' Shift',m2(amt),m2(amt)+(isCash(code)?' *':'')]})});
+  const pays=paymentsIn(ls);          /* plus = money in, minus = a refund or a void: cash received stands alone and the refund is its own line */
+  const block=(title,dep)=>{const part=pays.filter(x=>!!x.l.deposit===dep);if(!part.length)return;if(title)rows.push({t:'h',text:title});
+    SHIFTS.filter(sh=>part.some(x=>x.l.shiftName===sh)).forEach(sh=>{const a=part.filter(x=>x.l.shiftName===sh);rows.push({t:'h',text:sh+' Shift'});let cash=0;
+      [...new Set(a.map(x=>psBase(x.l.code)))].forEach(code=>{const inn=a.filter(x=>psBase(x.l.code)===code&&x.amt>=0),out=a.filter(x=>psBase(x.l.code)===code&&x.amt<0);
+        if(inn.length){const amt=r2(sum(inn,x=>x.amt));if(isCash(code))cash+=amt;rows.push({t:'r',c:[code,inn.length,payDesc(code,dep),sh+' Shift',m2(amt),m2(amt)+(isCash(code)?' *':'')]})}
+        if(out.length){const amt=r2(sum(out,x=>x.amt));if(isCash(code))cash+=amt;rows.push({t:'r',c:['R'+code,out.length,'Refund / Void - '+payDesc(code,dep),sh+' Shift',m2(amt),m2(amt)+(isCash(code)?' *':'')]})}});
       cash=r2(cash);total+=cash;rows.push({t:'s',c:['','','','Cash drop :',m2(cash),'*']})})};
   block('',false);block('*** Reservation Deposit ***',true);
-  if(!rows.length)return {cols:SUMCOLS,rows:[{t:'n',text:'No payment has been taken '+(p.shiftName?'in the '+p.shiftName+' shift ':'')+'on this business date.'}],footHtml:cashFoot(p)};
   rows.push({t:'g',c:['','','','Total Cash drop :',m2(r2(total)),'*']});
-  {const rf=ls.filter(l=>l.refund);if(rf.length){rows.push({t:'h',text:'*** Refunds (already inside the figures above) ***'});rows.push({t:'s',c:['','','','Total Refunds :',m2(-r2(sum(rf,l=>l.amt))),'']})}}
-  return {note:'Payments only. * = cash to drop.',cols:SUMCOLS,rows,footHtml:cashFoot(p)}}
+  /* the float of each shift (the cash in hand): a record, never part of the cash drop */
+  const shiftsOf=sh=>(H.shifts||[]).filter(s=>s.bd===p.to&&s.name===sh&&!s.virtual);
+  const names=SHIFTS.filter(sh=>(!p.shiftName||p.shiftName===sh)&&shiftsOf(sh).length);
+  let counted=0,allClosed=names.length>0;
+  names.forEach(sh=>{const ts=shiftsOf(sh).map(shiftTotals),sm=k=>r2(sum(ts,t=>t[k]));
+    rows.push({t:'h',text:'Float (cash in hand) - '+sh+' Shift'});
+    rows.push({t:'r',c:['','','Opening cash (record)',sh+' Shift',m2(sm('open')),'']},{t:'r',c:['','','Paid out',sh+' Shift',m2(sm('paidOut')),'']},{t:'r',c:['','','Petty cash paid',sh+' Shift',m2(sm('pettyOut')),'']},{t:'r',c:['','','Petty cash paid in',sh+' Shift',m2(sm('pettyIn')),'']});
+    rows.push({t:'s',c:['','','','Float in hand :',m2(sm('floatIn')),'']});
+    if(curMulti(H))curOthers(H).forEach(c=>{const inn=r2(sum(ts,t=>t.cashByIn[c]||0)),out=r2(sum(ts,t=>t.cashByOut[c]||0));if(!inn&&!out)return;
+      rows.push({t:'h',text:'Cash in '+c+' - '+sh+' Shift'},{t:'r',c:['','','Cash received ('+c+')',sh+' Shift',m2(inn),'']});if(out)rows.push({t:'r',c:['','','Refund ('+c+')',sh+' Shift',m2(out),'']});
+      rows.push({t:'s',c:['','','','Cash drop ('+c+') :',m2(r2(inn+out)),'*']})});
+    shiftsOf(sh).forEach(s=>{if(s.status==='closed')counted=r2(counted+(+s.counted||0));else allClosed=false})});
+  const info=allClosed?{counted:m2(counted),left:m2(r2(counted-total)),drop:m2(r2(total)),over:m2(r2(counted-total-sum(names.flatMap(sh=>shiftsOf(sh).map(shiftTotals)),t=>t.floatIn)))}:null;
+  if(rows.length<=1&&!pays.length&&!names.length)return {cols:SUMCOLS,rows:[{t:'n',text:'No payment has been taken '+(p.shiftName?'in the '+p.shiftName+' shift ':'')+'on this business date.'}],footHtml:cashFoot(p,null)};
+  return {note:'Payments only. * = cash to drop.',cols:SUMCOLS,rows,footHtml:cashFoot(p,info)}}
 const SUMCOLS=[C('Trn.Code',10),C('Items',8,'r'),C('Description',34),C('Shift',16),C('Amount',16,'r'),C('Shift Drop',16,'r')];
-function cashFoot(p){const den=H.set.cur==='MMK'?{notes:[10000,5000,1000,500,200,100,50],coins:[]}:H.set.cur==='USD'?{notes:[100,50,20,10,5,1],coins:[]}:{notes:[1000,500,100,50,20],coins:[10,5,2,1]};
+function cashFoot(p,info){const den=H.set.cur==='MMK'?{notes:[10000,5000,1000,500,200,100,50],coins:[]}:H.set.cur==='USD'?{notes:[100,50,20,10,5,1],coins:[]}:{notes:[1000,500,100,50,20],coins:[10,5,2,1]};
   const tbl=(t,a)=>`<table class="cnt"><tr><th>${t}</th><th>QTY</th><th>Total</th></tr>${a.map(v=>`<tr><td>${v.toLocaleString('en-US')}</td><td></td><td></td></tr>`).join('')}<tr><th colspan="2">Total</th><td></td></tr></table>`;
+  const f=info||{counted:'',left:'',drop:'',over:''};
   return `<div class="cshft"><div class="cnts">${tbl('Currency Notes',den.notes)}${den.coins.length?tbl('Currency Coins',den.coins):''}</div>
-   <div class="csum"><div>Dropped amount to safe : <span></span></div><div>Over / (Short) : <span></span></div></div>
+   <div class="csum"><div>Cash counted in the drawer : <span>${f.counted}</span></div><div>Left in drawer (closing float) : <span>${f.left}</span></div></div>
+   <div class="csum"><div>Dropped amount to safe : <span>${f.drop}</span></div><div>Over / (Short) : <span>${f.over}</span></div></div>
    <div class="csig">Cashier Signature : <span></span></div><div class="csmeta">Report On Date : ${fd(p.to)} · Shift : ${p.shiftName?esc(p.shiftName)+' Shift':'All shifts'}</div></div>`}
 function closeShiftDetail(p){
   const ls=shiftPayLines(p),rows=[];const cols=[C('Room#',5),C('Date',7),C('Time',5),C('Reference',10),C('Folio#',6),C('Company/Agent',13),C('Guest Name',15),C('Credit',8,'r'),C('Debit',8,'r'),C('Remark',11),C('Users',7),C('Shift',5)];
@@ -13043,7 +13100,8 @@ const REPORTS=[
    return {cols:[C('Date',10),C('Due',10),C('Supplier',22),C('Description',24),C('Ref',10),C('Amount',12,'r'),C('Open',12,'r')],
     rows:rows.map(b=>{const s=(H.suppliers||[]).find(x=>x.id===b.supplierId);return {t:'r',c:[fd(b.bd),fd(b.due||''),s?s.name:'',b.desc,b.ref||'',m2(b.amt),m2(buyOpen(b))]}}).concat([{t:'g',c:['GrandTotal','','','','',m2(sum(rows,x=>+x.amt||0)),m2(sum(rows,buyOpen))]}]),
     foot:'Open is the amount not yet paid to the supplier.'}}},
- {g:'Accounting',code:'AC_08',title:'Petty Cash Report',mode:'range',run:p=>{const rows=(H.petty||[]).filter(x=>x.bd>=p.from&&x.bd<=p.to).sort((a,b)=>a.bd.localeCompare(b.bd)||(a.at||0)-(b.at||0));
+ {g:'Accounting',code:'AC_08',title:'Petty Cash Report',mode:'range',run:p=>{const back=(H.petty||[]).filter(x=>x.dir==='out'&&x.back&&x.back.bd>=p.from&&x.back.bd<=p.to).map(x=>({bd:x.back.bd,dir:'in',amt:x.amt,reason:'Returned by AP/AR: '+x.reason,user:x.back.user,shift:x.back.shift,at:x.back.at}));
+   const rows=(H.petty||[]).filter(x=>x.bd>=p.from&&x.bd<=p.to).concat(back).sort((a,b)=>a.bd.localeCompare(b.bd)||(a.at||0)-(b.at||0));
    const inn=r2(sum(rows.filter(x=>x.dir==='in'),x=>x.amt)),out=r2(sum(rows.filter(x=>x.dir==='out'),x=>x.amt));
    return {cols:[C('Date',12),C('In / Out',10),C('Reason',40),C('Amount',14,'r'),C('User',14),C('Shift',10)],
     rows:rows.map(x=>({t:'r',c:[fd(x.bd),x.dir==='in'?'In':'Out',x.reason,m2(x.amt),x.user||'',x.shift||'']})).concat([{t:'g',c:['GrandTotal','In '+m2(inn)+' / Out '+m2(out),'',m2(r2(inn-out)),'','']}]),
@@ -13351,6 +13409,7 @@ function defaultRange(def){const bd=H.set.bd,lt=H.set.lockedThrough;switch(def.m
 function renderReports(root,overlay){
   if(!DB.session||!H){root.innerHTML=`<div class="rpempty"><img src="${ICON}" alt=""><h2>Sign in first</h2><p>Open Maha Hub in the other tab and sign in, then press Report again.</p></div>`;return}
   if(!can('reports')){root.innerHTML='<div class="rpempty"><h2>No permission</h2><p>Ask the provider to open Reports for your account.</p></div>';return}
+  if(document.body.classList.contains('rpmode')&&RP._t!==location.hash){RP._t=location.hash;applyRpTarget(rpTargetFromHash())}
   try{applySkin()}catch(e){}
   document.title='Reports – '+H.set.name;try{setTabIcons('hub')}catch(e){}
   root.innerHTML=`<div class="rp" data-ms="list"><div class="rpmbar" id="rpmbar"><button type="button" class="mbb txt" id="rpmBack" aria-label="Back">&#8249; System</button><span class="mbt" id="rpmT">REPORTS</span><button type="button" class="mbb" id="rpmFil" aria-label="Show or fold the filters" title="Filters" hidden>&#9881;</button><button type="button" class="mbb" id="rpmZm" aria-label="Zoom" title="Zoom" hidden>&#8981;</button><button type="button" class="mbb" id="rpmMore" aria-label="Excel, PDF, Print" hidden>&#8943;</button><div class="rpmenu" id="rpmMenu" hidden><button type="button" data-rm="rpX">Excel</button><button type="button" data-rm="rpPdf">PDF</button><button type="button" data-rm="rpPr">Print</button></div></div><header class="rptop"><div class="rphl"><div class="tbbrand">${LOGO()}<span class="tbwm">MAHA PMS</span></div><div class="tbsep"></div><span class="rptitle">REPORTS</span></div><div class="rpmid"><div class="bdate">${fdWide(H.set.bd)}</div><div class="ver">Business date</div></div><div class="rpright"><div class="tbhotel"><div class="tbhn">${esc(H.set.name)}</div><div class="tbus">${esc(user().name)}</div></div>${overlay?'<button class="btn sm ghost" id="rpClose">Close reports</button>':''}</div></header>
@@ -13420,7 +13479,7 @@ function refreshCityItems(h){if(!h)return;h.cityLedger=h.cityLedger||[];const li
 }
 function ageOf(item){const n=diff(item.bd,H.set.bd);return n<=30?'0-30':n<=60?'31-60':n<=90?'61-90':'90+'}
 function buyOpen(p){return r2(Math.max(0,(+p.amt||0)-sum(p.pays||[],x=>+x.amt||0)))}
-function pettyBal(upto){const rows=(H.petty||[]).filter(p=>!upto||p.bd<=upto);return r2((+H.pettyFloat||0)+sum(rows,p=>p.dir==='in'?+p.amt:-+p.amt))}
+function pettyBal(upto){const rows=(H.petty||[]).filter(p=>!upto||p.bd<=upto),back=(H.petty||[]).filter(p=>p.dir==='out'&&p.back&&(!upto||p.back.bd<=upto));return r2((+H.pettyFloat||0)+sum(rows,p=>p.dir==='in'?+p.amt:-+p.amt)+sum(back,p=>+p.amt||0))}
 function settleCity(id){if(!need('pay'))return;refreshCityItems(H);const item=(H.cityLedger||[]).find(x=>x.id===id);
   if(!item||item.status!=='open'){toast('This invoice is not open.');return}
   const co=CO(item.companyId);
@@ -13447,19 +13506,22 @@ VIEWS['cd.petty']=el=>{
   if(!H){el.innerHTML='<div class="empty">Open a hotel first.</div>';return}
   const rows=[...(H.petty||[])].sort((a,b)=>b.bd.localeCompare(a.bd)||(b.at||0)-(a.at||0));
   const canEdit=can('pay')||can('post')||!!user().provider;
-  el.innerHTML=pageHead('Petty Cash',`<span class="sub">Balance ${m2(pettyBal())} ${esc(H.set.cur)}</span>`)+`<div class="cols2">
-   <div class="panel pad"><h3>Cash book</h3><div class="form2">${fld('Opening float',`<input id="ptF" class="n" inputmode="decimal" value="${m2(H.pettyFloat||0)}" ${canEdit?'':'disabled'}>`)}
+  const notBack=r2(sum(rows.filter(x=>x.dir==='out'&&!x.back),x=>+x.amt||0));
+  el.innerHTML=pageHead('Petty Cash',`<span class="sub">Balance ${m2(pettyBal())} ${esc(H.set.cur)} · Not yet returned ${m2(notBack)}</span>`)+`
+   <div class="panel"><div class="ph">Movements</div><div class="scroll"><table class="grid"><tr><th>Date</th><th>In / Out</th><th>Reason</th><th class="n">Amount</th><th>User</th><th>Returned by AP/AR</th></tr>
+    ${rows.map(x=>`<tr><td>${fd(x.bd)}</td><td>${x.dir==='in'?'In':'Out'}</td><td>${esc(x.reason)}</td><td class="n">${m2(x.amt)}</td><td>${esc(x.user||'')}</td><td>${x.dir==='out'?(x.back?`<span class="pill g">Paid in</span> <span class="sub">${fd(x.back.bd)} · ${esc(x.back.user||'')}</span>`:`<span class="pill y">Not yet</span>${canEdit?` <button class="btn gold sm" data-pb="${x.id}">Paid in</button>`:''}`):''}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No petty cash yet.</td></tr>'}</table></div></div>
+   <div class="panel pad mt"><h3>Record petty cash</h3><div class="form2">${fld('Petty float',`<input id="ptF" class="n" inputmode="decimal" value="${m2(H.pettyFloat||0)}" ${canEdit?'':'disabled'}>`)}
     ${fld('Direction',`<select id="ptD"><option value="out">Paid out</option><option value="in">Paid in</option></select>`)}
     ${fld('Amount',`<input id="ptA" class="n" inputmode="decimal">`)}${fld('Reason',`<input id="ptR" maxlength="120">`)}</div>
-    <div class="err" id="ptE"></div><div class="btns">${canEdit?'<button class="btn gold" id="ptS">Record</button><button class="btn ghost" id="ptSaveF">Save float</button>':''}</div>
-    <p class="sub">Balance = opening float + money in − money out. Use this for taxis, small supplies and other cash that does not belong on a guest folio.</p></div>
-   <div class="panel"><div class="ph">Movements</div><div class="scroll"><table class="grid"><tr><th>Date</th><th>In / Out</th><th>Reason</th><th class="n">Amount</th><th>User</th></tr>
-    ${rows.map(x=>`<tr><td>${fd(x.bd)}</td><td>${x.dir==='in'?'In':'Out'}</td><td>${esc(x.reason)}</td><td class="n">${m2(x.amt)}</td><td>${esc(x.user||'')}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No petty cash yet.</td></tr>'}</table></div></div></div>`;
+    <div class="err" id="ptE"></div><div class="btns">${canEdit?'<button class="btn ghost" id="ptSaveF">Save float</button><button class="btn gold" id="ptS">Record</button>':''}</div></div>`;
   if($('#ptSaveF',el))$('#ptSaveF',el).onclick=()=>{if(!need(can('pay')?'pay':'post'))return;H.pettyFloat=r2(+String($('#ptF',el).value).replace(/,/g,''));if(H.pettyFloat<0)H.pettyFloat=0;log('Petty cash float set to '+m2(H.pettyFloat));refresh();toast('Float saved')};
+  /* the money came back from AP/AR: it goes back into the float of the shift that receives it */
+  $$('[data-pb]',el).forEach(b=>b.onclick=()=>{if(!need(can('pay')?'pay':'post'))return;const x=(H.petty||[]).find(y=>y.id===b.dataset.pb);if(!x||x.back)return;const s=curShift();
+    x.back={at:Date.now(),bd:H.set.bd,user:user().name,shift:s?s.name:'',shiftId:s&&!s.virtual?s.id:null};log(`Petty cash paid in ${m2(x.amt)}: ${x.reason}`);refresh();toast('Paid in recorded')});
   if($('#ptS',el))$('#ptS',el).onclick=()=>{if(!need(can('pay')?'pay':'post'))return;const a=r2(+String($('#ptA',el).value).replace(/,/g,''));const reason=$('#ptR',el).value.trim();
     if(!(a>0)){$('#ptE',el).textContent='Enter an amount above 0.';return}if(!reason){$('#ptE',el).textContent='Enter a reason.';return}
     const dir=$('#ptD',el).value;if(dir==='out'&&a>pettyBal()+0.004){$('#ptE',el).textContent='That is more than the petty cash balance.';return}
-    const s=curShift();H.petty=H.petty||[];H.petty.push({id:'pt'+uid(),bd:H.set.bd,dir,amt:a,reason,user:user().name,shift:s?s.name:'',at:Date.now()});
+    const s=curShift();H.petty=H.petty||[];H.petty.push({id:'pt'+uid(),bd:H.set.bd,dir,amt:a,reason,user:user().name,shift:s?s.name:'',shiftId:s&&!s.virtual?s.id:null,at:Date.now()});
     log(`Petty cash ${dir} ${m2(a)}: ${reason}`);refresh();toast('Recorded')};
 };
 VIEWS['ac.buy']=el=>{
@@ -14114,13 +14176,14 @@ window.addEventListener('DOMContentLoaded',()=>{
   let booted=false;
   const startApp=()=>{if(booted)return;booted=true;try{watchNewVersion()}catch(e){}ensureMasterProvider();
     if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('/sw.js').catch(()=>{});
-    window.addEventListener('storage',e=>{if((e.key!==DBKEY&&e.key!==DBKEY4)||!e.newValue||location.hash==='#reports')return;
+    window.addEventListener('storage',e=>{if((e.key!==DBKEY&&e.key!==DBKEY4)||!e.newValue||rpHash())return;
       try{const d=JSON.parse(e.newValue);if(!d||!d.savedAt||d.savedAt<=(DB.savedAt||0))return;
         const live=DB.session;DB=migrateDB(d);DB.session=live&&sessionValid(live)?live:null;
         if(DB.session)writeLiveSession(DB.session);else clearLiveSession();
         bindHotel();
         if(!DB.session){showLogin();return}renderShell();render()}catch(err){}});
-    if(location.hash==='#reports'){document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
+    if(rpHash()){document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
+      window.addEventListener('hashchange',()=>{if(rpHash()){RP._t='';renderReports(document.getElementById('app'),false)}});
       window.addEventListener('storage',e=>{if(e.key===DBKEY||e.key===DBKEY4)loadFresh()});return}
     const finish=()=>{
       applyLiveSession();resumeSync();
