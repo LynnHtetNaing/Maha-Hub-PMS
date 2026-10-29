@@ -40,11 +40,36 @@ export default {
     }
     const url = new URL(request.url);
     const bare = url.pathname.replace(/\/+$/, '') || '/';
+    /* The PMS's own address (PMS_HOST, for example pms.maha-hub.com): the PMS opens at / and its old paths go to /.
+       Other systems are not served on this address. Off (empty) until the address exists. */
+    const pmsHost = String(env.PMS_HOST || '').toLowerCase();
+    const host = url.hostname.toLowerCase();
+    if (pmsHost && host === pmsHost) {
+      const low = bare.toLowerCase();
+      if (bare === '/' || low === '/index.html') {
+        const a = new URL(request.url); a.pathname = APP_FILE;
+        return env.ASSETS.fetch(new Request(a, request));
+      }
+      const rr = route(url.pathname);
+      if (rr && rr.doc && rr.doc.base) {
+        return Response.redirect('https://' + (env.MAIN_HOST || 'maha-hub.com') + url.pathname + url.search, 302);
+      }
+      if (rr) {
+        const dest = new URL('/', url); dest.search = url.search; dest.hash = url.hash;
+        return Response.redirect(dest, 302);
+      }
+      return env.ASSETS.fetch(request);
+    }
     if (bare === '/' || bare.toLowerCase() === '/index.html') {
       return Response.redirect(new URL('/solutions', url), 302);
     }
     const r = route(url.pathname);
     if (!r) return env.ASSETS.fetch(request);
+    /* switched on at launch: the old PMS paths on the main address send people to the PMS address */
+    if (pmsHost && env.PMS_REDIRECT === '1' && r.doc === SYSTEM_DOC.pms && cleanPath(url.pathname).toLowerCase() !== '/solutions') {
+      const dest = new URL('https://' + pmsHost + '/'); dest.search = url.search;
+      return Response.redirect(dest, 302);
+    }
     if (r.to) {
       const dest = new URL(r.to, url);
       dest.search = url.search;
