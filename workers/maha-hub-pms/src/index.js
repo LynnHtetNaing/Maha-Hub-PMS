@@ -41,32 +41,27 @@ export default {
     }
     const url = new URL(request.url);
     const bare = url.pathname.replace(/\/+$/, '') || '/';
-    /* The PMS's own address (PMS_HOST, for example pms.maha-hub.com): the PMS opens at / and its old paths go to /.
-       Other systems are not served on this address. Off (empty) until the address exists. */
+    /* The PMS's own address (PMS_HOST, for example pms.maha-hub.com) works like the main one: / goes to the Main page where the person chooses a system,
+       and the PMS sign-in is /solutions-PMS. The other systems are not served here: their paths go to the main address. Off (empty) until the address exists. */
     const pmsHost = String(env.PMS_HOST || '').toLowerCase();
     const host = url.hostname.toLowerCase();
     if (pmsHost && host === pmsHost) {
-      const low = bare.toLowerCase();
-      if (bare === '/' || low === '/index.html') {
-        const a = new URL(request.url); a.pathname = APP_FILE;
-        return env.ASSETS.fetch(new Request(a, request));
+      if (bare === '/' || bare.toLowerCase() === '/index.html') {
+        const dest = new URL('/solutions', url); dest.search = url.search; dest.hash = url.hash;
+        return Response.redirect(dest, 302);
       }
       const rr = route(url.pathname);
       if (rr && rr.doc && rr.doc.base) {
         return Response.redirect('https://' + (env.MAIN_HOST || 'maha-hub.com') + url.pathname + url.search, 302);
       }
-      if (rr) {
-        const dest = new URL('/', url); dest.search = url.search; dest.hash = url.hash;
-        return Response.redirect(dest, 302);
-      }
-      return env.ASSETS.fetch(request);
+      if (!rr) return env.ASSETS.fetch(request);
     }
     /* the main address: / is the website home page, served as a file */
     const r = route(url.pathname);
     if (!r) return env.ASSETS.fetch(request);
     /* switched on at launch: the old PMS paths on the main address send people to the PMS address */
-    if (pmsHost && env.PMS_REDIRECT === '1' && r.doc === SYSTEM_DOC.pms && cleanPath(url.pathname).toLowerCase() !== '/solutions') {
-      const dest = new URL('https://' + pmsHost + '/'); dest.search = url.search;
+    if (pmsHost && env.PMS_REDIRECT === '1' && host !== pmsHost && r.doc === SYSTEM_DOC.pms && cleanPath(url.pathname).toLowerCase() !== '/solutions') {
+      const dest = new URL('https://' + pmsHost + '/solutions-PMS'); dest.search = url.search;
       return Response.redirect(dest, 302);
     }
     if (r.to) {
