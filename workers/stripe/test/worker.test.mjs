@@ -154,3 +154,16 @@ test('guest status lookup stays open (no sign-in) even when REQUIRE_AUTH is on',
     () => worker.fetch(new Request('https://stripe.example/api/session/cs_1', { headers: { Origin: 'https://maha-hub.com' } }), authEnv));
   assert.equal(result.status, 200);
 });
+
+test('answers the browser permission check (OPTIONS) for the PMS address with 204 and no body', async () => {
+  const pms = { ...env, CORS_ORIGIN: 'https://maha-hub.com,https://www.maha-hub.com,https://pms.maha-hub.com' };
+  for (const origin of ['https://pms.maha-hub.com', 'https://maha-hub.com']) {
+    const response = await worker.fetch(new Request('https://stripe.example/api/checkout', {
+      method: 'OPTIONS',
+      headers: { Origin: origin, 'Access-Control-Request-Method': 'POST' },
+    }), pms);
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get('Access-Control-Allow-Origin'), origin);
+    assert.equal(await response.text(), '');
+  }
+});

@@ -16,7 +16,9 @@ function json(data, status = 200, corsOrigin = '') {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, Stripe-Account, X-Maha-Stripe-Secret',
   };
   if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
-  return new Response(JSON.stringify(data), { status, headers });
+  /* a 204 answer (the browser's permission check before a payment call) must have no body, or the worker fails with error 1101 */
+  const body = status === 204 || status === 304 ? null : JSON.stringify(data);
+  return new Response(body, { status, headers });
 }
 
 function allowedOrigins(value) {

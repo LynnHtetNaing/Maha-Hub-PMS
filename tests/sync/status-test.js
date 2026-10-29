@@ -18,7 +18,7 @@ eq('tentative',L({status:'tentative',arr:'2026-10-30'}),'Tentative');
 eq('cancelled',L({status:'cancelled'}),'Cancelled');
 eq('noshow',L({status:'noshow'}),'No Show');
 // every page shows the status at the end of the line
-for(const t of ['<th class="n">Balance</th><th>Status</th><th></th></tr>','<th>ETA / Flight</th><th>Status</th><th class="c">Check in</th></tr>','<th class="n">Balance</th><th>Access</th><th>Status</th>'.replace('<th class="n">Balance</th><th>Access</th>','<th>Access</th>')])
+for(const t of ['<th class="n">Balance</th><th>Status</th><th></th></tr>','<th>ETA / Flight</th><th>Status</th><th class="c">Assign</th><th class="c">Check in</th></tr>','<th class="n">Balance</th><th>Access</th><th>Status</th>'.replace('<th class="n">Balance</th><th>Access</th>','<th>Access</th>')])
   if(!src.includes(t))fail('status column missing: '+t);
 if(!src.includes("sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\\'s arrivals are checked in."))fail('arrivals empty note');
 if(!src.includes("All of today\\'s departures are checked out."))fail('departures empty note');
