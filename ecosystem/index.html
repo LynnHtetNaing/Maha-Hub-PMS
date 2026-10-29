@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="25c7ca4b3e">
+<meta name="maha-build" content="55b5c79eac">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1492,7 +1492,7 @@ html[data-mode=dark] .arx{--ax-edge:#3a5a6c;--ax-acc:var(--m-acc,#2dd4b0);--ax-a
 .rmcell{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}.rmdn{display:inline-flex;align-items:center;gap:6px}.rmdn .dnmtri{color:#c0392b;background:rgba(192,57,43,.12);border-radius:6px;padding:1px 2px;line-height:0;opacity:.95}
 html[data-mode=dark] .rmdn .dnmtri{color:#ff8a7c;background:rgba(255,122,107,.16)}
 .rmlink{cursor:pointer;border-radius:6px;padding:1px 3px}.rmlink:hover b,.rmlink:hover .bad{text-decoration:underline}.rmlink:focus-visible{outline:2px solid var(--ax-acc,#14604a)}.rmbtn{height:26px;padding:0 10px;border-radius:9px;border:1.5px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.rmbtn:hover{border-color:var(--ax-acc,#14604a)}.rmbtn.need{border-color:#e0a726;color:#a56a00}html[data-mode=dark] .rmbtn.need{color:#f3c76a}
-.dnmrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.dnmrow .dnmsw{height:34px}.dnmrow .sub{margin:0}
+.dnmpane{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line)}.dnmlab{font-weight:600;color:var(--mut);font-size:12.5px}.dnmrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.dnmrow .dnmsw{height:34px}.dnmrow .sub{margin:0}
 /* Close Day pull-back bar on the Folio and Departure pages */
 .cdback{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fdf0cf;color:#7a5200;border:1px solid #efd48a;border-left:5px solid #e0a23a;border-radius:12px;padding:8px 12px;margin:0 0 10px}.cdback .sp{flex:1}.cdback .btn{background:#e0a23a!important;background-image:none!important;color:#2e1f00!important;border:0;font-weight:800;box-shadow:none}.cdback .btn:hover{background:#c98d22!important}
 html[data-mode=dark] .cdback{background:rgba(224,162,58,.14);color:#f2d38a;border-color:rgba(224,162,58,.4);border-left-color:#e0a23a}html[data-mode=dark] .cdback .btn{background:#e0a23a;color:#2e1f00}html[data-mode=dark] .cdback .btn:hover{background:#f0b64e!important}
@@ -2393,6 +2393,10 @@ html[data-skin="modern"] #cnote .cn svg{width:16px;height:16px}
   html[data-skin="modern"] .mshell>.topbar{height:54px;padding:0 10px}
   html[data-skin="modern"] .mcrumb{display:none}
 }
+/* Dark filters row: no band behind the filters (each filter keeps its own rounded box); Room Grid: the day highlight is one continuous column and the whole grid is clipped to its rounded corners */
+html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important;border-color:transparent!important;box-shadow:none!important;border-radius:0!important;padding:0!important}
+.rgr .rgt{align-self:stretch}.rgr .rgt .gc{align-self:stretch;border-radius:0}
+.gridscroll{clip-path:inset(0 round 18px);scrollbar-width:thin}.gridscroll::-webkit-scrollbar-track{background:transparent}.gridscroll::-webkit-scrollbar-corner{background:transparent}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -9278,8 +9282,7 @@ function reservationScreen(box,r,B,o={}){
        ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
        ${fld('<span class="blue">Total rate'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
        ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Do not move is on. Turn it off below before this room can change.</span>`:''}`)}
-       ${fld('Do not move',`<div class="dnmrow"><button type="button" class="dnmsw" id="bDnm" role="switch" aria-pressed="${!!B.roomBlock}" ${(!E('b')||!B.room&&!B.roomBlock)?'disabled':''} title="${B.room||B.roomBlock?'':'Assign a room first'}"><span class="dnmtri">${ic('warn',15)}</span><span>Do not move</span><span class="dnmtr"><i></i></span></button><span class="sub" id="bDnmWhy">${B.roomBlock?esc(B.roomBlock.reason||''):''}</span></div>`,'span2')}
-     </div></div>
+     </div><div class="dnmpane"><span class="dnmlab">Do not move</span><div class="dnmrow"><button type="button" class="dnmsw" id="bDnm" role="switch" aria-pressed="${!!B.roomBlock}" ${(!E('b')||!B.room&&!B.roomBlock)?'disabled':''} title="${B.room||B.roomBlock?'':'Assign a room first'}"><span class="dnmtri">${ic('warn',15)}</span><span>Do not move</span><span class="dnmtr"><i></i></span></button><span class="sub" id="bDnmWhy">${B.roomBlock?esc(B.roomBlock.reason||''):''}</span></div></div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
     </div>
     <div class="rcol wide">
