@@ -65,9 +65,9 @@ T('a charge needs the permission to post', /canPost/.test(box) && /You need the 
 T('every change is written to the user logs', (box.match(/log\(/g) || []).length >= 5);
 T('the old grey Block is gone from the Arrivals list; a small sign sits beside the room number (plain text); an Assign column sits between Status and Check in', !cut("VIEWS['fo.arrivals']=(el,arg)=>{", "let AS=").includes('rblk') && src.includes('class="sic cibig asgbig') && src.includes('dnmTri(b,12)') && !src.includes('<button type="button" class="rmbtn') && src.includes('<th>Status</th><th class="c">Assign</th><th class="c">Check in</th>'));
 T('Dark: alerts in the Room box are a soft red, not brown or gold', src.includes('--ax-warnBg:rgba(255,110,96,.12)') && !src.includes('--ax-warnBg:#3a2c08'));
-T('the reservation page has no Do not move switch (it is turned on in the Room box); a sign beside Room shows when it is on', !src.includes('id="bDnm"') && src.includes('id="bDnmSign"') && !src.includes('function dnmToggle('));
-T('the sign beside Room opens the message box', src.includes("q('#bDnmSign').onclick=()=>dnmInfo(B,") && src.includes('.dnmsign{border:0'));
-T('the message box shows the reason fixed, with Close and Clear / Release; Close changes nothing', src.includes('function dnmInfo(') && src.includes('Clear / Release Do not move') && src.includes('id="dmClose"') && src.includes('onclick=()=>closeModal(m);'));
+T('the reservation page has the Do not move switch under Room', /id="bDnm"/.test(src) && /function dnmToggle\(/.test(src));
+T('Do not move on the reservation page: a plain switch with no ring, a sign beside it when on', src.includes('class="dnmsw dnmflat"') && src.includes('id="bDnmSign"') && src.includes('.dnmflat{border:0!important'));
+T('turning it on asks for the reason with Save and a close tab; when on, a fixed message box shows the reason with Close and Clear / Release', src.includes('id="dmGo">Save</button>') && src.includes('function dnmInfo(') && src.includes('Clear / Release Do not move') && src.includes('id="dmClose"') && src.includes('if(B.roomBlock){dnmInfo(B,done);return}'));
 T('releasing is written to the user logs', src.includes('Do not move released; room'));
 T('Do not move shows on the House Status page too', /occ\.dnm\|\|occ\.roomBlock/.test(src));
 T('Light and Dark: the box inputs follow the mode (so their arrows are visible)', /\.arx select,\.arx input\{color-scheme:light\}/.test(src) && /html\[data-mode=dark\] \.arx select/.test(src));
