@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="99b97d9a66">
+<meta name="maha-build" content="6753131874">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -10761,7 +10761,11 @@ function shiftTotals(s){const ls=allLinesH(H).filter(l=>l.shiftId===s.id);const 
   const cash=r2(by['Cash']||0),paidOut=r2(sum(ls.filter(l=>l.code==='600'&&isCharge(l)),l=>l.amt));
   /* with extra currencies: the cash received in each currency, in that currency */
   const cashBy={},byCur={};if(curMulti(H))pays.forEach(p=>{const c=curOfLine(p.l),a=p.l.fa!=null?-p.l.fa:p.amt;(byCur[c]=byCur[c]||{})[p.l.method]=r2(((byCur[c]||{})[p.l.method]||0)+a);if(p.l.method==='Cash')cashBy[c]=r2((cashBy[c]||0)+a)});
-  return {ls,by,cash,paidOut,cashBy,byCur,expected:r2((s.openCash||0)+(curMulti(H)?(cashBy[curMain()]||0):cash)-paidOut),expectedBy:curMulti(H)?Object.assign({[curMain()]:r2((s.openCash||0)+(cashBy[curMain()]||0)-paidOut)},curOthers(H).reduce((o,c)=>{o[c]=cashBy[c]||0;return o},{})):undefined,charges:r2(sum(ls.filter(isCharge),l=>l.amt))}}
+  /* money in (payments) and money out (refunds and voids) kept apart, for the cashier page; every total above stays the same */
+  const byIn={},byOut={},byCurIn={},byCurOut={},cashByIn={},cashByOut={};
+  pays.forEach(p=>{const m=p.l.method,box=p.amt>=0?byIn:byOut;box[m]=r2((box[m]||0)+p.amt);
+    if(curMulti(H)){const c=curOfLine(p.l),a=p.l.fa!=null?-p.l.fa:p.amt,bc=a>=0?byCurIn:byCurOut,cb=a>=0?cashByIn:cashByOut;(bc[c]=bc[c]||{})[m]=r2(((bc[c]||{})[m]||0)+a);if(m==='Cash')cb[c]=r2((cb[c]||0)+a)}});
+  return {ls,by,cash,paidOut,cashBy,byCur,byIn,byOut,byCurIn,byCurOut,cashIn:r2(byIn['Cash']||0),cashOut:r2(byOut['Cash']||0),cashByIn,cashByOut,expected:r2((s.openCash||0)+(curMulti(H)?(cashBy[curMain()]||0):cash)-paidOut),expectedBy:curMulti(H)?Object.assign({[curMain()]:r2((s.openCash||0)+(cashBy[curMain()]||0)-paidOut)},curOthers(H).reduce((o,c)=>{o[c]=cashBy[c]||0;return o},{})):undefined,charges:r2(sum(ls.filter(isCharge),l=>l.amt))}}
 /* closing somebody else's shift: ask the cash counted in each other currency */
 async function curCountOthers(tt,o){const cb={};if(curMulti(H)){for(const k of curOthers(H)){const ex=tt.cashBy[k]||0;const raw=await dlgAsk('Cash counted in '+k+' for '+o.userName+' ('+o.name+'). Expected '+m2(ex)+':',String(ex));if(raw===null)return null;cb[k]=r2(+raw||0)}}
   return {fields:(cnt,t)=>curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({[curMain()]:cnt},cb),varianceBy:Object.assign({[curMain()]:r2(cnt-t.expected)},Object.keys(cb).reduce((o,k)=>{o[k]=r2(cb[k]-(t.cashBy[k]||0));return o},{}))}:{}}}
@@ -10769,9 +10773,12 @@ VIEWS['cd.shift']=el=>{
   const s=curShift();if(!s){el.innerHTML='<div class="empty">No open shift.</div>';return}if(s.noShift){el.innerHTML=pageHead('My Shift & Cashier')+'<div class="empty">You sign in without a shift, so there is no shift to close. Payments you take are counted in the cashier shift you choose.</div>';return}const t=shiftTotals(s);
   const others=H.shifts.filter(x=>x.status==='open'&&x.id!==s.id);
   el.innerHTML=pageHead('My Shift & Cashier',`<span class="sub">${esc(s.name)} shift · opened ${tm(s.openAt)} · business date ${fd(s.bd)}</span>`)+`<div class="cols2 shiftv">
-   <div class="panel"><div class="ph">Collections this shift</div><table class="grid kv">${(curMulti(H)?Object.entries(t.byCur).flatMap(([c,mm])=>Object.entries(mm).map(([k,v])=>[k+' ('+c+')',v])):Object.entries(t.by)).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${m2(v)}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
+   <div class="panel"><div class="ph">Collections this shift</div><table class="grid kv">${(()=>{const rowsOf=(inn,out)=>{const r=[];Object.entries(inn).forEach(([k,v])=>{if(v)r.push(`<tr><td>${esc(k)}</td><td class="n">${m2(v)}</td></tr>`)});Object.entries(out).forEach(([k,v])=>{if(v)r.push(`<tr><td>Refund · ${esc(k)}</td><td class="n bad">${m2(v)}</td></tr>`)});return r.join('')};
+       if(!curMulti(H))return rowsOf(t.byIn,t.byOut);
+       const lab=(o)=>Object.entries(o).flatMap(([c,mm])=>Object.entries(mm).map(([k,v])=>[k+' ('+c+')',v]));
+       return rowsOf(Object.fromEntries(lab(t.byCurIn)),Object.fromEntries(lab(t.byCurOut)))})()||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
      <tr class="tot"><td>Total collected</td><td class="n">${curMulti(H)?Object.entries(t.byCur).map(([c,mm])=>c+' '+m2(sum(Object.values(mm)))).join(' · ')||'0.00':m2(sum(Object.values(t.by)))}</td></tr><tr><td>Charges posted</td><td class="n">${m2(t.charges)}</td></tr></table></div>
-   <div class="panel"><div class="ph">Cash drawer</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(s.openCash||0)}</td></tr><tr><td>+ Cash received${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(curMulti(H)?(t.cashBy[curMain()]||0):t.cash)}</td></tr><tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr class="tot"><td>Expected cash${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.expected)}</td></tr></table>
+   <div class="panel"><div class="ph">Cash drawer</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(s.openCash||0)}</td></tr><tr><td>+ Cash received${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(curMulti(H)?(t.cashByIn[curMain()]||0):t.cashIn)}</td></tr>${(curMulti(H)?(t.cashByOut[curMain()]||0):t.cashOut)?`<tr><td>− Cash refunded${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n bad">${m2(curMulti(H)?t.cashByOut[curMain()]:t.cashOut)}</td></tr>`:''}<tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr class="tot"><td>Expected cash${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.expected)}</td></tr></table>
     ${curMulti(H)?`<table class="grid kv mt"><tr><th colspan="2">Cash received in other currencies</th></tr>${curOthers(H).map(c=>`<tr><td>Expected cash (${esc(c)})</td><td class="n">${m2(t.cashBy[c]||0)}</td></tr>`).join('')}</table>`:''}
     <div class="form2 mt">${fld('Cash counted'+(curMulti(H)?' ('+esc(curMain())+')':''),`<input type="number" id="csC" step="0.01" class="n">`)}${curMulti(H)?curOthers(H).map(c=>fld('Cash counted ('+esc(c)+')',`<input type="number" id="csC_${c}" step="0.01" class="n">`)).join(''):''}${fld('Handover note (optional)',`<input id="csN">`)}</div><div class="err" id="csE"></div>
     <div class="btns"><button class="btn gold" id="csGo">Close my shift and sign out</button><button class="btn ghost" id="csRep">Shift report</button></div></div></div>
