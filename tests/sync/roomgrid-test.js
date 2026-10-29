@@ -63,7 +63,7 @@ T('a room type change asks for the reason, Charge or No charge, and the amount',
 T('the charge is posted as Room Upgrade Charge with the usual code', /code:'104',desc:'Room Upgrade Charge'/.test(box));
 T('a charge needs the permission to post', /canPost/.test(box) && /You need the permission to post charges/.test(box));
 T('every change is written to the user logs', (box.match(/log\(/g) || []).length >= 5);
-T('the old grey Block is gone from the Arrivals list; a small sign sits beside the room number, with no box under it; the number opens the Room box', !cut("VIEWS['fo.arrivals']=(el,arg)=>{", "let AS=").includes('rblk') && src.includes('class="rmcell rmlink"') && src.includes('dnmTri(b,12)') && !src.includes('<button type="button" class="rmbtn'));
+T('the old grey Block is gone from the Arrivals list; a small sign sits beside the room number (plain text); an Assign column sits between Status and Check in', !cut("VIEWS['fo.arrivals']=(el,arg)=>{", "let AS=").includes('rblk') && src.includes('class="sic cibig asgbig') && src.includes('dnmTri(b,12)') && !src.includes('<button type="button" class="rmbtn') && src.includes('<th>Status</th><th class="c">Assign</th><th class="c">Check in</th>'));
 T('Dark: alerts in the Room box are a soft red, not brown or gold', src.includes('--ax-warnBg:rgba(255,110,96,.12)') && !src.includes('--ax-warnBg:#3a2c08'));
 T('the reservation page has the Do not move switch under Room', /id="bDnm"/.test(src) && /function dnmToggle\(/.test(src));
 T('Do not move shows on the House Status page too', /occ\.dnm\|\|occ\.roomBlock/.test(src));
