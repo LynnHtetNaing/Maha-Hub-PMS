@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="dfa2696c18">
+<meta name="maha-build" content="1d049b8d94">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7998,6 +7998,33 @@ function mobNavMount(){
   document.body.classList.add('hasmobnav');
 }
 let resBack='res.list';
+/* ---------- screen addresses ----------
+   The address shows the screen (and the record) after a "#/": for example  /solutions-PMS#/bill.open?a=<booking>.
+   Back and Forward move between screens, a reload or a duplicated tab opens the same screen, and a link can be bookmarked or sent.
+   The address holds no secret: the person must still be signed in, and a screen is opened only if the menu would show it to that person. */
+let ROUTE_SILENT=false;
+const routeArgOf=a=>(typeof a==='string'||typeof a==='number')&&String(a)!==''?String(a):null;
+const routeHash=(v,a)=>'#/'+v+(routeArgOf(a)!==null?'?a='+encodeURIComponent(routeArgOf(a)):'');
+function routeOf(){const h=location.hash||'';if(h.indexOf('#/')!==0)return null;const q=h.slice(2),i=q.indexOf('?');let v='',arg=null;
+  try{v=decodeURIComponent(i<0?q:q.slice(0,i));if(i>=0){const p=new URLSearchParams(q.slice(i+1));if(p.has('a'))arg=p.get('a')}}catch(e){return null}
+  return /^[a-z0-9._-]{2,40}$/i.test(v)?{v,arg}:null}
+function areaOfView(v){try{return BACKEND_MENU().some(g=>(g.items||[]).some(it=>it[1]===v))?'back':'front'}catch(e){return 'front'}}
+function routeAllowed(v){try{
+  if(!DB||!DB.session||!VIEWS[v]||v==='sys.pick'||v==='prov.edc')return false;
+  if(/^prov\./.test(v))return !!DB.session.provider;
+  if(DB.session.provider&&!DB.session.inHotel)return false;
+  let ok=true;const chk=list=>(list||[]).forEach(g=>(g.items||[]).forEach(it=>{if(it[1]===v)ok=ok&&(!it[2]||can(it[2]))&&(!it[3]||feat(it[3]))}));
+  chk(MENU);if(!DB.session.provider)chk(BACKEND_MENU());
+  return ok&&(DB.session.provider||viewAllowed(v))}catch(e){return false}}
+function routePush(v,arg){if(ROUTE_SILENT||!DB||!DB.session||v==='sys.pick')return;const h=routeHash(v,arg);if(location.hash===h)return;
+  try{history[(location.hash||'').indexOf('#/')===0?'pushState':'replaceState'](null,'',location.pathname+location.search+h)}catch(e){}}
+function routeSync(){if(ROUTE_SILENT||!DB||!DB.session||typeof VIEW==='undefined'||!VIEW||VIEW==='sys.pick')return;const h=routeHash(VIEW,VARG);if(location.hash===h)return;
+  try{history.replaceState(null,'',location.pathname+location.search+h)}catch(e){}}
+function routeClear(){try{if((location.hash||'').indexOf('#/')===0)history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
+/* the screen to open after the page loaded or after signing in: the one in the address if this person may open it, otherwise the usual first screen */
+function routeStart(defView){const r=routeOf();if(r&&routeAllowed(r.v)){if(DB.session&&!DB.session.provider)try{setArea(areaOfView(r.v))}catch(e){}return r}return {v:defView,arg:null}}
+window.addEventListener('popstate',()=>{try{if(!DB||!DB.session||!(H||DB.session.provider))return;const r=routeOf();if(!r||!routeAllowed(r.v))return;
+  ROUTE_SILENT=true;try{go(r.v,r.arg)}finally{ROUTE_SILENT=false}}catch(e){ROUTE_SILENT=false}});
 function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.session.inHotel;
   if(v==='res.open'&&!go.keepBack)resBack='res.list';go.keepBack=false;
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
@@ -8006,7 +8033,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
   try{ulScreen(v,arg)}catch(e){}
   if(ENTRY_QUIET&&ENTRY_QUIET.pending)ENTRY_QUIET.pending=false;else ENTRY_QUIET=null;
   if(!['bill.open','fo.departures2','cd.close'].includes(v))CDBACK=null;if(v==='cd.close')CDBACK=null;
-  VIEW=v;VARG=arg===undefined?null:arg;closeMenus();render()}
+  VIEW=v;VARG=arg===undefined?null:arg;routePush(v,arg);closeMenus();render()}
 /* Opening the same page again (after a click such as Open or Lock) keeps the place where the person was working. A different page starts at the top. */
 let RENDER_KEY='';
 function scrollSnap(){const o=[];let e=document.getElementById('view');while(e&&e!==document.documentElement){if(e.scrollTop>0)o.push([e,e.scrollTop]);e=e.parentElement}return {y:window.scrollY||0,els:o}}
@@ -8027,7 +8054,7 @@ function render(){
   const f=VIEWS[VIEW]||VIEWS[user().provider?'prov.home':'fo.status'];
   try{applyFxCss()}catch(e){}
   const el=$('#view');if(!el)return;const rkey=VIEW+'|'+(typeof VARG==='object'?JSON.stringify(VARG):String(VARG)),keep=rkey===RENDER_KEY?scrollSnap():null;RENDER_KEY=rkey;
-  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep)scrollKeep(keep,rkey);else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle()
+  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep)scrollKeep(keep,rkey);else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle();try{routeSync()}catch(e){}
 }
 function refresh(){try{ulSafety()}catch(e){}saveDB();render()}
 
@@ -8287,7 +8314,7 @@ async function signOut(silent,msg){
   if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!curShift().noShift&&!await dlgConfirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   if(DB.session){if(DB.session.provider)DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});else log('Signed out')}
   if(MahaAuth.on())MahaAuth.signOut();
-  clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);showLogin(msg||(silent?'Your shift is closed. Sign in to open a new shift.':''))}
+  clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);routeClear();showLogin(msg||(silent?'Your shift is closed. Sign in to open a new shift.':''))}
 /* Supabase mode: if the sign-in can no longer be refreshed, return to the sign-in screen (shifts stay open). */
 function supabaseSessionExpired(){
   if(!DB||!DB.session||DB.session.provider)return;
@@ -10929,7 +10956,7 @@ async function chooseAreaAndEnter(props,welcome){
     if(a==='change'){await openPropertyChoice(props,H.code,false);setArea('front');continue}
     setArea(a);break}}finally{SEL_ON=false}
   await withLoading(curArea()==='back'?'Opening Backend':'Opening Frontend',1800,async()=>{});
-  applySysPath('hub');renderShell();go(curArea()==='back'?firstBackendView():firstHotelView());if(welcome)toast(welcome)}
+  applySysPath('hub');renderShell();{const r=routeStart(curArea()==='back'?firstBackendView():firstHotelView());go(r.v,r.arg)}if(welcome)toast(welcome)}
 async function afterLoginRoute(h,who,shift){
   const welcome=shift==='No shift'?`Welcome ${who}. ${fd(h.set.bd)}.`:`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`;
   try{
@@ -13795,8 +13822,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       if(pathSys&&pathSys!=='hub'&&sysAllowed(pathSys)&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
       applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub');
       renderShell();
-      if(DB.session.provider&&!DB.session.inHotel)go('prov.home');
-      else go(firstHotelView());
+      {const r=routeStart(DB.session.provider&&!DB.session.inHotel?'prov.home':firstHotelView());go(r.v,r.arg)}
       if(location.hash==='#systems'){try{history.replaceState(null,'',location.pathname+location.search)}catch(e){} setTimeout(openSystemsSwitcher,40)}}
       else{if(pathSys)lgTargetSys=pathSys;DB.session=null;H=null;clearLiveSession();saveDB({keepTime:true,nocloud:true});showLogin()}};
     Promise.race([cloudPull().catch(()=>{}),new Promise(r=>setTimeout(r,8000))]).then(bootWait,bootWait).then(finish,finish)};
