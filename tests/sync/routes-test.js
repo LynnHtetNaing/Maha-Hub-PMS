@@ -1,0 +1,12 @@
+const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');
+let fails=0;const T=(n,ok)=>{console.log((ok?'PASS ':'FAIL ')+n);if(!ok)fails++};
+T('every screen has an address (#/screen?a=record), pushed when the screen opens',src.includes("VIEW=v;VARG=arg===undefined?null:arg;routePush(v,arg);closeMenus();render()}")&&src.includes("const routeHash=(v,a)=>'#/'+v+"));
+T('the address follows what really opened (redirects included)',src.includes("armIdle();try{routeSync()}catch(e){}"));
+T('Back and Forward open the screen of the address',src.includes("window.addEventListener('popstate',()=>{try{if(!DB||!DB.session||!(H||DB.session.provider))return;const r=routeOf();if(!r||!routeAllowed(r.v))return;"));
+T('a reload or a duplicated tab opens the screen in the address',src.includes("{const r=routeStart(DB.session.provider&&!DB.session.inHotel?'prov.home':firstHotelView());go(r.v,r.arg)}"));
+T('after signing in again the person returns to that screen',src.includes("{const r=routeStart(curArea()==='back'?firstBackendView():firstHotelView());go(r.v,r.arg)}"));
+T('signing out clears the address',src.includes("applySysPath(null);routeClear();showLogin(msg||(silent?"));
+T('a screen opens only if the menu would show it (permission + hotel functions); provider screens only for the provider',src.includes('if(/^prov\\./.test(v))return !!DB.session.provider;')&&src.includes('ok=ok&&(!it[2]||can(it[2]))&&(!it[3]||feat(it[3]))'));
+T('the old #reports and #systems addresses are not screens',/h\.indexOf\('#\/'\)!==0\)return null/.test(src));
+T('the address list is written down',fs.existsSync(require('path').join(__dirname,'..','..','docs','screen-addresses.md')));
+process.exit(fails?1:0);
