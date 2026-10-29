@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="0711aa6ed0">
+<meta name="maha-build" content="c9947bbfe7">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2406,6 +2406,12 @@ html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important
 .gridscroll{clip-path:inset(0 round 18px);scrollbar-width:thin}.gridscroll::-webkit-scrollbar-track{background:transparent}.gridscroll::-webkit-scrollbar-corner{background:transparent}
 .grow.rgr>.rgt{margin:0;padding:0;font-size:inherit;font-weight:inherit;text-align:left;line-height:inherit}
 .rglegend{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px 28px;margin-top:12px;font-size:12.5px;align-items:center}.rglegend>span{display:flex;align-items:center;gap:10px;min-width:0}.rglegend>span>i{flex:none;margin:0!important}.rglegend .rgwarn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:12px;color:#c0392b;font-style:normal}html[data-mode=dark] .rglegend .rgwarn{color:#ff8a7c}
+/* HK Folio list: compact, no icon column (only the VIP tag beside the guest name) */
+table.grid.hkfit{width:100%}table.grid.hkfit th,table.grid.hkfit td{padding:6px 8px;font-size:12.5px;vertical-align:middle;white-space:normal}table.grid.hkfit th{font-size:11.5px;line-height:1.15}
+table.grid.hkfit td:nth-child(1),table.grid.hkfit td:nth-child(4),table.grid.hkfit td:nth-child(5),table.grid.hkfit td:nth-child(6),table.grid.hkfit td:nth-child(8),table.grid.hkfit td:nth-child(9),table.grid.hkfit td:nth-child(10),table.grid.hkfit td:nth-child(11){white-space:nowrap}
+table.grid.hkfit td:nth-child(3){min-width:110px}table.grid.hkfit .stl-vip{margin-left:4px;vertical-align:1px}
+table.grid.hkfit .btn.sm{height:30px;padding:0 10px}
+.panel.scroll:has(>table.hkfit){overflow-x:auto}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -9781,9 +9787,9 @@ function hkFolioView(el){
   el.innerHTML=pageHead('HK Folio','<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';
   bfSearchBar($('#bfSearch',el),rowsF,x=>{const B=bookingById(x);if(B)hkFolioModal(B,re)},HKB);
   const pane=$('#bfPane',el),list=rowsF(),canPost=!user().provider&&(can('post')||can('hkpost'));
-  pane.innerHTML=`<div class="panel scroll"><table class="grid">
-   <tr><th></th><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th>Status</th><th></th></tr>
-   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr><td class="nowrap">${stIcons(b,'')}</td><td><b>${esc(b.room)}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${stBadge(b)}</td><td class="nowrap"><button class="btn sm gold" data-hkp="${b.id}" ${canPost?'':'disabled'} title="Post Mini Bar, Missing / Damage, Laundry or Misc.">+ Post</button> <button class="btn sm" data-hkf="${b.id}">Folio</button></td></tr>`}).join('')||`<tr><td colspan="12" class="empty">No guests in house.</td></tr>`}</table></div>`;
+  pane.innerHTML=`<div class="panel scroll"><table class="grid hkfit">
+   <tr><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th>Status</th><th></th></tr>
+   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr><td><b>${esc(b.room)}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}${g.vip?` <b class="stl stl-vip" title="VIP: ${esc(g.vip)}">VIP</b>`:''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${stBadge(b)}</td><td class="nowrap"><button class="btn sm gold" data-hkp="${b.id}" ${canPost?'':'disabled'} title="Post Mini Bar, Missing / Damage, Laundry or Misc.">+ Post</button> <button class="btn sm" data-hkf="${b.id}">Folio</button></td></tr>`}).join('')||`<tr><td colspan="11" class="empty">No guests in house.</td></tr>`}</table></div>`;
   $$('[data-hkf]',pane).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.hkf);if(B)hkFolioModal(B,re)});
   $$('[data-hkp]',pane).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.hkp);if(B)postModal(B,()=>{saveDB();re()},1,true)});
 }
