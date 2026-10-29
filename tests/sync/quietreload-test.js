@@ -1,0 +1,24 @@
+/* New version: loads silently only when it costs nobody anything; otherwise a bar that never discards unsaved work */
+const fs=require('fs');const s=fs.readFileSync(process.argv[2],'utf8');
+const fail=m=>{console.log('FAIL '+m);process.exit(1)};
+const a=s.indexOf('function unsavedOnScreen()'),b=s.indexOf('function reloadSafely()');
+if(a<0||b<0)fail('helpers missing');
+let nodes=[],modal=false,lock=false,DB,anchor=0;
+const document={querySelector:q=>q==='.modal'&&modal?{}:null,querySelectorAll:()=>nodes,getElementById:id=>id==='idleLock'&&lock?{}:null};
+const idleAnchor=()=>anchor;
+const inp=(o)=>Object.assign({tagName:'INPUT',type:'text',value:'',defaultValue:'',closest:()=>null},o);
+eval(s.slice(a,b));
+const now=Date.now();
+DB={session:{}};anchor=now;
+if(quietReloadOk())fail('active person must not be reloaded');
+anchor=now-6*60000;if(!quietReloadOk())fail('away 6 min, nothing typed: reload quietly');
+nodes=[inp({value:'John',defaultValue:''})];if(quietReloadOk())fail('half-typed field blocks the quiet reload');
+nodes=[inp({value:'John',defaultValue:'John'})];if(!quietReloadOk())fail('unchanged field is fine');
+nodes=[inp({value:'x',defaultValue:'',closest:()=>({})})];if(!quietReloadOk())fail('search filters do not count');
+nodes=[{tagName:'SELECT',type:'select-one',closest:()=>null,options:[{selected:true,defaultSelected:false}]}];if(quietReloadOk())fail('changed select blocks');
+nodes=[];modal=true;if(quietReloadOk())fail('open window blocks');modal=false;
+lock=true;anchor=now;if(!quietReloadOk())fail('locked screen reloads');lock=false;
+DB={session:null};if(!quietReloadOk())fail('signed-out page reloads');
+nodes=[inp({value:'abc',defaultValue:''})];if(quietReloadOk())fail('typing on the sign-in page blocks');
+if(!/Something on this screen is not saved yet/.test(s))fail('Reload now asks before discarding');
+console.log('quiet reload ok');
