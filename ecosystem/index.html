@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="f3b7e3c3cf">
+<meta name="maha-build" content="dfa2696c18">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2354,7 +2354,7 @@ function toggleDensity(){
   applyDensity(next);
   toast(next==='comfort'?'Comfort layout — larger text, full width':'Compact layout — denser screens');
 }
-/* Live sign-in lives in sessionStorage only (clears when the browser/tab session ends).
+/* Live sign-in lives in sessionStorage on a computer (clears when the browser/tab session ends) and in the phone's storage on a phone (see loginStore()).
    Absolute max age also forces re-login after a long period — including provider. */
 const SESSION_MAX_MS=12*60*60*1000;
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -2927,7 +2927,7 @@ function migrateDB(db){
 function bindHotel(){H=(DB.session&&DB.session.hotel&&DB.hotels[DB.session.hotel])?DB.hotels[DB.session.hotel]:null}
 function readLiveSession(){
   try{
-    const raw=sessionStorage.getItem(SESSKEY);
+    const raw=loginStore().getItem(SESSKEY);
     if(!raw)return null;
     const se=JSON.parse(raw);
     return se&&typeof se==='object'?se:null;
@@ -2935,11 +2935,11 @@ function readLiveSession(){
 }
 function writeLiveSession(se){
   try{
-    if(!se){sessionStorage.removeItem(SESSKEY);return}
-    sessionStorage.setItem(SESSKEY,JSON.stringify(se));
+    if(!se){dropLogin(SESSKEY);return}
+    loginStore().setItem(SESSKEY,JSON.stringify(se));
   }catch(e){}
 }
-function clearLiveSession(){try{sessionStorage.removeItem(SESSKEY)}catch(e){}}
+function clearLiveSession(){dropLogin(SESSKEY)}
 function stampSession(se){
   if(!se)return null;
   const now=Date.now();
@@ -2974,6 +2974,10 @@ const MAHA_AUTH_CONFIG={
   publishableKey:'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD', /* main project publishable key (public by design) */
   liveHosts:['maha-hub.com','www.maha-hub.com']
 };
+/* Where the live sign-in is kept. A computer keeps it for the tab (sessionStorage). A phone and the installed phone app keep it in the phone's storage, so closing the app or the phone freeing memory does not sign the person out:
+   the same screen rules as on the computer then decide (15 quiet minutes = lock screen with the password, 1 hour = sign in again). Clearing the phone's site data signs the person out. */
+function loginStore(){try{return lightOnly()?localStorage:sessionStorage}catch(e){return sessionStorage}}
+function dropLogin(k){try{sessionStorage.removeItem(k)}catch(e){}try{localStorage.removeItem(k)}catch(e){}}
 const SBAUTHKEY='mahahub.sbauth';
 const MahaAuth={
   on(){
@@ -2988,9 +2992,9 @@ const MahaAuth={
   },
   configured(){return !!(MAHA_AUTH_CONFIG.url&&MAHA_AUTH_CONFIG.publishableKey)},
   base(){return String(MAHA_AUTH_CONFIG.url||'').replace(/\/+$/,'')},
-  read(){try{const t=JSON.parse(sessionStorage.getItem(SBAUTHKEY)||'null');return t&&t.access_token&&t.user&&t.user.id?t:null}catch(e){return null}},
+  read(){try{const t=JSON.parse(loginStore().getItem(SBAUTHKEY)||'null');return t&&t.access_token&&t.user&&t.user.id?t:null}catch(e){return null}},
   conflict:false,   /* true while a stale-version conflict is waiting for the user's decision */
-  write(t){try{if(!t){try{MahaSync.stop()}catch(e){}try{ProvSync.stop()}catch(e){}try{PlatSet.stop()}catch(e){}sessionStorage.removeItem(SBAUTHKEY);this.conflict=false;Object.keys(sessionStorage).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>sessionStorage.removeItem(k));return}sessionStorage.setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
+  write(t){try{if(!t){try{MahaSync.stop()}catch(e){}try{ProvSync.stop()}catch(e){}try{PlatSet.stop()}catch(e){}dropLogin(SBAUTHKEY);this.conflict=false;[sessionStorage,localStorage].forEach(st=>{try{Object.keys(st).filter(k=>k.indexOf(TCV_PREFIX)===0).forEach(k=>st.removeItem(k))}catch(e){}});return}loginStore().setItem(SBAUTHKEY,JSON.stringify(t))}catch(e){}},
   keep(d){return {access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000,user:{id:d.user&&d.user.id}}},
   /* A random id for this browser. The server keeps only its hash, to remember which browsers already typed
      the emailed sign-in code (trusted devices). */
@@ -3348,8 +3352,8 @@ function tenantPayloadOk(p,code){
   return !!(p&&typeof p==='object'&&p.format==='maha-tenant-v1'&&p.hotel&&typeof p.hotel==='object'
     &&String(p.hotel.code||'').toUpperCase()===code&&Array.isArray(p.hotel.users)&&p.hotel.set&&typeof p.hotel.set==='object');
 }
-function tcvGet(code){try{const v=sessionStorage.getItem(TCV_PREFIX+code);return v===null?null:(+v||0)}catch(e){return null}}
-function tcvSet(code,v){try{sessionStorage.setItem(TCV_PREFIX+code,String(+v||0))}catch(e){}}
+function tcvGet(code){try{const v=loginStore().getItem(TCV_PREFIX+code);return v===null?null:(+v||0)}catch(e){return null}}
+function tcvSet(code,v){try{loginStore().setItem(TCV_PREFIX+code,String(+v||0))}catch(e){}}
 /* Safety copy before cloud data replaces a hotel that already exists on this device.
    Written in the same format as the daily snapshots, so Settings > Backup can restore it. Best effort. */
 async function snapshotBeforeAdopt(code){
@@ -7649,13 +7653,15 @@ function rawUserRec(){try{const se=DB&&DB.session;if(!se)return null;if(se.provi
 function themeStoreKey(){const se=DB&&DB.session;return 'maha.theme.'+((H&&H.code)||'')+'.'+((se&&se.userId)||'')}
 function userTheme(){let t=null;const r=rawUserRec();if(r&&r.uiTheme)t=r.uiTheme;if(!t){try{t=localStorage.getItem(themeStoreKey())}catch(e){}}return MODERN_THEMES.some(x=>x[0]===t)?t:'emerald'}
 function modeStoreKey(){return themeStoreKey().replace('maha.theme.','maha.mode.')}
-function userMode(){let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
-function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
-function setUserMode(m){m=m==='dark'?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
+/* Phones and the installed phone app use the Light theme only. Dark stays for computers and tablets. */
+function lightOnly(){try{return document.documentElement.classList.contains('is-app')||(matchMedia('(pointer: coarse)').matches&&Math.min(screen.width,screen.height)<=600)}catch(e){return false}}
+function userMode(){if(lightOnly())return 'light';let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
+function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;if(lightOnly()){b.style.display='none';return}const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
+function setUserMode(m){m=m==='dark'&&!lightOnly()?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
 function skinIsModern(){try{const se=DB&&DB.session;return !!(se&&typeof H!=='undefined'&&H&&H.set&&!(se.provider&&!se.inHotel)&&skinOf(H)==='modern')}catch(e){return false}}
 function setUserTheme(id){if(!MODERN_THEMES.some(x=>x[0]===id))return;const r=rawUserRec();if(r)r.uiTheme=id;try{localStorage.setItem(themeStoreKey(),id);localStorage.setItem('maha.pref.pal',id)}catch(e){}try{saveDB()}catch(e){}applySkin();toast('Theme saved')}
 function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
-  const um=userMode();return '<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div><div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
+  const um=userMode();return (lightOnly()?'':'<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div>')+'<div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
 const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['EDC Card Link','prov.edc'],['Amendment log','prov.log']]};

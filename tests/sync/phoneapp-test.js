@@ -22,3 +22,16 @@ process.exit(fails?1:0);
  const png=f=>{const b=fs2.readFileSync(f);return {w:b.readUInt32BE(16),h:b.readUInt32BE(20)}};
  ok('icon sizes are right',png(files[0]).w===192&&png(files[1]).w===512&&png(files[2]).w===192&&png(files[3]).w===512);
 }
+{const s3=fs.readFileSync(process.argv[2],'utf8');
+ const ok=(n,c)=>{console.log((c?'PASS ':'FAIL ')+n);if(!c)process.exitCode=1};
+ ok('phones and the installed app use the Light theme only',s3.includes("function lightOnly(){try{return document.documentElement.classList.contains('is-app')||(matchMedia('(pointer: coarse)').matches&&Math.min(screen.width,screen.height)<=600)}catch(e){return false}}")&&s3.includes("function userMode(){if(lightOnly())return 'light';"));
+ ok('on a phone the Dark / Light switch and the Mode choice are hidden',s3.includes("if(lightOnly()){b.style.display='none';return}")&&s3.includes("return (lightOnly()?'':'<div class=\"thm\"><h4>Mode</h4>"));
+ ok('a phone cannot switch to Dark',s3.includes("m=m==='dark'&&!lightOnly()?'dark':'light'"));
+}
+{const s4=fs.readFileSync(process.argv[2],'utf8');
+ const ok=(n,c)=>{console.log((c?'PASS ':'FAIL ')+n);if(!c)process.exitCode=1};
+ ok('a phone keeps the sign-in in the phone storage, a computer in the tab',s4.includes("function loginStore(){try{return lightOnly()?localStorage:sessionStorage}catch(e){return sessionStorage}}")&&s4.includes('loginStore().getItem(SESSKEY)')&&s4.includes('loginStore().setItem(SESSKEY,JSON.stringify(se))'));
+ ok('the Supabase tokens follow the same storage',s4.includes("JSON.parse(loginStore().getItem(SBAUTHKEY)||'null')")&&s4.includes('loginStore().setItem(SBAUTHKEY,JSON.stringify(t))'));
+ ok('signing out clears both storages',s4.includes("function dropLogin(k){try{sessionStorage.removeItem(k)}catch(e){}try{localStorage.removeItem(k)}catch(e){}}")&&s4.includes('function clearLiveSession(){dropLogin(SESSKEY)}'));
+ ok('the screen rules are unchanged (15 minutes lock, 1 hour sign in again)',s4.includes('const RESTART_MS=60*60*1000;')&&s4.includes('if(limit&&Date.now()-idleAnchor()>=limit)showIdleLock();'));
+}
