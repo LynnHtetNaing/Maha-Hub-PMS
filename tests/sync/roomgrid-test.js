@@ -71,4 +71,7 @@ T('turning it on asks for the reason with Save and a close tab; when on, a fixed
 T('releasing is written to the user logs', src.includes('Do not move released; room'));
 T('Do not move shows on the House Status page too', /occ\.dnm\|\|occ\.roomBlock/.test(src));
 T('Light and Dark: the box inputs follow the mode (so their arrows are visible)', /\.arx select,\.arx input\{color-scheme:light\}/.test(src) && /html\[data-mode=dark\] \.arx select/.test(src));
+const arr = cut("VIEWS['fo.arrivals']=(el,arg)=>{", 'const pick=');
+T('Arrivals search lists every confirmed or tentative arrival in the dates chosen, future days too (check-in only from the arrival day)', arr.includes("arrivalsIn(sp.from,sp.to).filter(b=>['confirmed','tentative'].includes(b.status))") && !arr.includes('b.arr<=H.set.bd));') && arr.includes('b.arr<=H.set.bd&&[') );
+T('Arrivals list is compact so every column and button stays on the page', src.includes('table.grid.arrfit th,table.grid.arrfit td{padding:6px 7px') && src.includes('.panel:has(>table.arrfit){overflow-x:auto}'));
 console.log(fails ? 'FAILED ' + fails : 'all ok'); process.exit(fails ? 1 : 0);

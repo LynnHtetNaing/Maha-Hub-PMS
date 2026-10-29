@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="03722e4694">
+<meta name="maha-build" content="421bb7a0a4">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -214,6 +214,12 @@ tr.lchg td{background:#f7f7f7}tr.lpay td{background:var(--pay);color:var(--payt)
 .legend i.corn{width:18px;height:18px;min-height:0;padding:0;border:1px solid #d5dee6;border-radius:2px;background:#fff;position:relative;vertical-align:-4px;overflow:hidden}
 .legend i.cc::after{border-width:0 9px 9px 0}
 table.grid.arrfit th,table.grid.arrfit td{white-space:normal}
+/* Arrivals list: compact, every column and button stays inside the page */
+table.grid.arrfit{width:100%}table.grid.arrfit th,table.grid.arrfit td{padding:6px 7px;font-size:12.5px;vertical-align:middle}table.grid.arrfit th{font-size:11.5px;line-height:1.15}
+table.grid.arrfit td:nth-child(7),table.grid.arrfit td:nth-child(8),table.grid.arrfit td:nth-child(6),table.grid.arrfit td:nth-child(9),table.grid.arrfit td:nth-child(12),table.grid.arrfit td:nth-child(11),table.grid.arrfit td:nth-child(2),table.grid.arrfit td:nth-child(3){white-space:nowrap}
+table.grid.arrfit td:nth-child(5){min-width:84px}table.grid.arrfit .st,table.grid.arrfit .pill{font-size:11.5px;padding:2px 8px}
+table.grid.arrfit .sic.cibig{width:32px;height:32px;border-radius:7px}table.grid.arrfit .sic.cibig svg{width:19px;height:19px}table.grid.arrfit th.c,table.grid.arrfit td.c{padding-left:3px;padding-right:3px;text-align:center}
+.panel:has(>table.arrfit){overflow-x:auto}
 .chip{display:block;margin-top:4px;border-radius:3px;padding:2px 3px;font-weight:700;font-size:10.5px;color:#fff;text-align:center}.chip.cr-b,.legend i.cr-b{background:#2e9a62}.chip.cr-p,.legend i.cr-p{background:#9aa5ad}.chip.cr-a,.legend i.cr-a{background:#2f6fb5}.chip.cr-h,.legend i.cr-h{background:#222}
 /* guest profile */
 .gp{display:grid;grid-template-columns:260px 1fr 380px;gap:12px}.gpid{background:#dcebf7;padding:4px 8px;font-size:12px}.gpid b{color:#1966b3;margin-left:6px}.gpname{font-weight:700;color:#1966b3;margin:6px 0}.photo{border:1px solid var(--line);height:170px;display:grid;place-items:center;color:#c2ccd3;overflow:hidden;background:#fbfcfd}.photo img{max-width:100%;max-height:100%}
@@ -8972,9 +8978,9 @@ function assignArrival(id){
   fill();paint();
 }
 VIEWS['fo.arrivals']=(el,arg)=>{
-  const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to).filter(b=>['confirmed','tentative'].includes(b.status)&&b.arr<=H.set.bd));
+  const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to).filter(b=>['confirmed','tentative'].includes(b.status)));
   el.innerHTML=pageHead('Arrivals',`<label class="ufl">From date ${ufDate('arF',sp.from)}</label><label class="ufl">To date ${ufDate('arT',sp.to)}</label><label class="ufl">Sort by <select id="arS">${ARR_SORT.map(([k,l])=>`<option value="${k}" ${arrSort===k?'selected':''}>${l}</option>`).join('')}</select></label><button type="button" class="btn gold" id="arGo">${ic('search',16)} Search</button>`,'under')+
-  `<p class="sub">This page shows only guests who are due in and still waiting to check in. Checked-in, no-show, cancelled and future bookings are in Reservation List / Change. Click a reservation to open it, or the green icon to check the guest in. Use the Assign button (or right-click a reservation) to assign a room, change it, or turn Do not move on. The small red triangle beside a room number means Do not move is on. Signs: VIP guest, $ deposit received. The Status is at the end of the line.</p><div class="panel"><table class="grid arrfit">
+  `<p class="sub">This page shows guests who are due in and still waiting to check in, for the dates you choose (today by default). Checked-in, no-show and cancelled bookings are in Reservation List / Change. Click a reservation to open it, or the green icon to check the guest in (only on or after the arrival day). A future arrival can already get its room with the Assign button. Use the Assign button (or right-click a reservation) to assign a room, change it, or turn Do not move on. The small red triangle beside a room number means Do not move is on. Signs: VIP guest, $ deposit received. The Status is at the end of the line.</p><div class="panel"><table class="grid arrfit">
    <tr><th></th><th>RSVN#</th><th>Room</th><th>Room type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Rate total</th><th>ETA / Flight</th><th>Status</th><th class="c">Assign</th><th class="c">Check in</th></tr>
    ${list.map(b=>{const r=resOf(b),g=G(b.guestId);
      return `<tr class="click" data-open="${b.id}" title="${b.roomBlock?esc('Do not move: '+b.roomBlock.reason):'Right-click, or the Room button, to assign a room'}"><td>${stIcons(b,'')}</td><td>${r.no}</td><td class="nowrap"><span class="rmdn">${b.room?esc(b.room):'<span class="bad">—</span>'}${dnmOn(b)?`<button type="button" class="dnmtri dnmbtn" data-dnm="${b.id}" title="Do not move: ${esc(b.roomBlock.reason||'')} (click to see or clear)" aria-label="Do not move reason">${ic('warn',12)}</button>`:''}</span></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n">${m2(stayTotal(b))}</td><td>${esc(b.eta)}${b.flightArr?' · '+esc(b.flightArr)+' '+esc(b.flightArrTime):''}</td><td class="nowrap">${stBadge(b)}</td><td class="c"><button type="button" class="sic cibig asgbig ${b.room?'':'need'}" data-room="${b.id}" title="${b.room?'Room: change the room or Do not move':'Assign a room'}" aria-label="Assign room">${ic('key',22)}</button></td><td class="c">${b.arr<=H.set.bd&&['confirmed','tentative'].includes(b.status)?`<button type="button" class="sic cibig" data-ci="${b.id}" title="Check in" aria-label="Check in">${ic('bed',22)}</button>`:'<span class="sub">—</span>'}</td></tr>`}).join('')||`<tr><td colspan="16" class="empty">${sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\'s arrivals are checked in.<br><span class="sub">Checked-in guests are now in <b>In House</b> and <b>Reservation List / Change</b>.</span>':'No arrivals in this period.'}</td></tr>`}
