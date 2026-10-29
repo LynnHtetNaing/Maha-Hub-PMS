@@ -8,16 +8,16 @@ const W=(await import(require('url').pathToFileURL(path.resolve('workers/maha-hu
 const ASSETS={fetch:async r=>new Response('asset:'+new URL(r.url).pathname,{headers:{'content-type':'text/html'}})};
 const call=(u,env)=>W.fetch(new Request(u,{redirect:'manual'}),Object.assign({ASSETS},env||{}));
 const ON={PMS_HOST:'pms.maha-hub.com',MAIN_HOST:'maha-hub.com'};
-let r=await call('https://pms.maha-hub.com/',ON);T('pms address opens the app at /',(await r.text())==='asset:/ecosystem/index.html');
-r=await call('https://pms.maha-hub.com/?hotel=PAD01',ON);T('with a hotel in the address too',(await r.text())==='asset:/ecosystem/index.html');
+let r=await call('https://pms.maha-hub.com/',ON);T('pms address opens the app at /',(await r.text())==='asset:/ecosystem/');
+r=await call('https://pms.maha-hub.com/?hotel=PAD01',ON);T('with a hotel in the address too',(await r.text())==='asset:/ecosystem/');
 r=await call('https://pms.maha-hub.com/solutions-PMS?source=app',ON);T('old PMS path goes to /',r.status===302&&r.headers.get('location')==='https://pms.maha-hub.com/?source=app',r.headers.get('location'));
 r=await call('https://pms.maha-hub.com/solutions',ON);T('/solutions goes to /',r.status===302&&r.headers.get('location')==='https://pms.maha-hub.com/');
 r=await call('https://pms.maha-hub.com/ecosystem/Sales/',ON);T('Sales is not served here',r.status===302&&r.headers.get('location')==='https://maha-hub.com/ecosystem/Sales/');
 r=await call('https://pms.maha-hub.com/brand/maha/pms-icon-192.png',ON);T('pictures and files still load',(await r.text())==='asset:/brand/maha/pms-icon-192.png');
 r=await call('https://maha-hub.com/solutions-PMS',ON);T('redirect from the main address is OFF until launch',r.status===200||r.status===404||r.status!==302||false,String(r.status));
 r=await call('https://maha-hub.com/solutions-PMS',Object.assign({PMS_REDIRECT:'1'},ON));T('at launch the old PMS path moves to the PMS address',r.status===302&&r.headers.get('location')==='https://pms.maha-hub.com/',r.headers.get('location'));
-r=await call('https://maha-hub.com/solutions',Object.assign({PMS_REDIRECT:'1'},ON));T('the Main page stays on the main address',(await r.text())==='asset:/ecosystem/index.html');
-r=await call('https://maha-hub.com/solutions-PMS',{});T('switch empty: nothing changes anywhere',(await r.text())==='asset:/ecosystem/index.html');
+r=await call('https://maha-hub.com/solutions',Object.assign({PMS_REDIRECT:'1'},ON));T('the Main page stays on the main address',(await r.text())==='asset:/ecosystem/');
+r=await call('https://maha-hub.com/solutions-PMS',{});T('switch empty: nothing changes anywhere',(await r.text())==='asset:/ecosystem/');
 r=await call('https://maha-hub.com/',{});T('the main address / is the website home (a file), no redirect',r.status===200);
 const rwf='run_worker_first = ["/", "/index.html", "/solutions*"]';T('the worker runs first for / and /solutions only',fs.readFileSync('wrangler.toml','utf8').includes(rwf)&&fs.readFileSync('workers/maha-hub-pms/wrangler.toml','utf8').includes(rwf));
 /* app */

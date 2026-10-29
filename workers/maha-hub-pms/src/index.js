@@ -2,7 +2,8 @@
  *  /solutions is the Main page and sign-in. /solutions-PMS is the PMS. /ecosystem/Reach|Connect|Booking|Sales are the other systems.
  *  The old /ecosystem/ and /ecosystem/PMS addresses move to the new ones.
  */
-const APP_FILE = '/ecosystem/index.html';
+/* the folder address: asking the assets for /ecosystem/index.html answers with a redirect to /ecosystem/ */
+const APP_FILE = '/ecosystem/';
 const SYSTEM_DOC = {
   pms: { file: APP_FILE },
   reach: { file: '/reach/index.html', base: '/reach/' },
