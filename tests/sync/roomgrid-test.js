@@ -79,4 +79,5 @@ T('the colours and signs are listed under the grid in aligned columns, with thei
 T('the day highlight fills the whole row (no box by box shade)', src.includes('.grow.rgr>.rgt{margin:0;padding:0'));
 T('Forecast: no shade behind the page, rounded filters, tabs and buttons with space between, calendar button follows the round corner', src.includes('Forecast page: no shade behind the page') && src.includes('html[data-skin="modern"][data-mode=dark] .fcwrap{background:transparent!important') && src.includes('.fcf .dpb{background:transparent!important'));
 T('Provider console Staff page: the Department box shows its whole text and the list scrolls instead of cutting', src.includes('.upage .pptbl select[data-dept]{max-width:none;width:134px') && src.includes('.upage .pplist{overflow-x:auto;overflow-y:hidden}'));
+T('Forecast buttons: icon and text are centred on one line', src.includes('Forecast buttons: the icon and the text sit on one line, centred') && src.includes('.fcbtns .btn{display:inline-flex!important;align-items:center'));
 console.log(fails ? 'FAILED ' + fails : 'all ok'); process.exit(fails ? 1 : 0);
