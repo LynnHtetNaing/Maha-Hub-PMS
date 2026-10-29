@@ -44,7 +44,8 @@ T('dummy rooms are not rows of the grid', /const RMS=H\.rooms\.filter\(rm=>!rm\.
 T('a booking starts and ends in the middle of the day', /\(s\+\.5\)\/N/.test(grid) && /\(e\+\.5\)\/N/.test(grid));
 T('bars that begin before or end after the dates are cut flat at the edge', /cl\?0:/.test(grid) && /cr\?1:/.test(grid));
 T('rooms taken out are striped days with no letters (OO, OI, SB)', /rgx rgx-\$\{kind\}/.test(grid) && !/>\$\{kind\}<\/div>/.test(grid));
-T('the Unassigned section is frozen under the grid', /class="rgfroz"/.test(grid) && /\.rgfroz\{position:sticky;bottom:0/.test(src));
+T('Unassigned is ONE line under the grid, named Unassign, frozen at the bottom', grid.split('class="grow rgr rgu"').length === 2 && grid.includes('<b>Unassign</b>') && grid.includes('class="rgfroz"') && src.includes('.rgfroz{position:sticky;bottom:0') && !grid.includes('class="rgsec"'));
+T('bookings share the one line (stacked inside only when their dates overlap)', grid.includes('lanes>1?') && grid.includes("bar(b,'wait',i,waiting.length)"));
 T('a booking can be dragged up or down only (the dates never move)', /translateY\(/.test(grid) && !/translateX\(/.test(grid));
 T('a booking with Do not move on cannot be dragged', /gridMovable=b=>[^\n]*!b\.roomBlock/.test(src));
 T('only the same room type is accepted by the drag', /r\.dataset\.type!==B\.type\)return 'type'/.test(grid));
@@ -61,7 +62,8 @@ T('a room type change asks for the reason, Charge or No charge, and the amount',
 T('the charge is posted as Room Upgrade Charge with the usual code', /code:'104',desc:'Room Upgrade Charge'/.test(box));
 T('a charge needs the permission to post', /canPost/.test(box) && /You need the permission to post charges/.test(box));
 T('every change is written to the user logs', (box.match(/log\(/g) || []).length >= 5);
-T('the old grey Block is gone from the Arrivals list; the sign and a Room button are there', !/rblk/.test(cut("VIEWS['fo.arrivals']=(el,arg)=>{", "let AS=")) && /class="rmbtn/.test(src) && /dnmTri\(b,17\)/.test(src));
+T('the old grey Block is gone from the Arrivals list; a small sign sits beside the room number, with no box under it; the number opens the Room box', !cut("VIEWS['fo.arrivals']=(el,arg)=>{", "let AS=").includes('rblk') && src.includes('class="rmcell rmlink"') && src.includes('dnmTri(b,12)') && !src.includes('<button type="button" class="rmbtn'));
+T('Dark: alerts in the Room box are a soft red, not brown or gold', src.includes('--ax-warnBg:rgba(255,110,96,.12)') && !src.includes('--ax-warnBg:#3a2c08'));
 T('the reservation page has the Do not move switch under Room', /id="bDnm"/.test(src) && /function dnmToggle\(/.test(src));
 T('Do not move shows on the House Status page too', /occ\.dnm\|\|occ\.roomBlock/.test(src));
 T('Light and Dark: the box inputs follow the mode (so their arrows are visible)', /\.arx select,\.arx input\{color-scheme:light\}/.test(src) && /html\[data-mode=dark\] \.arx select/.test(src));
