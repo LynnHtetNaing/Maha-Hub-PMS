@@ -60,9 +60,7 @@ export default {
       }
       return env.ASSETS.fetch(request);
     }
-    if (bare === '/' || bare.toLowerCase() === '/index.html') {
-      return Response.redirect(new URL('/solutions', url), 302);
-    }
+    /* the main address: / is the website home page, served as a file */
     const r = route(url.pathname);
     if (!r) return env.ASSETS.fetch(request);
     /* switched on at launch: the old PMS paths on the main address send people to the PMS address */

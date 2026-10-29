@@ -18,7 +18,8 @@ r=await call('https://maha-hub.com/solutions-PMS',ON);T('redirect from the main 
 r=await call('https://maha-hub.com/solutions-PMS',Object.assign({PMS_REDIRECT:'1'},ON));T('at launch the old PMS path moves to the PMS address',r.status===302&&r.headers.get('location')==='https://pms.maha-hub.com/',r.headers.get('location'));
 r=await call('https://maha-hub.com/solutions',Object.assign({PMS_REDIRECT:'1'},ON));T('the Main page stays on the main address',(await r.text())==='asset:/ecosystem/index.html');
 r=await call('https://maha-hub.com/solutions-PMS',{});T('switch empty: nothing changes anywhere',(await r.text())==='asset:/ecosystem/index.html');
-r=await call('https://maha-hub.pages.dev/',{});T('the test copy still goes to /solutions',r.status===302&&/\/solutions$/.test(r.headers.get('location')));
+r=await call('https://maha-hub.com/',{});T('the main address / is the website home (a file), no redirect',r.status===200);
+const rwf='run_worker_first = ["/", "/index.html", "/solutions*"]';T('the worker runs first for / and /solutions only',fs.readFileSync('wrangler.toml','utf8').includes(rwf)&&fs.readFileSync('workers/maha-hub-pms/wrangler.toml','utf8').includes(rwf));
 /* app */
 const cut=(a,b)=>{const i=src.indexOf(a),j=src.indexOf(b,i);if(i<0||j<0)throw new Error('code not found: '+a);return src.slice(i,j)};
 const code=cut('function hubBaseUrl()','function edcB64url'),sg=cut('function sysSegment','\n');
