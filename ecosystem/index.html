@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="2ef5c2facf">
+<meta name="maha-build" content="b21d01a402">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4591,6 +4591,22 @@ const ULOG=(()=>{
   return {add,send,query,fetchAll,flushNow,cloudOn};
 })();
 /* New version prompt: after the site is updated, a tab that stays open keeps the old screens until it is reloaded. */
+/* Is there work on the screen that a reload would throw away? A window is open, or a form field was typed in / changed (the search filters at the top of lists do not count). */
+function unsavedOnScreen(){try{
+  if(document.querySelector('.modal'))return true;
+  const els=document.querySelectorAll('input,textarea,select');
+  for(const e of els){if(e.closest('.ufbar,.idlelock,.newver'))continue;const t=(e.type||'').toLowerCase();if(t==='hidden'||t==='button'||t==='submit'||t==='file')continue;
+    if(e.tagName==='SELECT'){if([...e.options].some(o=>o.selected!==o.defaultSelected))return true;continue}
+    if(t==='checkbox'||t==='radio'){if(e.checked!==e.defaultChecked)return true;continue}
+    if(e.value!==e.defaultValue&&String(e.value).trim()!=='')return true}
+  return false}catch(e){return true}}
+/* A new version is loaded without any message only when it can cost nobody anything: nobody is signed in, or the person has been away from the screen for 5 minutes (or it is locked) and nothing is half-typed. */
+function quietReloadOk(){try{
+  if(unsavedOnScreen())return false;
+  if(!DB||!DB.session)return true;
+  if(document.getElementById('idleLock'))return true;
+  return Date.now()-idleAnchor()>=5*60*1000}catch(e){return false}}
+function reloadSafely(){try{if(typeof saveDB==='function')saveDB();if(typeof persistDB==='function')persistDB()}catch(e){}setTimeout(()=>location.reload(),400)}
 function watchNewVersion(){
   if(watchNewVersion.on||typeof fetch==='undefined')return;watchNewVersion.on=true;
   /* The page carries a build stamp (a hash of the file). A new version is announced only when the stamp of the published file differs from the stamp this page loaded with.
@@ -4602,7 +4618,12 @@ function watchNewVersion(){
     const r=await fetch('/ecosystem/index.html',{headers:{Range:'bytes=0-6143'},cache:'no-store'});if(!r.ok&&r.status!==206)return;
     const m=/<meta name="maha-build" content="([^"]*)">/.exec(await r.text());const v=m?m[1]:'';
     if(!v||v==='0'||v===mine||shown)return;
-    shown=true;const bar=document.createElement('div');bar.className='newver';bar.setAttribute('role','status');bar.innerHTML='<span>A new version of Maha PMS is ready.</span><button type="button" class="nvgo">Reload now</button><button type="button" class="nvlater">Later</button>';document.body.appendChild(bar);bar.querySelector('.nvgo').onclick=()=>location.reload();bar.querySelector('.nvlater').onclick=()=>{bar.remove();setTimeout(()=>{shown=false},30*60*1000)}}catch(e){}};
+    if(quietReloadOk()){reloadSafely();return}
+    shown=true;const bar=document.createElement('div');bar.className='newver';bar.setAttribute('role','status');bar.innerHTML='<span>A new version of Maha PMS is ready. Finish what you are doing and save it first; it also loads by itself when you step away.</span><button type="button" class="nvgo">Reload now</button><button type="button" class="nvlater">Later</button>';document.body.appendChild(bar);
+    bar.querySelector('.nvgo').onclick=async()=>{if(unsavedOnScreen()&&!await dlgConfirm('Something on this screen is not saved yet. Reload anyway and lose it?'))return;reloadSafely()};
+    bar.querySelector('.nvlater').onclick=()=>{bar.remove();setTimeout(()=>{shown=false},30*60*1000)};
+    /* while the bar waits, the page loads the new version by itself the moment it is safe (person away, nothing half-typed) */
+    const w=setInterval(()=>{if(!bar.isConnected){clearInterval(w);return}if(quietReloadOk()){clearInterval(w);reloadSafely()}},30000)}catch(e){}};
   ask();
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ask()});
   setInterval(ask,20*60*1000);
