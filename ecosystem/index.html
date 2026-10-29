@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="1ac5da7e77">
+<meta name="maha-build" content="d48081bcc9">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4534,7 +4534,15 @@ const ULOG=(()=>{
     rows.sort((x,y)=>(y.at-x.at)||(x.id<y.id?1:-1));
     return rows;
   }
-  /* o: {code,pid,from,to,title,user,offset,limit}. Cloud first (every device), this device's not-yet-sent lines added on the first page. */
+  /* by real moment: every line of this device inside the window (the lines are filed by business day, so all days are read) */
+  async function localRowsAt(code,fa,ta,title,user){
+    const rows=[];const keys=(await allKeys().catch(()=>[])).filter(k=>typeof k==='string'&&k.indexOf(code+'|')===0&&k.indexOf('unsent|')!==0);
+    for(const k of keys){((await get(k).catch(()=>null))||[]).forEach(x=>{if(x.at>=fa&&x.at<ta&&keep(x,title,user))rows.push(x)})}
+    pending.forEach(p=>{if(p.code===code&&p.line.at>=fa&&p.line.at<ta&&keep(p.line,title,user))rows.push(p.line)});
+    rows.sort((x,y)=>(y.at-x.at)||(x.id<y.id?1:-1));
+    return rows;
+  }
+  /* o: {code,pid,from,to,title,user,offset,limit}  or  {...,fromAt,toAt} (real moments). Cloud first (every device), this device's not-yet-sent lines added on the first page. */
   /* o.user may be a list (a person's username and written name): the lines of all spellings are merged */
   async function query(o){
     const us=Array.isArray(o.user)?[...new Set(o.user.filter(Boolean))]:o.user;
@@ -4546,15 +4554,16 @@ const ULOG=(()=>{
     return {rows:rows.slice(off,off+lim),total:parts.reduce((n,p)=>n+p.total,0),source:parts.some(p=>p.source==='device')?'device':'cloud'};
   }
   async function queryOne(o){
-    const lim=o.limit||100,off=o.offset||0;
+    const lim=o.limit||100,off=o.offset||0,byAt=o.fromAt!=null&&o.toAt!=null;
+    const inRange=x=>byAt?(x.at>=o.fromAt&&x.at<o.toAt):(x.bd>=o.from&&x.bd<=o.to);
     if(o.pid){
       try{
-        const r=await MahaAuth.rpc('maha_user_logs_pull',{target_property:o.pid,from_bd:o.from,to_bd:o.to,p_title:o.title||null,p_user:o.user||null,p_limit:lim,p_offset:off});
+        const r=byAt?await MahaAuth.rpc('maha_user_logs_pull_at',{target_property:o.pid,from_at:new Date(o.fromAt).toISOString(),to_at:new Date(o.toAt).toISOString(),p_title:o.title||null,p_user:o.user||null,p_limit:lim,p_offset:off}):await MahaAuth.rpc('maha_user_logs_pull',{target_property:o.pid,from_bd:o.from,to_bd:o.to,p_title:o.title||null,p_user:o.user||null,p_limit:lim,p_offset:off});
         if(r&&Array.isArray(r.rows)){
           let rows=r.rows.map(x=>({id:x.id,at:Date.parse(x.at),bd:x.bd,user:x.user,shift:x.shift,t:x.t,a:x.a,ref:x.ref})),total=+r.total||0;
           if(o.code===(H&&H.code)){
             await flushNow().catch(()=>{});await loadUnsent(o.code).catch(()=>{});
-            const have=new Set(rows.map(x=>x.id)),extra=(unsent||[]).filter(x=>x.bd>=o.from&&x.bd<=o.to&&keep(x,o.title,o.user));
+            const have=new Set(rows.map(x=>x.id)),extra=(unsent||[]).filter(x=>inRange(x)&&keep(x,o.title,o.user));
             const fresh=extra.filter(x=>!have.has(x.id));
             total+=fresh.length;if(off===0)rows=fresh.concat(rows).sort((x,y)=>(y.at-x.at)||(x.id<y.id?1:-1)).slice(0,lim);
           }
@@ -4562,7 +4571,7 @@ const ULOG=(()=>{
         }
       }catch(e){}
     }
-    const all=await localRows(o.code,o.from,o.to,o.title,o.user);
+    const all=byAt?await localRowsAt(o.code,o.fromAt,o.toAt,o.title,o.user):await localRows(o.code,o.from,o.to,o.title,o.user);
     return {rows:all.slice(off,off+lim),total:all.length,source:'device'};
   }
   async function fetchAll(o,cap){
@@ -4606,6 +4615,13 @@ function ulWhen(t){const q=tzp(t,dispZone());return q.d+'/'+q.m+'/'+q.y+' '+q.h+
 function ulHotelZone(){return (H&&H.set&&H.set.tz)||'Asia/Bangkok'}
 function ulMyZone(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){return ''}}
 function ulWhenIn(t,zone){const q=tzp(t,zone);return q.d+'/'+q.m+'/'+q.y+' '+q.h+':'+q.mi+':'+q.s}
+/* The days a person picks are turned into two exact moments in the zone they chose: from the first second of the first day (included)
+   to the first second after the last day (excluded). So a UK owner on 30 Oct and a Thai desk on 30 Oct each see everything that happened in their own 30 Oct. */
+function ulDayStart(iso,zone){const a=String(iso).split('-').map(Number),base=Date.UTC(a[0],a[1]-1,a[2]);let g=base;
+  for(let i=0;i<4;i++){const p=tzp(g,zone);const asUtc=Date.UTC(+p.y,+p.m-1,+p.d,+p.h,+p.mi,+p.s),diff=asUtc-base;if(!diff)break;g-=diff}return g}
+function ulTodayIn(zone){const p=tzp(Date.now(),zone);return p.y+'-'+p.m+'-'+p.d}
+function ulZoneOf(basis){return basis==='hotel'?ulHotelZone():ulMyZone()}
+function ulWindow(from,to,basis){if(basis==='bd')return null;const z=ulZoneOf(basis);return {fromAt:ulDayStart(from,z),toAt:ulDayStart(addD(to,1),z)}}
 function ulZoneLabel(zone,t){let off='';try{const p=new Intl.DateTimeFormat('en-GB',{timeZone:zone||undefined,timeZoneName:'longOffset'}).formatToParts(new Date(t||Date.now())).find(x=>x.type==='timeZoneName');off=p?(p.value==='GMT'?'UTC':p.value.replace('GMT','UTC')):''}catch(e){}return (zone||'this computer')+(off?' · '+off:'')}
 const UL_VIEW_NAMES={'res.open':'Reservation','bill.open':'Folio','fo.arrivals2':'Arrival detail','fo.departures2':'Departure detail'};
 function ulViewName(v){
@@ -11279,20 +11295,25 @@ function userLogsPage(el,prov){
   }else if(!can('userlogs')){
     el.innerHTML=pageHead('User Logs')+'<div class="panel empty">You do not have access to the User Logs. The owner or the provider can open it for your account in Staff &amp; permissions.</div>';return}
   const bd=H.set.bd;
-  if(!UL.from||UL.hotel!==H.code){UL={hotel:H.code,from:bd,to:bd,title:'',user:'',page:0}}
+  if(!UL.from||UL.hotel!==H.code||!UL.basis){const t0=ulTodayIn(ulMyZone());UL={hotel:H.code,basis:'my',from:t0,to:t0,title:'',user:'',page:0}}
   const users=(H.users||[]).filter(u=>u.username).slice().sort((a,b)=>String(a.name||a.username).localeCompare(String(b.name||b.username)));
   const ulWho=v=>{const u=(H.users||[]).find(x=>x.username===v);return u?[...new Set([u.username,u.name,String(u.name||'').toLowerCase()].filter(Boolean))]:(v||'')};
-  el.innerHTML=pageHead('User Logs',(prov?provHotelPicker():'')+'<label class="ufl">From date '+ufDate('ulF',UL.from)+'</label><label class="ufl">To date '+ufDate('ulT',UL.to)+'</label><label class="ufl">Field / Title <select id="ulTt"><option value="">All</option>'+UL_TITLES.map(t=>opt(t,t,UL.title)).join('')+'</select></label><label class="ufl">User <select id="ulUs"><option value="">All users</option>'+users.map(u=>opt(u.username,(u.name||u.username)+' ('+u.username+')',UL.user)).join('')+'</select></label><button type="button" class="btn gold" id="ulGo">'+ic('search',16)+' Search</button><button type="button" class="btn ghost ulx" id="ulXl" title="Download Excel" aria-label="Download Excel">'+ic('xls',18)+'</button>','under')+
-    '<p class="sub">Every action of every user is recorded here: sign in and out, screens opened, changes, payments, prints and refused attempts. Dates are business dates. Read only: nobody can change or delete a line.</p><div class="panel ulpanel" id="ulRes"><div class="empty">Press Search.</div></div>';
+  el.innerHTML=pageHead('User Logs',(prov?provHotelPicker():'')+'<label class="ufl">Time basis <select id="ulBs"><option value="my" '+(UL.basis==='my'?'selected':'')+'>Your time</option><option value="hotel" '+(UL.basis==='hotel'?'selected':'')+'>Hotel time</option><option value="bd" '+(UL.basis==='bd'?'selected':'')+'>Business date</option></select></label><label class="ufl">From date '+ufDate('ulF',UL.from)+'</label><label class="ufl">To date '+ufDate('ulT',UL.to)+'</label><label class="ufl">Field / Title <select id="ulTt"><option value="">All</option>'+UL_TITLES.map(t=>opt(t,t,UL.title)).join('')+'</select></label><label class="ufl">User <select id="ulUs"><option value="">All users</option>'+users.map(u=>opt(u.username,(u.name||u.username)+' ('+u.username+')',UL.user)).join('')+'</select></label><button type="button" class="btn gold" id="ulGo">'+ic('search',16)+' Search</button><button type="button" class="btn ghost ulx" id="ulXl" title="Download Excel" aria-label="Download Excel">'+ic('xls',18)+'</button>','under')+
+    '<p class="sub">Every action of every user is recorded here: sign in and out, screens opened, changes, payments, prints and refused attempts. <span id="ulNote"></span> Read only: nobody can change or delete a line.</p><div class="panel ulpanel" id="ulRes"><div class="empty">Press Search.</div></div>';
   if(prov)bindPicker(el);
   bindDatePick(el);
-  const read=()=>{const sp=readPair(el,'ulF','ulT');if(!sp){toast('Enter From date and To date as dd/mm/yyyy.');return null}UL.from=sp.from;UL.to=sp.to;UL.title=$('#ulTt',el).value;UL.user=$('#ulUs',el).value;return sp};
+  const note=()=>{const b=UL.basis,n=$('#ulNote',el);if(!n)return;
+    n.textContent=b==='bd'?'Dates are the hotel\'s business dates (they move at Close Day).':'Dates are real calendar days in '+(b==='hotel'?'the hotel\'s time ('+ulZoneLabel(ulHotelZone())+')':'your time ('+ulZoneLabel(ulMyZone())+')')+'. Every line inside those days is shown, whatever its business date.'};
+  note();
+  const read=()=>{const sp=readPair(el,'ulF','ulT');if(!sp){toast('Enter From date and To date as dd/mm/yyyy.');return null}UL.from=sp.from;UL.to=sp.to;UL.title=$('#ulTt',el).value;UL.user=$('#ulUs',el).value;UL.basis=$('#ulBs',el).value;return sp};
+  const params=()=>{const w=ulWindow(UL.from,UL.to,UL.basis);return w?{fromAt:w.fromAt,toAt:w.toAt}:{from:UL.from,to:UL.to}};
+  $('#ulBs',el).onchange=()=>{UL.basis=$('#ulBs',el).value;const d=UL.basis==='bd'?H.set.bd:ulTodayIn(ulZoneOf(UL.basis));UL.from=UL.to=d;$('#ulF',el).value=fd(d);$('#ulT',el).value=fd(d);note()};
   const ctx=async()=>({code:H.code,pid:await ulPid(H.code)});
   const run=async page=>{
     if(!read())return;UL.page=page;
     const box=$('#ulRes',el);box.innerHTML='<div class="empty">Loading...</div>';
     const c=await ctx();
-    const r=await ULOG.query({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:ulWho(UL.user),offset:page*UL_PER,limit:UL_PER});
+    const r=await ULOG.query(Object.assign({code:c.code,pid:c.pid,title:UL.title,user:ulWho(UL.user),offset:page*UL_PER,limit:UL_PER},params()));
     if(!$('#ulRes',el))return;
     const pages=Math.max(1,Math.ceil(r.total/UL_PER));
     const pg=pages<2?'':'<div class="ulpg">'+(page>0?'<button type="button" class="btn sm ghost" data-pg="'+(page-1)+'">‹ Newer</button>':'')+'<span>Page '+(page+1)+' of '+pages+'</span>'+(page<pages-1?'<button type="button" class="btn sm ghost" data-pg="'+(page+1)+'">Older ›</button>':'')+'</div>';
@@ -11304,7 +11325,7 @@ function userLogsPage(el,prov){
   $('#ulGo',el).onclick=()=>run(0);
   $('#ulXl',el).onclick=async()=>{
     if(!read())return;const btn=$('#ulXl',el);btn.disabled=true;
-    try{const c=await ctx();const rows=await ULOG.fetchAll({code:c.code,pid:c.pid,from:UL.from,to:UL.to,title:UL.title,user:ulWho(UL.user)},60000);
+    try{const c=await ctx();const rows=await ULOG.fetchAll(Object.assign({code:c.code,pid:c.pid,title:UL.title,user:ulWho(UL.user)},params()),60000);
       if(!rows.length){toast('No records for these filters.');return}
       ulDownload('UserLogs_'+c.code+'_'+UL.from+(UL.to!==UL.from?'_to_'+UL.to:'')+'.xls',rows);
       ULOG.add('Exported user logs file ('+rows.length+' records, '+fd(UL.from)+(UL.to!==UL.from?' to '+fd(UL.to):'')+')',null,'Print & export');
