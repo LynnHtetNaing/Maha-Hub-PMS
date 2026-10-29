@@ -51,7 +51,7 @@ T('a booking can be dragged up or down only (the dates never move)', /translateY
 T('a booking with Do not move on cannot be dragged', /gridMovable=b=>[^\n]*!b\.roomBlock/.test(src));
 T('only the same room type is accepted by the drag', /r\.dataset\.type!==B\.type\)return 'type'/.test(grid));
 T('a box asks first: RSVN, guest, check-in, check-out, now in, new room, with No and Confirm', ['RSVN</span>', 'Guest name</span>', 'Check-in</span>', 'Check-out</span>', 'Now in</span>', 'New room</span>', 'id="gmNo"', 'id="gmGo"'].every(x => src.indexOf(x) > 0));
-T('Light and Dark colours exist for the grid', /html\[data-mode=dark\] \.rg\{/.test(src) && /\.rg\{--rg-conf/.test(src));
+T('Light and Dark colours exist for the grid', src.includes('html[data-mode=dark] .rg,html[data-mode=dark] .rglegend{') && src.includes('.rg,.rglegend{--rg-conf'));
 
 /* ---- the Room box ---- */
 const box = cut('function assignArrival(id){', "VIEWS['fo.arrivals']=");
@@ -71,4 +71,10 @@ T('turning it on asks for the reason with Save and a close tab; when on, a fixed
 T('releasing is written to the user logs', src.includes('Do not move released; room'));
 T('Do not move shows on the House Status page too', /occ\.dnm\|\|occ\.roomBlock/.test(src));
 T('Light and Dark: the box inputs follow the mode (so their arrows are visible)', /\.arx select,\.arx input\{color-scheme:light\}/.test(src) && /html\[data-mode=dark\] \.arx select/.test(src));
+const arr = cut("VIEWS['fo.arrivals']=(el,arg)=>{", 'const pick=');
+T('Arrivals search lists every confirmed or tentative arrival in the dates chosen, future days too (check-in only from the arrival day)', arr.includes("arrivalsIn(sp.from,sp.to).filter(b=>['confirmed','tentative'].includes(b.status))") && !arr.includes('b.arr<=H.set.bd));') && arr.includes('b.arr<=H.set.bd&&[') );
+T('Arrivals list is compact so every column and button stays on the page', src.includes('table.grid.arrfit th,table.grid.arrfit td{padding:6px 7px') && src.includes('.panel:has(>table.arrfit){overflow-x:auto}'));
+T('the Room Grid has no explanation paragraph under the filters', !grid.includes('From the day before the business date, 14 days.'));
+T('the colours and signs are listed under the grid in aligned columns, with their swatches in Light and Dark', grid.includes('class="legend rglegend"') && src.includes('.rg,.rglegend{--rg-conf') && src.includes('html[data-mode=dark] .rglegend{--rg-conf') && src.includes('.rglegend{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr))') && grid.includes('class="rgwarn"'));
+T('the day highlight fills the whole row (no box by box shade)', src.includes('.grow.rgr>.rgt{margin:0;padding:0'));
 console.log(fails ? 'FAILED ' + fails : 'all ok'); process.exit(fails ? 1 : 0);
