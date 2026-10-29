@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="f3b7e3c3cf">
+<meta name="maha-build" content="e33e640aaa">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7649,13 +7649,15 @@ function rawUserRec(){try{const se=DB&&DB.session;if(!se)return null;if(se.provi
 function themeStoreKey(){const se=DB&&DB.session;return 'maha.theme.'+((H&&H.code)||'')+'.'+((se&&se.userId)||'')}
 function userTheme(){let t=null;const r=rawUserRec();if(r&&r.uiTheme)t=r.uiTheme;if(!t){try{t=localStorage.getItem(themeStoreKey())}catch(e){}}return MODERN_THEMES.some(x=>x[0]===t)?t:'emerald'}
 function modeStoreKey(){return themeStoreKey().replace('maha.theme.','maha.mode.')}
-function userMode(){let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
-function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
-function setUserMode(m){m=m==='dark'?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
+/* Phones and the installed phone app use the Light theme only. Dark stays for computers and tablets. */
+function lightOnly(){try{return document.documentElement.classList.contains('is-app')||(matchMedia('(pointer: coarse)').matches&&Math.min(screen.width,screen.height)<=600)}catch(e){return false}}
+function userMode(){if(lightOnly())return 'light';let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
+function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;if(lightOnly()){b.style.display='none';return}const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
+function setUserMode(m){m=m==='dark'&&!lightOnly()?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
 function skinIsModern(){try{const se=DB&&DB.session;return !!(se&&typeof H!=='undefined'&&H&&H.set&&!(se.provider&&!se.inHotel)&&skinOf(H)==='modern')}catch(e){return false}}
 function setUserTheme(id){if(!MODERN_THEMES.some(x=>x[0]===id))return;const r=rawUserRec();if(r)r.uiTheme=id;try{localStorage.setItem(themeStoreKey(),id);localStorage.setItem('maha.pref.pal',id)}catch(e){}try{saveDB()}catch(e){}applySkin();toast('Theme saved')}
 function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
-  const um=userMode();return '<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div><div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
+  const um=userMode();return (lightOnly()?'':'<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div>')+'<div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
 const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['EDC Card Link','prov.edc'],['Amendment log','prov.log']]};
