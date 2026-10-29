@@ -93,7 +93,12 @@ T('Forecast buttons: icon and text are centred on one line', src.includes('Forec
   const H = { shifts: [S], petty: [{ id: 'p1', dir: 'out', amt: 350, bd: '2026-10-20', shift: 'Morning', shiftId: 's1' }] };
   let t = mk(H, L).shiftTotals(S);
   T('cash received stands alone, the refund is its own minus', t.cashIn === 12000 && t.cashOut === -2000);
-  T('Expected Cash Drop = cash received - refund', t.drop === 10000);
+  T('Expected Cash Drop = cash received - the refund taken from it', t.drop === 10000 && t.refundApplied === 2000 && t.refundFloat === 0);
+  {const L2 = [{ shiftId: 's1', code: '900', method: 'Cash', amt: -1000 }, { shiftId: 's1', code: '900', method: 'Cash', amt: 2500 }];
+    const t2 = mk({ shifts: [S], petty: [] }, L2).shiftTotals(S);
+    T('a refund bigger than the cash received: the cash drop is 0 and the rest comes off the float', t2.drop === 0 && t2.refundApplied === 1000 && t2.refundFloat === 1500 && t2.floatIn === 3500);
+    const t3 = mk({ shifts: [S], petty: [] }, [{ shiftId: 's1', code: '900', method: 'Cash', amt: 2000 }]).shiftTotals(S);
+    T('no cash received at all: the whole refund comes off the float', t3.drop === 0 && t3.refundFloat === 2000 && t3.floatIn === 3000 && t3.expected === 3000);}
   T('Float in hand = opening - paid out - petty cash (+ petty paid in)', t.floatIn === 4650 && t.pettyOut === 350 && t.pettyIn === 0);
   T('cash that should be in the drawer = float + drop (the count is checked against it)', t.expected === 14650);
   H.petty[0].back = { bd: '2026-10-20', shiftId: 's1' };
@@ -105,7 +110,7 @@ T('Forecast buttons: icon and text are centred on one line', src.includes('Forec
   const old = { shifts: [S, { id: 's9', name: 'Morning', bd: '2026-10-20', openAt: 2, openCash: 0 }], petty: [{ id: 'q', dir: 'out', amt: 100, bd: '2026-10-20', shift: 'Morning' }] };
   T('an old petty line without a shift id belongs to the first shift of that name only', mk(old, []).shiftPetty(S).out === 100 && mk(old, []).shiftPetty(old.shifts[1]).out === 0);
 }
-T('the cashier page: Float, Cash drop and Close shift boxes, Total collected last, no Charges posted line', ['Float (cash in hand)', '− Petty cash', '+ Petty cash paid in', 'Expected Cash Drop', 'id="csLeft"', 'id="csDiffRow"'].every(x => src.includes(x)) && !cut("VIEWS['cd.shift']=el=>{", "VIEWS['cd.close']").includes('Charges posted'));
+T('the cashier page: Float, Cash drop and Close shift boxes, Total collected last, no Charges posted line, no result box in Close shift', ['Float (cash in hand)', '− Petty cash', '+ Petty cash paid in', '− Refund (cash)', 'Expected Cash Drop'].every(x => src.includes(x)) && !cut("VIEWS['cd.shift']=el=>{", "VIEWS['cd.close']").includes('Charges posted') && !src.includes('id="csLeft"') && !src.includes('class="csres"'));
 T('the login page: the opening cash is required, no (optional)', src.includes('<span>Opening cash</span>') && !src.includes('Opening cash (optional)') && src.includes('Enter your opening cash (type 0 if the drawer is empty).'));
 T('Petty Cash page: Record petty cash, Returned by AP/AR, Not yet returned, Paid in button', ['Record petty cash', 'Returned by AP/AR', 'Not yet returned', 'data-pb='].every(x => src.includes(x)) && !src.includes('>Cash book<'));
 T('CB_04 shows the refund as its own line, the float of each shift, and fills the count lines when the shift is closed', src.includes("'Refund / Void - '") && src.includes("'Float (cash in hand) - '") && src.includes('Cash counted in the drawer : <span>') && src.includes('Left in drawer (closing float) : <span>'));
