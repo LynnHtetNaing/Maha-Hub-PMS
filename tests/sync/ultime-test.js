@@ -13,6 +13,6 @@ T('UK, first second of winter time',api.ulWhenIn(Date.UTC(2026,9,25,1,0,0),'Euro
 T('date changes with the zone',api.ulWhenIn(Date.UTC(2026,10,1,20,0,0),'Asia/Bangkok')==='02/11/2026 03:00:00'&&api.ulWhenIn(Date.UTC(2026,10,1,20,0,0),'America/Los_Angeles')==='01/11/2026 12:00:00');
 /* the screen */
 T('titles Hotel User Time and Your Time, each with its zone',src.includes('<th>Hotel User Time<span class="ulz">')&&src.includes('<th>Your Time<span class="ulz">')&&!/<th>When<\/th><th>User<\/th><th>Shift<\/th><th>Field \/ Title/.test(src));
-T('the hotel column uses the hotel zone, the other the viewer\'s computer zone',src.includes('ulWhenIn(x.at,hz)')&&src.includes('ulWhenIn(x.at,mz)')&&src.includes("function ulHotelZone(){return (H&&H.set&&H.set.tz)||'Asia/Bangkok'}")&&src.includes('Intl.DateTimeFormat().resolvedOptions().timeZone'));
+T('the hotel column uses the hotel zone, the other the viewer\'s computer zone',src.includes('ulTwoLine(x.at,hz)')&&src.includes('ulTwoLine(x.at,mz)')&&src.includes("function ulHotelZone(){return (H&&H.set&&H.set.tz)||'Asia/Bangkok'}")&&src.includes('Intl.DateTimeFormat().resolvedOptions().timeZone'));
 T('the Excel file has both times',src.includes("<th>Hotel User Time ('+esc(ulZoneLabel(ulHotelZone()))")&&src.includes("<th>Your Time ('+esc(ulZoneLabel(ulMyZone()))"));
 process.exit(fails?1:0);
