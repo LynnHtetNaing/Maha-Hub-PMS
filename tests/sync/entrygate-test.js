@@ -63,7 +63,7 @@ T('Maha Booking (the engine linked to Google) is gated like the other systems', 
 const cut = (a, b) => { const i = app.indexOf(a), j = app.indexOf(b, i); if (i < 0 || j < 0) throw new Error('cut ' + a); return app.slice(i, j) };
 const code = cut('/* Entry ticket: Maha Connect', 'function applySysPath(') || '';
 const store = {};
-const env = { DB: { session: { hotel: 'H1', provider: true } }, localStorage: { getItem: k => k in store ? store[k] : null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } }, Date: { now: () => 1e12 }, JSON, ecosystemDir: () => '/ecosystem/', sysSegment: k => ({ connect: 'Connect', reach: 'Reach', sales: 'Sales', book: 'Booking' }[k]), appPrefix: () => '' };
+const env = { DB: { session: { hotel: 'H1', provider: true } }, localStorage: { getItem: k => k in store ? store[k] : null, setItem: (k, v) => { store[k] = v }, removeItem: k => { delete store[k] } }, Date: { now: () => 1e12 }, JSON, onPmsHost: () => false, onMainLiveHost: () => true, PMS_SPLIT_ON: false, PMS_HOST: 'pms.maha-hub.com', ecosystemDir: () => '/ecosystem/', sysSegment: k => ({ connect: 'Connect', reach: 'Reach', sales: 'Sales', book: 'Booking' }[k]), appPrefix: () => '' };
 const api = new Function('env', 'with(env){' + code + ';return {sysUrl,entryTicket,clearEntryTickets,sysAllowed,RELEASED_SYSTEMS}}')(env);
 const h1 = { code: 'H1' };
 api.sysUrl('reach', h1);
