@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="55007de6e9">
+<meta name="maha-build" content="0711aa6ed0">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -815,7 +815,7 @@ table.fl th{border-right:1px solid #e3eaef}.fl td{border-bottom:1px solid #dde5e
 .ltab td{padding:10px 16px;border-bottom:1px solid #d6dfe5;border-right:1px solid #eef2f5;vertical-align:middle;cursor:pointer}
 .ltab td:last-child{border-right:0}
 .ltab tr:hover td{background:#f3f8fc}.ltab tr.on td{background:#fdd9a8}
-.sicons{display:flex;align-items:center;gap:7px;min-height:20px}.sicons+.sicons{margin-top:3px}
+.sicons{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-height:20px}.sicons+.sicons{margin-top:3px}
 .stl{font-weight:800;font-size:12.5px;min-width:16px}.stl.bk{color:#1d2b36}.stl.ih{color:#17603a}
 .sic{display:inline-grid;place-items:center;background:none;border:0;padding:0;color:#22384a;cursor:pointer;font-weight:800;font-size:13px}
 button.sic:hover{color:var(--gold2)}.sic.ok{color:#1966b3}.sic.ready{color:#17603a}.sic.msg{color:#b8442f}.sic.dep{color:#1d2b36}
@@ -8837,17 +8837,17 @@ const depAmt=B=>r2(sum(paymentsIn(B.lines),x=>x.amt));
 function depositReceived(B){const lines=(B.lines||[]).filter(l=>l.deposit&&(l.kind==='pay'||l.kind==='payrec'));const rec=new Set();lines.forEach(l=>{if(l.kind==='payrec'&&l.group)rec.add(l.group)});return r2(sum(lines.filter(l=>l.kind==='payrec'||(l.kind==='pay'&&!(l.group&&rec.has(l.group)))),l=>-l.amt))}
 const openMsgs=B=>{const r=resOf(B);return r&&r.notifs?r.notifs.filter(n=>!n.done).length:0};
 function roomReady(B){const rm=B.room&&RM(B.room);return !!(rm&&roomIsVC(rm,B.id))}
-function stIcons(B,mode){const m=stayMark(B);const a=[];
-  {const vg=G(B.guestId);if(vg&&vg.vip)a.push(`<b class="stl stl-vip" title="VIP: ${esc(vg.vip)}">VIP</b>`)}
+function stIcons(B,mode){const m=stayMark(B);const a=[];     /* a = the buttons (always first, at the left); b = the signs (VIP, room ready, channel, messages, deposit), at the right */
   if(canCheckBack(B))a.push(`<button class="sic back" data-back="${B.id}" title="Check back in (Auto)">${ic('left',14)}<small>Auto</small></button>`);
   a.push(`<button class="sic" data-prc="${B.id}" title="Print registration card">${ic('print',15)}</button>`);
   if(mode==='arr')a.push(`<button class="sic ok" data-ci="${B.id}" title="Check in">${ic('bed',15)}</button>`);
   if(mode==='dep')a.push(`<button class="sic ok" data-co2="${B.id}" title="Check out">${ic('out',15)}</button>`);
-  if(roomReady(B))a.push(`<span class="sic ready" title="Room ${esc(B.room)} is vacant clean (VC)">${ic('wifi',15)}</span>`);
-  const b=[];if(isCM(B))b.push(`<span class="sic" title="Booking from the channel manager">${ic('globe',15)}</span>`);
+  const b=[];{const vg=G(B.guestId);if(vg&&vg.vip)b.push(`<b class="stl stl-vip" title="VIP: ${esc(vg.vip)}">VIP</b>`)}
+  if(roomReady(B))b.push(`<span class="sic ready" title="Room ${esc(B.room)} is vacant clean (VC)">${ic('wifi',15)}</span>`);
+  if(isCM(B))b.push(`<span class="sic" title="Booking from the channel manager">${ic('globe',15)}</span>`);
   const n=openMsgs(B);if(n)b.push(`<span class="sic msg" title="${n} message(s) from other shifts – please check">${ic('chat',15)}</span>`);
   if(depAmt(B)>0)b.push(`<span class="sic dep" title="Deposit received: ${m2(depAmt(B))}">$</span>`);
-  return `<div class="sicons">${a.join('')}</div>${b.length?`<div class="sicons">${b.join('')}</div>`:''}`}
+  return `<div class="sicons">${a.join('')}${b.join('')}</div>`}
 let LSORT={k:'room',d:1};
 function sortList(list){const key={status:b=>b.status==='inhouse'?1:0,name:b=>G(b.guestId).last.toLowerCase(),room:b=>b.room||'zzzz'}[LSORT.k];return list.slice().sort((a,b)=>{const x=key(a),y=key(b);return (x>y?1:x<y?-1:0)*LSORT.d})}
 function sideList(list,sel,mode){
@@ -8982,7 +8982,7 @@ function assignArrival(id){
 VIEWS['fo.arrivals']=(el,arg)=>{
   const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to).filter(b=>['confirmed','tentative'].includes(b.status)));
   el.innerHTML=pageHead('Arrivals',`<label class="ufl">From date ${ufDate('arF',sp.from)}</label><label class="ufl">To date ${ufDate('arT',sp.to)}</label><label class="ufl">Sort by <select id="arS">${ARR_SORT.map(([k,l])=>`<option value="${k}" ${arrSort===k?'selected':''}>${l}</option>`).join('')}</select></label><button type="button" class="btn gold" id="arGo">${ic('search',16)} Search</button>`,'under')+
-  `<p class="sub">This page shows guests who are due in and still waiting to check in, for the dates you choose (today by default). Checked-in, no-show and cancelled bookings are in Reservation List / Change. Click a reservation to open it, or the green icon to check the guest in (only on or after the arrival day). A future arrival can already get its room with the Assign button. Use the Assign button (or right-click a reservation) to assign a room, change it, or turn Do not move on. The small red triangle beside a room number means Do not move is on. Signs: VIP guest, $ deposit received. The Status is at the end of the line.</p><div class="panel"><table class="grid arrfit">
+  `<div class="panel"><table class="grid arrfit">
    <tr><th></th><th>RSVN#</th><th>Room</th><th>Room type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Rate total</th><th>ETA / Flight</th><th>Status</th><th class="c">Assign</th><th class="c">Check in</th></tr>
    ${list.map(b=>{const r=resOf(b),g=G(b.guestId);
      return `<tr class="click" data-open="${b.id}" title="${b.roomBlock?esc('Do not move: '+b.roomBlock.reason):'Right-click, or the Room button, to assign a room'}"><td>${stIcons(b,'')}</td><td>${r.no}</td><td class="nowrap"><span class="rmdn">${b.room?esc(b.room):'<span class="bad">—</span>'}${dnmOn(b)?`<button type="button" class="dnmtri dnmbtn" data-dnm="${b.id}" title="Do not move: ${esc(b.roomBlock.reason||'')} (click to see or clear)" aria-label="Do not move reason">${ic('warn',12)}</button>`:''}</span></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n">${m2(stayTotal(b))}</td><td>${esc(b.eta)}${b.flightArr?' · '+esc(b.flightArr)+' '+esc(b.flightArrTime):''}</td><td class="nowrap">${stBadge(b)}</td><td class="c"><button type="button" class="sic cibig asgbig" data-room="${b.id}" title="${b.room?'Room: change the room or Do not move':'Assign a room'}" aria-label="Assign room">${ic('key',22)}</button></td><td class="c">${b.arr<=H.set.bd&&['confirmed','tentative'].includes(b.status)?`<button type="button" class="sic cibig" data-ci="${b.id}" title="Check in" aria-label="Check in">${ic('bed',22)}</button>`:'<span class="sub">—</span>'}</td></tr>`}).join('')||`<tr><td colspan="16" class="empty">${sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\'s arrivals are checked in.<br><span class="sub">Checked-in guests are now in <b>In House</b> and <b>Reservation List / Change</b>.</span>':'No arrivals in this period.'}</td></tr>`}
