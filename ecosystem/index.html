@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="78fc578699">
+<meta name="maha-build" content="25c7ca4b3e">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1461,8 +1461,6 @@ html[data-mode=dark] .rg{--rg-conf:#2f86c4;--rg-tent:#e3a82f;--rg-tentT:#2a1e00;
 .rb-auto{background:color-mix(in srgb,var(--rg-conf) 14%,transparent);color:var(--m-ink,var(--ink,#14232b));border:1.5px dashed var(--rg-conf);box-shadow:none}.rb-auto .rbw{color:#c0392b;filter:none}
 .rglegend .rb-confirmed,.rglegend .rb-tentative,.rglegend .rb-inhouse,.rglegend .rb-out,.rglegend .rb-auto,.rglegend .rgx-OO,.rglegend .rgx-OI,.rglegend .rgx-SB{position:static;display:inline-block;width:26px;height:12px;border-radius:5px;vertical-align:-1px;margin-right:6px}
 .rgr.rg-ok{background:color-mix(in srgb,var(--rg-in) 17%,transparent)}.rgr.rg-type{background:color-mix(in srgb,var(--rg-tent) 18%,transparent)}.rgr.rg-no{opacity:.5}
-.rgfroz{position:sticky;bottom:0;z-index:5;background:var(--m-card,#fff);border-top:2px solid var(--rg-acc);box-shadow:0 -6px 14px rgba(0,0,0,.14);max-height:34vh;overflow-y:auto;overflow-x:hidden}
-.rgsec{padding:4px 12px;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--mut)}
 .rgu .gl{color:var(--rg-conf);font-weight:700}
 .rgdl{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}.rgdl div{display:flex;gap:12px;padding:8px 12px;border-bottom:1px solid var(--line)}.rgdl div:last-child{border-bottom:0}.rgdl span{flex:0 0 96px;color:var(--mut)}.rgdl b{flex:1}.rgdl .to b{color:var(--rg-acc,#0e8a82)}
 /* Room box: one line, thick borders, Do not move switch (square with rounded corners). The inputs follow Light or Dark so their little arrows can be seen. */
@@ -9076,7 +9074,7 @@ VIEWS['fo.grid']=el=>{
     const own=allBookings().filter(b=>b.room===rm.no&&live(b)&&overlaps(gridFrom,end,b.arr,b.dep)),sys=allBookings().filter(b=>!b.room&&plan.put[b.id]===rm.no&&overlaps(gridFrom,end,b.arr,b.dep));
     h+=`<div class="grow rgr" data-room="${rm.no}" data-type="${esc(rm.type)}"><div class="gl"><b>${rm.no}</b> <span>${rm.type}</span></div><div class="rgt">${cells(rm)}${outDays(rm)}${own.map(b=>bar(b,'own')).join('')}${sys.map(b=>bar(b,'auto')).join('')}</div></div>`});
   const waiting=plan.lines.map(L=>L.filter(b=>overlaps(gridFrom,end,b.arr,b.dep)&&(!GF.type||b.type===GF.type))).filter(L=>L.length),nWait=waiting.reduce((n,L)=>n+L.length,0);
-  if(waiting.length)h+=`<div class="rgfroz"><div class="grow rgr rgu" title="Bookings with no room and no free room of their type"><div class="gl"><b>Unassign</b> <span>${nWait}</span></div><div class="rgt" style="min-height:${waiting.length>1?waiting.length*24+8:36}px">${days.map(d=>`<span class="gc ${today(d)}"></span>`).join('')}${waiting.map((L,i)=>L.map(b=>bar(b,'wait',i,waiting.length)).join('')).join('')}</div></div></div>`;
+  if(waiting.length)h+=`<div class="grow rgr rgu" title="Bookings with no room and no free room of their type"><div class="gl"><b>Unassign</b> <span>${nWait}</span></div><div class="rgt" style="min-height:${waiting.length>1?waiting.length*24+8:36}px">${days.map(d=>`<span class="gc ${today(d)}"></span>`).join('')}${waiting.map((L,i)=>L.map(b=>bar(b,'wait',i,waiting.length)).join('')).join('')}</div></div>`;
   h+='</div>';
   const fl=[...new Map(H.rooms.filter(x=>!x.dummy).map(x=>[String(x.floor),((H.floors||[]).find(f=>String(f.id)===String(x.floor))||{}).name||('Floor '+x.floor)])).entries()];
   el.innerHTML=pageHead('Room Grid',`<label class="ufl">From date ${ufDate('gFrom',gridFrom)}</label><label class="ufl">To date ${ufDate('gTo',gridTo)}</label><label class="ufl">Room type <select id="gType"><option value="">All room types</option>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<option value="${esc(t.code)}" ${GF.type===t.code?'selected':''}>${esc(t.code)} – ${esc(t.name)}</option>`).join('')}</select></label><label class="ufl">Floor <select id="gFloor"><option value="">All floors</option>${fl.map(([id,nm])=>`<option value="${esc(id)}" ${String(GF.floor)===id?'selected':''}>${esc(nm)}</option>`).join('')}</select></label><button class="btn gold" id="gSearch">${ic('search',16)} Search</button>`,'under')+
@@ -9095,11 +9093,13 @@ VIEWS['fo.grid']=el=>{
     try{bar.setPointerCapture(e.pointerId)}catch(_){}
     const verdict=r=>{const no=r.dataset.room;if(no===B.room)return 'same';if(r.dataset.type!==B.type)return 'type';return roomFree(no,B.arr,B.dep,B.id)?'ok':'no'};
     const mark=()=>rows.forEach(r=>{r.classList.remove('rg-ok','rg-no','rg-type');const v=verdict(r);if(v==='ok'||v==='no'||v==='type')r.classList.add('rg-'+v)});
-    const move=ev=>{const dy=ev.clientY-y0;if(!moved&&Math.abs(dy)>5){moved=true;bar.classList.add('drag');mark()}if(!moved)return;
-      const sb=scroller.getBoundingClientRect();if(ev.clientY<sb.top+50)scroller.scrollTop-=14;else if(ev.clientY>sb.bottom-50)scroller.scrollTop+=14;
-      bar.style.transform=`translateY(${dy+(scroller.scrollTop-scy)}px)`;      /* up and down only */
-      const r=rows.find(r=>{const q=r.getBoundingClientRect();return ev.clientY>=q.top&&ev.clientY<q.bottom});target=r||null};
-    const up=()=>{bar.removeEventListener('pointermove',move);bar.removeEventListener('pointerup',up);bar.removeEventListener('pointercancel',up);
+    let lastY=e.clientY,timer=null;
+    const place=()=>{bar.style.transform=`translateY(${(lastY-y0)+(scroller.scrollTop-scy)}px)`;      /* up and down only */
+      const sb=scroller.getBoundingClientRect(),y=Math.min(Math.max(lastY,sb.top+60),sb.bottom-2);      /* pointer outside the box: the row at the nearest edge */
+      const r=rows.find(r=>{const q=r.getBoundingClientRect();return y>=q.top&&y<q.bottom});target=r||null};
+    const tick=()=>{const sb=scroller.getBoundingClientRect();if(lastY>sb.bottom-50)scroller.scrollTop+=Math.min(16,4+(lastY-(sb.bottom-50))/10);else if(lastY<sb.top+90)scroller.scrollTop-=Math.min(16,4+((sb.top+90)-lastY)/10);place()};
+    const move=ev=>{lastY=ev.clientY;if(!moved&&Math.abs(lastY-y0)>5){moved=true;bar.classList.add('drag');mark();timer=setInterval(tick,30)}if(moved)place()};
+    const up=()=>{clearInterval(timer);bar.removeEventListener('pointermove',move);bar.removeEventListener('pointerup',up);bar.removeEventListener('pointercancel',up);
       if(!moved)return;dragged=true;setTimeout(()=>{dragged=false},60);
       const v=target?verdict(target):'none',no=target&&target.dataset.room;
       if(v==='ok'){gridAskMove(B,no);return}

@@ -44,7 +44,8 @@ T('dummy rooms are not rows of the grid', /const RMS=H\.rooms\.filter\(rm=>!rm\.
 T('a booking starts and ends in the middle of the day', /\(s\+\.5\)\/N/.test(grid) && /\(e\+\.5\)\/N/.test(grid));
 T('bars that begin before or end after the dates are cut flat at the edge', /cl\?0:/.test(grid) && /cr\?1:/.test(grid));
 T('rooms taken out are striped days with no letters (OO, OI, SB)', /rgx rgx-\$\{kind\}/.test(grid) && !/>\$\{kind\}<\/div>/.test(grid));
-T('Unassigned is ONE line under the grid, named Unassign, frozen at the bottom', grid.split('class="grow rgr rgu"').length === 2 && grid.includes('<b>Unassign</b>') && grid.includes('class="rgfroz"') && src.includes('.rgfroz{position:sticky;bottom:0') && !grid.includes('class="rgsec"'));
+T('Unassign is ONE ordinary row after the rooms: not frozen, no dividing line', grid.split('class="grow rgr rgu"').length === 2 && grid.includes('<b>Unassign</b>') && !src.includes('rgfroz') && !grid.includes('class="rgsec"'));
+T('the drag goes on while the pointer is below or above the box: the box scrolls by itself and the nearest row is the target', grid.includes('setInterval(tick,30)') && grid.includes('sb.bottom-50') && grid.includes('Math.max(lastY,sb.top+60),sb.bottom-2') && grid.includes('clearInterval(timer)'));
 T('bookings share the one line (stacked inside only when their dates overlap)', grid.includes('lanes>1?') && grid.includes("bar(b,'wait',i,waiting.length)"));
 T('a booking can be dragged up or down only (the dates never move)', /translateY\(/.test(grid) && !/translateX\(/.test(grid));
 T('a booking with Do not move on cannot be dragged', /gridMovable=b=>[^\n]*!b\.roomBlock/.test(src));
