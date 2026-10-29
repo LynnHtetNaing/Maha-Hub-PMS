@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="79f7d1db19">
+<meta name="maha-build" content="ab437c68ea">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -8503,6 +8503,7 @@ setInterval(()=>{if(!MahaAuth.on()||!DB||!DB.session||DB.session.provider)return
 function openReportsTab(){if(!can('reports')){toast('You do not have permission to open reports.');return}if(!feat('reports')){toast('Reports are hidden for this hotel. The provider opens them under Functions & plan.');return}
   try{flushDB()}catch(e){}   /* the new tab reads the hotel from this device: write it first */
   if(MOBR()){openReportsOverlay();return}
+  if(window.name==='mahahub-reports')window.name='';   /* this system tab must never be the one named Reports */
   let w=null;try{w=window.open(location.href.split('#')[0]+'#reports','mahahub-reports')}catch(e){w=null}
   if(!w){openReportsOverlay()}else{try{w.focus()}catch(e){}}}
 
@@ -14180,7 +14181,8 @@ window.addEventListener('DOMContentLoaded',()=>{
         if(DB.session)writeLiveSession(DB.session);else clearLiveSession();
         bindHotel();
         if(!DB.session){showLogin();return}renderShell();render()}catch(err){}});
-    if(location.hash==='#reports'){document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
+    if(location.hash!=='#reports'&&window.name==='mahahub-reports')window.name='';
+    if(location.hash==='#reports'){window.name='mahahub-reports';document.body.classList.add('rpmode');renderReports(document.getElementById('app'),false);
       window.addEventListener('storage',e=>{if(e.key===DBKEY||e.key===DBKEY4)loadFresh()});return}
     const finish=()=>{
       applyLiveSession();resumeSync();
