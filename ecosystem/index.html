@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="52470ea7fa">
+<meta name="maha-build" content="5dca2f75fa">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -8438,7 +8438,7 @@ function showLogin(msg){
     if(u&&u.noShift){$('#lgExtra').hidden=true;$('#lgGo').textContent='Login (no shift) →';return}
     const open=u&&h.shifts.find(s=>s.userId===u.id&&s.status==='open');
     $('#lgGo').textContent=open?`Continue ${open.name} shift →`:'Login →';
-    $('#cashWrap').hidden=!!open||(u&&u.role==='Housekeeping');
+    $('#cashWrap').hidden=!!open;   /* every person who opens a shift fills the opening cash (no shift users and admins never open one) */
     const night=!!(u&&nightOkFor(u,h));$$('[data-shift]').forEach(b=>{if(b.dataset.shift==='Night'){b.disabled=!night;b.title=night?'Night shift, 22:00 to 06:00':'Night shift is for Front Office and HOD'}});if(!night&&lgShift==='Night')setShift('Afternoon');
   };
   $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
@@ -8540,7 +8540,7 @@ function doLogin(){
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
   if(!s){const closed=h.shifts.find(x=>x.userId===u.id&&x.name===lgShift&&x.bd===h.set.bd&&x.status==='closed'&&!x.reopenOk);
     if(closed&&ruleOn(h,'blockClosedShiftReopen')){err.textContent=`The ${lgShift} shift for ${fd(h.set.bd)} is already closed. The provider must allow it to be opened again.`;return}
-    {const ocW=$('#cashWrap');if(ocW&&!ocW.hidden){const ocv=String($('#lgCash').value).trim();if(ocv===''||!(+ocv>=0)){err.textContent='Enter your opening cash (type 0 if the drawer is empty).';return}}}
+    {const ocW=$('#cashWrap'),ocv=String($('#lgCash').value).trim();if(ocW)ocW.hidden=false;if(!/^d{1,9}(.d{1,2})?$/.test(ocv)){err.textContent='Enter your opening cash (type 0 if the drawer is empty).';try{$('#lgCash').focus()}catch(e){}return}}
     s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:Math.max(0,+$('#lgCash').value||0),status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Opened ${s.name} shift`)}
   else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
   writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}}
