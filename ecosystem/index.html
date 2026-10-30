@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="aa007d8422">
+<meta name="maha-build" content="c7e31d1e22">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2473,6 +2473,7 @@ html[data-mode=dark] .csres #csDiffRow.loss{background:rgba(255,110,96,.14);colo
 /* City Ledger: Receive window */
 .clinfo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}@media(max-width:700px){.clinfo{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .clblk{border:1px solid var(--m-line,var(--line,#d3e6dc));border-radius:10px;background:color-mix(in srgb,var(--a1,#0e8a82) 6%,transparent);padding:8px 12px;min-width:0}.clblk small{display:block;color:var(--m-mut,var(--mut,#587077));font-size:11px}.clblk b{display:block;overflow-wrap:anywhere}.clmut{color:var(--m-mut,var(--mut,#587077));font-weight:400}
+.clpay{border:1px solid var(--m-line,var(--line,#d3e6dc));border-radius:14px;padding:12px;background:color-mix(in srgb,var(--a1,#0e8a82) 3%,transparent)}.clrecv .mbody{overflow-x:hidden}.clrecv .nitiles{max-height:none;overflow:visible}
 .clrow{cursor:pointer}.clsub td{background:color-mix(in srgb,var(--a1,#0e8a82) 5%,transparent);font-size:12px}
 /* Hotel Status and Manager Dashboard (calm cards and tables; follows the colour theme, Light and Dark) */
 .hsnew,.hs2d{--hs-card:var(--m-card,#fff);--hs-line:var(--m-line,#dbe6e1);--hs-ink:var(--m-ink,#12281f);--hs-mut:var(--m-mut,#5b7266);--hs-acc:var(--a1,#0f6b4a);--hs-soft:var(--m-soft,#f3f8f5);--hs-head:color-mix(in srgb,var(--hs-acc) 78%,#000);--hs-headT:#fff;--hs-cur:color-mix(in srgb,var(--hs-acc) 13%,transparent);--hs-ln:color-mix(in srgb,var(--hs-ink) 17%,transparent)}
@@ -13877,20 +13878,23 @@ function settleCity(id){if(!need('pay'))return;refreshCityItems(H);const item=(H
   const types=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&!c.refund&&payEnabled(c)&&c.ptab!=='CITY LEDGER'&&PAY_TABS.includes(c.ptab));
   const tabs=()=>PAY_TABS.filter(t=>t!=='CITY LEDGER'&&types().some(c=>c.ptab===t));
   let cur=null,tab=tabs()[0]||'';
-  const m=modal('Receive city ledger','<div id="clB"></div>',{w:1100,cls:'nimodal paym clrecv'});
+  const m=modal('Receive city ledger','<div id="clB"></div>',{w:1240,cls:'nimodal paym clrecv'});
   const blk=(l,v)=>`<div class="clblk"><small>${l}</small><b>${v}</b></div>`;
+  /* the whole window stays in view with no scrolling inside it: when the screen is short, everything is made a little smaller */
+  const fit=()=>{const b=$('#clB',m);if(!b)return;b.style.zoom='';const avail=innerHeight*0.92-(m.querySelector('.mhead')?m.querySelector('.mhead').offsetHeight:50)-28,h=b.scrollHeight;if(h>avail)b.style.zoom=Math.max(.5,avail/h).toFixed(3)};
+  window.addEventListener('resize',fit);m._wrap._onclose=()=>window.removeEventListener('resize',fit);
   const keep=()=>{const o={};['clR','clA','clM'].forEach(k=>{const e=$('#'+k,m);if(e)o[k]=e.value});m._v=Object.assign(m._v||{},o)};
   const paint=()=>{
     $('#clB',m).innerHTML=`<div class="clinfo">${blk('Company / Agent',esc(co?co.name:'No company'))}${blk('RSVN · Guest',esc(item.rsvn)+' · '+esc(item.guest||'—'))}${blk('Outstanding',m2(item.open))}${blk('User name',esc(who))}${blk('Date &amp; time',esc(fd(H.set.bd)+' '+tm(openAt)))}${blk('Payment method',cur?esc(cur.desc):'<span class="clmut">Choose below</span>')}</div>
-     <div class="nitabs">${tabs().map(t=>`<button class="${t===tab?'on':''}" data-pt="${esc(t)}">${esc(titleLabel(t,'p:'))}</button>`).join('')}</div>
+     <div class="clpay"><div class="nitabs">${tabs().map(t=>`<button class="${t===tab?'on':''}" data-pt="${esc(t)}">${esc(titleLabel(t,'p:'))}</button>`).join('')}</div>
      <div class="nimain"><div class="nileft"><div class="nitiles">${types().filter(c=>c.ptab===tab).map(c=>`<button class="nitile ptile ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
       <div class="niform">${fld('Tran code',`<input value="${cur?cur.code:''}" disabled placeholder="Choose a payment type">`,'pyh')}${fld('Description',`<input value="${cur?esc(cur.desc):''}" disabled>`,'pyh')}
        ${fld('Reference#',`<input id="clR" maxlength="60" placeholder="Reference info (max 60 characters)">`,'pyh')}
        ${fld('Amount',`<div class="amtrow"><input id="clA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${m2(item.open)}"></div>`,'pyh')}
        ${fld('Remark',`<textarea id="clM" rows="2"></textarea>`)}<div class="err" id="clE"></div>
-       <div class="btns end"><button class="btn red" id="clX">Close</button><button class="btn purple" id="clS">Post payment</button></div></div></div>`;
+       <div class="btns end"><button class="btn red" id="clX">Close</button><button class="btn purple" id="clS">Post payment</button></div></div></div></div>`;
     if(m._v)['clR','clA','clM'].forEach(k=>{if(m._v[k]!=null&&m._v[k]!=='')$('#'+k,m).value=m._v[k]});
-    $$('[data-pt]',m).forEach(b=>b.onclick=()=>{keep();tab=b.dataset.pt;paint()});
+    $$('[data-pt]',m).forEach(b=>b.onclick=()=>{keep();tab=b.dataset.pt;paint()});fit();
     $$('[data-pc]',m).forEach(b=>b.onclick=()=>{keep();cur=TCODES.find(c=>c.code===b.dataset.pc);if(cur)tab=cur.ptab;paint();$('#clA',m).focus()});
     $('#clX',m).onclick=()=>closeModal(m);
     $('#clS',m).onclick=()=>{
