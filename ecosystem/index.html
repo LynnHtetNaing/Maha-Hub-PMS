@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="b4da651f34">
+<meta name="maha-build" content="aa007d8422">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2470,6 +2470,10 @@ html[data-mode=dark] .csres #csDiffRow.loss{background:rgba(255,110,96,.14);colo
 .gridwrap.rg .grow.rgr>.gl b{display:flex;align-items:center;justify-content:center;gap:6px}.gridwrap.rg .grow.rgr>.gl span{font-size:10.5px;font-weight:400;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:134px;text-align:center}
 .rgi{width:16px;height:16px;border-radius:50%;border:0;background:#8d8d8d;color:#fff;font:700 11px/16px Georgia,serif;cursor:pointer;padding:0;flex:none}@media (hover:hover){.rgi:hover{background:#6f6f6f}}
 .rginfo{padding:8px 0;border-top:1px solid var(--line,#d3e6dc)}.rginfo:first-child{border-top:0}.rginfo b{display:block;margin-bottom:3px}.rginfo span{display:inline-block;min-width:56px;color:var(--mut,#587077)}
+/* City Ledger: Receive window */
+.clinfo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}@media(max-width:700px){.clinfo{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.clblk{border:1px solid var(--m-line,var(--line,#d3e6dc));border-radius:10px;background:color-mix(in srgb,var(--a1,#0e8a82) 6%,transparent);padding:8px 12px;min-width:0}.clblk small{display:block;color:var(--m-mut,var(--mut,#587077));font-size:11px}.clblk b{display:block;overflow-wrap:anywhere}.clmut{color:var(--m-mut,var(--mut,#587077));font-weight:400}
+.clrow{cursor:pointer}.clsub td{background:color-mix(in srgb,var(--a1,#0e8a82) 5%,transparent);font-size:12px}
 /* Hotel Status and Manager Dashboard (calm cards and tables; follows the colour theme, Light and Dark) */
 .hsnew,.hs2d{--hs-card:var(--m-card,#fff);--hs-line:var(--m-line,#dbe6e1);--hs-ink:var(--m-ink,#12281f);--hs-mut:var(--m-mut,#5b7266);--hs-acc:var(--a1,#0f6b4a);--hs-soft:var(--m-soft,#f3f8f5);--hs-head:color-mix(in srgb,var(--hs-acc) 78%,#000);--hs-headT:#fff;--hs-cur:color-mix(in srgb,var(--hs-acc) 13%,transparent);--hs-ln:color-mix(in srgb,var(--hs-ink) 17%,transparent)}
 html[data-mode=dark] .hsnew,html[data-mode=dark] .hs2d{--hs-head:color-mix(in srgb,var(--hs-acc) 26%,var(--hs-card));--hs-headT:var(--hs-ink)}
@@ -4625,7 +4629,7 @@ const bal=B=>r2(sum(B.lines,l=>l.amt));
 const isCharge=l=>['post','room','corrpost'].includes(l.kind);
 const charges=B=>r2(sum(B.lines.filter(isCharge),l=>l.amt));
 const folioBal=(B,f)=>r2(sum(B.lines.filter(l=>l.folio===f),l=>l.amt));
-function allLinesH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>b.lines.forEach(l=>o.push(l))));(h.dummyHist||[]).forEach(e=>(e.lines||[]).forEach(l=>o.push(l)));return o}
+function allLinesH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>b.lines.forEach(l=>o.push(l))));(h.dummyHist||[]).forEach(e=>(e.lines||[]).forEach(l=>o.push(l)));(h.cityLedger||[]).forEach(it=>(it.pays||[]).forEach(p=>{if(p.line)o.push(p.line)}));return o}
 /* Payment received, from the fixed record line (payrec) minus any correct-payment line in the same group */
 function paymentsIn(lines){const out=[],rec=new Set();lines.forEach(l=>{if(l.kind==='payrec'){out.push({l,amt:-l.amt});if(l.group)rec.add(l.group)}});
   lines.forEach(l=>{if(l.kind==='corrpay')out.push({l,amt:-l.amt});else if(l.kind==='pay'&&!(l.group&&rec.has(l.group)))out.push({l,amt:-l.amt})});return out}
@@ -13868,25 +13872,62 @@ function buyOpen(p){return r2(Math.max(0,(+p.amt||0)-sum(p.pays||[],x=>+x.amt||0
 function pettyBal(upto){const rows=(H.petty||[]).filter(p=>!upto||p.bd<=upto),back=(H.petty||[]).filter(p=>p.dir==='out'&&p.back&&(!upto||p.back.bd<=upto));return r2((+H.pettyFloat||0)+sum(rows,p=>p.dir==='in'?+p.amt:-+p.amt)+sum(back,p=>+p.amt||0))}
 function settleCity(id){if(!need('pay'))return;refreshCityItems(H);const item=(H.cityLedger||[]).find(x=>x.id===id);
   if(!item||item.status!=='open'){toast('This invoice is not open.');return}
-  const co=CO(item.companyId);
-  const m=modal('Receive city ledger',`<p><b>${esc(co?co.name:'No company')}</b> · RSVN ${esc(item.rsvn)} · ${esc(item.guest)} · open <b>${m2(item.open)}</b></p>
-   <div class="form2 mt">${fld('Amount',`<input id="clA" class="n" inputmode="decimal" value="${m2(item.open)}">`)}${fld('Method',`<select id="clM"><option>Cash</option><option>Bank transfer</option><option>Card</option><option>Cheque</option></select>`)}
-   ${fld('Reference',`<input id="clR" maxlength="60">`,'span2')}</div><div class="err" id="clE"></div><div class="btns"><button class="btn gold" id="clS">Receive</button></div>`,{w:560});
-  $('#clS',m).onclick=()=>{if(!need('pay'))return;const a=r2(+String($('#clA',m).value).replace(/,/g,''));if(!(a>0)){$('#clE',m).textContent='Enter an amount above 0.';return}
-    if(a>item.open+0.004){$('#clE',m).textContent='That is more than the open balance.';return}
-    item.pays.push({at:Date.now(),bd:H.set.bd,amt:a,method:$('#clM',m).value,ref:$('#clR',m).value.trim(),user:user().name});
-    refreshCityItems(H);log(`City ledger receipt ${m2(a)} ${$('#clM',m).value} RSVN ${item.rsvn}`,item.bookingId);closeModal(m);refresh();toast('Receipt recorded')}}
+  const co=CO(item.companyId),openAt=Date.now(),who=user().name;
+  /* the payment types of the folio payment window, without City Ledger itself (the money is being received now) */
+  const types=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&!c.refund&&payEnabled(c)&&c.ptab!=='CITY LEDGER'&&PAY_TABS.includes(c.ptab));
+  const tabs=()=>PAY_TABS.filter(t=>t!=='CITY LEDGER'&&types().some(c=>c.ptab===t));
+  let cur=null,tab=tabs()[0]||'';
+  const m=modal('Receive city ledger','<div id="clB"></div>',{w:1100,cls:'nimodal paym clrecv'});
+  const blk=(l,v)=>`<div class="clblk"><small>${l}</small><b>${v}</b></div>`;
+  const keep=()=>{const o={};['clR','clA','clM'].forEach(k=>{const e=$('#'+k,m);if(e)o[k]=e.value});m._v=Object.assign(m._v||{},o)};
+  const paint=()=>{
+    $('#clB',m).innerHTML=`<div class="clinfo">${blk('Company / Agent',esc(co?co.name:'No company'))}${blk('RSVN · Guest',esc(item.rsvn)+' · '+esc(item.guest||'—'))}${blk('Outstanding',m2(item.open))}${blk('User name',esc(who))}${blk('Date &amp; time',esc(fd(H.set.bd)+' '+tm(openAt)))}${blk('Payment method',cur?esc(cur.desc):'<span class="clmut">Choose below</span>')}</div>
+     <div class="nitabs">${tabs().map(t=>`<button class="${t===tab?'on':''}" data-pt="${esc(t)}">${esc(titleLabel(t,'p:'))}</button>`).join('')}</div>
+     <div class="nimain"><div class="nileft"><div class="nitiles">${types().filter(c=>c.ptab===tab).map(c=>`<button class="nitile ptile ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
+      <div class="niform">${fld('Tran code',`<input value="${cur?cur.code:''}" disabled placeholder="Choose a payment type">`,'pyh')}${fld('Description',`<input value="${cur?esc(cur.desc):''}" disabled>`,'pyh')}
+       ${fld('Reference#',`<input id="clR" maxlength="60" placeholder="Reference info (max 60 characters)">`,'pyh')}
+       ${fld('Amount',`<div class="amtrow"><input id="clA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${m2(item.open)}"></div>`,'pyh')}
+       ${fld('Remark',`<textarea id="clM" rows="2"></textarea>`)}<div class="err" id="clE"></div>
+       <div class="btns end"><button class="btn red" id="clX">Close</button><button class="btn purple" id="clS">Post payment</button></div></div></div>`;
+    if(m._v)['clR','clA','clM'].forEach(k=>{if(m._v[k]!=null&&m._v[k]!=='')$('#'+k,m).value=m._v[k]});
+    $$('[data-pt]',m).forEach(b=>b.onclick=()=>{keep();tab=b.dataset.pt;paint()});
+    $$('[data-pc]',m).forEach(b=>b.onclick=()=>{keep();cur=TCODES.find(c=>c.code===b.dataset.pc);if(cur)tab=cur.ptab;paint();$('#clA',m).focus()});
+    $('#clX',m).onclick=()=>closeModal(m);
+    $('#clS',m).onclick=()=>{
+      const a=r2(+String($('#clA',m).value).replace(/,/g,''));
+      if(!cur){$('#clE',m).textContent='Choose a payment type.';return}
+      if(!(a>0)){$('#clE',m).textContent='Enter an amount above 0.';return}
+      if(a>item.open+0.004){$('#clE',m).textContent='That is more than the outstanding balance.';return}
+      noShiftGate('payment',sh=>{
+        const s=sh||(curShift()&&!curShift().virtual?curShift():null),t=Date.now();
+        /* a payment line that is not on any guest folio: it is counted in the shift and in the reports */
+        const line={id:'l'+uid(),sys:H.set.nextSys++,folio:1,bd:H.set.bd,orgDate:H.set.bd,time:t,code:cur.code,desc:'City ledger receipt - '+cur.desc,ref:$('#clR',m).value.trim(),amt:-a,kind:'pay',method:cur.desc,group:'pg'+uid(),link:null,night:null,fixed:false,deposit:false,adv:false,vat:false,user:who,shiftId:s?s.id:null,shiftName:s?s.name:'',remark:$('#clM',m).value.trim(),clItem:item.id,hist:[{at:t,user:who,shift:s?s.name:'',a:'Received on the city ledger'}]};
+        item.pays.push({at:t,bd:H.set.bd,amt:a,method:cur.desc,ref:line.ref,user:who,line});
+        refreshCityItems(H);log(`City ledger receipt ${m2(a)} ${cur.desc} RSVN ${item.rsvn}`,item.bookingId);closeModal(m);refresh();toast('Receipt recorded')})}};
+  paint()}
+/* the receipt of one payment, in the same Transaction window the folio uses (read only) */
+function clTxModal(item,p){
+  const l=p.line||{code:'',desc:'City ledger receipt - '+(p.method||''),ref:p.ref||'',remark:'',amt:-p.amt,time:p.at,bd:p.bd,user:p.user,shiftName:''},co=CO(item.companyId);
+  const m=modal('Transaction',`<div class="tx"><div class="txgrid">${fld('Code',`<input value="${esc(l.code||'')}" disabled>`,'txcode')}${fld('Description',`<input value="${esc(l.desc)}" disabled>`)}${fld('Reference#',`<input value="${esc(l.ref||'')}" disabled>`)}
+    ${fld('Remark',`<textarea rows="3" disabled>${esc(l.remark||'')}</textarea>`,'txrem')}${fld('Amount',`<div class="amtbox"><input class="n" value="${m2(l.amt)}" disabled></div>`,'txamt')}</div>
+    <div class="ttabs"><button class="on" type="button">Posting Information</button></div>
+    <div class="pinfo"><div><p>User Name: <b class="c1">*${esc(l.user||p.user||'')}</b></p><p>Date: <b class="c1">${fd(l.bd||p.bd)}</b> Time: <b class="c1">${tm(l.time||p.at)}</b></p><p>Shift: <b class="c1">${esc(l.shiftName||'—')}</b></p></div>
+     <div><p>Company / Agent: <b class="c1">${esc(co?co.name:'—')}</b></p><p>RSVN: <b class="c1">${esc(item.rsvn)}</b> · Guest: <b class="c1">${esc(item.guest||'—')}</b></p><p>Payment method: <b class="c1">${esc(p.method||l.method||'')}</b></p></div></div></div>
+    <div class="btns end"><button type="button" class="btn ghost" data-clx>Close</button></div>`,{w:980,cls:'txmodal'});
+  m.querySelector('[data-clx]').onclick=()=>closeModal(m)}
 VIEWS['bill.city']=el=>{
   if(!(can('pay')||can('reports')||can('setup')||user().provider)){el.innerHTML='<div class="empty">City Ledger needs the payment or reports permission.</div>';return}
   refreshCityItems(H);const open=(H.cityLedger||[]).filter(x=>x.status==='open');const buckets=['0-30','31-60','61-90','90+'];
   const tot=k=>r2(sum(open.filter(x=>ageOf(x)===k),x=>x.open));
   el.innerHTML=pageHead('City Ledger',`<span class="sub">Open ${m2(sum(open,x=>x.open))} ${esc(H.set.cur)}</span>`)+`
    <div class="scards" style="grid-template-columns:repeat(4,1fr)">${buckets.map((k,i)=>`<div class="scard c${i+1}"><div class="st1">${k} days</div><div class="sn" style="font-size:22px">${m2(tot(k))}</div><div class="spx">${open.filter(x=>ageOf(x)===k).length} open</div></div>`).join('')}</div>
-   <div class="panel scroll mt"><table class="grid"><tr><th>Date</th><th>Company / Agent</th><th>RSVN</th><th>Room</th><th>Guest</th><th>Ref</th><th class="n">Amount</th><th class="n">Open</th><th>Age</th><th></th></tr>
+   <div class="panel scroll mt"><table class="grid"><tr><th>Date</th><th>Company / Agent</th><th>RSVN</th><th>Room</th><th>Guest</th><th>Ref</th><th class="n">Amount</th><th class="n">Outstanding</th><th class="n">Received</th><th>Payment method</th><th>Age</th><th></th></tr>
    ${(H.cityLedger||[]).filter(x=>x.status!=='void').sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||String(a.bd).localeCompare(b.bd)).map(x=>{const c=CO(x.companyId);
-     return `<tr><td>${fd(x.bd)}</td><td>${esc(c?c.name:'—')}</td><td>${esc(x.rsvn)}</td><td>${esc(x.room||'')}</td><td>${esc(x.guest)}</td><td>${esc(x.ref||'')}</td><td class="n">${m2(x.amt)}</td><td class="n ${x.open>0?'bad':''}">${m2(x.open)}</td><td><span class="pill ${x.status==='paid'?'g':ageOf(x)==='90+'?'r':ageOf(x)==='0-30'?'g':'y'}">${x.status==='paid'?'Paid':ageOf(x)}</span></td><td>${x.status==='open'&&can('pay')?`<button class="btn sm" data-cls="${x.id}">Receive</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="10" class="empty">No city-ledger invoices yet. On a folio, post payment code 930 (City Ledger) or 931 (Travel Agent Ledger).</td></tr>'}
+     const pays=(x.pays||[]),got=r2(sum(pays,p=>+p.amt||0)),meth=[...new Set(pays.map(p=>p.method).filter(Boolean))].join(', ');
+     return `<tr class="${pays.length?'clrow':''}" ${pays.length?`data-clt="${x.id}|${pays.length-1}" title="Click to see the payment"`:''}><td>${fd(x.bd)}</td><td>${esc(c?c.name:'—')}</td><td>${esc(x.rsvn)}</td><td>${esc(x.room||'')}</td><td>${esc(x.guest)}</td><td>${esc(x.ref||'')}</td><td class="n">${m2(x.amt)}</td><td class="n ${x.open>0?'bad':''}">${m2(x.open)}</td><td class="n">${got?m2(got):''}</td><td>${esc(meth)}</td><td><span class="pill ${x.status==='paid'?'g':ageOf(x)==='90+'?'r':ageOf(x)==='0-30'?'g':'y'}">${x.status==='paid'?'Paid':ageOf(x)}</span></td><td>${x.status==='open'&&can('pay')?`<button class="btn sm" data-cls="${x.id}">Receive</button>`:''}</td></tr>`+pays.map((p,i)=>`<tr class="clrow clsub" data-clt="${x.id}|${i}" title="Click to see the payment"><td colspan="7"><span class="clmut">Receipt ${fd(p.bd)} ${tm(p.at)} · ${esc(p.user||'')}</span></td><td class="n"></td><td class="n"><b>${m2(p.amt)}</b></td><td>${esc(p.method||'')}</td><td colspan="2"></td></tr>`).join('')}).join('')||'<tr><td colspan="12" class="empty">No city-ledger invoices yet. On a folio, post payment code 930 (City Ledger) or 931 (Travel Agent Ledger).</td></tr>'}
    </table></div><p class="sub">Those payments move the guest balance onto the company account. Receive the money here when the company pays. Nothing is posted on the guest folio a second time.</p>`;
-  $$('[data-cls]',el).forEach(b=>b.onclick=()=>settleCity(b.dataset.cls));
+  $$('[data-cls]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();settleCity(b.dataset.cls)});
+  $$('[data-clt]',el).forEach(r=>r.onclick=()=>{const[id,i]=r.dataset.clt.split('|'),it=(H.cityLedger||[]).find(x=>x.id===id);if(it&&it.pays[+i])clTxModal(it,it.pays[+i])});
 };
 VIEWS['cd.petty']=el=>{
   if(!H){el.innerHTML='<div class="empty">Open a hotel first.</div>';return}
@@ -14130,17 +14171,16 @@ VIEWS['fo.dash']=el=>{
   const sale=Math.max(0,sell.length-ooo);const occ=sale?S.ih.length/sale*100:0;const rev=r2(sum(allLinesH(H).filter(l=>l.bd===bd&&(l.kind==='room'||l.code==='100')),l=>l.amt));
   refreshCityItems(H);const cl=r2(sum((H.cityLedger||[]).filter(x=>x.status==='open'),x=>x.open));const pend=(H.approvals||[]).filter(a=>a.status==='pending').length;
   const adr=S.ih.length?r2(sum(S.ih,b=>billRate(b,bd))/S.ih.length):0;
-  const link=(go,id,t)=>`<button type="button" class="hs2-lk" data-go="${go}" ${id?`data-id="${id}"`:''}>${t}</button>`;
-  el.innerHTML=pageHead('Manager Dashboard',`<span class="sub">${fdWide(bd)}</span>`)+`<div class="hs2d"><div class="hs2-card" style="margin-bottom:16px"><h2>Today at a glance</h2><div class="hs2-tw free"><table><thead><tr><th>Measure</th><th class="n">Now</th><th>Detail</th></tr></thead><tbody>
-    <tr><td><b>Occupancy</b></td><td class="n">${occ.toFixed(0)}%</td><td>${S.ih.length} in house</td></tr>
-    <tr><td><b>Arrivals</b></td><td class="n">${S.arrPend.length} to come</td><td>${S.arrAct.length} already in</td></tr>
-    <tr><td><b>Due out</b></td><td class="n">${S.depPend.length} to leave</td><td>${S.depAct.length} checked out</td></tr>
-    <tr><td><b>Room revenue today</b></td><td class="n">${m2(rev)}</td><td>ADR ${m2(adr)}</td></tr>
-    <tr><td><b>City ledger open</b></td><td class="n">${m2(cl)}</td><td>${pend} approval${pend===1?'':'s'} waiting</td></tr>
-    <tr><td><b>Out of order</b></td><td class="n">${ooo}</td><td>${sell.length} rooms for sale</td></tr></tbody></table></div></div>
-   <div class="hs2d-row2"><div class="hs2-card"><h2>Still to arrive</h2><div class="hs2-tw"><table><thead><tr><th>Room</th><th>Guest</th><th>Arrival</th><th></th></tr></thead><tbody>${S.arrPend.map(b=>`<tr><td>${b.room?`<span class="hs2-rs">${esc(b.room)}</span>`:'—'}</td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.arr)}</td><td>${link('res.open',b.id,'Open')}</td></tr>`).join('')||'<tr><td colspan="4" class="hs2-empty">No arrivals left today.</td></tr>'}</tbody></table></div></div>
-    <div class="hs2-card"><h2>Due out</h2><div class="hs2-tw"><table><thead><tr><th>Room</th><th>Guest</th><th>Departure</th><th class="n">Balance</th><th></th></tr></thead><tbody>${S.depPend.map(b=>`<tr><td>${b.room?`<span class="hs2-rs">${esc(b.room)}</span>`:'—'}</td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.dep)}</td><td class="n ${bal(b)?'hs2-bad':''}">${m2(bal(b))}</td><td>${link('bill.open',b.id,'Folio')}</td></tr>`).join('')||'<tr><td colspan="5" class="hs2-empty">No one is due out.</td></tr>'}</tbody></table></div></div></div>
-   <div class="hs2-card"><h2>Open this</h2><div class="hs2d-links">${[['fo.arrivals','Arrivals'],['fo.departures','Departures'],['bill.city','City ledger'],['set.approve','Approvals'],['fo.roster','Duty roster']].filter(x=>VIEWS[x[0]]&&viewAllowed(x[0])&&(x[0]!=='set.approve'||canApprove())).map(x=>link(x[0],'',x[1])).join('')}</div></div></div>`;
+  el.innerHTML=pageHead('Manager Dashboard',`<span class="sub">${fdWide(bd)}</span>`)+`<div class="scards">
+    <div class="scard c1"><div class="st1">Occupancy</div><div class="sn">${occ.toFixed(0)}%</div><div class="spx">${S.ih.length} in house</div></div>
+    <div class="scard c2"><div class="st1">Arrivals</div><div class="sn">${S.arrPend.length}</div><div class="spx">${S.arrAct.length} already in</div></div>
+    <div class="scard c3"><div class="st1">Due out</div><div class="sn">${S.depPend.length}</div><div class="spx">${S.depAct.length} checked out</div></div>
+    <div class="scard c4"><div class="st1">Room revenue today</div><div class="sn" style="font-size:22px">${m2(rev)}</div><div class="spx">ADR ${m2(adr)}</div></div>
+    <div class="scard c5"><div class="st1">City ledger open</div><div class="sn" style="font-size:22px">${m2(cl)}</div><div class="spx">${pend} approval${pend===1?'':'s'}</div></div>
+    <div class="scard rev"><div class="st1">Out of order</div><div class="sn">${ooo}</div><div class="spx">${sell.length} rooms for sale</div></div></div>
+    <div class="cols2 mt"><div class="panel"><div class="ph">Still to arrive</div><table class="grid"><tr><th>Room</th><th>Guest</th><th>Arrival</th><th></th></tr>${S.arrPend.map(b=>`<tr><td>${esc(b.room||'—')}</td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.arr)}</td><td><button class="btn sm" data-go="res.open" data-id="${b.id}">Open</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No arrivals left today.</td></tr>'}</table></div>
+    <div class="panel"><div class="ph">Due out</div><table class="grid"><tr><th>Room</th><th>Guest</th><th>Departure</th><th class="n">Balance</th><th></th></tr>${S.depPend.map(b=>`<tr><td>${esc(b.room||'—')}</td><td>${esc(gName(G(b.guestId)))}</td><td>${fd(b.dep)}</td><td class="n">${m2(bal(b))}</td><td><button class="btn sm" data-go="bill.open" data-id="${b.id}">Folio</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No one is due out.</td></tr>'}</table></div></div>
+    <div class="panel mt"><div class="ph">Open this</div><div class="btns" style="padding:10px">${[['fo.arrivals','Arrivals'],['fo.departures','Departures'],['bill.city','City ledger'],['set.approve','Approvals'],['fo.roster','Duty roster']].filter(x=>VIEWS[x[0]]&&viewAllowed(x[0])&&(x[0]!=='set.approve'||canApprove())).map(x=>`<button class="btn" data-go="${x[0]}">${x[1]}</button>`).join('')}</div></div>`;
   $$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go,b.dataset.id||undefined));
 };
 function approvalTable(list,act){return `<table class="grid"><tr><th>When</th><th>By</th><th>Request</th><th class="n">Amount</th><th>Status</th>${act?'<th></th>':''}</tr>${list.map(a=>{const d=act&&a.status==='pending'?canDecide(a):null;return `<tr><td>${fdt(a.at)}</td><td>${esc(a.by||'')}</td><td>${esc(a.title||a.action)}${approvalBig(a)?' <span class="pill r">Large</span>':''}</td><td class="n">${approvalAmt(a)?m2(approvalAmt(a)):''}</td><td><span class="pill ${a.status==='approved'?'g':a.status==='rejected'?'r':'y'}">${esc(a.status)}</span></td>${d&&d.ok?`<td class="nowrap"><button class="btn sm" data-apy="${a.id}">Approve</button> <button class="btn sm ghost" data-apn="${a.id}">Reject</button></td>`:act?`<td class="sub">${d?esc(d.why):''}</td>`:''}</tr>`}).join('')||`<tr><td colspan="${act?6:5}" class="empty">Nothing waiting.</td></tr>`}</table>`}
