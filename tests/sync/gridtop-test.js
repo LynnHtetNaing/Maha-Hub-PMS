@@ -37,4 +37,5 @@ T('the page does not scroll on Room Grid (the table does)', src.includes('html:h
   }
   T('every :hover rule sits inside @media (hover:hover) and a tap shows no grey flash', bad === 0 && src.includes('html{-webkit-tap-highlight-color:transparent}'), bad ? bad + ' outside' : '');
 }
+T('Guest Profile: the dates and RM + room number wrap as units, never RM alone at the end of a line', src.includes('<span class="nwr">${fd(x.cur.arr)}–${fd(x.cur.dep)}</span>') && src.includes('<span class="nwr">RM '+esc(x.cur.room)+'</span>') && src.includes('.nwr{white-space:nowrap}'));
 process.exit(fails ? 1 : 0);
