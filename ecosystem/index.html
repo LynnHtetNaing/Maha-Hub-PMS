@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="b91ec904bb">
+<meta name="maha-build" content="b9cc531726">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -13925,8 +13925,14 @@ function settleCity(id){if(!need('pay'))return;refreshCityItems(H);const item=(H
         refreshCityItems(H);log(`City ledger receipt ${fx?cs.cur+' '+m2(a)+' = ':''}${m2(eq)} ${cur.desc} RSVN ${item.rsvn}`,item.bookingId);closeModal(m);refresh();toast('Receipt recorded')})}};
   paint()}
 /* the receipt of one payment, in the same Transaction window the folio uses (read only) */
+function clCorrect(item,p,why,asU,shift){
+  const t=Date.now(),s1=shift||(curShift()&&!curShift().virtual?curShift():null),u=asU||user().name,c=Object.assign({},p.line,{id:'l'+uid(),sys:H.set.nextSys++,time:t,bd:H.set.bd,orgDate:H.set.bd,kind:'corrpay',desc:'Correct - '+p.line.desc,amt:-p.line.amt,link:p.line.id,user:u,shiftId:s1?s1.id:null,shiftName:s1?s1.name:'',remark:String(why||''),hist:[{at:t,user:u,shift:s1?s1.name:'',a:'Payment corrected'}]});
+  if(p.line.fc){c.fa=-p.line.fa;c.eq=-p.line.eq}
+  p.corr=c;p.corrected={at:t,bd:H.set.bd,user:u,reason:String(why||'')};refreshCityItems(H);
+  log(`City ledger receipt corrected ${m2(p.amt)} ${p.method} RSVN ${item.rsvn}`,item.bookingId)}
 function clTxModal(item,p){
-  const canCorr=!!p.line&&!p.corrected&&p.bd===H.set.bd&&(can('corrpay')||!!user().provider);
+  const direct=can('corrpay')||!!user().provider,viaReq=!direct&&reqFlowOn(),pend=p.line&&(H.approvals||[]).find(a=>a.status==='pending'&&a.action==='clcorr'&&a.lineId===p.line.id);
+  const canCorr=!!p.line&&!p.corrected&&p.bd===H.set.bd&&(direct||viaReq)&&!pend;
   const l=p.line||{code:'',desc:'City ledger receipt - '+(p.method||''),ref:p.ref||'',remark:'',amt:-p.amt,time:p.at,bd:p.bd,user:p.user,shiftName:''},co=CO(item.companyId);
   const m=modal('Transaction',`<div class="tx"><div class="txgrid">${fld('Code',`<input value="${esc(l.code||'')}" disabled>`,'txcode')}${fld('Description',`<input value="${esc(l.desc)}" disabled>`)}${fld('Reference#',`<input value="${esc(l.ref||'')}" disabled>`)}
     ${fld('Remark',`<textarea rows="3" disabled>${esc(l.remark||'')}</textarea>`,'txrem')}${fld('Amount',`<div class="amtbox"><input class="n" value="${m2(l.amt)}" disabled></div>${l.fc?`<div class="sub">Paid in ${esc(l.fc)} ${m2(-l.fa)} at ${esc(String(l.fr))}</div>`:''}`,'txamt')}</div>
@@ -13934,13 +13940,12 @@ function clTxModal(item,p){
     <div class="pinfo"><div><p>User Name: <b class="c1">*${esc(l.user||p.user||'')}</b></p><p>Date: <b class="c1">${fd(l.bd||p.bd)}</b> Time: <b class="c1">${tm(l.time||p.at)}</b></p><p>Shift: <b class="c1">${esc(l.shiftName||'—')}</b></p></div>
      <div><p>Company / Agent: <b class="c1">${esc(co?co.name:'—')}</b></p><p>RSVN: <b class="c1">${esc(item.rsvn)}</b> · Guest: <b class="c1">${esc(item.guest||'—')}</b></p><p>Payment method: <b class="c1">${esc(p.method||l.method||'')}</b></p></div></div></div>
     ${p.corrected?`<p class="sub"><b>Corrected</b> by ${esc(p.corrected.user)} on ${fd(p.corrected.bd)} ${tm(p.corrected.at)}${p.corrected.reason?' · '+esc(p.corrected.reason):''}. It no longer counts.</p>`:''}
-    <div class="btns end">${canCorr?'<button type="button" class="btn" data-clc>Correct payment</button>':(p.corrected?'':'<span class="sub">'+(p.line&&p.bd!==H.set.bd?'A payment of a closed day cannot be corrected.':'Correct payment needs the permission.')+'</span>')}<button type="button" class="btn ghost" data-clx>Close</button></div>`,{w:980,cls:'txmodal'});
+    <div class="btns end">${canCorr?'<button type="button" class="btn" data-clc>Correct payment</button>':(p.corrected||!p.line?'':'<span class="sub">'+(pend?'A request to correct this payment is waiting for approval (asked by '+esc(pend.by||'')+').':p.bd!==H.set.bd?'A payment of a closed day cannot be corrected.':'Correct payment needs the permission.')+'</span>')}<button type="button" class="btn ghost" data-clx>Close</button></div>`,{w:980,cls:'txmodal'});
   m.querySelector('[data-clx]').onclick=()=>closeModal(m);
   if(canCorr)m.querySelector('[data-clc]').onclick=async()=>{
-    const why=await dlgAsk('Reason for the correction:','');if(why===null||why===undefined)return;
-    const t=Date.now(),s0=curShift(),s1=s0&&!s0.virtual?s0:null,u=user().name,c=Object.assign({},p.line,{id:'l'+uid(),sys:H.set.nextSys++,time:t,bd:H.set.bd,orgDate:H.set.bd,kind:'corrpay',desc:'Correct - '+p.line.desc,amt:-p.line.amt,link:p.line.id,user:u,shiftId:s1?s1.id:null,shiftName:s1?s1.name:'',remark:String(why).trim(),hist:[{at:t,user:u,shift:s1?s1.name:'',a:'Payment corrected'}]});
-    if(p.line.fc){c.fa=-p.line.fa;c.eq=-p.line.eq}
-    p.corr=c;p.corrected={at:t,bd:H.set.bd,user:u,reason:String(why).trim()};refreshCityItems(H);log(`City ledger receipt corrected ${m2(p.amt)} ${p.method} RSVN ${item.rsvn}`,item.bookingId);closeModal(m);refresh();toast('Payment corrected. The invoice is open again.')}}
+    const why=await dlgAsk('Reason for the correct payment (e.g. wrong payment type):');if(!why||!why.trim()){toast('A correct payment needs a reason.');return}
+    if(!direct){queueApproval({action:'clcorr',kind:'corrpay',bookingId:item.bookingId,itemId:item.id,lineId:p.line.id,title:'Correct payment '+(p.method||'')+' '+m2(p.amt)+' (City Ledger, RSVN '+item.rsvn+')',amt:p.amt,reason:why.trim(),noPerm:true});closeModal(m);refresh();askNotice('Correct payment');return}
+    clCorrect(item,p,why.trim());closeModal(m);refresh();toast('Payment corrected. The invoice is open again.')}}
 VIEWS['bill.city']=el=>{
   if(!(can('pay')||can('reports')||can('setup')||user().provider)){el.innerHTML='<div class="empty">City Ledger needs the payment or reports permission.</div>';return}
   refreshCityItems(H);const open=(H.cityLedger||[]).filter(x=>x.status==='open');const buckets=['0-30','31-60','61-90','90+'];
@@ -14080,6 +14085,10 @@ function applyVoid(B,l,why,asU){const fol=B.lines.some(x=>x.group===l.group&&x.k
 function applyApproval(ap){APPROVING=ap&&ap.id||'';try{return applyApprovalCore(ap)}finally{APPROVING=''}}
 function applyApprovalCore(ap){const B=bookingById(ap.bookingId);if(!B){toast('That booking is no longer on file.');return false}
   const asU=ap.by||user().name,ok=' (approved by '+user().name+')';
+  if(ap.action==='clcorr'){const it=(H.cityLedger||[]).find(x=>x.id===ap.itemId),p=it&&(it.pays||[]).find(x=>x.line&&x.line.id===ap.lineId);if(!p){toast('That payment is gone.');return false}if(p.corrected){toast('This payment is already corrected.');return false}
+    if(p.bd!==H.set.bd){toast('The day of this payment is closed. A payment of a closed day cannot be corrected.');return false}
+    const sh=(H.shifts||[]).find(x=>x.id===p.line.shiftId);if(p.line.shiftId&&(!sh||sh.status==='closed')){toast('The shift that took this payment is already closed.');return false}
+    clCorrect(it,p,(ap.reason||'')+' (asked by '+asU+', approved by '+user().name+')',asU,sh||null);return true}
   if(ap.action==='move'){const T=bookingById(ap.toId);if(!T){toast('That room is no longer on file.');return false}
     const lines=(ap.lineIds||[]).map(id=>B.lines.find(x=>x.id===id)).filter(Boolean);
     if(lines.length!==(ap.lineIds||[]).length||lines.some(x=>x.folio!==ap.fromFolio||x.fixed||payLocked(x)||lineBlock(B,x))){toast('The folio changed. Those lines can no longer be moved.');return false}
