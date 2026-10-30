@@ -26,6 +26,12 @@
 //   forget_devices    username                       - the person is asked for a new sign-in code on every device
 //   staff_signin_list property_code                  - staff of one hotel: masked email and the date of the last code check
 //   (create_hotel also accepts chain_code: the new hotel joins that chain)
+//   Admin team (Master admin only; every other admin is refused for every action):
+//   invite_admin     username, email, name, all_hotels (boolean), hotels (codes, when not all) - creates a platform admin and emails a set-password link
+//   admin_hotels     username, all_hotels (boolean), hotels (codes)
+//   admin_set_active username, active (boolean)  - on/off; off also bans the sign-in so the person is signed out
+//   resend_admin_invite username
+//   remove_admin     username                    - erases the admin (never the Master)
 //
 // Account creation order (so a failure never leaves partial data or a stray email):
 //   1. create the auth user (confirmed, no email yet; fails if the email exists, so a pre-existing
@@ -97,8 +103,12 @@ const handle = async (req: Request): Promise<Response> => {
 
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: owner, error: ownerError } = await admin
-    .from("maha_platform_admins").select("user_id").eq("user_id", caller.user.id).maybeSingle();
+    .from("maha_platform_admins").select("*").eq("user_id", caller.user.id).maybeSingle();
   if (ownerError || !owner) return json({ error: "forbidden" }, 403);
+  // before the Admin team migration the columns do not exist: the one provider is then the Master
+  const ownerRow = owner as { active?: boolean; is_master?: boolean };
+  if (ownerRow.active === false) return json({ error: "forbidden" }, 403);
+  const isMaster = ownerRow.is_master !== false;
   const ownerId = caller.user.id;
 
   // Activity log (server-side, permanent). Logging is best effort: it can never break a request.
@@ -157,6 +167,11 @@ const handle = async (req: Request): Promise<Response> => {
       else if (action === "set_invoice_format") event = ok ? "invoice_format_changed" : "invoice_format_change_failed";
       else if (action === "set_access") event = ok ? (b.allowed ? "hotel_access_granted" : "hotel_access_removed") : "hotel_access_failed";
       else if (action === "change_staff_email") event = ok ? "staff_email_changed" : "staff_email_change_failed";   // the address itself is never logged
+      else if (action === "invite_admin") event = ok ? "admin_invited" : "admin_invite_failed";
+      else if (action === "admin_hotels") event = ok ? "admin_hotels_changed" : "admin_hotels_failed";
+      else if (action === "admin_set_active") event = ok ? (b.active ? "admin_enabled" : "admin_disabled") : "admin_status_failed";
+      else if (action === "resend_admin_invite") event = ok ? "admin_invite_resent" : "admin_invite_resend_failed";
+      else if (action === "remove_admin") event = ok ? "admin_removed" : "admin_remove_failed";
       else if (action === "forget_devices") event = ok ? "trusted_devices_reset" : "trusted_devices_reset_failed";
       if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
       if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
@@ -167,6 +182,9 @@ const handle = async (req: Request): Promise<Response> => {
     } catch { /* logging must never break the request */ }
     return json(resBody, status);
   };
+
+  // Only the Master admin may use any action (they all create or change accounts and hotels of the Master).
+  if (!isMaster) return respond({ error: "master_only" }, 403);
 
   let mailError = "";   // reason the last email was refused (e.g. over_email_send_rate_limit); never includes addresses
   const sendSetPasswordEmail = async (to: string) => {
@@ -548,6 +566,54 @@ const handle = async (req: Request): Promise<Response> => {
       return respond({ error: "invoice_format_failed" }, 502);
     }
     return respond({ ok: true, invoice_mode: mode });
+  }
+
+  // ---------------------------------------------------------------- Admin team (Master only, checked above)
+  if (action === "invite_admin" || action === "admin_hotels" || action === "admin_set_active" || action === "resend_admin_invite" || action === "remove_admin") {
+    const codes = Array.isArray(body.hotels) ? (body.hotels as unknown[]).map((x) => String(x).toUpperCase()).filter((x) => CODE.test(x)).slice(0, 500) : [];
+    const allHotels = body.all_hotels !== false;
+    if (action === "invite_admin") {
+      const nm = str("name");
+      if (!USERNAME.test(username) || !EMAIL.test(email) || email.length > 254 || nm.length > 80) return respond({ error: "invalid_fields" }, 400);
+      if (await usernameTaken(username)) return respond({ error: "username_taken" }, 409);
+      const result = await createAccountThen(async (userId) => {
+        const r = await admin.rpc("maha_provision_admin", {
+          p_master: ownerId, p_user: userId, p_username: username, p_email: email, p_name: nm, p_all: allHotels, p_codes: codes,
+        });
+        return { data: r.error ? null : true, error: r.error };
+      });
+      if (!result.ok) return result.response;
+      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email), invitation_error: mailError || undefined }, 201);
+    }
+    if (!USERNAME.test(username)) return respond({ error: "invalid_fields" }, 400);
+    const { data: ident } = await admin.from("maha_login_identities").select("user_id,recovery_email").eq("username_normalized", username.toLowerCase()).maybeSingle();
+    const { data: row } = ident ? await admin.from("maha_platform_admins").select("user_id,is_master").eq("user_id", (ident as { user_id: string }).user_id).maybeSingle() : { data: null };
+    if (!ident || !row) return respond({ error: "admin_not_found" }, 404);
+    if ((row as { is_master: boolean }).is_master) return respond({ error: "master_protected" }, 403);
+    const uid = (ident as { user_id: string }).user_id;
+    if (action === "admin_hotels") {
+      const { error } = await admin.rpc("maha_admin_apply_hotels", { p_master: ownerId, p_user: uid, p_all: allHotels, p_codes: codes, p_active: true });
+      if (error) return respond({ error: "provisioning_failed" }, 400);
+      return respond({ ok: true });
+    }
+    if (action === "admin_set_active") {
+      if (typeof body.active !== "boolean") return respond({ error: "invalid_fields" }, 400);
+      const active = body.active as boolean;
+      const { error } = await admin.rpc("maha_admin_set_active", { p_master: ownerId, p_user: uid, p_active: active });
+      if (error) return respond({ error: "provisioning_failed" }, 400);
+      const { error: banError } = await admin.auth.admin.updateUserById(uid, { ban_duration: active ? "none" : "876000h" });
+      if (banError) return respond({ error: "ban_update_failed", database_updated: true }, 502);
+      return respond({ ok: true, active });
+    }
+    if (action === "resend_admin_invite") {
+      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email);
+      return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
+    }
+    // remove_admin
+    const { error } = await admin.rpc("maha_admin_remove", { p_master: ownerId, p_user: uid });
+    if (error) return respond({ error: "provisioning_failed" }, 400);
+    const { error: delError } = await admin.auth.admin.deleteUser(uid);
+    return respond({ ok: true, sign_in_removed: !delError });
   }
 
   return respond({ error: "unsupported_action" }, 400);
