@@ -6,7 +6,7 @@ const a = src.indexOf('/* ---- No shift:'), b = src.indexOf('/* ---- end No shif
 if (a < 0 || b < 0) throw new Error('no-shift code not found');
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
-const X = new Function(src.slice(a, b) + '\nreturn {noShiftVirtual,openCashierShifts,pickPayShift,noShiftSessionOk,switchChoices};')();
+const X = new Function(src.slice(a, b) + '\nreturn {noShiftVirtual,openCashierShifts,pickPayShift,noShiftSessionOk,switchChoices,shiftless,isFrontOffice};')();
 
 /* the stand-in shift a person without a shift works under */
 const v = X.noShiftVirtual({ userId: 'u7', at: 1000 }, { username: 'gm.one' }, '2026-10-12');
@@ -26,7 +26,7 @@ T('a closed shift can never be picked', X.pickPayShift(open, 's1').id !== 's1');
 
 /* a no-shift sign-in ends when the provider takes the setting away */
 T('a no-shift session stays valid while the person is ticked', X.noShiftSessionOk({ noShift: true }, { noShift: true }) === true);
-T('a no-shift session is refused once the tick is removed or the person is gone', X.noShiftSessionOk({ noShift: true }, { noShift: undefined }) === false && X.noShiftSessionOk({ noShift: true }, null) === false);
+T('a no-shift session is refused once the tick is removed or the person is gone', X.noShiftSessionOk({ noShift: true }, { noShift: undefined, department: 'Front Office' }) === false && X.noShiftSessionOk({ noShift: true }, null) === false);
 T('a normal shift session is not affected', X.noShiftSessionOk({ shiftId: 's1' }, { noShift: false }) === true && X.noShiftSessionOk({}, null) === true);
 
 /* the switcher list */
@@ -38,4 +38,9 @@ T('the current hotel is marked and the names are shown', list.find(c => c.curren
 T('a hotel without a known name shows its code', list.find(c => c.code === 'MDL01').name === 'MDL01');
 T('only the hotels passed in are listed (nothing extra)', X.switchChoices([], names, 'BKK01').length === 0 && X.switchChoices(null, null, 'BKK01').length === 0);
 
-console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
+console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); /* only the Front Office department opens a shift */
+T('Front Office opens a shift, others never (HK, F&B, management)', X.shiftless({ department: 'Front Office' }) === false && X.shiftless({ department: 'Housekeeping' }) === true && X.shiftless({ department: 'F&B' }) === true && X.shiftless({ department: 'Management' }) === true);
+T('the no-shift tick still wins for a Front Office person', X.shiftless({ department: 'Front Office', noShift: true }) === true);
+T('no department set: the position or preset decides (front desk opens a shift, housekeeping does not)', X.shiftless({ role: 'Front desk' }) === false && X.shiftless({ position: 'Front Office Supervisor' }) === false && X.shiftless({ role: 'Housekeeping' }) === true && X.shiftless({ role: 'Manager' }) === true);
+T('a no-shift session of a person who has to open a shift is refused', X.noShiftSessionOk({ noShift: true }, { role: 'Front desk' }) === false && X.noShiftSessionOk({ noShift: true }, { department: 'Housekeeping' }) === true);
+process.exit(fails ? 1 : 0);

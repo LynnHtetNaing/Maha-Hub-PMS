@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="5dca2f75fa">
+<meta name="maha-build" content="2dd8107179">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4609,7 +4609,10 @@ const can=p=>{const u=user();return !!u.provider||(u.perms||[]).includes(p)||(p=
 function noShiftVirtual(se,u,bd){return {id:'ns-'+((se&&se.userId)||''),userId:se&&se.userId,userName:u?u.username:'',name:'No shift',bd,openAt:(se&&se.at)||Date.now(),openCash:0,status:'open',virtual:true,noShift:true}}
 const openCashierShifts=h=>((h&&h.shifts)||[]).filter(s=>s.status==='open');
 function pickPayShift(open,id){return (open||[]).find(s=>s.id===id)||(open||[])[0]||null}
-const noShiftSessionOk=(se,u)=>!(se&&se.noShift)||!!(u&&u.noShift);
+/* Only people of the Front Office department open a shift (and so fill the opening cash and choose Morning / Afternoon / Night). Everyone else, and anyone the provider ticked "no shift", signs in without one. A person with no department set is a Front Office person when the position or preset says front. */
+const isFrontOffice=u=>{if(!u)return false;const d=String(u.department||'').trim();if(d)return d==='Front Office';return /front/i.test((u.role||'')+' '+(u.position||''))};
+const shiftless=u=>!u||!!u.noShift||!isFrontOffice(u);
+const noShiftSessionOk=(se,u)=>!(se&&se.noShift)||(!!u&&shiftless(u));
 /* the hotels in the switcher: everything the person may open, with the current one marked */
 function switchChoices(props,names,current){return (props||[]).map(p=>({code:p.code,id:p.id,name:(names&&names[p.code])||p.code,current:p.code===current})).sort((a,b)=>a.code<b.code?-1:a.code>b.code?1:0)}
 /* ---- end No shift ---- */
@@ -8435,7 +8438,8 @@ function showLogin(msg){
     $('#lgExtra').hidden=pvu;
     if(pvu){$('#lgGo').textContent='Sign in to provider console →';return}
     const f=findStaff($('#lgUser').value.trim().toLowerCase());const h=f&&f.h,u=f&&f.u;
-    if(u&&u.noShift){$('#lgExtra').hidden=true;$('#lgGo').textContent='Login (no shift) →';return}
+    {let known='';try{known=localStorage.getItem('maha.shiftless.'+$('#lgUser').value.trim().toLowerCase())||''}catch(e){}
+     if((u&&shiftless(u))||(!u&&known==='1')){$('#lgExtra').hidden=true;$('#lgGo').textContent=(u&&u.noShift)?'Login (no shift) →':'Login →';return}}
     const open=u&&h.shifts.find(s=>s.userId===u.id&&s.status==='open');
     $('#lgGo').textContent=open?`Continue ${open.name} shift →`:'Login →';
     $('#cashWrap').hidden=!!open;   /* every person who opens a shift fills the opening cash (no shift users and admins never open one) */
@@ -8536,7 +8540,8 @@ function doLogin(){
   {const aw=accessWhy(u);if(aw){if(MahaAuth.on())MahaAuth.signOut();err.textContent=accessMsg(aw);return}}
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Maha Hub support.';return}
   fails=0;H=h;let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open');
-  if(u.noShift){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log('Signed in without a shift');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}
+  try{localStorage.setItem('maha.shiftless.'+String(u.username||'').toLowerCase(),shiftless(u)?'1':'0')}catch(e){}   /* the next sign-in page already knows whether to show the shift and cash boxes */
+  if(shiftless(u)){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log(u.noShift?'Signed in without a shift':'Signed in');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
   if(!s){const closed=h.shifts.find(x=>x.userId===u.id&&x.name===lgShift&&x.bd===h.set.bd&&x.status==='closed'&&!x.reopenOk);
     if(closed&&ruleOn(h,'blockClosedShiftReopen')){err.textContent=`The ${lgShift} shift for ${fd(h.set.bd)} is already closed. The provider must allow it to be opened again.`;return}
@@ -11476,7 +11481,7 @@ async function switchHotelCore(code,pid){
     const h=DB.hotels[code],u=h&&(h.users||[]).find(x=>String(x.username||'').toLowerCase()===un&&x.active!==false);
     if(!h||!u){await back();toast('You are not set up in hotel '+code+' yet. Ask the provider.');return}
     if(h.active===false){await back();toast('Hotel '+code+' is not active yet.');return}
-    if(!u.noShift){await back();toast('In hotel '+code+' you sign in with a shift. Sign out and sign in again to open one.');return}
+    if(!shiftless(u)){await back();toast('In hotel '+code+' you sign in with a shift. Sign out and sign in again to open one.');return}
     log('Switched to another hotel ('+code+')');
     DB.session=stampSession({hotel:code,userId:u.id,noShift:true});H=h;applyHotelCodes();
     try{localStorage.setItem('maha.lastHotel.'+un,code)}catch(e){}
