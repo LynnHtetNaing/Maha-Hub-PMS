@@ -18,5 +18,5 @@ T('boxes and tables scroll up and down only', css.includes('.hs2-tw{border:1px s
 T('the colours come from the colour theme in Light and in Dark', css.includes('--hs-acc:var(--a1') && css.includes('--hs-card:var(--m-card') && css.includes('html[data-mode=dark] .hsnew'));
 T('the wrapper does not use the old .hs2 grid class', hs.includes('<div class="hsnew">') && !hs.includes('<div class="hs2">'));
 const d = src.indexOf("VIEWS['fo.dash']=el=>{"), dash = src.slice(d, src.indexOf('\nfunction approvalTable', d));
-T('Manager Dashboard: same content as a table (glance, still to arrive, due out, open this)', ['Today at a glance', 'Still to arrive', 'Due out', 'Open this', 'City ledger open', 'Room revenue today'].every(t => dash.includes(t)) && dash.includes('data-go="${go}"'));
+T('Manager Dashboard is the one we had before (coloured tiles and buttons)', dash.includes('class="scards"') && dash.includes('Still to arrive') && dash.includes('Open this') && !dash.includes('hs2d'));
 process.exit(fails ? 1 : 0);
