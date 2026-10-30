@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="3a2c4d4964">
+<meta name="maha-build" content="b91ec904bb">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2718,6 +2718,7 @@ function curViewHotel(h,mode,kind){const c=JSON.parse(JSON.stringify(h)),main=c.
       (b.lines||[]).forEach(l=>{if(fg)l.amt=eq(b,l);strip(l)});
       if(fg){Object.keys(b.nightly||{}).forEach(d=>b.nightly[d]=r2_(b.nightly[d]*rt));delete b.cur;delete b.curRate}}));
     (c.dummyHist||[]).forEach(e=>(e.lines||[]).forEach(strip));
+    (c.cityLedger||[]).forEach(it=>(it.pays||[]).forEach(p=>{[p.line,p.corr].forEach(l=>{if(l)strip(l)})}));   /* city ledger receipts are already in the main currency */
     (c.creditNotes||[]).forEach(n=>{const f=rmap[n.bookingId]||1;if(f!==1){(n.rows||[]).forEach(w=>w.amt=r2_(w.amt*f));['vatable','nonvat','total'].forEach(x=>{if(n[x]!=null)n[x]=r2_(n[x]*f)})}});
   }else{
     (c.reservations||[]).forEach(r=>{r.bookings=(r.bookings||[]).filter(b=>{const o=own(b)===mode,dm=dummyOf(b),lc=l=>l.fc||own(b);
@@ -2727,6 +2728,8 @@ function curViewHotel(h,mode,kind){const c=JSON.parse(JSON.stringify(h)),main=c.
       return dm?b.lines.length>0:(kind==='cash'?(o||b.lines.length>0):o)})});
     c.reservations=(c.reservations||[]).filter(r=>(r.bookings||[]).length);
     (c.dummyHist||[]).forEach(e=>{e.lines=(e.lines||[]).filter(l=>(l.fc||main)===mode).map(l=>{if(l.fa!=null)l.amt=+l.fa;strip(l);return l})});
+    /* city ledger receipts: a payment report splits them by the currency they were typed in; a folio report never has them */
+    (c.cityLedger||[]).forEach(it=>(it.pays||[]).forEach(p=>{['line','corr'].forEach(k=>{const l=p[k];if(!l)return;if(kind!=='cash'||(l.fc||main)!==mode){p[k]=null;return}if(l.fa!=null)l.amt=+l.fa;strip(l)})}));
     (c.audits||[]).forEach(a=>{if(a.revCur)a.rev=a.revCur[mode]!=null?a.revCur[mode]:0;else if(mode!==main)a.rev=0});
   }
   return c}
