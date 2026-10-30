@@ -8,7 +8,7 @@ T('no From / To / Search any more',!grid.includes("ufDate('gFrom'")&&!grid.inclu
 T('arrows: back/forward by the days shown and by 30',grid.includes("rgGo(addD(gridFrom,-N))")&&grid.includes("rgGo(addD(gridFrom,N))")&&grid.includes("addD(gridFrom,-30)")&&grid.includes("addD(gridFrom,30)"));
 T('default view: yesterday + 14 days, box shows today',grid.includes("gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,13)")&&grid.includes("fd(addD(gridFrom,1))"));
 T('period longer than 35 days is refused with a red note',/const RG_MAX=35/.test(src)&&grid.includes('if(n>RG_MAX){$(\'#gWarn\',el).hidden=false;return}')&&grid.includes('The most you can view is ${RG_MAX} days'));
-T('legend: same nine notes, in the top band, one line or 5 + 4',(grid.match(/<span><i class="[^"]+"><\/i>|<span><i class="rgwarn">/g)||[]).length===9&&src.includes('grid-template-columns:repeat(5,max-content)')&&src.includes('@container (min-width:1180px)'));
+T('legend: same nine notes, in the top band, one line or 5 + 4',(grid.match(/<span><i class="[^"]+"><\/i>|<span><i class="rgwarn">/g)||[]).length===9&&src.includes('grid-template-columns:repeat(5,max-content)')&&src.includes('@container (min-width:1220px)'));
 T('legend is no longer under the grid',!grid.includes('<div class="legend rglegend">'));
 T('room column: number, (i) sign only for blocks in view, full room type name',grid.includes('data-rginfo')&&grid.includes('rgBlocks(rm,gridFrom,gridTo).length')&&grid.includes('${esc(rgTypeName(rm.type))}'));
 T('(i) opens a box with kind, dates, reason and Close',src.includes("rgInfoBox(rm,list)")&&src.includes('data-rgx')&&src.includes('<span>Reason</span>'));
