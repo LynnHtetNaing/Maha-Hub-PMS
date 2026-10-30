@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="94276dadd8">
+<meta name="maha-build" content="05906aff64">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2443,6 +2443,19 @@ html[data-skin="modern"] .fcbtns .btn svg,html[data-skin="modern"][data-mode=dar
 .csres #csDiffRow.loss{background:rgba(192,57,43,.12);color:#b3261e;font-weight:800}.csres #csDiffRow.ok{color:#1f8f6b;font-weight:800}
 html[data-mode=dark] .csres #csDiffRow.loss{background:rgba(255,110,96,.14);color:#ff8a7c}html[data-mode=dark] .csres #csDiffRow.ok{color:#4ade80}
 @media(max-width:860px){.csg{grid-template-columns:1fr}.csg>.csclose{grid-column:auto}}
+/* Your Chain Hotels: button in the property box and the pop-up table */
+html[data-skin="modern"] .msb-chain{display:block;width:100%;height:30px;margin-top:9px;border-radius:9px;border:1.5px solid var(--m-side-line);background:transparent;color:var(--m-side-ink);font:inherit;font-weight:700;font-size:12px;cursor:pointer}
+html[data-skin="modern"] .msb-chain:hover{border-color:var(--m-acc);color:var(--m-acc)}
+.msb-chain[hidden]{display:none!important}
+.chainm .chsub{margin:0 0 10px;color:var(--mut)}
+.chtw{overflow:auto;border:1px solid var(--line);border-radius:12px}
+.cht{border-collapse:collapse;width:100%}.cht th,.cht td{padding:9px 14px;text-align:left;white-space:nowrap;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.cht th:first-child,.cht td:first-child{border-left:0}.cht thead th{border-top:0;font-size:12px;color:var(--mut);background:color-mix(in srgb,var(--a1) 8%,transparent)}
+.cht tr.cur td{background:color-mix(in srgb,var(--a1) 11%,transparent)}
+.cht td.chact{text-align:right;width:1%}
+.chpill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11px;font-weight:700;background:color-mix(in srgb,var(--a1) 20%,transparent);color:var(--a1);margin-left:6px}
+html[data-mode=dark] .chpill{color:#5eead4}
+.chbtns{margin-top:12px}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -7845,7 +7858,7 @@ function modernShellHTML(){
   const n=notifBadgeCount();
   return `<div class="mshell${msbSlim()?' slim':''}" id="mshell">
   <aside class="msb" id="msb"><div class="msb-top"><img class="msb-gate" src="/brand/maha/gate-small.png" alt=""><span class="msb-brand">Maha PMS</span><button type="button" class="msb-tog" id="msbTog" title="Collapse or expand the menu" aria-label="Collapse or expand the menu">${mIc(msbSlim()?'right':'left')}</button></div>
-  <div class="msb-prop"><small>Current property</small><b>${esc(H.set.name)}</b></div><nav class="msbnav" id="msbnav" aria-label="Main"></nav>
+  <div class="msb-prop"><small>Current property</small><b>${esc(H.set.name)}</b><button type="button" class="msb-chain" id="msbChain" hidden>Your Chain Hotels</button></div><nav class="msbnav" id="msbnav" aria-label="Main"></nav>
   <button type="button" class="msb-me" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu"><span class="tbav">${avatarInner(20)}</span><span class="msb-mt"><b>${esc(user().name)}</b><small>${curShift()?esc(curShift().name)+' · ':''}<span id="rtClock"></span></small></span></button></aside>
   <div class="msb-back" id="msbBack"></div>
   <header class="topbar mtop"><button type="button" class="tbico mopen" id="msbOpen" aria-label="Menu">${mIc('menu')}</button><div class="mcrumb" id="mcrumb"></div>${areaSwitchHtml()}
@@ -7860,6 +7873,7 @@ function modernShellHTML(){
   <main id="view" class="view"></main></div>`}
 function modernNavInit(){
   const nav=$('#msbnav');if(!nav)return;
+  chainBtnSync();
   const src=areaMenu(DB.session.provider&&DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):MENU);
   const groups=[];
   src.forEach(m=>{if(m.report){if(can('reports')&&feat('reports'))groups.push({t:'Report',report:true,items:[]});return}
@@ -7965,12 +7979,11 @@ function openAccountMenu(btn){
   const provider=!!(DB.session&&DB.session.provider);
   const inHotel=!(provider&&!DB.session.inHotel);
   const info=(MOB_Q.matches&&H)?`<div class="tbinfo"><b>${provider&&!DB.session.inHotel?'Provider console':esc(H.set.name)}</b><span>${esc(user().name)}${curShift()?' · '+esc(curShift().name):''}</span><span>${fd(iso(new Date()))}</span></div>`:'';
-  const p=tbPop(btn,info+themeMenuHtml()+`${provider?'<button type="button" data-act="account">'+(MahaAuth.on()?'My profile':'My account &amp; security')+'</button>':'<button type="button" data-act="profile">My profile</button>'}${(!provider&&curShift()&&curShift().noShift&&MahaAuth.on())?'<button type="button" data-act="switch">Switch hotel</button>':''}${inHotel?'<button type="button" data-act="search">Search</button>':''}<button type="button" class="msignout" data-act="out">Sign out</button>`);
+  const p=tbPop(btn,info+themeMenuHtml()+`${provider?'<button type="button" data-act="account">'+(MahaAuth.on()?'My profile':'My account &amp; security')+'</button>':'<button type="button" data-act="profile">My profile</button>'}${inHotel?'<button type="button" data-act="search">Search</button>':''}<button type="button" class="msignout" data-act="out">Sign out</button>`);
   $$('[data-theme]',p).forEach(b=>b.onclick=e=>{e.stopPropagation();setUserTheme(b.dataset.theme);p.hidden=true});
   $$('[data-mode-pick]',p).forEach(b=>b.onclick=e=>{e.stopPropagation();setUserMode(b.dataset.modePick);p.hidden=true});
   $$('[data-act]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const a=b.dataset.act;
     if(a==='account'){go('prov.account');return}
-    if(a==='switch'){changePropertyFlow();return}
     if(a==='profile'){if(VIEW!=='me.profile')PREV={v:VIEW,a:VARG};go('me.profile');return}
     if(a==='search')globalSearch();
     if(a==='out')signOut(false)});
@@ -11302,6 +11315,59 @@ async function changePropertyFlow(){
   if(H.code===keep.code){renderShell();go(keep.view,keep.arg);return}
   await chooseAreaAndEnter(props,'You are now in '+H.set.name+' ('+H.code+').')}
 /* ---- end sign-in flow ---- */
+/* ---- Your Chain Hotels: every hotel of the chain in one table; Switch only for people who may open that hotel and have no real open shift ---- */
+const chainOwnRow=h=>{const t=(h&&h.set)||{};return {code:(h&&h.code)||'',pid:'',name:t.name||(h&&h.code)||'',country:t.country||'',location:t.addr||'',phone:t.phone||'',open:true}};
+function chainRowsMerge(rows,chain,provider,sess,cur){
+  rows=rows.slice().sort((a,b)=>(a.country?0:1)-(b.country?0:1)||String(a.country||'').localeCompare(String(b.country||''))||String(a.code).localeCompare(String(b.code)));
+  const sw=!!(provider||(sess&&sess.noShift));
+  return {chain,rows:rows.map(r=>Object.assign({},r,{current:r.code===cur,canSwitch:sw&&!!r.open&&r.code!==cur}))}}
+async function chainHotelData(){
+  const sess=DB.session||{},prov=!!sess.provider,cur=H.code,own=chainOwnRow(H);let chain=null,rows=null,fromRpc=false;
+  if(MahaAuth.on()){
+    try{const d=await MahaAuth.rpc('maha_chain_hotels',{});if(Array.isArray(d)&&d.length){fromRpc=true;
+      if(d[0].chain_code)chain={name:d[0].chain_name||'',code:d[0].chain_code};
+      rows=d.map(x=>({code:String(x.property_code||'').toUpperCase(),pid:x.property_id,name:x.name||x.property_code,country:x.country||'',location:x.location||'',phone:x.phone||'',open:!!x.can_open,_cloud:{country:x.country||'',location:x.location||'',phone:x.phone||''}}))}}catch(e){}
+    if(!rows&&prov){try{const info=await ChainInfo.load(),c=chainOfHotel(info,cur);if(c){chain={name:c.name,code:c.chain_code};rows=(c.hotels||[]).map(x=>{const h=DB.hotels[x.property_code],r=h?chainOwnRow(h):{code:x.property_code,name:x.name,country:'',location:'',phone:''};r.pid=x.property_id;r.name=r.name||x.name;r.open=!!h;return r})}}catch(e){}}
+    if(!rows&&!prov){try{const l=await loadPropertyList();rows=l.map(p=>({code:p.code,pid:p.id,name:p.name,country:p.country||'',location:'',phone:'',open:true}))}catch(e){}}
+  }
+  if(!rows)rows=[];
+  /* the hotels this device has the file of (this hotel, or all of them for the provider) tell their own details */
+  const local=prov?Object.values(DB.hotels||{}):[H];
+  local.forEach(h=>{if(!h)return;const o=chainOwnRow(h),r=rows.find(x=>x.code===o.code);
+    if(r){['country','location','phone'].forEach(k=>{if(o[k])r[k]=o[k]});if(o.name&&o.code===cur)r.name=o.name}
+    else if(o.code===cur)rows.push(o)});
+  if(!rows.some(r=>r.code===cur))rows.push(own);
+  if(fromRpc){   /* keep the cloud list of this hotel's details current (best effort) */
+    local.forEach(h=>{if(!h)return;const o=chainOwnRow(h),r=rows.find(x=>x.code===o.code);if(!r||!(o.country||o.location||o.phone))return;
+      if(r._cloud&&r._cloud.country===o.country&&r._cloud.location===o.location&&r._cloud.phone===o.phone)return;
+      try{MahaAuth.rpc('maha_set_property_info',{p_code:o.code,p_country:o.country,p_location:o.location,p_phone:o.phone}).catch(()=>{})}catch(e){}})}
+  return chainRowsMerge(rows,chain,prov,sess,cur)}
+function chainTableHtml(d){
+  const any=d.rows.some(r=>r.canSwitch);
+  return `${d.chain?`<p class="sub chsub">${esc(d.chain.name)}${d.chain.code?' ('+esc(d.chain.code)+')':''}</p>`:''}
+   <div class="chtw"><table class="cht"><thead><tr><th>Country</th><th>Property ID</th><th>Property name</th><th>Location</th><th>Phone</th>${any?'<th></th>':''}</tr></thead><tbody>${d.rows.map(r=>`<tr class="${r.current?'cur':''}"><td>${esc(r.country||'—')}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.name)}${r.current?' <span class="chpill">You are here</span>':''}</td><td>${esc(r.location||'—')}</td><td>${esc(r.phone||'—')}</td>${any?`<td class="chact">${r.canSwitch?`<button type="button" class="btn gold" data-chsw="${esc(r.code)}" data-pid="${esc(r.pid||'')}">Switch</button>`:''}</td>`:''}</tr>`).join('')}</tbody></table></div>
+   <div class="btns end chbtns"><button type="button" class="btn ghost" data-chclose>Close</button></div>`}
+async function openChainHotels(){
+  if(!H)return;
+  const m=modal('Your Chain Hotels','<p class="sub">Loading...</p>',{w:1040,cls:'dlg chainm'});
+  const wrap=m._wrap;let d;
+  try{d=await chainHotelData()}catch(e){d=chainRowsMerge([chainOwnRow(H)],null,!!(DB.session&&DB.session.provider),DB.session,H.code)}
+  if(!wrap.isConnected)return;
+  const body=m.querySelector('.mbody');body.innerHTML=chainTableHtml(d);
+  const cl=body.querySelector('[data-chclose]');if(cl)cl.onclick=()=>closeModal(m);
+  $$('[data-chsw]',body).forEach(b=>b.onclick=()=>{const c=b.dataset.chsw,pid=b.dataset.pid;closeModal(m);
+    if(DB.session&&DB.session.provider)enterHotel(c);else switchHotel(c,pid)})}
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('.msb-chain');if(b){e.preventDefault();openChainHotels()}});
+/* the button shows only for a hotel that belongs to a chain; a stand-alone hotel keeps the plain box */
+let _chainOf={};
+function chainBtnPaint(){const b=$('#msbChain');if(b&&H)b.hidden=!_chainOf[H.code]}
+async function chainBtnSync(){
+  if(!H)return;const code=H.code;chainBtnPaint();if(_chainOf[code]!==undefined||!MahaAuth.on())return;
+  let v=false;
+  try{const d=await MahaAuth.rpc('maha_chain_hotels',{});v=Array.isArray(d)&&d.some(x=>x.chain_code)&&d.length>1}catch(e){
+    try{if(DB.session&&DB.session.provider){const c=chainOfHotel(await ChainInfo.load(),code);v=!!c&&(c.hotels||[]).length>1}else v=(await loadPropertyList()).length>1}catch(e2){v=false}}
+  _chainOf[code]=v;chainBtnPaint()}
+/* ---- end Your Chain Hotels ---- */
 async function openHotelSwitcher(){
   if(!MahaAuth.on()||!DB.session||DB.session.provider)return;
   let props,names={},chain=null;
