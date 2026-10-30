@@ -13,7 +13,7 @@ T('full width window, one payment box, fits the screen without scrolling inside'
 T('the payment is a line in no guest folio, counted in the shift and in the reports', sc.includes('clItem:items[0].id') && sc.includes("kind:'pay'") && !sc.includes('B.lines.push') && src.includes("(it.pays||[]).forEach(p=>{if(p.line)o.push(p.line);if(p.corr)o.push(p.corr)})"));
 T('a payment needs a cashier shift (no-shift people choose an open one)', sc.includes("noShiftGate('payment'"));
 const t = src.slice(b, src.indexOf("\nVIEWS['cd.petty']", b));
-T('table: Outstanding, Received and Payment method columns', t.includes('<th class="n">Outstanding</th><th class="n">Received</th><th>Payment method</th>'));
+T('table: Outstanding, Received and Payment method columns', t.includes('<th class="n">Outstanding</th><th class="n">Received / method</th><th>Days open</th>') && t.includes('table-layout:fixed') === false && src.includes('.clpanel table.grid{width:100%;table-layout:fixed}'));
 T('clicking a paid line opens the Transaction window', t.includes('data-clt=') && t.includes('clTxModal(it,it.pays[+i])') && src.includes("modal('Transaction'") && src.includes('function clTxModal('));
 T('Receive button does not trigger the row click', t.includes('e.stopPropagation();settleCity([b.dataset.cls])'));
 T('currency button: main currency is the default, a rate is typed for another currency, the main-currency value reduces the invoice', sc.includes("cs=B0&&curUserOn()?{cur:main,rp:''}:null") && sc.includes('id="clCb"') && sc.includes('amt:-eq,kind') && sc.includes('line.fc=cs.cur;line.fa=-a;line.fr=rate;line.eq=-eq'));
