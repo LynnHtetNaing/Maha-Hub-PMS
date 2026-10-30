@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="147c4b26e6">
+<meta name="maha-build" content="0bc1f9888b">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4950,7 +4950,8 @@ const DEFAULT_RULES={
   requireFullNewReservation:true,
   postRoomAfterChecks:true,
   guestFolioHidesRemark:true,
-  requireDayShiftsForCloseDay:false   /* off until the provider switches it on for a real hotel */
+  requireDayShiftsForCloseDay:false,   /* off until the provider switches it on for a real hotel */
+  flexibleShiftLogin:false   /* off: a person with an unclosed shift always continues it. On: they choose any shift at sign-in */
 };
 const RULE_META=[
   {k:'allowCheckBackSameDay',title:'Allow check-back same day',blurb:'After check-out, guest may check back in on the same business day before Close Day. Turn off to block check-back entirely.'},
@@ -4964,6 +4965,7 @@ const RULE_META=[
   {k:'requireFullNewReservation',title:'New Reservation: all key boxes required',blurb:'Save is refused until Title, Last name, BK source, Company, Market, Booking type, Rate code, Room, Rate per night and Pax are filled; missing boxes get a red outline. Off: only last name, valid dates, a free room (walk-in: a vacant clean room) and a valid rate are required, and Room may stay on Assign later.'},
   {k:'postRoomAfterChecks',title:'Post room only after every other check',blurb:'The Post room button opens only when every other Close Day check is green; Close Day opens last, after Post room. Off: Post room can be pressed at any time on the Night shift.'},
   {k:'guestFolioHidesRemark',title:'Printed guest folio hides remarks and card details',blurb:'A printed guest folio never shows a remark or card details; receipts and tax invoices still show them for their own payment. Off: payment remarks and card details print on the guest folio.'},
+  {k:'flexibleShiftLogin',title:'Flexible shift sign-in',blurb:'Off: a person who did not close a shift continues it at the next sign-in. On: they choose any shift (Morning, Afternoon, Night) each time, continue an unclosed one or open another, and Close Day closes the shifts left open at their expected cash. Not linked to the opening cash rule. People who sign in without a shift are not affected.',off:true},
   {k:'requireDayShiftsForCloseDay',title:'Morning and Afternoon shifts before Close Day',blurb:'Close Day is refused unless the Morning and Afternoon shifts of the business day were both opened and closed. Off by default.',off:true}
 ];
 function ruleOnStrict(h,k){h=h||H;if(!h)return false;shapeHotel(h);return h.set.rules[k]===true}
@@ -8455,7 +8457,7 @@ function showLogin(msg){
     </div>
   </aside></div>`;
   try{const rem=localStorage.getItem('maha.rememberUser');if(rem&&$('#lgRemember')){$('#lgRemember').checked=true;$('#lgUser').value=rem;const rp=localStorage.getItem('maha.rememberProp');if(rp&&$('#lgProp'))$('#lgProp').value=rp}}catch(e){}
-  const setShift=v=>{lgShift=v;$$('[data-shift]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.shift===v?'true':'false'))};
+  const setShift=v=>{lgShift=v;$$('[data-shift]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.shift===v?'true':'false'));try{hint()}catch(e){}};
   $$('[data-shift]').forEach(b=>b.onclick=()=>setShift(b.dataset.shift));setShift(lgShift||suggestShift());
   let panelWasOpen=lgOpen;
   const applyPick=()=>{
@@ -8535,7 +8537,7 @@ function showLogin(msg){
     const f=findStaff($('#lgUser').value.trim().toLowerCase());const h=f&&f.h,u=f&&f.u;
     {let known='';try{known=localStorage.getItem('maha.shiftless.'+$('#lgUser').value.trim().toLowerCase())||''}catch(e){}
      if((u&&shiftless(u))||(!u&&known==='1')){$('#lgExtra').hidden=true;$('#lgGo').textContent=(u&&u.noShift)?'Login (no shift) →':'Login →';return}}
-    const open=u&&h.shifts.find(s=>s.userId===u.id&&s.status==='open');
+    const flexR=u&&ruleOnStrict(h,'flexibleShiftLogin'),open=u&&h.shifts.find(s=>s.userId===u.id&&s.status==='open'&&(!flexR||s.name===lgShift));
     $('#lgGo').textContent=open?`Continue ${open.name} shift →`:'Login →';
     $('#cashWrap').hidden=!!open;   /* every person who opens a shift fills the opening cash (no shift users and admins never open one) */
     const night=!!(u&&nightOkFor(u,h));$$('[data-shift]').forEach(b=>{if(b.dataset.shift==='Night'){b.disabled=!night;b.title=night?'Night shift, 22:00 to 06:00':'Night shift is for Front Office and HOD'}});if(!night&&lgShift==='Night')setShift('Afternoon');
@@ -8634,7 +8636,7 @@ function doLogin(){
   };
   {const aw=accessWhy(u);if(aw){if(MahaAuth.on())MahaAuth.signOut();err.textContent=accessMsg(aw);return}}
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Maha Hub support.';return}
-  fails=0;H=h;let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open');
+  fails=0;H=h;const flexS=ruleOnStrict(h,'flexibleShiftLogin');let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open'&&(!flexS||x.name===lgShift));
   try{localStorage.setItem('maha.shiftless.'+String(u.username||'').toLowerCase(),shiftless(u)?'1':'0')}catch(e){}   /* the next sign-in page already knows whether to show the shift and cash boxes */
   if(shiftless(u)){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log(u.noShift?'Signed in without a shift':'Signed in');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
@@ -11105,7 +11107,7 @@ function roomDiscrepancies(){H.disc=H.disc||{};const bd=H.set.bd,out=[];
 function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
   allBookings().filter(b=>['confirmed','tentative'].includes(b.status)&&b.arr<=bd).forEach(b=>o.push({block:true,k:'arr',t:'Arrival not checked in',d:`${gName(G(b.guestId))} (RSVN ${resOf(b).no}) – check in or mark no-show.`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep<=bd).forEach(b=>o.push({block:true,k:'dep',t:'Departure not checked out',d:`Room ${b.room} ${gName(G(b.guestId))} was due out ${fd(b.dep)} – check out or extend the stay.`,id:b.id}));
-  if(ruleOn(H,'requireOtherCashiersClosedForCloseDay'))H.shifts.filter(x=>x.status==='open'&&(!s||x.id!==s.id)).forEach(x=>o.push({block:true,k:'shift',t:'Cashier shift still open',d:`${x.userName} – ${x.name} shift (${fd(x.bd)}).`,sid:x.id}));
+  if(ruleOn(H,'requireOtherCashiersClosedForCloseDay'))H.shifts.filter(x=>x.status==='open'&&!x.virtual&&(!s||x.id!==s.id)).forEach(x=>o.push({block:!ruleOnStrict(H,'flexibleShiftLogin'),k:ruleOnStrict(H,'flexibleShiftLogin')?'shiftflex':'shift',t:'Cashier shift still open',d:`${x.userName} – ${x.name} shift (${fd(x.bd)}).${ruleOnStrict(H,'flexibleShiftLogin')?' Close Day closes it at its expected cash.':''}`,sid:x.id}));
   if(ruleOnStrict(H,'requireDayShiftsForCloseDay')){['Morning','Afternoon'].forEach(nm=>{if(!(H.shifts||[]).some(x=>x.bd===bd&&x.name===nm&&!x.virtual))o.push({block:true,k:'dayshift',t:'Shift not run',d:'The '+nm+' shift of '+fd(bd)+' was never opened. Close Day is refused until the Morning and Afternoon shifts of the day were run.'})})}
   tonightIH().filter(b=>rateError(b.nightly[bd]??0,rateKindOf(codeOn(b,bd)),bCur(b))).forEach(b=>o.push({block:true,k:'rate',t:'Rate not allowed',d:`Room ${b.room}: ${rateError(b.nightly[bd]??0,rateKindOf(codeOn(b,bd)),bCur(b))}`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&!b.room).forEach(b=>o.push({block:true,k:'room',t:'In house without room',d:`RSVN ${resOf(b).no}`,id:b.id}));
@@ -11188,7 +11190,8 @@ function runCloseDay(){const bd=H.set.bd,nd=addD(bd,1);
   const stSet=(i,c)=>{const e=$o('[data-st="'+i+'"]');if(e){e.classList.remove('run','done');if(c)e.classList.add(c)}};
   const work=[()=>{if(!cdReady().ok)throw new Error('Checks failed')},
     ()=>{const ls=allLinesH(H).filter(l=>l.night===bd&&l.kind==='room'),rv=curMulti(H)?allBookings().flatMap(b=>b.lines.filter(l=>l.night===bd&&l.kind==='room').map(l=>({c:bCur(b),a:l.amt,e:curLineEq(b,l)}))):null;H.audits.push({date:bd,at:Date.now(),user:user().name,rooms:ls.length,rev:rv?r2(sum(rv,x=>x.e)):r2(sum(ls,l=>l.amt)),revCur:rv?rv.reduce((o,x)=>{o[x.c]=r2((o[x.c]||0)+x.a);return o},{}):undefined,ns:allBookings().filter(b=>b.status==='noshow'&&b.statusDate===bd).length,shifts:H.shifts.filter(x=>x.bd===bd).length,variance:r2(sum(H.shifts.filter(x=>x.bd===bd),x=>x.variance||0)),inhouse:tonightIH().length,discClosed:Object.values(H.disc||{}).filter(d=>d.bd===bd&&d.status==='closed').length})},
-    ()=>{const s=curShift();if(s){const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({},t.expectedBy),varianceBy:Object.keys(t.expectedBy).reduce((o,k)=>{o[k]=0;return o},{})}:{})}},
+    ()=>{const cl=s=>{const t=shiftTotals(s);Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:t.expected,variance:0,note:'Closed by Close Day'},curMulti(H)?{expectedBy:t.expectedBy,countedBy:Object.assign({},t.expectedBy),varianceBy:Object.keys(t.expectedBy).reduce((o,k)=>{o[k]=0;return o},{})}:{})};
+      const s=curShift();if(s&&!s.virtual)cl(s);if(ruleOnStrict(H,'flexibleShiftLogin'))H.shifts.filter(x=>x.status==='open'&&!x.virtual).forEach(x=>{cl(x);log('Close Day closed '+x.userName+"'s "+x.name+' shift at its expected cash')})},
     ()=>{H.set.lockedThrough=bd;archiveDummyLines(H);const nd2=closeDayDirty(bd);if(nd2)log('Close Day: '+nd2+' occupied room'+(nd2===1?'':'s')+' set to dirty')},()=>{log('Close Day '+fd(bd)+' done')},()=>{H.set.bd=nd;saveDB()}];
   /* The real work runs first, all at once. Closing the shift ends the session check, so the steps must not be spread over seconds. The log below only shows what already happened. */
   let failMsg=null;try{for(const w of work)w()}catch(e){failMsg=e.message||String(e)}
