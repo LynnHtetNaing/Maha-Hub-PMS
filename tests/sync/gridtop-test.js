@@ -20,4 +20,5 @@ const rgBlocks=new Function('return '+src.slice(i,j).replace(/^function rgBlocks
 const rm={ooo:{kind:'OI',from:'2026-11-05',to:'2026-11-08',reason:'Repair'},softHold:{from:'2026-12-01',to:'2026-12-03',reason:'Group'}};
 T('blocks in view: OI shown, a later soft block not',(()=>{const x=rgBlocks(rm,'2026-11-01','2026-11-14');return x.length===1&&x[0].kind==='OI'&&x[0].why==='Repair'})());
 T('blocks in view: none when the dates are outside',rgBlocks(rm,'2026-11-20','2026-11-30').length===0);
+T('the page never scrolls on Room Grid: the table takes the height left in the window and scrolls inside itself',grid.includes('gs.style.maxHeight=gs.style.height=')&&grid.includes('over>0')&&grid.includes("window.addEventListener('resize',fit)"));
 process.exit(fails?1:0);

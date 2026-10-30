@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="a1b3cc8aee">
+<meta name="maha-build" content="90507591d8">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2461,10 +2461,10 @@ html[data-mode=dark] .csres #csDiffRow.loss{background:rgba(255,110,96,.14);colo
 .rgcg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}.rgcg span{font-size:10.5px;color:var(--mut,#587077)}
 .rgcg button{height:30px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}.rgcg button:hover{background:color-mix(in srgb,var(--a1,#0e8a82) 14%,transparent)}.rgcg button.in{background:color-mix(in srgb,var(--a1,#0e8a82) 22%,transparent)}.rgcg button.e{background:var(--a1,#0e8a82);color:#fff;font-weight:700}
 .rgcf{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:var(--mut,#587077)}
-.gridscroll{max-height:calc(50px + 15*37px);min-height:260px}
+.gridscroll{max-height:calc(100vh - 330px);min-height:260px}
 .gridwrap.rg{min-width:calc(150px + var(--days)*72px)}
-.gridwrap.rg .grow.rgr{grid-template-columns:150px minmax(0,1fr);min-height:36px}
-.gridwrap.rg .grow.rgr>.gl{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:1px;padding:3px 8px;line-height:1.1;min-width:0}
+.gridwrap.rg .grow.rgr{grid-template-columns:150px minmax(0,1fr);min-height:34px}
+.gridwrap.rg .grow.rgr>.gl{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:1px;padding:2px 8px;line-height:1.1;min-width:0}
 .gridwrap.rg .grow.rgr>.gl b{display:flex;align-items:center;justify-content:center;gap:6px}.gridwrap.rg .grow.rgr>.gl span{font-size:10.5px;font-weight:400;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:134px;text-align:center}
 .rgi{width:16px;height:16px;border-radius:50%;border:0;background:#8d8d8d;color:#fff;font:700 11px/16px Georgia,serif;cursor:pointer;padding:0;flex:none}.rgi:hover{background:#6f6f6f}
 .rginfo{padding:8px 0;border-top:1px solid var(--line,#d3e6dc)}.rginfo:first-child{border-top:0}.rginfo b{display:block;margin-bottom:3px}.rginfo span{display:inline-block;min-width:56px;color:var(--mut,#587077)}
@@ -9238,6 +9238,10 @@ VIEWS['fo.grid']=el=>{
   $('#gB14',el).onclick=()=>rgGo(addD(gridFrom,-N));$('#gF14',el).onclick=()=>rgGo(addD(gridFrom,N));$('#gB30',el).onclick=()=>rgGo(addD(gridFrom,-30));$('#gF30',el).onclick=()=>rgGo(addD(gridFrom,30));
   $('#gDate',el).onclick=e=>{e.stopPropagation();rgPeriodPicker($('#gDate',el),gridFrom,gridTo,(lo,hi)=>{const n=diff(lo,hi)+1;if(n>RG_MAX){$('#gWarn',el).hidden=false;return}$('#gWarn',el).hidden=true;gridCustom=true;gridFrom=lo;gridTo=hi;render()})};
   $$('[data-rginfo]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();const rm=H.rooms.find(x=>x.no===b.dataset.rginfo);if(rm)rgInfoBox(rm,rgBlocks(rm,gridFrom,gridTo))});
+  /* the page never scrolls: the table takes the height that is left in the window and scrolls inside itself */
+  {const gs=$('.gridscroll',el),fit=()=>{if(!gs.isConnected){window.removeEventListener('resize',fit);return}const t=gs.getBoundingClientRect().top;gs.style.maxHeight=gs.style.height='';const need=gs.scrollHeight,room=Math.max(260,innerHeight-t-14);gs.style.maxHeight=room+'px';gs.style.height=Math.min(need,room)+'px';
+    const de=document.documentElement,over=Math.max(de.scrollHeight,document.body.scrollHeight)-innerHeight;if(over>0){const h=Math.max(200,gs.getBoundingClientRect().height-over);gs.style.maxHeight=gs.style.height=h+'px'}};   /* whatever is still under the table (page padding) is taken off too, so the page itself has nothing to scroll */
+   if(window._rgFit)window.removeEventListener('resize',window._rgFit);window._rgFit=fit;window.addEventListener('resize',fit);fit();requestAnimationFrame(fit)}
   let dragged=false;
   $$('[data-bk]',el).forEach(b=>b.onclick=()=>{if(dragged){dragged=false;return}go.keepBack=true;resBack='fo.grid';go('res.open',b.dataset.bk)});
   $$('[data-cell]',el).forEach(c=>c.onclick=()=>{const[no,d]=c.dataset.cell.split('|');if(d<H.set.bd){toast('Bookings cannot start before the business date.');return}
