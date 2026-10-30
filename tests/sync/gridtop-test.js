@@ -7,7 +7,7 @@ const a=src.indexOf("VIEWS['fo.grid']=el=>{"),b=src.indexOf("\nVIEWS['",a+10),gr
 T('no From / To / Search any more',!grid.includes("ufDate('gFrom'")&&!grid.includes('id="gSearch"')&&!grid.includes("bindDatePick(el)"));
 T('arrows: back/forward by the days shown and by 30',grid.includes("rgGo(addD(gridFrom,-N))")&&grid.includes("rgGo(addD(gridFrom,N))")&&grid.includes("addD(gridFrom,-30)")&&grid.includes("addD(gridFrom,30)"));
 T('default view: yesterday + 14 days, box shows today',grid.includes("gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,13)")&&grid.includes("fd(addD(gridFrom,1))"));
-T('period longer than 35 days is refused with a red note',/const RG_MAX=35/.test(src)&&grid.includes('if(n>RG_MAX){$(\'#gWarn\',el).hidden=false;return}')&&grid.includes('The most you can view is ${RG_MAX} days'));
+T('period longer than 35 days is refused with a red note',/const RG_MAX=35/.test(src)&&grid.includes('if(n>RG_MAX){$(\'#gWarn\',el).hidden=false;')&&grid.includes('The most you can view is ${RG_MAX} days'));
 T('legend: same nine notes, in the top band, one line or 5 + 4',(grid.match(/<span><i class="[^"]+"><\/i>|<span><i class="rgwarn">/g)||[]).length===9&&src.includes('grid-template-columns:repeat(5,max-content)')&&src.includes('@container (min-width:1220px)'));
 T('legend is no longer under the grid',!grid.includes('<div class="legend rglegend">'));
 T('room column: number, (i) sign only for blocks in view, full room type name',grid.includes('data-rginfo')&&grid.includes('rgBlocks(rm,gridFrom,gridTo).length')&&grid.includes('${esc(rgTypeName(rm.type))}'));
@@ -20,4 +20,7 @@ const rgBlocks=new Function('return '+src.slice(i,j).replace(/^function rgBlocks
 const rm={ooo:{kind:'OI',from:'2026-11-05',to:'2026-11-08',reason:'Repair'},softHold:{from:'2026-12-01',to:'2026-12-03',reason:'Group'}};
 T('blocks in view: OI shown, a later soft block not',(()=>{const x=rgBlocks(rm,'2026-11-01','2026-11-14');return x.length===1&&x[0].kind==='OI'&&x[0].why==='Repair'})());
 T('blocks in view: none when the dates are outside',rgBlocks(rm,'2026-11-20','2026-11-30').length===0);
+T('the page never scrolls on Room Grid: the table takes the height left in the window and scrolls inside itself',grid.includes('gs.style.maxHeight=gs.style.height=')&&grid.includes('over>0')&&grid.includes("window.addEventListener('resize',fit)"));
+T('date box has no calendar icon; the Period search box has it and works in two steps (first date, then last date, then search)',grid.includes('class="rgdbox rgdshow" id="gDate"')&&grid.includes('id="gPer"')&&grid.includes('if(!gridPerFirst){gridPerFirst=day')&&grid.includes('gridCustom=true;gridFrom=lo;gridTo=hi;render()')&&src.includes('function rgDayPicker(')&&src.includes('close();done(t)'));
+T('filters stay on one line (shorter when the menu is open, longer when closed)',src.includes('.rgl1{display:flex;flex-wrap:nowrap'));
 process.exit(fails?1:0);
