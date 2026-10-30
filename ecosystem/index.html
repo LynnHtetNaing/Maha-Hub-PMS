@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="ec6d7e4b33">
+<meta name="maha-build" content="05906aff64">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2446,6 +2446,7 @@ html[data-mode=dark] .csres #csDiffRow.loss{background:rgba(255,110,96,.14);colo
 /* Your Chain Hotels: button in the property box and the pop-up table */
 html[data-skin="modern"] .msb-chain{display:block;width:100%;height:30px;margin-top:9px;border-radius:9px;border:1.5px solid var(--m-side-line);background:transparent;color:var(--m-side-ink);font:inherit;font-weight:700;font-size:12px;cursor:pointer}
 html[data-skin="modern"] .msb-chain:hover{border-color:var(--m-acc);color:var(--m-acc)}
+.msb-chain[hidden]{display:none!important}
 .chainm .chsub{margin:0 0 10px;color:var(--mut)}
 .chtw{overflow:auto;border:1px solid var(--line);border-radius:12px}
 .cht{border-collapse:collapse;width:100%}.cht th,.cht td{padding:9px 14px;text-align:left;white-space:nowrap;border-top:1px solid var(--line);border-left:1px solid var(--line)}
@@ -7857,7 +7858,7 @@ function modernShellHTML(){
   const n=notifBadgeCount();
   return `<div class="mshell${msbSlim()?' slim':''}" id="mshell">
   <aside class="msb" id="msb"><div class="msb-top"><img class="msb-gate" src="/brand/maha/gate-small.png" alt=""><span class="msb-brand">Maha PMS</span><button type="button" class="msb-tog" id="msbTog" title="Collapse or expand the menu" aria-label="Collapse or expand the menu">${mIc(msbSlim()?'right':'left')}</button></div>
-  <div class="msb-prop"><small>Current property</small><b>${esc(H.set.name)}</b><button type="button" class="msb-chain" id="msbChain">Your Chain Hotels</button></div><nav class="msbnav" id="msbnav" aria-label="Main"></nav>
+  <div class="msb-prop"><small>Current property</small><b>${esc(H.set.name)}</b><button type="button" class="msb-chain" id="msbChain" hidden>Your Chain Hotels</button></div><nav class="msbnav" id="msbnav" aria-label="Main"></nav>
   <button type="button" class="msb-me" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu"><span class="tbav">${avatarInner(20)}</span><span class="msb-mt"><b>${esc(user().name)}</b><small>${curShift()?esc(curShift().name)+' · ':''}<span id="rtClock"></span></small></span></button></aside>
   <div class="msb-back" id="msbBack"></div>
   <header class="topbar mtop"><button type="button" class="tbico mopen" id="msbOpen" aria-label="Menu">${mIc('menu')}</button><div class="mcrumb" id="mcrumb"></div>${areaSwitchHtml()}
@@ -7872,6 +7873,7 @@ function modernShellHTML(){
   <main id="view" class="view"></main></div>`}
 function modernNavInit(){
   const nav=$('#msbnav');if(!nav)return;
+  chainBtnSync();
   const src=areaMenu(DB.session.provider&&DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):MENU);
   const groups=[];
   src.forEach(m=>{if(m.report){if(can('reports')&&feat('reports'))groups.push({t:'Report',report:true,items:[]});return}
@@ -11356,6 +11358,15 @@ async function openChainHotels(){
   $$('[data-chsw]',body).forEach(b=>b.onclick=()=>{const c=b.dataset.chsw,pid=b.dataset.pid;closeModal(m);
     if(DB.session&&DB.session.provider)enterHotel(c);else switchHotel(c,pid)})}
 document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('.msb-chain');if(b){e.preventDefault();openChainHotels()}});
+/* the button shows only for a hotel that belongs to a chain; a stand-alone hotel keeps the plain box */
+let _chainOf={};
+function chainBtnPaint(){const b=$('#msbChain');if(b&&H)b.hidden=!_chainOf[H.code]}
+async function chainBtnSync(){
+  if(!H)return;const code=H.code;chainBtnPaint();if(_chainOf[code]!==undefined||!MahaAuth.on())return;
+  let v=false;
+  try{const d=await MahaAuth.rpc('maha_chain_hotels',{});v=Array.isArray(d)&&d.some(x=>x.chain_code)&&d.length>1}catch(e){
+    try{if(DB.session&&DB.session.provider){const c=chainOfHotel(await ChainInfo.load(),code);v=!!c&&(c.hotels||[]).length>1}else v=(await loadPropertyList()).length>1}catch(e2){v=false}}
+  _chainOf[code]=v;chainBtnPaint()}
 /* ---- end Your Chain Hotels ---- */
 async function openHotelSwitcher(){
   if(!MahaAuth.on()||!DB.session||DB.session.provider)return;

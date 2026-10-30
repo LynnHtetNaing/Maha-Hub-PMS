@@ -3,7 +3,7 @@
 const fs=require('fs');
 const src=fs.readFileSync(process.argv[2],'utf8');let fails=0;
 const T=(n,ok,x)=>{console.log((ok?'PASS ':'FAIL ')+n+(x?' | '+x:''));if(!ok)fails++};
-T('sidebar box has the Your Chain Hotels button',/<div class="msb-prop">[^`]*<button type="button" class="msb-chain" id="msbChain">Your Chain Hotels<\/button>/.test(src));
+T('sidebar box has the Your Chain Hotels button',/<div class="msb-prop">[^`]*<button type="button" class="msb-chain" id="msbChain" hidden>Your Chain Hotels<\/button>/.test(src));
 T('old profile-menu Switch hotel entry is gone',!src.includes('data-act="switch">Switch hotel')&&!src.includes("a==='switch'"));
 T('pop-up columns',/<th>Country<\/th><th>Property ID<\/th><th>Property name<\/th><th>Location<\/th><th>Phone<\/th>/.test(src));
 T('You are here + Close + modal x',src.includes('You are here')&&src.includes('data-chclose')&&src.includes("modal('Your Chain Hotels'"));
@@ -24,4 +24,5 @@ T('data comes from the server list, then the hotel file; degrades without the mi
 const mg=fs.readFileSync('supabase/migrations/20261030100000_chain_hotels_list.sql','utf8');
 T('migration: columns, two functions, no anon, authenticated only',/add column if not exists country/.test(mg)&&/function public\.maha_chain_hotels/.test(mg)&&/function public\.maha_set_property_info/.test(mg)&&/revoke all on function public\.maha_chain_hotels\(\) from public, anon/.test(mg)&&/grant execute on function public\.maha_chain_hotels\(\) to authenticated/.test(mg));
 T('migration: only hotels not in the recycle bin, access flag from maha_can_access_property',/deleted_at is null/.test(mg)&&/maha_can_access_property\(p\.id\)/.test(mg));
+T('button hidden until the hotel is known to be in a chain',/id="msbChain" hidden>/.test(src)&&src.includes('chainBtnSync();')&&src.includes('b.hidden=!_chainOf[H.code]'));
 process.exit(fails?1:0);
