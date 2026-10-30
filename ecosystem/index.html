@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="c7e31d1e22">
+<meta name="maha-build" content="3a2c4d4964">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4630,7 +4630,7 @@ const bal=B=>r2(sum(B.lines,l=>l.amt));
 const isCharge=l=>['post','room','corrpost'].includes(l.kind);
 const charges=B=>r2(sum(B.lines.filter(isCharge),l=>l.amt));
 const folioBal=(B,f)=>r2(sum(B.lines.filter(l=>l.folio===f),l=>l.amt));
-function allLinesH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>b.lines.forEach(l=>o.push(l))));(h.dummyHist||[]).forEach(e=>(e.lines||[]).forEach(l=>o.push(l)));(h.cityLedger||[]).forEach(it=>(it.pays||[]).forEach(p=>{if(p.line)o.push(p.line)}));return o}
+function allLinesH(h){const o=[];h.reservations.forEach(r=>r.bookings.forEach(b=>b.lines.forEach(l=>o.push(l))));(h.dummyHist||[]).forEach(e=>(e.lines||[]).forEach(l=>o.push(l)));(h.cityLedger||[]).forEach(it=>(it.pays||[]).forEach(p=>{if(p.line)o.push(p.line);if(p.corr)o.push(p.corr)}));return o}
 /* Payment received, from the fixed record line (payrec) minus any correct-payment line in the same group */
 function paymentsIn(lines){const out=[],rec=new Set();lines.forEach(l=>{if(l.kind==='payrec'){out.push({l,amt:-l.amt});if(l.group)rec.add(l.group)}});
   lines.forEach(l=>{if(l.kind==='corrpay')out.push({l,amt:-l.amt});else if(l.kind==='pay'&&!(l.group&&rec.has(l.group)))out.push({l,amt:-l.amt})});return out}
@@ -13864,7 +13864,7 @@ function refreshCityItems(h){if(!h)return;h.cityLedger=h.cityLedger||[];const li
     if(!item){item={id:'cl'+uid(),lineId:l.id,pays:[]};h.cityLedger.push(item)}
     item.pays=item.pays||[];
     Object.assign(item,{bookingId:b.id,rsvn:r.no,guest:g?gName(g):'',room:b.room||'',companyId:r.companyId||'',code:l.code,bd:l.bd,ref:l.ref||'',user:l.user||'',amt:net});
-    const paid=r2(sum(item.pays,p=>+p.amt||0));item.open=r2(Math.max(0,net-paid));item.status=net<=0.004?'void':item.open<=0.004?'paid':'open';
+    const paid=r2(sum(item.pays.filter(p=>!p.corrected),p=>+p.amt||0));item.open=r2(Math.max(0,net-paid));item.status=net<=0.004?'void':item.open<=0.004?'paid':'open';
   })));
   h.cityLedger.forEach(item=>{if(item.lineId&&!live.has(item.lineId)){item.amt=0;item.open=0;item.status='void'}});
 }
@@ -13878,47 +13878,66 @@ function settleCity(id){if(!need('pay'))return;refreshCityItems(H);const item=(H
   const types=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&!c.refund&&payEnabled(c)&&c.ptab!=='CITY LEDGER'&&PAY_TABS.includes(c.ptab));
   const tabs=()=>PAY_TABS.filter(t=>t!=='CITY LEDGER'&&types().some(c=>c.ptab===t));
   let cur=null,tab=tabs()[0]||'';
+  const B0=item.bookingId&&bookingById(item.bookingId),main=curMain(),cs=B0&&curUserOn()?{cur:main,rp:''}:null;   /* a hotel with more than one currency: the currency button (main currency first) */
   const m=modal('Receive city ledger','<div id="clB"></div>',{w:1240,cls:'nimodal paym clrecv'});
   const blk=(l,v)=>`<div class="clblk"><small>${l}</small><b>${v}</b></div>`;
   /* the whole window stays in view with no scrolling inside it: when the screen is short, everything is made a little smaller */
   const fit=()=>{const b=$('#clB',m);if(!b)return;b.style.zoom='';const avail=innerHeight*0.92-(m.querySelector('.mhead')?m.querySelector('.mhead').offsetHeight:50)-28,h=b.scrollHeight;if(h>avail)b.style.zoom=Math.max(.5,avail/h).toFixed(3)};
   window.addEventListener('resize',fit);m._wrap._onclose=()=>window.removeEventListener('resize',fit);
   const keep=()=>{const o={};['clR','clA','clM'].forEach(k=>{const e=$('#'+k,m);if(e)o[k]=e.value});m._v=Object.assign(m._v||{},o)};
+  const eqOf=a=>cs&&cs.cur!==main?r2(a*(+cs.rp||0)):r2(a);
+  const curBox=()=>{const h=$('#clCur',m);if(!h||!cs)return;
+    h.innerHTML=`<div class="mcp"><div class="mcp-top"><div class="mc-btn" id="clCb">${esc(cs.cur)} &#9662;</div><span class="sub">Currency of this amount</span></div><div class="mcp-menu" id="clCm" hidden>${curList(H).map(c=>`<button type="button" data-clc="${c}" class="${c===cs.cur?'on':''}"><b>${c}</b> ${esc(curName(c))}${c===main?' <small>main</small>':''}</button>`).join('')}</div>${cs.cur!==main?`<div class="mc-rate">1 ${esc(cs.cur)} = <input id="clRp" class="n" inputmode="decimal" value="${esc(cs.rp)}" placeholder="0.00"> ${esc(main)}</div>`:''}<div class="mc-eq" id="clQ"></div><div class="mc-note">Check the actual rate. You type the final rate; the system never looks one up.</div></div>`;
+    const quote=()=>{const t=+String($('#clA',m).value).replace(/,/g,'')||0,box=$('#clQ',m);if(!(t>0)){box.innerHTML='';return}const eq=eqOf(t);
+      box.innerHTML=cs.cur!==main&&!(+cs.rp>0)?'<span class="bad">Type the rate.</span>':`<span>Amount <b>${esc(cs.cur)} ${m2(t)}</b></span>${cs.cur!==main?`<span>Equivalent in ${esc(main)} <b>${m2(eq)}</b></span>`:''}<span>Outstanding after <b>${m2(Math.max(0,item.open-eq))}</b> ${esc(main)}</span>`};
+    $('#clCb',m).onclick=()=>{$('#clCm',m).hidden=!$('#clCm',m).hidden};
+    $$('[data-clc]',m).forEach(b=>b.onclick=()=>{if(b.dataset.clc!==cs.cur){cs.cur=b.dataset.clc;cs.rp=''}keep();paint()});
+    if($('#clRp',m))$('#clRp',m).oninput=e=>{cs.rp=e.target.value;quote()};$('#clA',m).addEventListener('input',quote);quote()};
   const paint=()=>{
     $('#clB',m).innerHTML=`<div class="clinfo">${blk('Company / Agent',esc(co?co.name:'No company'))}${blk('RSVN · Guest',esc(item.rsvn)+' · '+esc(item.guest||'—'))}${blk('Outstanding',m2(item.open))}${blk('User name',esc(who))}${blk('Date &amp; time',esc(fd(H.set.bd)+' '+tm(openAt)))}${blk('Payment method',cur?esc(cur.desc):'<span class="clmut">Choose below</span>')}</div>
      <div class="clpay"><div class="nitabs">${tabs().map(t=>`<button class="${t===tab?'on':''}" data-pt="${esc(t)}">${esc(titleLabel(t,'p:'))}</button>`).join('')}</div>
      <div class="nimain"><div class="nileft"><div class="nitiles">${types().filter(c=>c.ptab===tab).map(c=>`<button class="nitile ptile ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
       <div class="niform">${fld('Tran code',`<input value="${cur?cur.code:''}" disabled placeholder="Choose a payment type">`,'pyh')}${fld('Description',`<input value="${cur?esc(cur.desc):''}" disabled>`,'pyh')}
        ${fld('Reference#',`<input id="clR" maxlength="60" placeholder="Reference info (max 60 characters)">`,'pyh')}
-       ${fld('Amount',`<div class="amtrow"><input id="clA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${m2(item.open)}"></div>`,'pyh')}
+       ${fld('Amount',`<div class="amtrow"><input id="clA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${m2(item.open)}"></div>`,'pyh')}${cs?'<div id="clCur"></div>':''}
        ${fld('Remark',`<textarea id="clM" rows="2"></textarea>`)}<div class="err" id="clE"></div>
        <div class="btns end"><button class="btn red" id="clX">Close</button><button class="btn purple" id="clS">Post payment</button></div></div></div></div>`;
     if(m._v)['clR','clA','clM'].forEach(k=>{if(m._v[k]!=null&&m._v[k]!=='')$('#'+k,m).value=m._v[k]});
-    $$('[data-pt]',m).forEach(b=>b.onclick=()=>{keep();tab=b.dataset.pt;paint()});fit();
+    $$('[data-pt]',m).forEach(b=>b.onclick=()=>{keep();tab=b.dataset.pt;paint()});curBox();fit();
     $$('[data-pc]',m).forEach(b=>b.onclick=()=>{keep();cur=TCODES.find(c=>c.code===b.dataset.pc);if(cur)tab=cur.ptab;paint();$('#clA',m).focus()});
     $('#clX',m).onclick=()=>closeModal(m);
     $('#clS',m).onclick=()=>{
       const a=r2(+String($('#clA',m).value).replace(/,/g,''));
       if(!cur){$('#clE',m).textContent='Choose a payment type.';return}
       if(!(a>0)){$('#clE',m).textContent='Enter an amount above 0.';return}
-      if(a>item.open+0.004){$('#clE',m).textContent='That is more than the outstanding balance.';return}
+      const rate=cs&&cs.cur!==main?+cs.rp:1;if(cs&&cs.cur!==main&&!(rate>0)){$('#clE',m).textContent='Type the rate for '+cs.cur+'.';return}
+      const eq=eqOf(a),fx=cs&&cs.cur!==main;
+      if(eq>item.open+0.004){$('#clE',m).textContent='That is more than the outstanding balance.';return}
       noShiftGate('payment',sh=>{
         const s=sh||(curShift()&&!curShift().virtual?curShift():null),t=Date.now();
         /* a payment line that is not on any guest folio: it is counted in the shift and in the reports */
-        const line={id:'l'+uid(),sys:H.set.nextSys++,folio:1,bd:H.set.bd,orgDate:H.set.bd,time:t,code:cur.code,desc:'City ledger receipt - '+cur.desc,ref:$('#clR',m).value.trim(),amt:-a,kind:'pay',method:cur.desc,group:'pg'+uid(),link:null,night:null,fixed:false,deposit:false,adv:false,vat:false,user:who,shiftId:s?s.id:null,shiftName:s?s.name:'',remark:$('#clM',m).value.trim(),clItem:item.id,hist:[{at:t,user:who,shift:s?s.name:'',a:'Received on the city ledger'}]};
-        item.pays.push({at:t,bd:H.set.bd,amt:a,method:cur.desc,ref:line.ref,user:who,line});
-        refreshCityItems(H);log(`City ledger receipt ${m2(a)} ${cur.desc} RSVN ${item.rsvn}`,item.bookingId);closeModal(m);refresh();toast('Receipt recorded')})}};
+        const line={id:'l'+uid(),sys:H.set.nextSys++,folio:1,bd:H.set.bd,orgDate:H.set.bd,time:t,code:cur.code,desc:'City ledger receipt - '+cur.desc,ref:$('#clR',m).value.trim(),amt:-eq,kind:'pay',method:cur.desc,group:'pg'+uid(),link:null,night:null,fixed:false,deposit:false,adv:false,vat:false,user:who,shiftId:s?s.id:null,shiftName:s?s.name:'',remark:$('#clM',m).value.trim(),clItem:item.id,hist:[{at:t,user:who,shift:s?s.name:'',a:'Received on the city ledger'}]};
+        if(fx){line.fc=cs.cur;line.fa=-a;line.fr=rate;line.eq=-eq}
+        item.pays.push({at:t,bd:H.set.bd,amt:eq,method:cur.desc,ref:line.ref,user:who,line});
+        refreshCityItems(H);log(`City ledger receipt ${fx?cs.cur+' '+m2(a)+' = ':''}${m2(eq)} ${cur.desc} RSVN ${item.rsvn}`,item.bookingId);closeModal(m);refresh();toast('Receipt recorded')})}};
   paint()}
 /* the receipt of one payment, in the same Transaction window the folio uses (read only) */
 function clTxModal(item,p){
+  const canCorr=!!p.line&&!p.corrected&&p.bd===H.set.bd&&(can('corrpay')||!!user().provider);
   const l=p.line||{code:'',desc:'City ledger receipt - '+(p.method||''),ref:p.ref||'',remark:'',amt:-p.amt,time:p.at,bd:p.bd,user:p.user,shiftName:''},co=CO(item.companyId);
   const m=modal('Transaction',`<div class="tx"><div class="txgrid">${fld('Code',`<input value="${esc(l.code||'')}" disabled>`,'txcode')}${fld('Description',`<input value="${esc(l.desc)}" disabled>`)}${fld('Reference#',`<input value="${esc(l.ref||'')}" disabled>`)}
-    ${fld('Remark',`<textarea rows="3" disabled>${esc(l.remark||'')}</textarea>`,'txrem')}${fld('Amount',`<div class="amtbox"><input class="n" value="${m2(l.amt)}" disabled></div>`,'txamt')}</div>
+    ${fld('Remark',`<textarea rows="3" disabled>${esc(l.remark||'')}</textarea>`,'txrem')}${fld('Amount',`<div class="amtbox"><input class="n" value="${m2(l.amt)}" disabled></div>${l.fc?`<div class="sub">Paid in ${esc(l.fc)} ${m2(-l.fa)} at ${esc(String(l.fr))}</div>`:''}`,'txamt')}</div>
     <div class="ttabs"><button class="on" type="button">Posting Information</button></div>
     <div class="pinfo"><div><p>User Name: <b class="c1">*${esc(l.user||p.user||'')}</b></p><p>Date: <b class="c1">${fd(l.bd||p.bd)}</b> Time: <b class="c1">${tm(l.time||p.at)}</b></p><p>Shift: <b class="c1">${esc(l.shiftName||'—')}</b></p></div>
      <div><p>Company / Agent: <b class="c1">${esc(co?co.name:'—')}</b></p><p>RSVN: <b class="c1">${esc(item.rsvn)}</b> · Guest: <b class="c1">${esc(item.guest||'—')}</b></p><p>Payment method: <b class="c1">${esc(p.method||l.method||'')}</b></p></div></div></div>
-    <div class="btns end"><button type="button" class="btn ghost" data-clx>Close</button></div>`,{w:980,cls:'txmodal'});
-  m.querySelector('[data-clx]').onclick=()=>closeModal(m)}
+    ${p.corrected?`<p class="sub"><b>Corrected</b> by ${esc(p.corrected.user)} on ${fd(p.corrected.bd)} ${tm(p.corrected.at)}${p.corrected.reason?' · '+esc(p.corrected.reason):''}. It no longer counts.</p>`:''}
+    <div class="btns end">${canCorr?'<button type="button" class="btn" data-clc>Correct payment</button>':(p.corrected?'':'<span class="sub">'+(p.line&&p.bd!==H.set.bd?'A payment of a closed day cannot be corrected.':'Correct payment needs the permission.')+'</span>')}<button type="button" class="btn ghost" data-clx>Close</button></div>`,{w:980,cls:'txmodal'});
+  m.querySelector('[data-clx]').onclick=()=>closeModal(m);
+  if(canCorr)m.querySelector('[data-clc]').onclick=async()=>{
+    const why=await dlgAsk('Reason for the correction:','');if(why===null||why===undefined)return;
+    const t=Date.now(),s0=curShift(),s1=s0&&!s0.virtual?s0:null,u=user().name,c=Object.assign({},p.line,{id:'l'+uid(),sys:H.set.nextSys++,time:t,bd:H.set.bd,orgDate:H.set.bd,kind:'corrpay',desc:'Correct - '+p.line.desc,amt:-p.line.amt,link:p.line.id,user:u,shiftId:s1?s1.id:null,shiftName:s1?s1.name:'',remark:String(why).trim(),hist:[{at:t,user:u,shift:s1?s1.name:'',a:'Payment corrected'}]});
+    if(p.line.fc){c.fa=-p.line.fa;c.eq=-p.line.eq}
+    p.corr=c;p.corrected={at:t,bd:H.set.bd,user:u,reason:String(why).trim()};refreshCityItems(H);log(`City ledger receipt corrected ${m2(p.amt)} ${p.method} RSVN ${item.rsvn}`,item.bookingId);closeModal(m);refresh();toast('Payment corrected. The invoice is open again.')}}
 VIEWS['bill.city']=el=>{
   if(!(can('pay')||can('reports')||can('setup')||user().provider)){el.innerHTML='<div class="empty">City Ledger needs the payment or reports permission.</div>';return}
   refreshCityItems(H);const open=(H.cityLedger||[]).filter(x=>x.status==='open');const buckets=['0-30','31-60','61-90','90+'];
@@ -13927,8 +13946,8 @@ VIEWS['bill.city']=el=>{
    <div class="scards" style="grid-template-columns:repeat(4,1fr)">${buckets.map((k,i)=>`<div class="scard c${i+1}"><div class="st1">${k} days</div><div class="sn" style="font-size:22px">${m2(tot(k))}</div><div class="spx">${open.filter(x=>ageOf(x)===k).length} open</div></div>`).join('')}</div>
    <div class="panel scroll mt"><table class="grid"><tr><th>Date</th><th>Company / Agent</th><th>RSVN</th><th>Room</th><th>Guest</th><th>Ref</th><th class="n">Amount</th><th class="n">Outstanding</th><th class="n">Received</th><th>Payment method</th><th>Age</th><th></th></tr>
    ${(H.cityLedger||[]).filter(x=>x.status!=='void').sort((a,b)=>(a.status==='open'?0:1)-(b.status==='open'?0:1)||String(a.bd).localeCompare(b.bd)).map(x=>{const c=CO(x.companyId);
-     const pays=(x.pays||[]),got=r2(sum(pays,p=>+p.amt||0)),meth=[...new Set(pays.map(p=>p.method).filter(Boolean))].join(', ');
-     return `<tr class="${pays.length?'clrow':''}" ${pays.length?`data-clt="${x.id}|${pays.length-1}" title="Click to see the payment"`:''}><td>${fd(x.bd)}</td><td>${esc(c?c.name:'—')}</td><td>${esc(x.rsvn)}</td><td>${esc(x.room||'')}</td><td>${esc(x.guest)}</td><td>${esc(x.ref||'')}</td><td class="n">${m2(x.amt)}</td><td class="n ${x.open>0?'bad':''}">${m2(x.open)}</td><td class="n">${got?m2(got):''}</td><td>${esc(meth)}</td><td><span class="pill ${x.status==='paid'?'g':ageOf(x)==='90+'?'r':ageOf(x)==='0-30'?'g':'y'}">${x.status==='paid'?'Paid':ageOf(x)}</span></td><td>${x.status==='open'&&can('pay')?`<button class="btn sm" data-cls="${x.id}">Receive</button>`:''}</td></tr>`+pays.map((p,i)=>`<tr class="clrow clsub" data-clt="${x.id}|${i}" title="Click to see the payment"><td colspan="7"><span class="clmut">Receipt ${fd(p.bd)} ${tm(p.at)} · ${esc(p.user||'')}</span></td><td class="n"></td><td class="n"><b>${m2(p.amt)}</b></td><td>${esc(p.method||'')}</td><td colspan="2"></td></tr>`).join('')}).join('')||'<tr><td colspan="12" class="empty">No city-ledger invoices yet. On a folio, post payment code 930 (City Ledger) or 931 (Travel Agent Ledger).</td></tr>'}
+     const pays=(x.pays||[]),got=r2(sum(pays.filter(p=>!p.corrected),p=>+p.amt||0)),meth=[...new Set(pays.filter(p=>!p.corrected).map(p=>p.method).filter(Boolean))].join(', ');
+     return `<tr class="${pays.length?'clrow':''}" ${pays.length?`data-clt="${x.id}|${pays.length-1}" title="Click to see the payment"`:''}><td>${fd(x.bd)}</td><td>${esc(c?c.name:'—')}</td><td>${esc(x.rsvn)}</td><td>${esc(x.room||'')}</td><td>${esc(x.guest)}</td><td>${esc(x.ref||'')}</td><td class="n">${m2(x.amt)}</td><td class="n ${x.open>0?'bad':''}">${m2(x.open)}</td><td class="n">${got?m2(got):''}</td><td>${esc(meth)}</td><td><span class="pill ${x.status==='paid'?'g':ageOf(x)==='90+'?'r':ageOf(x)==='0-30'?'g':'y'}">${x.status==='paid'?'Paid':ageOf(x)}</span></td><td>${x.status==='open'&&can('pay')?`<button class="btn sm" data-cls="${x.id}">Receive</button>`:''}</td></tr>`+pays.map((p,i)=>`<tr class="clrow clsub" data-clt="${x.id}|${i}" title="Click to see the payment"><td colspan="7"><span class="clmut">Receipt ${fd(p.bd)} ${tm(p.at)} · ${esc(p.user||'')}</span></td><td class="n"></td><td class="n">${p.corrected?`<s>${m2(p.amt)}</s>`:`<b>${m2(p.amt)}</b>`}${p.line&&p.line.fc?`<div class="clmut">${esc(p.line.fc)} ${m2(-p.line.fa)}</div>`:''}</td><td>${esc(p.method||'')}${p.corrected?' <span class="clmut">(corrected)</span>':''}</td><td colspan="2"></td></tr>`).join('')}).join('')||'<tr><td colspan="12" class="empty">No city-ledger invoices yet. On a folio, post payment code 930 (City Ledger) or 931 (Travel Agent Ledger).</td></tr>'}
    </table></div><p class="sub">Those payments move the guest balance onto the company account. Receive the money here when the company pays. Nothing is posted on the guest folio a second time.</p>`;
   $$('[data-cls]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();settleCity(b.dataset.cls)});
   $$('[data-clt]',el).forEach(r=>r.onclick=()=>{const[id,i]=r.dataset.clt.split('|'),it=(H.cityLedger||[]).find(x=>x.id===id);if(it&&it.pays[+i])clTxModal(it,it.pays[+i])});
