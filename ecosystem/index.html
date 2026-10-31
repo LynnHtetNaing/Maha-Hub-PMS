@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="ba4b4d299f">
+<meta name="maha-build" content="319e9ea2ab">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -3185,7 +3185,7 @@ function shapeHotel(h){
   h.set.stripe=Object.assign({publishable:'',secret:'',connectAccountId:'',label:''},h.set.stripe||{});
   (h.rateCodes||[]).forEach(r=>{if(r.meal==='ABF'&&(r.bfAdult==null||r.bfAdult===''))r.bfAdult=h.set.bfAdult});
   (h.companies||[]).forEach(c=>{if(c.creditLimit==null)c.creditLimit=0});
-  h.shiftFloats=Array.isArray(h.shiftFloats)?h.shiftFloats:[];h.amend=h.amend||[];h.audits=h.audits||[];h.logs=h.logs||[];h.invoices=h.invoices||[];
+  h.shiftFloats=Array.isArray(h.shiftFloats)?h.shiftFloats:[];h.handovers=Array.isArray(h.handovers)?h.handovers:[];h.amend=h.amend||[];h.audits=h.audits||[];h.logs=h.logs||[];h.invoices=h.invoices||[];
   h.edcLinks=Array.isArray(h.edcLinks)?h.edcLinks:[];
   if(h.users&&h.users.length&&!h.users.some(u=>u.owner)){const m=h.users.find(u=>u.role==='Manager')||h.users[0];m.owner=true;m.protected=true}
   (h.users||[]).forEach(u=>{if(u.owner&&Array.isArray(u.perms)&&!u.perms.includes('userlogs'))u.perms.push('userlogs')});
@@ -3668,7 +3668,7 @@ function adoptTenantHotel(code,payload){
    - deletes travel as tombstones; a device that was offline catches up with an incremental pull;
    - reservation / invoice / profile numbers come from non-overlapping blocks leased from the server;
    - nothing is ever overwritten blindly: every write carries the version it was based on. */
-const MS_KEYS={shiftFloats:'k',reservations:'id',guests:'id',companies:'id',rooms:'no',roomTypes:'code',rateCodes:'code',shifts:'id',petty:'id',suppliers:'id',purchases:'id',users:'id',invoices:'no',audits:'date',cityLedger:'id',groups:'id',shiftCodes:'code'};
+const MS_KEYS={shiftFloats:'k',handovers:'id',reservations:'id',guests:'id',companies:'id',rooms:'no',roomTypes:'code',rateCodes:'code',shifts:'id',petty:'id',suppliers:'id',purchases:'id',users:'id',invoices:'no',audits:'date',cityLedger:'id',groups:'id',shiftCodes:'code'};
 const MS_DESC=new Set(['amend','edcLinks','approvals','mailLog','logs']);   /* lists the PMS fills newest-first */
 const MS_NODELETE=new Set(['logs','mailLog']);                                /* local trimming must not delete other devices' history */
 const MS_COUNTERS=['nextRsv','nextInternal','nextInv','nextSys','nextProfile','nextRef','nextCN'];
@@ -7486,7 +7486,7 @@ const MENU=[
  {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['Payment / EDC links','bill.edclinks','pay','fn.bill.folio'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','approve','fn.set.approve']]},
  {t:'Room Management',items:[['Housekeeping Status','rm.hkstatus','','fn.rm.hkstatus'],['HK Folio','rm.hkfolio','','fn.rm.hkfolio'],['Out of Order','rm.ooo','','fn.rm.ooo']]},
  {t:'Inquiry',items:[['Hotel Status','fo.status','','fn.inq.status'],['Guest','inq.guest','','fn.inq.guest'],['Booking History','inq.history','','fn.inq.history'],['Forecast','inq.forecast','','fn.inq.forecast']]},
- {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty']]},
+ {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty'],['Cash Handover','cd.handover','','fn.cd.handover']]},
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['User Logs','set.userlogs','userlogs'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
@@ -7985,7 +7985,7 @@ function mIc(n,cls){return '<svg class="mi'+(cls?' '+cls:'')+'" viewBox="0 0 24 
 const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','Billing / Folio':'receipt','Room Management':'bed','Inquiry':'search','Close Day':'moon','Help':'help','Report':'chart','Setup':'gear','Provider':'gear','Property set-up':'building','Rates & profiles':'tag','People & access':'users','Finance & data':'db'};
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
  'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.edclinks':'card','bill.city':'book','bill.master':'layers','set.approve':'check',
- 'rm.hkstatus':'spark','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','help.home':'help',
+ 'rm.hkstatus':'spark','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','cd.handover':'swap','help.home':'help',
  'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.exit':'login','prov.edc':'card','prov.log':'history'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
@@ -8659,7 +8659,7 @@ function doLogin(){
     if(!flexS){const ocW=$('#cashWrap'),ocv=String($('#lgCash').value).trim();if(ocW)ocW.hidden=false;if(!/^\d{1,9}(\.\d{1,2})?$/.test(ocv)){err.textContent='Enter your opening cash (type 0 if the drawer is empty).';try{$('#lgCash').focus()}catch(e){}return}
       const typed=r2(+ocv);   /* one float for the shift: the first number typed is kept (no name on it), everyone after types the same */
       if(grp.have){if(Math.abs(typed-grp.open)>0.004){err.textContent='This does not match the opening float of the '+lgShift+' shift. Count the drawer again and type the same amount.';try{$('#lgCash').focus()}catch(e){}return}}
-      else{const fl=sfRec(h,grp.key,true);fl.open=typed;fl.entries.push({at:Date.now(),o:typed,first:true})}}
+      else{const fl=sfRec(h,grp.key,true);fl.open=typed;const pc=sfPrevClose(h);if(pc!=null)fl.prev=pc;fl.entries.push({at:Date.now(),o:typed,first:true})}}
     s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:0,grp:grp.key||undefined,status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Opened ${s.name} shift`)}
   else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
   writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}}
@@ -11050,6 +11050,7 @@ const sfKeyOf=(bd,name,n)=>bd+'|'+name+'|'+(n||1);
 function sfRec(h,key,make){h.shiftFloats=h.shiftFloats||[];let f=h.shiftFloats.find(x=>x.k===key);if(!f&&make){const p=key.split('|');f={k:key,bd:p[0],name:p[1],open:0,close:0,entries:[]};h.shiftFloats.push(f)}return f}
 function sfHolder(h,s){return s&&s.grp?(h.shifts||[]).filter(x=>x.grp===s.grp&&!x.virtual).sort((a,b)=>(a.openAt||0)-(b.openAt||0))[0]:null}
 function sfOpenOf(h,s){if(!s||!s.grp)return 0;const f=sfRec(h,s.grp),hd=sfHolder(h,s);return f&&hd&&hd.id===s.id?r2(f.open||0):0}
+function sfPrevClose(h){const c=(h.shifts||[]).filter(x=>x.status==='closed'&&!x.virtual&&x.closeFloat!=null).sort((a,b)=>(b.closeAt||0)-(a.closeAt||0))[0];return c?r2(c.closeFloat):null}
 function sfGroupNow(h,name,flex){const bd=h.set.bd;
   if(flex)return {key:sfKeyOf(bd,name,1),have:false,open:0};
   const op=(h.shifts||[]).filter(x=>x.bd===bd&&x.name===name&&x.status==='open'&&!x.virtual).sort((a,b)=>(a.openAt||0)-(b.openAt||0));
@@ -11083,6 +11084,7 @@ VIEWS['cd.shift']=el=>{
   const flexNow=ruleOnStrict(H,'flexibleShiftLogin'),peers=(!flexNow&&s.grp)?H.shifts.filter(x=>x.status==='open'&&x.grp===s.grp&&x.id!==s.id&&!x.virtual):[],pT=peers.map(x=>shiftTotals(x)),peerExp=r2(sum(pT,x=>x.expected)),peerCash=k=>r2(sum(pT,x=>(x.cashBy&&x.cashBy[k])||0));
   const grpPanel=peers.length?`<div class="panel"><div class="ph">Whole ${esc(s.name)} shift · ${peers.length+1} people</div><table class="grid kv"><tr><td>Opening float (one amount)</td><td class="n">${m2(t.open+sum(pT,x=>x.open))}</td></tr><tr><td>Cash drop of all people</td><td class="n">${m2(r2(t.drop+sum(pT,x=>x.drop)))}</td></tr><tr class="tot"><td>Expected cash in the drawer</td><td class="n">${m2(r2(t.expected+peerExp))}</td></tr></table></div>`:'';
   const sfRows=['Morning','Afternoon','Night'].map(n=>{const fr=sfRec(H,sfKeyOf(s.bd,n,1));return fr&&(fr.open||fr.close)?`<tr><td>${n}</td><td class="n">${m2(fr.open||0)}</td><td class="n">${m2(fr.close||0)}</td></tr>`:''}).join('');
+  const prevRow=(()=>{const fr=s.grp?sfRec(H,s.grp):null;return fr&&fr.prev!=null?`<tr><td>Closing float of the last shift</td><td class="n ${Math.abs((fr.open||0)-fr.prev)>0.004?'bad':''}">${m2(fr.prev)}</td></tr>`:''})();
   const sfm=CL_SFMSG;CL_SFMSG='';
   const sfPanel=flexNow?`<div class="panel"><div class="ph">Shift float</div><div class="cscl">${sfm?`<div class="clblk" style="grid-column:1/-1"><b>${esc(sfm)}</b></div>`:''}${fld('Shift',`<select id="sfSh">${['Morning','Afternoon','Night'].map(n=>opt(n,n,s.name)).join('')}</select>`)}${fld('Opening amount',`<input id="sfO" class="n" inputmode="decimal" placeholder="0.00">`)}${fld('Closing amount',`<input id="sfC" class="n" inputmode="decimal" placeholder="0.00">`)}</div><div class="btns"><button class="btn gold" id="sfSave">Save</button></div><table class="grid kv"><tr><th>Shift</th><th class="n">Opening</th><th class="n">Closing</th></tr>${sfRows||'<tr><td colspan="3" class="empty">No shift float saved today.</td></tr>'}</table></div>`:'';
   const others=H.shifts.filter(x=>x.status==='open'&&x.id!==s.id);
@@ -11092,26 +11094,30 @@ VIEWS['cd.shift']=el=>{
        const lab=(o)=>Object.entries(o).flatMap(([c,mm])=>Object.entries(mm).map(([k,v])=>[k+' ('+c+')',v]));
        return rowsOf(Object.fromEntries(lab(t.byCurIn)),Object.fromEntries(lab(t.byCurOut)))})()||'<tr><td colspan="2" class="empty">No payments taken yet.</td></tr>'}
      <tr class="tot"><td>Total collected</td><td class="n">${curMulti(H)?Object.entries(t.byCur).map(([c,mm])=>c+' '+m2(sum(Object.values(mm)))).join(' · ')||'0.00':m2(sum(Object.values(t.by)))}</td></tr></table></div>
-   <div class="panel"><div class="ph">Float (cash in hand)</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(t.open)}</td></tr><tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr><td>− Petty cash</td><td class="n">${m2(t.pettyOut)}</td></tr><tr><td>+ Petty cash paid in</td><td class="n">${m2(t.pettyIn)}</td></tr><tr><td>− Refund (cash)</td><td class="n ${t.refundFloat?'bad':''}">${m2(t.refundFloat)}</td></tr><tr class="tot"><td>Float in hand</td><td class="n">${m2(t.floatIn)}</td></tr></table></div>
+   <div class="panel"><div class="ph">Float (cash in hand)</div><table class="grid kv"><tr><td>Opening cash</td><td class="n">${m2(t.open)}</td></tr>${prevRow}<tr><td>− Paid out</td><td class="n">${m2(t.paidOut)}</td></tr><tr><td>− Petty cash</td><td class="n">${m2(t.pettyOut)}</td></tr><tr><td>+ Petty cash paid in</td><td class="n">${m2(t.pettyIn)}</td></tr><tr><td>− Refund (cash)</td><td class="n ${t.refundFloat?'bad':''}">${m2(t.refundFloat)}</td></tr><tr class="tot"><td>Float in hand</td><td class="n">${m2(t.floatIn)}</td></tr></table></div>
    ${curMulti(H)?`<div class="panel"><div class="ph">Other currencies</div><table class="grid kv">${curOthers(H).map(c=>`<tr><td>Cash received (${esc(c)})</td><td class="n">${m2(t.cashByIn[c]||0)}</td></tr><tr><td>− Refund (${esc(c)})</td><td class="n ${(t.cashByOut[c]||0)?'bad':''}">${m2(t.cashByOut[c]||0)}</td></tr><tr class="tot"><td>Expected Cash Drop (${esc(c)})</td><td class="n">${m2(t.dropBy[c]||0)}</td></tr>`).join('')}</table></div>`:''}
    <div class="panel"><div class="ph">Cash drop</div><table class="grid kv"><tr><td>Cash received${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.cashIn)}</td></tr><tr><td>− Refund (cash)</td><td class="n ${t.refundApplied?'bad':''}">${m2(t.refundApplied)}</td></tr><tr class="tot"><td>Expected Cash Drop${curMulti(H)?' ('+esc(curMain())+')':''}</td><td class="n">${m2(t.drop)}</td></tr></table></div>
    ${grpPanel}${sfPanel}
    <div class="panel csclose"><div class="ph">Close shift</div><div class="cscl">
     ${fld('Cash counted in the drawer'+(curMulti(H)?' ('+esc(curMain())+')':''),`<input type="number" id="csC" step="0.01" class="n" placeholder="0.00">`)}
     ${curMulti(H)?curOthers(H).map(c=>fld('Cash counted in the drawer ('+esc(c)+')',`<input type="number" id="csC_${c}" step="0.01" class="n" placeholder="0.00">`)).join(''):''}
-    ${fld('Handover note (optional)',`<input id="csN">`)}</div><div class="err" id="csE"></div>
+    ${fld('Closing float left in the drawer',`<input type="number" id="csF" step="0.01" class="n" placeholder="0.00">`)}
+    ${fld('Note (optional)',`<input id="csN">`)}</div><table class="grid kv"><tr><td>Cash to drop (counted − closing float)</td><td class="n" id="csDrop">-</td></tr>${flexNow?'':`<tr><td>Float shortage (opening float − closing float)</td><td class="n" id="csShort">-</td></tr>`}</table><div class="err" id="csE"></div>
     <div class="btns"><button class="btn ghost" id="csRep">Shift report</button><button class="btn gold" id="csGo">Close my shift and sign out</button></div></div>
    </div>
    ${others.length?`<div class="panel mt"><div class="ph">Other open shifts</div><table class="grid"><tr><th>User</th><th>Shift</th><th>Opened</th><th></th></tr>${others.map(o=>`<tr><td>${esc(o.userName)}${(()=>{const ou=H.users.find(x=>x.id===o.userId);return ou&&(ou.cancelled||ou.active===false)?' <span class="sub" style="color:#b3261e">(user cancelled, shift still open)</span>':''})()}</td><td>${o.name}</td><td>${fd(o.bd)} ${tm(o.openAt)}</td><td>${can('closeothers')?`<button class="btn sm ghost" data-cls="${o.id}">Close this shift</button>`:''}</td></tr>`).join('')}</table></div>`:''}`;
+  {const gO=(()=>{const fr=s.grp?sfRec(H,s.grp):null;return fr?r2(fr.open||0):t.open})(),upd=()=>{const num=q=>{const v=String(($(q,el)||{}).value||'').trim();return v===''?null:r2(+v.replace(/,/g,'')||0)},cn=num('#csC'),cf=num('#csF'),d=$('#csDrop',el),sh=$('#csShort',el);if(d)d.textContent=cn!=null&&cf!=null?m2(cn-cf):'-';if(sh){sh.textContent=cf!=null?m2(gO-cf):'-';sh.classList.toggle('bad',cf!=null&&gO-cf>0.004)}};['#csC','#csF'].forEach(q=>{if($(q,el))$(q,el).addEventListener('input',upd)})}
   $('#csRep',el).onclick=()=>{try{const d=REPORTS.find(r=>r.code==='CB_04'),res=reportPages(d,{from:s.bd,to:s.bd,shift:'',shiftName:s.name,o:{}});printPages(res.html,'Shift report - '+s.name+' shift')}catch(e){toast('The shift report could not open.')}};
   $('#csGo',el).onclick=async ()=>{if(!el._csWarned){el._csWarned=true;$('#csE',el).textContent='Please print the Shift report before you close your shift. Press Close my shift again to close it.';return}const c=$('#csC',el).value;if(c===''){$('#csE',el).textContent='Count the cash in the drawer and enter the amount.';return}const cnt=r2(+c),v=r2(cnt-r2(t.expected+peerExp));const cb={},vb={};let vAny=false;curOthers(H).forEach(k=>{const raw=$('#csC_'+k,el)?$('#csC_'+k,el).value:'',ex=r2((t.cashBy[k]||0)+peerCash(k));cb[k]=raw===''?(ex===0?0:null):r2(+raw);if(cb[k]!=null){vb[k]=r2(cb[k]-ex);if(vb[k]!==0)vAny=true}});
     if(Object.values(cb).some(x=>x==null)){$('#csE',el).textContent='Count the cash in each currency and enter the amounts.';return}
+    const cfRaw=String(($('#csF',el)||{}).value||'').trim();if(cfRaw===''){$('#csE',el).textContent='Type the closing float left in the drawer (type 0 if none).';return}const cf=r2(+cfRaw.replace(/,/g,'')||0);if(cf<0||cf>cnt+0.004){$('#csE',el).textContent='The closing float cannot be more than the cash counted.';return}
     if((v!==0||vAny)&&!await dlgConfirm(`Cash variance ${m2(v)}${curOthers(H).map(k=>vb[k]?', '+k+' '+m2(vb[k]):'').join('')}. Close the shift with this variance?`))return;
     const own=r2(cnt-peerExp),ownB=Object.assign({[curMain()]:own},Object.fromEntries(Object.keys(cb).map(k=>[k,r2(cb[k]-peerCash(k))])));
     Object.assign(s,{status:'closed',closeAt:Date.now(),expected:t.expected,counted:own,variance:v,note:$('#csN',el).value.trim()},curMulti(H)?{expectedBy:t.expectedBy,countedBy:ownB,varianceBy:Object.assign({[curMain()]:v},vb)}:{});
     /* one shift: everyone else's part of it is closed with it (their cash is in the one count) */
     peers.forEach((o,i)=>{const tt=pT[i];Object.assign(o,{status:'closed',closeAt:Date.now(),expected:tt.expected,counted:tt.expected,variance:0,closedBy:user().name,note:'Closed with the shift by '+user().name},curMulti(H)?{expectedBy:tt.expectedBy,countedBy:Object.assign({},tt.expectedBy),varianceBy:Object.keys(tt.expectedBy||{}).reduce((m,k)=>{m[k]=0;return m},{})}:{})});
-    log(`Closed ${s.name} shift${peers.length?' for '+(peers.length+1)+' people':''}, variance ${m2(v)}`);saveDB();signOut(true)};
+    {const fr=s.grp?sfRec(H,s.grp,true):null,gO=fr?r2(fr.open||0):t.open;Object.assign(s,{closeFloat:cf,cashDrop:r2(cnt-cf)},flexNow?{}:{floatShort:r2(gO-cf)});if(fr)fr.close=flexNow?r2((fr.close||0)+cf):cf}   /* the float stays in the drawer; what is dropped is the cash counted minus that float */
+    log(`Closed ${s.name} shift${peers.length?' for '+(peers.length+1)+' people':''}, variance ${m2(v)}, closing float ${m2(cf)}`);saveDB();signOut(true)};
   if($('#sfSave',el))$('#sfSave',el).onclick=()=>{const nm=$('#sfSh',el).value,o=r2(+String($('#sfO',el).value).replace(/,/g,'')||0),c2=r2(+String($('#sfC',el).value).replace(/,/g,'')||0);
     if(!(o>0)&&!(c2>0)){CL_SFMSG='Enter an opening or a closing amount.';VIEWS['cd.shift'](el);return}
     const fr=sfRec(H,sfKeyOf(s.bd,nm,1),true),before=r2(fr.open||0);fr.open=r2(before+o);fr.close=r2((fr.close||0)+c2);fr.entries.push({at:Date.now(),user:user().name,o,c:c2});
@@ -11174,6 +11180,7 @@ function cdIssues(){const bd=H.set.bd,s=curShift(),o=[];
   const seen={};allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.room).forEach(b=>{if(seen[b.room])o.push({block:true,k:'dup',t:'Room used twice',d:`Room ${b.room}: RSVN ${resOf(seen[b.room]).no} and ${resOf(b).no}`,id:b.id});seen[b.room]=b});
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&G(b.guestId).nationality&&G(b.guestId).nationality!==H.set.nat&&!(G(b.guestId).doc||{}).no).forEach(b=>o.push({block:false,k:'doc',t:'Passport missing',d:`Room ${b.room} ${gName(G(b.guestId))} – needed for the government report.`,id:b.id}));
   allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b)&&b.dep===addD(bd,1)&&bal(b)>0.004).forEach(b=>o.push({block:false,k:'bal',t:'Balance due tomorrow',d:`Room ${b.room} leaves ${fd(b.dep)} with ${m2(bal(b))} outstanding.`,id:b.id}));
+  (H.handovers||[]).filter(x=>x.status==='pending').forEach(x=>o.push({block:false,k:'handover',t:'Cash handover not posted',d:`${m2(x.amt)} ${H.set.cur} from the ${x.fromShift} shift (${x.fromUser}) to the ${x.toShift} shift – post the payment on the folio, then mark it Posted in Cash Handover.`}));
   return o}
 function cdReady(){const iss=cdIssues(),disc=roomDiscrepancies().filter(d=>d.status==='open');const ih=tonightIH();
   const checks=[['Room charge posted to every room',ih.every(roomPostedTonight)],['No data conflict to fix',!iss.some(i=>i.block&&!['post','arr','dep','shift','dayshift'].includes(i.k))],['No cashier shift left open',!iss.some(i=>i.k==='shift')],
@@ -14106,6 +14113,29 @@ VIEWS['bill.city']=el=>{
   if($('#clInv',el))$('#clInv',el).onclick=()=>clInvoice();
   $$('[data-cls]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();settleCity([b.dataset.cls])});
   $$('[data-clt]',el).forEach(r=>r.onclick=()=>{const[id,i]=r.dataset.clt.split('|'),it=(H.cityLedger||[]).find(x=>x.id===id);if(it&&it.pays[+i])clTxModal(it,it.pays[+i])});
+};
+/* Cash Handover: a record of cash one shift passes to the next. It is a record only: it adds nothing to revenue, expected cash or cash to drop. The next shift posts the payment on the guest folio (that posting is the revenue) and marks the record Posted. */
+const HO_ORDER=['Morning','Afternoon','Night'];
+function hoNext(name,bd){const i=HO_ORDER.indexOf(name);return i===1?{name:'Night',bd}:i===2?{name:'Morning',bd:addD(bd,1)}:{name:'Afternoon',bd}}
+VIEWS['cd.handover']=el=>{
+  if(!H){el.innerHTML='<div class="empty">Open a hotel first.</div>';return}
+  const s=curShift(),canNew=!!(s&&!s.noShift&&!s.virtual),canPost=can('pay')||!!user().provider,me=DB.session&&DB.session.userId;
+  const rows=[...(H.handovers||[])].sort((a,b)=>(b.at||0)-(a.at||0)),pend=rows.filter(x=>x.status==='pending'),pendAmt=r2(sum(pend,x=>x.amt));
+  el.innerHTML=pageHead('Cash Handover',`<span class="sub">Not posted yet ${m2(pendAmt)} ${esc(H.set.cur)} · ${pend.length} record${pend.length===1?'':'s'}</span>`)+`
+   <div class="panel"><div class="ph">Records</div>${canNew?'<div class="btns" style="padding:0 14px 10px"><button class="btn gold" id="hoNew">New cash hand over</button></div>':''}<div class="scroll"><table class="grid"><tr><th>Date</th><th>From</th><th>To</th><th class="n">Amount</th><th>Note</th><th>Status</th><th></th></tr>
+    ${rows.map(x=>`<tr><td>${fd(x.bd)}<span class="sub" style="display:block">${tm(x.at)}</span></td><td>${esc(x.fromShift)}<span class="sub" style="display:block">${esc(x.fromUser||'')}</span></td><td>${esc(x.toShift)}<span class="sub" style="display:block">${fd(x.toBd)}</span></td><td class="n">${m2(x.amt)}</td><td>${esc(x.note||'')}</td><td>${x.status==='posted'?`<span class="pill g">Posted</span><span class="sub" style="display:block">${esc(x.postedBy||'')} · ${fd(x.postedBd||'')}${x.ref?' · '+esc(x.ref):''}</span>`:x.status==='cancelled'?'<span class="pill k">Cancelled</span>':'<span class="pill y">Not posted</span>'}</td><td class="nowrap">${x.status==='pending'?`${canPost?`<button class="btn sm gold" data-hp="${x.id}">Mark posted</button> `:''}${(canPost||x.userId===me)?`<button class="btn sm ghost" data-hc="${x.id}">Cancel</button>`:''}`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No cash hand over yet.</td></tr>'}
+   </table></div></div>`;
+  if($('#hoNew',el))$('#hoNew',el).onclick=()=>{const nx=hoNext(s.name,s.bd);
+    const m=modal('Cash hand over',`<div class="clinfo"><div class="clblk"><small>From</small><b>${esc(s.name)} shift · ${esc(user().name)}</b></div><div class="clblk"><small>To</small><b>${esc(nx.name)} shift · ${fd(nx.bd)}</b></div><div class="clblk"><small>Currency</small><b>${esc(H.set.cur)}</b></div></div><div class="form2">${fld('Amount handed over',`<input id="hoA" class="n" inputmode="decimal" placeholder="0.00">`)}${fld('Note (optional)',`<input id="hoN" maxlength="120">`)}</div><div class="err" id="hoE"></div><div class="btns end"><button class="btn red" id="hoX">Close</button><button class="btn gold" id="hoGo">Hand over</button></div>`,{w:560});
+    $('#hoX',m).onclick=()=>closeModal(m);
+    $('#hoGo',m).onclick=()=>{const a=r2(+String($('#hoA',m).value).replace(/,/g,'')||0);if(!(a>0)){$('#hoE',m).textContent='Enter the amount handed over.';return}
+      H.handovers.push({id:'ho'+uid(),at:Date.now(),bd:s.bd,fromShift:s.name,fromUser:user().name,userId:me,toShift:nx.name,toBd:nx.bd,amt:a,note:$('#hoN',m).value.trim(),status:'pending'});
+      log(`Cash hand over ${m2(a)} to the ${nx.name} shift`);saveDB();closeModal(m);refresh();toast('Cash hand over recorded.')}};
+  $$('[data-hp]',el).forEach(b=>b.onclick=async()=>{const x=(H.handovers||[]).find(y=>y.id===b.dataset.hp);if(!x||x.status!=='pending')return;
+    const ref=await dlgAsk('Posted on which RSVN or reference? (optional)','');if(ref===null)return;
+    Object.assign(x,{status:'posted',postedAt:Date.now(),postedBd:H.set.bd,postedBy:user().name,ref:String(ref||'').trim()});log(`Cash hand over ${m2(x.amt)} marked posted`);saveDB();refresh()});
+  $$('[data-hc]',el).forEach(b=>b.onclick=async()=>{const x=(H.handovers||[]).find(y=>y.id===b.dataset.hc);if(!x||x.status!=='pending')return;
+    if(!await dlgConfirm('Cancel this cash hand over record?'))return;x.status='cancelled';log(`Cash hand over ${m2(x.amt)} cancelled`);saveDB();refresh()});
 };
 VIEWS['cd.petty']=el=>{
   if(!H){el.innerHTML='<div class="empty">Open a hotel first.</div>';return}
