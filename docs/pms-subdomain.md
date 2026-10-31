@@ -1,6 +1,6 @@
 # PMS on its own address: pms.maha-hub.com
 
-Status: the code is ready and switched OFF. Nothing changes for anyone until the launch steps below.
+Status: LAUNCHED. The switch is ON (PMS_SPLIT_ON = true, PMS_REDIRECT = "1"). Rollback below.
 
 What it does
 - pms.maha-hub.com works like the main address: it opens the Main page (/solutions) where the person chooses a system, then the PMS sign-in (/solutions-PMS). It has its own sign-in and its own saved data, apart from the other systems.
