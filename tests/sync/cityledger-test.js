@@ -29,4 +29,5 @@ T('tax invoice: logo, terms, acknowledgement of payer, signatures, our numbering
 T('a line goes on one invoice only; the same set can be printed again', src.includes('is already on tax invoice') && src.includes('x.invKey=key'));
 T('the page is open to everyone; ticks, Invoice, Pay and Correct payment follow the City ledger switch of the Provider console', src.includes('function clOpenFor(u)') && src.includes('function clAllowed()') && src.includes('data-cl=') && src.includes('u.clLedger=!!c.checked') && !t.includes('City Ledger needs the payment or reports permission'));
 T('Dark: the chosen payment / charge tile is clearly shown in the theme colour', src.includes('[data-mode=dark] .nitile.on{background:color-mix(in srgb,var(--a1) 30%,var(--m-card));border-color:var(--a1)'));
+T('phone view: the post / payment window does not ask for a folio (one folio only)', src.includes('let pf=MOB_Q.matches?1:(folio||1),cur=null;') && src.includes("if(MOB_Q.matches){const fm=$('.fseg',m)"));
 process.exit(fails ? 1 : 0);

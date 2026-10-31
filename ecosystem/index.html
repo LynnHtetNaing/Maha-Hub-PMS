@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="2c0082ca37">
+<meta name="maha-build" content="c06b225c31">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -10394,7 +10394,7 @@ const HK_TABS=['MINIBAR','LAUNDRY','MISSING & DAMAGE','MISC.'];
 function hkCode(c){return !!c&&c.type==='c'&&HK_TABS.includes(c.tab)&&!c.auto&&!c.hidden&&!c.adjFor&&!c.rebFor&&!c.rebate&&!/^Adjust|^Rebate/i.test(c.desc)&&c.code!=='721'}
 function needHk(){return (can('post')||can('hkpost'))?need():need('hkpost')}
 function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const gone=B.status==='out';if(hk){if(!HK_TABS.includes(postTab))postTab=HK_TABS[0];postKind='c'}if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
-  let pf=folio||1,cur=null;
+  let pf=MOB_Q.matches?1:(folio||1),cur=null;   /* phone view has one folio: no folio to choose */
   if(gone&&postKind==='c')postKind='adj';
   const cs=curUserOn()?{cur:bCur(B),rp:'',rr:bForeign(B)?String(B.curRate):''}:null;let Pq=null;
   const m=modal('New Item Folio','<div id="niB"></div>',{w:cs?1440:1240,cls:'nimodal'+(cs?' nimc':'')});
@@ -10415,6 +10415,7 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
       <div class="quote" id="niQ"></div><div class="err" id="niE"></div>
       <div class="btns end"><button class="btn red" id="niX">Close</button><button class="btn purple" id="niP">Post</button></div></div></div>`;
     if(hk){['niKa','niKr'].forEach(id=>{const b=$('#'+id,m);if(b)b.remove()});const fs_=$('.fseg',m);if(fs_&&fs_.closest('label'))fs_.closest('label').style.display='none'}
+    if(MOB_Q.matches){const fm=$('.fseg',m);if(fm&&fm.closest('label'))fm.closest('label').style.display='none'}
     const keep=['niR','niA','niM'].map(id=>[id,m._v&&m._v[id]]);keep.forEach(([id,v])=>{if(v!=null)$('#'+id,m).value=v});
     if(cur&&cur.code==='203'&&houseAccount(B)&&!$('#niA',m).value){const need=-folioBal(B,pf);if(need>0.004)$('#niA',m).value=String(r2(need))}
     $$('[data-nt]',m).forEach(b=>b.onclick=()=>{save();postTab=b.dataset.nt;paint()});
