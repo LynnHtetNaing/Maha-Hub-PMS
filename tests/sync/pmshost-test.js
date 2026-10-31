@@ -24,7 +24,7 @@ const rwf='run_worker_first = ["/", "/index.html", "/solutions*"]';T('the worker
 const cut=(a,b)=>{const i=src.indexOf(a),j=src.indexOf(b,i);if(i<0||j<0)throw new Error('code not found: '+a);return src.slice(i,j)};
 const code=cut('function hubBaseUrl()','function edcB64url'),sg=cut('function sysSegment','\n');
 const env=(host,pathname,split)=>{const loc={origin:'https://'+host,hostname:host,pathname,href:'https://'+host+pathname};const hist={to:null,replaceState(a,b,u){this.to=u}};const doc={title:''};
-  const cd=code.replace('const PMS_SPLIT_ON=false','const PMS_SPLIT_ON='+!!split);
+  const cd=code.replace('const PMS_SPLIT_ON=true','const PMS_SPLIT_ON='+!!split);
   const api=new Function('location','history','document','URL','tabTitleFor','setTabIcons',sg+'\n'+cd+'\nreturn {hubBaseUrl,sysFromPath,sysUrl,applySysPath};')(loc,hist,doc,URL,()=>'Maha PMS',()=>{});api.hist=hist;api.doc=doc;return api};
 let e=env('pms.maha-hub.com','/solutions');T('on pms. the Main page is not a system',e.sysFromPath()===null);
 e=env('pms.maha-hub.com','/solutions-PMS');T('on pms. /solutions-PMS is the PMS',e.sysFromPath()==='hub'&&(e.applySysPath('hub'),e.hist.to===null));
@@ -33,5 +33,5 @@ e=env('maha-hub.com','/solutions',false);T('switch off: PMS link stays on the ma
 e=env('maha-hub.com','/solutions',true);T('switch on: PMS link goes to pms.',e.sysUrl('hub',{code:'PAD01'})==='https://pms.maha-hub.com/solutions-PMS?hotel=PAD01'&&e.sysUrl('reach')==='https://maha-hub.com/ecosystem/Reach/');
 e=env('maha-hub.pages.dev','/solutions',true);T('the test copy keeps the old paths even when switched on',e.sysUrl('hub')==='https://maha-hub.pages.dev/solutions-PMS');
 T('pms. counts as a live cloud address',src.includes("liveHosts:['maha-hub.com','www.maha-hub.com','pms.maha-hub.com']"));
-T('the switch is OFF in this build',/const PMS_SPLIT_ON=false/.test(src));
+T('the switch is ON in this build',/const PMS_SPLIT_ON=true/.test(src));
 console.log(fails?'FAILED '+fails:'all ok');process.exit(fails?1:0)})().catch(e=>{console.log('FAIL '+e.stack);process.exit(1)});
