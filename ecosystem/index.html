@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="2c0082ca37">
+<meta name="maha-build" content="afb70559ee">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -10394,7 +10394,7 @@ const HK_TABS=['MINIBAR','LAUNDRY','MISSING & DAMAGE','MISC.'];
 function hkCode(c){return !!c&&c.type==='c'&&HK_TABS.includes(c.tab)&&!c.auto&&!c.hidden&&!c.adjFor&&!c.rebFor&&!c.rebate&&!/^Adjust|^Rebate/i.test(c.desc)&&c.code!=='721'}
 function needHk(){return (can('post')||can('hkpost'))?need():need('hkpost')}
 function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const gone=B.status==='out';if(hk){if(!HK_TABS.includes(postTab))postTab=HK_TABS[0];postKind='c'}if(B.status!=='inhouse'&&!gone){toast('Charges can be posted to in-house guests only.');return}
-  let pf=folio||1,cur=null;
+  let pf=MOB_Q.matches?1:(folio||1),cur=null;   /* phone view has one folio: no folio to choose */
   if(gone&&postKind==='c')postKind='adj';
   const cs=curUserOn()?{cur:bCur(B),rp:'',rr:bForeign(B)?String(B.curRate):''}:null;let Pq=null;
   const m=modal('New Item Folio','<div id="niB"></div>',{w:cs?1440:1240,cls:'nimodal'+(cs?' nimc':'')});
@@ -10415,6 +10415,7 @@ function postModal(B,after,folio,hk){if(hk?!needHk():!need('post'))return;const 
       <div class="quote" id="niQ"></div><div class="err" id="niE"></div>
       <div class="btns end"><button class="btn red" id="niX">Close</button><button class="btn purple" id="niP">Post</button></div></div></div>`;
     if(hk){['niKa','niKr'].forEach(id=>{const b=$('#'+id,m);if(b)b.remove()});const fs_=$('.fseg',m);if(fs_&&fs_.closest('label'))fs_.closest('label').style.display='none'}
+    if(MOB_Q.matches){const fm=$('.fseg',m);if(fm&&fm.closest('label'))fm.closest('label').style.display='none'}
     const keep=['niR','niA','niM'].map(id=>[id,m._v&&m._v[id]]);keep.forEach(([id,v])=>{if(v!=null)$('#'+id,m).value=v});
     if(cur&&cur.code==='203'&&houseAccount(B)&&!$('#niA',m).value){const need=-folioBal(B,pf);if(need>0.004)$('#niA',m).value=String(r2(need))}
     $$('[data-nt]',m).forEach(b=>b.onclick=()=>{save();postTab=b.dataset.nt;paint()});
@@ -11692,7 +11693,6 @@ function ppRowHtml(u,edit){
     pos='<input class="posin" data-pos="'+u.id+'" value="'+esc(u.position||u.role)+'" list="posList" aria-label="Position">';
     dep='<select data-dept="'+u.id+'" aria-label="Department"><option value="">—</option>'+DEPTS.map(d=>opt(d,d,u.department||'')).join('')+'</select>';
     pre+='<label class="uns"><input type="checkbox" data-ns="'+u.id+'" '+(u.noShift?'checked':'')+'> no shift</label>';
-    pre+='<label class="uns" title="Who may use the tick boxes, Invoice, Pay and Correct payment on the City Ledger"><input type="checkbox" data-cl="'+u.id+'" '+(clOpenFor(u)?'checked':'')+'> city ledger</label>';
   }
   if(edit){
     acts=st==='cancelled'
@@ -11712,7 +11712,8 @@ function ppPermRows(u,edit){
   const extra=PERMS.map(p=>p[0]).filter(k=>!known.has(k)&&!/^ai\./.test(k));if(extra.length)groups.push(['Other',extra]);
   return groups.map(g=>{const items=g[1].map(k=>PERMS.find(p=>p[0]===k)).filter(Boolean);if(!items.length)return '';
     const n=items.filter(p=>u.perms.includes(p[0])).length;
-    return ppGroup(g[0],n+' of '+items.length+' Open',items.map(p=>{const on=u.perms.includes(p[0]);return '<div class="ppr" data-pq="'+esc(p[1].toLowerCase())+'"><span>'+esc(p[1])+'</span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-pu="'+u.id+'" data-pp="'+p[0]+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join(''))}).join('');
+    const clRow=g[1].includes('pay')?(()=>{const on=clOpenFor(u);return '<div class="ppr" data-pq="city ledger tick boxes invoice pay correct payment"><span>City Ledger (tick boxes, Invoice, Pay, Correct payment)</span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-cl="'+u.id+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'})():'';
+    return ppGroup(g[0],n+' of '+items.length+' Open',items.map(p=>{const on=u.perms.includes(p[0]);return '<div class="ppr" data-pq="'+esc(p[1].toLowerCase())+'"><span>'+esc(p[1])+'</span>'+(edit?'<button type="button" class="tog sm '+(on?'on':'')+'" data-pu="'+u.id+'" data-pp="'+p[0]+'">'+(on?'Open':'Locked')+'</button>':'<span class="pill '+(on?'g':'k')+'">'+(on?'Open':'Locked')+'</span>')+'</div>'}).join('')+clRow)}).join('');
 }
 function ppSysRows(u,edit){
   shapeHotel(H);const list=hotelSystems(H);
@@ -11759,8 +11760,8 @@ function cmpHtml(){
 }
 function permBind(root){
   const R=()=>{(root.__after||render)()};
-  $$('[data-cl]',root).forEach(c=>c.onchange=()=>{const u=H.users.find(x=>x.id===c.dataset.cl);if(!u)return;u.clLedger=!!c.checked;
-    H.amend.unshift({at:Date.now(),user:user().name,what:`City ledger ${c.checked?'opened':'closed'} for ${u.username}`,reason:'Provider setting'});provLog(`City ledger ${c.checked?'opened':'closed'} for ${u.username}`);saveDB();toast(c.checked?'This person can use the City Ledger payments and invoices.':'City Ledger payments and invoices are closed for this person.')});
+  $$('[data-cl]',root).forEach(c=>c.onclick=()=>{const u=H.users.find(x=>x.id===c.dataset.cl);if(!u)return;const nowOn=!clOpenFor(u);u.clLedger=nowOn;c={checked:nowOn};
+    H.amend.unshift({at:Date.now(),user:user().name,what:`City ledger ${c.checked?'opened':'closed'} for ${u.username}`,reason:'Provider setting'});provLog(`City ledger ${c.checked?'opened':'closed'} for ${u.username}`);saveDB();toast(c.checked?'This person can use the City Ledger payments and invoices.':'City Ledger payments and invoices are closed for this person.');R()});
   $$('[data-ns]',root).forEach(c=>c.onchange=()=>{const u=H.users.find(x=>x.id===c.dataset.ns);if(!u)return;u.noShift=c.checked||undefined;
     H.amend.unshift({at:Date.now(),user:user().name,what:`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`,reason:'Provider setting'});provLog(`No-shift sign-in ${c.checked?'allowed':'removed'} for ${u.username}`);saveDB();toast(c.checked?'This person now signs in without a shift.':'This person signs in with a shift again.')});
   $$('[data-ce]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.ce);if(u)signinEmailDialog(H.code,u.username,()=>R())});
