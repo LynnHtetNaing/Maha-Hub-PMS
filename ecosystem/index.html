@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="0282314464">
+<meta name="maha-build" content="cc54f5ad2d">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7628,6 +7628,11 @@ function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book
 const PMS_SPLIT_ON=true,PMS_HOST='pms.maha-hub.com';
 function onPmsHost(){return String(location.hostname||'').toLowerCase().indexOf('pms.')===0}
 function onMainLiveHost(){const h=String(location.hostname||'').toLowerCase();return h==='maha-hub.com'||h==='www.maha-hub.com'}
+/* maha-hub.com is not behind Cloudflare yet, so the old PMS addresses move to the PMS address from inside the page (only the PMS pages, on the live main address, once the switch is on) */
+function pmsMoveUrl(l){const h=String(l.hostname||'').toLowerCase();if(!PMS_SPLIT_ON||!(h==='maha-hub.com'||h==='www.maha-hub.com'))return '';
+  let p=String(l.pathname||'').toLowerCase();for(const t of ['/index.html','/index.htm','.html','.htm','/'])if(p.length>t.length&&p.endsWith(t))p=p.slice(0,-t.length);
+  return (p==='/solutions-pms'||p==='/ecosystem/pms')?'https://'+PMS_HOST+'/solutions-PMS'+(l.search||'')+(l.hash||''):''}
+try{const mv=pmsMoveUrl(location);if(mv)location.replace(mv)}catch(e){}
 function sysFromPath(){const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
 function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low.indexOf('/ecosystem'),low.indexOf('/solutions')].filter(x=>x>=0).sort((a,b)=>a-b)[0];return location.origin+(at>=0?path.slice(0,at):'')}
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}

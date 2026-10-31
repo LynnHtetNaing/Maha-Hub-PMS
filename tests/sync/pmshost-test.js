@@ -34,4 +34,9 @@ e=env('maha-hub.com','/solutions',true);T('switch on: PMS link goes to pms.',e.s
 e=env('maha-hub.pages.dev','/solutions',true);T('the test copy keeps the old paths even when switched on',e.sysUrl('hub')==='https://maha-hub.pages.dev/solutions-PMS');
 T('pms. counts as a live cloud address',src.includes("liveHosts:['maha-hub.com','www.maha-hub.com','pms.maha-hub.com']"));
 T('the switch is ON in this build',/const PMS_SPLIT_ON=true/.test(src));
+T('the old PMS address on the main host moves to the PMS address, inside the page',src.includes('function pmsMoveUrl(l)')&&src.includes('try{const mv=pmsMoveUrl(location);if(mv)location.replace(mv)}catch(e){}'));
+{const i=src.indexOf('function pmsMoveUrl(l)'),m=src.slice(i,src.indexOf('try{const mv=pmsMoveUrl',i));const fn=new Function('PMS_SPLIT_ON','PMS_HOST',m+'return pmsMoveUrl;');const mv=fn(true,'pms.maha-hub.com');
+ T('move: /solutions-PMS and /ecosystem/PMS keep the hotel and the hash',mv({hostname:'maha-hub.com',pathname:'/solutions-PMS',search:'?hotel=X',hash:'#a'})==='https://pms.maha-hub.com/solutions-PMS?hotel=X#a'&&mv({hostname:'www.maha-hub.com',pathname:'/ecosystem/PMS/',search:'',hash:''})!==''&&mv({hostname:'maha-hub.com',pathname:'/solutions-PMS.html',search:'',hash:''})!=='');
+ T('move: Main page, other systems, the pms. host and the test copy stay',mv({hostname:'maha-hub.com',pathname:'/solutions'})===''&&mv({hostname:'maha-hub.com',pathname:'/ecosystem/Sales/'})===''&&mv({hostname:'pms.maha-hub.com',pathname:'/solutions-PMS'})===''&&mv({hostname:'maha-hub.pages.dev',pathname:'/solutions-PMS'})==='');
+ T('move: off when the switch is off',fn(false,'pms.maha-hub.com')({hostname:'maha-hub.com',pathname:'/solutions-PMS'})==='')}
 console.log(fails?'FAILED '+fails:'all ok');process.exit(fails?1:0)})().catch(e=>{console.log('FAIL '+e.stack);process.exit(1)});
