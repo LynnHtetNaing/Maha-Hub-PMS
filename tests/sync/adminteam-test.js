@@ -25,4 +25,5 @@ const rooms=[{no:'1004'},{no:'1010'},{no:'1002'},{no:'1001',order:2},{no:'1003',
 T('ordered rooms first (smallest first), the rest by room number 1,2,...10',rooms.slice().sort(ord).map(r=>r.no).join(' ')==='1003 1001 1002 1004 1009 1010',rooms.slice().sort(ord).map(r=>r.no).join(' '));
 T('no order set: natural number order',[{no:'10'},{no:'9'},{no:'1'}].sort(ord).map(r=>r.no).join(' ')==='1 9 10');
 T('dashboard uses the order and Rooms setup has the Order column',src.includes('.sort((x,y)=>hkRoomOrder(x.rm,y.rm))')&&src.includes("{k:'order',h:'Order on dashboard',type:'number'"));
+T('provider sign-in: when the Master check finishes the menu is redrawn and the current page is drawn again (no blank page)',src.includes('_provMaster=m;try{renderShell();render()}catch(e){}'));
 process.exit(fails?1:0);
