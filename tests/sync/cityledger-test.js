@@ -9,7 +9,7 @@ T('Receive window has User name and Date & time blocks that cannot be edited', s
 T('Payment method block shows the type chosen in the payment window', sc.includes("blk('Payment method',cur?esc(cur.desc)"));
 T('the folio payment window (types, tran code, reference, amount, remark, Post) is inside the same window, no second pop-up', sc.includes('class="nitabs"') && sc.includes('data-pc="${c.code}"') && sc.includes("fld('Tran code'") && sc.includes('id="clS">Post payment') && (sc.match(/modal\(/g) || []).length === 1);
 T('City Ledger itself is not offered as the payment type', sc.includes("c.ptab!=='CITY LEDGER'"));
-T('full width window, one payment box, fits the screen without scrolling inside', sc.includes("{w:1240,cls:'nimodal paym clrecv'}") && sc.includes('class="clpay"') && sc.includes('b.style.zoom=Math.max(.5'));
+T('full width window, one payment box, only the payment type list scrolls, the form stays still', sc.includes("{w:1240,cls:'nimodal paym clrecv'}") && sc.includes('class="clpay"') && src.includes('.clrecv .nitiles{position:absolute;inset:0;max-height:none;overflow-y:auto') && src.includes('.clrecv .niform{overflow:visible}') && src.includes('.clrecv #clB{padding:16px'));
 T('the payment is a line in no guest folio, counted in the shift and in the reports', sc.includes('clItem:items[0].id') && sc.includes("kind:'pay'") && !sc.includes('B.lines.push') && src.includes("(it.pays||[]).forEach(p=>{if(p.line)o.push(p.line);if(p.corr)o.push(p.corr)})"));
 T('a payment needs a cashier shift (no-shift people choose an open one)', sc.includes("noShiftGate('payment'"));
 const t = src.slice(b, src.indexOf("\nVIEWS['cd.petty']", b));
