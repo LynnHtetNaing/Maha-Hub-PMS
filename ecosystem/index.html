@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="7eed0b9d78">
+<meta name="maha-build" content="879cac2412">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2617,6 +2617,7 @@ html .rgband .btn,html .rgnav button,html[data-skin] .rgband .btn{min-height:0;h
 .rtbn{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 10px}.rtbn .fsp{flex:1}.fbtn.acc{background:var(--accent,#176B50);border-color:transparent;color:#fff}.fbtn.dng{color:#c0392b;border-color:color-mix(in srgb,#d64541 45%,var(--line,#cdd9e2))}
 html[data-mode=dark] .fbtn.acc{background:color-mix(in srgb,var(--accent,#176B50) 30%,var(--card,#15241f));color:#bff0dc;border:1px solid color-mix(in srgb,var(--accent,#176B50) 55%,transparent)}html[data-mode=dark] .fbtn.dng{color:#ffb4b0}
 .ufbar.one{flex-wrap:nowrap;gap:8px}.ufbar.one .ufl{flex:0 1 auto;min-width:0;gap:6px;padding:2px 6px}.ufbar.one .ufq{flex:1 1 120px;width:auto;min-width:70px}.ufbar.one select{min-width:0;width:auto;max-width:150px}.ufbar.one .dpk input:not(.dph){width:92px;min-width:0}.ufbar.one .dpb{width:28px}.ufbar.one .btn{flex:none}
+.phead>.pgback,.fch .pgback,.hkh .pgback{margin-left:auto;flex:none}.phead.block{flex-wrap:nowrap;align-items:center;gap:8px}.phead.block h1{flex:1 1 auto;width:auto;min-width:0}.fch,.hkh{display:flex;align-items:center}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -8899,10 +8900,10 @@ function titleMark(label){
   }
   return `<span class="thic">${ic(name,16)}</span>`;
 }
-const pageHead=(t,extra='',mode,noBack,lead)=>{const mark=/<svg[\s>]/i.test(t)?'':titleMark(t);const bk=lead||((noBack||/pgback/.test(extra||''))?'':backBtnHtml());const h=`${bk}<h1>${mark}${t}</h1>`;
-  if(mode==='under')return `<div class="phead block">${h}</div><div class="ufbar">${extra}</div>`;
-  if(mode==='act')return `<div class="phead withact">${h}${extra?`<div class="pact">${extra}</div>`:''}</div>`;
-  const filt=/<(input|select)\b/i.test(extra||'');return `<div class="phead${filt?' withf':''}">${h}${filt?'<div class="sp"></div>':''}${extra}</div>`};
+const pageHead=(t,extra='',mode,noBack,lead)=>{const mark=/<svg[\s>]/i.test(t)?'':titleMark(t);const bk=lead||((noBack||/pgback/.test(extra||''))?'':backBtnHtml());const h=`<h1>${mark}${t}</h1>`;   /* Back sits at the right end of the title line */
+  if(mode==='under')return `<div class="phead block">${h}${bk}</div><div class="ufbar">${extra}</div>`;
+  if(mode==='act'||!extra)return `<div class="phead withact">${h}${extra?`<div class="pact">${extra}</div>`:''}${bk}</div>`;
+  const filt=/<(input|select)\b/i.test(extra||'');return `<div class="phead${filt?' withf':''}">${h}${filt?'<div class="sp"></div>':''}${extra}${bk}</div>`};
 function ufDate(id,iso){return `<span class="dpk"><input id="${id}" value="${iso?fd(iso):''}" placeholder="dd/mm/yyyy" inputmode="numeric" autocomplete="off"><button type="button" class="dpb" data-dp="${id}" title="Choose date">${ic('grid',14)}</button><input type="date" class="dph" data-for="${id}" tabindex="-1" aria-hidden="true"></span>`}
 function bindDatePick(el){$$('.ufbar [data-dp]',el).forEach(b=>b.onclick=()=>{const h=$(`.dph[data-for="${b.dataset.dp}"]`,el);const cur=parseDMY($('#'+b.dataset.dp,el).value);if(cur)h.value=cur;try{h.showPicker()}catch(e){h.focus();h.click()}});
   $$('.ufbar .dph',el).forEach(h=>h.onchange=()=>{if(!h.value)return;const t=$('#'+h.dataset.for,el);if(!t)return;t.value=fd(h.value);t.dispatchEvent(new Event('change'))})}
@@ -12312,7 +12313,7 @@ VIEWS['inq.forecast']=el=>{
   const ds=[...Array(days)].map((_,i)=>addD(FC.from,i)),D=ds.map(fcDay);
   const TABS=[['all','All'],['adv','Advance'],['occ','OCC.RmType'],['avl','AVL.RmType'],['sum','Summary AVL'],['prod','Production']];if(FC.tab==='allot')FC.tab='all';
   const tbl=fcTable(FC.tab,D,ds);
-  el.innerHTML=`<div class="fcwrap"><div class="fcbar"><div class="fch">${backBtnHtml()}${titleMark('INQUIRY / FORECAST')}INQUIRY / FORECAST</div>
+  el.innerHTML=`<div class="fcwrap"><div class="fcbar"><div class="fch">${titleMark('INQUIRY / FORECAST')}INQUIRY / FORECAST${backBtnHtml()}</div>
    <div class="fcf"><div class="fcfld"><label for="fcF">From date</label><div class="dpk"><input id="fcF" value="${fd(FC.from)}" placeholder="dd/mm/yyyy" inputmode="numeric" autocomplete="off"><button type="button" class="dpb" data-dp="fcF" title="Choose date">${ic('grid',14)}</button><input type="date" class="dph" data-for="fcF" tabindex="-1" aria-hidden="true"></div></div>
     <div class="fcfld"><label for="fcD">Days</label><input id="fcD" class="fcdays" type="number" min="1" max="93" value="${days}"></div>
     <div class="fcfld"><label for="fcT">To date</label><div class="dpk"><input id="fcT" value="${fd(to)}" placeholder="dd/mm/yyyy" inputmode="numeric" autocomplete="off"><button type="button" class="dpb" data-dp="fcT" title="Choose date">${ic('grid',14)}</button><input type="date" class="dph" data-for="fcT" tabindex="-1" aria-hidden="true"></div></div>
@@ -12439,7 +12440,7 @@ VIEWS['rm.hkstatus']=el=>{
   const fl=floorsList();if(!HKF.floor||(HKF.floor!=='dash'&&!fl.includes(HKF.floor)))HKF.floor=fl[0];
   const shown=H.rooms.map(rm=>({rm,s:roomState(rm)})),sell=shown.filter(x=>!x.rm.dummy),count=k=>sell.filter(x=>x.s.key===k).length;
   const legend=[['smile','Clean room'],['frown','Dirty room'],['moon','Discrepancy - Sleep room'],['ban','Discrepancy - Skip room'],['dnd','Do not disturb'],['phoneoff','Do not disturb (Telephone)'],['wifi','Inspected'],['log','Set special cleaning time'],['key','Soft block'],['chat','Comment information'],['warn','Do not move'],['link2','Connecting room'],['access','Handicap room']];
-  el.innerHTML=`<div class="hkw"><aside class="hkl"><div class="hkh">${backBtnHtml()}${titleMark('HOUSEKEEPING STATUS')}<span class="hkname">Housekeeping Status</span></div>
+  el.innerHTML=`<div class="hkw"><aside class="hkl"><div class="hkh">${titleMark('HOUSEKEEPING STATUS')}<span class="hkname">Housekeeping Status</span>${backBtnHtml()}</div>
     <div class="hkform"><label>Floor plan</label><div class="row gap"><select id="hkFl" style="flex:1">${fl.map(f=>opt(f,floorName(f),HKF.floor)).join('')}${opt('dash','All floors (dashboard)',HKF.floor)}</select><button class="btn hkdash" id="hkDash">Dashboard</button></div>
      <label>Rooms</label><div class="row gap"><input id="hkQ" style="flex:1" value="${esc(HKF.q)}" placeholder="Room number"><button class="btn gold" id="hkGo">${ic('search',14)} Search</button></div></div>
     <div class="hkleg"><b>Color description</b>${legend.map(l=>`<div class="hli li-${l[0]}">${ic(l[0],17)}<span>${l[1]}</span></div>`).join('')}
