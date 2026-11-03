@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="1d7a96b1fd">
+<meta name="maha-build" content="e682a88c5f">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -46,9 +46,9 @@
   --blue:#2f8fd0;--lblue:#dcebf7;--orange:#f6c27e;--pgreen:#c6efcf;--pred:#f08a82;--purple:#6f42c1;
   --pay:#fde3e1;--payt:#b3261e;--corr:#dff5e3;--corrt:#1c7c3a;--r:6px;
   /* Density (Comfort = default for front desk readability) */
-  --fs:15.5px;--fs-sm:14px;--fs-table:14.5px;--fs-h1:1.35rem;--fs-h2:1.2rem;--fs-h3:1.05rem;
+  --fs:14px;--fs-sm:13px;--fs-table:13.5px;--fs-h1:1.2rem;--fs-h2:1.08rem;--fs-h3:1rem;
   --pad-view:16px clamp(14px,2vw,28px) 48px;--view-max:none;
-  --row-pad:10px 16px;--ctrl-pad:10px 14px;--btn-pad:9px 16px;--menubar-top:56px;--topbar-pad:8px 18px;
+  --row-pad:8px 14px;--ctrl-pad:6px 12px;--btn-pad:7px 14px;--menubar-top:56px;--topbar-pad:8px 18px;
 }
 html.compact,body.compact{
   --fs:13px;--fs-sm:12px;--fs-table:12.5px;--fs-h1:18px;--fs-h2:16px;--fs-h3:14px;
@@ -9320,6 +9320,8 @@ function gridPlan(){
 const gridMovable=b=>can('res.edit')&&!user().provider&&['confirmed','tentative'].includes(b.status)&&!b.roomBlock;
 /* ---- Room Grid top band: arrows, one date box with a period calendar, room type, floor, colour notes; the view is 14 days by default and never more than 35 ---- */
 const RG_MAX=35;
+/* the grid opens with 6 weeks and scrolls sideways by day: 3 more weeks load when you get near an edge, never more than 12 weeks at once */
+const RG_START=42,RG_STEP=21,RG_CAP=84,RG_EDGE=700;let rgKeep=null,rgDir=0,rgLeft=0,rgTop=0;   /* rgDir: the way the grid was last scrolled (1 right, -1 left), so only that edge loads; rgLeft/rgTop: where it was left, so it opens at the same place when you come back */
 let gridCustom=false;
 function rgTypeName(code){const t=(H.roomTypes||[]).find(x=>x.code===code);return t&&t.name?t.name:code}
 function rgBlocks(rm,from,to){
@@ -9350,8 +9352,8 @@ function rgDayPicker(btn,startIso,done){
     $$('[data-t]',c).forEach(x=>x.onclick=()=>{const t=x.dataset.t;close();done(t)})};
   paint()}
 VIEWS['fo.grid']=el=>{
-  if(!gridFrom||!gridTo){gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,MOB_Q.matches?6:13)}
-  if(!gridCustom){const len=diff(gridFrom,gridTo)+1;if(MOB_Q.matches&&len>7)gridTo=addD(gridFrom,6);else if(!MOB_Q.matches&&len<14)gridTo=addD(gridFrom,13)}
+  if(!gridFrom||!gridTo){gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,MOB_Q.matches?6:RG_START-1)}
+  if(!gridCustom){const len=diff(gridFrom,gridTo)+1;if(MOB_Q.matches&&len>7)gridTo=addD(gridFrom,6);else if(!MOB_Q.matches&&len<RG_START)gridTo=addD(gridFrom,RG_START-1)}
   const N=Math.max(1,diff(gridFrom,gridTo)+1),days=[...Array(N)].map((_,i)=>addD(gridFrom,i)),end=addD(gridTo,1);
   const RMS=H.rooms.filter(rm=>!rm.dummy&&(!GF.type||rm.type===GF.type)&&(!GF.floor||String(rm.floor)===String(GF.floor))),RNO=new Set(RMS.map(x=>x.no));
   const plan=gridPlan();
@@ -9374,22 +9376,37 @@ VIEWS['fo.grid']=el=>{
   h+='</div>';
   const fl=[...new Map(H.rooms.filter(x=>!x.dummy).map(x=>[String(x.floor),((H.floors||[]).find(f=>String(f.id)===String(x.floor))||{}).name||('Floor '+x.floor)])).entries()];
   const dtx=gridCustom?fd(gridFrom):fd(addD(gridFrom,1)),perTx=gridPerFirst?fd(gridPerFirst)+' → last date':(gridCustom?fd(gridFrom)+' – '+fd(gridTo):'Period search'),arw=(t,l,x)=>`<button type="button" class="rgnb" id="${t}" title="${l}" aria-label="${l}">${x}</button>`;
-  el.innerHTML=pageHead('Room Grid',`<div class="rgbandw"><div class="rgband"><div class="rgl1"><span class="rgnav">${arw('gB30','Back 30 days','&laquo;')}${arw('gB14','Back '+N+' days','&lsaquo;')}<span class="rgdbox rgdshow" id="gDate"><b>${esc(dtx)}</b></span>${arw('gF14','Forward '+N+' days','&rsaquo;')}${arw('gF30','Forward 30 days','&raquo;')}</span><button type="button" class="rgdbox rgper" id="gPer" title="Period search: choose the first day, then the last day"><b>${esc(perTx)}</b>${ic('grid',16)}</button><select id="gType" aria-label="Room type"><option value="">All room types</option>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<option value="${esc(t.code)}" ${GF.type===t.code?'selected':''}>${esc(t.code)} – ${esc(t.name)}</option>`).join('')}</select><select id="gFloor" aria-label="Floor"><option value="">All floors</option>${fl.map(([id,nm])=>`<option value="${esc(id)}" ${String(GF.floor)===id?'selected':''}>${esc(nm)}</option>`).join('')}</select></div><div class="rglegend rglg"><span><i class="rb-confirmed"></i>Reserved (room assigned)</span><span><i class="rb-tentative"></i>Tentative</span><span><i class="rb-inhouse"></i>In house</span><span><i class="rb-out"></i>Checked out</span><span><i class="rb-auto"></i>No room yet (placed by the system)</span><span><i class="rgx-OO"></i>OO · Out of order</span><span><i class="rgx-OI"></i>OI · Out of inventory</span><span><i class="rgx-SB"></i>SB · Soft block</span><span><i class="rgwarn">${ic('warn',14)}</i>Do not move</span></div></div></div><p class="rgmax" id="gWarn" hidden>The most you can view is ${RG_MAX} days. Choose a shorter period.</p>`,'under')+
+  el.innerHTML=pageHead('Room Grid',`<div class="rgbandw"><div class="rgband"><div class="rgl1"><span class="rgnav">${arw('gB30','Back 30 days','&laquo;')}${arw('gB14','Back '+(MOB_Q.matches?N:14)+' days','&lsaquo;')}<span class="rgdbox rgdshow" id="gDate"><b>${esc(dtx)}</b></span>${arw('gF14','Forward '+(MOB_Q.matches?N:14)+' days','&rsaquo;')}${arw('gF30','Forward 30 days','&raquo;')}</span><button type="button" class="rgdbox rgper" id="gPer" title="Period search: choose the first day, then the last day"><b>${esc(perTx)}</b>${ic('grid',16)}</button><select id="gType" aria-label="Room type"><option value="">All room types</option>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<option value="${esc(t.code)}" ${GF.type===t.code?'selected':''}>${esc(t.code)} – ${esc(t.name)}</option>`).join('')}</select><select id="gFloor" aria-label="Floor"><option value="">All floors</option>${fl.map(([id,nm])=>`<option value="${esc(id)}" ${String(GF.floor)===id?'selected':''}>${esc(nm)}</option>`).join('')}</select></div><div class="rglegend rglg"><span><i class="rb-confirmed"></i>Reserved (room assigned)</span><span><i class="rb-tentative"></i>Tentative</span><span><i class="rb-inhouse"></i>In house</span><span><i class="rb-out"></i>Checked out</span><span><i class="rb-auto"></i>No room yet (placed by the system)</span><span><i class="rgx-OO"></i>OO · Out of order</span><span><i class="rgx-OI"></i>OI · Out of inventory</span><span><i class="rgx-SB"></i>SB · Soft block</span><span><i class="rgwarn">${ic('warn',14)}</i>Do not move</span></div></div></div><p class="rgmax" id="gWarn" hidden>The most you can view is ${RG_MAX} days. Choose a shorter period.</p>`,'under')+
    `<div class="panel scroll gridscroll">${h}</div>`;
   $('#gType',el).onchange=()=>{GF.type=$('#gType',el).value;render()};$('#gFloor',el).onchange=()=>{GF.floor=$('#gFloor',el).value;render()};
-  const rgGo=from=>{gridFrom=from;gridTo=addD(from,N-1);render()};
-  $('#gB14',el).onclick=()=>rgGo(addD(gridFrom,-N));$('#gF14',el).onclick=()=>rgGo(addD(gridFrom,N));$('#gB30',el).onclick=()=>rgGo(addD(gridFrom,-30));$('#gF30',el).onclick=()=>rgGo(addD(gridFrom,30));
+  const rgGo=from=>{gridFrom=from;gridTo=addD(from,N-1);rgLeft=0;render()};
+  /* the arrows move the grid sideways by days (on a phone they still jump a whole period) */
+  const sc=$('.gridscroll',el),dayW=()=>(sc.scrollWidth-150)/N;
+  const rgStep=(d,jump)=>MOB_Q.matches?rgGo(addD(gridFrom,jump)):sc.scrollBy({left:d*dayW(),behavior:'smooth'});
+  $('#gB14',el).onclick=()=>rgStep(-14,-N);$('#gF14',el).onclick=()=>rgStep(14,N);$('#gB30',el).onclick=()=>rgStep(-30,-30);$('#gF30',el).onclick=()=>rgStep(30,30);
   $('#gPer',el).onclick=e=>{e.stopPropagation();
     rgDayPicker($('#gPer',el),gridPerFirst||gridFrom,day=>{
       if(!gridPerFirst){gridPerFirst=day;$('#gPer b',el).textContent=fd(day)+' → last date';$('#gWarn',el).hidden=true;return}
       const lo=day<gridPerFirst?day:gridPerFirst,hi=day<gridPerFirst?gridPerFirst:day,n=diff(lo,hi)+1;gridPerFirst=null;
       if(n>RG_MAX){$('#gWarn',el).hidden=false;$('#gPer b',el).textContent=gridCustom?fd(gridFrom)+' – '+fd(gridTo):'Period search';return}
-      $('#gWarn',el).hidden=true;gridCustom=true;gridFrom=lo;gridTo=hi;render()})};
+      $('#gWarn',el).hidden=true;gridCustom=true;gridFrom=lo;gridTo=hi;rgLeft=0;render()})};
   $$('[data-rginfo]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();const rm=H.rooms.find(x=>x.no===b.dataset.rginfo);if(rm)rgInfoBox(rm,rgBlocks(rm,gridFrom,gridTo))});
   /* the page never scrolls: the table takes the height that is left in the window and scrolls inside itself */
   {const gs=$('.gridscroll',el),fit=()=>{if(!gs.isConnected){window.removeEventListener('resize',fit);return}const t=gs.getBoundingClientRect().top;gs.style.maxHeight=gs.style.height='';const need=gs.scrollHeight,room=Math.max(260,innerHeight-t-14);gs.style.maxHeight=room+'px';gs.style.height=Math.min(need,room)+'px';
     const de=document.documentElement,tall=()=>Math.max(de.scrollHeight,document.body.scrollHeight),over=tall()-innerHeight;if(over>0){const h0=gs.getBoundingClientRect().height,before=tall();gs.style.maxHeight=gs.style.height=Math.max(200,h0-over)+'px';if(tall()>=before)gs.style.maxHeight=gs.style.height=h0+'px'}};   /* shrink only when it really removes the page scroll */   /* whatever is still under the table (page padding) is taken off too, so the page itself has nothing to scroll */
    if(window._rgFit)window.removeEventListener('resize',window._rgFit);window._rgFit=fit;window.addEventListener('resize',fit);fit();requestAnimationFrame(fit)}
+  /* scroll sideways through the dates: the date box follows the first day on the left, and when you get near either edge three more weeks load (your place stays) */
+  if(!MOB_Q.matches){
+    const lab=$('#gDate b',el);let tm=null;
+    const upd=()=>{if(lab){const d=addD(gridFrom,Math.round(sc.scrollLeft/dayW()));lab.textContent=fd(!gridCustom&&d===addD(H.set.bd,-1)?H.set.bd:d)}};
+    const edge=()=>{if(!sc.isConnected)return;const dw=dayW(),sl=sc.scrollLeft,room=sc.scrollWidth-sl-sc.clientWidth;let keep=null;
+      if(rgDir>0&&room<RG_EDGE&&diff(H.set.bd,gridTo)<730){gridTo=addD(gridTo,RG_STEP);const ex=diff(gridFrom,gridTo)+1-RG_CAP;let l=sl;if(ex>0){gridFrom=addD(gridFrom,ex);l=sl-ex*dw}keep=l}
+      else if(rgDir<0&&sl<RG_EDGE&&diff(gridFrom,H.set.bd)<365){gridFrom=addD(gridFrom,-RG_STEP);const ex=diff(gridFrom,gridTo)+1-RG_CAP;if(ex>0)gridTo=addD(gridTo,-ex);keep=sl+RG_STEP*dw}
+      if(keep===null)return;rgKeep={l:keep,t:sc.scrollTop};render()};
+    let prev=0;
+    sc.addEventListener('scroll',()=>{const x=sc.scrollLeft;if(x!==prev){rgDir=x>prev?1:-1;prev=x}rgLeft=x;rgTop=sc.scrollTop;upd();clearTimeout(tm);tm=setTimeout(edge,140)},{passive:true});
+    {const k=rgKeep||(rgLeft||rgTop?{l:rgLeft,t:rgTop}:null);rgKeep=null;
+     if(k){prev=k.l;sc.scrollLeft=k.l;sc.scrollTop=k.t;upd();requestAnimationFrame(()=>{prev=k.l;sc.scrollLeft=k.l;sc.scrollTop=k.t;upd()})}}}
   let dragged=false;
   $$('[data-bk]',el).forEach(b=>b.onclick=()=>{if(dragged){dragged=false;return}go.keepBack=true;resBack='fo.grid';go('res.open',b.dataset.bk)});
   $$('[data-cell]',el).forEach(c=>c.onclick=()=>{const[no,d]=c.dataset.cell.split('|');if(d<H.set.bd){toast('Bookings cannot start before the business date.');return}
