@@ -22,7 +22,7 @@ T('each message tells the person what to do', ['ended', 'notyet', 'cancelled'].e
 const u = {}; for (let i = 0; i < 70; i++) api.accessNote(u, 'x' + i, 'p');
 T('the timeline keeps the latest 60 entries, newest first', u.accessLog.length === 60 && u.accessLog[0].a === 'x69');
 /* the wiring */
-T('a signed-in session ends when the term ends or the user is cancelled', /u\.active===false\|\|accessWhy\(u\)\)return false/.test(src));
+T('a signed-in session ends when the term ends or the user is cancelled', src.includes('if(!u||u.active===false||accessWhy(u)||subStopped(h))return false;'));
 T('sign-in is refused by the term check', /const aw=accessWhy\(u\);if\(aw\)\{if\(MahaAuth\.on\(\)\)MahaAuth\.signOut\(\);err\.textContent=accessMsg\(aw\)/.test(src));
 T('a user is no longer stopped from cancelling by an open shift', !/Close this person\'s open shift first/.test(src));
 T('the provider can cancel a user and set an access term', /data-cancel=/.test(src) && /data-term=/.test(src));
