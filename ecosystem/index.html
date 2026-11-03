@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="cbc1927d5f">
+<meta name="maha-build" content="42e5540c7a">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9302,7 +9302,10 @@ const CH_PALETTE=['#2f7fcf','#2fb36b','#e8a23a','#8b7cf6','#e0645c','#1fa8a0','#
 const OTA_BRAND=[[/agoda/i,'#5b3fd1'],[/booking\.com|booking/i,'#003580'],[/expedia/i,'#d99a00'],[/trip\.com|ctrip/i,'#287dfa'],[/airbnb/i,'#ff5a5f'],[/traveloka/i,'#0194f3'],[/hotels\.com/i,'#d32f2f'],[/tiket/i,'#1a73e8'],[/klook/i,'#ff5722'],[/makemytrip/i,'#e53935']];
 function chanColor(c,i){return CH_PALETTE[(i<0?0:i)%CH_PALETTE.length]}
 /* the logo of a channel is the one added for its "(OTA Paid)" payment method (Payment logos), so one upload serves the payment window and the Room Grid */
-function chanLogoOf(nm){const k=String(nm||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(!k)return '';const t=TCODES.find(x=>x.ptab==='OTA PAID'&&!x.refund&&String(x.desc).replace(/\s*\(OTA Paid\)\s*$/i,'').toLowerCase().replace(/[^a-z0-9]/g,'')===k);return t?payLogo(t):''}
+/* every payment method on the OTA PAID tab that has a name and a logo counts, the built-in ones and any added later (exact name first, then a name inside the company name, the longest one wins) */
+function chanLogoOf(nm){const nz=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''),k=nz(nm);if(k.length<2)return '';
+  const list=TCODES.filter(x=>/^ota\s*paid$/i.test(String(x.ptab||'').trim())&&!x.refund).map(x=>({lg:payLogo(x),b:nz(String(x.desc).replace(/\s*\(\s*OTA\s*Paid\s*\)\s*$/i,''))})).filter(o=>o.lg&&o.b.length>=3);
+  const hit=list.find(o=>o.b===k)||(k.length>=3?list.filter(o=>k.includes(o.b)||o.b.includes(k)).sort((a,b)=>b.b.length-a.b.length)[0]:null);return hit?hit.lg:''}
 function chanOfBooking(b){const c=CO(resOf(b).companyId);if(!c)return null;const nm=String((c.chan&&(CHANNEL_CATALOG.find(x=>x[0]===c.chan)||[])[1])||c.name||'').replace(/^\([A-Z]\)\s*/,'').trim();return {ini:(nm[0]||'?').toUpperCase(),name:String(c.name||nm).replace(/^\([A-Z]\)\s*/,'').trim(),logo:chanLogoOf(nm)}}
 let GF={type:'',floor:''};
 let gridFrom=null,gridTo=null;
