@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="7486bcdd96">
+<meta name="maha-build" content="4b8bfb7ec1">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4205,7 +4205,7 @@ function sessionValid(se){
   if(last&&(now-last)>SESSION_MAX_MS)return false;
   if(se.provider)return (DB.providers||[]).some(p=>p.id===se.userId&&p.active!==false);
   const h=DB.hotels&&DB.hotels[se.hotel];if(!h)return false;
-  const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false||accessWhy(u))return false;
+  const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false||accessWhy(u)||subStopped(h))return false;
   if(!noShiftSessionOk(se,u))return false;   /* the provider took the No-shift setting away: sign in again */
   if(se.shiftId&&!(h.shifts||[]).some(s=>s.id===se.shiftId&&s.status==='open'))return false;
   return true;
@@ -7581,7 +7581,12 @@ function userHasSystem(u,kind){if(!u||u.provider||u.isProv)return true;const s=u
    and one who is signed in is signed out within seconds. "Cancel user" ends access at once (sign-in is cut on the server too) and does not wait for a shift. */
 const ACCESS_MIN_MS=1000,ACCESS_MAX_MS=1096*86400000;
 const ACCESS_UNITS={seconds:1000,minutes:60000,hours:3600000,days:86400000,months:30*86400000,years:365*86400000};
-function accessWhy(u,now){if(!u||u.provider||u.isProv)return '';if(u.cancelled)return 'cancelled';const a=u.access;if(!a)return '';now=now||Date.now();if(a.from&&now<a.from)return 'notyet';if(a.until&&now>=a.until)return 'ended';return ''}
+/* A term or hotel subscription that ends on a DATE stops at 06:00 the next morning (hotel time zone). Terms of seconds, minutes or hours, and a revoke, stop at the exact moment. */
+const SUB_STOP_HOUR=6;
+const stopAtDate=(iso,zone)=>ulDayStart(addD(iso,1),zone===undefined?dispZone():zone)+SUB_STOP_HOUR*36e5;
+function accessCut(until,term,zone){if(!until||!term||term==='revoked'||/^\+?\d+ (seconds|minutes|hours)$/.test(term))return until;const z=zone===undefined?dispZone():zone,p=tzp(until,z);return stopAtDate(p.y+'-'+p.m+'-'+p.d,z)}
+function subStopped(h,now){try{const st=h&&h.set;if(!st)return false;now=now||Date.now();if(st.subRevokedAt&&now>=st.subRevokedAt)return true;return !!st.subUntil&&now>=stopAtDate(st.subUntil,st.tz||'')}catch(e){return false}}
+function accessWhy(u,now){if(!u||u.provider||u.isProv)return '';if(u.cancelled)return 'cancelled';const a=u.access;if(!a)return '';now=now||Date.now();if(a.from&&now<a.from)return 'notyet';if(a.until&&now>=accessCut(a.until,a.term))return 'ended';return ''}
 function accessMsg(w){return w==='cancelled'?'This account has been cancelled. Please contact Maha Hub support.':w==='notyet'?'Your access has not started yet. Please contact Maha Hub support.':'Your access period has ended. Please contact Maha Hub support.'}
 function accessSpan(ms){ms=Math.max(0,Math.round(ms/1000));const d=Math.floor(ms/86400),h=Math.floor(ms%86400/3600),m=Math.floor(ms%3600/60),s=ms%60;
   if(d>=365){const y=Math.floor(d/365),r=d%365;return y+' yr'+(y>1?'s':'')+(r>=30?' '+Math.floor(r/30)+' mo':'')}if(d>=30)return Math.floor(d/30)+' mo '+(d%30)+' d';if(d>=1)return d+' d '+h+' h';if(h>=1)return h+' h '+m+' min';if(m>=1)return m+' min '+s+' s';return s+' s'}
@@ -7651,35 +7656,42 @@ async function billingAdmin(h){
       if(k==='subscription'&&!body.period_to){toast('Choose the period end date.');return}
       try{await call('maha_billing_docs',{method:'POST',body:JSON.stringify(body)});
         if(k==='payment'&&body.paid_for){try{await call('maha_billing_docs?property_id=eq.'+pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(body.paid_for),{method:'PATCH',body:JSON.stringify({status:'paid'})})}catch(e){}}
-        if(k==='subscription'){h.set.subUntil=body.period_to;saveDB();render()}   /* the expiry card follows the subscription */
+        if(k==='subscription'){h.set.subUntil=body.period_to;delete h.set.subRevokedAt;saveDB();render()}   /* the expiry card follows the subscription */
         provLog('Billing: '+KINDS[k].toLowerCase()+' '+no+' added for hotel '+h.code);draw()}catch(e){toast('Could not save: '+e.message)}};
   };
   draw()}
 /* After sign-in, before Frontend / Backend: a card screen for the hotel's subscription date (set by the provider, every user of the hotel sees it) and one for the person's own access period (only that person). They start 30 days before the end, are red in the last 7 days and after the hotel date, and only warn: nothing is blocked by the hotel date. Renew Now / Contact provider opens the Billing page (its own tab, the same page for every Maha system). */
-const SUB_WARN_DAYS=30,BILLING_URL='https://maha-hub.com/billing/';
+const HOTEL_WARN_DAYS=10,USER_WARN_DAYS=3,BILLING_URL='https://maha-hub.com/billing/';
 function subNotices(h,u){const out=[],now=Date.now();
-  try{const a=u&&!u.provider&&!u.isProv&&u.access;
-    if(a&&a.until&&now<a.until){const left=a.until-now;if(left<=SUB_WARN_DAYS*864e5)out.push({k:'user',late:left<=7*864e5,ended:false,d:iso(new Date(a.until)),days:Math.ceil(left/864e5),user:u.username||''})}
-    const s=h&&h.set&&h.set.subUntil;
-    if(s){const n=diff(iso(new Date()),s);if(n<0)out.push({k:'hotel',late:true,ended:true,d:s,days:n});else if(n<=SUB_WARN_DAYS)out.push({k:'hotel',late:n<=7,ended:false,d:s,days:n})}
+  try{const z=(h&&h.set&&h.set.tz)||'',today=ulTodayIn(z),a=u&&!u.provider&&!u.isProv&&u.access;
+    if(a&&a.until&&accessCut(a.until,a.term,z)!==a.until&&now<accessCut(a.until,a.term,z)){const p=tzp(a.until,z),d=p.y+'-'+p.m+'-'+p.d,n=diff(today,d);if(n<=USER_WARN_DAYS)out.push({k:'user',late:n<=1,ended:n<0,d,days:n,user:u.username||''})}
+    const sd=h&&h.set&&h.set.subUntil;
+    if(sd&&!subStopped(h,now)){const n=diff(today,sd);if(n<0)out.push({k:'hotel',late:true,ended:true,d:sd,days:n});else if(n<=HOTEL_WARN_DAYS)out.push({k:'hotel',late:n<=7,ended:false,d:sd,days:n})}
   }catch(e){}
   return out}
 const fdOrd=s=>{const d=P(s),n=d.getDate(),suf=(n%100>=11&&n%100<=13)?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th');return n+suf+' '+d.toLocaleDateString('en-GB',{month:'short'})+' '+d.getFullYear()};
 function subCardInfo(n,h){const hot=n.k==='hotel';
   return {cls:n.late?'late':'soon',title:n.ended?'Expired':'Expiring Soon',
     headline:hot?(n.ended?'Your hotel subscription expired on ':'Your hotel subscription expires on ')+fdOrd(n.d):'Your access expires on '+fdOrd(n.d),
-    sub:hot?'Avoid any disruption to your guests and operations.':'Please tell your provider (Maha Hub support) to extend it. You are signed out when it ends.',
+    sub:hot?'Avoid any disruption to your guests and operations.':'Please tell your provider (Maha Hub support) to extend it.',stops:'Access stops at 6:00 AM on '+fdOrd(addD(n.d,1))+'.',
     left:n.ended?'':(n.days===0?'Ends today':n.days+' day'+(n.days===1?'':'s')+' left'),
     btn:hot?'Renew Now':'Contact provider',code:h&&h.code||'',user:hot?'':n.user}}
 function subScreen(n,h){return new Promise(res=>{const c=subCardInfo(n,h);
   selShell(`<div class="sp-exp ${c.cls}" role="dialog" aria-modal="true" aria-label="${esc(c.title)}"><div class="sp-exph"><span>${ic('warn',20)} ${esc(c.title)}</span><button type="button" class="sp-expx" id="spExpX" aria-label="Close">&times;</button></div>
-    <div class="sp-expb"><h2>${esc(c.headline)}</h2>${c.left?`<div class="sp-expd">${esc(c.left)}</div>`:''}<p>${esc(c.sub)}</p><div class="sp-expps"><span class="sp-expp">Property Code: <b>${esc(c.code)}</b></span>${c.user?`<span class="sp-expp">User: <b>${esc(c.user)}</b></span>`:''}</div>
+    <div class="sp-expb"><h2>${esc(c.headline)}</h2>${c.left?`<div class="sp-expd">${esc(c.left)}</div>`:''}<p>${esc(c.sub)}</p><p class="sp-expstop">${esc(c.stops)}</p><div class="sp-expps"><span class="sp-expp">Property Code: <b>${esc(c.code)}</b></span>${c.user?`<span class="sp-expp">User: <b>${esc(c.user)}</b></span>`:''}</div>
     <button type="button" class="sp-expgo" id="spExpGo">${esc(c.btn)} &#8599;</button></div></div>`);
   try{document.querySelector('.selpg').classList.add('sp-expbg')}catch(e){}
   const done=()=>{document.removeEventListener('keydown',key,true);res()},key=e=>{if(e.key==='Escape'){e.preventDefault();done()}};
   document.addEventListener('keydown',key,true);$('#spExpX').onclick=done;$('#spExpGo').onclick=()=>{try{window.open(BILLING_URL+'?hotel='+encodeURIComponent(c.code),'_blank','noopener')}catch(e){}};try{$('#spExpGo').focus()}catch(e){}})}
+let SUB_BLOCK=false;
+function subBlockScreen(h){SUB_BLOCK=true;return new Promise(()=>{const d=h&&h.set&&h.set.subUntil;
+  selShell(`<div class="sp-exp late" role="alertdialog" aria-modal="true" aria-label="Subscription ended"><div class="sp-exph"><span>${ic('warn',20)} Subscription ended</span></div>
+    <div class="sp-expb"><h2>${d?'Your hotel subscription expired on '+esc(fdOrd(d)):'Your hotel subscription has been stopped'}</h2><p>Access to Maha PMS has stopped. Please renew to continue.</p><div class="sp-expps"><span class="sp-expp">Property Code: <b>${esc(h&&h.code||'')}</b></span></div>
+    <button type="button" class="sp-expgo" id="spExpGo">Renew Now &#8599;</button></div></div>`);
+  try{document.querySelector('.selpg').classList.add('sp-expbg')}catch(e){}
+  $('#spExpGo').onclick=()=>{try{window.open(BILLING_URL+'?hotel='+encodeURIComponent(h&&h.code||''),'_blank','noopener')}catch(e){}}})}
 async function showSubscriptionScreens(){try{if(!DB||!DB.session||DB.session.provider||!H)return;const list=subNotices(H,user());for(const n of list)await subScreen(n,H)}catch(e){}finally{SEL_ON=false}}
-setInterval(()=>{try{if(typeof DB==='undefined'||!DB||!DB.session||DB.session.provider||typeof H==='undefined'||!H)return;const w=accessWhy(user());if(w)signOut(true,accessMsg(w))}catch(e){}},5000);
+setInterval(()=>{try{if(typeof DB==='undefined'||!DB||!DB.session){SUB_BLOCK=false;return}if(DB.session.provider||typeof H==='undefined'||!H)return;if(!SUB_BLOCK&&subStopped(H)){signOut(true,'Your hotel subscription has ended. Please contact Maha Hub support to renew.');return}const w=accessWhy(user());if(w)signOut(true,accessMsg(w))}catch(e){}},5000);
 function accessModal(u,done){
   const a=u.access||{},now=Date.now();
   const hist=(u.accessLog||[]).slice(0,12).map(x=>`<tr><td class="nowrap">${fd(new Date(x.at).toISOString().slice(0,10))} ${tm(x.at)}</td><td>${esc(x.a)}</td><td>${esc(x.by||'')}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nothing yet.</td></tr>';
@@ -8081,7 +8093,7 @@ const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','B
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
  'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.edclinks':'card','bill.city':'book','bill.master':'layers','set.approve':'check',
  'rm.hkstatus':'spark','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','cd.handover':'swap','help.home':'help',
- 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.exit':'login','prov.edc':'card','prov.log':'history'};
+ 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.edc':'card','prov.log':'history'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;
@@ -11472,10 +11484,10 @@ VIEWS['prov.hotels']=el=>{
   /* the hotel subscription date: staff of that hotel are told 30 days before and after it; nobody is blocked by it */
   $$('[data-sub]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.sub];if(!h)return;
     const m=modal('Subscription – '+esc(h.code),`${fld('Valid until',`<input type="date" id="sbU" value="${esc(h.set.subUntil||'')}">`)}<div class="btns" style="justify-content:flex-start;flex-wrap:wrap"><button type="button" class="btn sm ghost" data-ext="1">+1 month</button><button type="button" class="btn sm ghost" data-ext="3">+3 months</button><button type="button" class="btn sm ghost" data-ext="6">+6 months</button><button type="button" class="btn sm ghost" data-ext="12">+1 year</button><button type="button" class="btn sm red" id="sbR">Revoke now</button></div><div class="btns end"><button type="button" class="btn ghost" id="sbX">Clear date</button><button type="button" class="btn gold" id="sbS">Save</button></div>`,{w:420});
-    $('#sbS',m).onclick=()=>{const v=$('#sbU',m).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));saveDB();closeModal(m);render();toast(h.code+' subscription is valid until '+fd(v)+'.')};
-    $$('[data-ext]',m).forEach(x=>x.onclick=()=>{const base=h.set.subUntil&&h.set.subUntil>iso(new Date())?P(h.set.subUntil):P(iso(new Date()));base.setMonth(base.getMonth()+(+x.dataset.ext));const v=iso(base);h.set.subUntil=v;provLog('Subscription of hotel '+h.code+' extended to '+fd(v));saveDB();closeModal(m);render();toast(h.code+' subscription extended to '+fd(v)+'.')});
-    $('#sbR',m).onclick=async()=>{if(!await dlgConfirm('Revoke the subscription of '+h.code+' now? Its staff see the Expired notice at every sign-in.'))return;const v=addD(iso(new Date()),-1);h.set.subUntil=v;provLog('Subscription of hotel '+h.code+' revoked (ended '+fd(v)+')');saveDB();closeModal(m);render();toast(h.code+' subscription revoked.')};
-    $('#sbX',m).onclick=()=>{if(!h.set.subUntil){closeModal(m);return}delete h.set.subUntil;provLog('Subscription date cleared for hotel '+h.code);saveDB();closeModal(m);render();toast('Subscription date cleared for '+h.code+'.')}});
+    $('#sbS',m).onclick=()=>{const v=$('#sbU',m).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));saveDB();closeModal(m);render();toast(h.code+' subscription is valid until '+fd(v)+'.')};
+    $$('[data-ext]',m).forEach(x=>x.onclick=()=>{const base=h.set.subUntil&&h.set.subUntil>iso(new Date())?P(h.set.subUntil):P(iso(new Date()));base.setMonth(base.getMonth()+(+x.dataset.ext));const v=iso(base);h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' extended to '+fd(v));saveDB();closeModal(m);render();toast(h.code+' subscription extended to '+fd(v)+'.')});
+    $('#sbR',m).onclick=async()=>{if(!await dlgConfirm('Revoke the subscription of '+h.code+' now? Its staff see the Expired notice at every sign-in.'))return;const v=addD(iso(new Date()),-1);h.set.subUntil=v;h.set.subRevokedAt=Date.now();provLog('Subscription of hotel '+h.code+' revoked (stopped now)');saveDB();closeModal(m);render();toast(h.code+' subscription revoked.')};
+    $('#sbX',m).onclick=()=>{if(!h.set.subUntil){closeModal(m);return}delete h.set.subUntil;delete h.set.subRevokedAt;provLog('Subscription date cleared for hotel '+h.code);saveDB();closeModal(m);render();toast('Subscription date cleared for '+h.code+'.')}});
   /* Billing records of a hotel (quotes, invoices, payments, subscriptions): kept in the cloud, the hotel reads them on the Billing page */
   $$('[data-bill]',el).forEach(b=>b.onclick=()=>billingAdmin(DB.hotels[b.dataset.bill]));
   $$('[data-uacc]',el).forEach(b=>b.onclick=()=>userAccessAdmin(DB.hotels[b.dataset.uacc]));
@@ -11631,6 +11643,7 @@ const FLOW_CSS=`
 .selpg .sp-expb{padding:22px 24px 24px;text-align:center}.selpg .sp-expb h2{font:800 22px/1.3 Manrope,"Noto Sans",sans-serif;margin:0 0 6px}
 .selpg .sp-expd{font-weight:700;color:var(--mut);margin:0 0 6px}.selpg .sp-expb p{margin:0 0 16px;color:var(--mut)}
 .selpg .sp-expps{margin:0 0 18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.selpg .sp-expp{display:inline-block;padding:8px 16px;border-radius:99px;background:color-mix(in srgb,var(--ink) 7%,var(--card));font-size:14.5px}
+.selpg .sp-expstop{font-weight:700;color:var(--ink);font-size:13.5px;margin:-6px 0 14px!important}
 .selpg .sp-expgo{display:block;width:100%;padding:13px;border:0;border-radius:11px;background:linear-gradient(135deg,var(--a1),color-mix(in srgb,var(--a1) 62%,var(--a3)));color:#fff;font:700 16px "Noto Sans",sans-serif;cursor:pointer;box-shadow:0 8px 20px color-mix(in srgb,var(--a1) 30%,transparent)}
 .selpg .sp-expgo:focus-visible{outline:3px solid color-mix(in srgb,var(--a1) 40%,transparent);outline-offset:2px}
 @media (hover:hover){.selpg .sp-expgo:hover{filter:brightness(1.08)}}
@@ -11742,6 +11755,7 @@ async function openPropertyChoice(props,current,canCancel){
     const ok=await withLoading('Opening '+(p?p.name:code),2000,()=>switchHotelCore(code,p&&p.id));
     if(ok)return true}}finally{SEL_ON=false}}
 async function chooseAreaAndEnter(props,welcome){
+  if(DB.session&&!DB.session.provider&&subStopped(H)){await subBlockScreen(H);return}
   await showSubscriptionScreens();
   const multi=props&&props.length>1;setArea('front');
   try{while(hasBackend()&&!IS_APP){
