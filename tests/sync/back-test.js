@@ -23,4 +23,5 @@ T('Arrivals and Departures detail: the Full list button is now the Back button (
 T('Folio: a clear gap between the title / search line and the button line, and below the button line', src.includes('.ftbn{margin:20px 0 12px}'));
 T('Folio Inquiry detail has ONE Back (the page own one, to the list), styled like the others', src.includes("pageHead('Folio Inquiry','','act',true,`<button type=\"button\" class=\"btn ghost sm pgback\" id=\"fiBack\""));
 T('screen lock: a background save no longer refreshes the activity time, the lock is remembered across a reload, an update reload waits while the password is being typed', src.includes('NOT stampSession: a background save') && src.includes('DB.session.locked||Date.now()-idleAnchor()>=limit') && src.includes('DB.session.locked=true;try{writeLiveSession(DB.session)}catch(e){}') && src.includes('delete DB.session.locked;stampSession(DB.session)') && src.includes("return !(pw&&pw.value)"));
+T('Hotel Status: the Summary chart box and the Trend box under it keep the same 16px gap as the other boxes', src.includes('.hsnew .hx-an{margin-bottom:16px}'));
 process.exit(fails ? 1 : 0);
