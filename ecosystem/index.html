@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="cba087e930">
+<meta name="maha-build" content="f268ec4230">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7532,7 +7532,8 @@ const MENU=[
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Overview','sbill.home','setup'],['Quotes','sbill.quotes','setup'],['Subscriptions','sbill.subscriptions','setup'],['Invoices','sbill.invoices','setup'],['Payments Made','sbill.payments','setup'],['Statements','sbill.statements','setup'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['User Logs','set.userlogs','userlogs'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
 const PROV_MENU=[
- {t:'Properties',items:[['All properties','prov.home'],['Property setup','prov.setup']]},
+ {t:'Properties',items:[['All properties','prov.home'],['Hotels','prov.hotels'],['Property setup','prov.setup']]},
+ {t:'Billing',items:[['Hotel Billing','prov.billing']]},
  {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Chains / Groups','prov.chains'],['Recycle bin','prov.recycle'],['Admin team','prov.team']]},
  {t:'Records',items:[['Announcements','prov.announce'],['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log'],['User Logs','prov.userlogs'],['Admin logs','prov.adminlogs']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
@@ -7637,9 +7638,9 @@ function accessText(u,now){now=now||Date.now();if(u&&u.cancelled)return 'Cancell
   return now>=a.until?'Ended '+fd(new Date(a.until).toISOString().slice(0,10))+' '+tm(a.until):'Until '+fd(new Date(a.until).toISOString().slice(0,10))+' '+tm(a.until)+' ('+accessSpan(a.until-now)+' left)'}
 function accessNote(u,text,by){u.accessLog=u.accessLog||[];u.accessLog.unshift({at:Date.now(),by:by||'',a:text});if(u.accessLog.length>60)u.accessLog.length=60}
 /* Provider: every person of one hotel with their access end; extend or revoke without opening the hotel. The hotel's own manager still uses Staff & Permissions > Access term. */
-function userAccessAdmin(h){
+function userAccessAdmin(h,box){
   if(!h)return;
-  const m=modal('Users\' access – '+esc(h.code),'<div id="uaList"></div>',{w:820});
+  let m;if(box){box.innerHTML='<h3>Users\' access</h3><p class="sub">Each person of this hotel. A term by days stops at 06:00 the morning after its date; Revoke now stops at once.</p><div id="uaList"></div>';m=box}else m=modal('Users\' access – '+esc(h.code),'<div id="uaList"></div>',{w:820});
   const draw=()=>{const us=(h.users||[]).filter(u=>!u.provider&&!u.isProv);
     $('#uaList',m).innerHTML=`<div style="overflow-x:auto"><table class="grid"><tr><th>Name</th><th>Username</th><th>Access</th><th></th></tr>${us.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.username)}</td><td>${esc(accessText(u))}</td><td class="nowrap"><button class="btn sm ghost" data-ux="1:months" data-u="${esc(u.id)}">+1 month</button> <button class="btn sm ghost" data-ux="6:months" data-u="${esc(u.id)}">+6 months</button> <button class="btn sm ghost" data-ux="1:years" data-u="${esc(u.id)}">+1 year</button> <button class="btn sm ghost" data-ux="0:none" data-u="${esc(u.id)}">No limit</button> <button class="btn sm red" data-ux="0:revoke" data-u="${esc(u.id)}">Revoke now</button></td></tr>`).join('')||'<tr><td colspan="4">No users.</td></tr>'}</table></div>`;
     $$('[data-ux]',m).forEach(b=>b.onclick=async()=>{const u=h.users.find(x=>x.id===b.dataset.u);if(!u)return;const [n,k]=b.dataset.ux.split(':');let t;
@@ -8135,7 +8136,7 @@ const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','B
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
  'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.edclinks':'card','bill.city':'book','bill.master':'layers','set.approve':'check',
  'rm.hkstatus':'spark','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','cd.handover':'swap','help.home':'help',
- 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.edc':'card','prov.log':'history'};
+ 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.billing':'receipt','prov.hotels':'building','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.edc':'card','prov.log':'history'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;
@@ -11571,6 +11572,66 @@ VIEWS['set.rooms']=el=>{el.innerHTML=pageHead('Rooms & Room Types')+`<div class=
 function provLog(a,extra){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H?H.code:'',a,...(extra||{})});try{ALOG.add(H&&DB.session&&DB.session.inHotel?H.code:'',/^Entered hotel|^Left hotel/.test(a)?'Entered a hotel':'Provider console',a)}catch(e){}}
 function provHotelPicker(){return `<label class="sub">Hotel <select id="pvH">${Object.values(DB.hotels).map(h=>opt(h.code,h.code+' – '+h.set.name,H.code)).join('')}</select></label>`}
 function bindPicker(el){const s=$('#pvH',el);if(s)s.onchange=()=>{H=DB.hotels[s.value];DB.session.hotel=s.value;saveDB();renderShell();render()}}
+/* ---------- Provider console > Hotel Billing: one page per hotel for everything the hotel sees under Backend > Billing, plus the subscription period and the people's access ---------- */
+const PBILL_PID={};let PB_TAB='overview';
+const PB_KINDS={quote:'Quote',subscription:'Subscription',invoice:'Invoice',payment:'Payment'};
+const PB_STATUS={quote:['open','accepted','declined','void'],subscription:['active','ended','void'],invoice:['open','paid','void'],payment:['paid','open','void']};
+async function provBillCtx(h){
+  if(!MahaAuth.on())throw new Error('Billing needs the cloud sign-in, which is off on this copy.');
+  const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again to use Billing.');
+  const call=async(path,opt)=>{const r=await fetch(MahaAuth.base()+'/rest/v1/'+path,Object.assign({headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token,'Accept':'application/json',Prefer:'return=representation'}},opt||{}));let d=null;try{d=await r.json()}catch(e){}if(!r.ok){const e=new Error(d&&d.message||('HTTP '+r.status));e.status=r.status;throw e}return d};
+  let pid=PBILL_PID[h.code];if(!pid){const p=await call('maha_properties?select=id&property_code=eq.'+encodeURIComponent(h.code));pid=p&&p[0]&&p[0].id;if(!pid)throw new Error('This hotel was not found in the cloud.');PBILL_PID[h.code]=pid}
+  return {call,pid}}
+function provSubCard(box,h){
+  const sd=h.set.subUntil,n=sd?diff(iso(new Date()),sd):null,stopped=subStopped(h);
+  const state=h.set.subRevokedAt&&Date.now()>=h.set.subRevokedAt?'Revoked: the hotel is stopped':!sd?'No date set (no limit)':stopped?'Ended: the hotel is stopped':n<0?'Ended: stops at 06:00 tomorrow':n===0?'Ends today (stops 06:00 tomorrow)':n+' day'+(n===1?'':'s')+' left';
+  box.innerHTML=`<h3>Hotel subscription</h3><p class="sub">The whole hotel account. Warning starts 10 days before; the hotel stops at 06:00 the morning after the date.</p><p style="margin:0 0 10px">Valid until <b>${sd?fd(sd):'-'}</b> &middot; <span class="${stopped?'hs2-bad':'hs2-ok'}">${esc(state)}</span></p>
+    <div class="btns" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 8px"><button type="button" class="btn sm ghost" data-pbe="1">+1 month</button><button type="button" class="btn sm ghost" data-pbe="3">+3 months</button><button type="button" class="btn sm ghost" data-pbe="6">+6 months</button><button type="button" class="btn sm ghost" data-pbe="12">+1 year</button><button type="button" class="btn sm red" id="pbRev">Revoke now</button></div>
+    <div class="btns" style="justify-content:flex-start;align-items:center;gap:8px"><input type="date" id="pbD" value="${esc(sd||'')}" style="max-width:170px"><button type="button" class="btn sm gold" id="pbSave">Save date</button><button type="button" class="btn sm ghost" id="pbClr">Clear date</button></div>`;
+  const done=(msg)=>{saveDB();render();toast(msg)};
+  $$('[data-pbe]',box).forEach(b=>b.onclick=()=>{const base=h.set.subUntil&&h.set.subUntil>iso(new Date())?P(h.set.subUntil):P(iso(new Date()));base.setMonth(base.getMonth()+(+b.dataset.pbe));const v=iso(base);h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' extended to '+fd(v));done(h.code+' subscription extended to '+fd(v)+'.')});
+  $('#pbRev',box).onclick=async()=>{if(!await dlgConfirm('Revoke the subscription of '+h.code+' now? Its staff are stopped at once.'))return;h.set.subUntil=addD(iso(new Date()),-1);h.set.subRevokedAt=Date.now();provLog('Subscription of hotel '+h.code+' revoked (stopped now)');done(h.code+' subscription revoked.')};
+  $('#pbSave',box).onclick=()=>{const v=$('#pbD',box).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));done(h.code+' subscription is valid until '+fd(v)+'.')};
+  $('#pbClr',box).onclick=()=>{if(!h.set.subUntil&&!h.set.subRevokedAt)return;delete h.set.subUntil;delete h.set.subRevokedAt;provLog('Subscription date cleared for hotel '+h.code);done('Subscription date cleared for '+h.code+'.')}}
+function provBillForm(h,ctx,kind,row,after){
+  const e=row||{},st=PB_STATUS[kind],sub=kind==='subscription';
+  const m=modal((row?'Edit ':'Add ')+PB_KINDS[kind].toLowerCase()+' – '+esc(h.code),`<div class="form2">${fld(sub?'Plan name':'Number',`<input id="pfN" maxlength="40" value="${esc(e.no||'')}" ${row?'':'autofocus'}>`)}${fld('Date',`<input type="date" id="pfD" value="${esc(e.doc_date||iso(new Date()))}">`)}
+    ${kind==='invoice'||kind==='quote'?fld(kind==='quote'?'Valid until':'Due date',`<input type="date" id="pfU" value="${esc(e.due_date||'')}">`):''}${sub?fld('Period from',`<input type="date" id="pfF" value="${esc(e.period_from||'')}">`)+fld('Period until',`<input type="date" id="pfT" value="${esc(e.period_to||'')}">`):''}
+    ${fld('Amount',`<input type="number" id="pfA" min="0" step="0.01" value="${e.amount!=null?e.amount:0}">`)}${fld('Currency',`<input id="pfC" maxlength="3" value="${esc(e.currency||'USD')}">`)}
+    ${kind==='payment'?fld('Paid for (invoice number)',`<input id="pfP" maxlength="40" value="${esc(e.paid_for||'')}">`):''}${fld('Status',`<select id="pfS">${st.map(x=>`<option value="${x}"${(e.status||st[0])===x?' selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('')}</select>`)}${fld('Note',`<input id="pfO" maxlength="500" value="${esc(e.note||'')}">`,'span2')}</div>
+    <div class="err" id="pfE"></div><div class="btns"><button class="btn gold" id="pfS1">Save</button></div>`,{w:640});
+  $('#pfS1',m).onclick=async()=>{const no=$('#pfN',m).value.trim();if(!no){$('#pfE',m).textContent='Enter '+(sub?'the plan name':'a number')+'.';return}
+    const body={kind,no,doc_date:$('#pfD',m).value||iso(new Date()),due_date:$('#pfU',m)?($('#pfU',m).value||null):null,period_from:sub?($('#pfF',m).value||null):null,period_to:sub?($('#pfT',m).value||null):null,amount:+$('#pfA',m).value||0,currency:($('#pfC',m).value||'USD').toUpperCase(),paid_for:$('#pfP',m)?($('#pfP',m).value.trim()||null):null,note:$('#pfO',m).value.trim()||null,status:$('#pfS',m).value};
+    if(sub&&!body.period_to){$('#pfE',m).textContent='Choose the period end date.';return}
+    try{if(row)await ctx.call('maha_billing_docs?id=eq.'+row.id,{method:'PATCH',body:JSON.stringify(body)});else await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify(Object.assign({property_id:ctx.pid},body))});
+      if(kind==='payment'&&body.paid_for&&body.status==='paid'){try{await ctx.call('maha_billing_docs?property_id=eq.'+ctx.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(body.paid_for),{method:'PATCH',body:JSON.stringify({status:'paid'})})}catch(x){}}
+      if(sub&&body.status==='active'){h.set.subUntil=body.period_to;delete h.set.subRevokedAt;saveDB()}
+      provLog('Billing: '+PB_KINDS[kind].toLowerCase()+' '+no+(row?' updated':' added')+' for hotel '+h.code);closeModal(m);after()}catch(x){$('#pfE',m).textContent='Could not save: '+x.message}}}
+async function provBillRecords(box,h){
+  const TABS=[['overview','Overview'],['quote','Quotes'],['subscription','Subscriptions'],['invoice','Invoices'],['payment','Payments Made'],['statements','Statements']];
+  box.innerHTML='<h3>Billing records</h3><p class="sub">Loading...</p>';let ctx,rows=[];
+  try{ctx=await provBillCtx(h);rows=await ctx.call('maha_billing_docs?select=*&property_id=eq.'+ctx.pid+'&order=doc_date.desc,created_at.desc')}catch(e){if(!box.isConnected)return;box.innerHTML='<h3>Billing records</h3><div class="err">'+esc(e.status===404?'Billing is not switched on yet in the cloud.':e.message)+'</div>';return}
+  if(!box.isConnected)return;
+  const of=k=>rows.filter(d=>d.kind===k),redraw=()=>provBillRecords(box,h);
+  const act=r=>`<td class="nowrap">${r.kind==='invoice'&&r.status==='open'?`<button class="btn sm ghost" data-mp="${r.id}">Mark paid</button> `:''}<button class="btn sm ghost" data-ed="${r.id}">Edit</button> <button class="btn sm red" data-dl="${r.id}">Delete</button></td>`;
+  const tbl=(cols,list)=>`<div style="overflow-x:auto"><table class="grid"><tr>${cols.map(c=>`<th${c[2]?' class="n"':''}>${c[0]}</th>`).join('')}<th></th></tr>${list.map(r=>`<tr>${cols.map(c=>`<td${c[2]?' class="n"':''}>${c[1](r)}</td>`).join('')}${act(r)}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">Nothing here yet.</td></tr>`}</table></div>`;
+  let body='';
+  if(PB_TAB==='overview'){const cur={};rows.forEach(d=>{const c=cur[d.currency]||(cur[d.currency]={due:0,n:0,credit:0});if(d.kind==='invoice'&&d.status==='open'){c.due+=+d.amount;c.n++}if(d.kind==='payment'&&d.status==='open')c.credit+=+d.amount});const last=of('payment').filter(d=>d.status!=='void')[0],ks=Object.keys(cur);
+    body=`<p class="sub">What the hotel sees on its Overview page.</p>${ks.length?`<table class="grid"><tr><th>Currency</th><th class="n">Available credits</th><th class="n">Balance payable</th></tr>${ks.map(c=>`<tr><td>${esc(c)}</td><td class="n">${billMoney(cur[c].credit,c)}</td><td class="n">${billMoney(cur[c].due,c)} (${cur[c].n} invoice${cur[c].n===1?'':'s'})</td></tr>`).join('')}</table>`:'<p class="sub">No balance yet.</p>'}<p style="margin:12px 0 0">Last payment: ${last?`<b>${billMoney(last.amount,last.currency)}</b> &middot; ${fd(last.doc_date)} &middot; ${esc(last.no)}${last.paid_for?' &middot; for '+esc(last.paid_for):''}`:'none yet'}</p>`}
+  else if(PB_TAB==='statements'){const bal={};const ev=rows.filter(d=>(d.kind==='invoice'||d.kind==='payment')&&d.status!=='void').sort((a,b)=>a.doc_date<b.doc_date?-1:a.doc_date>b.doc_date?1:a.created_at<b.created_at?-1:1).map(d=>{bal[d.currency]=(bal[d.currency]||0)+(d.kind==='invoice'?+d.amount:-d.amount);return Object.assign({},d,{run:bal[d.currency]})}).reverse();
+    body=`<p class="sub">Invoices and payments in date order, as the hotel sees them.</p><div style="overflow-x:auto"><table class="grid"><tr><th>Date</th><th>Type</th><th>No.</th><th class="n">Charged</th><th class="n">Paid</th><th class="n">Balance</th></tr>${ev.map(r=>`<tr><td>${fd(r.doc_date)}</td><td>${r.kind==='invoice'?'Invoice':'Payment'}</td><td>${esc(r.no)}</td><td class="n">${r.kind==='invoice'?billMoney(r.amount,r.currency):''}</td><td class="n">${r.kind==='payment'?billMoney(r.amount,r.currency):''}</td><td class="n">${billMoney(r.run,r.currency)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nothing here yet.</td></tr>'}</table></div>`}
+  else{const k=PB_TAB;const cols={quote:[['Quote #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Valid until',r=>r.due_date?fd(r.due_date):'-'],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]],subscription:[['Plan',r=>esc(r.no)],['From',r=>r.period_from?fd(r.period_from):'-'],['Until',r=>r.period_to?fd(r.period_to):'-'],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1],['Note',r=>esc(r.note||'')]],invoice:[['Invoice #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Due',r=>r.due_date?fd(r.due_date):'-'],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]],payment:[['Payment #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Paid for',r=>esc(r.paid_for||'-')],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]]}[k];
+    body=`<div class="btns" style="justify-content:flex-start;margin:0 0 8px"><button type="button" class="btn gold sm" id="pbAdd">Add ${PB_KINDS[k].toLowerCase()}</button></div>${tbl(cols,of(k))}`}
+  box.innerHTML=`<h3>Billing records</h3><p class="sub">Everything here shows on the hotel's Backend &gt; Billing pages.</p><div class="btns" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 12px">${TABS.map(t=>`<button type="button" class="btn sm ${PB_TAB===t[0]?'gold':'ghost'}" data-pbt="${t[0]}">${t[1]}</button>`).join('')}</div>${body}`;
+  $$('[data-pbt]',box).forEach(b=>b.onclick=()=>{PB_TAB=b.dataset.pbt;redraw()});
+  if($('#pbAdd',box))$('#pbAdd',box).onclick=()=>provBillForm(h,ctx,PB_TAB,null,redraw);
+  $$('[data-ed]',box).forEach(b=>b.onclick=()=>{const r=rows.find(x=>x.id===b.dataset.ed);if(r)provBillForm(h,ctx,r.kind,r,redraw)});
+  $$('[data-mp]',box).forEach(b=>b.onclick=async()=>{try{await ctx.call('maha_billing_docs?id=eq.'+b.dataset.mp,{method:'PATCH',body:JSON.stringify({status:'paid'})});provLog('Billing: invoice marked paid for hotel '+h.code);redraw()}catch(e){toast('Could not save: '+e.message)}});
+  $$('[data-dl]',box).forEach(b=>b.onclick=async()=>{if(!await dlgConfirm('Delete this billing record?'))return;try{await ctx.call('maha_billing_docs?id=eq.'+b.dataset.dl,{method:'DELETE'});provLog('Billing: record deleted for hotel '+h.code);redraw()}catch(e){toast('Could not delete: '+e.message)}})}
+VIEWS['prov.billing']=el=>{
+  const h=H;if(!h){go('prov.home');return}
+  el.innerHTML=pageHead('Hotel Billing',provHotelPicker())+`<div class="cols2" style="grid-template-columns:minmax(260px,320px) minmax(0,1fr)"><div class="panel pad" id="pbSub"></div><div class="panel pad" id="pbUsr"></div></div><div class="panel pad mt" id="pbRec"></div>`;
+  bindPicker(el);provSubCard($('#pbSub',el),h);userAccessAdmin(h,$('#pbUsr',el));provBillRecords($('#pbRec',el),h)};
 VIEWS['prov.hotels']=el=>{
   el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Subscription until</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
    ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst  ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.subUntil?(()=>{const n=diff(iso(new Date()),h.set.subUntil);return fd(h.set.subUntil)+` <span class="sub" ${n<=7?'style="color:#b3261e"':''}>(${n<0?'ended':n+' d'})</span>`})():'<span class="sub">Not set</span>'}</td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
