@@ -12,4 +12,5 @@ T('every standard page header carries it, labelled with the page it returns to',
 T('pages with their own header carry it too (Housekeeping Status, Forecast) and the Backend Billing pages use the standard header', src.includes("<div class=\"hkh\">${backBtnHtml()}") && src.includes("<div class=\"fch\">${backBtnHtml()}") && src.includes('el.innerHTML=pageHead(esc(title))+'));
 T('the list starts empty after sign-out and when switching Frontend / Backend', src.includes('if(!DB.session){NAVSTACK.length=0;showLogin();return}') && src.includes('if(!hasBackend()||a===curArea())return;NAVSTACK.length=0;'));
 T("the Reservation page keeps its own 'Back to Room Grid / list' button", src.includes("${resBack==='fo.grid'?'Back to Room Grid':'Back to list'}"));
+T('Back follows only pages opened from another page; a page chosen from the menu, sidebar, top bar or area switch starts fresh with no Back', src.includes("e.target.closest('#msb,#menubar,#mobnav,.topbar,header,#areaSw')") && src.includes('else if(NAV_MENU){NAVSTACK.length=0}'));
 process.exit(fails ? 1 : 0);
