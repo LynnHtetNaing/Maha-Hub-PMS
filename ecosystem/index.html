@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="b536fc7ab9">
+<meta name="maha-build" content="865289a556">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -3250,7 +3250,7 @@ const MAHA_AUTH_CONFIG={
 };
 /* Where the live sign-in is kept. A computer keeps it for the tab (sessionStorage). A phone and the installed phone app keep it in the phone's storage, so closing the app or the phone freeing memory does not sign the person out:
    the same screen rules as on the computer then decide (15 quiet minutes = lock screen with the password, 1 hour = sign in again). Clearing the phone's site data signs the person out. */
-function loginStore(){try{return lightOnly()?localStorage:sessionStorage}catch(e){return sessionStorage}}
+function loginStore(){try{return keepLoginOnDevice()?localStorage:sessionStorage}catch(e){return sessionStorage}}
 function dropLogin(k){try{sessionStorage.removeItem(k)}catch(e){}try{localStorage.removeItem(k)}catch(e){}}
 const SBAUTHKEY='mahahub.sbauth';
 const MahaAuth={
@@ -8089,7 +8089,10 @@ function themeStoreKey(){const se=DB&&DB.session;return 'maha.theme.'+((H&&H.cod
 function userTheme(){let t=null;const r=rawUserRec();if(r&&r.uiTheme)t=r.uiTheme;if(!t){try{t=localStorage.getItem(themeStoreKey())}catch(e){}}return MODERN_THEMES.some(x=>x[0]===t)?t:'emerald'}
 function modeStoreKey(){return themeStoreKey().replace('maha.theme.','maha.mode.')}
 /* Phones and the installed phone app use the Light theme only. Dark stays for computers and tablets. */
-function lightOnly(){try{return document.documentElement.classList.contains('is-app')||(matchMedia('(pointer: coarse)').matches&&Math.min(screen.width,screen.height)<=600)}catch(e){return false}}
+/* Light only on a PHONE (a touch screen whose short side is 600px or less, installed app or browser). A tablet and a computer keep Dark mode, installed app or not. */
+function lightOnly(){try{return matchMedia('(pointer: coarse)').matches&&Math.min(screen.width,screen.height)<=600}catch(e){return false}}
+/* the sign-in is kept in the device's storage on a phone and in any installed app (a tablet app too), in the tab on a computer browser */
+function keepLoginOnDevice(){try{return lightOnly()||document.documentElement.classList.contains('is-app')}catch(e){return false}}
 function userMode(){if(lightOnly())return 'light';let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
 function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;if(lightOnly()){b.style.display='none';return}const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
 function setUserMode(m){m=m==='dark'&&!lightOnly()?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
