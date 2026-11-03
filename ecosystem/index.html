@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="b3d184c16d">
+<meta name="maha-build" content="366105612a">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -8888,7 +8888,7 @@ function titleMark(label){
   }
   return `<span class="thic">${ic(name,16)}</span>`;
 }
-const pageHead=(t,extra='',mode)=>{const mark=/<svg[\s>]/i.test(t)?'':titleMark(t);const bk=/pgback/.test(extra||'')?'':backBtnHtml();const h=`${bk}<h1>${mark}${t}</h1>`;
+const pageHead=(t,extra='',mode,noBack,lead)=>{const mark=/<svg[\s>]/i.test(t)?'':titleMark(t);const bk=lead||((noBack||/pgback/.test(extra||''))?'':backBtnHtml());const h=`${bk}<h1>${mark}${t}</h1>`;
   if(mode==='under')return `<div class="phead block">${h}</div><div class="ufbar">${extra}</div>`;
   if(mode==='act')return `<div class="phead withact">${h}${extra?`<div class="pact">${extra}</div>`:''}</div>`;
   const filt=/<(input|select)\b/i.test(extra||'');return `<div class="phead${filt?' withf':''}">${h}${filt?'<div class="sp"></div>':''}${extra}</div>`};
@@ -9383,7 +9383,7 @@ VIEWS['fo.arrivals2']=(el,id)=>{
   if(id)AS.sel=id;const all=pendingArrivals(),vis=all.filter(b=>sideMatch(AS,b,AS.q));
   if(!AS.sel||!all.find(b=>b.id===AS.sel))AS.sel=(vis[0]||all[0]||{}).id||null;
   const re=()=>VIEWS['fo.arrivals2'](el);
-  el.innerHTML='<div class="dep2pg">'+pageHead('Arrivals',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} expected</span>`,'act')+`<div id="arDetail"></div></div>`;
+  el.innerHTML='<div class="dep2pg">'+pageHead('Arrivals',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} expected</span>`,'act',true)+`<div id="arDetail"></div></div>`;
   $('#toFull',el).onclick=()=>go('fo.arrivals');
   const B=AS.sel&&bookingById(AS.sel);const box=$('#arDetail',el);
   if(B){const dp=depAmt(B);box.innerHTML=`<div class="depbar arbar ${B.room?'ok':'due'}"><span class="dtx">Due in ${fd(B.arr)} · ${B.room?'Room '+esc(B.room):'assign a room before check-in'}${dp>0.004?' · deposit '+m2(dp)+' '+bCur(B):''}</span><span class="sp"></span><button class="btn sm gold" id="aCiGo">Check in</button></div><div id="aRes"></div>`;
@@ -9413,7 +9413,7 @@ VIEWS['fo.departures2']=(el,id)=>{
   if(id)DS.sel=id;const all=departuresDue(),vis=all.filter(b=>sideMatch(DS,b,DS.q));
   if(!(CDBACK&&DS.sel&&bookingById(DS.sel))&&(!DS.sel||!all.find(b=>b.id===DS.sel)))DS.sel=(vis[0]||all[0]||{}).id||null;
   const re=()=>VIEWS['fo.departures2'](el);
-  el.innerHTML='<div class="dep2pg">'+cdBackBar()+pageHead('Departures',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} due</span>`,'act')+`<div id="arDetail"></div></div>`;cdBackBind(el);
+  el.innerHTML='<div class="dep2pg">'+cdBackBar()+pageHead('Departures',`<button class="btn ghost sm" id="toFull">Full list</button><span class="sub">${all.length} due</span>`,'act',true)+`<div id="arDetail"></div></div>`;cdBackBind(el);
   $('#toFull',el).onclick=()=>go('fo.departures');
   const B=DS.sel&&bookingById(DS.sel);const box=$('#arDetail',el);
   if(B){const bb=bal(B);box.innerHTML=`<div class="depbar ${bb>0.004?'due':'ok'}"><span class="dtx">Balance <b>${m2(bb)} ${bCur(B)}</b>${bb>0.004?' · settle the folio before check-out':' · ready to check out'}</span><span class="sp"></span><button class="btn sm" id="dFol">Open folio</button><button class="btn sm gold" id="dCo">Check out</button></div><div id="dRes"></div>`;
@@ -9680,7 +9680,7 @@ VIEWS['res.list']=el=>{
   $('#rlq',el).addEventListener('input',run);['rls','rlf','rlt'].forEach(id=>$('#'+id,el).addEventListener('change',run));bindDatePick(el);$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));run();
 };
 VIEWS['res.open']=(el,id)=>{const B=bookingById(id);if(!B){el.innerHTML='<div class="empty">Reservation not found.</div>';return}const r=resOf(B);
-  el.innerHTML=pageHead('Reservation',`<button class="btn ghost sm pgback" data-go="${resBack}">${ic('left',16)}${resBack==='fo.grid'?'Back to Room Grid':'Back to list'}</button>`,'act');$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));
+  el.innerHTML=pageHead('Reservation','','act',true,`<button class="btn ghost sm pgback" data-go="${resBack}">${ic('left',16)}${resBack==='fo.grid'?'Back to Room Grid':'Back to list'}</button>`);$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));
   const box=document.createElement('div');el.appendChild(box);reservationScreen(box,r,B,{});showNotifs(r,'Reservation')};
 VIEWS['res.new']=(el,pre)=>{if(!need('res.create')){go('fo.status');return}newReservation(el,pre||{},false)};
 VIEWS['res.walkin']=(el)=>{if(!need('res.create')){go('fo.status');return}newReservation(el,{arr:H.set.bd},true)};
