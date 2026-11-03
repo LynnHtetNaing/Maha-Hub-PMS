@@ -32,7 +32,7 @@ T('ordinal dates: 1st 2nd 3rd 4th 11th 12th 21st', ['2026-11-01','2026-11-02','2
 
 /* wiring */
 T('the screens run once after sign-in, before Frontend / Backend, and the old inline notice is gone', /async function chooseAreaAndEnter\(props,welcome\)\{\s+await showSubscriptionScreens\(\);/.test(src) && !src.includes('subNoticesHtml') && !src.includes('sp-note'));
-T('card: amber then red, Light and Dark (soft red in Dark, no gold), X and Esc close it, Renew opens the support page', src.includes('.selpg .sp-exp.late .sp-exph{') && src.includes('.selpg.dark .sp-exp.soon .sp-exph') && src.includes("e.key==='Escape'") && src.includes('id="spExpX"') && src.includes("window.open(RENEW_URL,'_blank','noopener')"));
+T('card: amber then red, Light and Dark (soft red in Dark, no gold), X and Esc close it, Renew opens the Billing page', src.includes('.selpg .sp-exp.late .sp-exph{') && src.includes('.selpg.dark .sp-exp.soon .sp-exph') && src.includes("e.key==='Escape'") && src.includes('id="spExpX"') && src.includes("window.open(BILLING_URL+'?hotel='+encodeURIComponent(c.code),'_blank','noopener')"));
 T('Provider console > Hotels: a Subscription until column, a Subscription button, a date box with Save and Clear, logged and saved', src.includes('<th>Subscription until</th>') && src.includes('data-sub="${h.code}">Subscription</button>') && src.includes("h.set.subUntil=v;provLog('Subscription of hotel '+h.code+' valid until '") && src.includes("delete h.set.subUntil;provLog('Subscription date cleared for hotel '"));
 T('the hotel date never blocks sign-in (the sign-in code does not read it)', !/subUntil/.test(src.slice(src.indexOf('function doLogin()'), src.indexOf('function doLogin()') + 6000)));
 process.exit(fails ? 1 : 0);
