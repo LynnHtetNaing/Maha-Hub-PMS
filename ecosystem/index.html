@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="54937bb059">
+<meta name="maha-build" content="cbc1927d5f">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -570,6 +570,7 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
 .depmodal .dpbox{min-height:360px;padding:6px 4px}.dptab tr[data-dl]{cursor:pointer}.dptab tr.sel td{background:#ffe9b3}.dpbtn{margin-top:16px;gap:10px}
 .fshare{display:block;margin:6px 0 2px 0}.fshare .fsh1{margin-top:6px}.fspace{visibility:hidden}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
 .gbi{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;background:#fff;color:#26414f;font-size:10px;font-weight:800;margin-right:5px;vertical-align:middle;line-height:1}
+.gbi.gbl{width:auto;min-width:15px;padding:0 2px}.gbi.gbl img{display:block;max-width:30px;max-height:11px;object-fit:contain}
 .chb{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#e3ebef;color:#26414f;font-size:11px;font-weight:800;margin-right:6px;vertical-align:middle;line-height:1}
 /* ---- Reports bar: the first layout, with smaller boxes and buttons so it fits ---- */
 .rptool{padding:8px 12px!important}
@@ -9300,7 +9301,9 @@ VIEWS['fo.inhouse']=el=>stayList(el,'In House',allBookings().filter(b=>b.status=
 const CH_PALETTE=['#2f7fcf','#2fb36b','#e8a23a','#8b7cf6','#e0645c','#1fa8a0','#d36ba6','#4a5fc1','#9aa832','#c2603a','#3aa6d0','#b0508f','#5a9a4a','#d4a017','#6b5b95','#7a8791'];
 const OTA_BRAND=[[/agoda/i,'#5b3fd1'],[/booking\.com|booking/i,'#003580'],[/expedia/i,'#d99a00'],[/trip\.com|ctrip/i,'#287dfa'],[/airbnb/i,'#ff5a5f'],[/traveloka/i,'#0194f3'],[/hotels\.com/i,'#d32f2f'],[/tiket/i,'#1a73e8'],[/klook/i,'#ff5722'],[/makemytrip/i,'#e53935']];
 function chanColor(c,i){return CH_PALETTE[(i<0?0:i)%CH_PALETTE.length]}
-function chanOfBooking(b){const c=CO(resOf(b).companyId);if(!c)return null;const nm=String((c.chan&&(CHANNEL_CATALOG.find(x=>x[0]===c.chan)||[])[1])||c.name||'').replace(/^\([A-Z]\)\s*/,'').trim();return {ini:(nm[0]||'?').toUpperCase(),name:String(c.name||nm).replace(/^\([A-Z]\)\s*/,'').trim()}}
+/* the logo of a channel is the one added for its "(OTA Paid)" payment method (Payment logos), so one upload serves the payment window and the Room Grid */
+function chanLogoOf(nm){const k=String(nm||'').toLowerCase().replace(/[^a-z0-9]/g,'');if(!k)return '';const t=TCODES.find(x=>x.ptab==='OTA PAID'&&!x.refund&&String(x.desc).replace(/\s*\(OTA Paid\)\s*$/i,'').toLowerCase().replace(/[^a-z0-9]/g,'')===k);return t?payLogo(t):''}
+function chanOfBooking(b){const c=CO(resOf(b).companyId);if(!c)return null;const nm=String((c.chan&&(CHANNEL_CATALOG.find(x=>x[0]===c.chan)||[])[1])||c.name||'').replace(/^\([A-Z]\)\s*/,'').trim();return {ini:(nm[0]||'?').toUpperCase(),name:String(c.name||nm).replace(/^\([A-Z]\)\s*/,'').trim(),logo:chanLogoOf(nm)}}
 let GF={type:'',floor:''};
 let gridFrom=null,gridTo=null;
 /* Where the bookings with no room sit on the grid: the system puts each one in the first free room of its type (a picture only: nothing is saved until a room is really assigned).
@@ -9359,7 +9362,7 @@ VIEWS['fo.grid']=el=>{
   const today=d=>d===H.set.bd?'today':'';
   const bar=(b,kind,lane,lanes)=>{const s=diff(gridFrom,b.arr),e=diff(gridFrom,b.dep),cl=s<0,cr=e>=N,l=cl?0:(s+.5)/N,r=cr?1:(e+.5)/N,ch=chanOfBooking(b),mv=gridMovable(b);
     const auto=kind==='auto'||kind==='wait',dn=!!b.roomBlock;
-    return `<button class="rb ${auto?'rb-auto':'rb-'+b.status} ${cl?'cl':''} ${cr?'cr':''} ${mv?'mv':''}" style="left:${(l*100).toFixed(4)}%;width:${((r-l)*100).toFixed(4)}%${lanes>1?`;top:${4+lane*24}px;height:21px;bottom:auto`:''}" data-bk="${b.id}" title="RSVN ${resOf(b).no} · ${esc(gName(G(b.guestId)))} ${fd(b.arr)}–${fd(b.dep)}${ch?' · '+esc(ch.name):''}${auto?' · no room yet, placed by the system':''}${dn?' · Do not move':''}">${dn?`<span class="rbw">${ic('warn',13)}</span>`:''}${ch?`<span class="gbi">${esc(ch.ini)}</span>`:''}<span class="rbn">${esc((r-l)*N<=1.01&&G(b.guestId).first?G(b.guestId).first:G(b.guestId).last)}${b.copyOf?' (Copy)':''}</span>${auto?`<span class="rbs">any ${esc(b.type)}</span>`:''}</button>`};
+    return `<button class="rb ${auto?'rb-auto':'rb-'+b.status} ${cl?'cl':''} ${cr?'cr':''} ${mv?'mv':''}" style="left:${(l*100).toFixed(4)}%;width:${((r-l)*100).toFixed(4)}%${lanes>1?`;top:${4+lane*24}px;height:21px;bottom:auto`:''}" data-bk="${b.id}" title="RSVN ${resOf(b).no} · ${esc(gName(G(b.guestId)))} ${fd(b.arr)}–${fd(b.dep)}${ch?' · '+esc(ch.name):''}${auto?' · no room yet, placed by the system':''}${dn?' · Do not move':''}">${dn?`<span class="rbw">${ic('warn',13)}</span>`:''}${ch?(ch.logo?`<span class="gbi gbl"><img src="${ch.logo}" alt="${esc(ch.name)}"></span>`:`<span class="gbi">${esc(ch.ini)}</span>`):''}<span class="rbn">${esc((r-l)*N<=1.01&&G(b.guestId).first?G(b.guestId).first:G(b.guestId).last)}${b.copyOf?' (Copy)':''}</span>${auto?`<span class="rbs">any ${esc(b.type)}</span>`:''}</button>`};
   const cells=(rm)=>days.map(d=>`<button class="gc ${today(d)}" data-cell="${rm.no}|${d}" aria-label="Room ${rm.no} ${fd(d)}"></button>`).join('');
   /* rooms taken out: striped days (OO, OI) and a soft outline (SB); the kind and the reason show when you point at a day */
   const outDays=(rm)=>{let x='';const one=(kind,from,to,why)=>{for(let i=Math.max(0,diff(gridFrom,from));i<Math.min(N,diff(gridFrom,addD(to,1)));i++)x+=`<div class="rgx rgx-${kind}" style="left:${(i/N*100).toFixed(4)}%;width:${(100/N).toFixed(4)}%" title="${kind} · ${esc(why||'')}"></div>`};
