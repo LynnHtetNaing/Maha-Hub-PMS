@@ -7,7 +7,7 @@ must('Folio / check out opens the folio with the pull-back flag',src.includes("C
 must('Extend opens the Departure page with the pull-back flag',src.includes("CDBACK={id:b.dataset.cdext};go('fo.departures2',b.dataset.cdext)"));
 must('the Extend button has its own hook',src.includes('data-cdext="${i.id}">Extend</button>'));
 // the Back button and bar exist on both pages
-must('Back to Close Day bar',src.includes('Back to Close Day</button>')&&src.includes("go('cd.close')"));
+must('Back to Close Day bar',src.includes('title="Back to Close Day">Back</button>')&&src.includes("go('cd.close')"));
 must('Folio page shows the bar',src.includes("el.innerHTML=cdBackBar()+pageHead('Billing / Folio'"));
 must('Departure page shows the bar',src.includes("cdBackBar()+pageHead('Departures'"));
 // the long list on the left of the Departure detail is gone
