@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="42e5540c7a">
+<meta name="maha-build" content="bb6d481854">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7586,6 +7586,29 @@ function accessText(u,now){now=now||Date.now();if(u&&u.cancelled)return 'Cancell
   if(a.from&&now<a.from)return 'Starts '+fd(new Date(a.from).toISOString().slice(0,10))+' '+tm(a.from);if(!a.until)return 'No end date';
   return now>=a.until?'Ended '+fd(new Date(a.until).toISOString().slice(0,10))+' '+tm(a.until):'Until '+fd(new Date(a.until).toISOString().slice(0,10))+' '+tm(a.until)+' ('+accessSpan(a.until-now)+' left)'}
 function accessNote(u,text,by){u.accessLog=u.accessLog||[];u.accessLog.unshift({at:Date.now(),by:by||'',a:text});if(u.accessLog.length>60)u.accessLog.length=60}
+/* After sign-in, before Frontend / Backend: a card screen for the hotel's subscription date (set by the provider, every user of the hotel sees it) and one for the person's own access period (only that person). They start 30 days before the end, are red in the last 7 days and after the hotel date, and only warn: nothing is blocked by the hotel date. Renew Now / Contact provider opens the support page. */
+const SUB_WARN_DAYS=30,RENEW_URL='https://maha-hub.com/contact.html';
+function subNotices(h,u){const out=[],now=Date.now();
+  try{const a=u&&!u.provider&&!u.isProv&&u.access;
+    if(a&&a.until&&now<a.until){const left=a.until-now;if(left<=SUB_WARN_DAYS*864e5)out.push({k:'user',late:left<=7*864e5,ended:false,d:iso(new Date(a.until)),days:Math.ceil(left/864e5),user:u.username||''})}
+    const s=h&&h.set&&h.set.subUntil;
+    if(s){const n=diff(iso(new Date()),s);if(n<0)out.push({k:'hotel',late:true,ended:true,d:s,days:n});else if(n<=SUB_WARN_DAYS)out.push({k:'hotel',late:n<=7,ended:false,d:s,days:n})}
+  }catch(e){}
+  return out}
+const fdOrd=s=>{const d=P(s),n=d.getDate(),suf=(n%100>=11&&n%100<=13)?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th');return n+suf+' '+d.toLocaleDateString('en-GB',{month:'short'})+' '+d.getFullYear()};
+function subCardInfo(n,h){const hot=n.k==='hotel';
+  return {cls:n.late?'late':'soon',title:n.ended?'Expired':'Expiring Soon',
+    headline:hot?(n.ended?'Your hotel subscription expired on ':'Your hotel subscription expires on ')+fdOrd(n.d):'Your access expires on '+fdOrd(n.d),
+    sub:hot?'Avoid any disruption to your guests and operations.':'Please tell your provider (Maha Hub support) to extend it. You are signed out when it ends.',
+    left:n.ended?'':(n.days===0?'Ends today':n.days+' day'+(n.days===1?'':'s')+' left'),
+    btn:hot?'Renew Now':'Contact provider',code:h&&h.code||'',user:hot?'':n.user}}
+function subScreen(n,h){return new Promise(res=>{const c=subCardInfo(n,h);
+  selShell(`<div class="sp-exp ${c.cls}" role="dialog" aria-modal="true" aria-label="${esc(c.title)}"><div class="sp-exph"><span>${ic('warn',20)} ${esc(c.title)}</span><button type="button" class="sp-expx" id="spExpX" aria-label="Close">&times;</button></div>
+    <div class="sp-expb"><h2>${esc(c.headline)}</h2>${c.left?`<div class="sp-expd">${esc(c.left)}</div>`:''}<p>${esc(c.sub)}</p><div class="sp-expps"><span class="sp-expp">Property Code: <b>${esc(c.code)}</b></span>${c.user?`<span class="sp-expp">User: <b>${esc(c.user)}</b></span>`:''}</div>
+    <button type="button" class="sp-expgo" id="spExpGo">${esc(c.btn)} &#8599;</button></div></div>`);
+  const done=()=>{document.removeEventListener('keydown',key,true);res()},key=e=>{if(e.key==='Escape'){e.preventDefault();done()}};
+  document.addEventListener('keydown',key,true);$('#spExpX').onclick=done;$('#spExpGo').onclick=()=>{try{window.open(RENEW_URL,'_blank','noopener')}catch(e){}};try{$('#spExpGo').focus()}catch(e){}})}
+async function showSubscriptionScreens(){try{if(!DB||!DB.session||DB.session.provider||!H)return;const list=subNotices(H,user());for(const n of list)await subScreen(n,H)}catch(e){}finally{SEL_ON=false}}
 setInterval(()=>{try{if(typeof DB==='undefined'||!DB||!DB.session||DB.session.provider||typeof H==='undefined'||!H)return;const w=accessWhy(user());if(w)signOut(true,accessMsg(w))}catch(e){}},5000);
 function accessModal(u,done){
   const a=u.access||{},now=Date.now();
@@ -11360,10 +11383,15 @@ function provLog(a,extra){DB.provLog.unshift({at:Date.now(),user:user().name,hot
 function provHotelPicker(){return `<label class="sub">Hotel <select id="pvH">${Object.values(DB.hotels).map(h=>opt(h.code,h.code+' – '+h.set.name,H.code)).join('')}</select></label>`}
 function bindPicker(el){const s=$('#pvH',el);if(s)s.onchange=()=>{H=DB.hotels[s.value];DB.session.hotel=s.value;saveDB();renderShell();render()}}
 VIEWS['prov.hotels']=el=>{
-  el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
-   ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst  ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
-    <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-use="${h.code}">Work on this hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
+  el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Subscription until</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
+   ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst  ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.subUntil?(()=>{const n=diff(iso(new Date()),h.set.subUntil);return fd(h.set.subUntil)+` <span class="sub" ${n<=7?'style="color:#b3261e"':''}>(${n<0?'ended':n+' d'})</span>`})():'<span class="sub">Not set</span>'}</td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
+    <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-sub="${h.code}">Subscription</button> <button class="btn sm ghost" data-use="${h.code}">Work on this hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
    <p class="sub">Each hotel's data is kept apart. Staff sign in with only their username and password; the system opens the hotel their account belongs to. A new hotel stays Not active until you activate it, and its staff cannot sign in before that.</p>`;
+  /* the hotel subscription date: staff of that hotel are told 30 days before and after it; nobody is blocked by it */
+  $$('[data-sub]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.sub];if(!h)return;
+    const m=modal('Subscription – '+esc(h.code),`${fld('Valid until',`<input type="date" id="sbU" value="${esc(h.set.subUntil||'')}">`)}<div class="btns end"><button type="button" class="btn ghost" id="sbX">Clear date</button><button type="button" class="btn gold" id="sbS">Save</button></div>`,{w:420});
+    $('#sbS',m).onclick=()=>{const v=$('#sbU',m).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));saveDB();closeModal(m);render();toast(h.code+' subscription is valid until '+fd(v)+'.')};
+    $('#sbX',m).onclick=()=>{if(!h.set.subUntil){closeModal(m);return}delete h.set.subUntil;provLog('Subscription date cleared for hotel '+h.code);saveDB();closeModal(m);render();toast('Subscription date cleared for '+h.code+'.')}});
   $$('[data-use]',el).forEach(b=>b.onclick=()=>{H=DB.hotels[b.dataset.use];DB.session.hotel=H.code;saveDB();renderShell();go('prov.perms')});
   $$('[data-act]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.act];const on=h.active!==false;if(on&&h.shifts.some(x=>x.status==='open')&&!await dlgConfirm('Staff shifts are still open at '+h.code+'. Deactivate anyway? They will be signed out.'))return;if(!on&&(!h.set.legal||!h.rooms.length)){toast('Complete the hotel details and rooms before activating.');return}h.active=!on;if(h.active)h.activatedAt=Date.now();provLog((h.active?'Activated':'Deactivated')+' hotel '+h.code);saveDB();render();toast(h.active?h.code+' is active. Its staff can now sign in.':h.code+' is not active.')});
   $$('[data-unlock]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.unlock];const why=await dlgAsk(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
@@ -11508,6 +11536,16 @@ const FLOW_CSS=`
 .selpg .sp-pill{padding:6px 14px;border-radius:99px;background:#ffffff26;border:1px solid #ffffff4d;color:#fff;font:700 12.5px "Noto Sans",sans-serif;cursor:pointer}.selpg .sp-pill:hover{background:#ffffff40}
 .selpg .sp-body{max-width:1180px;margin:0 auto;padding:26px 24px 60px}
 .selpg h1{font-size:26px}.selpg .sp-sub{color:var(--mut);margin:4px 0 18px}
+.selpg .sp-exp{max-width:440px;margin:56px auto 0;background:var(--card);border-radius:14px;box-shadow:0 18px 50px #0b1f2d33;overflow:hidden;color:var(--ink)}
+.selpg .sp-exph{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;font:800 17px Manrope,"Noto Sans",sans-serif}.selpg .sp-exph span{display:inline-flex;align-items:center;gap:8px}
+.selpg .sp-exp.soon .sp-exph{background:#fff4d6;color:#a8650a}.selpg .sp-exp.late .sp-exph{background:#fde3e1;color:#b3261e}
+.selpg.dark .sp-exp.soon .sp-exph,.selpg.dark .sp-exp.late .sp-exph{background:color-mix(in srgb,#d64541 18%,var(--card));color:#ffb4b0}
+.selpg .sp-expx{border:0;background:none;color:inherit;font-size:26px;line-height:1;cursor:pointer;padding:0 4px}
+.selpg .sp-expb{padding:22px 24px 24px;text-align:center}.selpg .sp-expb h2{font:800 22px/1.3 Manrope,"Noto Sans",sans-serif;margin:0 0 6px}
+.selpg .sp-expd{font-weight:700;color:var(--mut);margin:0 0 6px}.selpg .sp-expb p{margin:0 0 16px;color:var(--mut)}
+.selpg .sp-expps{margin:0 0 18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.selpg .sp-expp{display:inline-block;padding:8px 16px;border-radius:99px;background:color-mix(in srgb,var(--ink) 7%,var(--card));font-size:14.5px}
+.selpg .sp-expgo{display:block;width:100%;padding:13px;border:0;border-radius:10px;background:#1c1824;color:#fff;font:700 16px "Noto Sans",sans-serif;cursor:pointer}.selpg.dark .sp-expgo{background:#e7edf3;color:#10161c}
+@media (hover:hover){.selpg .sp-expgo:hover{background:#2b2536}.selpg.dark .sp-expgo:hover{background:#fff}}
 .selpg .sp-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
 .selpg select,.selpg input{padding:10px 14px;border:1.5px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);font:inherit;min-width:180px}
 .selpg input:focus,.selpg select:focus{outline:3px solid color-mix(in srgb,var(--a1) 28%,transparent);border-color:var(--a1)}
@@ -11606,6 +11644,7 @@ async function openPropertyChoice(props,current,canCancel){
     const ok=await withLoading('Opening '+(p?p.name:code),2000,()=>switchHotelCore(code,p&&p.id));
     if(ok)return true}}finally{SEL_ON=false}}
 async function chooseAreaAndEnter(props,welcome){
+  await showSubscriptionScreens();
   const multi=props&&props.length>1;setArea('front');
   try{while(hasBackend()&&!IS_APP){
     const a=await selectSystemPage(H,multi);SEL_ON=false;
