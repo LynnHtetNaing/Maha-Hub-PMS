@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="4b8bfb7ec1">
+<meta name="maha-build" content="19608fa02e">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -107,6 +107,7 @@ h1{font-size:var(--fs-h1);margin:0}h2{margin:0 0 6px;font-size:var(--fs-h2)}h3{f
 .ufbar .dpk input:not(.dph){width:148px;height:32px;font-size:inherit;font-family:inherit;border:0}.ufbar .dpb{width:32px;height:32px;border:0;border-left:1px solid #d5dee4;background:#f4f7f9}
 .phead.withf{flex-wrap:nowrap;gap:12px}.phead.withf h1{flex:1 1 auto;width:auto;min-width:160px}.phead.withf .sp{flex:0 0 28px;width:28px;min-width:28px}.phead.withf label.sub{display:inline-flex;align-items:center;gap:6px;flex:none;white-space:nowrap;margin:0}.phead.withf input,.phead.withf select{width:auto;height:34px;flex:none}.phead.withf input[type=date]{min-width:148px}.phead.withf select{min-width:128px}
 @media (max-width:900px){.phead.withf,.phead.withact{flex-wrap:wrap}.phead.withf h1,.phead.withact h1{flex:1 0 100%;width:100%}.phead.withf .sp{display:none}}
+.rgmenu{position:fixed;z-index:70;min-width:230px;background:var(--card,#fff);color:var(--ink,#13303f);border:1px solid var(--line,#d3e0e8);border-radius:10px;box-shadow:0 14px 36px rgba(11,31,45,.28);padding:6px}.rgmenu .rgmh{padding:6px 10px 8px;color:var(--mut,#5b6b78);font-size:12.5px;border-bottom:1px solid var(--line,#e1e8ee);margin-bottom:4px}.rgmenu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:7px;font:600 14px inherit;color:inherit;cursor:pointer}.rgmenu button:focus-visible{outline:2px solid var(--accent,#176B50);outline-offset:-2px}@media (hover:hover){.rgmenu button:hover{background:color-mix(in srgb,var(--accent,#176B50) 12%,transparent)}}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r)}.panel.pad{padding:14px 16px}.ph{background:#f1f5f8;border-bottom:1px solid var(--line);padding:10px 16px;font-weight:700}.scroll{overflow:auto}
 table.grid{border-collapse:collapse;width:100%}table.grid th{background:#e4edf3;text-align:left;font-weight:600;padding:var(--row-pad);border-bottom:1px solid var(--line);white-space:nowrap;font-size:var(--fs-table);vertical-align:middle;height:42px;box-sizing:border-box}table.grid td{padding:var(--row-pad);border-bottom:1px solid #e6edf1;vertical-align:middle;font-size:var(--fs-table)}
 table.grid tr.click{cursor:pointer}@media (hover:hover){table.grid tr.click:hover td{background:#f4f9fc}}table.grid tr.tot td{font-weight:700;background:#f6f9fb}table.grid tr.on td{background:#fff8e6}.kv td:first-child{color:var(--mut)}
@@ -9516,8 +9517,7 @@ VIEWS['fo.grid']=el=>{
    if(window._rgFit)window.removeEventListener('resize',window._rgFit);window._rgFit=fit;window.addEventListener('resize',fit);fit();requestAnimationFrame(fit)}
   let dragged=false;
   $$('[data-bk]',el).forEach(b=>b.onclick=()=>{if(dragged){dragged=false;return}go.keepBack=true;resBack='fo.grid';go('res.open',b.dataset.bk)});
-  $$('[data-cell]',el).forEach(c=>c.onclick=()=>{if(dragged)return;const[no,d]=c.dataset.cell.split('|');if(d<H.set.bd){toast('Bookings cannot start before the business date.');return}
-    if(!roomFree(no,d,addD(d,1))){toast(`Room ${no} is not free on ${fd(d)}.`);return}go('res.new',{room:no,arr:d})});
+  $$('[data-cell]',el).forEach(c=>c.onclick=()=>{if(dragged)return;const[no,d]=c.dataset.cell.split('|');rgCellMenu(no,d,d)});
   /* press an empty day and drag sideways along the same room to choose several nights; letting go opens New Reservation with the arrival, the departure (last day + 1) and the room (one click on one day still means one night) */
   {let sel=null;const hi=(no,a,b)=>{$$('.gc.rgsel',el).forEach(x=>x.classList.remove('rgsel'));if(!no)return;const lo=a<b?a:b,up=a<b?b:a;$$('[data-cell]',el).forEach(x=>{const p=x.dataset.cell.split('|');if(p[0]===no&&p[1]>=lo&&p[1]<=up)x.classList.add('rgsel')})};
    $$('[data-cell]',el).forEach(c=>c.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=c.dataset.cell.split('|');sel={no:p[0],from:p[1],to:p[1],moved:false};
@@ -9525,8 +9525,7 @@ VIEWS['fo.grid']=el=>{
     const end=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);hi(null);const s=sel;sel=null;if(!s||!s.moved)return;
      dragged=true;setTimeout(()=>{dragged=false},60);const lo=s.from<s.to?s.from:s.to,last=s.from<s.to?s.to:s.from;
      if(lo<H.set.bd){toast('Bookings cannot start before the business date.');return}
-     if(!roomFree(s.no,lo,addD(last,1))){toast(`Room ${s.no} is not free from ${fd(lo)} to ${fd(last)}.`);return}
-     go('res.new',{room:s.no,arr:lo,dep:addD(last,1)})};
+     rgCellMenu(s.no,lo,last)};
     document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end)}))}
   /* drag a booking up or down to another room (the dates never move); a box asks first */
   const scroller=$('.gridscroll',el);
@@ -9565,6 +9564,46 @@ function gridAskMove(B,no){const r=resOf(B),g=G(B.guestId);
 /* ---------- housekeeping ---------- */
 const HKL={clean:'VC · Vacant clean',dirty:'VD · Vacant dirty',inspected:'VI · Inspected'};
 
+/* Room Grid: choosing a day (or dragging over several days of one room) opens a small menu on that line: Create Reservation, Soft Block, OO / OI.
+   Create Reservation opens the reservation form in a pop-up with a close (X); saving closes it. Closing after typing asks first. No new page. */
+function roomBlockModal(no,pre){
+  if(!need('hk'))return;pre=pre||{};const sel=k=>pre.kind===k?' selected':'';
+  const m=modal('Room '+no+' – Soft block / OO / OI',`<div class="form2">
+    ${fld('Type',`<select id="ok"><option value="OO"${sel('OO')}>OO – Out of order</option><option value="OI"${sel('OI')}>OI – Out of inventory</option><option value="SB"${sel('SB')}>SB – Soft block</option></select>`)}${fld('From',`<input type="date" id="of" value="${pre.from||H.set.bd}">`)}${fld('To',`<input type="date" id="ot" value="${pre.to||addD(H.set.bd,1)}">`)}${fld('Reason',`<input id="or" autofocus placeholder="Who the room is held for">`,'span2')}</div>
+    <p class="sub">Soft block keeps the room in inventory for someone coming later. It can overlap a future booking. Out of order and out of inventory still need the room empty.</p>
+    <div class="err" id="oe"></div><div class="btns"><button class="btn gold" id="os">Save</button></div>`,{w:560});
+  $('#os',m).onclick=()=>{const reason=$('#or',m).value.trim(),f=$('#of',m).value,t=$('#ot',m).value,kind=$('#ok',m).value;if(!reason){$('#oe',m).textContent='Give a reason.';return}if(!f||!t||t<f){$('#oe',m).textContent='The end date is before the start date.';return}
+    const rm=RM(no);
+    if(kind==='SB'){rm.softHold={from:f,to:t,reason};rm.softBlock=true;log(`Room ${no} soft block ${fd(f)}–${fd(t)}: ${reason}`);closeModal(m);refresh();toast(`Room ${no} soft blocked. It stays in inventory.`);return}
+    if(allBookings().some(x=>x.room===no&&['confirmed','tentative','inhouse'].includes(x.status)&&overlaps(f,addD(t,1),x.arr,x.dep))){$('#oe',m).textContent='A booking uses this room in those dates. Move it first.';return}
+    rm.ooo={from:f,to:t,reason,kind};log(`Room ${no} set ${kind}`);closeModal(m);refresh()}}
+function rgNewReservationPopup(no,from,last){
+  const m=modal('New Reservation','<div id="rgNr"></div>',{w:1180});let touched=false;
+  const ask=async()=>{if(touched&&!await dlgConfirm('Close without saving?\n\nThe details you entered will be lost.'))return;closeModal(m)};
+  m._wrap.dataset.lock='1';
+  const key=e=>{if(e.key==='Escape'&&MODALS[MODALS.length-1]===m._wrap){e.preventDefault();ask()}};
+  document.addEventListener('keydown',key);const was=m._wrap._onclose;m._wrap._onclose=()=>{document.removeEventListener('keydown',key);if(was)was()};
+  m.querySelector('.mx').onclick=ask;
+  ['input','change'].forEach(ev=>m.addEventListener(ev,e=>{if(e.isTrusted)touched=true}));
+  newReservation(m.querySelector('#rgNr'),{room:no,arr:from,dep:addD(last,1)},false,{popup:true,cancel:ask,saved:(B,r,depN)=>{touched=false;closeModal(m);render();toast(depN>0?`Reservation ${r.no} created with deposit ${m2(depN)}`:`Reservation ${r.no} created`)}})}
+function rgCellMenu(no,from,last){
+  $$('.rgmenu').forEach(x=>x._close&&x._close());
+  const cells=$$('[data-cell]').filter(c=>{const p=c.dataset.cell.split('|');return p[0]===no&&p[1]>=from&&p[1]<=last});
+  cells.forEach(c=>c.classList.add('rgsel'));
+  const n=diff(from,last)+1,menu=document.createElement('div');menu.className='rgmenu';menu.setAttribute('role','menu');
+  menu.innerHTML=`<div class="rgmh"><b>Room ${esc(no)}</b> &middot; ${fd(from)}${n>1?' – '+fd(last):''} &middot; ${n} night${n===1?'':'s'}</div><button type="button" role="menuitem" data-m="res">${ic('plus',16)}<span>Create Reservation</span></button><button type="button" role="menuitem" data-m="sb"><span>Soft Block</span></button><button type="button" role="menuitem" data-m="oo"><span>OO / OI</span></button>`;
+  document.body.appendChild(menu);
+  const out=e=>{if(!menu.contains(e.target))close()},esc2=e=>{if(e.key==='Escape')close()},sc=()=>close();
+  const close=()=>{menu.remove();cells.forEach(c=>c.classList.remove('rgsel'));document.removeEventListener('pointerdown',out,true);document.removeEventListener('keydown',esc2,true);window.removeEventListener('scroll',sc,true)};
+  menu._close=close;
+  const end=cells[cells.length-1]||cells[0],r=end?end.getBoundingClientRect():{left:20,right:20,top:100,bottom:120},w=menu.offsetWidth,h=menu.offsetHeight;
+  let left=Math.min(Math.max(8,r.left),innerWidth-w-8),top=r.bottom+6;if(top+h>innerHeight-8)top=Math.max(8,r.top-h-6);
+  menu.style.left=left+'px';menu.style.top=top+'px';
+  setTimeout(()=>{document.addEventListener('pointerdown',out,true);document.addEventListener('keydown',esc2,true);window.addEventListener('scroll',sc,true)},0);
+  const past=from<H.set.bd;
+  $('[data-m=res]',menu).onclick=()=>{if(!need('res.create'))return;if(past){toast('Bookings cannot start before the business date.');return}if(!roomFree(no,from,addD(last,1))){toast(`Room ${no} is not free from ${fd(from)} to ${fd(last)}.`);return}close();rgNewReservationPopup(no,from,last)};
+  $('[data-m=sb]',menu).onclick=()=>{if(past){toast('The first day cannot be before the business date.');return}close();roomBlockModal(no,{kind:'SB',from,to:last})};
+  $('[data-m=oo]',menu).onclick=()=>{if(past){toast('The first day cannot be before the business date.');return}close();roomBlockModal(no,{kind:'OO',from,to:last})}}
 VIEWS['rm.ooo']=el=>{
   const bits=(r,fn)=>[r.ooo?fn(r.ooo):'',r.softHold?fn(r.softHold):''].filter(Boolean).join('<br>');
   el.innerHTML=pageHead('Out of Order / Out of Inventory')+`<p class="sub">Soft block holds a room for someone coming later. The room stays in inventory. Out of order and out of inventory still need the room empty.</p><div class="panel scroll"><table class="grid"><tr><th>Room</th><th>Type</th><th>Status</th><th>From</th><th>To</th><th>Reason</th><th></th></tr>
@@ -9573,15 +9612,7 @@ VIEWS['rm.ooo']=el=>{
     return `<tr><td><b>${r.no}</b></td><td>${r.type}</td><td>${st}</td><td>${bits(r,x=>fd(x.from))}</td><td>${bits(r,x=>fd(x.to))}</td><td>${bits(r,x=>esc(x.reason))}</td><td class="nowrap">${act}</td></tr>`}).join('')}</table></div>`;
   $$('[data-back]',el).forEach(b=>b.onclick=()=>{if(!need('hk'))return;const r=RM(b.dataset.back);r.ooo=null;r.hk='dirty';log('Room '+r.no+' back in service');refresh()});
   $$('[data-sbx]',el).forEach(b=>b.onclick=()=>{if(!need('hk'))return;const r=RM(b.dataset.sbx);r.softHold=null;r.softBlock=false;log('Room '+r.no+' soft block cleared');refresh();toast(`Soft block cleared on room ${r.no}. The room was not marked dirty.`)});
-  $$('[data-oo]',el).forEach(b=>b.onclick=()=>{if(!need('hk'))return;const no=b.dataset.oo;const m=modal('Out of order – room '+no,`<div class="form2">
-    ${fld('Type',`<select id="ok"><option value="OO">OO – Out of order</option><option value="OI">OI – Out of inventory</option><option value="SB">SB – Soft block</option></select>`)}${fld('From',`<input type="date" id="of" value="${H.set.bd}">`)}${fld('To',`<input type="date" id="ot" value="${addD(H.set.bd,1)}">`)}${fld('Reason',`<input id="or" autofocus placeholder="Who the room is held for">`,'span2')}</div><div class="err" id="oe"></div>
-    <p class="sub">Soft block keeps the room in inventory for someone coming later. It can overlap a future booking. Out of order and out of inventory still need the room empty.</p>
-    <div class="btns"><button class="btn gold" id="os">Save</button></div>`,{w:560});
-    $('#os',m).onclick=()=>{const reason=$('#or',m).value.trim(),f=$('#of',m).value,t=$('#ot',m).value,kind=$('#ok',m).value;if(!reason){$('#oe',m).textContent='Give a reason.';return}if(!f||!t||t<f){$('#oe',m).textContent='The end date is before the start date.';return}
-      const rm=RM(no);
-      if(kind==='SB'){rm.softHold={from:f,to:t,reason};rm.softBlock=true;log(`Room ${no} soft block ${fd(f)}–${fd(t)}: ${reason}`);closeModal(m);refresh();toast(`Room ${no} soft blocked. It stays in inventory.`);return}
-      if(allBookings().some(x=>x.room===no&&['confirmed','tentative','inhouse'].includes(x.status)&&overlaps(f,addD(t,1),x.arr,x.dep))){$('#oe',m).textContent='A booking uses this room in those dates. Move it first.';return}
-      rm.ooo={from:f,to:t,reason,kind};log(`Room ${no} set ${kind}`);closeModal(m);refresh()}});
+  $$('[data-oo]',el).forEach(x=>x.onclick=()=>roomBlockModal(x.dataset.oo));
 };
 
 /* ---------- inquiry ---------- */
@@ -9903,9 +9934,9 @@ function attachCombo(input,items,onPick){
   list.addEventListener('mousedown',e=>{const c=e.target.closest('.cbi');if(c){e.preventDefault();pick(+c.dataset.i)}});
   input.addEventListener('blur',()=>setTimeout(close,120));
 }
-function newReservation(el,pre,walkin){
+function newReservation(el,pre,walkin,o){
   const arr=pre.arr||H.set.bd,dep=pre.dep&&pre.dep>arr?pre.dep:addD(arr,1),type=pre.room?RM(pre.room).type:H.roomTypes[0].code;
-  el.innerHTML=pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':'')+`<div class="rscreen nres"><div class="pn"><div class="pnh blue">Guest Details</div><div class="pnb g3">
+  el.innerHTML=(o&&o.popup?'':pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':''))+`<div class="rscreen nres"><div class="pn"><div class="pnh blue">Guest Details</div><div class="pnb g3">
     ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('First name',`<input id="nF">`)}${fld('Last name',`<input id="nL" autofocus>`)}
     ${fld('Nationality',`<input id="nN" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type or choose a country or nationality">`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}
     <div class="rfind"><input id="nG" aria-label="Find a returning guest" placeholder="Find a returning guest: type a name to search" autocomplete="off"></div></div></div>
@@ -9955,7 +9986,7 @@ function newReservation(el,pre,walkin){
   q('#nN').addEventListener('change',()=>{q('#nN').value=natResolve(q('#nN').value)});
   syncBill();syncRef();
   ['input','change'].forEach(ev=>el.addEventListener(ev,e=>{if(e.target&&e.target.classList)e.target.classList.remove('badf')}));
-  upd();q('#nX').onclick=()=>go('fo.status');
+  upd();q('#nX').onclick=()=>{if(o&&o.cancel)o.cancel();else go('fo.status')};
   q('#nSave').onclick=()=>{const err=q('#nErr');if(!need('res.create'))return;
     const last=q('#nL').value.trim(),a=q('#nA').value,d=q('#nD').value,t=q('#nRt').value,room=q('#nRm').value||null,rt=+q('#nRate').value,rcd=q('#nRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
     $$('.badf',el).forEach(x=>x.classList.remove('badf'));
@@ -9984,6 +10015,7 @@ function newReservation(el,pre,walkin){
     B.billTo=q('#nBill').value;r.billTo=B.billTo;B.bill={name:q('#nBn').value.trim(),addr:q('#nBa').value.trim(),tax:q('#nBtx').value.trim(),branch:q('#nBbr').value.trim()};
     r.bookings.push(B);H.reservations.push(r);histB(B,'Reservation created');log(`Created RSVN ${r.no}`,B.id);saveDB();
     if(depN>0){postPayment(H,B,q('#nPay').value,depN,{...lineCtx(sh),folio:1,deposit:true,adv:true,ref:q('#nPref').value.trim(),remark:''});histB(B,'Reservation deposit '+m2(depN));log('Reservation deposit '+m2(depN)+' RSVN '+r.no,B.id);saveDB()}
+    if(o&&o.saved&&!walkin){o.saved(B,r,depN);return}
     if(walkin){if(checkIn(B,true)){saveDB();go('bill.open',B.id)}else go('res.open',B.id)}
     else{go('res.open',B.id);toast(depN>0?`Reservation ${r.no} created with deposit ${m2(depN)}`:`Reservation ${r.no} created`);}};
     /* a deposit is checked BEFORE anything is saved, so the reservation is never saved without the deposit the staff typed */
