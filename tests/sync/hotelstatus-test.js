@@ -22,4 +22,5 @@ T('Manager Dashboard is the one we had before (coloured tiles and buttons)', das
 T('the three buttons are small (32px on a computer, 38px on a touch screen)', src.includes('.hsbar .hsbtn.sm,html[data-skin] .hsbar .hsbtn.sm{min-height:0;height:32px'));
 T('profile photo: the Upload and Delete buttons keep a gap below the photo box (guest profile and My profile)', src.includes('.photo+.row{margin:14px 0 12px}.mpav+.btns{margin-top:14px!important}'));
 T('table headings marked as numbers are right-aligned like their data (Rate Codes room types and every other grid table)', src.includes('table.grid th.n,table.grid td.n{text-align:right}'));
+T('a heading whose whole column is numbers is right-aligned automatically, on every table, even when the page did not mark it', src.includes('function alignNumHeads(root){') && src.includes('cs.every(c=>c.classList.contains(\'n\'))') && src.includes('new MutationObserver(go2).observe(document.body'));
 process.exit(fails ? 1 : 0);
