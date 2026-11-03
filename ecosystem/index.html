@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="e682a88c5f">
+<meta name="maha-build" content="42e5540c7a">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -570,6 +570,7 @@ body.navcollapse .mtoggle{flex:none;width:38px;height:38px;position:static}
 .depmodal .dpbox{min-height:360px;padding:6px 4px}.dptab tr[data-dl]{cursor:pointer}.dptab tr.sel td{background:#ffe9b3}.dpbtn{margin-top:16px;gap:10px}
 .fshare{display:block;margin:6px 0 2px 0}.fshare .fsh1{margin-top:6px}.fspace{visibility:hidden}.fsh{display:inline-flex;align-items:center;gap:6px}.shlist .shrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid #e6edf0}.shlist .shrow em{font-style:normal;font-size:11.5px;color:#6a7a85;margin-left:6px}
 .gbi{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;background:#fff;color:#26414f;font-size:10px;font-weight:800;margin-right:5px;vertical-align:middle;line-height:1}
+.gbi.gbl{width:auto;min-width:15px;padding:0 2px}.gbi.gbl img{display:block;max-width:30px;max-height:11px;object-fit:contain}
 .chb{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#e3ebef;color:#26414f;font-size:11px;font-weight:800;margin-right:6px;vertical-align:middle;line-height:1}
 /* ---- Reports bar: the first layout, with smaller boxes and buttons so it fits ---- */
 .rptool{padding:8px 12px!important}
@@ -2403,7 +2404,8 @@ html[data-skin="modern"] #cnote .cn svg{width:16px;height:16px}
 }
 /* Dark filters row: no band behind the filters (each filter keeps its own rounded box); Room Grid: the day highlight is one continuous column and the whole grid is clipped to its rounded corners */
 html[data-skin="modern"][data-mode=dark] .ufbar{background:transparent!important;border-color:transparent!important;box-shadow:none!important;border-radius:0!important;padding:0!important}
-.rgr .rgt{align-self:stretch}.rgr .rgt .gc{align-self:stretch;border-radius:0}
+.rgr .rgt{align-self:stretch}.rgr .rgt .gc{align-self:stretch;border-radius:0;user-select:none;-webkit-user-select:none;touch-action:pan-y}
+.rgr .rgt .gc.rgsel{background:color-mix(in srgb,var(--m-acc,var(--accent,#176B50)) 28%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--m-acc,var(--accent,#176B50)) 75%,transparent)}
 .gridscroll{clip-path:inset(0 round 18px);scrollbar-width:thin}.gridscroll::-webkit-scrollbar-track{background:transparent}.gridscroll::-webkit-scrollbar-corner{background:transparent}
 .grow.rgr>.rgt{margin:0;padding:0;font-size:inherit;font-weight:inherit;text-align:left;line-height:inherit}
 .rglegend{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px 28px;margin-top:12px;font-size:12.5px;align-items:center}.rglegend>span{display:flex;align-items:center;gap:10px;min-width:0}.rglegend>span>i{flex:none;margin:0!important}.rglegend .rgwarn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:12px;color:#c0392b;font-style:normal}html[data-mode=dark] .rglegend .rgwarn{color:#ff8a7c}
@@ -9299,7 +9301,12 @@ VIEWS['fo.inhouse']=el=>stayList(el,'In House',allBookings().filter(b=>b.status=
 const CH_PALETTE=['#2f7fcf','#2fb36b','#e8a23a','#8b7cf6','#e0645c','#1fa8a0','#d36ba6','#4a5fc1','#9aa832','#c2603a','#3aa6d0','#b0508f','#5a9a4a','#d4a017','#6b5b95','#7a8791'];
 const OTA_BRAND=[[/agoda/i,'#5b3fd1'],[/booking\.com|booking/i,'#003580'],[/expedia/i,'#d99a00'],[/trip\.com|ctrip/i,'#287dfa'],[/airbnb/i,'#ff5a5f'],[/traveloka/i,'#0194f3'],[/hotels\.com/i,'#d32f2f'],[/tiket/i,'#1a73e8'],[/klook/i,'#ff5722'],[/makemytrip/i,'#e53935']];
 function chanColor(c,i){return CH_PALETTE[(i<0?0:i)%CH_PALETTE.length]}
-function chanOfBooking(b){const c=CO(resOf(b).companyId);if(!c)return null;const nm=String((c.chan&&(CHANNEL_CATALOG.find(x=>x[0]===c.chan)||[])[1])||c.name||'').replace(/^\([A-Z]\)\s*/,'').trim();return {ini:(nm[0]||'?').toUpperCase(),name:String(c.name||nm).replace(/^\([A-Z]\)\s*/,'').trim()}}
+/* the logo of a channel is the one added for its "(OTA Paid)" payment method (Payment logos), so one upload serves the payment window and the Room Grid */
+/* every payment method on the OTA PAID tab that has a name and a logo counts, the built-in ones and any added later (exact name first, then a name inside the company name, the longest one wins) */
+function chanLogoOf(nm){const nz=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''),k=nz(nm);if(k.length<2)return '';
+  const list=TCODES.filter(x=>/^ota\s*paid$/i.test(String(x.ptab||'').trim())&&!x.refund).map(x=>({lg:payLogo(x),b:nz(String(x.desc).replace(/\s*\(\s*OTA\s*Paid\s*\)\s*$/i,''))})).filter(o=>o.lg&&o.b.length>=3);
+  const hit=list.find(o=>o.b===k)||(k.length>=3?list.filter(o=>k.includes(o.b)||o.b.includes(k)).sort((a,b)=>b.b.length-a.b.length)[0]:null);return hit?hit.lg:''}
+function chanOfBooking(b){const c=CO(resOf(b).companyId);if(!c)return null;const nm=String((c.chan&&(CHANNEL_CATALOG.find(x=>x[0]===c.chan)||[])[1])||c.name||'').replace(/^\([A-Z]\)\s*/,'').trim();return {ini:(nm[0]||'?').toUpperCase(),name:String(c.name||nm).replace(/^\([A-Z]\)\s*/,'').trim(),logo:chanLogoOf(nm)}}
 let GF={type:'',floor:''};
 let gridFrom=null,gridTo=null;
 /* Where the bookings with no room sit on the grid: the system puts each one in the first free room of its type (a picture only: nothing is saved until a room is really assigned).
@@ -9320,8 +9327,6 @@ function gridPlan(){
 const gridMovable=b=>can('res.edit')&&!user().provider&&['confirmed','tentative'].includes(b.status)&&!b.roomBlock;
 /* ---- Room Grid top band: arrows, one date box with a period calendar, room type, floor, colour notes; the view is 14 days by default and never more than 35 ---- */
 const RG_MAX=35;
-/* the grid opens with 6 weeks and scrolls sideways by day: 3 more weeks load when you get near an edge, never more than 12 weeks at once */
-const RG_START=42,RG_STEP=21,RG_CAP=84,RG_EDGE=700;let rgKeep=null,rgDir=0,rgLeft=0,rgTop=0;   /* rgDir: the way the grid was last scrolled (1 right, -1 left), so only that edge loads; rgLeft/rgTop: where it was left, so it opens at the same place when you come back */
 let gridCustom=false;
 function rgTypeName(code){const t=(H.roomTypes||[]).find(x=>x.code===code);return t&&t.name?t.name:code}
 function rgBlocks(rm,from,to){
@@ -9352,15 +9357,15 @@ function rgDayPicker(btn,startIso,done){
     $$('[data-t]',c).forEach(x=>x.onclick=()=>{const t=x.dataset.t;close();done(t)})};
   paint()}
 VIEWS['fo.grid']=el=>{
-  if(!gridFrom||!gridTo){gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,MOB_Q.matches?6:RG_START-1)}
-  if(!gridCustom){const len=diff(gridFrom,gridTo)+1;if(MOB_Q.matches&&len>7)gridTo=addD(gridFrom,6);else if(!MOB_Q.matches&&len<RG_START)gridTo=addD(gridFrom,RG_START-1)}
+  if(!gridFrom||!gridTo){gridFrom=addD(H.set.bd,-1);gridTo=addD(gridFrom,MOB_Q.matches?6:13)}
+  if(!gridCustom){const len=diff(gridFrom,gridTo)+1;if(MOB_Q.matches&&len>7)gridTo=addD(gridFrom,6);else if(!MOB_Q.matches&&len<14)gridTo=addD(gridFrom,13)}
   const N=Math.max(1,diff(gridFrom,gridTo)+1),days=[...Array(N)].map((_,i)=>addD(gridFrom,i)),end=addD(gridTo,1);
   const RMS=H.rooms.filter(rm=>!rm.dummy&&(!GF.type||rm.type===GF.type)&&(!GF.floor||String(rm.floor)===String(GF.floor))),RNO=new Set(RMS.map(x=>x.no));
   const plan=gridPlan();
   const today=d=>d===H.set.bd?'today':'';
   const bar=(b,kind,lane,lanes)=>{const s=diff(gridFrom,b.arr),e=diff(gridFrom,b.dep),cl=s<0,cr=e>=N,l=cl?0:(s+.5)/N,r=cr?1:(e+.5)/N,ch=chanOfBooking(b),mv=gridMovable(b);
     const auto=kind==='auto'||kind==='wait',dn=!!b.roomBlock;
-    return `<button class="rb ${auto?'rb-auto':'rb-'+b.status} ${cl?'cl':''} ${cr?'cr':''} ${mv?'mv':''}" style="left:${(l*100).toFixed(4)}%;width:${((r-l)*100).toFixed(4)}%${lanes>1?`;top:${4+lane*24}px;height:21px;bottom:auto`:''}" data-bk="${b.id}" title="RSVN ${resOf(b).no} · ${esc(gName(G(b.guestId)))} ${fd(b.arr)}–${fd(b.dep)}${ch?' · '+esc(ch.name):''}${auto?' · no room yet, placed by the system':''}${dn?' · Do not move':''}">${dn?`<span class="rbw">${ic('warn',13)}</span>`:''}${ch?`<span class="gbi">${esc(ch.ini)}</span>`:''}<span class="rbn">${esc((r-l)*N<=1.01&&G(b.guestId).first?G(b.guestId).first:G(b.guestId).last)}${b.copyOf?' (Copy)':''}</span>${auto?`<span class="rbs">any ${esc(b.type)}</span>`:''}</button>`};
+    return `<button class="rb ${auto?'rb-auto':'rb-'+b.status} ${cl?'cl':''} ${cr?'cr':''} ${mv?'mv':''}" style="left:${(l*100).toFixed(4)}%;width:${((r-l)*100).toFixed(4)}%${lanes>1?`;top:${4+lane*24}px;height:21px;bottom:auto`:''}" data-bk="${b.id}" title="RSVN ${resOf(b).no} · ${esc(gName(G(b.guestId)))} ${fd(b.arr)}–${fd(b.dep)}${ch?' · '+esc(ch.name):''}${auto?' · no room yet, placed by the system':''}${dn?' · Do not move':''}">${dn?`<span class="rbw">${ic('warn',13)}</span>`:''}${ch?(ch.logo?`<span class="gbi gbl"><img src="${ch.logo}" alt="${esc(ch.name)}"></span>`:`<span class="gbi">${esc(ch.ini)}</span>`):''}<span class="rbn">${esc((r-l)*N<=1.01&&G(b.guestId).first?G(b.guestId).first:G(b.guestId).last)}${b.copyOf?' (Copy)':''}</span>${auto?`<span class="rbs">any ${esc(b.type)}</span>`:''}</button>`};
   const cells=(rm)=>days.map(d=>`<button class="gc ${today(d)}" data-cell="${rm.no}|${d}" aria-label="Room ${rm.no} ${fd(d)}"></button>`).join('');
   /* rooms taken out: striped days (OO, OI) and a soft outline (SB); the kind and the reason show when you point at a day */
   const outDays=(rm)=>{let x='';const one=(kind,from,to,why)=>{for(let i=Math.max(0,diff(gridFrom,from));i<Math.min(N,diff(gridFrom,addD(to,1)));i++)x+=`<div class="rgx rgx-${kind}" style="left:${(i/N*100).toFixed(4)}%;width:${(100/N).toFixed(4)}%" title="${kind} · ${esc(why||'')}"></div>`};
@@ -9376,41 +9381,36 @@ VIEWS['fo.grid']=el=>{
   h+='</div>';
   const fl=[...new Map(H.rooms.filter(x=>!x.dummy).map(x=>[String(x.floor),((H.floors||[]).find(f=>String(f.id)===String(x.floor))||{}).name||('Floor '+x.floor)])).entries()];
   const dtx=gridCustom?fd(gridFrom):fd(addD(gridFrom,1)),perTx=gridPerFirst?fd(gridPerFirst)+' → last date':(gridCustom?fd(gridFrom)+' – '+fd(gridTo):'Period search'),arw=(t,l,x)=>`<button type="button" class="rgnb" id="${t}" title="${l}" aria-label="${l}">${x}</button>`;
-  el.innerHTML=pageHead('Room Grid',`<div class="rgbandw"><div class="rgband"><div class="rgl1"><span class="rgnav">${arw('gB30','Back 30 days','&laquo;')}${arw('gB14','Back '+(MOB_Q.matches?N:14)+' days','&lsaquo;')}<span class="rgdbox rgdshow" id="gDate"><b>${esc(dtx)}</b></span>${arw('gF14','Forward '+(MOB_Q.matches?N:14)+' days','&rsaquo;')}${arw('gF30','Forward 30 days','&raquo;')}</span><button type="button" class="rgdbox rgper" id="gPer" title="Period search: choose the first day, then the last day"><b>${esc(perTx)}</b>${ic('grid',16)}</button><select id="gType" aria-label="Room type"><option value="">All room types</option>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<option value="${esc(t.code)}" ${GF.type===t.code?'selected':''}>${esc(t.code)} – ${esc(t.name)}</option>`).join('')}</select><select id="gFloor" aria-label="Floor"><option value="">All floors</option>${fl.map(([id,nm])=>`<option value="${esc(id)}" ${String(GF.floor)===id?'selected':''}>${esc(nm)}</option>`).join('')}</select></div><div class="rglegend rglg"><span><i class="rb-confirmed"></i>Reserved (room assigned)</span><span><i class="rb-tentative"></i>Tentative</span><span><i class="rb-inhouse"></i>In house</span><span><i class="rb-out"></i>Checked out</span><span><i class="rb-auto"></i>No room yet (placed by the system)</span><span><i class="rgx-OO"></i>OO · Out of order</span><span><i class="rgx-OI"></i>OI · Out of inventory</span><span><i class="rgx-SB"></i>SB · Soft block</span><span><i class="rgwarn">${ic('warn',14)}</i>Do not move</span></div></div></div><p class="rgmax" id="gWarn" hidden>The most you can view is ${RG_MAX} days. Choose a shorter period.</p>`,'under')+
+  el.innerHTML=pageHead('Room Grid',`<div class="rgbandw"><div class="rgband"><div class="rgl1"><span class="rgnav">${arw('gB30','Back 30 days','&laquo;')}${arw('gB14','Back '+N+' days','&lsaquo;')}<span class="rgdbox rgdshow" id="gDate"><b>${esc(dtx)}</b></span>${arw('gF14','Forward '+N+' days','&rsaquo;')}${arw('gF30','Forward 30 days','&raquo;')}</span><button type="button" class="rgdbox rgper" id="gPer" title="Period search: choose the first day, then the last day"><b>${esc(perTx)}</b>${ic('grid',16)}</button><select id="gType" aria-label="Room type"><option value="">All room types</option>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<option value="${esc(t.code)}" ${GF.type===t.code?'selected':''}>${esc(t.code)} – ${esc(t.name)}</option>`).join('')}</select><select id="gFloor" aria-label="Floor"><option value="">All floors</option>${fl.map(([id,nm])=>`<option value="${esc(id)}" ${String(GF.floor)===id?'selected':''}>${esc(nm)}</option>`).join('')}</select></div><div class="rglegend rglg"><span><i class="rb-confirmed"></i>Reserved (room assigned)</span><span><i class="rb-tentative"></i>Tentative</span><span><i class="rb-inhouse"></i>In house</span><span><i class="rb-out"></i>Checked out</span><span><i class="rb-auto"></i>No room yet (placed by the system)</span><span><i class="rgx-OO"></i>OO · Out of order</span><span><i class="rgx-OI"></i>OI · Out of inventory</span><span><i class="rgx-SB"></i>SB · Soft block</span><span><i class="rgwarn">${ic('warn',14)}</i>Do not move</span></div></div></div><p class="rgmax" id="gWarn" hidden>The most you can view is ${RG_MAX} days. Choose a shorter period.</p>`,'under')+
    `<div class="panel scroll gridscroll">${h}</div>`;
   $('#gType',el).onchange=()=>{GF.type=$('#gType',el).value;render()};$('#gFloor',el).onchange=()=>{GF.floor=$('#gFloor',el).value;render()};
-  const rgGo=from=>{gridFrom=from;gridTo=addD(from,N-1);rgLeft=0;render()};
-  /* the arrows move the grid sideways by days (on a phone they still jump a whole period) */
-  const sc=$('.gridscroll',el),dayW=()=>(sc.scrollWidth-150)/N;
-  const rgStep=(d,jump)=>MOB_Q.matches?rgGo(addD(gridFrom,jump)):sc.scrollBy({left:d*dayW(),behavior:'smooth'});
-  $('#gB14',el).onclick=()=>rgStep(-14,-N);$('#gF14',el).onclick=()=>rgStep(14,N);$('#gB30',el).onclick=()=>rgStep(-30,-30);$('#gF30',el).onclick=()=>rgStep(30,30);
+  const rgGo=from=>{gridFrom=from;gridTo=addD(from,N-1);render()};
+  $('#gB14',el).onclick=()=>rgGo(addD(gridFrom,-N));$('#gF14',el).onclick=()=>rgGo(addD(gridFrom,N));$('#gB30',el).onclick=()=>rgGo(addD(gridFrom,-30));$('#gF30',el).onclick=()=>rgGo(addD(gridFrom,30));
   $('#gPer',el).onclick=e=>{e.stopPropagation();
     rgDayPicker($('#gPer',el),gridPerFirst||gridFrom,day=>{
       if(!gridPerFirst){gridPerFirst=day;$('#gPer b',el).textContent=fd(day)+' → last date';$('#gWarn',el).hidden=true;return}
       const lo=day<gridPerFirst?day:gridPerFirst,hi=day<gridPerFirst?gridPerFirst:day,n=diff(lo,hi)+1;gridPerFirst=null;
       if(n>RG_MAX){$('#gWarn',el).hidden=false;$('#gPer b',el).textContent=gridCustom?fd(gridFrom)+' – '+fd(gridTo):'Period search';return}
-      $('#gWarn',el).hidden=true;gridCustom=true;gridFrom=lo;gridTo=hi;rgLeft=0;render()})};
+      $('#gWarn',el).hidden=true;gridCustom=true;gridFrom=lo;gridTo=hi;render()})};
   $$('[data-rginfo]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();const rm=H.rooms.find(x=>x.no===b.dataset.rginfo);if(rm)rgInfoBox(rm,rgBlocks(rm,gridFrom,gridTo))});
   /* the page never scrolls: the table takes the height that is left in the window and scrolls inside itself */
   {const gs=$('.gridscroll',el),fit=()=>{if(!gs.isConnected){window.removeEventListener('resize',fit);return}const t=gs.getBoundingClientRect().top;gs.style.maxHeight=gs.style.height='';const need=gs.scrollHeight,room=Math.max(260,innerHeight-t-14);gs.style.maxHeight=room+'px';gs.style.height=Math.min(need,room)+'px';
     const de=document.documentElement,tall=()=>Math.max(de.scrollHeight,document.body.scrollHeight),over=tall()-innerHeight;if(over>0){const h0=gs.getBoundingClientRect().height,before=tall();gs.style.maxHeight=gs.style.height=Math.max(200,h0-over)+'px';if(tall()>=before)gs.style.maxHeight=gs.style.height=h0+'px'}};   /* shrink only when it really removes the page scroll */   /* whatever is still under the table (page padding) is taken off too, so the page itself has nothing to scroll */
    if(window._rgFit)window.removeEventListener('resize',window._rgFit);window._rgFit=fit;window.addEventListener('resize',fit);fit();requestAnimationFrame(fit)}
-  /* scroll sideways through the dates: the date box follows the first day on the left, and when you get near either edge three more weeks load (your place stays) */
-  if(!MOB_Q.matches){
-    const lab=$('#gDate b',el);let tm=null;
-    const upd=()=>{if(lab){const d=addD(gridFrom,Math.round(sc.scrollLeft/dayW()));lab.textContent=fd(!gridCustom&&d===addD(H.set.bd,-1)?H.set.bd:d)}};
-    const edge=()=>{if(!sc.isConnected)return;const dw=dayW(),sl=sc.scrollLeft,room=sc.scrollWidth-sl-sc.clientWidth;let keep=null;
-      if(rgDir>0&&room<RG_EDGE&&diff(H.set.bd,gridTo)<730){gridTo=addD(gridTo,RG_STEP);const ex=diff(gridFrom,gridTo)+1-RG_CAP;let l=sl;if(ex>0){gridFrom=addD(gridFrom,ex);l=sl-ex*dw}keep=l}
-      else if(rgDir<0&&sl<RG_EDGE&&diff(gridFrom,H.set.bd)<365){gridFrom=addD(gridFrom,-RG_STEP);const ex=diff(gridFrom,gridTo)+1-RG_CAP;if(ex>0)gridTo=addD(gridTo,-ex);keep=sl+RG_STEP*dw}
-      if(keep===null)return;rgKeep={l:keep,t:sc.scrollTop};render()};
-    let prev=0;
-    sc.addEventListener('scroll',()=>{const x=sc.scrollLeft;if(x!==prev){rgDir=x>prev?1:-1;prev=x}rgLeft=x;rgTop=sc.scrollTop;upd();clearTimeout(tm);tm=setTimeout(edge,140)},{passive:true});
-    {const k=rgKeep||(rgLeft||rgTop?{l:rgLeft,t:rgTop}:null);rgKeep=null;
-     if(k){prev=k.l;sc.scrollLeft=k.l;sc.scrollTop=k.t;upd();requestAnimationFrame(()=>{prev=k.l;sc.scrollLeft=k.l;sc.scrollTop=k.t;upd()})}}}
   let dragged=false;
   $$('[data-bk]',el).forEach(b=>b.onclick=()=>{if(dragged){dragged=false;return}go.keepBack=true;resBack='fo.grid';go('res.open',b.dataset.bk)});
-  $$('[data-cell]',el).forEach(c=>c.onclick=()=>{const[no,d]=c.dataset.cell.split('|');if(d<H.set.bd){toast('Bookings cannot start before the business date.');return}
+  $$('[data-cell]',el).forEach(c=>c.onclick=()=>{if(dragged)return;const[no,d]=c.dataset.cell.split('|');if(d<H.set.bd){toast('Bookings cannot start before the business date.');return}
     if(!roomFree(no,d,addD(d,1))){toast(`Room ${no} is not free on ${fd(d)}.`);return}go('res.new',{room:no,arr:d})});
+  /* press an empty day and drag sideways along the same room to choose several nights; letting go opens New Reservation with the arrival, the departure (last day + 1) and the room (one click on one day still means one night) */
+  {let sel=null;const hi=(no,a,b)=>{$$('.gc.rgsel',el).forEach(x=>x.classList.remove('rgsel'));if(!no)return;const lo=a<b?a:b,up=a<b?b:a;$$('[data-cell]',el).forEach(x=>{const p=x.dataset.cell.split('|');if(p[0]===no&&p[1]>=lo&&p[1]<=up)x.classList.add('rgsel')})};
+   $$('[data-cell]',el).forEach(c=>c.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=c.dataset.cell.split('|');sel={no:p[0],from:p[1],to:p[1],moved:false};
+    const move=ev=>{if(!sel)return;const t=document.elementFromPoint(ev.clientX,ev.clientY),cell=t&&t.closest?t.closest('[data-cell]'):null;if(!cell)return;const q=cell.dataset.cell.split('|');if(q[0]!==sel.no||q[1]===sel.to)return;sel.to=q[1];if(q[1]!==sel.from)sel.moved=true;hi(sel.no,sel.from,sel.to)};
+    const end=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);hi(null);const s=sel;sel=null;if(!s||!s.moved)return;
+     dragged=true;setTimeout(()=>{dragged=false},60);const lo=s.from<s.to?s.from:s.to,last=s.from<s.to?s.to:s.from;
+     if(lo<H.set.bd){toast('Bookings cannot start before the business date.');return}
+     if(!roomFree(s.no,lo,addD(last,1))){toast(`Room ${s.no} is not free from ${fd(lo)} to ${fd(last)}.`);return}
+     go('res.new',{room:s.no,arr:lo,dep:addD(last,1)})};
+    document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end)}))}
   /* drag a booking up or down to another room (the dates never move); a box asks first */
   const scroller=$('.gridscroll',el);
   $$('.rb.mv',el).forEach(bar=>bar.addEventListener('pointerdown',e=>{if(e.button!==0)return;const B=bookingById(bar.dataset.bk);if(!B)return;
@@ -9787,7 +9787,7 @@ function attachCombo(input,items,onPick){
   input.addEventListener('blur',()=>setTimeout(close,120));
 }
 function newReservation(el,pre,walkin){
-  const arr=pre.arr||H.set.bd,dep=addD(arr,1),type=pre.room?RM(pre.room).type:H.roomTypes[0].code;
+  const arr=pre.arr||H.set.bd,dep=pre.dep&&pre.dep>arr?pre.dep:addD(arr,1),type=pre.room?RM(pre.room).type:H.roomTypes[0].code;
   el.innerHTML=pageHead(walkin?'Walk-In':'New Reservation',walkin?'<span class="sub">The guest is checked in as soon as you save</span>':'')+`<div class="rscreen nres"><div class="pn"><div class="pnh blue">Guest Details</div><div class="pnb g3">
     ${fld('Title',`<select id="nT">${TITLES.map(t=>opt(t)).join('')}</select>`)}${fld('First name',`<input id="nF">`)}${fld('Last name',`<input id="nL" autofocus>`)}
     ${fld('Nationality',`<input id="nN" value="${esc(H.set.nat)}" autocomplete="off" placeholder="Type or choose a country or nationality">`)}${fld('Phone',`<input id="nP">`)}${fld('Email',`<input id="nE">`)}
