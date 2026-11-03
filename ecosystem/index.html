@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="30b80f36ef">
+<meta name="maha-build" content="c0071c6215">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7580,6 +7580,9 @@ const MahaCal=(()=>{
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
 /* Back button: the pages the person came from, newest last. go() adds the page being left; Back opens the newest one that is still allowed. */
 const NAVSTACK=[];
+/* Back only follows pages opened FROM another page (a link or button inside a page). Choosing a page from the menu, the sidebar, the top bar or the Frontend / Backend switch starts fresh: no Back. */
+let NAV_MENU=false;
+document.addEventListener('click',e=>{if(e.target.closest&&e.target.closest('#msb,#menubar,#mobnav,.topbar,header,#areaSw')){NAV_MENU=true;setTimeout(()=>{NAV_MENU=false},80)}},true);
 const sameArg=(a,b)=>JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
@@ -8496,6 +8499,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
   {const wasBack=go.isBack;go.isBack=false;
    if(wasBack){}
    else if(ROUTE_SILENT){const t=NAVSTACK[NAVSTACK.length-1];if(t&&t.v===v&&sameArg(t.a,arg))NAVSTACK.pop()}
+   else if(NAV_MENU){NAVSTACK.length=0}
    else if(DB.session&&VIEW&&VIEW!=='sys.pick'&&!(VIEW===v&&sameArg(VARG,arg))){const t=NAVSTACK[NAVSTACK.length-1];if(!(t&&t.v===VIEW&&sameArg(t.a,VARG))){NAVSTACK.push({v:VIEW,a:VARG});if(NAVSTACK.length>40)NAVSTACK.shift()}}}
   if(v==='res.open'&&!go.keepBack)resBack='res.list';go.keepBack=false;
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
