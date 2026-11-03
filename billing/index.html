@@ -114,10 +114,12 @@ async function docs(){
   ST.docs=[];ST.err='';
   if(ST.pid){const r=await api('/rest/v1/maha_billing_docs?select=*&property_id=eq.'+encodeURIComponent(ST.pid)+'&order=doc_date.desc,created_at.desc');
     if(r.ok&&Array.isArray(r.d))ST.docs=r.d;else ST.err=r.status===404?'Billing is not switched on yet. Please contact your provider.':'Billing records could not be loaded. Try again in a moment.'}
+  ST.files={};if(ST.docs.length){const f=await api('/rest/v1/maha_billing_files?select=doc_id,path,file_name&property_id=eq.'+encodeURIComponent(ST.pid)+'&order=created_at');if(f.ok&&Array.isArray(f.d))f.d.forEach(x=>(ST.files[x.doc_id]=ST.files[x.doc_id]||[]).push(x))}
   draw()}
+async function openFile(path){const w=window.open('','_blank');try{const r=await api('/storage/v1/object/sign/billing-files/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',body:JSON.stringify({expiresIn:60})});if(!r.ok||!r.d||!r.d.signedURL)throw new Error('not available');const u=CFG.url+'/storage/v1'+r.d.signedURL;if(w){w.opener=null;w.location=u}else window.open(u,'_blank')}catch(e){try{if(w)w.close()}catch(x){}alert('The file could not be opened. Try again.')}}
 const kind=k=>ST.docs.filter(d=>d.kind===k);
 const pill=s=>`<span class="pill ${esc(s)}">${esc(s.charAt(0).toUpperCase()+s.slice(1))}</span>`;
-function table(cols,rows){return rows.length?`<div class="card tw"><table><thead><tr>${cols.map(c=>`<th class="${c[2]||''}">${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${c[2]||''}">${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<div class="card empty">Nothing here yet.</div>'}
+function table(cols,rows){const hf=rows.some(r=>(ST.files||{})[r.id]);const fb=r=>((ST.files||{})[r.id]||[]).map(f=>`<button type="button" class="go" style="width:auto;margin:0 4px 0 0;padding:4px 10px" data-bf="${esc(f.path)}" title="${esc(f.file_name)}">Open</button>`).join('');return rows.length?`<div class="card tw"><table><thead><tr>${cols.map(c=>`<th class="${c[2]||''}">${c[0]}</th>`).join('')}${hf?'<th>Files</th>':''}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${c[2]||''}">${c[1](r)}</td>`).join('')}${hf?`<td>${fb(r)}</td>`:''}</tr>`).join('')}</tbody></table></div>`:'<div class="card empty">Nothing here yet.</div>'}
 const TAB={
  home(){
   const cur={};ST.docs.forEach(d=>{const c=cur[d.currency]||(cur[d.currency]={due:0,n:0,credit:0});if(d.kind==='invoice'&&d.status==='open'){c.due+=+d.amount;c.n++}if(d.kind==='payment'&&d.status==='open')c.credit+=+d.amount});
@@ -148,6 +150,7 @@ function draw(){
   <nav class="nav">${NAV.map(n=>`<button type="button" data-t="${n[0]}" class="${ST.tab===n[0]?'on':''}">${n[1]}</button>`).join('')}</nav></aside>
   <main class="main">${ST.err?`<div class="soon late">${esc(ST.err)}</div>`:''}${TAB[ST.tab]()}</main></div>`;
   document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{ST.tab=b.dataset.t;draw()});
+  document.querySelectorAll('[data-bf]').forEach(x=>x.onclick=()=>openFile(x.dataset.bf));
   const hp=$('#hp');if(hp)hp.onchange=()=>{ST.pid=hp.value;docs()}}
 window.__billing={ST,draw,docs:d=>{ST.docs=d;ST.props=ST.props.length?ST.props:[{id:'x',property_code:'DEMO',name:'Demo Hotel'}];ST.pid=ST.pid||ST.props[0].id;draw()}};
 const t=rd();if(t){ST.t=t;load()}else signin();

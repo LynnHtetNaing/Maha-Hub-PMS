@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="f268ec4230">
+<meta name="maha-build" content="0437531a51">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7651,16 +7651,23 @@ function userAccessAdmin(h,box){
   draw()}
 /* Backend > Billing: the hotel's own billing records inside the PMS (no new tab). The same records the Billing page shows; only people with Setup access reach them. */
 const BILL_PID={};
+/* Files (PDF or photo) on a billing record: private storage; the hotel opens one through a link that works for about a minute. */
+const BF_TYPES={'application/pdf':1,'image/png':1,'image/jpeg':1},BF_MAX=5242880;
+async function billSignedUrl(token,path){const r=await fetch(MahaAuth.base()+'/storage/v1/object/sign/billing-files/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:60})});let d=null;try{d=await r.json()}catch(e){}if(!r.ok||!d||!d.signedURL)throw new Error((d&&d.message)||('HTTP '+r.status));return MahaAuth.base()+'/storage/v1'+d.signedURL}
+async function billOpenFile(path){const w=window.open('','_blank');try{const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again.');const u=await billSignedUrl(t.access_token,path);if(w){w.opener=null;w.location=u}else window.open(u,'_blank')}catch(e){try{if(w)w.close()}catch(x){}toast('Could not open the file: '+e.message)}}
+const BILL_FILES={};
+const billFiles=r=>(BILL_FILES[r.id]||[]).map(f=>`<button type="button" class="btn sm ghost" data-bf="${esc(f.path)}" title="${esc(f.file_name)}">${tbi('file-text',15)}</button>`).join(' ');
 async function billLoad(){
   if(!MahaAuth.on())return {rows:[],err:'Billing needs the cloud sign-in, which is off on this copy.'};
   try{const t=await MahaAuth.fresh();if(!t)return {rows:[],err:'Sign in again to see Billing.'};
     const call=async path=>{const r=await fetch(MahaAuth.base()+'/rest/v1/'+path,{headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token,'Accept':'application/json'}});let d=null;try{d=await r.json()}catch(e){}if(!r.ok)throw Object.assign(new Error('HTTP '+r.status),{status:r.status});return d};
     let pid=BILL_PID[H.code];if(!pid){const p=await call('maha_properties?select=id&property_code=eq.'+encodeURIComponent(H.code));pid=p&&p[0]&&p[0].id;if(!pid)return {rows:[],err:'This hotel was not found in the cloud.'};BILL_PID[H.code]=pid}
-    return {rows:await call('maha_billing_docs?select=*&property_id=eq.'+pid+'&order=doc_date.desc,created_at.desc'),err:''}
+    const rows=await call('maha_billing_docs?select=*&property_id=eq.'+pid+'&order=doc_date.desc,created_at.desc');let files=[];try{files=await call('maha_billing_files?select=doc_id,path,file_name&property_id=eq.'+pid+'&order=created_at')}catch(e){}
+    Object.keys(BILL_FILES).forEach(k=>delete BILL_FILES[k]);files.forEach(f=>{(BILL_FILES[f.doc_id]=BILL_FILES[f.doc_id]||[]).push(f)});return {rows,err:''}
   }catch(e){return {rows:[],err:e.status===404?'Billing is not switched on yet. Please contact Maha Hub support.':'Billing records could not be loaded. Try again in a moment.'}}}
 const billMoney=(n,c)=>esc(c||'USD')+' '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const billPill=s=>`<span class="pill ${s==='paid'||s==='active'||s==='accepted'?'g':s==='open'?'':'r'}">${esc(s.charAt(0).toUpperCase()+s.slice(1))}</span>`;
-function billTable(cols,rows){return `<div style="overflow-x:auto"><table class="grid"><tr>${cols.map(c=>`<th${c[2]?' style="text-align:right"':''}>${c[0]}</th>`).join('')}</tr>${rows.map(r=>`<tr>${cols.map(c=>`<td${c[2]?' style="text-align:right"':''}>${c[1](r)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">Nothing here yet.</td></tr>`}</table></div>`}
+function billTable(cols,rows){const hf=rows.some(r=>BILL_FILES[r.id]);return `<div style="overflow-x:auto"><table class="grid"><tr>${cols.map(c=>`<th${c[2]?' style="text-align:right"':''}>${c[0]}</th>`).join('')}${hf?'<th>Files</th>':''}</tr>${rows.map(r=>`<tr>${cols.map(c=>`<td${c[2]?' style="text-align:right"':''}>${c[1](r)}</td>`).join('')}${hf?`<td class="nowrap">${billFiles(r)}</td>`:''}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">Nothing here yet.</td></tr>`}</table></div>`}
 function billView(tab,title){return async el=>{
   el.innerHTML=pageHead(esc(title))+`<div class="panel pad"><p class="sub">Loading...</p></div>`;
   const {rows,err}=await billLoad();if(!el.isConnected)return;
@@ -7678,7 +7685,7 @@ function billView(tab,title){return async el=>{
   else if(tab==='payments')body=billTable([['Payment #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Paid for',r=>esc(r.paid_for||'-')],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]],of('payment'));
   else{const bal={};const ev=rows.filter(d=>(d.kind==='invoice'||d.kind==='payment')&&d.status!=='void').sort((a,b)=>a.doc_date<b.doc_date?-1:a.doc_date>b.doc_date?1:a.created_at<b.created_at?-1:1).map(d=>{bal[d.currency]=(bal[d.currency]||0)+(d.kind==='invoice'?+d.amount:-d.amount);return Object.assign({},d,{run:bal[d.currency]})}).reverse();
     body=billTable([['Date',r=>fd(r.doc_date)],['Type',r=>r.kind==='invoice'?'Invoice':'Payment'],['No.',r=>esc(r.no)],['Charged',r=>r.kind==='invoice'?billMoney(r.amount,r.currency):'',1],['Paid',r=>r.kind==='payment'?billMoney(r.amount,r.currency):'',1],['Balance',r=>billMoney(r.run,r.currency),1]],ev)}
-  el.innerHTML=pageHead(esc(title))+`<div class="panel pad">${err?`<div class="err">${esc(err)}</div>`:''}${body}</div>`}}
+  el.innerHTML=pageHead(esc(title))+`<div class="panel pad">${err?`<div class="err">${esc(err)}</div>`:''}${body}</div>`;$$('[data-bf]',el).forEach(b=>b.onclick=()=>billOpenFile(b.dataset.bf))}}
 if(typeof VIEWS!=='undefined')[['home','Overview'],['quotes','Quotes'],['subscriptions','Subscriptions'],['invoices','Invoices'],['payments','Payments Made'],['statements','Statements']].forEach(([k,t])=>{VIEWS['sbill.'+k]=billView(k,t)});
 /* Provider: the Billing records of one hotel. Only a platform admin can write them (the server enforces it). */
 async function billingAdmin(h){
@@ -11581,7 +11588,7 @@ async function provBillCtx(h){
   const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again to use Billing.');
   const call=async(path,opt)=>{const r=await fetch(MahaAuth.base()+'/rest/v1/'+path,Object.assign({headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token,'Accept':'application/json',Prefer:'return=representation'}},opt||{}));let d=null;try{d=await r.json()}catch(e){}if(!r.ok){const e=new Error(d&&d.message||('HTTP '+r.status));e.status=r.status;throw e}return d};
   let pid=PBILL_PID[h.code];if(!pid){const p=await call('maha_properties?select=id&property_code=eq.'+encodeURIComponent(h.code));pid=p&&p[0]&&p[0].id;if(!pid)throw new Error('This hotel was not found in the cloud.');PBILL_PID[h.code]=pid}
-  return {call,pid}}
+  return {call,pid,token:t.access_token}}
 function provSubCard(box,h){
   const sd=h.set.subUntil,n=sd?diff(iso(new Date()),sd):null,stopped=subStopped(h);
   const state=h.set.subRevokedAt&&Date.now()>=h.set.subRevokedAt?'Revoked: the hotel is stopped':!sd?'No date set (no limit)':stopped?'Ended: the hotel is stopped':n<0?'Ended: stops at 06:00 tomorrow':n===0?'Ends today (stops 06:00 tomorrow)':n+' day'+(n===1?'':'s')+' left';
@@ -11593,6 +11600,22 @@ function provSubCard(box,h){
   $('#pbRev',box).onclick=async()=>{if(!await dlgConfirm('Revoke the subscription of '+h.code+' now? Its staff are stopped at once.'))return;h.set.subUntil=addD(iso(new Date()),-1);h.set.subRevokedAt=Date.now();provLog('Subscription of hotel '+h.code+' revoked (stopped now)');done(h.code+' subscription revoked.')};
   $('#pbSave',box).onclick=()=>{const v=$('#pbD',box).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));done(h.code+' subscription is valid until '+fd(v)+'.')};
   $('#pbClr',box).onclick=()=>{if(!h.set.subUntil&&!h.set.subRevokedAt)return;delete h.set.subUntil;delete h.set.subRevokedAt;provLog('Subscription date cleared for hotel '+h.code);done('Subscription date cleared for '+h.code+'.')}}
+function provBillFiles(h,ctx,row,after){
+  const m=modal('Files – '+esc(row.no),'<div id="bfBody"></div>',{w:640});
+  const kb=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
+  const paint=async()=>{let files=[];try{files=await ctx.call('maha_billing_files?select=*&doc_id=eq.'+row.id+'&order=created_at')}catch(e){$('#bfBody',m).innerHTML='<div class="err">Files are not switched on yet in the cloud ('+esc(e.message)+').</div>';return}
+    $('#bfBody',m).innerHTML=`<table class="grid"><tr><th>File</th><th class="n">Size</th><th>Added</th><th></th></tr>${files.map(f=>`<tr><td>${esc(f.file_name)}</td><td class="n">${kb(f.size_bytes)}</td><td>${fd(f.created_at.slice(0,10))}</td><td class="nowrap"><button class="btn sm ghost" data-fo="${esc(f.path)}">Open</button> <button class="btn sm red" data-fx="${f.id}">Remove</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No files yet.</td></tr>'}</table>
+      <div class="btns" style="justify-content:flex-start;align-items:center;margin-top:10px"><input type="file" id="bfF" accept="application/pdf,image/png,image/jpeg" ${files.length>=5?'disabled':''}><button class="btn gold sm" id="bfUp" ${files.length>=5?'disabled':''}>Attach</button></div><div class="err" id="bfE">${files.length>=5?'The most is 5 files for one record.':''}</div>`;
+    $$('[data-fo]',m).forEach(b=>b.onclick=()=>billOpenFile(b.dataset.fo));
+    $$('[data-fx]',m).forEach(b=>b.onclick=async()=>{const f=files.find(x=>x.id===b.dataset.fx);if(!f||!await dlgConfirm('Remove this file?'))return;try{await ctx.call('maha_billing_files?id=eq.'+f.id,{method:'DELETE'});try{await fetch(MahaAuth.base()+'/storage/v1/object/billing-files/'+f.path.split('/').map(encodeURIComponent).join('/'),{method:'DELETE',headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+ctx.token}})}catch(x){}provLog('Billing: file removed from '+row.no+' for hotel '+h.code);paint();after()}catch(e){$('#bfE',m).textContent='Could not remove: '+e.message}});
+    $('#bfUp',m).onclick=async()=>{const fl=$('#bfF',m).files[0],E=$('#bfE',m);E.textContent='';if(!fl){E.textContent='Choose a file first.';return}
+      if(!BF_TYPES[fl.type]){E.textContent='Only PDF, PNG or JPG files.';return}if(fl.size>BF_MAX){E.textContent='The file is over 5 MB.';return}
+      const safe=fl.name.replace(/[^A-Za-z0-9._-]+/g,'_').slice(-80)||'file',rnd=Array.from(crypto.getRandomValues(new Uint8Array(6))).map(x=>x.toString(16).padStart(2,'0')).join(''),path=ctx.pid+'/'+row.id+'/'+rnd+'-'+safe;
+      E.textContent='Uploading...';
+      try{const r=await fetch(MahaAuth.base()+'/storage/v1/object/billing-files/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+ctx.token,'Content-Type':fl.type,'x-upsert':'false'},body:fl});if(!r.ok){let d=null;try{d=await r.json()}catch(x){}throw new Error((d&&d.message)||('HTTP '+r.status))}
+        try{await ctx.call('maha_billing_files',{method:'POST',body:JSON.stringify({doc_id:row.id,property_id:ctx.pid,path,file_name:fl.name.slice(0,120),mime:fl.type,size_bytes:fl.size})})}catch(e){try{await fetch(MahaAuth.base()+'/storage/v1/object/billing-files/'+path.split('/').map(encodeURIComponent).join('/'),{method:'DELETE',headers:{'apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+ctx.token}})}catch(x){}throw e}
+        provLog('Billing: file attached to '+row.no+' for hotel '+h.code);paint();after()}catch(e){E.textContent='Could not upload: '+e.message}}};
+  paint()}
 function provBillForm(h,ctx,kind,row,after){
   const e=row||{},st=PB_STATUS[kind],sub=kind==='subscription';
   const m=modal((row?'Edit ':'Add ')+PB_KINDS[kind].toLowerCase()+' – '+esc(h.code),`<div class="form2">${fld(sub?'Plan name':'Number',`<input id="pfN" maxlength="40" value="${esc(e.no||'')}" ${row?'':'autofocus'}>`)}${fld('Date',`<input type="date" id="pfD" value="${esc(e.doc_date||iso(new Date()))}">`)}
@@ -11612,8 +11635,10 @@ async function provBillRecords(box,h){
   box.innerHTML='<h3>Billing records</h3><p class="sub">Loading...</p>';let ctx,rows=[];
   try{ctx=await provBillCtx(h);rows=await ctx.call('maha_billing_docs?select=*&property_id=eq.'+ctx.pid+'&order=doc_date.desc,created_at.desc')}catch(e){if(!box.isConnected)return;box.innerHTML='<h3>Billing records</h3><div class="err">'+esc(e.status===404?'Billing is not switched on yet in the cloud.':e.message)+'</div>';return}
   if(!box.isConnected)return;
+  let files=[];try{files=await ctx.call('maha_billing_files?select=doc_id&property_id=eq.'+ctx.pid)}catch(e){}
+  const fc=id=>files.filter(f=>f.doc_id===id).length;
   const of=k=>rows.filter(d=>d.kind===k),redraw=()=>provBillRecords(box,h);
-  const act=r=>`<td class="nowrap">${r.kind==='invoice'&&r.status==='open'?`<button class="btn sm ghost" data-mp="${r.id}">Mark paid</button> `:''}<button class="btn sm ghost" data-ed="${r.id}">Edit</button> <button class="btn sm red" data-dl="${r.id}">Delete</button></td>`;
+  const act=r=>`<td class="nowrap"><button class="btn sm ghost" data-fl="${r.id}">Files${fc(r.id)?' ('+fc(r.id)+')':''}</button> ${r.kind==='invoice'&&r.status==='open'?`<button class="btn sm ghost" data-mp="${r.id}">Mark paid</button> `:''}<button class="btn sm ghost" data-ed="${r.id}">Edit</button> <button class="btn sm red" data-dl="${r.id}">Delete</button></td>`;
   const tbl=(cols,list)=>`<div style="overflow-x:auto"><table class="grid"><tr>${cols.map(c=>`<th${c[2]?' class="n"':''}>${c[0]}</th>`).join('')}<th></th></tr>${list.map(r=>`<tr>${cols.map(c=>`<td${c[2]?' class="n"':''}>${c[1](r)}</td>`).join('')}${act(r)}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">Nothing here yet.</td></tr>`}</table></div>`;
   let body='';
   if(PB_TAB==='overview'){const cur={};rows.forEach(d=>{const c=cur[d.currency]||(cur[d.currency]={due:0,n:0,credit:0});if(d.kind==='invoice'&&d.status==='open'){c.due+=+d.amount;c.n++}if(d.kind==='payment'&&d.status==='open')c.credit+=+d.amount});const last=of('payment').filter(d=>d.status!=='void')[0],ks=Object.keys(cur);
@@ -11625,6 +11650,7 @@ async function provBillRecords(box,h){
   box.innerHTML=`<h3>Billing records</h3><p class="sub">Everything here shows on the hotel's Backend &gt; Billing pages.</p><div class="btns" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 12px">${TABS.map(t=>`<button type="button" class="btn sm ${PB_TAB===t[0]?'gold':'ghost'}" data-pbt="${t[0]}">${t[1]}</button>`).join('')}</div>${body}`;
   $$('[data-pbt]',box).forEach(b=>b.onclick=()=>{PB_TAB=b.dataset.pbt;redraw()});
   if($('#pbAdd',box))$('#pbAdd',box).onclick=()=>provBillForm(h,ctx,PB_TAB,null,redraw);
+  $$('[data-fl]',box).forEach(b=>b.onclick=()=>{const r=rows.find(x=>x.id===b.dataset.fl);if(r)provBillFiles(h,ctx,r,redraw)});
   $$('[data-ed]',box).forEach(b=>b.onclick=()=>{const r=rows.find(x=>x.id===b.dataset.ed);if(r)provBillForm(h,ctx,r.kind,r,redraw)});
   $$('[data-mp]',box).forEach(b=>b.onclick=async()=>{try{await ctx.call('maha_billing_docs?id=eq.'+b.dataset.mp,{method:'PATCH',body:JSON.stringify({status:'paid'})});provLog('Billing: invoice marked paid for hotel '+h.code);redraw()}catch(e){toast('Could not save: '+e.message)}});
   $$('[data-dl]',box).forEach(b=>b.onclick=async()=>{if(!await dlgConfirm('Delete this billing record?'))return;try{await ctx.call('maha_billing_docs?id=eq.'+b.dataset.dl,{method:'DELETE'});provLog('Billing: record deleted for hotel '+h.code);redraw()}catch(e){toast('Could not delete: '+e.message)}})}
