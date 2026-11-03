@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="7486bcdd96">
+<meta name="maha-build" content="bec87cc715">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7656,12 +7656,12 @@ async function billingAdmin(h){
   };
   draw()}
 /* After sign-in, before Frontend / Backend: a card screen for the hotel's subscription date (set by the provider, every user of the hotel sees it) and one for the person's own access period (only that person). They start 30 days before the end, are red in the last 7 days and after the hotel date, and only warn: nothing is blocked by the hotel date. Renew Now / Contact provider opens the Billing page (its own tab, the same page for every Maha system). */
-const SUB_WARN_DAYS=30,BILLING_URL='https://maha-hub.com/billing/';
+const SUB_WARN_DAYS=30,HOTEL_WARN_DAYS=10,BILLING_URL='https://maha-hub.com/billing/';
 function subNotices(h,u){const out=[],now=Date.now();
   try{const a=u&&!u.provider&&!u.isProv&&u.access;
     if(a&&a.until&&now<a.until){const left=a.until-now;if(left<=SUB_WARN_DAYS*864e5)out.push({k:'user',late:left<=7*864e5,ended:false,d:iso(new Date(a.until)),days:Math.ceil(left/864e5),user:u.username||''})}
     const s=h&&h.set&&h.set.subUntil;
-    if(s){const n=diff(iso(new Date()),s);if(n<0)out.push({k:'hotel',late:true,ended:true,d:s,days:n});else if(n<=SUB_WARN_DAYS)out.push({k:'hotel',late:n<=7,ended:false,d:s,days:n})}
+    if(s){const n=diff(iso(new Date()),s);if(n<0)out.push({k:'hotel',late:true,ended:true,d:s,days:n});else if(n<=HOTEL_WARN_DAYS)out.push({k:'hotel',late:n<=7,ended:false,d:s,days:n})}
   }catch(e){}
   return out}
 const fdOrd=s=>{const d=P(s),n=d.getDate(),suf=(n%100>=11&&n%100<=13)?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th');return n+suf+' '+d.toLocaleDateString('en-GB',{month:'short'})+' '+d.getFullYear()};
@@ -8081,7 +8081,7 @@ const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','B
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
  'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.edclinks':'card','bill.city':'book','bill.master':'layers','set.approve':'check',
  'rm.hkstatus':'spark','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','cd.handover':'swap','help.home':'help',
- 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.exit':'login','prov.edc':'card','prov.log':'history'};
+ 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.edc':'card','prov.log':'history'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;

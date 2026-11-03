@@ -21,12 +21,13 @@ T('user access ending in 12 days: a notice for that user (not red yet)', kinds(h
 T('user access ending in 5 days: red', kinds(hotel(), user(5)) === 'user:late');
 T('user access ending in 40 days: no notice yet (it starts 30 days before)', kinds(hotel(), user(40)) === '');
 T('a provider account never gets the user notice', kinds(hotel(), { provider: true, access: { until: now + 3 * day } }) === '');
-T('hotel subscription in 20 days: a notice for every user of the hotel', kinds(hotel(plus(20)), user()) === 'hotel:soon');
+T('hotel subscription in 9 days: a notice for every user of the hotel (it starts 10 days before)', kinds(hotel(plus(9)), user()) === 'hotel:soon' && kinds(hotel(plus(10)), user()) === 'hotel:soon');
+T('hotel subscription in 11 or 20 days: no notice yet', kinds(hotel(plus(11)), user()) === '' && kinds(hotel(plus(20)), user()) === '');
 T('hotel subscription in 3 days: red', kinds(hotel(plus(3)), user()) === 'hotel:late');
 T('hotel subscription today: card says it ends today', lib.subCardInfo(subNotices(hotel(plus(0)), user())[0], { code: 'X' }).left === 'Ends today');
 T('hotel subscription already ended: red notice, still only a warning', kinds(hotel(plus(-4)), user()) === 'hotel:late' && lib.subCardInfo(subNotices(hotel(plus(-4)), user())[0], { code: 'X' }).title === 'Expired');
 T('hotel subscription in 60 days: no notice yet', kinds(hotel(plus(60)), user()) === '');
-T('both at once: the user notice first, then the hotel notice', kinds(hotel(plus(10)), user(10)) === 'user:soon,hotel:soon');
+T('both at once: the user notice first, then the hotel notice', kinds(hotel(plus(9)), user(10)) === 'user:soon,hotel:soon');
 T('hotel card: Expiring Soon, ordinal date, Renew Now, property code; user card: Contact provider and tells the person to ask the provider', (() => { const h = lib.subCardInfo(subNotices(hotel(plus(10)), user())[0], { code: 'HX' }), u = lib.subCardInfo(subNotices(hotel(), user(10))[0], { code: 'HX' }); return h.title === 'Expiring Soon' && /expires on [0-9]+(st|nd|rd|th) /.test(h.headline) && h.btn === 'Renew Now' && h.code === 'HX' && u.btn === 'Contact provider' && /provider/i.test(u.sub) && /extend/i.test(u.sub); })());
 T('ordinal dates: 1st 2nd 3rd 4th 11th 12th 21st', ['2026-11-01','2026-11-02','2026-11-03','2026-11-04','2026-11-11','2026-11-12','2026-11-21'].map(lib.fdOrd).every((x,i)=>x.startsWith(['1st','2nd','3rd','4th','11th','12th','21st'][i]+' Nov')));
 
