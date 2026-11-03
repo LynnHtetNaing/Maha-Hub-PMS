@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="0e1d73bab9">
+<meta name="maha-build" content="2ee5230068">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -3567,7 +3567,7 @@ function saveDB(opt){
   try{svNoteCheck()}catch(e){}
   DB.version=5;
   if(!(opt&&opt.keepTime)) DB.savedAt=Date.now();
-  if(DB.session)stampSession(DB.session);
+  if(DB.session&&!DB.session.at)DB.session.at=Date.now();   /* NOT stampSession: a background save (sync, logs) must not make a locked or idle screen look active */
   if(DB.session)writeLiveSession(DB.session);else clearLiveSession();
   /* The copy kept on this device is written a moment later (and at once when the page is left), so a click never waits for it. */
   clearTimeout(_persistT);_persistT=setTimeout(persistDB,350);
@@ -4893,7 +4893,7 @@ function unsavedOnScreen(){try{
 function quietReloadOk(){try{
   if(unsavedOnScreen())return false;
   if(!DB||!DB.session)return true;
-  if(document.getElementById('idleLock'))return true;
+  if(document.getElementById('idleLock')){const pw=document.getElementById('idlePw');return !(pw&&pw.value)}
   return Date.now()-idleAnchor()>=5*60*1000}catch(e){return false}}
 function reloadSafely(){try{if(typeof saveDB==='function')saveDB();if(typeof persistDB==='function')persistDB()}catch(e){}setTimeout(()=>location.reload(),400)}
 function watchNewVersion(){
@@ -15032,7 +15032,7 @@ function screenRuleCheck(){
   if(restartDue(idleAnchor(),Date.now())){restartToMain();return}
   if(document.getElementById('idleLock'))return;
   const limit=idleLimitMs();
-  if(limit&&Date.now()-idleAnchor()>=limit)showIdleLock();
+  if(limit&&(DB.session.locked||Date.now()-idleAnchor()>=limit))showIdleLock();
 }
 function armIdle(){
   clearTimeout(_idle);
@@ -15044,9 +15044,9 @@ function armIdle(){
   const left=Math.max(1000,limit-(Date.now()-idleAnchor()));
   _idle=setTimeout(screenRuleCheck,left);
 }
-function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
+function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;DB.session.locked=true;try{writeLiveSession(DB.session)}catch(e){}const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   d.innerHTML=`<div class="panel pad"><h2>Screen locked</h2><p>Your shift stays open. Type your password to continue as <b>${esc(user().name)}</b>.</p><label class="f"><span>Password</span><input id="idlePw" type="password"></label><div class="err" id="idleE"></div><div class="btns"><button class="btn gold" id="idleGo">Unlock</button></div></div>`;
-  document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
+  document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();delete DB.session.locked;stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
   const go=()=>{const pw=$('#idlePw').value;
     if(MahaAuth.on()){const u=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),cur=MahaAuth.read();
       if(!u||!pw){$('#idleE').textContent='Password is not correct.';return}
@@ -15064,7 +15064,7 @@ function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session
   if(document.getElementById('idleLock'))return;
   if(!DB||!DB.session)return;
   const limit=idleLimitMs();
-  if(!sessionValid(DB.session)||restartDue(idleAnchor(),Date.now())||(limit&&Date.now()-idleAnchor()>=limit)){e.preventDefault();e.stopPropagation();screenRuleCheck();return}
+  if(!sessionValid(DB.session)||restartDue(idleAnchor(),Date.now())||(limit&&(DB.session.locked||Date.now()-idleAnchor()>=limit))){e.preventDefault();e.stopPropagation();screenRuleCheck();return}
   _activeAt=Date.now();touchLiveSession();armIdle();
 },true));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')screenRuleCheck()});
