@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="b536fc7ab9">
+<meta name="maha-build" content="7486bcdd96">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -3250,7 +3250,7 @@ const MAHA_AUTH_CONFIG={
 };
 /* Where the live sign-in is kept. A computer keeps it for the tab (sessionStorage). A phone and the installed phone app keep it in the phone's storage, so closing the app or the phone freeing memory does not sign the person out:
    the same screen rules as on the computer then decide (15 quiet minutes = lock screen with the password, 1 hour = sign in again). Clearing the phone's site data signs the person out. */
-function loginStore(){try{return lightOnly()?localStorage:sessionStorage}catch(e){return sessionStorage}}
+function loginStore(){try{return keepLoginOnDevice()?localStorage:sessionStorage}catch(e){return sessionStorage}}
 function dropLogin(k){try{sessionStorage.removeItem(k)}catch(e){}try{localStorage.removeItem(k)}catch(e){}}
 const SBAUTHKEY='mahahub.sbauth';
 const MahaAuth={
@@ -7567,6 +7567,9 @@ const MahaCal=(()=>{
   return {open,close};
 })();
 const VIEWS={};let VIEW='fo.status',VARG=null,PREV=null;
+/* Back button: the pages the person came from, newest last. go() adds the page being left; Back opens the newest one that is still allowed. */
+const NAVSTACK=[];
+const sameArg=(a,b)=>JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);
 
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
 function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.connect)}
@@ -7611,7 +7614,7 @@ const billMoney=(n,c)=>esc(c||'USD')+' '+Number(n||0).toLocaleString('en-US',{mi
 const billPill=s=>`<span class="pill ${s==='paid'||s==='active'||s==='accepted'?'g':s==='open'?'':'r'}">${esc(s.charAt(0).toUpperCase()+s.slice(1))}</span>`;
 function billTable(cols,rows){return `<div style="overflow-x:auto"><table class="grid"><tr>${cols.map(c=>`<th${c[2]?' style="text-align:right"':''}>${c[0]}</th>`).join('')}</tr>${rows.map(r=>`<tr>${cols.map(c=>`<td${c[2]?' style="text-align:right"':''}>${c[1](r)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">Nothing here yet.</td></tr>`}</table></div>`}
 function billView(tab,title){return async el=>{
-  el.innerHTML=`<div class="panel pad"><h3>${esc(title)}</h3><p class="sub">Loading...</p></div>`;
+  el.innerHTML=pageHead(esc(title))+`<div class="panel pad"><p class="sub">Loading...</p></div>`;
   const {rows,err}=await billLoad();if(!el.isConnected)return;
   const of=k=>rows.filter(d=>d.kind===k);let body='';
   if(tab==='home'){
@@ -7627,7 +7630,7 @@ function billView(tab,title){return async el=>{
   else if(tab==='payments')body=billTable([['Payment #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Paid for',r=>esc(r.paid_for||'-')],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]],of('payment'));
   else{const bal={};const ev=rows.filter(d=>(d.kind==='invoice'||d.kind==='payment')&&d.status!=='void').sort((a,b)=>a.doc_date<b.doc_date?-1:a.doc_date>b.doc_date?1:a.created_at<b.created_at?-1:1).map(d=>{bal[d.currency]=(bal[d.currency]||0)+(d.kind==='invoice'?+d.amount:-d.amount);return Object.assign({},d,{run:bal[d.currency]})}).reverse();
     body=billTable([['Date',r=>fd(r.doc_date)],['Type',r=>r.kind==='invoice'?'Invoice':'Payment'],['No.',r=>esc(r.no)],['Charged',r=>r.kind==='invoice'?billMoney(r.amount,r.currency):'',1],['Paid',r=>r.kind==='payment'?billMoney(r.amount,r.currency):'',1],['Balance',r=>billMoney(r.run,r.currency),1]],ev)}
-  el.innerHTML=`<div class="panel pad"><h3>${esc(title)}</h3>${err?`<div class="err">${esc(err)}</div>`:''}${body}</div>`}}
+  el.innerHTML=pageHead(esc(title))+`<div class="panel pad">${err?`<div class="err">${esc(err)}</div>`:''}${body}</div>`}}
 if(typeof VIEWS!=='undefined')[['home','Overview'],['quotes','Quotes'],['subscriptions','Subscriptions'],['invoices','Invoices'],['payments','Payments Made'],['statements','Statements']].forEach(([k,t])=>{VIEWS['sbill.'+k]=billView(k,t)});
 /* Provider: the Billing records of one hotel. Only a platform admin can write them (the server enforces it). */
 async function billingAdmin(h){
@@ -8089,7 +8092,10 @@ function themeStoreKey(){const se=DB&&DB.session;return 'maha.theme.'+((H&&H.cod
 function userTheme(){let t=null;const r=rawUserRec();if(r&&r.uiTheme)t=r.uiTheme;if(!t){try{t=localStorage.getItem(themeStoreKey())}catch(e){}}return MODERN_THEMES.some(x=>x[0]===t)?t:'emerald'}
 function modeStoreKey(){return themeStoreKey().replace('maha.theme.','maha.mode.')}
 /* Phones and the installed phone app use the Light theme only. Dark stays for computers and tablets. */
-function lightOnly(){try{return document.documentElement.classList.contains('is-app')||(matchMedia('(pointer: coarse)').matches&&Math.min(screen.width,screen.height)<=600)}catch(e){return false}}
+/* Light only on a PHONE (a touch screen whose short side is 600px or less, installed app or browser). A tablet and a computer keep Dark mode, installed app or not. */
+function lightOnly(){try{return matchMedia('(pointer: coarse)').matches&&Math.min(screen.width,screen.height)<=600}catch(e){return false}}
+/* the sign-in is kept in the device's storage on a phone and in any installed app (a tablet app too), in the tab on a computer browser */
+function keepLoginOnDevice(){try{return lightOnly()||document.documentElement.classList.contains('is-app')}catch(e){return false}}
 function userMode(){if(lightOnly())return 'light';let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
 function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;if(lightOnly()){b.style.display='none';return}const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
 function setUserMode(m){m=m==='dark'&&!lightOnly()?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();toast((m==='dark'?'Dark':'Light')+' mode saved')}
@@ -8464,6 +8470,10 @@ function routeStart(defView){const r=routeOf();if(r&&routeAllowed(r.v)){if(DB.se
 window.addEventListener('popstate',()=>{try{if(!DB||!DB.session||!(H||DB.session.provider))return;const r=routeOf();if(!r||!routeAllowed(r.v))return;
   ROUTE_SILENT=true;try{go(r.v,r.arg)}finally{ROUTE_SILENT=false}}catch(e){ROUTE_SILENT=false}});
 function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.session.inHotel;
+  {const wasBack=go.isBack;go.isBack=false;
+   if(wasBack){}
+   else if(ROUTE_SILENT){const t=NAVSTACK[NAVSTACK.length-1];if(t&&t.v===v&&sameArg(t.a,arg))NAVSTACK.pop()}
+   else if(DB.session&&VIEW&&VIEW!=='sys.pick'&&!(VIEW===v&&sameArg(VARG,arg))){const t=NAVSTACK[NAVSTACK.length-1];if(!(t&&t.v===VIEW&&sameArg(t.a,VARG))){NAVSTACK.push({v:VIEW,a:VARG});if(NAVSTACK.length>40)NAVSTACK.shift()}}}
   if(v==='res.open'&&!go.keepBack)resBack='res.list';go.keepBack=false;
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
@@ -8472,6 +8482,11 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
   if(ENTRY_QUIET&&ENTRY_QUIET.pending)ENTRY_QUIET.pending=false;else ENTRY_QUIET=null;
   if(!['bill.open','fo.departures2','cd.close'].includes(v))CDBACK=null;if(v==='cd.close')CDBACK=null;
   VIEW=v;VARG=arg===undefined?null:arg;routePush(v,arg);closeMenus();render()}
+function navLabel(v){try{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it[0];for(const m of PROV_MENU)for(const it of (m.items||[]))if(it[1]===v)return it[0]}catch(e){}return ''}
+function navBackInfo(){for(let i=NAVSTACK.length-1;i>=0;i--){const t=NAVSTACK[i];if(t.v!==VIEW||!sameArg(t.a,VARG))return t}return null}
+function backBtnHtml(){const i=navBackInfo();return i?`<button type="button" class="btn ghost sm pgback" data-pgback title="Back">${ic('left',16)}${navLabel(i.v)?'Back to '+esc(navLabel(i.v)):'Back'}</button>`:''}
+function goBack(){let t;while((t=NAVSTACK.pop())){if(t.v===VIEW&&sameArg(t.a,VARG))continue;const prov=DB.session&&DB.session.provider&&!DB.session.inHotel;if(prov?/^prov\./.test(t.v):viewAllowed(t.v)){try{if(DB.session&&!DB.session.provider)setArea(areaOfView(t.v))}catch(e){}go.isBack=true;try{go(t.v,t.a)}finally{go.isBack=false}return}}}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pgback]');if(b){e.preventDefault();goBack()}});
 /* Opening the same page again (after a click such as Open or Lock) keeps the place where the person was working. A different page starts at the top. */
 let RENDER_KEY='';
 function scrollSnap(){const o=[];let e=document.getElementById('view');while(e&&e!==document.documentElement){if(e.scrollTop>0)o.push([e,e.scrollTop]);e=e.parentElement}return {y:window.scrollY||0,els:o}}
@@ -8483,7 +8498,7 @@ let SCROLL_GUARD=0,_userScrolled=false;
 function scrollBack(sn){window.scrollTo(0,sn.y);sn.els.forEach(([e,t])=>{if(e.isConnected)e.scrollTop=t})}
 function scrollKeep(sn,rkey){SCROLL_GUARD=Date.now()+900;_userScrolled=false;[0,60,200,450,800].forEach(ms=>setTimeout(()=>{if(RENDER_KEY===rkey&&(ms===0||!_userScrolled))scrollBack(sn)},ms))}
 function render(){
-  if(!DB.session){showLogin();return}
+  if(!DB.session){NAVSTACK.length=0;showLogin();return}
   if(SEL_ON)return;
   if(typeof applyHotelCodes==='function')applyHotelCodes();
   if(DB.session.provider&&!DB.session.inHotel&&!/^prov\./.test(VIEW)&&VIEW!=='set.backup'&&VIEW!=='ai.revenue'){VIEW='prov.home';VARG=null}
@@ -8840,7 +8855,7 @@ function titleMark(label){
   }
   return `<span class="thic">${ic(name,16)}</span>`;
 }
-const pageHead=(t,extra='',mode)=>{const mark=/<svg[\s>]/i.test(t)?'':titleMark(t);const h=`<h1>${mark}${t}</h1>`;
+const pageHead=(t,extra='',mode)=>{const mark=/<svg[\s>]/i.test(t)?'':titleMark(t);const bk=/pgback/.test(extra||'')?'':backBtnHtml();const h=`${bk}<h1>${mark}${t}</h1>`;
   if(mode==='under')return `<div class="phead block">${h}</div><div class="ufbar">${extra}</div>`;
   if(mode==='act')return `<div class="phead withact">${h}${extra?`<div class="pact">${extra}</div>`:''}</div>`;
   const filt=/<(input|select)\b/i.test(extra||'');return `<div class="phead${filt?' withf':''}">${h}${filt?'<div class="sp"></div>':''}${extra}</div>`};
@@ -11687,7 +11702,7 @@ function areaMenu(src){
   return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
 function firstBackendView(){for(const g of BACKEND_MENU())for(const it of (g.items||[]))if(viewAllowed(it[1]))return it[1];return 'set.hotel'}
 function areaSwitchHtml(){if(!hasBackend())return '';ensureFlowCss();const a=curArea();return `<div class="areasw" id="areaSw" role="group" aria-label="Frontend or Backend"><button type="button" data-area="front" class="${a==='front'?'on':''}">Frontend</button><button type="button" data-area="back" class="${a==='back'?'on':''}">Backend</button></div>`}
-async function switchAreaTo(a){if(!hasBackend()||a===curArea())return;
+async function switchAreaTo(a){if(!hasBackend()||a===curArea())return;NAVSTACK.length=0;
   await withLoading(a==='back'?'Opening Backend':'Opening Frontend',1600,async()=>{setArea(a)});
   renderShell();go(a==='back'?firstBackendView():firstHotelView())}
 /* ---- the two pages ---- */
@@ -12203,7 +12218,7 @@ VIEWS['inq.forecast']=el=>{
   const ds=[...Array(days)].map((_,i)=>addD(FC.from,i)),D=ds.map(fcDay);
   const TABS=[['all','All'],['adv','Advance'],['occ','OCC.RmType'],['avl','AVL.RmType'],['sum','Summary AVL'],['prod','Production']];if(FC.tab==='allot')FC.tab='all';
   const tbl=fcTable(FC.tab,D,ds);
-  el.innerHTML=`<div class="fcwrap"><div class="fcbar"><div class="fch">${titleMark('INQUIRY / FORECAST')}INQUIRY / FORECAST</div>
+  el.innerHTML=`<div class="fcwrap"><div class="fcbar"><div class="fch">${backBtnHtml()}${titleMark('INQUIRY / FORECAST')}INQUIRY / FORECAST</div>
    <div class="fcf"><div class="fcfld"><label for="fcF">From date</label><div class="dpk"><input id="fcF" value="${fd(FC.from)}" placeholder="dd/mm/yyyy" inputmode="numeric" autocomplete="off"><button type="button" class="dpb" data-dp="fcF" title="Choose date">${ic('grid',14)}</button><input type="date" class="dph" data-for="fcF" tabindex="-1" aria-hidden="true"></div></div>
     <div class="fcfld"><label for="fcD">Days</label><input id="fcD" class="fcdays" type="number" min="1" max="93" value="${days}"></div>
     <div class="fcfld"><label for="fcT">To date</label><div class="dpk"><input id="fcT" value="${fd(to)}" placeholder="dd/mm/yyyy" inputmode="numeric" autocomplete="off"><button type="button" class="dpb" data-dp="fcT" title="Choose date">${ic('grid',14)}</button><input type="date" class="dph" data-for="fcT" tabindex="-1" aria-hidden="true"></div></div>
@@ -12330,7 +12345,7 @@ VIEWS['rm.hkstatus']=el=>{
   const fl=floorsList();if(!HKF.floor||(HKF.floor!=='dash'&&!fl.includes(HKF.floor)))HKF.floor=fl[0];
   const shown=H.rooms.map(rm=>({rm,s:roomState(rm)})),sell=shown.filter(x=>!x.rm.dummy),count=k=>sell.filter(x=>x.s.key===k).length;
   const legend=[['smile','Clean room'],['frown','Dirty room'],['moon','Discrepancy - Sleep room'],['ban','Discrepancy - Skip room'],['dnd','Do not disturb'],['phoneoff','Do not disturb (Telephone)'],['wifi','Inspected'],['log','Set special cleaning time'],['key','Soft block'],['chat','Comment information'],['warn','Do not move'],['link2','Connecting room'],['access','Handicap room']];
-  el.innerHTML=`<div class="hkw"><aside class="hkl"><div class="hkh">${titleMark('HOUSEKEEPING STATUS')}<span class="hkname">Housekeeping Status</span></div>
+  el.innerHTML=`<div class="hkw"><aside class="hkl"><div class="hkh">${backBtnHtml()}${titleMark('HOUSEKEEPING STATUS')}<span class="hkname">Housekeeping Status</span></div>
     <div class="hkform"><label>Floor plan</label><div class="row gap"><select id="hkFl" style="flex:1">${fl.map(f=>opt(f,floorName(f),HKF.floor)).join('')}${opt('dash','All floors (dashboard)',HKF.floor)}</select><button class="btn hkdash" id="hkDash">Dashboard</button></div>
      <label>Rooms</label><div class="row gap"><input id="hkQ" style="flex:1" value="${esc(HKF.q)}" placeholder="Room number"><button class="btn gold" id="hkGo">${ic('search',14)} Search</button></div></div>
     <div class="hkleg"><b>Color description</b>${legend.map(l=>`<div class="hli li-${l[0]}">${ic(l[0],17)}<span>${l[1]}</span></div>`).join('')}

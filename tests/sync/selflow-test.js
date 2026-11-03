@@ -5,7 +5,7 @@ const must=(m,c)=>{if(!c)fail(m)};
 // the Select Property / Select System pages stay on screen until the person chooses
 must('flag exists','let SEL_ON=false;'&&src.includes('let SEL_ON=false;'));
 must('the pages switch the flag on',src.includes('function selShell(inner){SEL_ON=true;'));
-must('render() ignores background redraws while a Select page is open',src.includes("function render(){\n  if(!DB.session){showLogin();return}\n  if(SEL_ON)return;")||src.includes("function render(){\r\n  if(!DB.session){showLogin();return}\r\n  if(SEL_ON)return;"));
+must('render() ignores background redraws while a Select page is open',src.includes("function render(){\n  if(!DB.session){NAVSTACK.length=0;showLogin();return}\n  if(SEL_ON)return;")||src.includes("function render(){\r\n  if(!DB.session){NAVSTACK.length=0;showLogin();return}\r\n  if(SEL_ON)return;"));
 must('renderShell() ignores them too',/function renderShell\(\)\{\r?\n  if\(SEL_ON\)return;/.test(src));
 must('the flag is switched off when a choice is made',src.includes('const a=await selectSystemPage(H,multi);SEL_ON=false;')&&src.includes('const code=await selectPropertyPage(props,current,canCancel);SEL_ON=false;'));
 must('the flag is always cleared (finally) so the screen can never stay blocked',src.includes('}}finally{SEL_ON=false}'));
