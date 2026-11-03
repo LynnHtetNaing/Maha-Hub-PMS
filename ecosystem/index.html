@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="0e1d73bab9">
+<meta name="maha-build" content="5cc80f8af6">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2621,6 +2621,16 @@ html[data-mode=dark] .fbtn.acc{background:color-mix(in srgb,var(--accent,#176B50
 #view:has(.rscreen) .phead>.pgback{margin-right:16px}@media (max-width:760px){#view:has(.rscreen) .phead>.pgback{margin-right:10px}}
 .dep2pg .depbar{margin-left:16px;margin-right:16px}@media (max-width:760px){.dep2pg .depbar{margin-left:10px;margin-right:10px}}
 .ftbn{margin:20px 0 12px}
+.hsnew .hx-an{margin-bottom:16px}
+.hs2-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;border-bottom:0;margin-bottom:12px}
+.hs2-tab{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;margin:0;border:1px solid var(--hs-ln);border-radius:12px;background:var(--hs-card);text-align:left;color:var(--hs-mut);min-width:0}
+.hs2-tab .hs2-tno{display:flex;align-items:center;justify-content:space-between;width:100%;gap:6px}.hs2-tab .hs2-tno b{font-size:20px;line-height:1.1;color:var(--hs-ink)}
+.hs2-tab .hs2-tic{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--hs-soft);color:var(--hs-acc);flex:none}.hs2-tab .hs2-tic svg{width:16px;height:16px}
+.hs2-tab .hs2-tlb{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.hs2-tab.on{border-color:var(--hs-acc);background:color-mix(in srgb,var(--hs-acc) 10%,var(--hs-card));color:var(--hs-acc)}.hs2-tab.on .hs2-tno b{color:var(--hs-acc)}.hs2-tab.on .hs2-tic{background:var(--hs-acc);color:#fff}
+@media (hover:hover){.hs2-tab:not(.on):hover{border-color:color-mix(in srgb,var(--hs-acc) 45%,var(--hs-ln))}}
+@media (max-width:1100px){.hs2-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:700px){.hs2-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.hs2-tw.fix{height:auto;max-height:360px}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -3567,7 +3577,7 @@ function saveDB(opt){
   try{svNoteCheck()}catch(e){}
   DB.version=5;
   if(!(opt&&opt.keepTime)) DB.savedAt=Date.now();
-  if(DB.session)stampSession(DB.session);
+  if(DB.session&&!DB.session.at)DB.session.at=Date.now();   /* NOT stampSession: a background save (sync, logs) must not make a locked or idle screen look active */
   if(DB.session)writeLiveSession(DB.session);else clearLiveSession();
   /* The copy kept on this device is written a moment later (and at once when the page is left), so a click never waits for it. */
   clearTimeout(_persistT);_persistT=setTimeout(persistDB,350);
@@ -4893,7 +4903,7 @@ function unsavedOnScreen(){try{
 function quietReloadOk(){try{
   if(unsavedOnScreen())return false;
   if(!DB||!DB.session)return true;
-  if(document.getElementById('idleLock'))return true;
+  if(document.getElementById('idleLock')){const pw=document.getElementById('idlePw');return !(pw&&pw.value)}
   return Date.now()-idleAnchor()>=5*60*1000}catch(e){return false}}
 function reloadSafely(){try{if(typeof saveDB==='function')saveDB();if(typeof persistDB==='function')persistDB()}catch(e){}setTimeout(()=>location.reload(),400)}
 function watchNewVersion(){
@@ -9173,7 +9183,7 @@ VIEWS['fo.status']=el=>{
       ${kvx('End of day incl. tentative',occEnd.toFixed(1)+'%')}${kvx('FIT / Group in-house',fitN+' / '+gpN)}${kvx('Revenue today','<span title="All the amounts of the reservations made today">'+m2(revMade)+'</span>','(bookings made)')}${kvx('Received today',m2(recvToday),'(payments)')}</div>
      ${mgmt?`<div class="hs2-card"><h2>Management only</h2>${kvx('Revenue month to date',m2(mtdRev)+'<small class="hs2-mut"> '+esc(curMain())+'</small>')}${kvx('ADR',m2(adr))}${kvx('RevPAR',m2(revpar))}${kvx('Departure balance',m2(depBal))}</div>`:''}
     </div>
-    <div class="hs2-col"><div class="hs2-card"><h2>Booking information</h2><div class="hs2-tabs" id="hsTabs">${hsTabs.map(t=>`<button type="button" class="hs2-tab ${t[0]===HSTAB?'on':''}" data-hst="${t[0]}">${t[1]} <b>${t[3]!=null?t[3]+'/'+t[2].length:t[2].length}</b></button>`).join('')}</div>
+    <div class="hs2-col"><div class="hs2-card"><h2>Booking information</h2><div class="hs2-tabs" id="hsTabs">${hsTabs.map(t=>`<button type="button" class="hs2-tab ${t[0]===HSTAB?'on':''}" data-hst="${t[0]}"><span class="hs2-tno"><b>${t[3]!=null?t[3]+'/'+t[2].length:t[2].length}</b><i class="hs2-tic">${mIc({arr:'arrin',dep:'arrout',ih:'bed',stay:'moon',pocc:'trend'}[t[0]]||'bed')}</i></span><span class="hs2-tlb">${t[1]}</span></button>`).join('')}</div>
      <div class="hs2-tw fix"><table id="hsLst"><thead><tr><th>Guest</th><th>RSVN#</th><th class="hs2-sm">Room type · rate</th><th>Room</th><th>Stay</th><th class="hs2-sm">Channel</th><th>Status</th><th></th></tr></thead><tbody>${hsRows(HSTAB,cur0[2])}</tbody></table></div></div>
      ${isFO?`<div class="hs2-card"><h2>Money received by shift</h2>${shiftRecv.length?`<div class="hs2-tw free"><table class="hs2-shift"><thead><tr><th></th>${shiftRecv.map(x=>`<th class="n">${esc(x.s.name)}</th>`).join('')}</tr></thead><tbody><tr><td>Cashier</td>${shiftRecv.map(x=>`<td class="n">${esc(x.s.userName||'')}</td>`).join('')}</tr><tr><td>Status</td>${shiftRecv.map(x=>`<td class="n ${x.s.status==='open'?'hs2-ok':'hs2-mut'}">${x.s.status==='open'?'Open':'Closed'}</td>`).join('')}</tr><tr><td><b>Received</b></td>${shiftRecv.map(x=>`<td class="n"><b>${m2(x.rec)}</b></td>`).join('')}</tr></tbody></table></div>`:'<div class="hs2-empty">No shift opened today.</div>'}</div>`:''}</div></div>
    <div class="hs2-row3"><div class="hs2-card"><h2>Occupancy by channel <span class="hs2-mut">· ${S.sal} salable rooms</span></h2><div class="hs2-tw free"><table><thead><tr><th>Channel</th><th class="n">Rooms</th><th class="n">%</th></tr></thead><tbody>${chRows}</tbody></table></div></div>
@@ -15032,7 +15042,7 @@ function screenRuleCheck(){
   if(restartDue(idleAnchor(),Date.now())){restartToMain();return}
   if(document.getElementById('idleLock'))return;
   const limit=idleLimitMs();
-  if(limit&&Date.now()-idleAnchor()>=limit)showIdleLock();
+  if(limit&&(DB.session.locked||Date.now()-idleAnchor()>=limit))showIdleLock();
 }
 function armIdle(){
   clearTimeout(_idle);
@@ -15044,9 +15054,9 @@ function armIdle(){
   const left=Math.max(1000,limit-(Date.now()-idleAnchor()));
   _idle=setTimeout(screenRuleCheck,left);
 }
-function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
+function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;DB.session.locked=true;try{writeLiveSession(DB.session)}catch(e){}const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   d.innerHTML=`<div class="panel pad"><h2>Screen locked</h2><p>Your shift stays open. Type your password to continue as <b>${esc(user().name)}</b>.</p><label class="f"><span>Password</span><input id="idlePw" type="password"></label><div class="err" id="idleE"></div><div class="btns"><button class="btn gold" id="idleGo">Unlock</button></div></div>`;
-  document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
+  document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();delete DB.session.locked;stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
   const go=()=>{const pw=$('#idlePw').value;
     if(MahaAuth.on()){const u=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),cur=MahaAuth.read();
       if(!u||!pw){$('#idleE').textContent='Password is not correct.';return}
@@ -15064,7 +15074,7 @@ function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session
   if(document.getElementById('idleLock'))return;
   if(!DB||!DB.session)return;
   const limit=idleLimitMs();
-  if(!sessionValid(DB.session)||restartDue(idleAnchor(),Date.now())||(limit&&Date.now()-idleAnchor()>=limit)){e.preventDefault();e.stopPropagation();screenRuleCheck();return}
+  if(!sessionValid(DB.session)||restartDue(idleAnchor(),Date.now())||(limit&&(DB.session.locked||Date.now()-idleAnchor()>=limit))){e.preventDefault();e.stopPropagation();screenRuleCheck();return}
   _activeAt=Date.now();touchLiveSession();armIdle();
 },true));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')screenRuleCheck()});
