@@ -36,3 +36,5 @@ console.log('one box ok');
 assert(src.includes('.selpg::after,.selpg.sp-expbg::after{z-index:0;top:0;bottom:0;height:auto}'),'sea strip at the bottom');
 assert(src.includes('.selpg .sp-sheet .sp-sys{grid-template-columns:repeat(2,minmax(0,1fr));max-width:780px')&&src.includes('.selpg .sp-sheet .sp-tile{min-height:250px'),'large Frontend and Backend tiles');
 console.log('tiles ok');
+assert(src.includes('.selpg .sp-tile::before,.selpg .sp-tile::after{display:none}'),'Frontend and Backend tiles have no logo shade');
+console.log('clean tiles ok');
