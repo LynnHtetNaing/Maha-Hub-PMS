@@ -25,6 +25,8 @@ const HOST_VARS = [
   ['PMS_HOST', { doc: { file: APP_FILE } }],
   ['CONSOLE_HOST', { doc: { file: APP_FILE } }],
   ['CRM_HOST', { doc: SYSTEM_DOC.crm }],
+  /* reserved for the hotel Sales: nothing is served there until that system exists */
+  ['SALES_HOST', { reserved: true }],
   ['CONNECT_HOST', { doc: SYSTEM_DOC.connect }],
   ['REACH_HOST', { doc: SYSTEM_DOC.reach }],
   ['BOOK_HOST', { doc: SYSTEM_DOC.booking }],
@@ -88,6 +90,7 @@ export default {
     /* a system's own address: "/" opens the system, no redirect; the files it needs load as usual */
     const own = hostDoc(host, env);
     if (own) {
+      if (own.reserved) return new Response('This address is not available yet.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
       if (bare === '/' || bare.toLowerCase() === '/index.html') return serveDoc(own.doc, request);
       /* a system's sign-in page: the same address, /signin (no redirect) */
       if (low === '/signin') return serveDoc({ file: APP_FILE }, request);

@@ -7,7 +7,7 @@ const T=(n,ok,x)=>{console.log((ok?'PASS ':'FAIL ')+n+(x?' | '+x:''));if(!ok)fai
 const W=(await import(require('url').pathToFileURL(path.resolve('workers/maha-hub-pms/src/index.js')).href)).default;
 const ASSETS={fetch:async r=>new Response('asset:'+new URL(r.url).pathname,{headers:{'content-type':'text/html'}})};
 const call=(u,env)=>W.fetch(new Request(u,{redirect:'manual'}),Object.assign({ASSETS},env||{}));
-const ON={MAIN_HOST:'solutions.maha-hub.com',PMS_HOST:'pms.maha-hub.com',CRM_HOST:'crm.maha-hub.com',CONSOLE_HOST:'console.maha-hub.com',CONNECT_HOST:'',REACH_HOST:'',BOOK_HOST:''};
+const ON={MAIN_HOST:'solutions.maha-hub.com',PMS_HOST:'pms.maha-hub.com',CRM_HOST:'crm.maha-hub.com',SALES_HOST:'sales.maha-hub.com',CONSOLE_HOST:'console.maha-hub.com',CONNECT_HOST:'',REACH_HOST:'',BOOK_HOST:''};
 let r=await call('https://solutions.maha-hub.com/',ON);T('Main address: / is the Main page, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
 r=await call('https://pms.maha-hub.com/',ON);T('PMS address: / is the PMS, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
 r=await call('https://console.maha-hub.com/?x=1',ON);T('Provider console address: / opens the app, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
@@ -17,6 +17,8 @@ r=await call('https://crm.maha-hub.com/signin',ON);T('Company Sales address: /si
 r=await call('https://pms.maha-hub.com/brand/maha/pms-icon-192.png',ON);T('pictures and files still load',(await r.text())==='asset:/brand/maha/pms-icon-192.png');
 for(const [h,p] of [['pms.maha-hub.com','/solutions'],['pms.maha-hub.com','/solutions-PMS'],['solutions.maha-hub.com','/ecosystem/Sales/'],['crm.maha-hub.com','/solutions']]){
   r=await call('https://'+h+p,ON);T('old paths are not served on '+h+p+' (404, not a redirect)',r.status===404);}
+r=await call('https://sales.maha-hub.com/',ON);T('the hotel Sales address is reserved: not available yet, never the website, never the company Sales',r.status===404&&!(await r.text()).includes('asset:'));
+r=await call('https://sales.maha-hub.com/crm/index.html',ON);T('and no file of the company Sales is served there',r.status===404);
 r=await call('https://connect.maha-hub.com/',ON);T('an address that is switched off (empty setting) is just the website files',(await r.text())==='asset:/');
 r=await call('https://maha-hub.com/solutions',ON);T('the website address keeps the old paths (test copies and previews work)',(await r.text())==='asset:/ecosystem/');
 r=await call('https://maha-hub.com/',ON);T('the website address / is a file, no redirect',r.status===200);
