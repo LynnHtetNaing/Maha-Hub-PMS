@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="b7b38410e4">
+<meta name="maha-build" content="eee06b7ae9">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7617,7 +7617,7 @@ const MENU=[
 const PROV_MENU=[
  {t:'Hotels',items:[['Hotels','prov.home'],['Hotels list','prov.hotels']]},
  {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup']]},
- {t:'Team & records',items:[['Admin team','prov.team'],['Sales team','prov.crmteam'],['Company Sales','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
+ {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
@@ -8634,7 +8634,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
    else if(DB.session&&VIEW&&VIEW!=='sys.pick'&&!(VIEW===v&&sameArg(VARG,arg))){const t=NAVSTACK[NAVSTACK.length-1];if(!(t&&t.v===VIEW&&sameArg(t.a,VARG))){NAVSTACK.push({v:VIEW,a:VARG});if(NAVSTACK.length>40)NAVSTACK.shift()}}}
   if(v==='res.open'&&!go.keepBack)resBack='res.list';go.keepBack=false;
   if(v==='prov.enter'){if(H&&DB.session&&DB.session.provider&&!DB.session.inHotel)enterHotel(H.code);return}
-  if(v==='prov.crm'){closeMenus();openApp(crmUrl(),'Maha Sales');return}   /* the company Sales is separate software with its own sign-in; it opens in its own tab */
+  if(v==='prov.crm'){closeMenus();openApp(crmUrl(),'CRM');return}   /* the company Sales is separate software with its own sign-in; it opens in its own tab */
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
@@ -13432,16 +13432,16 @@ VIEWS['prov.team']=async el=>{
       catch(err){toast(ProvAdmin.msg(err))}}};
 };
 VIEWS['prov.crmteam']=async el=>{
-  if(adminOnlyMaster(el,'Sales team'))return;
-  el.innerHTML=pageHead('Sales team')+'<div class="empty">Loading...</div>';
-  let list;try{const d=await ProvAdmin.call({action:'crm_list'});list=(d&&d.members)||[]}catch(e){if(el.isConnected)el.innerHTML=pageHead('Sales team')+'<div class="empty">The team could not be loaded now. Try again in a moment.</div>';return}
+  if(adminOnlyMaster(el,'CRM team'))return;
+  el.innerHTML=pageHead('CRM team')+'<div class="empty">Loading...</div>';
+  let list;try{const d=await ProvAdmin.call({action:'crm_list'});list=(d&&d.members)||[]}catch(e){if(el.isConnected)el.innerHTML=pageHead('CRM team')+'<div class="empty">The team could not be loaded now. Try again in a moment.</div>';return}
   if(!el.isConnected||VIEW!=='prov.crmteam')return;
   const rows=list.map(a=>`<tr><td><b>${esc(a.username)}</b></td><td>${esc(a.name||'')}</td><td>${esc(a.email||'')}</td><td><span class="tpill ${a.active?'tp-a':'tp-o'}">${a.active?'Active':'Off'}</span></td>
      <td><div class="tmact">${a.active?`<button type="button" class="btn ghost" data-off="${esc(a.username)}">Turn off</button>`:`<button type="button" class="btn ghost" data-on="${esc(a.username)}">Turn on</button>`}<button type="button" class="btn ghost" data-re="${esc(a.username)}">Send password link</button></div></td></tr>`).join('')||'<tr><td colspan="5" class="tmmut">Nobody yet. Add the first person of the sales team.</td></tr>';
-  el.innerHTML=pageHead('Sales team')+`<div class="panel tmpanel"><div class="tmph"><span>Sales team</span><button type="button" class="btn" id="tmInv">Add person</button></div>
+  el.innerHTML=pageHead('CRM team')+`<div class="panel tmpanel"><div class="tmph"><span>CRM team</span><button type="button" class="btn" id="tmInv">Add person</button></div>
    <div class="tmtw"><table class="tmt"><thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   const again=()=>VIEWS['prov.crmteam'](el);
-  const run=async(body,logText,okMsg)=>{try{await ProvAdmin.call(body);ALOG.add('','Sales team',logText);ALOG.send();if(okMsg)toast(okMsg);again()}catch(e){toast(ProvAdmin.msg(e))}};
+  const run=async(body,logText,okMsg)=>{try{await ProvAdmin.call(body);ALOG.add('','CRM team',logText);ALOG.send();if(okMsg)toast(okMsg);again()}catch(e){toast(ProvAdmin.msg(e))}};
   $$('[data-off]',el).forEach(b=>b.onclick=async()=>{const u=b.dataset.off;if(await dlgConfirm('Turn off '+u+'? They are signed out of the company Sales and cannot sign in until you turn them on.',{yes:'Turn off',danger:true}))run({action:'crm_set_active',username:u,active:false},'Turned off '+u,u+' is off.')});
   $$('[data-on]',el).forEach(b=>b.onclick=()=>run({action:'crm_set_active',username:b.dataset.on,active:true},'Turned on '+b.dataset.on,b.dataset.on+' is on.'));
   $$('[data-re]',el).forEach(b=>b.onclick=()=>run({action:'crm_reset_password',username:b.dataset.re},'Sent a password link to '+b.dataset.re,'Password link sent.'));
@@ -13455,7 +13455,7 @@ VIEWS['prov.crmteam']=async el=>{
       if(!n){toast('Enter the name.');return}
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){toast('Enter a valid email.');return}
       try{const d=await ProvAdmin.call({action:'crm_add_member',username:u,name:n,email:e});
-        closeModal(m);ALOG.add('','Sales team','Added '+u);ALOG.send();
+        closeModal(m);ALOG.add('','CRM team','Added '+u);ALOG.send();
         toast(d&&d.invitation_sent===false?'Person added, but the email was not sent. Use Send password link.':'Invite sent to '+e+'.');again()}
       catch(err){toast(ProvAdmin.msg(err))}}};
 };
