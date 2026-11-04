@@ -20,5 +20,5 @@ assert(/\.eco-shell\.is-signin \.eco-hero\{display:none\}/.test(src)&&/\.eco-she
 assert(/id="lgMode2"/.test(src),'Light/Dark button inside the sign-in box');
 assert(/\.eco-shell\.eco-dk:not\(\.is-signin\) \.eco-hero::after\{background:#8fe0bf;opacity:\.08\}/.test(src),'softer Dark pagoda');
 assert(/\.eco-lockup img\{width:44px;height:auto;filter:brightness\(\.55\)/.test(src),'stronger logo on the light box');
-assert(/\.selpg \.sp-top\{position:absolute;top:14px;right:18px;/.test(src)&&/\.selpg \.sp-top \.sp-logo,\.selpg \.sp-right>span\{display:none\}/.test(src)&&/\.selpg \.sp-body\{max-width:1040px;margin:8vh auto 40px;padding:28px 32px;background:#eceff0/.test(src),'after sign-in: no top bar, one box');
+assert(/\.selpg \.sp-top\{position:absolute;top:14px;right:18px;/.test(src)&&/\.selpg \.sp-top \.sp-logo,\.selpg \.sp-right>span\{display:none\}/.test(src)&&/\.selpg \.sp-body\{width:min(1040px,100% - 28px);max-width:1040px;margin:auto;padding:28px 32px;background:#eceff0/.test(src),'after sign-in: no top bar, one box');
 console.log('sign-in box ok');
