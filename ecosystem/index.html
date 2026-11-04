@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="da2578d9e8">
+<meta name="maha-build" content="2b918db28e">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4170,7 +4170,7 @@ const ChainInfo={data:null,loading:null,
   clear(){this.data=null}};
 /* Account administration is done only by the provider, on the server. */
 const ProvAdmin={
-  msgs:{username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.',already_deleted:'This hotel is already in the Recycle bin.',not_restorable:'This hotel can no longer be restored.',not_deleted:'Only a hotel in the Recycle bin can be deleted permanently.',recycle_failed:'The server could not complete this. Nothing was changed. Try again.',master_only:'Only the Master admin can do this.',admin_not_found:'That admin was not found.',master_protected:'The Master admin cannot be changed.',chain_code_taken:'This chain code is already used.',chain_not_found:'That chain was not found.',staff_shared:'Some people work at this hotel and at another hotel of its chain. Remove their access to one of them first.',already_there:'The hotel is already there.',hotel_deleted:'This hotel is in the Recycle bin.',different_chain:'This person works in another chain. A person can only open hotels of one chain.',chain_failed:'The server could not complete this. Nothing was changed. Try again.',start_too_low:'The starting number cannot be lower than the highest number already issued.',invoice_format_failed:'The server could not save the tax invoice reference. Nothing was changed. Try again.'},
+  msgs:{member_not_found:'That person is not on the sales team.',username_taken:'This username is already used.',property_code_taken:'This hotel code is already used.',account_create_failed:'An account with that email already exists, or the email is not valid.',forbidden:'You do not have permission for this.',mfa_required:'Sign out and sign in again, then enter your 6-digit code.',mfa_enrollment_required:'Sign out and sign in again to set up your two-step sign-in.',staff_not_found:'That staff account was not found.',property_not_found:'That hotel is not in the cloud yet.',duplicate_property_or_username:'That hotel code or username is already used.',invalid_fields:'Check the fields and try again.',ban_update_failed:'Access was changed, but the sign-in lock could not be updated. Try again.',already_deleted:'This hotel is already in the Recycle bin.',not_restorable:'This hotel can no longer be restored.',not_deleted:'Only a hotel in the Recycle bin can be deleted permanently.',recycle_failed:'The server could not complete this. Nothing was changed. Try again.',master_only:'Only the Master admin can do this.',admin_not_found:'That admin was not found.',master_protected:'The Master admin cannot be changed.',chain_code_taken:'This chain code is already used.',chain_not_found:'That chain was not found.',staff_shared:'Some people work at this hotel and at another hotel of its chain. Remove their access to one of them first.',already_there:'The hotel is already there.',hotel_deleted:'This hotel is in the Recycle bin.',different_chain:'This person works in another chain. A person can only open hotels of one chain.',chain_failed:'The server could not complete this. Nothing was changed. Try again.',start_too_low:'The starting number cannot be lower than the highest number already issued.',invoice_format_failed:'The server could not save the tax invoice reference. Nothing was changed. Try again.'},
   msg(e){if(e&&this.msgs[e.message])return this.msgs[e.message];if(e&&e.message==='AUTH_REQUIRED')return 'Your cloud sign-in has expired. Sign out, sign in again, then try again.';return 'The server could not complete this. Nothing was changed. Try again.'+(e&&e.message?' ('+String(e.message).slice(0,60)+')':'')},
   async call(body){
     const t=await MahaAuth.fresh();if(!t)throw new Error('AUTH_REQUIRED');
@@ -7617,7 +7617,7 @@ const MENU=[
 const PROV_MENU=[
  {t:'Hotels',items:[['Hotels','prov.home'],['Hotels list','prov.hotels']]},
  {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup']]},
- {t:'Team & records',items:[['Admin team','prov.team'],['Company Sales','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
+ {t:'Team & records',items:[['Admin team','prov.team'],['Sales team','prov.crmteam'],['Company Sales','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
@@ -7871,12 +7871,12 @@ function cancelUserModal(u,done){
       accessNote(u,t,user().name);H.amend.unshift({at:Date.now(),user:user().name,what:t+' – '+u.username,reason:'Cancel user'});provLog('Cancelled user '+u.username+' ('+reason+')');saveDB();closeModal(m);done();toast(u.username+' is cancelled. They can no longer sign in.')};
     if(MahaAuth.on()){$('#cuE',m).textContent='Cutting access…';ProvAdmin.call({action:'set_active',username:u.username,active:false}).then(apply,err=>{$('#cuE',m).textContent=ProvAdmin.msg(err)})}else apply()}}
 function hubBaseUrl(){const u=new URL(location.href);let path=u.pathname.replace(/index\.html?$/i,'');path=path.replace(/\/(?:ecosystem(?:\/(?:PMS|Reach|Connect|Booking|Sales))?|solutions(?:-(?:PMS|Reach|Connect|Booking|Sales))?(?:\.html?)?)\/?$/i,'/');if(!path.endsWith('/'))path+='/';return u.origin+path}
-function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book:'Booking',sales:'Sales',crm:'CRM'}[kind]||''}
+function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book:'Booking',sales:'Sales'}[kind]||''}
 /* Addresses: the Main page is /solutions and the PMS is /solutions-PMS. The other systems keep /ecosystem/<System>/. The old /ecosystem/ and /ecosystem/PMS/ still open and move to the new address. */
 /* Every system has its own address (see the Worker) and nothing is redirected: the Main page, Maha PMS, Maha Sales, the other systems and the Provider console.
    A person signed in on one address arrives signed in on the next: the page hands the sign-in over in the # part of the address (a browser never sends it to any server),
    and the next page takes it and clears it at once. Addresses that are not in this list (a test copy, localhost) keep the old paths. */
-const SYS_HOSTS={main:'solutions.maha-hub.com',hub:'pms.maha-hub.com',sales:'sales.maha-hub.com',crm:'crm.maha-hub.com',console:'console.maha-hub.com',connect:'connect.maha-hub.com',book:'booking.maha-hub.com',reach:'reach.maha-hub.com'};
+const SYS_HOSTS={main:'solutions.maha-hub.com',hub:'pms.maha-hub.com',sales:'sales.maha-hub.com',console:'console.maha-hub.com',connect:'connect.maha-hub.com',book:'booking.maha-hub.com',reach:'reach.maha-hub.com'};
 function hostRole(h){h=String(h||location.hostname||'').toLowerCase();for(const k in SYS_HOSTS)if(SYS_HOSTS[k]===h)return k;return ''}
 function onSplitHost(){return !!hostRole()}
 function mainUrl(){return onSplitHost()?'https://'+SYS_HOSTS.main+'/':appPrefix()+'/solutions'}
@@ -7890,14 +7890,15 @@ function ecosystemDir(){return appPrefix()+'/ecosystem/'}
    those systems look for it and send everybody else to the sign-in page. */
 /* Release gate: a system that is not yet open for sale and distribution cannot be opened from anywhere (the Main page, the switcher, a typed address,
    an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
-const RELEASED_SYSTEMS=['hub'];   /* the hotel Sales is not built yet. The company Sales ('crm') is not a hotel system at all: only a provider account opens it, from the Provider console */
+const RELEASED_SYSTEMS=['hub'];   /* the hotel Sales is not built yet. The company Sales is separate software at crm.maha-hub.com with its own sales team and sign-in: it is not a hotel system and is not part of this page */
 function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
 /* The note under a system in Provider › Systems follows the system's state and whether it is released */
 function sysNote(kind,open){const rel=RELEASED_SYSTEMS.includes(kind);return rel?(open?'Open: hotel staff can use it.':'Closed: hidden from hotel staff.'):(open?'Open for this hotel, but not released yet: staff cannot use it until the release.':'Closed. Not released yet.')}
-function sysAllowed(kind){if(kind==='crm')return isOwnerSession();if(kind==='sales')return false;return RELEASED_SYSTEMS.includes(kind)||isOwnerSession()}
-const ENTRY_KINDS=['connect','reach','sales','book','crm'];
+function sysAllowed(kind){if(kind==='sales')return false;return RELEASED_SYSTEMS.includes(kind)||isOwnerSession()}
+const ENTRY_KINDS=['connect','reach','sales','book'];
 function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
 function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
+function crmUrl(){return /(^|\.)maha-hub\.com$/.test(location.hostname)?'https://crm.maha-hub.com/':appPrefix()+'/crm/'}
 function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';
   if(onSplitHost()&&SYS_HOSTS[kind])return 'https://'+SYS_HOSTS[kind]+'/'+q+(kind==='hub'||ENTRY_KINDS.includes(kind)?handoverHash(kind):'');
   return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
@@ -8631,7 +8632,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
    else if(DB.session&&VIEW&&VIEW!=='sys.pick'&&!(VIEW===v&&sameArg(VARG,arg))){const t=NAVSTACK[NAVSTACK.length-1];if(!(t&&t.v===VIEW&&sameArg(t.a,VARG))){NAVSTACK.push({v:VIEW,a:VARG});if(NAVSTACK.length>40)NAVSTACK.shift()}}}
   if(v==='res.open'&&!go.keepBack)resBack='res.list';go.keepBack=false;
   if(v==='prov.enter'){if(H&&DB.session&&DB.session.provider&&!DB.session.inHotel)enterHotel(H.code);return}
-  if(v==='prov.crm'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open the company Sales.');return}closeMenus();openApp(sysUrl('crm',H),'Maha Sales, Company');return}   /* the company Sales opens in its own tab; this page stays */
+  if(v==='prov.crm'){closeMenus();openApp(crmUrl(),'Maha Sales');return}   /* the company Sales is separate software with its own sign-in; it opens in its own tab */
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
@@ -8691,14 +8692,14 @@ function showLogin(msg){
   try{applySkin()}catch(e){}   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme */
   if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
-  if(hostRole()==='console'||hostRole()==='crm')lgProvider=true;
+  if(hostRole()==='console')lgProvider=true;
   if(IS_APP&&!lgProvider)lgTargetSys='hub';
   document.body.classList.add('eco-noscroll');
   const preview=ecoPreviewHotel();shapeHotel(preview);
   if(lgTargetSys&&!hotelSystems(preview,null).some(s=>s.kind===lgTargetSys&&s.released))lgTargetSys=null;
   try{applySysPath(lgTargetSys||null)}catch(e){}
   const lgOpen=!!(lgTargetSys||lgProvider), lgChosen=!!lgTargetSys;
-  document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'||hostRole()==='crm'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${lgDark()?' eco-dk':''}">
+  document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${lgDark()?' eco-dk':''}">
   <section class="eco-hero" style="--eco-photo:url('${ECO_HERO}')" aria-label="Maha Hub ecosystem">
     <div class="eco-hero-bg" aria-hidden="true"></div>
     <div class="eco-leaves" aria-hidden="true"></div>
@@ -8774,7 +8775,7 @@ function showLogin(msg){
     if(lede)lede.hidden=picked;
     if(title)title.textContent=picked?'Maha Solutions':'Choose your system';
     const hi=$('#lgTitle'),sico=$('#lgSysIco');
-    if(hi)hi.textContent='Sign in to '+(lgTargetSys?ecoSysLabel(lgTargetSys):hostRole()==='crm'?'Maha Sales, Company':hostRole()==='console'?'the Provider console':'Maha Hub');
+    if(hi)hi.textContent='Sign in to '+(lgTargetSys?ecoSysLabel(lgTargetSys):hostRole()==='console'?'the Provider console':'Maha Hub');
     if(sico){const row=lgTargetSys&&hotelSystems(ecoPreviewHotel(),null).find(x=>x.kind===lgTargetSys);sico.dataset.k=lgTargetSys||'';sico.innerHTML=lgTargetSys?ecoCardSvg((row&&row.tone)||lgTargetSys):''}
   };
   const syncSelect=()=>{
@@ -8898,7 +8899,7 @@ function doLogin(){
       if(btn)btn.disabled=false;
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
       err.textContent='';try{PlatSet.begin()}catch(e){}   /* the shared codes and logos load in the background; the screen updates when they arrive */
-      if(r.provider){const want=lgTargetSys;enterProvider(un,r.userId);if(hostRole()==='crm'){location.assign(sysUrl('crm',H))}else if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
+      if(r.provider){const want=lgTargetSys;enterProvider(un,r.userId);if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
   }
@@ -8926,7 +8927,7 @@ function doLogin(){
   };
   {const aw=accessWhy(u);if(aw){if(MahaAuth.on())MahaAuth.signOut();err.textContent=accessMsg(aw);return}}
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Maha Hub support.';return}
-  if(hostRole()==='console'||hostRole()==='crm'){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This address is for the provider only.';return}
+  if(hostRole()==='console'){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This address is for the provider only.';return}
   if(lgTargetSys&&!hotelSystems(h,u).some(x=>x.kind===lgTargetSys&&x.open)){if(MahaAuth.on())MahaAuth.signOut();err.textContent=ecoSysLabel(lgTargetSys)+' is not open for your account.';return}   /* no code, no other system: just not allowed */
   fails=0;H=h;const flexS=ruleOnStrict(h,'flexibleShiftLogin');let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open'&&(!flexS||x.name===lgShift));
   try{localStorage.setItem('maha.shiftless.'+String(u.username||'').toLowerCase(),shiftless(u)?'1':'0')}catch(e){}   /* the next sign-in page already knows whether to show the shift and cash boxes */
@@ -13343,7 +13344,7 @@ function chainListPanel(el,after){
 /* ================= Admin team (Master admin only) and Admin logs =================
    The Master admin (the original owner sign-in) invites other admins, switches them on or off and chooses their hotels.
    Every action of every admin is also saved in the cloud (Admin logs), with the real sign-in name; only the Master reads them. */
-const MASTER_VIEWS=['prov.team','prov.adminlogs'];
+const MASTER_VIEWS=['prov.team','prov.crmteam','prov.adminlogs'];
 let _provMaster=null,_pmAsked='';
 function provMaster(){const se=DB&&DB.session;if(!se||!se.provider)return false;if(!MahaAuth.on())return true;return _provMaster===true}
 async function provMasterLoad(){
@@ -13426,6 +13427,34 @@ VIEWS['prov.team']=async el=>{
       try{const d=await ProvAdmin.call({action:'invite_admin',username:u,name:n,email:e,all_hotels:all,hotels:all?[]:codes});
         closeModal(m);ALOG.add('','Admin team','Invited '+u+' ('+(all?'all hotels':codes.join(', '))+')');ALOG.send();
         toast(d&&d.invitation_sent===false?'Admin created, but the email was not sent. Use Resend invite.':'Invite sent to '+e+'.');again()}
+      catch(err){toast(ProvAdmin.msg(err))}}};
+};
+VIEWS['prov.crmteam']=async el=>{
+  if(adminOnlyMaster(el,'Sales team'))return;
+  el.innerHTML=pageHead('Sales team')+'<div class="empty">Loading...</div>';
+  let list;try{const d=await ProvAdmin.call({action:'crm_list'});list=(d&&d.members)||[]}catch(e){if(el.isConnected)el.innerHTML=pageHead('Sales team')+'<div class="empty">The team could not be loaded now. Try again in a moment.</div>';return}
+  if(!el.isConnected||VIEW!=='prov.crmteam')return;
+  const rows=list.map(a=>`<tr><td><b>${esc(a.username)}</b></td><td>${esc(a.name||'')}</td><td>${esc(a.email||'')}</td><td><span class="tpill ${a.active?'tp-a':'tp-o'}">${a.active?'Active':'Off'}</span></td>
+     <td><div class="tmact">${a.active?`<button type="button" class="btn ghost" data-off="${esc(a.username)}">Turn off</button>`:`<button type="button" class="btn ghost" data-on="${esc(a.username)}">Turn on</button>`}<button type="button" class="btn ghost" data-re="${esc(a.username)}">Send password link</button></div></td></tr>`).join('')||'<tr><td colspan="5" class="tmmut">Nobody yet. Add the first person of the sales team.</td></tr>';
+  el.innerHTML=pageHead('Sales team')+`<div class="panel tmpanel"><div class="tmph"><span>Sales team</span><button type="button" class="btn" id="tmInv">Add person</button></div>
+   <div class="tmtw"><table class="tmt"><thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  const again=()=>VIEWS['prov.crmteam'](el);
+  const run=async(body,logText,okMsg)=>{try{await ProvAdmin.call(body);ALOG.add('','Sales team',logText);ALOG.send();if(okMsg)toast(okMsg);again()}catch(e){toast(ProvAdmin.msg(e))}};
+  $$('[data-off]',el).forEach(b=>b.onclick=async()=>{const u=b.dataset.off;if(await dlgConfirm('Turn off '+u+'? They are signed out of the company Sales and cannot sign in until you turn them on.',{yes:'Turn off',danger:true}))run({action:'crm_set_active',username:u,active:false},'Turned off '+u,u+' is off.')});
+  $$('[data-on]',el).forEach(b=>b.onclick=()=>run({action:'crm_set_active',username:b.dataset.on,active:true},'Turned on '+b.dataset.on,b.dataset.on+' is on.'));
+  $$('[data-re]',el).forEach(b=>b.onclick=()=>run({action:'crm_reset_password',username:b.dataset.re},'Sent a password link to '+b.dataset.re,'Password link sent.'));
+  $('#tmInv',el).onclick=()=>{
+    const m=modal('Add to the sales team',`<label class="f"><span>Username</span><input id="tmU" autocomplete="off" spellcheck="false" autofocus></label><label class="f"><span>Name</span><input id="tmN" autocomplete="off"></label><label class="f"><span>Email</span><input id="tmE" type="email" autocomplete="off"></label>
+      <div class="btns end tmbtns"><button type="button" class="btn ghost" data-x>Cancel</button><button type="button" class="btn" data-s>Send invite</button></div>`,{w:520,cls:'dlg tmdlg'});
+    m.querySelector('[data-x]').onclick=()=>closeModal(m);
+    m.querySelector('[data-s]').onclick=async()=>{
+      const u=$('#tmU',m).value.trim(),n=$('#tmN',m).value.trim(),e=$('#tmE',m).value.trim();
+      if(!/^[A-Za-z0-9._-]{3,40}$/.test(u)){toast('The username needs 3 to 40 letters, numbers, dots or dashes.');return}
+      if(!n){toast('Enter the name.');return}
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){toast('Enter a valid email.');return}
+      try{const d=await ProvAdmin.call({action:'crm_add_member',username:u,name:n,email:e});
+        closeModal(m);ALOG.add('','Sales team','Added '+u);ALOG.send();
+        toast(d&&d.invitation_sent===false?'Person added, but the email was not sent. Use Send password link.':'Invite sent to '+e+'.');again()}
       catch(err){toast(ProvAdmin.msg(err))}}};
 };
 VIEWS['prov.adminlogs']=async el=>{

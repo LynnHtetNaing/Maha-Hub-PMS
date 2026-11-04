@@ -40,17 +40,17 @@ e=mk('solutions.maha-hub.com','/');T('Main page links: PMS goes to pms., Sales t
 T('Main address is mainUrl()',mk('pms.maha-hub.com','/').mainUrl()==='https://solutions.maha-hub.com/');
 e=mk('pms.maha-hub.com','/',{hotel:'PAD01',provider:true});
 e.env.sessionStorage.setItem('mahahub.sess',JSON.stringify({hotel:'PAD01',provider:true}));e.env.sessionStorage.setItem('mahahub.sbauth','{"access_token":"a","refresh_token":"r"}');
-const u=e.sysUrl('crm',{code:'PAD01'});
-T('the Provider console opens the company Sales on crm. with a hand-over in the # part',u.startsWith('https://crm.maha-hub.com/?hotel=PAD01#mh=')&&!u.split('#')[0].includes('mh='));
+const u=e.sysUrl('reach',{code:'PAD01'});
+T('opening a gated system goes to its address with a hand-over in the # part',u.startsWith('https://reach.maha-hub.com/?hotel=PAD01#mh=')&&!u.split('#')[0].includes('mh='));
 const h=u.split('#mh=')[1];
 const o=JSON.parse(decodeURIComponent(escape(Buffer.from(h.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('binary'))));
-T('the hand-over carries the sign-in and the Sales ticket',JSON.parse(o.s).hotel==='PAD01'&&o.a.includes('access_token')&&JSON.parse(o.e.crm).owner===true);
-T('the company Sales gets the access token only, never the refresh token',JSON.parse(o.a).access_token==='a'&&!('refresh_token' in JSON.parse(o.a)));
+T('the hand-over carries the sign-in and the Sales ticket',JSON.parse(o.s).hotel==='PAD01'&&o.a.includes('access_token')&&JSON.parse(o.e.reach).owner===true);
+T('another system gets the access token only, never the refresh token',JSON.parse(o.a).access_token==='a'&&!('refresh_token' in JSON.parse(o.a)));
 T('the PMS link carries the sign-in too, with its refresh token',(()=>{const u2=e.sysUrl('hub',{code:'PAD01'}),h2=u2.split('#mh=')[1],o2=JSON.parse(decodeURIComponent(escape(Buffer.from(h2.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('binary'))));return JSON.parse(o2.a).refresh_token==='r'})());
 /* the receiving PMS page */
 const r2=mk('pms.maha-hub.com','/');r2.env.sessionStorage.setItem('maha.handover',JSON.stringify(o));r2.takeHandover();
-T('the next page takes the hand-over once: sign-in and ticket are saved, the parcel is cleared',JSON.parse(r2.sess['mahahub.sess']).hotel==='PAD01'&&r2.sess['mahahub.sbauth'].includes('access_token')&&!!r2.store['mahahub.entry.crm']&&!('maha.handover' in r2.sess));
-const n=mk('pms.maha-hub.com','/',null);T('nobody signed in: no hand-over is made',n.sysUrl('crm',{code:'X'}).indexOf('#mh=')===-1);
+T('the next page takes the hand-over once: sign-in and ticket are saved, the parcel is cleared',JSON.parse(r2.sess['mahahub.sess']).hotel==='PAD01'&&r2.sess['mahahub.sbauth'].includes('access_token')&&!!r2.store['mahahub.entry.reach']&&!('maha.handover' in r2.sess));
+const n=mk('pms.maha-hub.com','/',null);T('nobody signed in: no hand-over is made',n.sysUrl('reach',{code:'X'}).indexOf('#mh=')===-1);
 T('hand-over junk is ignored (only plain keys are written)',(()=>{const x=mk('pms.maha-hub.com','/');x.env.sessionStorage.setItem('maha.handover',JSON.stringify({e:{'../x':'1',ok:'2'}}));x.takeHandover();return !('mahahub.entry.../x' in x.store)&&x.store['mahahub.entry.ok']==='2'})());
 /* pages */
 T('the app takes the hand-over before it reads the saved sign-in',/function applyLiveSession\(\)\{\r?\n  if\(!DB\)return;\r?\n  takeHandover\(\);/.test(src));
@@ -59,8 +59,8 @@ T('on the Main address a pick opens that system address',src.includes("if(hostRo
 T('Sales address /signin is the Sales sign-in',src.includes("r==='hub'||r==='sales'||r==='connect'||r==='book'||r==='reach'?r:null"));
 T('a system not open for the person is refused right after the password, no code and no other system',src.includes("is not open for your account.';return}   /* no code, no other system: just not allowed */"));
 T('the provider address refuses hotel staff',src.includes("This address is for the provider only."));
-T('the console address is the provider sign-in',src.includes("if(hostRole()==='console'||hostRole()==='crm')lgProvider=true;"));
-for(const f of ['crm','connect','reach','book']){const p=fs.readFileSync(f+'/index.html','utf8');
+T('the console address is the provider sign-in',src.includes("if(hostRole()==='console')lgProvider=true;"));
+for(const f of ['connect','reach','book']){const p=fs.readFileSync(f+'/index.html','utf8');
   T(f+': takes the hand-over, and a visitor not signed in goes to /signin on the same address',p.includes("var hm=/^#mh=")&&p.includes("?'/signin':'/solutions'"))}
 for(const f of ['platform-admin-provision','tenant-cloud','username-auth']){const p=fs.readFileSync('supabase/functions/'+f+'/index.ts','utf8');
   T(f+': answers every system address',['solutions','pms','crm','console'].every(s=>p.includes('https://'+s+'.maha-hub.com')));}

@@ -1,4 +1,4 @@
--- Provider Sales records: only a platform admin can read or write, no hotel and nobody anonymous, nothing is deleted for real.
+-- Company Sales records: a platform admin (and, after migration 033, the active sales team) can read or write; no hotel, nobody anonymous; nothing is deleted for real.
 -- Assertions only; run after 20261105_032_sales_records.sql.
 DO $$
 DECLARE
@@ -25,7 +25,7 @@ BEGIN
   LOOP
     seen := seen + 1;
     IF (p.using_expr || p.check_expr) NOT LIKE '%maha_is_platform_admin%' OR (p.using_expr || p.check_expr) LIKE '%maha_can_access_property%' THEN
-      RAISE EXCEPTION 'policy % must allow a platform admin only', p.polname;
+      RAISE EXCEPTION 'policy % must allow a platform admin (and, after migration 033, the sales team) only', p.polname;
     END IF;
   END LOOP;
   IF seen <> 3 THEN
