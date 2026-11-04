@@ -1,7 +1,7 @@
 /* Provider Sales cloud copy: push, pull, tombstones, a waiting change wins, token refresh. No network: the cloud table is a small in-memory stand-in.
-     node tests/sync/salescloud-test.js ecosystem/index.html   (the argument is ignored; it reads sales/index.html) */
+     node tests/sync/salescloud-test.js ecosystem/index.html   (the argument is ignored; it reads crm/index.html) */
 const fs = require('fs'), path = require('path'), vm = require('vm');
-const src = fs.readFileSync(path.resolve(__dirname, '..', '..', 'sales', 'index.html'), 'utf8');
+const src = fs.readFileSync(path.resolve(__dirname, '..', '..', 'crm', 'index.html'), 'utf8');
 let fails = 0; const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++ };
 const a = src.indexOf('const Cloud = (() => {'), b = src.indexOf('/* ================= BOOT');
 if (a < 0 || b < 0) { console.log('FAIL code not found'); process.exit(1) }
@@ -24,7 +24,7 @@ function device(table, opt = {}) {
     if (/limit=1$/.test(url) && !m) rows = rows.slice(0, 1);
     return json(rows);
   };
-  const env = { R: opt.R || [], db: null, location: { hostname: 'sales.maha-hub.com' }, localStorage: ls, sessionStorage: ss, fetch, Date, JSON, Math, Promise, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, encodeURIComponent, decodeURIComponent, console,
+  const env = { R: opt.R || [], db: null, location: { hostname: 'crm.maha-hub.com' }, localStorage: ls, sessionStorage: ss, fetch, Date, JSON, Math, Promise, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, encodeURIComponent, decodeURIComponent, console,
     document: { getElementById: () => null, addEventListener() {}, hidden: false }, window: { addEventListener() {} }, rerender() { env.rerendered = true }, confirm: () => opt.confirm !== false, rerendered: false };
   env.byId = id => env.R.find(r => r.id === id);
   env.store = () => ({ put() {}, delete() {} });

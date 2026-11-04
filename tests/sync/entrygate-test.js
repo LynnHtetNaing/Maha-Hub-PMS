@@ -14,7 +14,7 @@ T('no website page links to a system (only to the Main sign-in page /solutions)'
 T('the Products page has a plain Sign in for every product, going to /solutions', (read('products.html').match(/href="\/solutions">Sign in<\/a>/g) || []).length >= 5);
 T('the website generator no longer holds system addresses', !/ecosystem\/(Connect|Booking|Reach|Sales)/.test(read('website/build.mjs')));
 const robots = read('robots.txt');
-T('search engines are told to stay out of the systems', ['/ecosystem/', '/reach/', '/connect/', '/sales/', '/edc-link/'].every(p => robots.includes('Disallow: ' + p)));
+T('search engines are told to stay out of the systems', ['/ecosystem/', '/reach/', '/connect/', '/sales/', '/crm/', '/edc-link/'].every(p => robots.includes('Disallow: ' + p)));
 
 /* 2. the gate in each system, run for real */
 function runGate(kind, { ticket, search = '', now = 1e12, fresh = false } = {}) {
@@ -33,7 +33,7 @@ function runGate(kind, { ticket, search = '', now = 1e12, fresh = false } = {}) 
   vm.createContext(sandbox); vm.runInContext(m[0].replace(/^<script>|<\/script>$/g, ''), sandbox);
   out.hidden = sandbox.document.documentElement.style.display === 'none'; out.store = store; out.sandbox = sandbox; return out;
 }
-for (const kind of ['reach', 'sales', 'connect', 'book']) {
+for (const kind of ['reach', 'crm', 'connect', 'book']) {
   const html = read(kind + '/index.html');
   const gateAt = html.indexOf('Maha entry gate'), firstOther = html.search(/<script(?![^>]*>\/\* Maha entry gate)/);
   T(kind + ': the gate is the first thing in the page, before any other script', gateAt > 0 && html.indexOf('<script>/* Maha entry gate') < (html.indexOf('<script', html.indexOf('</script>', gateAt) + 1) === -1 ? Infinity : html.indexOf('<script', html.indexOf('</script>', gateAt) + 1)));
@@ -68,16 +68,16 @@ const api = new Function('env', 'with(env){' + code + ';return {sysUrl,entryTick
 const h1 = { code: 'H1' };
 api.sysUrl('reach', h1);
 T('opening Reach from the Main page leaves a ticket for that hotel', JSON.parse(store['mahahub.entry.reach'] || 'null') && JSON.parse(store['mahahub.entry.reach']).hotel === 'H1' && JSON.parse(store['mahahub.entry.reach']).at === 1e12);
-api.sysUrl('connect', h1); api.sysUrl('sales', h1);
-T('Connect and Sales get tickets too', !!store['mahahub.entry.connect'] && !!store['mahahub.entry.sales']);
+api.sysUrl('connect', h1); api.sysUrl('crm', h1);
+T('Connect and the company Sales get tickets for the Owner', !!store['mahahub.entry.connect'] && !!store['mahahub.entry.crm']);
 env.DB.session = { hotel: 'H1' }; api.clearEntryTickets(); api.sysUrl('reach', h1); api.sysUrl('connect', h1);
 T('a hotel user (not the Owner) gets no ticket while the systems are not released', Object.keys(store).length === 0);
-api.sysUrl('sales', h1);
-T('Sales is released, so a hotel user gets its ticket', !!store['mahahub.entry.sales']); api.clearEntryTickets();
-T('only the PMS and Sales are released', api.RELEASED_SYSTEMS.length === 2 && api.RELEASED_SYSTEMS.includes('hub') && api.RELEASED_SYSTEMS.includes('sales'));
-T('the PMS and Sales open for a hotel user, the others do not', api.sysAllowed('hub') && api.sysAllowed('sales') && !api.sysAllowed('reach') && !api.sysAllowed('connect') && !api.sysAllowed('book'));
+api.sysUrl('crm', h1); api.sysUrl('sales', h1);
+T('a hotel user never gets a ticket for the company Sales (nor for the hotel Sales, not built yet)', !store['mahahub.entry.crm'] && !store['mahahub.entry.sales']); api.clearEntryTickets();
+T('only the PMS is released', api.RELEASED_SYSTEMS.length === 1 && api.RELEASED_SYSTEMS.includes('hub'));
+T('the PMS opens for a hotel user, nothing else does (not the company Sales)', api.sysAllowed('hub') && !api.sysAllowed('crm') && !api.sysAllowed('sales') && !api.sysAllowed('reach') && !api.sysAllowed('connect') && !api.sysAllowed('book'));
 env.DB.session = { hotel: 'H1', provider: true };
-T('the Owner (provider) can open every system', ['hub', 'reach', 'connect', 'sales', 'book'].every(k => api.sysAllowed(k)));
+T('the Owner (provider) can open the PMS, the company Sales and the systems being built; the hotel Sales is not built, so nobody', ['hub', 'reach', 'connect', 'crm', 'book'].every(k => api.sysAllowed(k)) && !api.sysAllowed('sales'));
 api.sysUrl('reach', h1);
 T('the address built still has the hotel in it', api.sysUrl('reach', h1).endsWith('?hotel=H1'));
 const before = Object.keys(store).length; api.sysUrl('hub', h1);
