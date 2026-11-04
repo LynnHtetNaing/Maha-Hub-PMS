@@ -27,7 +27,7 @@ console.log('transfer pop-up ok');
  console.log('approvals access ok');}
 {const s6=fs.readFileSync(process.argv[2],'utf8');
  if(!s6.includes('function applyMoveLines(B,T,lines,pf,by,note)'))fail('one shared move for the pop-up and for an approved request');
- if(!s6.includes('data-sc="folio" aria-pressed="false">Whole folio'))fail('transfer: whole folio option');
+ if(!s6.includes('id="trAll"')||!s6.includes('data-ck="'))fail('transfer: tick boxes and select all');
  if(s6.includes("allBookings().filter(b=>b.status==='inhouse'&&b.id!==B.id&&match(b,q,k))"))fail('transfer: this room must be searchable too');
  if(!s6.includes("(this room)")||!s6.includes("disabled title=\"This is the folio the lines are on now\""))fail('transfer: same room, other folio only');
  if(!s6.includes("const asReq=!can('move')&&reqFlowOn();"))fail('transfer: people without the permission send a request when the hotel allows it');

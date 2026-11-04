@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="c12fea3750">
+<meta name="maha-build" content="af5c51632e">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2363,7 +2363,7 @@ html[data-skin="modern"][data-mode=dark] tr.lcorr td{background:#3a2a0e;color:#f
 html[data-skin="modern"][data-mode=dark] tr.lcorrp td{background:#12301c;color:#9be3ab}
 html[data-skin="modern"][data-mode=dark] tr.lgrey td{background:#ffffff14;color:var(--m-mut)}
 html[data-skin="modern"][data-mode=dark] tr.lpay td{background:#3a1417;color:#ffb4ad}
-html[data-skin="modern"][data-mode=dark] tr.lset td{background:#ffffff0d;color:var(--m-mut)}
+html[data-mode=dark] tr.lset td,html[data-skin="modern"][data-mode=dark] tr.lset td{background:#14382c;color:#9fd9bf}html[data-mode=dark] tr.lset td:first-child,html[data-skin="modern"][data-mode=dark] tr.lset td:first-child{box-shadow:inset 3px 0 0 #3fbf8f}html[data-mode=dark] tr.lset.sel td,html[data-skin="modern"][data-mode=dark] tr.lset.sel td{background:#1b4a39}
 html[data-skin="modern"][data-mode=dark] .fl tr.sumrow td{background:color-mix(in srgb,var(--a1) 12%,var(--m-card));color:var(--m-acc)}
 html[data-skin="modern"][data-mode=dark] .rmk{background:color-mix(in srgb,var(--a1) 10%,var(--m-card));color:var(--m-ink)}html[data-skin="modern"][data-mode=dark] .rmkb{color:var(--m-acc)}
 html[data-skin="modern"][data-mode=dark] .stl-ih,html[data-skin="modern"][data-mode=dark] .stl.ih{color:#4ade80}html[data-skin="modern"][data-mode=dark] .stl-i{color:#7dd3fc}html[data-skin="modern"][data-mode=dark] .stl-o{color:#fca5a5}html[data-skin="modern"][data-mode=dark] .stl.bk{color:var(--m-ink)}
@@ -9818,7 +9818,7 @@ VIEWS['res.list']=el=>{
   $('#rlq',el).addEventListener('input',run);['rls','rlf','rlt'].forEach(id=>$('#'+id,el).addEventListener('change',run));bindDatePick(el);$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));run();
 };
 VIEWS['res.open']=(el,id)=>{const B=bookingById(id);if(!B){el.innerHTML='<div class="empty">Reservation not found.</div>';return}const r=resOf(B);
-  el.innerHTML=pageHead('Reservation','','act',true,`<button class="btn ghost sm pgback" data-go="${resBack}" title="${resBack==='fo.grid'?'Back to Room Grid':'Back to list'}">${ic('left',16)}Back</button>`);$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));
+  el.innerHTML=pageHead('Reservation','','act',true,`<button class="btn ghost sm pgback" data-go="${resBack}" title="${resBack==='fo.grid'?'Back to Room Grid':'Back to list'}">${ic('left',16)}Back</button>`);$$('[data-go]',el).forEach(b=>b.onclick=()=>{const top=NAVSTACK[NAVSTACK.length-1];if(top&&top.v===b.dataset.go)goBack();else go(b.dataset.go)});
   const box=document.createElement('div');el.appendChild(box);reservationScreen(box,r,B,{});showNotifs(r,'Reservation')};
 VIEWS['res.new']=(el,pre)=>{if(!need('res.create')){go('fo.status');return}newReservation(el,pre||{},false)};
 VIEWS['res.walkin']=(el)=>{if(!need('res.create')){go('fo.status');return}newReservation(el,{arr:H.set.bd},true)};
@@ -10995,15 +10995,13 @@ function moveToRoom(B,l,after,folio){if(!fxGuard('fx.folio.move'))return;
   if(l&&!movable(l)&&!folLines().length){toast(lineBlock(B,l)||'This payment stays on the folio where it was posted.');return}
   if(!l&&!folLines().length){const pend=B.lines.find(x=>x.folio===srcF&&pendingForLine(B,x));toast(pend?pendingLineMsg(B,pend):'Folio '+srcF+' has no line that can move.');return}
   if(folLocked(B,srcF)){toast(`Folio ${srcF} is locked. Unlock it first.`);return}
-  let mode=(l&&movable(l))?'line':'folio',pick=null,pf=1;
-  const moveSet=()=>mode==='line'?[l]:folLines();
+  let pick=null,pf=1;const chosen=new Set((l&&movable(l)?[l]:folLines()).map(x=>x.id));   /* the selected line starts ticked; with none selected, every line that can move */
+  const moveSet=()=>folLines().filter(x=>chosen.has(x.id));
   const m=modal('Transfer transaction',`<div class="trline" id="trLine"></div>
-   <div class="segs mt" id="trScope" ${l&&movable(l)?'':'style="display:none"'}><button type="button" data-sc="line" aria-pressed="true">This line</button><button type="button" data-sc="folio" aria-pressed="false">Whole folio ${srcF}</button></div>
    <div class="row gap mt"><select id="trF" aria-label="Search by" style="flex:0 0 170px"><option value="room" selected>Room#</option><option value="guest">Guest name</option><option value="folio">Folio# (billing folio number)</option><option value="rsvn">RSVN#</option><option value="cin">Check-in date</option><option value="cout">Check-out date</option><option value="all">All of these</option></select><input id="trQ" style="flex:1" placeholder="Room number" autofocus autocomplete="off"></div>
    <div class="sub mt">Only in-house guests are searched. This room is included, so you can move to another folio of the same room. Results show as soon as something matches.${asReq?' <b>You will send this as a request for approval.</b>':''}</div><div id="trR" class="mt"></div><div id="trPick"></div>`,{w:760});
-  const paintHead=()=>{const set=moveSet(),tot=r2(sum(set,x=>x.amt)),stay=B.lines.filter(x=>x.folio===srcF).length-folLines().length;
-    $('#trLine',m).innerHTML=mode==='line'?`<b>${esc(l.code)} ${esc(l.desc)}</b> · ${m2(l.amt)} · from room ${esc(B.room||'')} folio ${l.folio}`:`<b>Whole folio ${srcF}</b> · ${set.length} line${set.length===1?'':'s'} · ${m2(tot)} · from room ${esc(B.room||'')}${stay>0?' · '+stay+' payment / frozen line'+(stay===1?'':'s')+' stay on this folio':''}`;
-    $$('[data-sc]',m).forEach(b=>b.setAttribute('aria-pressed',b.dataset.sc===mode?'true':'false'))};
+  const paintHead=()=>{const set=moveSet(),all=folLines(),tot=r2(sum(set,x=>x.amt)),stay=B.lines.filter(x=>x.folio===srcF).length-all.length;
+    $('#trLine',m).innerHTML=`<b>Folio ${srcF}</b> from room ${esc(B.room||'')} · ${set.length} of ${all.length} line${all.length===1?'':'s'} chosen · ${m2(tot)}${stay>0?' · '+stay+' payment / frozen line'+(stay===1?'':'s')+' stay on this folio':''}`};
   const norm=s=>String(s||'').toLowerCase();
   /* what each filter looks at; the same number can be a room, a folio or an RSVN, so the person says which one */
   const FIELDS={room:b=>[b.room],guest:b=>{const g=G(b.guestId);return [gName(g),g.last+' '+g.first,g.first+' '+g.last]},folio:b=>[b.internal],rsvn:b=>[resOf(b).no],cin:b=>[fd(b.checkinDate||b.arr),b.checkinDate||b.arr],cout:b=>[fd(b.dep),b.dep]};
@@ -11018,18 +11016,21 @@ function moveToRoom(B,l,after,folio){if(!fxGuard('fx.folio.move'))return;
   const paintPick=()=>{const bx=$('#trPick',m);if(!pick){bx.innerHTML='';return}
     const same=pick.id===B.id,set=moveSet();
     bx.innerHTML=`<div class="panel pad mt"><div><b>Transfer to ${same?'another folio of this room':'room '+esc(pick.room)}</b> · ${esc(gName(G(pick.guestId)))} · folio# ${pick.internal} · ${set.length} line${set.length===1?'':'s'}</div>
+     <div class="mt"><b>Choose what to move from folio ${srcF}</b></div>
+     <table class="grid trlines"><tr><th style="width:34px"><input type="checkbox" id="trAll" aria-label="Select all" ${folLines().length&&folLines().every(x=>chosen.has(x.id))?'checked':''}></th><th>Date</th><th>Code</th><th>Description</th><th class="n">Amount</th></tr>${folLines().sort(lineOrder).map(x=>`<tr><td><input type="checkbox" data-ck="${x.id}" ${chosen.has(x.id)?'checked':''} aria-label="Move this line"></td><td>${fd(x.orgDate||x.bd)}</td><td>${esc(x.code)}</td><td>${esc(x.desc)}</td><td class="n">${m2(x.amt)}</td></tr>`).join('')}</table>
      <div class="segs fseg mt">${[1,2,3,4].map(x=>{const off=same&&x===srcF;return `<button type="button" data-tf="${x}" aria-pressed="${x===pf}" ${off?'disabled title="This is the folio the lines are on now"':''}>Folio ${x}<small>${m2(folioBal(pick,x))}</small></button>`}).join('')}</div>
-     <div class="btns end"><button class="btn ghost" id="trX">Cancel</button><button class="btn gold" id="trGo">${asReq?'Send request':'Transfer'}</button></div></div>`;
+     <div class="btns end"><button class="btn ghost" id="trX">Cancel</button><button class="btn gold" id="trGo" ${set.length?'':'disabled'}>${asReq?'Send request':'Transfer'}${set.length?' ('+set.length+')':''}</button></div></div>`;
     $$('[data-tf]',bx).forEach(b=>b.onclick=()=>{if(b.disabled)return;pf=+b.dataset.tf;paintPick()});$('#trX',bx).onclick=()=>closeModal(m);
+    $$('[data-ck]',bx).forEach(c=>c.onchange=()=>{if(c.checked)chosen.add(c.dataset.ck);else chosen.delete(c.dataset.ck);paintHead();paintPick()});
+    $('#trAll',bx).onchange=e=>{folLines().forEach(x=>{if(e.target.checked)chosen.add(x.id);else chosen.delete(x.id)});paintHead();paintPick()};
     $('#trGo',bx).onclick=()=>{if(!asReq&&!need('move'))return;const T=pick,set2=moveSet();
-      if(!set2.length){toast('There is nothing to move.');return}
+      if(!set2.length){toast('Tick at least one line to move.');return}
       if(T.id!==B.id&&bCur(T)!==bCur(B)){toast('These lines are in '+bCur(B)+' and that room is in '+bCur(T)+'. A line cannot move between reservations in different currencies.');return}
       if(T.id===B.id&&pf===srcF){toast('Choose a different folio.');return}
       if(folLocked(T,pf)){toast(`Folio ${pf} of room ${T.room} is locked.`);return}
       const tot=r2(sum(set2,x=>x.amt));
       if(asReq){queueApproval({action:'move',kind:'move',noPerm:true,bookingId:B.id,toId:T.id,toFolio:pf,fromFolio:srcF,lineIds:set2.map(x=>x.id),amt:Math.abs(tot),title:`Transfer ${set2.length} line${set2.length===1?'':'s'} (${m2(tot)}) from room ${B.room} folio ${srcF} to ${T.id===B.id?'folio '+pf+' of the same room':'room '+T.room+' folio '+pf}`});askNotice('Transfer');closeModal(m);after();return}
       applyMoveLines(B,T,set2,pf,user().name);folSel=null;closeModal(m);after();toast(T.id===B.id?`Moved ${set2.length} line${set2.length===1?'':'s'} to folio ${pf}`:`Moved to room ${T.room}, folio ${pf}`)}};
-  $$('[data-sc]',m).forEach(b=>b.onclick=()=>{mode=b.dataset.sc;if(pick&&pick.id===B.id&&pf===srcF)pf=srcF===1?2:1;paintHead();paintPick()});
   $('#trQ',m).oninput=()=>{pick=null;paintPick();run()};
   $('#trF',m).onchange=()=>{const q=$('#trQ',m);q.placeholder=PH[$('#trF',m).value];pick=null;paintPick();run();q.focus()};
   paintHead();
@@ -11986,7 +11987,8 @@ html[data-skin="modern"] .areasw button{background:none!important;box-shadow:non
 .selpg::before,.selpg.sp-expbg::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,#8dbfaa,#b9dacb);opacity:.62;-webkit-mask:url(/brand/maha/scene-shape.svg) 50% 100%/100% auto no-repeat;mask:url(/brand/maha/scene-shape.svg) 50% 100%/100% auto no-repeat}
 .selpg.dark::before,.selpg.dark.sp-expbg::before{background:linear-gradient(180deg,#2f7f64,#16503b);opacity:.28}
 .selpg::after,.selpg.sp-expbg::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:url(/brand/maha/scene-light.svg) 50% 100%/100% auto no-repeat;opacity:.7}
-.selpg::after,.selpg.sp-expbg::after{z-index:0}
+.selpg::after,.selpg.sp-expbg::after{z-index:0;top:0;bottom:0;height:auto}
+@media (min-width:761px){.selpg .sp-sheet .sp-sys{grid-template-columns:repeat(2,minmax(0,1fr));max-width:780px;margin:34px auto 14px;padding:0;gap:26px}.selpg .sp-sheet .sp-tile{min-height:250px;padding:32px 32px 28px}.selpg .sp-sheet .sp-tile h3{font-size:30px}.selpg .sp-sheet .sp-tile .ic{width:64px;height:64px;border-radius:19px}.selpg .sp-sheet .sp-tile .ic svg{width:34px;height:34px}.selpg .sp-sheet .sp-tile p{font-size:14px}}
 .selpg>*{position:relative;z-index:2}.selpg>.sp-top{position:absolute}
 .selpg.dark::after,.selpg.dark.sp-expbg::after{background:url(/brand/maha/scene-dark.svg) 50% 100%/100% auto no-repeat;opacity:.68}
 .selpg .sp-top{position:absolute;top:14px;right:18px;left:auto;height:auto;padding:0;background:none;z-index:5}
@@ -12001,11 +12003,6 @@ html[data-skin="modern"] .areasw button{background:none!important;box-shadow:non
 .selpg .sp-card.sp-sheet{background:#eceff0;border:0;border-radius:26px;box-shadow:0 40px 60px -18px rgba(8,40,30,.38),0 14px 26px rgba(8,40,30,.16)}
 .selpg.dark .sp-card.sp-sheet{background:#22262a;box-shadow:0 40px 60px -18px rgba(0,0,0,.8),0 14px 26px rgba(0,0,0,.5)}
 .selpg.sp-expbg .sp-body{background:none;box-shadow:none;padding:0;margin:auto}
-.selpg .sp-sys{grid-template-columns:repeat(2,minmax(200px,300px));gap:14px;margin:18px 0 4px}
-.selpg .sp-tile{min-height:112px;padding:16px 20px;border-radius:16px;box-shadow:none}
-.selpg .sp-tile .ic{width:40px;height:40px;border-radius:12px}.selpg .sp-tile .ic svg{width:22px;height:22px}
-.selpg .sp-tile h3{font-size:18px;margin:10px 0 2px}.selpg .sp-tile p{font-size:12.5px}
-.selpg .sp-tile::before,.selpg .sp-tile::after{display:none}
 @media (max-width:700px){.selpg .sp-body{padding:18px 16px;border-radius:20px}}
 `;
 function ensureFlowCss(){if(document.getElementById('flowCss'))return;const s=document.createElement('style');s.id='flowCss';s.textContent=FLOW_CSS;document.head.appendChild(s)}

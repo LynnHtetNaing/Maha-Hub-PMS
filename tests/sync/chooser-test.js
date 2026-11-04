@@ -32,3 +32,7 @@ console.log('scene ok');/* one box on Select System / Select Property; more buil
 assert(src.includes('.selpg .sp-body:has(.sp-sheet),.selpg.dark .sp-body:has(.sp-sheet){background:none;box-shadow:none;padding:0}')&&src.includes('.selpg .sp-card.sp-sheet{background:#eceff0'),'Select System is one box, not two');
 assert(src.includes('.selpg>*{position:relative;z-index:2}'),'the box sits above the scene');
 console.log('one box ok');
+/* the sea strip stays at the bottom of the expiry page; Frontend and Backend are large tiles */
+assert(src.includes('.selpg::after,.selpg.sp-expbg::after{z-index:0;top:0;bottom:0;height:auto}'),'sea strip at the bottom');
+assert(src.includes('.selpg .sp-sheet .sp-sys{grid-template-columns:repeat(2,minmax(0,1fr));max-width:780px')&&src.includes('.selpg .sp-sheet .sp-tile{min-height:250px'),'large Frontend and Backend tiles');
+console.log('tiles ok');
