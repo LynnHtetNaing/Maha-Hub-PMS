@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="c75fb24656">
+<meta name="maha-build" content="42d75d5db3">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7881,7 +7881,8 @@ function hostRole(h){h=String(h||location.hostname||'').toLowerCase();for(const 
 function onSplitHost(){return !!hostRole()}
 function mainUrl(){return onSplitHost()?'https://'+SYS_HOSTS.main+'/':appPrefix()+'/solutions'}
 function takeHandover(){try{const raw=sessionStorage.getItem('maha.handover');if(!raw)return;sessionStorage.removeItem('maha.handover');const o=JSON.parse(raw)||{},st=loginStore();if(typeof o.s==='string')st.setItem(SESSKEY,o.s);if(typeof o.a==='string')st.setItem(SBAUTHKEY,o.a);if(o.e&&typeof o.e==='object')Object.keys(o.e).forEach(k=>{if(/^[a-z]+$/.test(k)&&typeof o.e[k]==='string')localStorage.setItem('mahahub.entry.'+k,o.e[k])})}catch(e){}}
-function handoverHash(){try{const st=loginStore(),s=st.getItem(SESSKEY);if(!s)return '';const o={s},a=st.getItem(SBAUTHKEY);if(a)o.a=a;const e={};ENTRY_KINDS.forEach(k=>{const v=localStorage.getItem('mahahub.entry.'+k);if(v)e[k]=v});o.e=e;return '#mh='+edcB64url(JSON.stringify(o))}catch(x){return ''}}
+function handoverHash(kind){try{const st=loginStore(),s=st.getItem(SESSKEY);if(!s)return '';const o={s};let a=st.getItem(SBAUTHKEY);if(a&&kind&&kind!=='hub'){try{const j=JSON.parse(a);delete j.refresh_token;a=JSON.stringify(j)}catch(e){a=''}}   /* the other systems get the access part only: one refresh token must stay in one place */
+if(a)o.a=a;const e={};ENTRY_KINDS.forEach(k=>{const v=localStorage.getItem('mahahub.entry.'+k);if(v)e[k]=v});o.e=e;return '#mh='+edcB64url(JSON.stringify(o))}catch(x){return ''}}
 function sysFromPath(){if(onSplitHost()){const r=hostRole();return r==='hub'||r==='sales'||r==='connect'||r==='book'||r==='reach'?r:null}const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
 function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low.indexOf('/ecosystem'),low.indexOf('/solutions')].filter(x=>x>=0).sort((a,b)=>a-b)[0];return location.origin+(at>=0?path.slice(0,at):'')}
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}
@@ -7898,7 +7899,7 @@ const ENTRY_KINDS=['connect','reach','sales','book'];
 function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
 function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
 function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';
-  if(onSplitHost()&&SYS_HOSTS[kind])return 'https://'+SYS_HOSTS[kind]+'/'+q+(kind==='hub'||ENTRY_KINDS.includes(kind)?handoverHash():'');
+  if(onSplitHost()&&SYS_HOSTS[kind])return 'https://'+SYS_HOSTS[kind]+'/'+q+(kind==='hub'||ENTRY_KINDS.includes(kind)?handoverHash(kind):'');
   return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
 function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
   if(se&&se.provider&&!se.inHotel)return 'Maha PMS - Provider console';
@@ -9879,18 +9880,18 @@ function reservationScreen(box,r,B,o={}){
   const upcoming=dates(B.arr,B.dep).filter(d=>d>=H.set.bd);const dr=B.nightly[upcoming[0]||B.arr]||0;
   const rc=H.rateCodes.find(x=>x.code===B.rateCode)||{};
   const RB={};
-  const RICON={aSave:'device-floppy',aProf:'user-circle',aRate:'adjustments',aNotif:'bell',aCopy:'copy',aAdd:'plus',aShare:'users',aDep:'cash',aRef:'arrow-back-up',aFol:'folder',aCI:'login',aCan:'x',aNS:'user-x',aRecall:'refresh',aReinst:'refresh',aBack:'arrow-left'};
-  const RLAB={aSave:'Save',aProf:'Guest profile',aRate:'Rate setup',aNotif:'Notices',aCopy:'Copy to new reservation',aAdd:'Add another room',aShare:'Add sharing guest',aDep:'Deposit',aRef:'Refund',aFol:'Open folio',aCI:'Check in',aCan:'Cancel',aNS:'Mark no-show',aRecall:'Recall no-show',aReinst:'Reinstate',aBack:'Check back in'};
+  const RICON={aSave:'device-floppy',aProf:'user-circle',aRate:'adjustments',aNotif:'bell',aCopy:'copy',aAdd:'plus',aShare:'users',aDep:'cash',aRef:'arrow-back-up',aFol:'folder',aCI:'login',aCan:'x',aNS:'user-x',aRecall:'refresh',aReinst:'refresh',aBack:'arrow-left',aLog:'history'};
+  const RLAB={aSave:'Save',aProf:'Guest profile',aRate:'Rate setup',aNotif:'Notices',aCopy:'Copy to new reservation',aAdd:'Add another room',aShare:'Add sharing guest',aDep:'Deposit',aRef:'Refund',aFol:'Open folio',aCI:'Check in',aCan:'Cancel',aNS:'Mark no-show',aRecall:'Recall no-show',aReinst:'Reinstate',aBack:'Check back in',aLog:'User logs'};
   const RCLS={aCI:' acc',aFol:' acc',aRef:' acc',aCan:' dng'};
   const tbR=(id,icon,title,dis)=>{RB[id]={title,dis};return ''};
   if(['confirmed','tentative'].includes(B.status)){tbR('aCI','bed','Check in',!can('checkin'));tbR('aCan','x','Cancel booking',!can('res.cancel'));if(B.arr<=H.set.bd)tbR('aNS','log','Mark no-show',!can('res.cancel'))}
   if(B.status==='noshow'&&B.statusDate===H.set.bd&&B.dep>H.set.bd)tbR('aRecall','x','Recall no-show',false);
   if(B.status==='cancelled'&&!closedBooking(B)&&B.dep>H.set.bd)tbR('aReinst','x','Reinstate',false);
   if(canCheckBack(B))tbR('aBack','left','Check back in (Auto)',false);
-  const RTB=()=>{void `${tbR('aSave','save','Save changes',!(canEd||GE))}${tbR('aProf','idc','Guest profile')}${tbR('aRate','cal','Advance rate setup')}${tbR('aNotif','bell','Notifications')}${tbR('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tbR('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
+  const RTB=()=>{void `${tbR('aSave','save','Save changes',!(canEd||GE))}${tbR('aProf','idc','Guest profile')}${tbR('aRate','cal','Advance rate setup')}${tbR('aNotif','bell','Notifications')}${tbR('aLog','log','User logs of this reservation: who created it and what was changed')}${tbR('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tbR('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
      ${B.status==='inhouse'?tbR('aShare','user','Add a guest sharing this room (guests staying with the main guest)',!(can('profile')||can('res.edit')||can('checkin'))):''}${(['confirmed','tentative'].includes(B.status)||resDeps(B).length)?tbR('aDep','dollar',resDeps(B).length?'Reservation deposits (see, add, correct, refund)':'Reservation Deposit',!can('pay')&&!resDeps(B).length):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tbR('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tbR('aFol','folder','Open folio'):''}`;
    const bt=(id,menu)=>{const x=RB[id];if(!x)return '';return `<button type="button" class="${menu?'fmi':'fbtn'}${menu?'':(RCLS[id]||'')}" id="${id}" title="${esc(x.title)}" aria-label="${esc(x.title)}" ${x.dis?'disabled':''}>${tbi(RICON[id]||'plus',menu?17:18)}<span>${esc(RLAB[id]||x.title)}</span></button>`};
-   const main=['aSave','aCI','aCan','aRef','aReinst','aRecall','aFol','aShare','aDep','aProf','aRate'].map(k=>bt(k,false)).join(''),more=['aNotif','aCopy','aAdd','aNS','aBack'].map(k=>bt(k,true)).join('');
+   const main=['aSave','aCI','aCan','aRef','aReinst','aRecall','aFol','aShare','aDep','aProf','aRate'].map(k=>bt(k,false)).join(''),more=['aNotif','aLog','aCopy','aAdd','aNS','aBack'].map(k=>bt(k,true)).join('');
    return `<div class="toolbar rtbn">${main}<span class="fmore"><button type="button" class="fbtn" id="rMoreB" aria-haspopup="menu" aria-expanded="false"><span>More</span>${tbi('chevron-down',16)}</button><div class="fmm" id="rMoreM" role="menu" hidden>${more}</div></span>${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="fsp"></span>${stBadge(B)}</div>`};
   const lockNote=mode==='closed'?`<div class="lockbar">This booking was closed by Close Day on ${fd(B.statusDate)}. Billing, dates and rates are final; only the provider can amend it. Guest details can still be edited.</div>`:
     mode==='restricted'?`<div class="lockbar">The first night is closed. Only the departure date and the rates of today and upcoming nights can be changed. Guest details can still be edited.</div>`:
@@ -9955,7 +9956,7 @@ function reservationScreen(box,r,B,o={}){
   if(q('#aShare'))q('#aShare').onclick=()=>sharersModal(B,reopen);
   document.querySelectorAll('#view [data-sp]').forEach(b=>b.onclick=()=>guestProfile(b.dataset.sp,reopen));document.querySelectorAll('#view [data-sr]').forEach(b=>b.onclick=async()=>{if(await dlgConfirm('Remove '+gName(G(b.dataset.sr))+' from this room? The guest profile stays in the guest list.'))removeSharer(B,b.dataset.sr,reopen)});
   q('#aRate').onclick=()=>advanceRate(B,reopen);
-  q('#aNotif').onclick=()=>notifForm(r);
+  q('#aNotif').onclick=()=>notifForm(r);{const lg=q('#aLog');if(lg)lg.onclick=()=>resLogs(B)}
   if(q('#aPDel'))q('#aPDel').onclick=async ()=>{const why=await dlgAsk(`Delete booking RSVN ${r.no} (${gName(g)}) and all its folio lines for good?
 Reason (kept in the amendment log):`);if(!why||!why.trim())return;
     r.bookings=r.bookings.filter(b=>b!==B);if(!r.bookings.length)H.reservations=H.reservations.filter(x=>x!==r);const w=`Deleted booking RSVN ${r.no} ${gName(g)} (${B.lines.length} folio lines, ${m2(bal(B))} balance)`;H.amend.unshift({at:Date.now(),user:user().name,rsvn:r.no,what:w,reason:why.trim()});provLog(w+' – '+why.trim());saveDB();go('res.list');toast('Booking deleted and recorded')};
@@ -11105,6 +11106,11 @@ function transactionPopup(B,l,after){if(!l)return;
     if($('#tReb',m))$('#tReb',m).onclick=()=>{closeModal(m);psEntry(B,'rebate',after,l.code+'|'+(l.vat?1:0))};
   };paint();
 }
+/* User logs of one reservation: from the day it was created, only what concerns the reservation itself (money lines have their own logs in the folio) */
+function resLogs(B){const money=/^(Refund|Rebate|Adjust|Reservation deposit|Room Upgrade Charge)/i;
+  const rows=(B.hist||[]).filter(h=>!money.test(String(h.what||h.a||''))).slice().sort((a,b)=>a.at-b.at);
+  if(!rows.some(h=>/^Reservation created|^Created by copy/i.test(String(h.what||h.a||'')))){const d=Date.parse(resOf(B).date);rows.unshift({at:isFinite(d)?d:0,user:'',shift:'',what:'Reservation created (made before user logs were kept)'})}
+  modal('User LOGs – Reservation RSVN '+resOf(B).no,`<div class="scroll" style="max-height:60vh"><table class="grid"><tr><th>When</th><th>User</th><th>Shift</th><th>What happened</th></tr>${rows.length?rows.map(h=>`<tr><td>${fdt(h.at)}</td><td>${esc(h.user||'')}</td><td>${esc(h.shift||'')}</td><td>${esc(h.what||h.a||'')}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">No log was kept for this reservation.</td></tr>'}</table></div>`,{w:820})}
 function folioLogs(B){const rows=[];B.lines.forEach(l=>l.hist.forEach(h=>rows.push({l,h})));B.hist.forEach(h=>rows.push({h:{at:h.at,user:h.user,shift:h.shift,a:h.what},l:null}));rows.sort((a,b)=>b.h.at-a.h.at);
   modal('User LOGs – RSVN '+resOf(B).no,`<div class="scroll" style="max-height:60vh"><table class="grid"><tr><th>When</th><th>User</th><th>Shift</th><th>Line</th><th>Action</th></tr>${rows.map(x=>`<tr><td>${fdt(x.h.at)}</td><td>${esc(x.h.user)}</td><td>${esc(x.h.shift)}</td><td>${x.l?x.l.sys+' '+esc(x.l.desc):'Booking'}</td><td>${esc(x.h.a)}</td></tr>`).join('')}</table></div>`,{w:860})}
 

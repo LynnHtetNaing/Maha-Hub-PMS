@@ -39,13 +39,14 @@ e=mk('maha-hub.pages.dev','/solutions');T('a test copy keeps the old paths',!e.o
 e=mk('solutions.maha-hub.com','/');T('Main page links: PMS goes to pms., Sales to sales.',e.sysUrl('hub',null)==='https://pms.maha-hub.com/'&&e.sysUrl('sales',null)==='https://sales.maha-hub.com/');
 T('Main address is mainUrl()',mk('pms.maha-hub.com','/').mainUrl()==='https://solutions.maha-hub.com/');
 e=mk('pms.maha-hub.com','/',{hotel:'PAD01',provider:true});
-e.env.sessionStorage.setItem('mahahub.sess',JSON.stringify({hotel:'PAD01',provider:true}));e.env.sessionStorage.setItem('mahahub.sbauth','{"access_token":"a"}');
+e.env.sessionStorage.setItem('mahahub.sess',JSON.stringify({hotel:'PAD01',provider:true}));e.env.sessionStorage.setItem('mahahub.sbauth','{"access_token":"a","refresh_token":"r"}');
 const u=e.sysUrl('sales',{code:'PAD01'});
 T('switching to Sales goes to sales. with the hotel and a hand-over in the # part',u.startsWith('https://sales.maha-hub.com/?hotel=PAD01#mh=')&&!u.split('#')[0].includes('mh='));
 const h=u.split('#mh=')[1];
 const o=JSON.parse(decodeURIComponent(escape(Buffer.from(h.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('binary'))));
 T('the hand-over carries the sign-in and the Sales ticket',JSON.parse(o.s).hotel==='PAD01'&&o.a.includes('access_token')&&JSON.parse(o.e.sales).owner===true);
-T('the PMS link carries the sign-in too',e.sysUrl('hub',{code:'PAD01'}).includes('#mh='));
+T('Sales gets the access token only, never the refresh token',JSON.parse(o.a).access_token==='a'&&!('refresh_token' in JSON.parse(o.a)));
+T('the PMS link carries the sign-in too, with its refresh token',(()=>{const u2=e.sysUrl('hub',{code:'PAD01'}),h2=u2.split('#mh=')[1],o2=JSON.parse(decodeURIComponent(escape(Buffer.from(h2.replace(/-/g,'+').replace(/_/g,'/'),'base64').toString('binary'))));return JSON.parse(o2.a).refresh_token==='r'})());
 /* the receiving PMS page */
 const r2=mk('pms.maha-hub.com','/');r2.env.sessionStorage.setItem('maha.handover',JSON.stringify(o));r2.takeHandover();
 T('the next page takes the hand-over once: sign-in and ticket are saved, the parcel is cleared',JSON.parse(r2.sess['mahahub.sess']).hotel==='PAD01'&&r2.sess['mahahub.sbauth'].includes('access_token')&&!!r2.store['mahahub.entry.sales']&&!('maha.handover' in r2.sess));
