@@ -42,7 +42,7 @@ const maskEmail = (email: string): string => {
 // The browser sends the address of the page it came from. Only the addresses listed here are answered with that address;
 // MAHA_ALLOWED_ORIGIN (comma separated) may add more. Every system has its own address (solutions., pms., sales., console., and the others when released).
 const ALLOWED_ORIGINS = [...new Set([
-  "https://maha-hub.com", "https://www.maha-hub.com", "https://solutions.maha-hub.com", "https://pms.maha-hub.com", "https://sales.maha-hub.com", "https://console.maha-hub.com", "https://connect.maha-hub.com", "https://booking.maha-hub.com", "https://reach.maha-hub.com",
+  "https://maha-hub.com", "https://www.maha-hub.com", "https://solutions.maha-hub.com", "https://pms.maha-hub.com", "https://sales.maha-hub.com", "https://crm.maha-hub.com", "https://console.maha-hub.com", "https://connect.maha-hub.com", "https://booking.maha-hub.com", "https://reach.maha-hub.com",
   ...(Deno.env.get("MAHA_ALLOWED_ORIGIN") || "").split(",").map((x) => x.trim()).filter(Boolean),
 ])];
 const withOrigin = (req: Request, res: Response): Response => {
@@ -64,7 +64,7 @@ const handle = async (req: Request): Promise<Response> => {
   const requireCode = (Deno.env.get("MAHA_REQUIRE_CODE") || "").toLowerCase() === "on";
 
   let body: {
-    action?: unknown; username?: unknown; password?: unknown;
+    action?: unknown; username?: unknown; password?: unknown; app?: unknown;
     device_id?: unknown; challenge?: unknown; code?: unknown; remember?: unknown;
   };
   try { body = await req.json(); } catch { return json({ error: "invalid_request" }, 400); }
@@ -169,6 +169,20 @@ const handle = async (req: Request): Promise<Response> => {
     logEvent("sign_in_failed", identity.user_id, false,
       (error as { code?: string } | null)?.code === "user_banned" ? "account disabled" : "wrong password");
     return json({ error: "invalid_credentials" }, 401);
+  }
+
+  // Company Sales (app = "crm"): only the active sales team and the provider may go on. A hotel user, a switched-off member or anyone
+  // else is refused here, right after the password: no code is emailed and no session is kept.
+  if (body.app === "crm") {
+    const { data: member } = await admin.from("maha_crm_members").select("active").eq("user_id", identity.user_id).maybeSingle();
+    const { data: boss } = await admin.from("maha_platform_admins").select("*").eq("user_id", identity.user_id).maybeSingle();
+    const okMember = !!member && (member as { active?: boolean }).active === true;
+    const okBoss = !!boss && (boss as { active?: boolean }).active !== false;
+    if (!okMember && !okBoss) {
+      try { await admin.auth.admin.signOut(data.session.access_token, "local"); } catch { /* ignore */ }
+      logEvent("crm_sign_in_refused", identity.user_id, false, "not on the sales team");
+      return json({ error: "not_allowed" }, 403);
+    }
   }
 
   if (requireCode) {

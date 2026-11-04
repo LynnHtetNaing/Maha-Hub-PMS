@@ -2,19 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>/* Maha entry gate: this system opens only from the signed-in Main page (solutions.maha-hub.com). */
-(function(){var K='mahahub.entry.sales',H12=12*3600*1000;
-try{var hm=/^#mh=([\w-]+)$/.exec(location.hash);if(hm){var hp=JSON.parse(decodeURIComponent(escape(atob(hm[1].replace(/-/g,'+').replace(/_/g,'/')))));history.replaceState(null,'',location.pathname+location.search);if(hp.e)for(var hk in hp.e)if(/^[a-z]+$/.test(hk))localStorage.setItem('mahahub.entry.'+hk,hp.e[hk]);if(typeof hp.a==='string'){var ja=JSON.parse(hp.a);delete ja.refresh_token;sessionStorage.setItem('mahahub.sbauth',JSON.stringify(ja))}}}catch(e){}
-/* on its own address (sales., connect., reach., booking.) a person who is not signed in goes to the sign-in page of the same address; elsewhere to the Main page */
-function addr(l){var m=/^(sales|connect|reach|booking)\.(.+)$/.exec(location.hostname);return m?location.protocol+'//'+l+'.'+m[2]+'/':'/solutions'}
-function ok(){try{var t=JSON.parse(localStorage.getItem(K)||'null');if(!t||!t.at||t.owner!==true||Date.now()-t.at>H12)return false;var q=new URLSearchParams(location.search).get('hotel');return !q||!t.hotel||q===t.hotel}catch(e){return false}}
-function out(){location.replace(/^(sales|connect|reach|booking)\./.test(location.hostname)?'/signin':'/solutions')}
-document.addEventListener('DOMContentLoaded',function(){var a=document.querySelectorAll('a[data-main]');for(var i=0;i<a.length;i++)a[i].href=addr('solutions')+(a[i].getAttribute('data-main')==='systems'?'#systems':'')});
-if(!ok()){document.documentElement.style.display='none';out()}
-setInterval(function(){if(!ok())out()},20000)})();</script>
+<script>/* Maha Sales has its own sales team and its own sign-in (username, password, emailed code on a new device). Nothing is handed over from another address. */</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0A3020">
-<meta name="description" content="Maha Sales — hotel database, follow-ups, quotations and playbook for Maha Hub sales.">
+<meta name="description" content="Maha Sales: the Maha Hub sales team's hotel database, follow-ups, quotations, MSA and playbook. Sign-in for the sales team only.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="/icons/maha-mark-sq.png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -270,13 +261,44 @@ h2 .count{letter-spacing:0}
 :root[data-theme="dark"],:root:not([data-theme="light"]){--title:#0B3D2E}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--canopy:#0f1a16;--paper:#16231e;--line:#2a3b33}}
 :root[data-theme="dark"]{--canopy:#0f1a16;--paper:#16231e;--line:#2a3b33}
+
+/* ---------- sign-in screen ---------- */
+.au-box input:not([type=checkbox]){width:100%;border:1px solid #c5d0d8;background:#fff;color:#1a272f;border-radius:4px;min-height:38px;padding:6px 10px;font-size:14px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .au-box input:not([type=checkbox]){background:#16231e;border-color:#2a3b33;color:#eef2f4}}
+:root[data-theme="dark"] .au-box input:not([type=checkbox]){background:#16231e;border-color:#2a3b33;color:#eef2f4}
+#auth{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;overflow:auto;background:linear-gradient(180deg,#cfeee2 0%,#eef8f4 60%,#fbfdfc 100%)}
+#auth[hidden]{display:none}
+#auth::before{content:"";position:absolute;inset:0;background:url(/brand/maha/scene-light.svg) 50% 100%/100% auto no-repeat;opacity:.7;pointer-events:none}
+.au-on .rail,.au-on main,.au-on .tabs{display:none!important}
+.au-box{position:relative;width:min(400px,100%);background:#eceff0;color:#1f2d36;border-radius:20px;padding:26px 28px 24px;box-shadow:0 40px 60px -18px rgba(8,40,30,.38),0 14px 26px rgba(8,40,30,.16)}
+.au-brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}.au-brand img{width:40px;height:auto;filter:brightness(.4) saturate(3.4) contrast(1.35)}.au-brand b{font:800 18px/1 Inter,system-ui,sans-serif;letter-spacing:.14em;color:#0b3d2e}
+.au-box h1{margin:0 0 6px;font:700 24px/1.2 Inter,system-ui,sans-serif}
+.au-sub{margin:0 0 12px;color:#556470;font-size:13.5px}
+.au-box .f{margin:10px 0}.au-box .f span{color:#556470}
+.au-err{min-height:1.3em;margin:8px 0;color:#b3261e;font-size:13px;font-weight:600}
+.au-go{width:100%;justify-content:center;min-height:40px;font-size:14px}
+.au-link{width:100%;justify-content:center;margin-top:8px;background:transparent;border-color:transparent;color:#176B50}
+.au-chk{display:flex;gap:8px;align-items:center;font-size:13px;margin:8px 0}.au-chk input{width:auto;min-height:0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) #auth{background:linear-gradient(180deg,#08140f 0%,#10291f 70%,#0a1713 100%)}
+ :root:not([data-theme="light"]) #auth::before{background-image:url(/brand/maha/scene-dark.svg);opacity:.68}
+ :root:not([data-theme="light"]) .au-box{background:#22262a;color:#eef2f4;box-shadow:0 40px 60px -18px rgba(0,0,0,.8),0 14px 26px rgba(0,0,0,.5)}
+ :root:not([data-theme="light"]) .au-brand b{color:#e6cf95}:root:not([data-theme="light"]) .au-brand img{filter:none}
+ :root:not([data-theme="light"]) .au-sub,:root:not([data-theme="light"]) .au-box .f span{color:#a9b4bb}
+ :root:not([data-theme="light"]) .au-link{color:#7fd6b4}}
+:root[data-theme="dark"] #auth{background:linear-gradient(180deg,#08140f 0%,#10291f 70%,#0a1713 100%)}
+:root[data-theme="dark"] #auth::before{background-image:url(/brand/maha/scene-dark.svg);opacity:.68}
+:root[data-theme="dark"] .au-box{background:#22262a;color:#eef2f4}:root[data-theme="dark"] .au-brand b{color:#e6cf95}:root[data-theme="dark"] .au-brand img{filter:none}
+.rail .who{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-weight:600;color:#E6CF95}.rail .who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rail .who .btn,.rail #instBtn{background:transparent;color:#E4EEE5;border-color:rgba(228,238,229,.35)}
+.rail #instBtn{margin:8px 0 0 10px}
 </style>
 </head>
 <body>
+<div id="auth" hidden></div>
 <nav class="rail" aria-label="Main">
   <div class="brand"><div class="brand-name">Maha Sales</div><div class="brand-sub">Maha Hub</div></div>
   <div id="railnav"></div>
-  <div class="foot">Version 5 · Oct 2026 — Quotation + MSA PDFs<br>Works offline. Saved on this device and in the cloud.<div id="cloudst" style="margin-top:6px;font-weight:600"></div></div>
+  <div class="foot">Version 5 · Oct 2026 — Quotation + MSA PDFs<br>Works offline. Saved on this device and in the cloud.<div id="cloudst" style="margin-top:6px;font-weight:600"></div><div class="who" id="whoBox" hidden><span id="whoName"></span><button class="btn sm" data-act="signOut">Sign out</button></div><button class="btn sm" id="instBtn" data-act="install" hidden>Install app</button></div>
 </nav>
 <main id="view" tabindex="-1"></main>
 <nav class="tabs" id="tabnav" aria-label="Main"></nav>
@@ -1368,7 +1390,7 @@ function vToday() {
     <div class="end"><div class="${a.nextDate <= t ? 'due' : ''}">${a.nextDate < t ? 'Overdue · ' : a.nextDate === t ? 'Today · ' : ''}${fdate(a.nextDate)}</div>
     <button class="btn sm" data-act="done" data-id="${a.id}">Done</button></div></a>`;
   view().innerHTML = `
-   <div class="top"><div><h1>${hello}</h1><p>${new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p></div>
+   <div class="top"><div><h1>${hello}${Auth.who() ? ', ' + esc(Auth.who()) : ''}</h1><p>${new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p></div>
     <div class="actions"><button class="btn primary" data-act="log">${ICON.plus}Log a call</button><button class="btn" data-act="newHotel">Add hotel</button><button class="btn" data-go="#quote/new">New quote</button></div></div>
    ${needBackup ? `<div class="banner"><span>${lb ? 'Last backup ' + fdate(lb) + '.' : 'No backup yet.'} Your data lives only on this device.</span><button class="btn sm gold" data-act="backup">Back up now</button></div>` : ''}
    <div class="searchbar" style="margin-bottom:14px">${ICON.search}<input type="search" id="gsearch" placeholder="Search hotels, contacts, quotes, playbook…" aria-label="Search everything"></div>
@@ -1764,6 +1786,8 @@ function vMore() {
    <p class="muted small" style="margin-top:-4px">A socket is your own list with the fields you choose — addresses, billing details, suppliers, anything.</p>
    <div class="list">${colls.map(c => `<a class="row" href="#coll/${c.id}"><div class="main"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.fields.join(', '))}</div></div><div class="end">${K('item').filter(i => i.collId === c.id).length} items</div></a>`).join('') || '<div class="empty">No sockets yet.</div>'}</div>
    <p><button class="btn primary" data-act="newColl">${ICON.plus}New socket</button></p>
+   <h2>This device</h2>
+   <p class="actions"><button class="btn" data-act="install" id="instBtn2" hidden>Install this app</button><button class="btn" data-act="signOut">Sign out${Auth.who() ? ' (' + esc(Auth.who()) + ')' : ''}</button></p>
    <h2>Backup &amp; move data</h2>
    <div class="panel"><p style="margin-top:0">Data is stored on this device only. Back up weekly, and use the same file to move everything to your phone or laptop. To bring in your Excel Hotel Database: in Excel choose File → Save As → CSV UTF-8, then Import hotels CSV — matching hotel names are updated, new ones added.</p>
     <div class="actions"><button class="btn gold" data-act="backup">Download full backup</button><button class="btn" data-act="restore">Restore from backup</button>
@@ -1906,6 +1930,8 @@ const ACTIONS = {
     await saveMany(batch); toast(`${added} added, ${updated} updated`); rerender();
     const skipped = rows[0].filter((h, i) => !map[i]); if (skipped.length) setTimeout(() => alert('Imported. These columns had no matching field and were skipped:\n' + skipped.join(', ')), 300);
   }),
+  signOut: () => { if (!confirm('Sign out of Maha Sales on this device?')) return; Auth.signOut(); location.reload(); },
+  install: async () => { const p = window.__inst; if (p) { p.prompt(); try { await p.userChoice; } catch {} window.__inst = null; } else if (/iphone|ipad|ipod/i.test(navigator.userAgent)) alert('Tap the Share button, then "Add to Home Screen".'); },
   backup: async () => {
     const m = meta(); m.lastBackup = new Date().toISOString(); await save(m);
     download(`Maha Sales backup - ${today()}.json`, JSON.stringify({app:'maha-sales', version:1, exported: m.lastBackup, records: R}, null, 1), 'application/json');
@@ -1931,19 +1957,173 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('tr[data-act]')) ACTIONS[e.target.dataset.act](e.target); });
 function applyTheme() { const t = meta().theme || 'auto'; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
 
-/* ================= CLOUD (Provider Sales) =================
+/* ================= SIGN-IN (the sales team) =================
+   Maha Sales has its own people. Sign-in is the same service the PMS uses: username and password, and on a new device (and again every 30 days)
+   a 6-digit code from the email. Only the active sales team and the provider can go on: anyone else (a hotel user, a person who was switched off)
+   is refused right after the password, and no code is sent. After 15 quiet minutes the screen locks (password), after 1 hour it signs out.
+   A test copy on another address (not maha-hub.com) works on this device only and asks for nothing. */
+const Auth = (() => {
+  const URL_ = 'https://wragaoglvksbbgmfjyzp.supabase.co', KEY = 'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
+  const SK = 'maha.crm.auth', DEVK = 'maha.crm.device', LOCK_MS = 15 * 60e3, OUT_MS = 60 * 60e3;
+  const required = /(^|\.)maha-hub\.com$/.test(location.hostname);
+  let sess = null, listeners = [], shown = false, lastSave = 0;
+  try { sess = JSON.parse(localStorage.getItem(SK) || 'null'); } catch { sess = null; }
+  const save = () => { try { sess ? localStorage.setItem(SK, JSON.stringify(sess)) : localStorage.removeItem(SK); } catch {} };
+  const status = () => {
+    if (!required) return 'ok';
+    if (!sess || !sess.access_token) return 'out';
+    const idle = Date.now() - (sess.last || 0);
+    if (idle > OUT_MS) { sess = null; save(); return 'out'; }
+    if (idle > LOCK_MS || sess.locked) return 'locked';
+    return 'ok';
+  };
+  const deviceId = () => {
+    const ok = v => /^[A-Za-z0-9_-]{16,64}$/.test(v || '');
+    try { const v = localStorage.getItem(DEVK); if (ok(v)) return v; } catch {}
+    const a = new Uint8Array(24); crypto.getRandomValues(a);
+    const v = btoa(String.fromCharCode.apply(null, a)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    try { localStorage.setItem(DEVK, v); } catch {}
+    return v;
+  };
+  const post = async body => {
+    let res; try { res = await fetch(URL_ + '/functions/v1/username-auth', {method: 'POST', headers: {'Content-Type': 'application/json', apikey: KEY}, body: JSON.stringify({...body, app: 'crm', device_id: deviceId()})}); }
+    catch { return {error: 'unavailable'}; }
+    let d = null; try { d = await res.json(); } catch {}
+    return {status: res.status, d};
+  };
+  const keep = (d, username, name) => ({access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + Math.max(60, +d.expires_in || 3600) * 1000, user: {id: d.user && d.user.id}, username, name: name || username, at: Date.now(), last: Date.now(), locked: false});
+  const codeMsg = e => e === 'code_rate_limited' ? 'A code was sent a moment ago. Wait one minute, then sign in again.' : e === 'code_expired' ? 'That code has expired. Sign in again to get a new code.' : e === 'code_locked' ? 'Too many wrong codes. Sign in again later.' : 'The code service is not available. Try again in a moment.';
+  /* returns {ok} | {needCode:{challenge,sentTo}} | {error:'invalid'|'not_allowed'|'unavailable'|'code', message} */
+  async function signIn(username, password) {
+    const r = await post({action: 'login', username, password});
+    if (r.error) return {error: 'unavailable', message: 'The sign-in service did not answer. Check the connection and try again.'};
+    const {status, d} = r;
+    if (status === 403 && d && d.error === 'not_allowed') return {error: 'not_allowed', message: 'This account is not on the sales team.'};
+    if (status === 409) return {error: 'unavailable', message: 'This page is out of date. Reload it and sign in again.'};
+    if (status === 401 || status === 400) return {error: 'invalid', message: 'Username or password is not correct.'};
+    if (status === 429 || (status === 503 && d && /^code_/.test(d.error || ''))) return {error: 'code', message: codeMsg(d && d.error)};
+    if (d && d.needs_code && d.challenge) return {needCode: {challenge: d.challenge, sentTo: d.sent_to || 'your email'}};
+    if (!d || !d.access_token || !d.user || !d.user.id) return {error: 'unavailable', message: 'The sign-in service is not available right now. Try again in a moment.'};
+    return finish(d, username);
+  }
+  async function verify(username, challenge, code, remember) {
+    const r = await post({action: 'verify_code', username, challenge, code, remember: !!remember});
+    if (r.error) return {error: 'unavailable', message: 'The sign-in service did not answer. Check the connection and try again.'};
+    const {status, d} = r;
+    if (d && d.access_token && d.user && d.user.id) return finish(d, username);
+    if (status === 401 && d && d.error === 'code_wrong') return {error: 'wrong', message: 'That code is not correct. Use the newest code from the email.'};
+    return {error: 'code', message: codeMsg(d && d.error)};
+  }
+  async function finish(d, username) {
+    let name = username;
+    try {   /* the person's own row; the provider is not a member, so the username is shown */
+      const r = await fetch(URL_ + '/rest/v1/maha_crm_members?select=name', {headers: {apikey: KEY, Authorization: 'Bearer ' + d.access_token}});
+      if (r.ok) { const rows = await r.json(); if (rows && rows[0] && rows[0].name) name = rows[0].name; }
+    } catch {}
+    sess = keep(d, username, name); save(); changed();
+    return {ok: true};
+  }
+  async function token() {
+    if (!required) return null;
+    if (status() !== 'ok' || !sess) return null;
+    if (sess.expires_at - Date.now() > 60000) return sess.access_token;
+    if (sess.refresh_token) {
+      try {
+        const r = await fetch(URL_ + '/auth/v1/token?grant_type=refresh_token', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: sess.refresh_token})});
+        if (r.ok) { const d = await r.json(); Object.assign(sess, {access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + Math.max(60, +d.expires_in || 3600) * 1000}); save(); return sess.access_token; }
+        if (r.status === 400 || r.status === 401 || r.status === 403) { sess = null; save(); changed(); return null; }   /* switched off or signed out elsewhere */
+      } catch {}
+    }
+    return sess.expires_at > Date.now() ? sess.access_token : null;
+  }
+  const session = () => (required && sess && status() === 'ok') ? sess : null;
+  function touch() { if (!sess) return; sess.last = Date.now(); if (Date.now() - lastSave > 10000) { lastSave = Date.now(); save(); } }
+  function signOut() { const t = sess && sess.access_token; sess = null; save(); changed(); if (t) { try { fetch(URL_ + '/auth/v1/logout?scope=local', {method: 'POST', headers: {apikey: KEY, Authorization: 'Bearer ' + t}}); } catch {} } }
+  function changed() { listeners.forEach(f => { try { f(status()); } catch {} }); }
+  const onChange = f => listeners.push(f);
+  const who = () => sess ? sess.name || sess.username : '';
+
+  /* ---- the screen ---- */
+  const root = () => document.getElementById('auth');
+  const h = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  function frame(inner) {
+    const el = root(); el.hidden = false; document.body.classList.add('au-on');
+    el.innerHTML = `<div class="au-box"><div class="au-brand"><img src="/brand/maha/gate-gold.png" alt=""><b>MAHA SALES</b></div>${inner}</div>`;
+    return el;
+  }
+  function showLogin(msg) {
+    const el = frame(`<h1>Sign in</h1><form id="auF" autocomplete="on"><label class="f"><span>Username</span><input id="auU" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus></label>
+      <label class="f"><span>Password</span><input id="auP" type="password" autocomplete="current-password"></label><div class="au-err" id="auE" role="alert">${h(msg || '')}</div>
+      <button class="btn primary au-go" id="auG" type="submit">Sign in</button></form>`);
+    try { const u = localStorage.getItem('maha.crm.lastUser'); if (u) { el.querySelector('#auU').value = u; el.querySelector('#auP').focus(); } } catch {}
+    el.querySelector('#auF').onsubmit = async e => {
+      e.preventDefault(); const u = el.querySelector('#auU').value.trim(), p = el.querySelector('#auP').value, err = el.querySelector('#auE'), go = el.querySelector('#auG');
+      if (!u || !p) { err.textContent = 'Enter your username and password.'; return; }
+      go.disabled = true; err.textContent = 'Checking…';
+      const r = await signIn(u, p); go.disabled = false;
+      if (r.ok) { try { localStorage.setItem('maha.crm.lastUser', u); } catch {} hide(); return; }
+      if (r.needCode) { try { localStorage.setItem('maha.crm.lastUser', u); } catch {} showCode(u, p, r.needCode); return; }
+      err.textContent = r.message || 'Sign-in did not finish.'; el.querySelector('#auP').value = ''; el.querySelector('#auP').focus();
+    };
+  }
+  function showCode(u, p, info, msg) {
+    const el = frame(`<h1>Check your email</h1><p class="au-sub">We sent a 6-digit code to <b>${h(info.sentTo)}</b>. It is valid for 10 minutes. Look in the junk folder if it does not arrive.</p>
+      <form id="auF"><label class="f"><span>Code</span><input id="auC" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus></label>
+      <label class="au-chk"><input type="checkbox" id="auR" checked> Remember this device for 30 days</label><div class="au-err" id="auE" role="alert">${h(msg || '')}</div>
+      <button class="btn primary au-go" id="auG" type="submit">Continue</button><button class="btn au-link" id="auN" type="button">Send a new code</button><button class="btn au-link" id="auX" type="button">Cancel</button></form>`);
+    el.querySelector('#auX').onclick = () => showLogin();
+    el.querySelector('#auN').onclick = async () => { el.querySelector('#auE').textContent = 'Sending…'; const r = await signIn(u, p); if (r.needCode) showCode(u, p, r.needCode, 'A new code was sent.'); else if (r.ok) hide(); else el.querySelector('#auE').textContent = r.message || ''; };
+    el.querySelector('#auF').onsubmit = async e => {
+      e.preventDefault(); const code = el.querySelector('#auC').value.trim(), err = el.querySelector('#auE'), go = el.querySelector('#auG');
+      if (!/^\d{6}$/.test(code)) { err.textContent = 'Type the 6 digits.'; return; }
+      go.disabled = true; err.textContent = 'Checking…';
+      const r = await verify(u, info.challenge, code, el.querySelector('#auR').checked); go.disabled = false;
+      if (r.ok) { hide(); return; }
+      if (r.error === 'wrong') { err.textContent = r.message; el.querySelector('#auC').value = ''; el.querySelector('#auC').focus(); return; }
+      showLogin(r.message);
+    };
+  }
+  function showLock() {
+    const el = frame(`<h1>Locked</h1><p class="au-sub">${h(who())}, type your password to go on.</p><form id="auF"><label class="f"><span>Password</span><input id="auP" type="password" autocomplete="current-password" autofocus></label>
+      <div class="au-err" id="auE" role="alert"></div><button class="btn primary au-go" id="auG" type="submit">Unlock</button><button class="btn au-link" id="auX" type="button">Sign out</button></form>`);
+    el.querySelector('#auX').onclick = () => { signOut(); showLogin(); };
+    el.querySelector('#auF').onsubmit = async e => {
+      e.preventDefault(); const p = el.querySelector('#auP').value, err = el.querySelector('#auE'), go = el.querySelector('#auG'); if (!p) return;
+      go.disabled = true; err.textContent = 'Checking…';
+      const r = await signIn(sess.username, p); go.disabled = false;
+      if (r.ok) { hide(); return; }
+      if (r.needCode || r.error === 'not_allowed') { sess = null; save(); showLogin(r.error === 'not_allowed' ? r.message : 'Please sign in again.'); return; }
+      err.textContent = r.message || ''; el.querySelector('#auP').value = '';
+    };
+  }
+  function hide() { shown = false; const el = root(); if (el) { el.hidden = true; el.innerHTML = ''; } document.body.classList.remove('au-on'); changed(); }
+  function present() { const s = status(); if (s === 'ok') { if (shown) hide(); return; } shown = true; s === 'locked' ? showLock() : showLogin(); }
+  /* resolves when somebody is signed in (at once on a test copy) */
+  function require_() {
+    if (!required) return Promise.resolve();
+    return new Promise(res => { const f = s => { if (s === 'ok') { res(); listeners = listeners.filter(x => x !== f); } }; listeners.push(f); present(); });
+  }
+  if (required) {
+    ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { if (status() === 'ok') touch(); }, {passive: true, capture: true}));
+    setInterval(() => { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } } });
+  }
+  return {required, signIn, verify, token, session, signOut, onChange, require: require_, who, status, present};
+})();
+
+/* ================= CLOUD (Maha Sales) =================
    Every record is also kept in the cloud (table maha_sales_records), only a platform admin can read or write it.
    This device stays the first copy: it works offline, and changes wait in a list until they are sent.
-   The sign-in comes from the Provider console (hand-over or the Sales /signin page): this page never asks for a password. */
+   The sign-in is this page's own (see SIGN-IN above); the cloud copy sleeps while the screen is locked or signed out. */
 const Cloud = (() => {
   const URL_ = 'https://wragaoglvksbbgmfjyzp.supabase.co', KEY = 'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
-  const AUTHK = 'mahahub.sbauth', DIRTYK = 'maha.sales.dirty', PULLK = 'maha.sales.lastPull', JOINK = 'maha.sales.joined';
+  const DIRTYK = 'maha.sales.dirty', PULLK = 'maha.sales.lastPull', JOINK = 'maha.sales.joined';
   const live = /(^|\.)maha-hub\.com$/.test(location.hostname);   /* a test copy on another address stays on this device only */
   let state = live ? 'off' : 'local', at = '', timer = null, busy = false, poll = null;
   const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
   const dirty = () => lsGet(DIRTYK, {});
-  const read = () => { for (const st of [sessionStorage, localStorage]) { try { const t = JSON.parse(st.getItem(AUTHK) || 'null'); if (t && t.access_token) return {t, st}; } catch {} } return null; };
+  const read = () => Auth.session();
   function set(s) { state = s; if (s === 'ok') at = new Date().toTimeString().slice(0, 5); paint(); }
   function paint() {
     const el = document.getElementById('cloudst'); if (!el) return;
@@ -1951,17 +2131,7 @@ const Cloud = (() => {
     const txt = {ok: 'Cloud: saved ' + at, busy: 'Cloud: saving…', signin: 'Cloud: sign in again from the Provider console', local: 'Cloud: off here (this device only)', off: 'Cloud: off', err: 'Cloud: offline, ' + n + ' change' + (n === 1 ? '' : 's') + ' waiting'}[state] || '';
     el.textContent = txt; el.dataset.s = state;
   }
-  async function token() {
-    const o = read(); if (!o) return null;
-    if (o.t.expires_at && o.t.expires_at - Date.now() > 60000) return o.t.access_token;
-    if (o.t.refresh_token) {
-      try {
-        const r = await fetch(URL_ + '/auth/v1/token?grant_type=refresh_token', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: o.t.refresh_token})});
-        if (r.ok) { const d = await r.json(); o.t = {access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + Math.max(60, +d.expires_in || 3600) * 1000, user: {id: d.user && d.user.id}}; try { o.st.setItem(AUTHK, JSON.stringify(o.t)); } catch {} return o.t.access_token; }
-      } catch {}
-    }
-    return (!o.t.expires_at || o.t.expires_at > Date.now()) ? o.t.access_token : null;
-  }
+  async function token() { return Auth.token(); }
   async function call(path, opt = {}) {
     const tk = await token(); if (!tk) { set('signin'); throw new Error('signin'); }
     const r = await fetch(URL_ + '/rest/v1/' + path, {...opt, headers: {apikey: KEY, Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json', ...(opt.headers || {})}});
@@ -2025,6 +2195,7 @@ const Cloud = (() => {
     if (!live) { paint(); return; }
     if (state !== 'signin') set('ok');
     sync();
+    Auth.onChange(s => { if (s === 'ok') sync(); else if (live) set('signin'); });
     poll = setInterval(sync, 60000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
     window.addEventListener('online', sync);
@@ -2034,12 +2205,18 @@ const Cloud = (() => {
 
 /* ================= BOOT ================= */
 (async function boot() {
+  await Auth.require();
   try { db = await openDB(); R = await getAll(); }
   catch { db = null; R = []; setTimeout(() => toast('Private browsing: data will not be kept after closing'), 600); }
   const inCloud = await Cloud.first();
   if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
   else if (byId('meta') && !inCloud) Cloud.uploadAll();
   applyTheme(); route(); Cloud.start();
+  if (Auth.required) { const wb = document.getElementById('whoBox'); if (wb) { wb.hidden = false; document.getElementById('whoName').textContent = Auth.who(); } }
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const showInst = () => ['instBtn', 'instBtn2'].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = false; });
+  if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) showInst();
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__inst = e; showInst(); });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

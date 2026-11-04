@@ -32,6 +32,11 @@
 //   admin_set_active username, active (boolean)  - on/off; off also bans the sign-in so the person is signed out
 //   resend_admin_invite username
 //   remove_admin     username                    - erases the admin (never the Master)
+//   Company Sales team (Master admin only; the team is not a hotel and has no hotel):
+//   crm_add_member   username, email, name       - creates a sales team member and emails a set-password link
+//   crm_set_active   username, active (boolean)  - on/off; off also bans the sign-in
+//   crm_reset_password username                  - emails a set-password link
+//   crm_list         (nothing)                   - the team
 //
 // Account creation order (so a failure never leaves partial data or a stray email):
 //   1. create the auth user (confirmed, no email yet; fails if the email exists, so a pre-existing
@@ -74,7 +79,7 @@ function jwtClaim(token: string, name: string): string {
 // The browser sends the address of the page it came from. Only the addresses listed here are answered with that address;
 // MAHA_ALLOWED_ORIGIN (comma separated) may add more. Every system has its own address (solutions., pms., sales., console., and the others when released).
 const ALLOWED_ORIGINS = [...new Set([
-  "https://maha-hub.com", "https://www.maha-hub.com", "https://solutions.maha-hub.com", "https://pms.maha-hub.com", "https://sales.maha-hub.com", "https://console.maha-hub.com", "https://connect.maha-hub.com", "https://booking.maha-hub.com", "https://reach.maha-hub.com",
+  "https://maha-hub.com", "https://www.maha-hub.com", "https://solutions.maha-hub.com", "https://pms.maha-hub.com", "https://sales.maha-hub.com", "https://crm.maha-hub.com", "https://console.maha-hub.com", "https://connect.maha-hub.com", "https://booking.maha-hub.com", "https://reach.maha-hub.com",
   ...(Deno.env.get("MAHA_ALLOWED_ORIGIN") || "").split(",").map((x) => x.trim()).filter(Boolean),
 ])];
 const withOrigin = (req: Request, res: Response): Response => {
@@ -167,6 +172,9 @@ const handle = async (req: Request): Promise<Response> => {
       else if (action === "set_invoice_format") event = ok ? "invoice_format_changed" : "invoice_format_change_failed";
       else if (action === "set_access") event = ok ? (b.allowed ? "hotel_access_granted" : "hotel_access_removed") : "hotel_access_failed";
       else if (action === "change_staff_email") event = ok ? "staff_email_changed" : "staff_email_change_failed";   // the address itself is never logged
+      else if (action === "crm_add_member") event = ok ? "crm_member_added" : "crm_member_add_failed";
+      else if (action === "crm_set_active") event = ok ? (b.active ? "crm_member_enabled" : "crm_member_disabled") : "crm_member_status_failed";
+      else if (action === "crm_reset_password") event = ok ? "crm_password_reset_sent" : "crm_password_reset_failed";
       else if (action === "invite_admin") event = ok ? "admin_invited" : "admin_invite_failed";
       else if (action === "admin_hotels") event = ok ? "admin_hotels_changed" : "admin_hotels_failed";
       else if (action === "admin_set_active") event = ok ? (b.active ? "admin_enabled" : "admin_disabled") : "admin_status_failed";
@@ -614,6 +622,60 @@ const handle = async (req: Request): Promise<Response> => {
     if (error) return respond({ error: "provisioning_failed" }, 400);
     const { error: delError } = await admin.auth.admin.deleteUser(uid);
     return respond({ ok: true, sign_in_removed: !delError });
+  }
+
+  // ---------------------------------------------------------------- company Sales team
+  if (action === "crm_add_member" || action === "crm_set_active" || action === "crm_reset_password" || action === "crm_list") {
+    if (action === "crm_list") {
+      const { data: rows, error } = await admin.from("maha_crm_members").select("user_id,name,active,created_at").order("created_at");
+      if (error) return respond({ error: "provisioning_failed" }, 400);
+      const ids = (rows ?? []).map((r) => r.user_id as string);
+      const { data: idents } = ids.length
+        ? await admin.from("maha_login_identities").select("user_id,username,recovery_email").in("user_id", ids)
+        : { data: [] as { user_id: string; username: string; recovery_email: string }[] };
+      const byId = new Map((idents ?? []).map((i) => [i.user_id, i]));
+      return respond({
+        ok: true,
+        members: (rows ?? []).map((r) => ({
+          username: byId.get(r.user_id as string)?.username ?? "", email: byId.get(r.user_id as string)?.recovery_email ?? "",
+          name: r.name, active: r.active, added: r.created_at,
+        })),
+      });
+    }
+    if (!USERNAME.test(username)) return respond({ error: "invalid_fields" }, 400);
+    if (action === "crm_add_member") {
+      const name = str("name");
+      if (!EMAIL.test(email) || email.length > 254 || name.length < 1 || name.length > 80) return respond({ error: "invalid_fields" }, 400);
+      if (await usernameTaken(username)) return respond({ error: "username_taken" }, 409);
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email, email_confirm: true, user_metadata: { maha_username: username },
+      });
+      if (createError || !created.user) return respond({ error: "account_create_failed" }, 400);
+      const uid = created.user.id;
+      const { error: identError } = await admin.from("maha_login_identities").insert({ user_id: uid, username, recovery_email: email });
+      const { error: memberError } = identError ? { error: identError } : await admin.from("maha_crm_members").insert({ user_id: uid, name, active: true, created_by: ownerId });
+      if (identError || memberError) {
+        await admin.auth.admin.deleteUser(uid);   // nothing is left half-made
+        return respond({ error: (identError ?? memberError)?.code === "23505" ? "username_taken" : "provisioning_failed" }, (identError ?? memberError)?.code === "23505" ? 409 : 400);
+      }
+      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email), invitation_error: mailError || undefined }, 201);
+    }
+    const { data: ident } = await admin.from("maha_login_identities").select("user_id,recovery_email")
+      .eq("username_normalized", username.toLowerCase()).maybeSingle();
+    const { data: mem } = ident ? await admin.from("maha_crm_members").select("user_id").eq("user_id", (ident as { user_id: string }).user_id).maybeSingle() : { data: null };
+    if (!ident || !mem) return respond({ error: "member_not_found" }, 404);
+    const uid = (ident as { user_id: string }).user_id;
+    if (action === "crm_reset_password") {
+      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email);
+      return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
+    }
+    if (typeof body.active !== "boolean") return respond({ error: "invalid_fields" }, 400);
+    const active = body.active as boolean;
+    const { error: upError } = await admin.from("maha_crm_members").update({ active }).eq("user_id", uid);
+    if (upError) return respond({ error: "provisioning_failed" }, 400);
+    const { error: banError } = await admin.auth.admin.updateUserById(uid, { ban_duration: active ? "none" : "876000h" });
+    if (banError) return respond({ error: "ban_update_failed", database_updated: true }, 502);
+    return respond({ ok: true, active });
   }
 
   return respond({ error: "unsupported_action" }, 400);

@@ -3,8 +3,9 @@
  *  Every system has its own address, and nothing is redirected:
  *    MAIN_HOST     (solutions.maha-hub.com)  the Main page where a person chooses a system
  *    PMS_HOST      (pms.maha-hub.com)        Maha PMS
- *    SALES_HOST    (sales.maha-hub.com)      Maha Sales
+ *    CRM_HOST      (crm.maha-hub.com)        Maha Sales, Company: the Maha Hub team's own sales system, provider accounts only
  *    CONNECT_HOST / REACH_HOST / BOOK_HOST   the other systems, when they are released
+ *    (the hotel Sales will get its own SALES_HOST when it exists; it never shares an address, a folder or a table with the company Sales)
  *    CONSOLE_HOST  (console.maha-hub.com)    the Provider console
  *  On each of these addresses "/" opens that system. Any other address (the website, a test copy, workers.dev) keeps the
  *  old paths: /solutions is the Main page, /solutions-PMS is the PMS, /ecosystem/Reach|Connect|Booking|Sales the others.
@@ -16,14 +17,16 @@ const SYSTEM_DOC = {
   reach: { file: '/reach/index.html', base: '/reach/' },
   connect: { file: '/connect/index.html', base: '/connect/' },
   booking: { file: '/book/index.html', base: '/book/' },
-  sales: { file: '/sales/index.html', base: '/sales/' },
+  crm: { file: '/crm/index.html', base: '/crm/' },
 };
 /* which environment setting names which address, and what "/" opens there */
 const HOST_VARS = [
   ['MAIN_HOST', { doc: { file: APP_FILE } }],
   ['PMS_HOST', { doc: { file: APP_FILE } }],
   ['CONSOLE_HOST', { doc: { file: APP_FILE } }],
-  ['SALES_HOST', { doc: SYSTEM_DOC.sales }],
+  ['CRM_HOST', { doc: SYSTEM_DOC.crm }],
+  /* reserved for the hotel Sales: nothing is served there until that system exists */
+  ['SALES_HOST', { reserved: true }],
   ['CONNECT_HOST', { doc: SYSTEM_DOC.connect }],
   ['REACH_HOST', { doc: SYSTEM_DOC.reach }],
   ['BOOK_HOST', { doc: SYSTEM_DOC.booking }],
@@ -38,12 +41,12 @@ function route(pathname) {
   const path = cleanPath(pathname);
   const low = path.toLowerCase();
   if (low === '/solutions') return { doc: { file: APP_FILE } };
-  let m = low.match(/^\/solutions-(pms|reach|connect|booking|sales)$/);
+  let m = low.match(/^\/solutions-(pms|reach|connect|booking)$/);
   if (m) return { doc: SYSTEM_DOC[m[1]] };
   if (low === '/ecosystem') return { to: '/solutions' };
   m = low.match(/^\/ecosystem\/(pms)$/);
   if (m) return { to: '/solutions-PMS' };
-  m = low.match(/^\/ecosystem\/(reach|connect|booking|sales)$/);
+  m = low.match(/^\/ecosystem\/(reach|connect|booking|crm)$/);
   if (m) return { doc: SYSTEM_DOC[m[1]] };
   return null;
 }
@@ -87,6 +90,7 @@ export default {
     /* a system's own address: "/" opens the system, no redirect; the files it needs load as usual */
     const own = hostDoc(host, env);
     if (own) {
+      if (own.reserved) return new Response('This address is not available yet.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
       if (bare === '/' || bare.toLowerCase() === '/index.html') return serveDoc(own.doc, request);
       /* a system's sign-in page: the same address, /signin (no redirect) */
       if (low === '/signin') return serveDoc({ file: APP_FILE }, request);
