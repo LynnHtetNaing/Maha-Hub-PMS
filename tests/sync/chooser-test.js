@@ -16,9 +16,19 @@ console.log('chooser ok');
 assert(/data-pvact="\$\{h\.code\}"[^>]*>Action ▾/.test(src)&&/class="pvacts" hidden/.test(src),'Action menu on the Hotels list');
 console.log('hotels action ok');
 /* sign-in box on the same background; after-sign-in pages are one box without the top bar; Dark pagoda soft */
-assert(/\.eco-shell\.is-signin \.eco-hero\{display:none\}/.test(src)&&/\.eco-shell\.is-signin::after\{content:"";[^}]*pagoda-mask/.test(src),'sign-in keeps the Main page background');
+assert(/.eco-shell.is-signin .eco-hero{display:none}/.test(src)&&src.includes('.eco-shell.is-signin::after{content:"";')&&src.includes('/brand/maha/scene-shape.svg'),'sign-in keeps the Main page background');
 assert(/id="lgMode2"/.test(src),'Light/Dark button inside the sign-in box');
-assert(/\.eco-shell\.eco-dk:not\(\.is-signin\) \.eco-hero::after\{background:#8fe0bf;opacity:\.08\}/.test(src),'softer Dark pagoda');
-assert(/\.eco-lockup img\{width:44px;height:auto;filter:brightness\(\.55\)/.test(src),'stronger logo on the light box');
+assert(src.includes('.eco-shell.eco-dk:not(.is-signin) .eco-hero::after{background:linear-gradient(180deg,#2f7f64,#16503b);opacity:.28}'),'softer Dark pagoda');
+assert(src.includes('.eco-lockup img{width:66px;height:auto;filter:brightness(.4) saturate(3.4)'),'bigger, solid logo on the light box');
 assert(/.selpg .sp-top{position:absolute;top:14px;right:18px;/.test(src)&&src.includes('.selpg .sp-top .sp-logo,.selpg .sp-right>span{display:none}')&&src.includes('.selpg .sp-body{width:min(1040px,100% - 28px);max-width:1040px;margin:auto;padding:28px 32px;background:#eceff0'),'after sign-in: no top bar, one box');
 console.log('sign-in box ok');
+
+/* the scene: famous buildings from the left, the pagoda and balloon at the right only */
+assert(fs.existsSync(__dirname+'/../../brand/maha/scene-light.svg')&&fs.existsSync(__dirname+'/../../brand/maha/scene-dark.svg'),'scene pictures');
+assert(src.includes('url(/brand/maha/scene-light.svg) 50% 100%/100% auto')&&src.includes('url(/brand/maha/scene-dark.svg) 50% 100%/100% auto'),'scene used on the pages');
+assert(fs.readFileSync(__dirname+'/../../brand/maha/scene-shape.svg','utf8').includes('offset=".58"'),'one solid shade for buildings and pagoda; pagoda only on the right, its haze flowing left');
+assert(src.includes('scene-light.svg) 50% 100%/100% auto no-repeat;opacity:.7')&&src.includes('scene-dark.svg) 50% 100%/100% auto no-repeat;opacity:.68'),'soft scene that does not compete with the box');
+console.log('scene ok');/* one box on Select System / Select Property; more buildings in the middle */
+assert(src.includes('.selpg .sp-body:has(.sp-sheet),.selpg.dark .sp-body:has(.sp-sheet){background:none;box-shadow:none;padding:0}')&&src.includes('.selpg .sp-card.sp-sheet{background:#eceff0'),'Select System is one box, not two');
+assert(src.includes('.selpg>*{position:relative;z-index:2}'),'the box sits above the scene');
+console.log('one box ok');
