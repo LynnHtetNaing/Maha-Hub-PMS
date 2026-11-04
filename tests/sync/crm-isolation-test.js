@@ -7,7 +7,7 @@ const app = rd('ecosystem/index.html'), crm = rd('crm/index.html'), worker = rd(
 const auth = rd('supabase/functions/username-auth/index.ts'), prov = rd('supabase/functions/platform-admin-provision/index.ts'), sql = rd('supabase/migrations/20261105_033_crm_team.sql');
 let fails = 0; const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++ };
 T('its own address, crm.maha-hub.com, set in both Worker files', ['wrangler.toml', 'workers/maha-hub-pms/wrangler.toml'].every(f => /CRM_HOST = "crm\.maha-hub\.com"/.test(rd(f))));
-T('its own folder: the Worker serves /crm/ on its own address (and on test copies under /ecosystem/CRM)', /crm: \{ file: '\/crm\/index\.html'/.test(worker) && /\['CRM_HOST'/.test(worker));
+T('its own folder: the Worker serves /crm/ on its own address (and on test copies under /ecosystem/CRM)', /crm: \{ file: '\/crm\/'/.test(worker) && /\['CRM_HOST'/.test(worker));
 T('the old shared Sales folder is gone', !fs.existsSync(path.join(root, 'sales')));
 T('its own sign-in: nothing is handed over from another address, no entry ticket, no PMS session key', !/mahahub\.entry/.test(crm) && !/mahahub\.sbauth/.test(crm) && !/#mh=/.test(crm) && crm.includes("const SK = 'maha.crm.auth'"));
 T('its own table, and the hotel side of the PMS never reads or writes the sales records or the team table directly', crm.includes('maha_sales_records') && !app.includes('maha_sales_records') && !app.includes('maha_crm_members'));

@@ -11,7 +11,7 @@ const ON={MAIN_HOST:'solutions.maha-hub.com',PMS_HOST:'pms.maha-hub.com',CRM_HOS
 let r=await call('https://solutions.maha-hub.com/',ON);T('Main address: / is the Main page, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
 r=await call('https://pms.maha-hub.com/',ON);T('PMS address: / is the PMS, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
 r=await call('https://console.maha-hub.com/?x=1',ON);T('Provider console address: / opens the app, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
-r=await call('https://crm.maha-hub.com/',ON);T('Company Sales address: / is the company Sales, no redirect',r.status===200&&(await r.text())==='asset:/crm/index.html');
+r=await call('https://crm.maha-hub.com/',ON);T('Company Sales address: / is the company Sales, no redirect',r.status===200&&(await r.text())==='asset:/crm/');
 r=await call('https://crm.maha-hub.com/crm/app.js',ON);T('Company Sales files load on its address',(await r.text())==='asset:/crm/app.js');
 r=await call('https://crm.maha-hub.com/signin',ON);T('Company Sales address: /signin is the sign-in page, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
 r=await call('https://pms.maha-hub.com/brand/maha/pms-icon-192.png',ON);T('pictures and files still load',(await r.text())==='asset:/brand/maha/pms-icon-192.png');
