@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="fe2c8a4071">
+<meta name="maha-build" content="8b9c4648f9">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2632,6 +2632,7 @@ html[data-mode=dark] .fbtn.acc{background:color-mix(in srgb,var(--accent,#176B50
 @media (max-width:1100px){.hs2-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:700px){.hs2-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .hs2-tw.fix{height:auto;max-height:360px}
 #hsLst th,#hsLst td{white-space:nowrap;overflow-wrap:normal}#hsLst th:first-child,#hsLst td:first-child{white-space:normal;overflow-wrap:anywhere;min-width:110px}#hsLst td.hs2-sm{max-width:104px;overflow:hidden;text-overflow:ellipsis}#hsLst th,#hsLst td{padding-left:8px;padding-right:8px}.hs2-tw.fix{overflow-x:auto}
+.wsbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 10px;background:#fff8ea;border:1px solid #e6d3a3;border-radius:8px;color:var(--ink,#13303f)}.wsbar .sp{flex:1}
 </style>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
@@ -7531,12 +7532,22 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Overview','sbill.home','setup'],['Quotes','sbill.quotes','setup'],['Subscriptions','sbill.subscriptions','setup'],['Invoices','sbill.invoices','setup'],['Payments Made','sbill.payments','setup'],['Statements','sbill.statements','setup'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['User Logs','set.userlogs','userlogs'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
+/* Provider console, two levels. Level 1 (this menu): the whole system, no hotel picked. Level 2 (PROV_WS_MENU): a hotel's own workspace, shown whenever the page is one of PROV_WS_VIEWS. */
 const PROV_MENU=[
- {t:'Properties',items:[['All properties','prov.home'],['Hotels','prov.hotels'],['Property setup','prov.setup']]},
- {t:'Billing',items:[['Hotel Billing','prov.billing']]},
- {t:'Setup',items:[['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe'],['System rules','prov.rules'],['Distribution (Google Hotels)','prov.distribution'],['Code catalog (all hotels)','prov.catalog'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Chains / Groups','prov.chains'],['Recycle bin','prov.recycle'],['Admin team','prov.team']]},
- {t:'Records',items:[['Announcements','prov.announce'],['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log'],['User Logs','prov.userlogs'],['Admin logs','prov.adminlogs']]},
+ {t:'Hotels',items:[['Hotels','prov.home'],['Hotels list','prov.hotels']]},
+ {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup']]},
+ {t:'Team & records',items:[['Admin team','prov.team'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
+const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
+const PROV_WS_MENU=[
+ {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems']]},
+ {t:'Connections',items:[['Direct booking & Google','prov.google'],['Distribution (Google Hotels)','prov.distribution'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe']]},
+ {t:'Billing',items:[['Hotel Billing','prov.billing']]},
+ {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log'],['User Logs','prov.userlogs']]},
+ {t:'Hotels',items:[['Open PMS','prov.enter'],['All hotels','prov.home']]}];
+function provWsOn(){const se=typeof DB!=='undefined'&&DB&&DB.session;return !!(se&&se.provider&&!se.inHotel&&typeof H!=='undefined'&&H&&PROV_WS_VIEWS.includes(VIEW))}
+function provHotels(){return provWsOn()&&H?[H]:Object.values(DB.hotels)}
+function provWsBar(el){const h=H,bar=document.createElement('div');bar.className='wsbar';bar.innerHTML=`<b>${esc(h.code)}</b> &middot; ${esc(h.set.name)} <span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span><span class="sp"></span><button type="button" class="btn sm gold" id="wsPms">Open PMS</button><button type="button" class="btn sm ghost" id="wsAll">All hotels</button>`;el.insertBefore(bar,el.firstChild);$('#wsPms',bar).onclick=()=>enterHotel(h.code);$('#wsAll',bar).onclick=()=>go('prov.home')}
 /* ---- Our own drop-down list: used on every select instead of the browser list. Keyboard still works on the closed select. ---- */
 const MahaSel=(()=>{let pop=null,cur=null;
   function close(){if(pop){pop.remove();pop=null;cur=null;document.removeEventListener('keydown',onKey,true)}}
@@ -8437,7 +8448,7 @@ function renderShell(){
   if($('#tbProfM'))$('#tbProfM').onclick=e=>{e.stopPropagation();openAccountMenu($('#tbProfM'))};
   const tick=()=>{const c=$('#rtClock');if(c){const n=new Date();c.textContent=fd(iso(n));c.title='System date · '+VERSION}};tick();clearInterval(window._rtc);window._rtc=setInterval(tick,20000);
   const providerConsole=!!(DB.session.provider&&!DB.session.inHotel);
-  const raw=DB.session.provider?(DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):PROV_MENU):MENU;
+  const raw=DB.session.provider?(DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;
   const hide=providerConsole?[]:['Tax','Help','AI','Setup'];
   const menu=areaMenu(raw).filter(m=>!hide.includes(m.t));
   const nav=$('#menubar');
@@ -8538,6 +8549,7 @@ function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.se
    else if(NAV_MENU){NAVSTACK.length=0}
    else if(DB.session&&VIEW&&VIEW!=='sys.pick'&&!(VIEW===v&&sameArg(VARG,arg))){const t=NAVSTACK[NAVSTACK.length-1];if(!(t&&t.v===VIEW&&sameArg(t.a,VARG))){NAVSTACK.push({v:VIEW,a:VARG});if(NAVSTACK.length>40)NAVSTACK.shift()}}}
   if(v==='res.open'&&!go.keepBack)resBack='res.list';go.keepBack=false;
+  if(v==='prov.enter'){if(H&&DB.session&&DB.session.provider&&!DB.session.inHotel)enterHotel(H.code);return}
   if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
@@ -8567,10 +8579,11 @@ function render(){
   if(DB.session.provider&&!DB.session.inHotel&&!/^prov\./.test(VIEW)&&VIEW!=='set.backup'&&VIEW!=='ai.revenue'){VIEW='prov.home';VARG=null}
   if(VIEW==='sys.pick'){VIEW=firstHotelView();VARG=null;setTimeout(openSystemsSwitcher,0)}
   if(!document.querySelector('.topbar'))renderShell();
+  {const w=provWsOn();if(render._ws!==undefined&&w!==render._ws)renderShell();render._ws=w}
   const f=VIEWS[VIEW]||VIEWS[user().provider?'prov.home':'fo.status'];
   try{applyFxCss()}catch(e){}
   const el=$('#view');if(!el)return;const rkey=VIEW+'|'+(typeof VARG==='object'?JSON.stringify(VARG):String(VARG)),keep=rkey===RENDER_KEY?scrollSnap():null;RENDER_KEY=rkey;
-  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep)scrollKeep(keep,rkey);else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle();try{routeSync()}catch(e){}
+  el.innerHTML='';el.classList.remove('full');f(el,VARG);try{if(provWsOn()&&VIEW!=='prov.setup')provWsBar(el)}catch(e){}try{msbMark()}catch(e){}try{navFit();mobNavMount();mobPrep(el)}catch(e){}if(keep)scrollKeep(keep,rkey);else window.scrollTo(0,0);if(typeof armIdle==='function')armIdle();try{routeSync()}catch(e){}
 }
 /* A table heading sits right above its numbers: when every filled cell of a column is a number cell (class n), the heading is right-aligned too, on every table and every page. */
 function alignNumHeads(root){try{(root||document).querySelectorAll('table.grid').forEach(t=>{const rows=[...t.rows],head=rows.find(r=>r.querySelector('th'));if(!head)return;const body=rows.filter(r=>r!==head&&r.querySelector('td'));if(!body.length||body.some(r=>[...r.cells].some(c=>c.colSpan>1)))return;
@@ -11577,7 +11590,7 @@ VIEWS['set.rooms']=el=>{el.innerHTML=pageHead('Rooms & Room Types')+`<div class=
 
 /* ---------- Provider console (2.2, 1.6) ---------- */
 function provLog(a,extra){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H?H.code:'',a,...(extra||{})});try{ALOG.add(H&&DB.session&&DB.session.inHotel?H.code:'',/^Entered hotel|^Left hotel/.test(a)?'Entered a hotel':'Provider console',a)}catch(e){}}
-function provHotelPicker(){return `<label class="sub">Hotel <select id="pvH">${Object.values(DB.hotels).map(h=>opt(h.code,h.code+' – '+h.set.name,H.code)).join('')}</select></label>`}
+function provHotelPicker(){if(provWsOn())return '';return `<label class="sub">Hotel <select id="pvH">${Object.values(DB.hotels).map(h=>opt(h.code,h.code+' – '+h.set.name,H.code)).join('')}</select></label>`}
 function bindPicker(el){const s=$('#pvH',el);if(s)s.onchange=()=>{H=DB.hotels[s.value];DB.session.hotel=s.value;saveDB();renderShell();render()}}
 /* ---------- Provider console > Hotel Billing: one page per hotel for everything the hotel sees under Backend > Billing, plus the subscription period and the people's access ---------- */
 const PBILL_PID={};let PB_TAB='overview';
@@ -11661,7 +11674,7 @@ VIEWS['prov.billing']=el=>{
 VIEWS['prov.hotels']=el=>{
   el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Subscription until</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
    ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst  ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.subUntil?(()=>{const n=diff(iso(new Date()),h.set.subUntil);return fd(h.set.subUntil)+` <span class="sub" ${n<=7?'style="color:#b3261e"':''}>(${n<0?'ended':n+' d'})</span>`})():'<span class="sub">Not set</span>'}</td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
-    <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-sub="${h.code}">Subscription</button> <button class="btn sm ghost" data-bill="${h.code}">Billing</button> <button class="btn sm ghost" data-uacc="${h.code}">Users' access</button> <button class="btn sm ghost" data-use="${h.code}">Work on this hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
+    <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-sub="${h.code}">Subscription</button> <button class="btn sm ghost" data-bill="${h.code}">Billing</button> <button class="btn sm ghost" data-uacc="${h.code}">Users' access</button> <button class="btn sm gold" data-use="${h.code}">Open hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
    <p class="sub">Each hotel's data is kept apart. Staff sign in with only their username and password; the system opens the hotel their account belongs to. A new hotel stays Not active until you activate it, and its staff cannot sign in before that.</p>`;
   /* the hotel subscription date: staff of that hotel are told 30 days before and after it; nobody is blocked by it */
   $$('[data-sub]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.sub];if(!h)return;
@@ -11673,7 +11686,7 @@ VIEWS['prov.hotels']=el=>{
   /* Billing records of a hotel (quotes, invoices, payments, subscriptions): kept in the cloud, the hotel reads them on the Billing page */
   $$('[data-bill]',el).forEach(b=>b.onclick=()=>billingAdmin(DB.hotels[b.dataset.bill]));
   $$('[data-uacc]',el).forEach(b=>b.onclick=()=>userAccessAdmin(DB.hotels[b.dataset.uacc]));
-  $$('[data-use]',el).forEach(b=>b.onclick=()=>{H=DB.hotels[b.dataset.use];DB.session.hotel=H.code;saveDB();renderShell();go('prov.perms')});
+  $$('[data-use]',el).forEach(b=>b.onclick=()=>{H=DB.hotels[b.dataset.use];DB.session.hotel=H.code;saveDB();SET_SEC='profile';go('prov.setup')});
   $$('[data-act]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.act];const on=h.active!==false;if(on&&h.shifts.some(x=>x.status==='open')&&!await dlgConfirm('Staff shifts are still open at '+h.code+'. Deactivate anyway? They will be signed out.'))return;if(!on&&(!h.set.legal||!h.rooms.length)){toast('Complete the hotel details and rooms before activating.');return}h.active=!on;if(h.active)h.activatedAt=Date.now();provLog((h.active?'Activated':'Deactivated')+' hotel '+h.code);saveDB();render();toast(h.active?h.code+' is active. Its staff can now sign in.':h.code+' is not active.')});
   $$('[data-unlock]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.unlock];const why=await dlgAsk(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
     const old=h.set.lockedThrough;h.set.lockedThrough=addD(old,-1);H=h;h.amend.unshift({at:Date.now(),user:user().name,what:`Unlocked closed day ${fd(old)}`,before:old,after:h.set.lockedThrough,reason:why.trim()});provLog(`Unlocked ${fd(old)}`,{reason:why.trim()});saveDB();render();toast('Day unlocked. Staff can change it until the next Close Day.')});
@@ -12666,7 +12679,7 @@ function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes
 VIEWS['sys.pick']=el=>{el.innerHTML='';go(firstHotelView());setTimeout(openSystemsSwitcher,0)};
 VIEWS['prov.systems']=el=>{
   if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
-  const hotels=Object.values(DB.hotels);hotels.forEach(shapeHotel);
+  const hotels=provHotels();hotels.forEach(shapeHotel);
   const cHost=connectHost(),bHost=bookHost(),first=hotels[0];
   const reachPreview=reachUrl(first),connectPreview=connectUrlFor(first),bookPreview=bookUrlFor(first);
   const sysTile=(cls,name,line,attrs,tag)=>'<'+tag+' '+(tag==='button'?'type="button" ':'')+'class="usy '+cls+'" '+attrs+'><b>'+esc(name)+'</b><small>'+esc(line)+'</small></'+tag+'>';
@@ -12754,7 +12767,6 @@ VIEWS['prov.systems']=el=>{
     }catch(e){toast('Publish failed: '+(e.message||e)+'. Check the Connect server address on the Systems page.')}
     finally{b.disabled=false}
   });
-  $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
   $$('[data-booksetup]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.booksetup);go('prov.google')});
 };
 VIEWS['prov.rules']=el=>{
@@ -12813,8 +12825,8 @@ function googleReadyRow(h){const p=publicHotelFromHub(h);const checks=[
   return {p,checks,codeOk,codeTotal}}
 VIEWS['prov.distribution']=el=>{
   if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Distribution')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
-  Object.values(DB.hotels).forEach(shapeHotel);
-  const rows=Object.values(DB.hotels).map(h=>({h,...googleReadyRow(h)}));
+  provHotels().forEach(shapeHotel);
+  const rows=provHotels().map(h=>({h,...googleReadyRow(h)}));
   const bookHost=(localStorage.getItem('maha.bookHost')||'http://127.0.0.1:8781').replace(/\/+$/,'');
   el.innerHTML=pageHead('Distribution (Google Hotels)')+`<div class="panel pad">
     <p class="sub"><b>Maha is not live on Google</b> and is not a Google Connectivity Partner in this build. This screen prepares public catalogs, landing-page deep links, and Google-format XML for later Hotel Center upload. It never pushes rates to Google and never claims approval.</p>
@@ -12873,11 +12885,11 @@ VIEWS['prov.distribution']=el=>{
 
 /* ---------- Properties (provider home) ---------- */
 VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
-  el.innerHTML=pageHead('Properties',`<button class="btn gold" id="pvNewP">${ic('plus',15)} Create new property</button>`)+`<p class="sub">Every hotel using Maha Hub. <b>Property setup</b> is only the hotel file: profile, rooms, rates, payments the desk can post, companies and documents. Staff access, systems, plans, EDC, Stripe and anything beyond that hotel file are under <b>Setup</b>. A new property starts empty and stays <b>Not active</b> until property setup is complete and you activate it.</p>
+  el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNewP">${ic('plus',15)} Create new property</button>`)+`
    <div class="pgrid mt">${hs.map(h=>{const ck=propertyChecks(h),done=ck.filter(c=>c.ok).length;return `<div class="pcard"><div class="pch"><b>${esc(h.set.name)}</b><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></div>
      <div class="pcm">${esc(h.code)} · ${esc(h.set.cur)} · ${esc(planName(h))} · ${h.rooms.length} rooms · ${h.users.length} staff</div><div class="pcm">Business date ${fd(h.set.bd)}</div>
      <div class="pbar"><i style="width:${ck.length?done/ck.length*100:0}%"></i></div><div class="pcm">Property setup ${done} of ${ck.length} complete</div>
-     <div class="btns"><button class="btn" data-open="${h.code}">Property setup</button><button class="btn gold" data-enter="${h.code}">Enter hotel</button>${h.active!==false&&featOn(h,'fn.cd.close')?`<button class="btn ghost" data-cd="${h.code}">${ic('log',14)} Close Day</button>`:''}</div><div class="pcm">Last Close Day: ${h.audits&&h.audits.length?fd(h.audits[h.audits.length-1].date):'not yet'}</div></div>`}).join('')}</div>`;
+     <div class="btns"><button class="btn gold" data-open="${h.code}">Open hotel</button>${h.active!==false&&featOn(h,'fn.cd.close')?`<button class="btn ghost" data-cd="${h.code}">${ic('log',14)} Close Day</button>`:''}</div><div class="pcm">Last Close Day: ${h.audits&&h.audits.length?fd(h.audits[h.audits.length-1].date):'not yet'}</div></div>`}).join('')}</div>`;
   $('#pvNewP',el).onclick=newPropertyForm;
   $$('[data-open]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.open);SET_SEC='profile';go('prov.setup')});
   $$('[data-enter]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.enter));
@@ -12903,7 +12915,7 @@ VIEWS['prov.announce']=el=>{
   $$('[data-pad]',el).forEach(b=>b.onclick=async()=>{const a=(DB.catalog.announce||[]).find(x=>x.id===b.dataset.pad);if(!a||!await dlgConfirm('Remove this announcement for every hotel?'))return;a.removed=true;provLog('Removed administrator announcement: '+a.title);saveDB();render()})};
 VIEWS['prov.approvals']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
-  const rows=[];Object.values(DB.hotels).forEach(h=>{const lim=((h.set&&h.set.approvalLimits)||{mgr:50000}).mgr;(h.approvals||[]).forEach(a=>{if(a.status==='pending'&&+lim>0&&Math.abs(+a.amt||0)>+lim)rows.push({h,a})})});
+  const rows=[];provHotels().forEach(h=>{const lim=((h.set&&h.set.approvalLimits)||{mgr:50000}).mgr;(h.approvals||[]).forEach(a=>{if(a.status==='pending'&&+lim>0&&Math.abs(+a.amt||0)>+lim)rows.push({h,a})})});
   rows.sort((x,y)=>y.a.at-x.a.at);
   el.innerHTML=pageHead('Approvals inbox',`<span class="sub">${rows.length} large amount${rows.length===1?'':'s'} waiting</span>`)+`<div class="panel scroll"><table class="grid"><tr><th>Hotel</th><th>When</th><th>By</th><th>Request</th><th class="n">Amount</th><th></th></tr>${rows.map(r=>`<tr><td><b>${esc(r.h.code)}</b> ${esc(r.h.set.name)}</td><td>${fdt(r.a.at)}</td><td>${esc(r.a.by||'')}</td><td>${esc(r.a.title||r.a.action)}</td><td class="n">${m2(Math.abs(+r.a.amt||0))}</td><td><button class="btn sm gold" data-aph="${r.h.code}">Open in hotel</button></td></tr>`).join('')||'<tr><td colspan="6" class="empty">No large amount is waiting. Amounts above a hotel’s manager limit appear here.</td></tr>'}</table></div><p class="sub">Only requests above the manager limit of each hotel are listed. Open the hotel to approve or reject.</p>`;
   $$('[data-aph]',el).forEach(b=>b.onclick=()=>{enterHotel(b.dataset.aph);go('set.approve')})};
