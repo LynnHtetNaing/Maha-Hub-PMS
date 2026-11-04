@@ -17,7 +17,8 @@ const SYSTEM_DOC = {
   reach: { file: '/reach/index.html', base: '/reach/' },
   connect: { file: '/connect/index.html', base: '/connect/' },
   booking: { file: '/book/index.html', base: '/book/' },
-  crm: { file: '/crm/index.html', base: '/crm/' },
+  /* the folder address: asking the assets for /crm/index.html answers with a redirect to /crm/, so the folder itself is asked for */
+  crm: { file: '/crm/', base: '/crm/' },
 };
 /* which environment setting names which address, and what "/" opens there */
 const HOST_VARS = [
