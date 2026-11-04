@@ -28,4 +28,7 @@ assert(fs.existsSync(__dirname+'/../../brand/maha/scene-light.svg')&&fs.existsSy
 assert(src.includes('url(/brand/maha/scene-light.svg) 50% 100%/100% auto')&&src.includes('url(/brand/maha/scene-dark.svg) 50% 100%/100% auto'),'scene used on the pages');
 assert(fs.readFileSync(__dirname+'/../../brand/maha/scene-shape.svg','utf8').includes('offset=".58"'),'one solid shade for buildings and pagoda; pagoda only on the right, its haze flowing left');
 assert(src.includes('scene-light.svg) 50% 100%/100% auto no-repeat;opacity:.7')&&src.includes('scene-dark.svg) 50% 100%/100% auto no-repeat;opacity:.68'),'soft scene that does not compete with the box');
-console.log('scene ok');
+console.log('scene ok');/* one box on Select System / Select Property; more buildings in the middle */
+assert(src.includes('.selpg .sp-body:has(.sp-sheet),.selpg.dark .sp-body:has(.sp-sheet){background:none;box-shadow:none;padding:0}')&&src.includes('.selpg .sp-card.sp-sheet{background:#eceff0'),'Select System is one box, not two');
+assert(src.includes('.selpg>*{position:relative;z-index:2}'),'the box sits above the scene');
+console.log('one box ok');
