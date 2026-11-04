@@ -766,6 +766,29 @@ const CAT = [
 ];
 const CAD_LABEL = {once:'One-time', month:'Monthly', year:'Yearly', comm:'Commission'};
 
+/* A quotation needs the approver's OK only when it goes below the official price list: a discount (% or THB), or a commission rate lower than the list.
+   Everything at the official price goes out without approval. The approval is tied to the exact discount that was approved: change it and it must be asked again. */
+function discOf(q, base) {
+  const v = parseFloat(String(q.discValue || '').replace(/[^\d.]/g, '')) || 0; if (!q.discType || v <= 0) return {month:0, year:0};
+  if (q.discType === 'pct') { const p = Math.min(v, 100) / 100; return {month: Math.round((base.month || 0) * p), year: Math.round((base.year || 0) * p)}; }
+  return {month: Math.min(Math.round(v), Math.round(base.month || 0)), year: 0};
+}
+const discLabel = q => q.discType === 'pct' ? 'Special discount ' + (parseFloat(q.discValue) || 0) + '%' : 'Special discount';
+function belowList(q) {
+  const out = [];
+  if (q.discType && (parseFloat(String(q.discValue || '').replace(/[^\d.]/g, '')) || 0) > 0) out.push(q.discType === 'pct' ? 'Discount ' + parseFloat(q.discValue) + '%' : 'Discount ' + fmt(parseFloat(q.discValue)) + ' THB a month');
+  for (const p of CAT) { const l = (q.lines || {})[p.id]; if (l && l.on && p.kind === 'comm' && l.rate && norm(l.rate) !== norm(p.rate)) out.push(p.name + ' at ' + l.rate + ' (list: ' + p.rate + ')'); }
+  return out;
+}
+const discSig = q => JSON.stringify([q.discType || '', String(q.discValue || ''), belowList(q).join('|')]);
+/* 'none' = at list price | 'needed' = not asked yet | 'waiting' | 'approved' | 'declined' */
+function approvalState(q) {
+  if (!belowList(q).length) return 'none';
+  if (q.approval === 'approved' && q.approvedSig === discSig(q)) return 'approved';
+  if (q.approval === 'requested' && q.approvedSig === discSig(q)) return 'waiting';
+  if (q.approval === 'declined' && q.approvedSig === discSig(q)) return 'declined';
+  return 'needed';
+}
 function compute(q) {
   const t = tierOf(q.rooms), L = q.lines || {};
   const out = {items:[], once:0, month:0, year:0, warn:[], names:[]};
@@ -790,6 +813,9 @@ function compute(q) {
     out.items.push({label:c.name, cad, amount: cad === 'comm' ? null : a, text: cad === 'comm' ? c.amount : '', offsheet:1});
     out.names.push(c.name);
   }
+  { const dd = discOf(q, out);
+    if (dd.month) { out.month -= dd.month; out.items.push({label: discLabel(q) + ' — monthly fees', cad:'month', amount: -dd.month}); }
+    if (dd.year) { out.year -= dd.year; out.items.push({label: discLabel(q) + ' — yearly fees', cad:'year', amount: -dd.year}); } }
   if (L.be?.on && L.becom?.on) out.warn.push('Booking Engine is on both flat monthly and commission — the hotel picks one.');
   if (L.host?.on && L.maint?.on) out.warn.push('Hosting + Maintenance separately = 10,000/yr. The bundle is 9,000/yr.');
   if ((q.custom || []).some(c => c.name)) out.warn.push('Custom lines are off the 2026 price list — confirm with CEO before sending.');
@@ -911,12 +937,17 @@ function quoteDocParts(q) {
     if (w) tot.push(`<div class="row sub${grp()}" data-fit="waived"><span class="lbl">Set-up fee — Waived</span><span><span style="text-decoration:line-through">${fmt(+q.setup)} THB</span> 0 THB</span></div>`);
     tot.push(`<div class="row tot${w ? '' : grp()}" data-grp="${g0 ? 1 : 0}"><span class="lbl"${w ? ' data-long="One-time total (set-up fee waived)"' : ''}>One-time total</span><span>${fmt(once)} THB</span></div>`);
   }
-  if (month) tot.push(`<div class="row tot${grp()}"><span class="lbl">Monthly total</span><span>${fmt(month)} THB / mo</span></div>`);
+  const dd = discOf(q, {month, year: yearGross - yearDisc + yearFlat});
+  if (month) {
+    if (dd.month) { tot.push(`<div class="row sub${grp()}"><span class="lbl">Monthly subtotal</span><span>${fmt(month)} THB</span></div>`); tot.push(`<div class="row disc"><span class="lbl">${esc(discLabel(q))}</span><span>− ${fmt(dd.month)} THB</span></div>`); }
+    tot.push(`<div class="row tot${dd.month ? '' : grp()}"><span class="lbl">Monthly total</span><span>${fmt(month - dd.month)} THB / mo</span></div>`);
+  }
   if (yearGross || yearFlat) {
     const yg = grp();
     if (yearDisc) { tot.push(`<div class="row sub${yg}" data-fit="ysub"><span class="lbl">Yearly subtotal (paid in advance)</span><span>${fmt(yearGross + yearFlat)} THB</span></div>`);
       tot.push(`<div class="row disc" data-fit="ydisc"><span class="lbl">Discount (10% yearly payment)</span><span>− ${fmt(yearDisc)} THB</span></div>`); }
-    tot.push(`<div class="row tot${yearDisc ? '' : yg}" data-grp="${yg ? 1 : 0}"><span class="lbl"${yearDisc ? ' data-long="Yearly total (10% yearly discount applied)"' : ''}>Yearly total</span><span>${fmt(yearGross - yearDisc + yearFlat)} THB / yr</span></div>`);
+    if (dd.year) tot.push(`<div class="row disc"><span class="lbl">${esc(discLabel(q))}</span><span>− ${fmt(dd.year)} THB</span></div>`);
+    tot.push(`<div class="row tot${yearDisc || dd.year ? '' : yg}" data-grp="${yg ? 1 : 0}"><span class="lbl"${yearDisc ? ' data-long="Yearly total (10% yearly discount applied)"' : ''}>Yearly total</span><span>${fmt(yearGross - yearDisc + yearFlat - dd.year)} THB / yr</span></div>`);
   }
   if (comm.length) tot.push(`<div class="row sub${grp()}" data-fit="comm"><span class="lbl">Commission services</span><span style="text-align:right">${comm.map(esc).join('<br>')}</span></div>`);
   const hasBE = !!(L.be?.on || L.becom?.on), hasSys = !!(L.be?.on || L.cm?.on || L.pms?.on), hasPay = !!L.inv?.on;
@@ -1395,6 +1426,13 @@ function route() {
 function moreGroups() {
   return '<div class="onlymob"><h2>Collect</h2><div class="list"><a class="row" href="#collect"><div class="main"><div class="t">Collect a payment</div></div></a></div>' + NAVG.filter(n => n.g).map(n => `<h2>${esc(n.g)}</h2><div class="list">${n.items.map(([l, x]) => x.startsWith('act:') ? `<button type="button" class="row" data-act="${x.slice(4)}"><div class="main"><div class="t">${esc(l)}</div></div></button>` : `<a class="row" href="${x}"><div class="main"><div class="t">${esc(l)}</div></div></a>`).join('')}</div>`).join('') + '</div>';
 }
+async function decide(result) {
+  const q = vQuote.current; vQuote.sync(); const st = approvalState(q);
+  if (st !== 'waiting') { toast('There is nothing waiting for approval on this quotation'); return; }
+  if (!(await Auth.canApprove())) { toast('Only the company approver can approve or decline a discount'); return; }
+  q.approval = result; q.approvedSig = discSig(q); q.approvedBy = Auth.who() || 'Approver'; q.approvedAt = new Date().toISOString();
+  await save(q); toast(result === 'approved' ? 'Approved' : 'Declined'); rerender();
+}
 function rerender(keepScroll = true) { const y = scrollY; route(); if (keepScroll) scrollTo(0, y); }
 window.addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
 
@@ -1571,14 +1609,15 @@ function actSheet(a, hid, type) {
 /* ---------- quotes ---------- */
 function quoteRow(q) {
   const c = compute(q); const bits = [c.month ? fmt(c.month) + '/mo' : '', c.year ? fmt(c.year) + '/yr' : '', c.items.some(i => i.cad === 'comm') ? 'commission' : ''].filter(Boolean).join(' + ');
-  const sc = {Draft:'#8A9A8C', Sent:'#2E6B8A', Accepted:'#1F8A4C', Rejected:'#B4432F', Expired:'#A0763A'}[q.status] || '#8A9A8C';
+  const ap = approvalState(q); const sc = ap === 'waiting' ? '#D49A38' : {Draft:'#8A9A8C', Sent:'#2E6B8A', Accepted:'#1F8A4C', Rejected:'#B4432F', Expired:'#A0763A'}[q.status] || '#8A9A8C';
   return `<a class="row" href="#quote/${q.id}"><span class="stripe" style="background:${sc}"></span><div class="main"><div class="t">${esc(q.no || 'No number')} — ${esc(q.hotelName || hotelName(q.hotelId))}</div>
-   <div class="s">${esc(c.names.join(', ') || 'No products')}</div></div><div class="end"><span class="status" style="color:${sc}">${esc(q.status || 'Draft')}</span><div>${esc(bits)}</div></div></a>`;
+   <div class="s">${esc(c.names.join(', ') || 'No products')}</div></div><div class="end"><span class="status" style="color:${sc}">${ap === 'waiting' ? 'Waiting for approval' : esc(q.status || 'Draft')}</span><div>${esc(bits)}</div></div></a>`;
 }
 function vQuotes(st) {
   if (st !== undefined) UI.quoteSt = st;
   let qs = K('quote').sort((a, b) => (b.no || '').localeCompare(a.no || '') || (b.updated || '').localeCompare(a.updated || ''));
-  if (UI.quoteSt) qs = qs.filter(q => (q.status || 'Draft') === (UI.quoteSt === 'pending' ? 'Draft' : 'Sent'));
+  if (UI.quoteSt === 'pending') qs = qs.filter(q => (q.status || 'Draft') === 'Draft');
+  if (UI.quoteSt === 'waiting') qs = qs.filter(q => approvalState(q) === 'waiting');
   if (UI.quoteQ) { const n = norm(UI.quoteQ); qs = qs.filter(q => norm([q.no, q.hotelName, q.contact, q.status, q.note].join(' ')).includes(n)); }
   const msas = K('msa').sort((a, b) => (b.updated || '').localeCompare(a.updated || '')).filter(x => !UI.quoteQ || norm([x.company, x.hotelName, x.status].join(' ')).includes(norm(UI.quoteQ)));
   view().innerHTML = `<div class="top"><div><h1>Quotes &amp; MSAs</h1><p>Official Maha Hub templates, filled from your data — no tokens used</p></div>
@@ -1631,6 +1670,12 @@ function vQuote(id) {
      ${field({k:'note', label:'Note', type:'textarea', wide:1}, q.note)}
     </div></div>
     ${groups.map(g => `<h2>${esc(g)}</h2><div class="panel" style="padding:4px 16px">${CAT.filter(p => p.group === g).map(pl).join('')}</div>`).join('')}
+    <h2>Discount below the official price</h2>
+    <div class="panel"><div class="grid two">
+     ${field({k:'discType', label:'Discount', type:'select', opts:[['', 'None — official price'], ['pct', '% off the monthly and yearly fees'], ['thb', 'THB off per month']]}, q.discType || '')}
+     ${field({k:'discValue', label:'Amount (% or THB)', type:'number'}, q.discValue)}
+     ${field({k:'discReason', label:'Why (for the approver)', wide:1}, q.discReason)}</div>
+     <div id="qappr"></div></div>
     <h2>Custom lines (CEO specials, off-sheet)</h2>
     <div class="panel"><div id="customs">${q.custom.map((c, i) => customRow(c, i)).join('')}</div><button class="btn sm" data-act="addCustom">${ICON.plus}Add custom line</button></div>
     ${!q.isNew ? `<p style="margin-top:18px"><button class="btn danger sm" data-act="delQuote">Delete quote</button></p>` : ''}
@@ -1639,11 +1684,12 @@ function vQuote(id) {
 
   const sync = () => {
     const hn = $('#q_hotel').value.trim(); q.hotelName = hn; const h = K('hotel').find(x => norm(x.name) === norm(hn)); q.hotelId = h ? h.id : '';
-    ['no', 'date', 'rooms', 'contact', 'status', 'setup', 'note'].forEach(k => q[k] = $(`[name=${k}]`).value.trim());
+    ['no', 'date', 'rooms', 'contact', 'status', 'setup', 'note', 'discType', 'discValue', 'discReason'].forEach(k => q[k] = $(`[name=${k}]`).value.trim());
     q.waived = $('#q_waived').checked; q.hideRooms = $('#q_hide').checked;
     $$('.pline [data-prod]').forEach(cb => { q.lines[cb.dataset.prod] = {...(q.lines[cb.dataset.prod] || {}), on: cb.checked}; });
     $$('[data-opt]').forEach(el => { const l = q.lines[el.dataset.p] = q.lines[el.dataset.p] || {}; l[el.dataset.opt] = el.type === 'checkbox' ? el.checked : el.value; });
     q.custom = $$('#customs .crow').map(r => ({name: $('[data-c=name]', r).value.trim(), amount: $('[data-c=amount]', r).value.trim(), cad: $('[data-c=cad]', r).value}));
+    $('#qappr').innerHTML = apprBox(q);
     const c = compute(q); $('#qtable').innerHTML = quoteTable(c); $('#qwarn').innerHTML = c.warn.map(w => `<div class="warn">${esc(w)}</div>`).join('');
   };
   view().oninput = e => { if (e.target.closest('.split')) sync(); };
@@ -1654,6 +1700,15 @@ function vQuote(id) {
   };
   function renderQuoteProducts() { $$('.split > div:first-child > .panel[style]').forEach((panel, i) => panel.innerHTML = CAT.filter(p => p.group === groups[i]).map(pl).join('')); sync(); }
   vQuote.current = q; vQuote.sync = sync; sync();
+}
+function apprBox(q) {
+  const st = approvalState(q), why = belowList(q);
+  if (st === 'none') return '<p class="muted small" style="margin:8px 0 0">At the official price: no approval needed.</p>';
+  const who = q.approvedBy ? esc(q.approvedBy) + (q.approvedAt ? ' · ' + fdate(q.approvedAt.slice(0, 10)) : '') : '';
+  const msg = {needed:'Below the official price — this needs the approver\'s OK before the quotation can be sent.', waiting:'Waiting for approval' + (q.requestedBy ? ' (asked by ' + esc(q.requestedBy) + ')' : '') + '.', approved:'Approved' + (who ? ' by ' + who : '') + '. The quotation can be sent.', declined:'Declined' + (who ? ' by ' + who : '') + '. Change the discount and ask again.'}[st];
+  const col = {needed:'var(--alert)', waiting:'#D49A38', approved:'#1F8A4C', declined:'var(--alert)'}[st];
+  return `<div style="margin-top:10px;border-left:4px solid ${col};padding:8px 12px;background:var(--gold-soft,#f4efe0);border-radius:4px"><b>${esc(why.join(' · '))}</b><div>${msg}</div>
+   <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${st === 'needed' || st === 'declined' ? '<button class="btn sm primary" data-act="askApproval">Ask for approval</button>' : ''}${st === 'waiting' ? '<button class="btn sm primary" data-act="approveQuote">Approve</button><button class="btn sm" data-act="declineQuote">Decline</button>' : ''}</div></div>`;
 }
 function customRow(c, i) {
   return `<div class="crow grid two" style="grid-template-columns:2fr 1fr 1fr auto;align-items:end;margin-bottom:8px">
@@ -1892,8 +1947,18 @@ const ACTIONS = {
   more: () => { UI.hotelLimit += 300; rerender(); },
   copyBrief: el => { const h = byId(el.dataset.id); copyText([h.name, h.area, h.city].filter(Boolean).join(', '), 'Research request copied — paste into Claude'); },
   copyCard: el => { const h = byId(el.dataset.id); copyText(['name', 'contact', 'contactTitle', 'phone', 'email', 'line', 'address', 'website'].map(k => h[k] ? (k === 'name' ? h[k] : `${HOTEL_FIELDS.find(f => f.k === k).label}: ${h[k]}`) : '').filter(Boolean).join('\n')); },
+  askApproval: async () => {
+    const q = vQuote.current; vQuote.sync(); if (!q.hotelName) { toast('Add the hotel name first'); return; }
+    if (approvalState(q) === 'none') { toast('Not needed: the price is at the official list'); return; }
+    q.approval = 'requested'; q.approvedSig = discSig(q); q.requestedBy = Auth.who() || 'Sales'; q.requestedAt = new Date().toISOString(); q.approvedBy = ''; q.approvedAt = '';
+    if (q.isNew) { toast('Save the quote first, then ask for approval'); q.approval = ''; return; }
+    await save(q); toast('Sent for approval'); rerender();
+  },
+  approveQuote: async () => { await decide('approved'); },
+  declineQuote: async () => { await decide('declined'); },
   saveQuote: async () => {
     const q = vQuote.current; vQuote.sync(); if (!q.hotelName) { toast('Add the hotel name'); return; }
+    if (['Sent', 'Accepted'].includes(q.status) && !['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before it is Sent'); return; }
     if (!q.hotelId) { const h = {id: uid(), kind:'hotel', name: q.hotelName, rooms: q.rooms, contact: q.contact, status:'Quoted', managed:'No'}; await save(h); q.hotelId = h.id; }
     else { const h = byId(q.hotelId); if (['New lead', 'Called', 'Follow up', 'Meeting set', undefined, ''].includes(h.status) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
     const wasNew = q.isNew; delete q.isNew; await save(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
@@ -1914,6 +1979,7 @@ const ACTIONS = {
   delMsa: () => { const m = vMsa.current; if (confirm('Delete this MSA?')) { remove(m.id); toast('MSA deleted'); location.hash = 'quotes'; } },
   makePDF: async () => {
     vQuote.sync(); const q = vQuote.current;
+    if (!['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before the quotation is downloaded'); return; }
     if (!q.hotelName) { toast('Add the hotel name first'); return; }
     const pre = quoteDocParts(q); if (pre.blockers.length) { alert('Fix before generating:\n\n- ' + pre.blockers.join('\n- ')); return; }
     const w = window.open('', '_blank');
@@ -2201,7 +2267,7 @@ function dashData(n) {
     signed: ms.map(m => [...signed.values()].filter(d => inM(d, m)).length),
     mrr: rev.map(r => r.mrr), once: rev.map(r => r.once),
     comm: ms.map(m => ACC_LINK.commissionRevenue(m)),
-    sent: quotes.filter(q => q.status === 'Sent').length,
+    sent: quotes.filter(q => approvalState(q) === 'waiting').length,
   };
 }
 function vDashboard() {
@@ -2290,12 +2356,12 @@ const Auth = (() => {
     return {error: 'code', message: codeMsg(d && d.error)};
   }
   async function finish(d, username) {
-    let name = username;
+    let name = username, member = null;
     try {   /* the person's own row; the provider is not a member, so the username is shown */
       const r = await fetch(URL_ + '/rest/v1/maha_crm_members?select=name', {headers: {apikey: KEY, Authorization: 'Bearer ' + d.access_token}});
-      if (r.ok) { const rows = await r.json(); if (rows && rows[0] && rows[0].name) name = rows[0].name; }
+      if (r.ok) { const rows = await r.json(); member = !!(rows && rows[0]); if (rows && rows[0] && rows[0].name) name = rows[0].name; }
     } catch {}
-    sess = keep(d, username, name); save(); changed();
+    sess = keep(d, username, name); sess.member = member; save(); changed();
     return {ok: true};
   }
   async function token() {
@@ -2383,7 +2449,13 @@ const Auth = (() => {
     setInterval(() => { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } }, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } } });
   }
-  return {required, signIn, verify, token, session, signOut, onChange, require: require_, who, status, present};
+  /* only the provider (the company approver) approves a discount: a sales team member does not */
+  async function canApprove() {
+    if (!required) return true; if (!sess) return false;
+    if (sess.member == null) { try { const tk = await token(); const r = await fetch(URL_ + '/rest/v1/maha_crm_members?select=name', {headers: {apikey: KEY, Authorization: 'Bearer ' + tk}}); if (r.ok) { const rows = await r.json(); sess.member = !!(rows && rows[0]); save(); } } catch {} }
+    return sess.member === false;
+  }
+  return {required, signIn, verify, token, session, signOut, onChange, require: require_, who, status, present, canApprove};
 })();
 
 /* ================= PROFILE (the badge at the top right, like the PMS) ================= */
