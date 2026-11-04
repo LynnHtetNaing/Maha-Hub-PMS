@@ -648,8 +648,10 @@ function openDB() {
 }
 const store = mode => db.transaction('rec', mode).objectStore('rec');
 function getAll() { return new Promise((res, rej) => { const q = store('readonly').getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+const OWNED = ['act', 'quote', 'msa', 'activation', 'hotel'];
 function save(r) {
   delete r._s; delete r._su;
+  try { if (!r.created && !r.owner && OWNED.includes(r.kind)) r.owner = Auth.who() || ''; } catch {}
   r.updated = new Date().toISOString(); if (!r.created) r.created = r.updated;
   const i = R.findIndex(x => x.id === r.id); if (i >= 0) R[i] = r; else R.push(r);
   Cloud.mark(r.id, r.kind);
@@ -2259,6 +2261,12 @@ function dashData(n) {
   msas.filter(m => m.status === 'Signed' && m.hotelId).forEach(m => signed.set(m.hotelId, m.date || (m.updated || '').slice(0, 10)));
   quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, q.date || (q.updated || '').slice(0, 10)));
   const fee = hid => { const qs = quotes.filter(q => q.hotelId === hid && q.status !== 'Rejected' && q.status !== 'Draft').sort((a, b) => (b.date || '').localeCompare(a.date || '')); if (!qs.length) return {mrr:0, once:0}; const c = compute(qs[0]); return {mrr: Math.round(c.month + c.year / 12), once: Math.round(c.once)}; };
+  const own = {}, P = o => own[o || ''] = own[o || ''] || {appointment:0, generated:0, rejected:0, signed:0, mrr:0, activation:0};
+  const inRange = d => ms.includes((d || '').slice(0, 7));
+  quotes.forEach(q => { const d = q.date || q.created; if (inRange(d)) P(q.owner).generated++; if (q.status === 'Rejected' && inRange(q.date || q.updated)) P(q.owner).rejected++; });
+  K('act').filter(a => a.type === 'Meeting' && meetSt(a) !== 'Cancelled' && inRange(a.date)).forEach(a => P(a.owner).appointment++);
+  K('activation').filter(a => a.status === 'Live' && inRange(a.date)).forEach(a => P(a.owner).activation++);
+  signed.forEach((d, hid) => { if (!inRange(d)) return; const m = msas.find(x => x.status === 'Signed' && x.hotelId === hid), q = quotes.find(x => x.hotelId === hid && x.status === 'Accepted'); const o = (m && m.owner) || (q && q.owner) || ''; const p = P(o); p.signed++; p.mrr += fee(hid).mrr; });
   const rev = ms.map(m => { let mrr = 0, once = 0; signed.forEach((d, hid) => { if (inM(d, m)) { const f = fee(hid); mrr += f.mrr; once += f.once; } }); return {mrr, once}; });
   return {
     ms,
@@ -2267,8 +2275,16 @@ function dashData(n) {
     signed: ms.map(m => [...signed.values()].filter(d => inM(d, m)).length),
     mrr: rev.map(r => r.mrr), once: rev.map(r => r.once),
     comm: ms.map(m => ACC_LINK.commissionRevenue(m)),
-    sent: quotes.filter(q => approvalState(q) === 'waiting').length,
+    sent: quotes.filter(q => approvalState(q) === 'waiting').length, own,
   };
+}
+function personTable(d) {
+  const names = Object.keys(d.own).filter(n => n !== '' || Object.keys(d.own).length > 1);
+  if (Object.keys(d.own).filter(n => n).length < 2) return '';
+  const cols = [['appointment', 'Appointments'], ['generated', 'Quotations'], ['rejected', 'Rejected'], ['signed', 'Signed'], ['mrr', 'Monthly fees signed'], ['activation', 'Activations']];
+  const max = Object.fromEntries(cols.map(([k]) => [k, Math.max(1, ...names.map(n => d.own[n][k]))]));
+  return `<h2>Per person</h2><div class="panel" style="padding:8px 14px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr><th style="text-align:left;padding:6px 8px">Person</th>${cols.map(c => `<th style="text-align:right;padding:6px 8px">${c[1]}</th>`).join('')}</tr></thead><tbody>
+   ${names.sort((a, b) => d.own[b].signed - d.own[a].signed || d.own[b].generated - d.own[a].generated).map(n => `<tr style="border-top:1px solid var(--line,#dfe6e2)"><td style="padding:7px 8px;font-weight:600">${esc(n || 'Not recorded')}</td>${cols.map(([k]) => `<td style="padding:7px 8px;text-align:right"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><span style="display:inline-block;height:6px;border-radius:3px;width:${Math.round(d.own[n][k] / max[k] * 48)}px;background:var(--accent,#176B50);opacity:.55"></span><b>${k === 'mrr' ? '฿' + d.own[n][k].toLocaleString('en-GB') : d.own[n][k]}</b></div></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 function vDashboard() {
   const n = UI.dashN || 12, d = dashData(n), sum = a => a.reduce((x, y) => x + y, 0), thb = v => '฿' + Math.round(v).toLocaleString('en-GB');
@@ -2286,7 +2302,7 @@ function vDashboard() {
    <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Generated', c:'#2E6B8A', v:d.generated}, {n:'Rejected', c:'#B4432F', v:d.rejected}, {n:'Signed', c:'#1F8A4C', v:d.signed}])}</div>
    <h2>Revenue of signed hotels</h2>
    <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Monthly fees signed (THB / month)', c:'#176B50', v:d.mrr}, {n:'Set-up fees (THB, once)', c:'#D49A38', v:d.once}].concat(hasComm ? [{n:'Commission collected (THB)', c:'#7A5C9E', v:d.comm.map(v => v || 0)}] : []))}
-    <p class="muted small" style="margin:10px 0 0">Fixed fees come from the signed hotel's quotation: ${thb(sum(d.mrr))} a month signed, ${thb(sum(d.once))} of set-up fees. ${hasComm ? '' : "Commission revenue (a % of the hotel's income) will appear here by itself once the Stripe records and the Accounting system are connected."}</p></div>`;
+    <p class="muted small" style="margin:10px 0 0">Fixed fees come from the signed hotel's quotation: ${thb(sum(d.mrr))} a month signed, ${thb(sum(d.once))} of set-up fees. ${hasComm ? '' : "Commission revenue (a % of the hotel's income) will appear here by itself once the Stripe records and the Accounting system are connected."}</p></div>${personTable(d)}`;
 }
 Object.assign(ACTIONS, {dashn: el => { UI.dashN = +el.dataset.n; vDashboard(); }});
 
