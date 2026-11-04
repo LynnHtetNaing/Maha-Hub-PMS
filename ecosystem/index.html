@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="2b918db28e">
+<meta name="maha-build" content="b7b38410e4">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7890,6 +7890,7 @@ function ecosystemDir(){return appPrefix()+'/ecosystem/'}
    those systems look for it and send everybody else to the sign-in page. */
 /* Release gate: a system that is not yet open for sale and distribution cannot be opened from anywhere (the Main page, the switcher, a typed address,
    an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
+const CHOOSER_OPEN=['hub','sales'];   /* the two big buttons of the Main page. Maha Sales (for hotels) is shown and clickable: its own address answers with a friendly "not plugged in yet" page until that system exists */
 const RELEASED_SYSTEMS=['hub'];   /* the hotel Sales is not built yet. The company Sales is separate software at crm.maha-hub.com with its own sales team and sign-in: it is not a hotel system and is not part of this page */
 function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
 /* The note under a system in Provider › Systems follows the system's state and whether it is released */
@@ -8182,7 +8183,7 @@ function openSystem(kind,h,same){
 }
 function ecoAvailableCards(h, interactive, selected, u){
   const pre=!u&&interactive;   /* before anyone is named: only the released systems, both open to pick */
-  return hotelSystems(h,u).filter(s=>!pre||s.released).map((s,i)=>{
+  return hotelSystems(h,u).filter(s=>!pre||CHOOSER_OPEN.includes(s.kind)).map((s,i)=>{
     const locked=pre?false:!s.open;
     const why=pre?'':!s.released?' · Not released yet':!s.hotel?' · Ask Maha Hub to open':!s.user?' · Not open for this account':'';
     const sel=!!selected&&selected===s.kind&&!locked;
@@ -8195,7 +8196,7 @@ function ecoAvailableCards(h, interactive, selected, u){
   }).join('');
 }
 function ecoSoonCards(h){
-  const more=h?hotelSystems(h,null).filter(s=>!s.released).map(s=>({name:s.name,blurb:s.blurb})):[];
+  const more=h?hotelSystems(h,null).filter(s=>!CHOOSER_OPEN.includes(s.kind)).map(s=>({name:s.name,blurb:s.blurb})):[];
   return more.concat(ECO_SOON).map(s=>`<div class="eco-mini" title="${esc(s.name+' — '+s.blurb)}"><span class="eco-badge">🔒 Coming soon</span><b>${esc(s.name)}</b><span class="eco-mini-copy">${esc(s.blurb)}</span></div>`).join('');
 }
 
@@ -8621,7 +8622,8 @@ function routeSync(){if(ROUTE_SILENT||!DB||!DB.session||typeof VIEW==='undefined
   try{history.replaceState(null,'',location.pathname+location.search+h)}catch(e){}}
 function routeClear(){try{if((location.hash||'').indexOf('#/')===0)history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
 /* the screen to open after the page loaded or after signing in: the one in the address if this person may open it, otherwise the usual first screen */
-function routeStart(defView){const r=routeOf();if(r&&routeAllowed(r.v)){if(DB.session&&!DB.session.provider)try{setArea(areaOfView(r.v))}catch(e){}return r}return {v:defView,arg:null}}
+function routeStart(defView){const r=routeOf();if(r&&DB&&DB.session&&!VIEWS[r.v]&&r.v!=='sys.pick'){location.replace('/errors/unplugged.html?from=app');return {v:defView,arg:null}}   /* a page name that does not exist: the Maha 404 */
+  if(r&&routeAllowed(r.v)){if(DB.session&&!DB.session.provider)try{setArea(areaOfView(r.v))}catch(e){}return r}return {v:defView,arg:null}}
 window.addEventListener('popstate',()=>{try{if(!DB||!DB.session||!(H||DB.session.provider))return;const r=routeOf();if(!r||!routeAllowed(r.v))return;
   ROUTE_SILENT=true;try{go(r.v,r.arg)}finally{ROUTE_SILENT=false}}catch(e){ROUTE_SILENT=false}});
 function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.session.inHotel;
@@ -8696,7 +8698,7 @@ function showLogin(msg){
   if(IS_APP&&!lgProvider)lgTargetSys='hub';
   document.body.classList.add('eco-noscroll');
   const preview=ecoPreviewHotel();shapeHotel(preview);
-  if(lgTargetSys&&!hotelSystems(preview,null).some(s=>s.kind===lgTargetSys&&s.released))lgTargetSys=null;
+  if(lgTargetSys&&!hotelSystems(preview,null).some(s=>s.kind===lgTargetSys&&CHOOSER_OPEN.includes(s.kind)))lgTargetSys=null;
   try{applySysPath(lgTargetSys||null)}catch(e){}
   const lgOpen=!!(lgTargetSys||lgProvider), lgChosen=!!lgTargetSys;
   document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${lgDark()?' eco-dk':''}">
