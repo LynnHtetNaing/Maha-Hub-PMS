@@ -13,6 +13,7 @@ r=await call('https://pms.maha-hub.com/',ON);T('PMS address: / is the PMS, no re
 r=await call('https://console.maha-hub.com/?x=1',ON);T('Provider console address: / opens the app, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
 r=await call('https://sales.maha-hub.com/',ON);r=await call('https://sales.maha-hub.com/',ON);T('Sales address: / is Maha Sales, no redirect',r.status===200&&(await r.text())==='asset:/sales/index.html');
 r=await call('https://sales.maha-hub.com/sales/app.js',ON);T('Sales files load on the Sales address',(await r.text())==='asset:/sales/app.js');
+r=await call('https://sales.maha-hub.com/signin',ON);T('Sales address: /signin is the sign-in page, no redirect',r.status===200&&(await r.text())==='asset:/ecosystem/');
 r=await call('https://pms.maha-hub.com/brand/maha/pms-icon-192.png',ON);T('pictures and files still load',(await r.text())==='asset:/brand/maha/pms-icon-192.png');
 for(const [h,p] of [['pms.maha-hub.com','/solutions'],['pms.maha-hub.com','/solutions-PMS'],['solutions.maha-hub.com','/ecosystem/Sales/'],['sales.maha-hub.com','/solutions']]){
   r=await call('https://'+h+p,ON);T('old paths are not served on '+h+p+' (404, not a redirect)',r.status===404);}
@@ -54,9 +55,12 @@ T('hand-over junk is ignored (only plain keys are written)',(()=>{const x=mk('pm
 T('the app takes the hand-over before it reads the saved sign-in',/function applyLiveSession\(\)\{\r?\n  if\(!DB\)return;\r?\n  takeHandover\(\);/.test(src));
 T('the page keeps the # hand-over out of the address bar at once',src.includes("history.replaceState(null,'',location.pathname+location.search);sessionStorage.setItem('maha.handover'"));
 T('on the Main address a pick opens that system address',src.includes("if(hostRole()==='main'){location.assign(sysUrl(b.dataset.sys,null));return}"));
+T('Sales address /signin is the Sales sign-in',src.includes("r==='hub'||r==='sales'||r==='connect'||r==='book'||r==='reach'?r:null"));
+T('a system not open for the person is refused right after the password, no code and no other system',src.includes("is not open for your account.';return}   /* no code, no other system: just not allowed */"));
+T('the provider address refuses hotel staff',src.includes("This address is for the provider only."));
 T('the console address is the provider sign-in',src.includes("if(hostRole()==='console')lgProvider=true;"));
 for(const f of ['sales','connect','reach','book']){const p=fs.readFileSync(f+'/index.html','utf8');
-  T(f+': takes the hand-over, and a visitor not signed in goes to the Provider console address',p.includes("var hm=/^#mh=")&&p.includes("function out(){location.replace(addr('console'))}"))}
+  T(f+': takes the hand-over, and a visitor not signed in goes to /signin on the same address',p.includes("var hm=/^#mh=")&&p.includes("?'/signin':'/solutions'"))}
 for(const f of ['platform-admin-provision','tenant-cloud','username-auth']){const p=fs.readFileSync('supabase/functions/'+f+'/index.ts','utf8');
   T(f+': answers every system address',['solutions','pms','sales','console'].every(s=>p.includes('https://'+s+'.maha-hub.com')));}
 console.log(fails?'FAILED '+fails:'all ok');process.exit(fails?1:0)})().catch(e=>{console.log('FAIL '+e.stack);process.exit(1)});

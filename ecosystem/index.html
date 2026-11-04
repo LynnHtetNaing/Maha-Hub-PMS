@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="ea6753a746">
+<meta name="maha-build" content="45ae182721">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7877,7 +7877,7 @@ function onSplitHost(){return !!hostRole()}
 function mainUrl(){return onSplitHost()?'https://'+SYS_HOSTS.main+'/':appPrefix()+'/solutions'}
 function takeHandover(){try{const raw=sessionStorage.getItem('maha.handover');if(!raw)return;sessionStorage.removeItem('maha.handover');const o=JSON.parse(raw)||{},st=loginStore();if(typeof o.s==='string')st.setItem(SESSKEY,o.s);if(typeof o.a==='string')st.setItem(SBAUTHKEY,o.a);if(o.e&&typeof o.e==='object')Object.keys(o.e).forEach(k=>{if(/^[a-z]+$/.test(k)&&typeof o.e[k]==='string')localStorage.setItem('mahahub.entry.'+k,o.e[k])})}catch(e){}}
 function handoverHash(){try{const st=loginStore(),s=st.getItem(SESSKEY);if(!s)return '';const o={s},a=st.getItem(SBAUTHKEY);if(a)o.a=a;const e={};ENTRY_KINDS.forEach(k=>{const v=localStorage.getItem('mahahub.entry.'+k);if(v)e[k]=v});o.e=e;return '#mh='+edcB64url(JSON.stringify(o))}catch(x){return ''}}
-function sysFromPath(){if(onSplitHost())return hostRole()==='hub'?'hub':null;const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
+function sysFromPath(){if(onSplitHost()){const r=hostRole();return r==='hub'||r==='sales'||r==='connect'||r==='book'||r==='reach'?r:null}const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
 function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low.indexOf('/ecosystem'),low.indexOf('/solutions')].filter(x=>x>=0).sort((a,b)=>a-b)[0];return location.origin+(at>=0?path.slice(0,at):'')}
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}
 /* Entry ticket: Maha Connect, Reach and Sales open only from the signed-in Main page. The page leaves a ticket here (12 hours, removed at sign-out);
@@ -8891,7 +8891,7 @@ function doLogin(){
       if(btn)btn.disabled=false;
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
       err.textContent='';try{PlatSet.begin()}catch(e){}   /* the shared codes and logos load in the background; the screen updates when they arrive */
-      if(r.provider){enterProvider(un,r.userId);return}staffEnter(r.h,r.u);
+      if(r.provider){const want=lgTargetSys;enterProvider(un,r.userId);if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
   }
@@ -8919,6 +8919,8 @@ function doLogin(){
   };
   {const aw=accessWhy(u);if(aw){if(MahaAuth.on())MahaAuth.signOut();err.textContent=accessMsg(aw);return}}
   if(h.active===false){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This hotel is not active yet. Please contact Maha Hub support.';return}
+  if(hostRole()==='console'){if(MahaAuth.on())MahaAuth.signOut();err.textContent='This address is for the provider only.';return}
+  if(lgTargetSys&&!hotelSystems(h,u).some(x=>x.kind===lgTargetSys&&x.open)){if(MahaAuth.on())MahaAuth.signOut();err.textContent=ecoSysLabel(lgTargetSys)+' is not open for your account.';return}   /* no code, no other system: just not allowed */
   fails=0;H=h;const flexS=ruleOnStrict(h,'flexibleShiftLogin');let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open'&&(!flexS||x.name===lgShift));
   try{localStorage.setItem('maha.shiftless.'+String(u.username||'').toLowerCase(),shiftless(u)?'1':'0')}catch(e){}   /* the next sign-in page already knows whether to show the shift and cash boxes */
   if(shiftless(u)){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log(u.noShift?'Signed in without a shift':'Signed in');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}

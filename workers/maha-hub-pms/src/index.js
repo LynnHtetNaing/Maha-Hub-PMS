@@ -88,6 +88,8 @@ export default {
     const own = hostDoc(host, env);
     if (own) {
       if (bare === '/' || bare.toLowerCase() === '/index.html') return serveDoc(own.doc, request);
+      /* a system's sign-in page: the same address, /signin (no redirect) */
+      if (low === '/signin') return serveDoc({ file: APP_FILE }, request);
       /* the old paths are not served on a system address */
       if (low === '/solutions' || /^\/solutions-/.test(low) || /^\/ecosystem(\/|$)/.test(low)) {
         return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
