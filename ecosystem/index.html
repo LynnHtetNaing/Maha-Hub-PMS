@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="9ab6fbb024">
+<meta name="maha-build" content="b7b38410e4">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -8622,7 +8622,8 @@ function routeSync(){if(ROUTE_SILENT||!DB||!DB.session||typeof VIEW==='undefined
   try{history.replaceState(null,'',location.pathname+location.search+h)}catch(e){}}
 function routeClear(){try{if((location.hash||'').indexOf('#/')===0)history.replaceState(null,'',location.pathname+location.search)}catch(e){}}
 /* the screen to open after the page loaded or after signing in: the one in the address if this person may open it, otherwise the usual first screen */
-function routeStart(defView){const r=routeOf();if(r&&routeAllowed(r.v)){if(DB.session&&!DB.session.provider)try{setArea(areaOfView(r.v))}catch(e){}return r}return {v:defView,arg:null}}
+function routeStart(defView){const r=routeOf();if(r&&DB&&DB.session&&!VIEWS[r.v]&&r.v!=='sys.pick'){location.replace('/errors/unplugged.html?from=app');return {v:defView,arg:null}}   /* a page name that does not exist: the Maha 404 */
+  if(r&&routeAllowed(r.v)){if(DB.session&&!DB.session.provider)try{setArea(areaOfView(r.v))}catch(e){}return r}return {v:defView,arg:null}}
 window.addEventListener('popstate',()=>{try{if(!DB||!DB.session||!(H||DB.session.provider))return;const r=routeOf();if(!r||!routeAllowed(r.v))return;
   ROUTE_SILENT=true;try{go(r.v,r.arg)}finally{ROUTE_SILENT=false}}catch(e){ROUTE_SILENT=false}});
 function go(v,arg){const providerConsole=DB.session&&DB.session.provider&&!DB.session.inHotel;

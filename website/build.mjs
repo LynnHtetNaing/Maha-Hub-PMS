@@ -530,6 +530,8 @@ add('404.html', '', { title: 'Page not found | Maha Hub', desc: 'This page could
 
 /* ===================================================== write everything ===================================================== */
 for (const [file, html] of Object.entries(pages)) fs.writeFileSync(path.join(ROOT, file), html, 'utf8');
+/* one 404 for every Maha address: the explorer page (errors/unplugged.html) is also the website's 404.html */
+fs.copyFileSync(path.join(ROOT, 'errors', 'unplugged.html'), path.join(ROOT, '404.html'));
 
 const urls = ['/', '/about', '/maha-hub-solutions', '/products', '/pricing', '/security', '/maha-hub-academy', '/contact', '/privacy', '/terms', '/refund', '/solutions'];
 fs.writeFileSync(path.join(ROOT, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map(u => `<url><loc>${SITE}${u === '/' ? '/' : u}</loc></url>`).join('')}</urlset>\n`, 'utf8');
