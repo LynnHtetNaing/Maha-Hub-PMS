@@ -1377,23 +1377,23 @@ function mapHeaders(headers) {
 }
 
 /* ================= NAV ================= */
-const NAV = [['today','Today'],['hotels','Hotels'],['quotes','Quotes'],['collect','Collect'],['playbook','Playbook'],['more','More']];
+const NAV = [['dashboard','Dashboard'],['today','Today'],['hotels','Hotels'],['quotes','Quotes'],['playbook','Playbook'],['more','More']];
 function drawNav(cur) {
   drawRail(cur);
   $('#tabnav').innerHTML = NAV.map(([k, l]) => `<a href="#${k}" ${cur === k ? 'aria-current="page"' : ''}>${ICON[k]}${l}</a>`).join('');
 }
-const SECTION_OF = {dblog:'hotels', agents:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {dashboard:'dashboard', dblog:'hotels', agents:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 function route() {
-  const [r, ...rest] = (location.hash.slice(1) || 'today').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vHotels, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vHotels, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   if (r === 'more') view().insertAdjacentHTML('beforeend', moreGroups());
 }
 function moreGroups() {
-  return '<div class="onlymob">' + NAVG.filter(n => n.g).map(n => `<h2>${esc(n.g)}</h2><div class="list">${n.items.map(([l, x]) => x.startsWith('act:') ? `<button type="button" class="row" data-act="${x.slice(4)}"><div class="main"><div class="t">${esc(l)}</div></div></button>` : `<a class="row" href="${x}"><div class="main"><div class="t">${esc(l)}</div></div></a>`).join('')}</div>`).join('') + '</div>';
+  return '<div class="onlymob"><h2>Collect</h2><div class="list"><a class="row" href="#collect"><div class="main"><div class="t">Collect a payment</div></div></a></div>' + NAVG.filter(n => n.g).map(n => `<h2>${esc(n.g)}</h2><div class="list">${n.items.map(([l, x]) => x.startsWith('act:') ? `<button type="button" class="row" data-act="${x.slice(4)}"><div class="main"><div class="t">${esc(l)}</div></div></button>` : `<a class="row" href="${x}"><div class="main"><div class="t">${esc(l)}</div></div></a>`).join('')}</div>`).join('') + '</div>';
 }
 function rerender(keepScroll = true) { const y = scrollY; route(); if (keepScroll) scrollTo(0, y); }
 window.addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
@@ -1992,7 +1992,7 @@ Object.assign(ICON, {
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>',
 });
 const NAVG = [
-  ['today', 'Today'],
+  ['dashboard', 'Dashboard'], ['today', 'Today'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels'], ['Add new hotel', 'act:newHotel'], ['Database log', '#dblog'], ['Upload database', 'act:importCSV'], ['Agent list', '#agents'], ['Add new agent', 'act:newAgent']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', 'act:newMeeting'], ['Meeting status', '#meetings'], ['Manage quotation', '#quotes'], ['Pending', '#quotes/pending'], ['Waiting for approval', '#quotes/waiting']]},
@@ -2165,6 +2165,64 @@ Object.assign(ACTIONS, {
   enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, stage: e.stage, city: e.city}); toast('Draft saved'); rerender(); },
   enewsLoad: el => { const s = byId(el.dataset.id); UI.enews = {id: s.id, subject: s.subject, body: s.body, stage: s.stage || '', city: s.city || ''}; vEnews(); scrollTo(0, 0); },
 });
+
+/* ================= DASHBOARD (sales) =================
+   Quotations generated / rejected, contracts signed, and the revenue of what was signed, month by month.
+   Fixed fees (monthly, yearly spread over 12 months, set-up) come from the signed hotel's quotation.
+   Commission revenue (a % of the hotel's income) is NOT worked out here: it is collected from the Stripe records / the Accounting system
+   when that is built. ACC_LINK is the one place that will be connected then, so Revenue, Signed and the rest update by themselves. */
+const ACC_LINK = { commissionRevenue: month => null /* later: the Accounting system returns the commission collected for this YYYY-MM */ };
+Object.assign(ICON, {dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></svg>'});
+function monthsBack(n) { const o = [], d0 = new Date(); for (let i = n - 1; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); o.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); } return o; }
+const mLabel = m => new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', {month:'short'}) + (m.endsWith('-01') ? ' ' + m.slice(2, 4) : '');
+function lineChart(labels, series) {
+  const W = 640, H = 230, L = 38, Rr = 14, T = 14, B = 28, max = Math.max(1, ...series.flatMap(s => s.v)), top = Math.max(4, Math.ceil(max / 4) * 4);
+  const x = i => L + (W - L - Rr) * (labels.length < 2 ? .5 : i / (labels.length - 1)), y = v => T + (H - T - B) * (1 - v / top);
+  const step = labels.length > 12 ? 2 : 1;
+  const grid = [0, .25, .5, .75, 1].map(f => { const v = top * f, yy = y(v); return `<line x1="${L}" x2="${W - Rr}" y1="${yy}" y2="${yy}" stroke="currentColor" opacity=".13"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end" font-size="10.5" fill="currentColor" opacity=".7">${top >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v)}</text>`; }).join('');
+  const xl = labels.map((l, i) => i % step ? '' : `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">${esc(mLabel(l))}</text>`).join('');
+  const lines = series.map(s => `<polyline fill="none" stroke="${s.c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="${s.v.map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ')}"/>` + s.v.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.2" fill="${s.c}"><title>${esc(s.n)} ${esc(labels[i])}: ${v}</title></circle>`).join('')).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(series.map(s => s.n).join(', '))}" style="width:100%;height:auto;display:block;color:var(--ink)">${grid}${xl}${lines}</svg>
+   <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">${series.map(s => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px"><i style="width:14px;height:3px;border-radius:2px;background:${s.c}"></i>${esc(s.n)} <b>${s.v.reduce((a, b) => a + b, 0).toLocaleString('en-GB')}</b></span>`).join('')}</div>`;
+}
+function dashData(n) {
+  const ms = monthsBack(n), inM = (d, m) => (d || '').slice(0, 7) === m;
+  const quotes = K('quote'), msas = K('msa');
+  /* a hotel counts as signed in the month of its signed MSA, or of its accepted quotation when there is no MSA */
+  const signed = new Map();
+  msas.filter(m => m.status === 'Signed' && m.hotelId).forEach(m => signed.set(m.hotelId, m.date || (m.updated || '').slice(0, 10)));
+  quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, q.date || (q.updated || '').slice(0, 10)));
+  const fee = hid => { const qs = quotes.filter(q => q.hotelId === hid && q.status !== 'Rejected' && q.status !== 'Draft').sort((a, b) => (b.date || '').localeCompare(a.date || '')); if (!qs.length) return {mrr:0, once:0}; const c = compute(qs[0]); return {mrr: Math.round(c.month + c.year / 12), once: Math.round(c.once)}; };
+  const rev = ms.map(m => { let mrr = 0, once = 0; signed.forEach((d, hid) => { if (inM(d, m)) { const f = fee(hid); mrr += f.mrr; once += f.once; } }); return {mrr, once}; });
+  return {
+    ms,
+    generated: ms.map(m => quotes.filter(q => inM(q.date || q.created, m)).length),
+    rejected: ms.map(m => quotes.filter(q => q.status === 'Rejected' && inM(q.date || q.updated, m)).length),
+    signed: ms.map(m => [...signed.values()].filter(d => inM(d, m)).length),
+    mrr: rev.map(r => r.mrr), once: rev.map(r => r.once),
+    comm: ms.map(m => ACC_LINK.commissionRevenue(m)),
+    sent: quotes.filter(q => q.status === 'Sent').length,
+  };
+}
+function vDashboard() {
+  const n = UI.dashN || 12, d = dashData(n), sum = a => a.reduce((x, y) => x + y, 0), thb = v => '฿' + Math.round(v).toLocaleString('en-GB');
+  const gen = sum(d.generated), rej = sum(d.rejected), sig = sum(d.signed), rate = gen ? Math.round(sig / gen * 100) : 0;
+  const hasComm = d.comm.some(v => v != null);
+  view().innerHTML = `<div class="top"><div><h1>Dashboard</h1><p>Quotations, contracts and revenue — last ${n} months</p></div>
+    <div class="actions"><button class="chip" data-act="dashn" data-n="6" aria-pressed="${n === 6}">6 months</button><button class="chip" data-act="dashn" data-n="12" aria-pressed="${n === 12}">12 months</button><button class="chip" data-act="dashn" data-n="24" aria-pressed="${n === 24}">24 months</button></div></div>
+   <div class="kpis">
+    <a class="kpi" href="#quotes"><div class="v">${gen}</div><div class="l">Quotations generated</div></a>
+    <a class="kpi" href="#quotes"><div class="v">${rej}</div><div class="l">Rejected</div></a>
+    <a class="kpi" href="#hotels"><div class="v">${sig}</div><div class="l">Signed${gen ? ' · ' + rate + '% of generated' : ''}</div></a>
+    <a class="kpi" href="#quotes/waiting"><div class="v">${d.sent}</div><div class="l">Waiting for approval</div></a>
+   </div>
+   <h2>Quotation generated, rejected and signed</h2>
+   <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Generated', c:'#2E6B8A', v:d.generated}, {n:'Rejected', c:'#B4432F', v:d.rejected}, {n:'Signed', c:'#1F8A4C', v:d.signed}])}</div>
+   <h2>Revenue of signed hotels</h2>
+   <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Monthly fees signed (THB / month)', c:'#176B50', v:d.mrr}, {n:'Set-up fees (THB, once)', c:'#D49A38', v:d.once}].concat(hasComm ? [{n:'Commission collected (THB)', c:'#7A5C9E', v:d.comm.map(v => v || 0)}] : []))}
+    <p class="muted small" style="margin:10px 0 0">Fixed fees come from the signed hotel's quotation: ${thb(sum(d.mrr))} a month signed, ${thb(sum(d.once))} of set-up fees. ${hasComm ? '' : "Commission revenue (a % of the hotel's income) will appear here by itself once the Stripe records and the Accounting system are connected."}</p></div>`;
+}
+Object.assign(ACTIONS, {dashn: el => { UI.dashN = +el.dataset.n; vDashboard(); }});
 
 document.addEventListener('click', e => {
   const go = e.target.closest('[data-go]'); if (go) { e.preventDefault(); location.hash = go.dataset.go.replace(/^#/, ''); return; }
