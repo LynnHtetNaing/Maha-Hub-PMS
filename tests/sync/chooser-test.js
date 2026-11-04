@@ -12,3 +12,6 @@ assert(!/eco-pmslogo" alt/.test(src),'no logo on the PMS button');
 assert(/pagoda-mask\.png\) 50% 100%/.test(src),'pagoda artwork');
 assert(/\.eco-card\[data-sys=sales\]\{background:#2457a6\}/.test(src)&&/\.eco-card\[data-sys=hub\]\{background:#0f7a58\}/.test(src),'PMS green, Sales blue');
 console.log('chooser ok');
+/* Provider console: every hotel action sits in one Action menu at the end of the row */
+assert(/data-pvact="\$\{h\.code\}"[^>]*>Action ▾/.test(src)&&/class="pvacts" hidden/.test(src),'Action menu on the Hotels list');
+console.log('hotels action ok');

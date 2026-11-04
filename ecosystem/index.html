@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="d9f14a9f36">
+<meta name="maha-build" content="0022a92764">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -11729,7 +11729,7 @@ VIEWS['prov.billing']=el=>{
 VIEWS['prov.hotels']=el=>{
   el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Subscription until</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
    ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst  ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.subUntil?(()=>{const n=diff(iso(new Date()),h.set.subUntil);return fd(h.set.subUntil)+` <span class="sub" ${n<=7?'style="color:#b3261e"':''}>(${n<0?'ended':n+' d'})</span>`})():'<span class="sub">Not set</span>'}</td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
-    <td class="nowrap"><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-sub="${h.code}">Subscription</button> <button class="btn sm ghost" data-bill="${h.code}">Billing</button> <button class="btn sm ghost" data-uacc="${h.code}">Users' access</button> <button class="btn sm gold" data-use="${h.code}">Open hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</td></tr>`).join('')}</table></div>
+    <td class="nowrap"><button type="button" class="btn sm gold" data-pvact="${h.code}" aria-haspopup="menu">Action ▾</button><span class="pvacts" hidden><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-sub="${h.code}">Subscription</button> <button class="btn sm ghost" data-bill="${h.code}">Billing</button> <button class="btn sm ghost" data-uacc="${h.code}">Users' access</button> <button class="btn sm gold" data-use="${h.code}">Open hotel</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</span></td></tr>`).join('')}</table></div>
    <p class="sub">Each hotel's data is kept apart. Staff sign in with only their username and password; the system opens the hotel their account belongs to. A new hotel stays Not active until you activate it, and its staff cannot sign in before that.</p>`;
   /* the hotel subscription date: staff of that hotel are told 30 days before and after it; nobody is blocked by it */
   $$('[data-sub]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.sub];if(!h)return;
@@ -11746,6 +11746,19 @@ VIEWS['prov.hotels']=el=>{
   $$('[data-unlock]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.unlock];const why=await dlgAsk(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
     const old=h.set.lockedThrough;h.set.lockedThrough=addD(old,-1);H=h;h.amend.unshift({at:Date.now(),user:user().name,what:`Unlocked closed day ${fd(old)}`,before:old,after:h.set.lockedThrough,reason:why.trim()});provLog(`Unlocked ${fd(old)}`,{reason:why.trim()});saveDB();render();toast('Day unlocked. Staff can change it until the next Close Day.')});
   $$('[data-del]',el).forEach(b=>b.onclick=()=>deleteHotelFlow(b.dataset.del));
+  /* every hotel action sits in one Action menu at the end of the row */
+  $$('[data-pvact]',el).forEach(ab=>ab.onclick=()=>{
+    $$('.rgmenu').forEach(x=>x._close&&x._close());
+    const src=[...ab.parentNode.querySelectorAll('.pvacts button')],menu=document.createElement('div');menu.className='rgmenu';menu.setAttribute('role','menu');
+    menu.innerHTML=src.map((s,i)=>`<button type="button" role="menuitem" data-i="${i}"${s.classList.contains('red')?' style="color:#b3261e"':''}><span>${s.textContent}</span></button>`).join('');
+    document.body.appendChild(menu);
+    const out=e=>{if(!menu.contains(e.target)&&e.target!==ab)close()},esc2=e=>{if(e.key==='Escape')close()},sc=()=>close();
+    const close=()=>{menu.remove();document.removeEventListener('pointerdown',out,true);document.removeEventListener('keydown',esc2,true);window.removeEventListener('scroll',sc,true)};
+    menu._close=close;
+    const r=ab.getBoundingClientRect(),w=menu.offsetWidth,mh=menu.offsetHeight;let left=Math.min(Math.max(8,r.right-w),innerWidth-w-8),top=r.bottom+6;if(top+mh>innerHeight-8)top=Math.max(8,r.top-mh-6);
+    menu.style.left=left+'px';menu.style.top=top+'px';
+    setTimeout(()=>{document.addEventListener('pointerdown',out,true);document.addEventListener('keydown',esc2,true);window.addEventListener('scroll',sc,true)},0);
+    $$('[data-i]',menu).forEach(mi=>mi.onclick=()=>{close();src[+mi.dataset.i].click()})});
   if(MahaAuth.on())ChainInfo.load().then(info=>$$('[data-chain]',el).forEach(td=>{const c=chainOfHotel(info,td.dataset.chain);td.textContent=c?chainLabel(c):'-'}),()=>{})
   $('#pvNew',el).onclick=()=>{if(MahaAuth.on()){newPropertyForm();return}const m=modal('Add hotel',`<div class="form2">${fld('Hotel code',`<input id="nhC" placeholder="e.g. BKK02" autofocus>`)}${fld('Hotel name',`<input id="nhN">`)}${fld('Currency',`<select id="nhCur">${opt('THB')}${opt('MMK')}${opt('USD')}</select>`)}${fld('Country',`<input id="nhCo" value="Thailand">`)}
     ${fld('Service charge %',`<input type="number" id="nhS" value="10">`)}${fld('Tax %',`<input type="number" id="nhV" value="7">`)}${fld('Owner username (unique across all hotels)',`<input id="nhU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${fld('Owner password',`<input id="nhP" type="text" value="">`)}</div><div class="err" id="nhE"></div><div class="btns"><button class="btn gold" id="nhS2">Create hotel</button></div>`,{w:620});
