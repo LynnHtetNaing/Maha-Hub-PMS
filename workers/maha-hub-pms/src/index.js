@@ -75,6 +75,16 @@ async function serveDoc(doc, request) {
   return new Response(html, { status: res.status, statusText: res.statusText, headers });
 }
 
+/* an address that is kept for a system that does not exist yet: a friendly 404 page (an explorer trying to plug two cables), never the website, never another system */
+async function notPluggedIn(request, env) {
+  const u = new URL(request.url);
+  let res = await env.ASSETS.fetch(new Request(new URL('/errors/unplugged', u), { method: 'GET' }));
+  const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : '';
+  if (loc) res = await env.ASSETS.fetch(new Request(new URL(loc, u), { method: 'GET' }));
+  const headers = new Headers({ 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' });
+  return new Response(request.method === 'HEAD' ? null : res.body, { status: 404, headers });
+}
+
 export default {
   async fetch(request, env) {
     if (!env.ASSETS) {
@@ -91,7 +101,7 @@ export default {
     /* a system's own address: "/" opens the system, no redirect; the files it needs load as usual */
     const own = hostDoc(host, env);
     if (own) {
-      if (own.reserved) return new Response('This address is not available yet.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+      if (own.reserved) return notPluggedIn(request, env);
       if (bare === '/' || bare.toLowerCase() === '/index.html') return serveDoc(own.doc, request);
       /* a system's sign-in page: the same address, /signin (no redirect) */
       if (low === '/signin') return serveDoc({ file: APP_FILE }, request);

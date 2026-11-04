@@ -17,7 +17,7 @@ r=await call('https://crm.maha-hub.com/signin',ON);T('Company Sales address: /si
 r=await call('https://pms.maha-hub.com/brand/maha/pms-icon-192.png',ON);T('pictures and files still load',(await r.text())==='asset:/brand/maha/pms-icon-192.png');
 for(const [h,p] of [['pms.maha-hub.com','/solutions'],['pms.maha-hub.com','/solutions-PMS'],['solutions.maha-hub.com','/ecosystem/Sales/'],['crm.maha-hub.com','/solutions']]){
   r=await call('https://'+h+p,ON);T('old paths are not served on '+h+p+' (404, not a redirect)',r.status===404);}
-r=await call('https://sales.maha-hub.com/',ON);T('the hotel Sales address is reserved: not available yet, never the website, never the company Sales',r.status===404&&!(await r.text()).includes('asset:'));
+r=await call('https://sales.maha-hub.com/',ON);T('the hotel Sales address is reserved: a friendly 404 page (the explorer), never the website, never the company Sales',r.status===404&&(await r.text())==='asset:/errors/unplugged'&&r.headers.get('content-type').startsWith('text/html'));
 r=await call('https://sales.maha-hub.com/crm/index.html',ON);T('and no file of the company Sales is served there',r.status===404);
 r=await call('https://connect.maha-hub.com/',ON);T('an address that is switched off (empty setting) is just the website files',(await r.text())==='asset:/');
 r=await call('https://maha-hub.com/solutions',ON);T('the website address keeps the old paths (test copies and previews work)',(await r.text())==='asset:/ecosystem/');
