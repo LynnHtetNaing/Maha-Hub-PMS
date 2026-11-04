@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="0022a92764">
+<meta name="maha-build" content="a256d07ae5">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2650,6 +2650,7 @@ html[data-mode=dark] .fbtn.acc{background:color-mix(in srgb,var(--accent,#176B50
 .eco-shell:not(.is-signin) .eco-lockup b{text-shadow:none;font:700 18px/1 Inter,system-ui,sans-serif;letter-spacing:.14em;color:#0b3d2e}
 .eco-shell.eco-dk:not(.is-signin) .eco-lockup b{color:#e6cf95}
 .eco-shell:not(.is-signin) .eco-brand::before{display:none}
+.eco-shell.eco-console .eco-dock,.eco-shell.eco-console .eco-lede{display:none}
 .eco-shell:not(.is-signin) .eco-mode{display:inline-flex;appearance:none;border:1px solid currentColor;background:transparent;color:inherit;opacity:.75;border-radius:999px;padding:6px 14px;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer}
 @media (hover:hover){.eco-shell:not(.is-signin) .eco-mode:hover{opacity:1}}
 .eco-shell:not(.is-signin) .eco-brand .eco-title{display:block;flex:0 0 100%;order:5;margin:26px 0 6px;white-space:normal;color:inherit;font:700 34px/1.15 Inter,system-ui,sans-serif;text-shadow:none}
@@ -2682,6 +2683,7 @@ html[data-mode=dark] .fbtn.acc{background:color-mix(in srgb,var(--accent,#176B50
   .eco-shell:not(.is-signin) .eco-soon{grid-template-columns:1fr 1fr;gap:10px}
 }
 </style>
+<script>!function(){try{var m=/^#mh=([\w-]+)$/.exec(location.hash);if(m){history.replaceState(null,'',location.pathname+location.search);sessionStorage.setItem('maha.handover',decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))))}}catch(e){}}()</script>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
 <script>!function(){try{if(matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||/[?&]source=app\b/.test(location.search)){document.documentElement.classList.add("is-app")}}catch(e){}}()</script></head><body><div id="app"><div class="mh-boot" role="status" aria-live="polite" aria-label="Loading Maha PMS"><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">Preparing your hotel<span>_</span></div></div></div></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="/brand/maha/pms-icon-96.png";
@@ -3307,6 +3309,7 @@ function stampSession(se){
 }
 function applyLiveSession(){
   if(!DB)return;
+  takeHandover();
   /* Never trust a persisted DB.session — only this browser tab session. */
   const live=readLiveSession();
   if(live&&sessionValid(live)){DB.session=live;writeLiveSession(live)}
@@ -3330,7 +3333,7 @@ const MAHA_AUTH_CONFIG={
   enabled:true,                                    /* username + password sign-in with cloud sync (all tests passed on staging and on the main project) */
   url:'https://wragaoglvksbbgmfjyzp.supabase.co',  /* main project: MAHA-HUB Project */
   publishableKey:'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD', /* main project publishable key (public by design) */
-  liveHosts:['maha-hub.com','www.maha-hub.com','pms.maha-hub.com']
+  liveHosts:['maha-hub.com','www.maha-hub.com','solutions.maha-hub.com','pms.maha-hub.com','sales.maha-hub.com','console.maha-hub.com','connect.maha-hub.com','booking.maha-hub.com','reach.maha-hub.com']
 };
 /* Where the live sign-in is kept. A computer keeps it for the tab (sessionStorage). A phone and the installed phone app keep it in the phone's storage, so closing the app or the phone freeing memory does not sign the person out:
    the same screen rules as on the computer then decide (15 quiet minutes = lock screen with the password, 1 hour = sign in again). Clearing the phone's site data signs the person out. */
@@ -7770,7 +7773,7 @@ async function billingAdmin(h){
   };
   draw()}
 /* After sign-in, before Frontend / Backend: a card screen for the hotel's subscription date (set by the provider, every user of the hotel sees it) and one for the person's own access period (only that person). They start 30 days before the end, are red in the last 7 days and after the hotel date, and only warn: nothing is blocked by the hotel date. Renew Now / Contact provider opens the Billing page (its own tab, the same page for every Maha system). */
-const HOTEL_WARN_DAYS=10,USER_WARN_DAYS=3,BILLING_URL='https://maha-hub.com/billing/';
+const HOTEL_WARN_DAYS=10,USER_WARN_DAYS=3,BILLING_URL='https://pms.maha-hub.com/billing/';
 function subNotices(h,u){const out=[],now=Date.now();
   try{const z=(h&&h.set&&h.set.tz)||'',today=ulTodayIn(z),a=u&&!u.provider&&!u.isProv&&u.access;
     if(a&&a.until&&accessCut(a.until,a.term,z)!==a.until&&now<accessCut(a.until,a.term,z)){const p=tzp(a.until,z),d=p.y+'-'+p.m+'-'+p.d,n=diff(today,d);if(n<=USER_WARN_DAYS)out.push({k:'user',late:n<=1,ended:n<0,d,days:n,user:u.username||''})}
@@ -7840,18 +7843,16 @@ function cancelUserModal(u,done){
 function hubBaseUrl(){const u=new URL(location.href);let path=u.pathname.replace(/index\.html?$/i,'');path=path.replace(/\/(?:ecosystem(?:\/(?:PMS|Reach|Connect|Booking|Sales))?|solutions(?:-(?:PMS|Reach|Connect|Booking|Sales))?(?:\.html?)?)\/?$/i,'/');if(!path.endsWith('/'))path+='/';return u.origin+path}
 function sysSegment(kind){return {hub:'PMS',reach:'Reach',connect:'Connect',book:'Booking',sales:'Sales'}[kind]||''}
 /* Addresses: the Main page is /solutions and the PMS is /solutions-PMS. The other systems keep /ecosystem/<System>/. The old /ecosystem/ and /ecosystem/PMS/ still open and move to the new address. */
-/* The PMS has its own address, pms.maha-hub.com (its own sign-in and its own saved data, apart from the other systems). It works like the main address:
-   / goes to the Main page (/solutions) where the person chooses a system, and the PMS sign-in is /solutions-PMS there.
-   People are sent from maha-hub.com to the PMS address only when PMS_SPLIT_ON is true: it is switched on at launch, when the address exists. */
-const PMS_SPLIT_ON=true,PMS_HOST='pms.maha-hub.com';
-function onPmsHost(){return String(location.hostname||'').toLowerCase().indexOf('pms.')===0}
-function onMainLiveHost(){const h=String(location.hostname||'').toLowerCase();return h==='maha-hub.com'||h==='www.maha-hub.com'}
-/* maha-hub.com is not behind Cloudflare yet, so the old PMS addresses move to the PMS address from inside the page (only the PMS pages, on the live main address, once the switch is on) */
-function pmsMoveUrl(l){const h=String(l.hostname||'').toLowerCase();if(!PMS_SPLIT_ON||!(h==='maha-hub.com'||h==='www.maha-hub.com'))return '';
-  let p=String(l.pathname||'').toLowerCase();for(const t of ['/index.html','/index.htm','.html','.htm','/'])if(p.length>t.length&&p.endsWith(t))p=p.slice(0,-t.length);
-  return (p==='/solutions-pms'||p==='/ecosystem/pms')?'https://'+PMS_HOST+'/solutions-PMS'+(l.search||'')+(l.hash||''):''}
-try{const mv=pmsMoveUrl(location);if(mv)location.replace(mv)}catch(e){}
-function sysFromPath(){const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
+/* Every system has its own address (see the Worker) and nothing is redirected: the Main page, Maha PMS, Maha Sales, the other systems and the Provider console.
+   A person signed in on one address arrives signed in on the next: the page hands the sign-in over in the # part of the address (a browser never sends it to any server),
+   and the next page takes it and clears it at once. Addresses that are not in this list (a test copy, localhost) keep the old paths. */
+const SYS_HOSTS={main:'solutions.maha-hub.com',hub:'pms.maha-hub.com',sales:'sales.maha-hub.com',console:'console.maha-hub.com',connect:'connect.maha-hub.com',book:'booking.maha-hub.com',reach:'reach.maha-hub.com'};
+function hostRole(h){h=String(h||location.hostname||'').toLowerCase();for(const k in SYS_HOSTS)if(SYS_HOSTS[k]===h)return k;return ''}
+function onSplitHost(){return !!hostRole()}
+function mainUrl(){return onSplitHost()?'https://'+SYS_HOSTS.main+'/':appPrefix()+'/solutions'}
+function takeHandover(){try{const raw=sessionStorage.getItem('maha.handover');if(!raw)return;sessionStorage.removeItem('maha.handover');const o=JSON.parse(raw)||{},st=loginStore();if(typeof o.s==='string')st.setItem(SESSKEY,o.s);if(typeof o.a==='string')st.setItem(SBAUTHKEY,o.a);if(o.e&&typeof o.e==='object')Object.keys(o.e).forEach(k=>{if(/^[a-z]+$/.test(k)&&typeof o.e[k]==='string')localStorage.setItem('mahahub.entry.'+k,o.e[k])})}catch(e){}}
+function handoverHash(){try{const st=loginStore(),s=st.getItem(SESSKEY);if(!s)return '';const o={s},a=st.getItem(SBAUTHKEY);if(a)o.a=a;const e={};ENTRY_KINDS.forEach(k=>{const v=localStorage.getItem('mahahub.entry.'+k);if(v)e[k]=v});o.e=e;return '#mh='+edcB64url(JSON.stringify(o))}catch(x){return ''}}
+function sysFromPath(){if(onSplitHost())return hostRole()==='hub'?'hub':null;const p=location.pathname.replace(/\/index\.html?$/i,'').replace(/\/+$/,'').replace(/\.html?$/i,'');const m=p.match(/\/(?:ecosystem\/|solutions-)(PMS|Reach|Connect|Booking|Sales)$/i);return m?{pms:'hub',reach:'reach',connect:'connect',booking:'book',sales:'sales'}[m[1].toLowerCase()]:null}
 function appPrefix(){const path=location.pathname,low=path.toLowerCase(),at=[low.indexOf('/ecosystem'),low.indexOf('/solutions')].filter(x=>x>=0).sort((a,b)=>a-b)[0];return location.origin+(at>=0?path.slice(0,at):'')}
 function ecosystemDir(){return appPrefix()+'/ecosystem/'}
 /* Entry ticket: Maha Connect, Reach and Sales open only from the signed-in Main page. The page leaves a ticket here (12 hours, removed at sign-out);
@@ -7867,8 +7868,7 @@ const ENTRY_KINDS=['connect','reach','sales','book'];
 function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
 function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
 function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';
-  if(kind==='hub'&&PMS_SPLIT_ON&&onMainLiveHost())return 'https://'+PMS_HOST+'/solutions-PMS'+q;
-  if(kind!=='hub'&&onPmsHost())return 'https://maha-hub.com/ecosystem/'+sysSegment(kind)+'/'+q;
+  if(onSplitHost()&&SYS_HOSTS[kind])return 'https://'+SYS_HOSTS[kind]+'/'+q+(kind==='hub'||ENTRY_KINDS.includes(kind)?handoverHash():'');
   return kind==='hub'?appPrefix()+'/solutions-PMS'+q:ecosystemDir()+sysSegment(kind)+'/'+q}
 function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
   if(se&&se.provider&&!se.inHotel)return 'Maha PMS - Provider console';
@@ -7876,7 +7876,7 @@ function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
   return 'Maha PMS'}
 function setTabIcons(kind){const pre=kind==='hub'?'/brand/maha/pms-icon-':'/brand/maha/icon-';document.querySelectorAll('link[rel="icon"],link[rel="apple-touch-icon"]').forEach(l=>{const m=(l.getAttribute('href')||'').match(/icon-(\d+)\.png/);if(m)l.setAttribute('href',pre+m[1]+'.png')})}
 function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const want=!kind?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
-  const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=seg==='PMS'?tabTitleFor():seg?('maha-hub / solutions / '+seg):'maha-hub / solutions';try{setTabIcons(kind)}catch(e){}}
+  const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(!onSplitHost()&&norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=seg==='PMS'?tabTitleFor():seg?('maha-hub / solutions / '+seg):'maha-hub / solutions';try{setTabIcons(kind)}catch(e){}}
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
 }
@@ -8659,13 +8659,14 @@ function showLogin(msg){
   try{applySkin()}catch(e){}   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme */
   if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
+  if(hostRole()==='console')lgProvider=true;
   if(IS_APP&&!lgProvider)lgTargetSys='hub';
   document.body.classList.add('eco-noscroll');
   const preview=ecoPreviewHotel();shapeHotel(preview);
   if(lgTargetSys&&!hotelSystems(preview,null).some(s=>s.kind===lgTargetSys&&s.released))lgTargetSys=null;
   try{applySysPath(lgTargetSys||null)}catch(e){}
   const lgOpen=!!(lgTargetSys||lgProvider), lgChosen=!!lgTargetSys;
-  document.getElementById('app').innerHTML=`<div class="eco-shell${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${lgDark()?' eco-dk':''}">
+  document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${lgDark()?' eco-dk':''}">
   <section class="eco-hero" style="--eco-photo:url('${ECO_HERO}')" aria-label="Maha Hub ecosystem">
     <div class="eco-hero-bg" aria-hidden="true"></div>
     <div class="eco-leaves" aria-hidden="true"></div>
@@ -8757,6 +8758,7 @@ function showLogin(msg){
   };
   const pickSys=b=>{
     if(b.classList.contains('is-locked')||b.disabled){toast(b.innerText.includes('this account')?'This system is not open for your account.':'Ask Maha Hub to open this system for your hotel.');return}
+    if(hostRole()==='main'){location.assign(sysUrl(b.dataset.sys,null));return}
     if(b.dataset.sys===lgTargetSys)return;
     lgPickAnim=b.dataset.sys;lgTargetSys=b.dataset.sys;applySysPath(lgTargetSys);syncSelect();
   };
@@ -8798,7 +8800,7 @@ function showLogin(msg){
   };
   $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
   {const mb=$('#lgMode'),sh=document.querySelector('.eco-shell');const lab=()=>{mb.innerHTML=lgDark()?'☀ Light':'☾ Dark'};lab();mb.onclick=()=>{try{localStorage.setItem('maha.login.mode',lgDark()?'light':'dark')}catch(e){}sh.classList.toggle('eco-dk',lgDark());lab()}}
-  $('#lgAllSys').onclick=()=>{if(IS_APP){appWelcomeShow();return}lgTargetSys=null;lgPickAnim=null;applySysPath(null);syncSelect()};
+  $('#lgAllSys').onclick=()=>{if(IS_APP){appWelcomeShow();return}if(onSplitHost()&&hostRole()!=='main'){location.assign(mainUrl());return}lgTargetSys=null;lgPickAnim=null;applySysPath(null);syncSelect()};
   if(IS_APP){['#lgAllSys','#lgBack'].forEach(q=>{const b=$(q);if(b)b.textContent='‹ Back'})}
   $('#lgBack').onclick=()=>$('#lgAllSys').click();
   document.querySelector('.eco-login').addEventListener('mousedown',e=>{if(e.target===e.currentTarget)$('#lgAllSys').click()});   /* a click outside the box goes back to all systems */

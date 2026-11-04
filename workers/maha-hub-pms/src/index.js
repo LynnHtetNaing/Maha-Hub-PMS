@@ -1,6 +1,13 @@
 /** Maha Hub Worker - serves the static Hub through the Assets binding.
- *  /solutions is the Main page and sign-in. /solutions-PMS is the PMS. /ecosystem/Reach|Connect|Booking|Sales are the other systems.
- *  The old /ecosystem/ and /ecosystem/PMS addresses move to the new ones.
+ *
+ *  Every system has its own address, and nothing is redirected:
+ *    MAIN_HOST     (solutions.maha-hub.com)  the Main page where a person chooses a system
+ *    PMS_HOST      (pms.maha-hub.com)        Maha PMS
+ *    SALES_HOST    (sales.maha-hub.com)      Maha Sales
+ *    CONNECT_HOST / REACH_HOST / BOOK_HOST   the other systems, when they are released
+ *    CONSOLE_HOST  (console.maha-hub.com)    the Provider console
+ *  On each of these addresses "/" opens that system. Any other address (the website, a test copy, workers.dev) keeps the
+ *  old paths: /solutions is the Main page, /solutions-PMS is the PMS, /ecosystem/Reach|Connect|Booking|Sales the others.
  */
 /* the folder address: asking the assets for /ecosystem/index.html answers with a redirect to /ecosystem/ */
 const APP_FILE = '/ecosystem/';
@@ -11,13 +18,22 @@ const SYSTEM_DOC = {
   booking: { file: '/book/index.html', base: '/book/' },
   sales: { file: '/sales/index.html', base: '/sales/' },
 };
-const NAMES = { pms: 'PMS', reach: 'Reach', connect: 'Connect', booking: 'Booking', sales: 'Sales' };
+/* which environment setting names which address, and what "/" opens there */
+const HOST_VARS = [
+  ['MAIN_HOST', { doc: { file: APP_FILE } }],
+  ['PMS_HOST', { doc: { file: APP_FILE } }],
+  ['CONSOLE_HOST', { doc: { file: APP_FILE } }],
+  ['SALES_HOST', { doc: SYSTEM_DOC.sales }],
+  ['CONNECT_HOST', { doc: SYSTEM_DOC.connect }],
+  ['REACH_HOST', { doc: SYSTEM_DOC.reach }],
+  ['BOOK_HOST', { doc: SYSTEM_DOC.booking }],
+];
 
 function cleanPath(pathname) {
   return pathname.replace(/\/index\.html?$/i, '').replace(/\.html?$/i, '').replace(/\/+$/, '') || '/';
 }
 
-/* what to serve for a path, or where to send the visitor */
+/* what to serve for a path on the old paths, or where to send the visitor */
 function route(pathname) {
   const path = cleanPath(pathname);
   const low = path.toLowerCase();
@@ -32,6 +48,29 @@ function route(pathname) {
   return null;
 }
 
+/* which system this address belongs to, or null */
+function hostDoc(host, env) {
+  for (const [name, entry] of HOST_VARS) {
+    const v = String(env[name] || '').toLowerCase();
+    if (v && v === host) return entry;
+  }
+  return null;
+}
+
+async function serveDoc(doc, request) {
+  const assetUrl = new URL(request.url);
+  assetUrl.pathname = doc.file;
+  const res = await request.env.ASSETS.fetch(new Request(assetUrl, request));
+  if (!doc.base) return res;
+  const type = res.headers.get('content-type') || '';
+  if (!type.includes('text/html')) return res;
+  let html = await res.text();
+  if (!/<base\s/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${doc.base}">`);
+  const headers = new Headers(res.headers);
+  headers.delete('content-length');
+  return new Response(html, { status: res.status, statusText: res.statusText, headers });
+}
+
 export default {
   async fetch(request, env) {
     if (!env.ASSETS) {
@@ -40,47 +79,31 @@ export default {
       });
     }
     const url = new URL(request.url);
-    const bare = url.pathname.replace(/\/+$/, '') || '/';
-    /* The PMS's own address (PMS_HOST, for example pms.maha-hub.com) works like the main one: / goes to the Main page where the person chooses a system,
-       and the PMS sign-in is /solutions-PMS. The other systems are not served here: their paths go to the main address. Off (empty) until the address exists. */
-    const pmsHost = String(env.PMS_HOST || '').toLowerCase();
     const host = url.hostname.toLowerCase();
-    if (pmsHost && host === pmsHost) {
-      if (bare === '/' || bare.toLowerCase() === '/index.html') {
-        const dest = new URL('/solutions', url); dest.search = url.search; dest.hash = url.hash;
-        return Response.redirect(dest, 302);
+    const bare = url.pathname.replace(/\/+$/, '') || '/';
+    const low = cleanPath(url.pathname).toLowerCase();
+    request.env = env;
+
+    /* a system's own address: "/" opens the system, no redirect; the files it needs load as usual */
+    const own = hostDoc(host, env);
+    if (own) {
+      if (bare === '/' || bare.toLowerCase() === '/index.html') return serveDoc(own.doc, request);
+      /* the old paths are not served on a system address */
+      if (low === '/solutions' || /^\/solutions-/.test(low) || /^\/ecosystem(\/|$)/.test(low)) {
+        return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
       }
-      const rr = route(url.pathname);
-      if (rr && rr.doc && rr.doc.base) {
-        return Response.redirect('https://' + (env.MAIN_HOST || 'maha-hub.com') + url.pathname + url.search, 302);
-      }
-      if (!rr) return env.ASSETS.fetch(request);
+      return env.ASSETS.fetch(request);
     }
-    /* the main address: / is the website home page, served as a file */
+
+    /* any other address (website, test copy): the old paths */
     const r = route(url.pathname);
     if (!r) return env.ASSETS.fetch(request);
-    /* switched on at launch: the old PMS paths on the main address send people to the PMS address */
-    if (pmsHost && env.PMS_REDIRECT === '1' && host !== pmsHost && r.doc === SYSTEM_DOC.pms && cleanPath(url.pathname).toLowerCase() !== '/solutions') {
-      const dest = new URL('https://' + pmsHost + '/solutions-PMS'); dest.search = url.search;
-      return Response.redirect(dest, 302);
-    }
     if (r.to) {
       const dest = new URL(r.to, url);
       dest.search = url.search;
       dest.hash = url.hash;
       return Response.redirect(dest, 302);
     }
-    const doc = r.doc;
-    const assetUrl = new URL(request.url);
-    assetUrl.pathname = doc.file;
-    const res = await env.ASSETS.fetch(new Request(assetUrl, request));
-    if (!doc.base) return res;
-    const type = res.headers.get('content-type') || '';
-    if (!type.includes('text/html')) return res;
-    let html = await res.text();
-    if (!/<base\s/i.test(html)) html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${doc.base}">`);
-    const headers = new Headers(res.headers);
-    headers.delete('content-length');
-    return new Response(html, { status: res.status, statusText: res.statusText, headers });
+    return serveDoc(r.doc, request);
   },
 };

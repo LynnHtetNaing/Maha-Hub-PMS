@@ -40,9 +40,9 @@ const maskEmail = (email: string): string => {
 };
 
 // The browser sends the address of the page it came from. Only the addresses listed here are answered with that address;
-// MAHA_ALLOWED_ORIGIN (comma separated) may add more. The PMS has its own address, pms.maha-hub.com.
+// MAHA_ALLOWED_ORIGIN (comma separated) may add more. Every system has its own address (solutions., pms., sales., console., and the others when released).
 const ALLOWED_ORIGINS = [...new Set([
-  "https://maha-hub.com", "https://www.maha-hub.com", "https://pms.maha-hub.com",
+  "https://maha-hub.com", "https://www.maha-hub.com", "https://solutions.maha-hub.com", "https://pms.maha-hub.com", "https://sales.maha-hub.com", "https://console.maha-hub.com", "https://connect.maha-hub.com", "https://booking.maha-hub.com", "https://reach.maha-hub.com",
   ...(Deno.env.get("MAHA_ALLOWED_ORIGIN") || "").split(",").map((x) => x.trim()).filter(Boolean),
 ])];
 const withOrigin = (req: Request, res: Response): Response => {
@@ -102,7 +102,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (!lookupError && identity?.recovery_email) {
       const recoveryClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
       await recoveryClient.auth.resetPasswordForEmail(identity.recovery_email, {
-        redirectTo: "https://maha-hub.com/reset-password.html",
+        redirectTo: "https://solutions.maha-hub.com/reset-password.html",
       });
       logEvent("password_reset_requested", identity.user_id, true, null);
     }

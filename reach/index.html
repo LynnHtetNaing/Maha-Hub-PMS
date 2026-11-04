@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>/* Maha entry gate: this system opens only from the signed-in Main page (maha-hub.com/solutions). */
+<script>/* Maha entry gate: this system opens only from the signed-in Main page (solutions.maha-hub.com). */
 (function(){var K='mahahub.entry.reach',H12=12*3600*1000;
+try{var hm=/^#mh=([\w-]+)$/.exec(location.hash);if(hm){var hp=JSON.parse(decodeURIComponent(escape(atob(hm[1].replace(/-/g,'+').replace(/_/g,'/')))));history.replaceState(null,'',location.pathname+location.search);if(hp.e)for(var hk in hp.e)if(/^[a-z]+$/.test(hk))localStorage.setItem('mahahub.entry.'+hk,hp.e[hk])}}catch(e){}
+/* on its own address (sales., connect., reach., booking.) a person who is not signed in goes to the Provider console to sign in; elsewhere to the Main page */
+function addr(l){var m=/^(sales|connect|reach|booking)\.(.+)$/.exec(location.hostname);return m?location.protocol+'//'+l+'.'+m[2]+'/':'/solutions'}
 function ok(){try{var t=JSON.parse(localStorage.getItem(K)||'null');if(!t||!t.at||t.owner!==true||Date.now()-t.at>H12)return false;var q=new URLSearchParams(location.search).get('hotel');return !q||!t.hotel||q===t.hotel}catch(e){return false}}
-function out(){location.replace('/solutions')}
+function out(){location.replace(addr('console'))}
+document.addEventListener('DOMContentLoaded',function(){var a=document.querySelectorAll('a[data-main]');for(var i=0;i<a.length;i++)a[i].href=addr('solutions')+(a[i].getAttribute('data-main')==='systems'?'#systems':'')});
 if(!ok()){document.documentElement.style.display='none';out()}
 setInterval(function(){if(!ok())out()},20000)})();</script>
 <base href="/reach/">
@@ -298,7 +302,7 @@ function shellHtml(){
   return `<div class="shell"><nav class="nav"><div class="navbrand"><img src="${HUB_MARK}" alt="Maha Hub"><b>MAHA<br>REACH</b></div>${views.map(v=>`<button type="button" data-act="nav" data-view="${v[0]}" class="${ui.view===v[0]?'on':''}">${v[1]}</button>`).join('')}${extra}</nav>
   <div class="main"><div class="top"><img class="marksm" src="${HUB_MARK}" alt=""><div><b>${esc(h.name)}</b><div class="mut">${esc(h.city)} · ${esc(u.name)}</div></div><span class="sp"></span>
   <button class="credits" type="button" data-act="nav" data-view="credits" id="bal">${bal()} credits</button>
-  <a class="btn ghost sm" href="/solutions#systems">Maha systems</a>
+  <a class="btn ghost sm" href="/solutions#systems" data-main="systems">Maha systems</a>
   <button class="btn ghost sm" type="button" data-act="signout">Sign out</button></div>${viewHtml()}</div></div>`;
 }
 function viewHtml(){
@@ -647,7 +651,7 @@ function providerShell(){
   const body=ui.view==='traffic'?trafficHtml(''):ui.view==='history'?historyHtml():ui.view==='setup'?setupHtml(hotelOf(ui.hotelId)):propertiesHtml();
   return `<div class="shell"><nav class="nav"><div class="navbrand"><img src="${HUB_MARK}" alt="Maha Hub"><b>PROVIDER<br>CONSOLE</b></div>${views.map(v=>`<button type="button" data-act="nav" data-view="${v[0]}" class="${ui.view===v[0]?'on':''}">${v[1]}</button>`).join('')}</nav>
   <div class="main"><div class="top"><img class="marksm" src="${HUB_MARK}" alt=""><div><b>Provider console</b><div class="mut">Every property · one booking engine each</div></div><span class="sp"></span>
-  <a class="btn ghost sm" href="/solutions">Maha Hub</a>
+  <a class="btn ghost sm" href="/solutions" data-main="1">Maha Hub</a>
   <button class="btn ghost sm" type="button" data-act="signout">Sign out</button></div>${body}</div></div>`;
 }
 function propertiesHtml(){

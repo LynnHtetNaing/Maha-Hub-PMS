@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>/* Maha entry gate: this system opens only from the signed-in Main page (maha-hub.com/solutions). */
+<script>/* Maha entry gate: this system opens only from the signed-in Main page (solutions.maha-hub.com). */
 (function(){var K='mahahub.entry.connect',H12=12*3600*1000;
+try{var hm=/^#mh=([\w-]+)$/.exec(location.hash);if(hm){var hp=JSON.parse(decodeURIComponent(escape(atob(hm[1].replace(/-/g,'+').replace(/_/g,'/')))));history.replaceState(null,'',location.pathname+location.search);if(hp.e)for(var hk in hp.e)if(/^[a-z]+$/.test(hk))localStorage.setItem('mahahub.entry.'+hk,hp.e[hk])}}catch(e){}
+/* on its own address (sales., connect., reach., booking.) a person who is not signed in goes to the Provider console to sign in; elsewhere to the Main page */
+function addr(l){var m=/^(sales|connect|reach|booking)\.(.+)$/.exec(location.hostname);return m?location.protocol+'//'+l+'.'+m[2]+'/':'/solutions'}
 function ok(){try{var t=JSON.parse(localStorage.getItem(K)||'null');if(!t||!t.at||t.owner!==true||Date.now()-t.at>H12)return false;var q=new URLSearchParams(location.search).get('hotel');return !q||!t.hotel||q===t.hotel}catch(e){return false}}
-function out(){location.replace('/solutions')}
+function out(){location.replace(addr('console'))}
+document.addEventListener('DOMContentLoaded',function(){var a=document.querySelectorAll('a[data-main]');for(var i=0;i<a.length;i++)a[i].href=addr('solutions')+(a[i].getAttribute('data-main')==='systems'?'#systems':'')});
 if(!ok()){document.documentElement.style.display='none';out()}
 setInterval(function(){if(!ok())out()},20000)})();</script>
 <base href="/connect/">
@@ -59,8 +63,8 @@ table.gridtbl th{background:#f7fafc;font-size:12px;color:var(--mut);font-weight:
     <div>MAHA CONNECT<small>Channel manager foundation</small></div>
   </div>
   <div class="tb-links">
-    <a class="btn ghost sm" href="/solutions#systems">Maha systems</a>
-    <a class="btn ghost sm" href="/solutions">Maha Hub</a>
+    <a class="btn ghost sm" href="/solutions#systems" data-main="systems">Maha systems</a>
+    <a class="btn ghost sm" href="/solutions" data-main="1">Maha Hub</a>
   </div>
 </header>
 <div class="banner"><b>Foundation only.</b> Not live on OTAs. Middle provider not configured. Use Mock channel for local tests.</div>
