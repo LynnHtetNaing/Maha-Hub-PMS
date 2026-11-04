@@ -16,7 +16,7 @@ console.log('chooser ok');
 assert(/data-pvact="\$\{h\.code\}"[^>]*>Action ▾/.test(src)&&/class="pvacts" hidden/.test(src),'Action menu on the Hotels list');
 console.log('hotels action ok');
 /* sign-in box on the same background; after-sign-in pages are one box without the top bar; Dark pagoda soft */
-assert(/\.eco-shell\.is-signin \.eco-hero\{display:none\}/.test(src)&&/\.eco-shell\.is-signin::after\{content:"";[^}]*pagoda-mask/.test(src),'sign-in keeps the Main page background');
+assert(/.eco-shell.is-signin .eco-hero{display:none}/.test(src)&&src.includes('.eco-shell.is-signin::after{content:"";')&&src.includes('/brand/maha/scene-shape.svg'),'sign-in keeps the Main page background');
 assert(/id="lgMode2"/.test(src),'Light/Dark button inside the sign-in box');
 assert(src.includes('.eco-shell.eco-dk:not(.is-signin) .eco-hero::after{background:linear-gradient(180deg,#2f7f64,#16503b);opacity:.28}'),'softer Dark pagoda');
 assert(src.includes('.eco-lockup img{width:66px;height:auto;filter:brightness(.4) saturate(3.4)'),'bigger, solid logo on the light box');
@@ -26,6 +26,6 @@ console.log('sign-in box ok');
 /* the scene: famous buildings from the left, the pagoda and balloon at the right only */
 assert(fs.existsSync(__dirname+'/../../brand/maha/scene-light.svg')&&fs.existsSync(__dirname+'/../../brand/maha/scene-dark.svg'),'scene pictures');
 assert(src.includes('url(/brand/maha/scene-light.svg) 50% 100%/100% auto')&&src.includes('url(/brand/maha/scene-dark.svg) 50% 100%/100% auto'),'scene used on the pages');
-assert(src.includes('linear-gradient(90deg,transparent 58%,#000 76%)'),'pagoda only on the right, its haze flowing left');
+assert(fs.readFileSync(__dirname+'/../../brand/maha/scene-shape.svg','utf8').includes('offset=".58"'),'one solid shade for buildings and pagoda; pagoda only on the right, its haze flowing left');
 assert(src.includes('scene-light.svg) 50% 100%/100% auto no-repeat;opacity:.7')&&src.includes('scene-dark.svg) 50% 100%/100% auto no-repeat;opacity:.68'),'soft scene that does not compete with the box');
 console.log('scene ok');
