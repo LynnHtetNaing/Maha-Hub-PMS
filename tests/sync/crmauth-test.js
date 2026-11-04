@@ -16,7 +16,7 @@ function page(host, service) {
     return { ok: r.status < 400, status: r.status, json: async () => r.body };
   };
   const env = { location: { hostname: host }, localStorage: ls, fetch, Date: { now: () => clock.t }, JSON, Math, Promise, setTimeout, setInterval: () => 0, encodeURIComponent, btoa: s => Buffer.from(s, 'binary').toString('base64'), String, Uint8Array, crypto: { getRandomValues: a => { for (let i = 0; i < a.length; i++) a[i] = (i * 7 + 3) & 255; return a } },
-    document: { addEventListener() {}, getElementById: () => null, hidden: false, body: { classList: { add() {}, remove() {} } } } };
+    document: { addEventListener() {}, getElementById: () => ({ hidden: true, innerHTML: '', querySelector: () => ({ onclick: null, onsubmit: null, value: '', focus() {}, textContent: '', checked: true }) }), hidden: false, body: { classList: { add() {}, remove() {} } } } };
   vm.createContext(env); vm.runInContext(code + '\nthis.Auth = Auth;', env);
   return { Auth: env.Auth, clock, calls, ls, mem };
 }
@@ -65,11 +65,16 @@ const svc = (state = {}) => (url, o) => {
   T('a refresh that is refused (the person was switched off) signs the person out at once', lost === null && p.Auth.status() === 'out' && p.ls.getItem('maha.crm.auth') === null);
   p = page('crm.maha-hub.com', svc({ trusted: true })); await p.Auth.signIn('mahla', 'good'); p.Auth.signOut();
   T('sign out clears the session and tells the server', p.Auth.status() === 'out' && p.calls.some(c => c.url.includes('/auth/v1/logout')) && p.ls.getItem('maha.crm.auth') === null);
+  /* a reload while a session is open must not wait for a sign-in signal (this once left the page blank) */
+  p = page('crm.maha-hub.com', svc({ trusted: true })); await p.Auth.signIn('mahla', 'good');
+  { const w = await Promise.race([p.Auth.require().then(() => 'ok'), new Promise(r => setTimeout(() => r('hang'), 300))]); T('a reload with a session already open goes on at once (no blank page)', w === 'ok'); }
+  p = page('crm.maha-hub.com', svc()); { const w = await Promise.race([p.Auth.require().then(() => 'ok'), new Promise(r => setTimeout(() => r('wait'), 200))]); T('with nobody signed in the page waits for the sign-in', w === 'wait'); }
   /* a test copy */
   p = page('maha-hub.pages.dev', svc());
   T('a test copy on another address asks for nothing and keeps to this device', p.Auth.required === false && p.Auth.status() === 'ok' && (await p.Auth.token()) === null && p.Auth.session() === null);
   /* the page */
   T('the page waits for the sign-in before it reads its data', /await Auth\.require\(\);\s*try \{ db = await openDB\(\);/.test(src));
+  T('no notes or buttons in the menu; a profile badge with Sign out and Install app instead; More has no device block', !/Version 5 /.test(src.split('<body>')[1].slice(0, 4000)) && !src.includes('id="instBtn"') && src.includes('id="prof"') && src.includes('const Profile = (() =>') && !src.includes('<h2>This device</h2>'));
   T('no entry ticket and no hand-over any more', !/mahahub\.entry/.test(src) && !/#mh=/.test(src));
   T('installable: manifest, standalone, offline service worker, install button', fs.readFileSync(path.resolve(__dirname, '..', '..', 'crm', 'manifest.webmanifest'), 'utf8').includes('"display": "standalone"') && src.includes('beforeinstallprompt') && src.includes("serviceWorker.register('sw.js')"));
   console.log(fails ? 'FAILED ' + fails : 'all ok'); process.exit(fails ? 1 : 0);

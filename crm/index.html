@@ -291,14 +291,30 @@ h2 .count{letter-spacing:0}
 .rail .who{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-weight:600;color:#E6CF95}.rail .who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rail .who .btn,.rail #instBtn{background:transparent;color:#E4EEE5;border-color:rgba(228,238,229,.35)}
 .rail #instBtn{margin:8px 0 0 10px}
+
+/* ---------- profile badge (top right) ---------- */
+.prof{position:fixed;z-index:60;top:calc(env(safe-area-inset-top,0px) + 22px);right:20px;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:#176B50;color:#fff;font:800 12px/1 Inter,system-ui,sans-serif;display:grid;place-items:center;cursor:pointer;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.prof[hidden]{display:none}
+.prof i{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;background:#9aa8a0}
+.prof i[data-s="ok"]{background:#2fbf71}.prof i[data-s="busy"],.prof i[data-s="err"]{background:#e8a33a}.prof i[data-s="signin"]{background:#d64541}
+.profmenu{position:fixed;z-index:61;top:calc(env(safe-area-inset-top,0px) + 62px);right:16px;min-width:210px;background:var(--paper,#fff);color:var(--ink,#1a272f);border:1px solid var(--line,#c5d0d8);border-radius:10px;box-shadow:0 14px 36px rgba(11,31,45,.28);padding:6px}
+.profmenu[hidden]{display:none}
+.profmenu .pm-h{padding:8px 10px 10px;border-bottom:1px solid var(--line,#c5d0d8);margin-bottom:4px}.profmenu .pm-h b{display:block;font-size:14px}.profmenu .pm-h span{display:block;font-size:12px;color:var(--ink-2,#556470);margin-top:2px}
+.profmenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:9px 10px;border-radius:7px;font:600 13.5px Inter,system-ui,sans-serif;color:inherit;cursor:pointer}
+@media (hover:hover){.profmenu button:hover{background:var(--canopy,#edf1ef)}}
+.au-on .prof,.au-on .profmenu{display:none!important}
+.top h1{padding-right:64px}
+@media (max-width:899px){.prof{top:calc(env(safe-area-inset-top,0px) + 14px);right:14px}.profmenu{top:calc(env(safe-area-inset-top,0px) + 54px)}}
 </style>
 </head>
 <body>
 <div id="auth" hidden></div>
+<button type="button" id="prof" class="prof" aria-haspopup="menu" aria-label="Profile" hidden><span id="profIni"></span><i id="profDot" data-s="off"></i></button>
+<div id="profMenu" class="profmenu" role="menu" hidden></div>
 <nav class="rail" aria-label="Main">
   <div class="brand"><div class="brand-name">Maha Sales</div><div class="brand-sub">Maha Hub</div></div>
   <div id="railnav"></div>
-  <div class="foot">Version 5 · Oct 2026 — Quotation + MSA PDFs<br>Works offline. Saved on this device and in the cloud.<div id="cloudst" style="margin-top:6px;font-weight:600"></div><div class="who" id="whoBox" hidden><span id="whoName"></span><button class="btn sm" data-act="signOut">Sign out</button></div><button class="btn sm" id="instBtn" data-act="install" hidden>Install app</button></div>
+  <span id="cloudst" hidden></span>
 </nav>
 <main id="view" tabindex="-1"></main>
 <nav class="tabs" id="tabnav" aria-label="Main"></nav>
@@ -1787,8 +1803,6 @@ function vMore() {
    <p class="muted small" style="margin-top:-4px">A socket is your own list with the fields you choose — addresses, billing details, suppliers, anything.</p>
    <div class="list">${colls.map(c => `<a class="row" href="#coll/${c.id}"><div class="main"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.fields.join(', '))}</div></div><div class="end">${K('item').filter(i => i.collId === c.id).length} items</div></a>`).join('') || '<div class="empty">No sockets yet.</div>'}</div>
    <p><button class="btn primary" data-act="newColl">${ICON.plus}New socket</button></p>
-   <h2>This device</h2>
-   <p class="actions"><button class="btn" data-act="install" id="instBtn2" hidden>Install this app</button><button class="btn" data-act="signOut">Sign out${Auth.who() ? ' (' + esc(Auth.who()) + ')' : ''}</button></p>
    <h2>Backup &amp; move data</h2>
    <div class="panel"><p style="margin-top:0">Data is stored on this device only. Back up weekly, and use the same file to move everything to your phone or laptop. To bring in your Excel Hotel Database: in Excel choose File → Save As → CSV UTF-8, then Import hotels CSV — matching hotel names are updated, new ones added.</p>
     <div class="actions"><button class="btn gold" data-act="backup">Download full backup</button><button class="btn" data-act="restore">Restore from backup</button>
@@ -2101,7 +2115,7 @@ const Auth = (() => {
   function present() { const s = status(); if (s === 'ok') { if (shown) hide(); return; } shown = true; s === 'locked' ? showLock() : showLogin(); }
   /* resolves when somebody is signed in (at once on a test copy) */
   function require_() {
-    if (!required) return Promise.resolve();
+    if (!required || status() === 'ok') return Promise.resolve();   /* already signed in (a reload): go on at once */
     return new Promise(res => { const f = s => { if (s === 'ok') { res(); listeners = listeners.filter(x => x !== f); } }; listeners.push(f); present(); });
   }
   if (required) {
@@ -2110,6 +2124,33 @@ const Auth = (() => {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } } });
   }
   return {required, signIn, verify, token, session, signOut, onChange, require: require_, who, status, present};
+})();
+
+/* ================= PROFILE (the badge at the top right, like the PMS) ================= */
+const Profile = (() => {
+  const $p = id => document.getElementById(id);
+  let open = false;
+  const initials = n => String(n || '').trim().split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'Me';
+  function close() { open = false; const m = $p('profMenu'); if (m) m.hidden = true; document.removeEventListener('pointerdown', out, true); document.removeEventListener('keydown', key, true); }
+  const out = e => { const m = $p('profMenu'), b = $p('prof'); if (m && !m.contains(e.target) && b && !b.contains(e.target)) close(); };
+  const key = e => { if (e.key === 'Escape') close(); };
+  function show() {
+    const m = $p('profMenu'); if (!m) return;
+    const cs = $p('cloudst'), name = Auth.required ? Auth.who() : '';
+    m.innerHTML = '<div class="pm-h"><b>' + esc(name || 'This device') + '</b>' + (cs && cs.textContent ? '<span>' + esc(cs.textContent) + '</span>' : '') + '</div>'
+      + (Profile.canInstall ? '<button type="button" role="menuitem" data-act="install">Install app</button>' : '')
+      + (Auth.required ? '<button type="button" role="menuitem" data-act="signOut">Sign out</button>' : '');
+    m.hidden = false; open = true;
+    document.addEventListener('pointerdown', out, true); document.addEventListener('keydown', key, true);
+  }
+  function start() {
+    const b = $p('prof'); if (!b) return;
+    $p('profIni').textContent = initials(Auth.required ? Auth.who() : 'Me');
+    b.hidden = false;
+    b.onclick = () => (open ? close() : show());
+    $p('profMenu').addEventListener('click', e => { if (e.target.closest('[data-act]')) close(); });
+  }
+  return {start, close, canInstall: false};
 })();
 
 /* ================= CLOUD (Maha Sales) =================
@@ -2130,7 +2171,7 @@ const Cloud = (() => {
     const el = document.getElementById('cloudst'); if (!el) return;
     const n = Object.keys(dirty()).length;
     const txt = {ok: 'Cloud: saved ' + at, busy: 'Cloud: saving…', signin: 'Cloud: sign in again from the Provider console', local: 'Cloud: off here (this device only)', off: 'Cloud: off', err: 'Cloud: offline, ' + n + ' change' + (n === 1 ? '' : 's') + ' waiting'}[state] || '';
-    el.textContent = txt; el.dataset.s = state;
+    el.textContent = txt; el.dataset.s = state; const dot = document.getElementById('profDot'); if (dot) dot.dataset.s = state;
   }
   async function token() { return Auth.token(); }
   async function call(path, opt = {}) {
@@ -2213,11 +2254,10 @@ const Cloud = (() => {
   if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
   else if (byId('meta') && !inCloud) Cloud.uploadAll();
   applyTheme(); route(); Cloud.start();
-  if (Auth.required) { const wb = document.getElementById('whoBox'); if (wb) { wb.hidden = false; document.getElementById('whoName').textContent = Auth.who(); } }
+  Profile.start();
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const showInst = () => ['instBtn', 'instBtn2'].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = false; });
-  if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) showInst();
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__inst = e; showInst(); });
+  if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) Profile.canInstall = true;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__inst = e; Profile.canInstall = true; });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
