@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="eee06b7ae9">
+<meta name="maha-build" content="9fedaf50f3">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7899,6 +7899,7 @@ function sysAllowed(kind){if(kind==='sales')return false;return RELEASED_SYSTEMS
 const ENTRY_KINDS=['connect','reach','sales','book'];
 function entryTicket(kind,h){if(!ENTRY_KINDS.includes(kind)||typeof DB==='undefined'||!DB||!DB.session)return;if(!sysAllowed(kind)){try{localStorage.removeItem('mahahub.entry.'+kind)}catch(e){}return}try{localStorage.setItem('mahahub.entry.'+kind,JSON.stringify({at:Date.now(),hotel:h&&h.code||'',owner:isOwnerSession()}))}catch(e){}}
 function clearEntryTickets(){try{ENTRY_KINDS.forEach(k=>localStorage.removeItem('mahahub.entry.'+k))}catch(e){}}
+function salesUrl(){return /(^|\.)maha-hub\.com$/.test(location.hostname)?'https://'+SYS_HOSTS.sales+'/':appPrefix()+'/errors/unplugged'}   /* the hotel Sales is not built: no sign-in is ever shown for it, the visitor lands on its address, which shows the Maha 404 */
 function crmUrl(){return /(^|\.)maha-hub\.com$/.test(location.hostname)?'https://crm.maha-hub.com/':appPrefix()+'/crm/'}
 function sysUrl(kind,h){entryTicket(kind,h);const q=h&&h.code?('?hotel='+encodeURIComponent(h.code)):'';
   if(onSplitHost()&&SYS_HOSTS[kind])return 'https://'+SYS_HOSTS[kind]+'/'+q+(kind==='hub'||ENTRY_KINDS.includes(kind)?handoverHash(kind):'');
@@ -8175,7 +8176,7 @@ function openSystem(kind,h,same){
   if(!asProv&&row&&!row.hotel){toast(ecoSysLabel(kind)+' is closed for this hotel. The provider opens it under Systems.');return}
   if(!asProv&&row&&!row.user){toast(ecoSysLabel(kind)+' is not open for your account. The provider opens it under Staff & permissions.');return}
   if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
-  if(kind==='sales'){const url=sysUrl('sales',h);if(same){location.assign(url);return}openApp(url,'Maha Sales');return}
+  if(kind==='sales'){const url=salesUrl();if(same){location.assign(url);return}openApp(url,'Maha Sales');return}
   const url=kind==='reach'?reachUrl(h):kind==='connect'?connectStaticUrl(h):kind==='book'?bookUrlFor(h):'';
   if(!url)return;
   if(same){location.assign(url);return}
@@ -8694,6 +8695,7 @@ function showLogin(msg){
   try{applySkin()}catch(e){}   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme */
   if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
+  if(lgTargetSys==='sales'){if(!IS_APP){location.replace(salesUrl());return}lgTargetSys=null}   /* never a sign-in for the hotel Sales */
   if(hostRole()==='console')lgProvider=true;
   if(IS_APP&&!lgProvider)lgTargetSys='hub';
   document.body.classList.add('eco-noscroll');
@@ -8793,6 +8795,7 @@ function showLogin(msg){
     else th.textContent='Default opens Maha PMS after login. Use the switch icon in the header to open another system.';
   };
   const pickSys=b=>{
+    if(b.dataset.sys==='sales'){location.assign(salesUrl());return}
     if(b.classList.contains('is-locked')||b.disabled){toast(b.innerText.includes('this account')?'This system is not open for your account.':'Ask Maha Hub to open this system for your hotel.');return}
     if(hostRole()==='main'){location.assign(sysUrl(b.dataset.sys,null));return}
     if(b.dataset.sys===lgTargetSys)return;
