@@ -85,6 +85,22 @@ async function notPluggedIn(request, env) {
   return new Response(request.method === 'HEAD' ? null : res.body, { status: 404, headers });
 }
 
+/* a quotation or MSA a hotel opens from the CRM email: crm.maha-hub.com/d/<token>. The token is long and random; the document is read from the database by that token only. */
+async function sharedDoc(env, token) {
+  const base = String(env.SUPABASE_URL || '').replace(/\/+$/, ''), key = env.SUPABASE_ANON_KEY || '';
+  const gone = () => new Response('This link is not available any more. Please ask Maha Hub to send it again.', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+  if (!base || !key) return gone();
+  try {
+    const r = await fetch(base + '/rest/v1/rpc/maha_shared_doc', { method: 'POST', headers: { apikey: key, authorization: 'Bearer ' + key, 'content-type': 'application/json' }, body: JSON.stringify({ p_token: token }) });
+    const rows = r.ok ? await r.json() : [];
+    if (!Array.isArray(rows) || !rows[0] || !rows[0].html) return gone();
+    return new Response(rows[0].html, { headers: {
+      'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-referrer',
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'",
+    } });
+  } catch { return gone(); }
+}
+
 export default {
   async fetch(request, env) {
     if (!env.ASSETS) {
@@ -97,6 +113,9 @@ export default {
     const bare = url.pathname.replace(/\/+$/, '') || '/';
     const low = cleanPath(url.pathname).toLowerCase();
     request.env = env;
+
+    /* the CRM email link to one document */
+    { const m = /^\/d\/([A-Za-z0-9_-]{24,64})$/.exec(bare); if (m && host === String(env.CRM_HOST || '').toLowerCase()) return sharedDoc(env, m[1]); }
 
     /* a system's own address: "/" opens the system, no redirect; the files it needs load as usual */
     const own = hostDoc(host, env);
