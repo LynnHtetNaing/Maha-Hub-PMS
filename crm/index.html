@@ -1691,11 +1691,11 @@ function mapHeaders(headers) {
 }
 
 /* ================= NAV ================= */
-const NAV = [['dashboard','Dashboard'],['today','Today'],['hotels','Hotels'],['quotes','Quotes'],['playbook','Playbook'],['more','More']];
+const NAV = [['dashboard','Dashboard'],['hotels','Hotels'],['quotes','Quotes'],['playbook','Playbook'],['more','More']];
 function drawNav(cur) {
   drawRail(cur);
 }
-const SECTION_OF = {competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'dashboard', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 const NAVS = {cur: '', stack: [], back: false};
@@ -1703,9 +1703,10 @@ function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
-  drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
-  crumb(SECTION_OF[r] || 'today');
+  if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
+  drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
+  ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
+  crumb(SECTION_OF[r] || 'dashboard');
 }
 async function decide(result) {
   const q = vQuote.current; vQuote.sync(); const st = approvalState(q);
@@ -1726,47 +1727,11 @@ function hotelRow(h) {
    <div class="end"><span class="status" style="color:${stageColor(h.status)}">${esc(h.status || 'New lead')}</span>${nf ? `<div class="${overdue ? 'due' : ''}">${overdue ? 'Due ' : 'Next '}${fdate(nf)}</div>` : ''}</div></a>`;
 }
 
-function vToday() {
-  const t = today(), hotels = K('hotel'), acts = K('act');
-  const open = acts.filter(a => a.nextDate && !a.done && !CLOSED.includes((byId(a.hotelId) || {}).status));
-  const due = open.filter(a => a.nextDate <= t).sort((a, b) => a.nextDate.localeCompare(b.nextDate));
-  const soon = open.filter(a => a.nextDate > t && a.nextDate <= addDays(t, 7)).sort((a, b) => a.nextDate.localeCompare(b.nextDate));
-  const recent = [...acts].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || '').localeCompare(a.created || '')).slice(0, 6);
-  const quotes = K('quote'), openQ = quotes.filter(q => ['Draft', 'Sent'].includes(q.status));
-  const m = meta(); const lb = m.lastBackup; const needBackup = (!lb || (Date.now() - new Date(lb)) > 7 * 864e5) && Cloud.state !== 'ok';
-  const counts = STAGES.map(([s, c]) => [s, c, hotels.filter(h => (h.status || 'New lead') === s).length]);
-  const total = hotels.length || 1;
-  const hr = new Date().getHours(); const hello = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
-  const fu = a => `<a class="row" href="#hotel/${a.hotelId}"><span class="stripe" style="background:${a.nextDate <= t ? 'var(--alert)' : 'var(--gold)'}"></span>
-    <div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.nextAction || a.reason || a.summary || 'Follow up')}</div></div>
-    <div class="end"><div class="${a.nextDate <= t ? 'due' : ''}">${a.nextDate < t ? 'Overdue · ' : a.nextDate === t ? 'Today · ' : ''}${fdate(a.nextDate)}</div>
-    <button class="btn sm" data-act="done" data-id="${a.id}">Done</button></div></a>`;
-  view().innerHTML = `
-   <div class="top"><div><h1>${hello}${Auth.who() ? ', ' + esc(Auth.who()) : ''}</h1><p>${new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p></div>
-    <div class="actions"><button class="btn primary" data-act="log">${ICON.plus}Log a call</button><button class="btn" data-act="newHotel">Add hotel</button><button class="btn" data-go="#quote/new">New quote</button></div></div>
-   ${needBackup ? `<div class="banner"><span>${lb ? 'Last backup ' + fdate(lb) + '.' : 'No backup yet.'} Your data lives only on this device.</span><button class="btn sm gold" data-act="backup">Back up now</button></div>` : ''}
-   <div class="searchbar" style="margin-bottom:14px">${ICON.search}<input type="search" id="gsearch" placeholder="Search hotels, contacts, quotes, playbook…" aria-label="Search everything"></div>
-   <div class="kpis">
-    <a class="kpi ${due.length ? 'alert' : ''}" href="#today"><div class="v">${due.length}</div><div class="l">Follow-ups due</div></a>
-    <a class="kpi" href="#hotels"><div class="v">${hotels.length}</div><div class="l">Hotels in database</div></a>
-    <a class="kpi" href="#quotes"><div class="v">${openQ.length}</div><div class="l">Open quotes</div></a>
-    <a class="kpi" href="#hotels" data-stage="Live"><div class="v">${hotels.filter(h => h.managed === 'Yes' && h.status === 'Live').length}</div><div class="l">Managed &amp; live</div></a>
-   </div>
-   <div class="pipe"><div class="bar" aria-hidden="true">${counts.filter(c => c[2]).map(([s, c, n]) => `<span style="flex:${n};background:${c}" title="${esc(s)}: ${n}"></span>`).join('')}</div>
-    <div class="legend">${counts.map(([s, c, n]) => `<button data-act="stage" data-stage="${esc(s)}"><i style="background:${c}"></i>${esc(s)}<b>${n}</b></button>`).join('')}</div></div>
-   <h2>Due now <span class="count">${due.length}</span></h2>
-   ${due.length ? `<div class="list">${due.map(fu).join('')}</div>` : '<div class="list"><div class="empty">Nothing due. Log a call and set a follow-up date to see it here.</div></div>'}
-   ${soon.length ? `<h2>Next 7 days <span class="count">${soon.length}</span></h2><div class="list">${soon.map(fu).join('')}</div>` : ''}
-   <h2>Recent activity</h2>
-   ${recent.length ? `<div class="list">${recent.map(a => `<a class="row" href="#hotel/${a.hotelId}"><div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.type)} — ${esc(a.reason || a.summary || '')}</div></div><div class="end">${fdate(a.date)}</div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No activity yet.</div></div>'}`;
-  const gs = $('#gsearch'); gs.addEventListener('keydown', e => { if (e.key === 'Enter' && gs.value.trim()) location.hash = 'search/' + encodeURIComponent(gs.value.trim()); });
-}
-
 function vSearch(q) {
   const n = norm(q); const hit = r => norm(Object.values(r).filter(v => typeof v === 'string' || typeof v === 'number').join(' ')).includes(n);
   const hotels = K('hotel').filter(hit), acts = K('act').filter(hit), quotes = K('quote').filter(r => hit(r) || norm(r.hotelName).includes(n));
   const cards = pbCards().filter(hit), items = K('item').filter(i => norm(Object.values(i.values || {}).join(' ')).includes(n));
-  view().innerHTML = `<a class="back" href="#today">‹ Today</a><div class="top"><div><h1>Search</h1><p>${hotels.length + acts.length + quotes.length + cards.length + items.length} results for “${esc(q)}”</p></div></div>
+  view().innerHTML = `<a class="back" href="#dashboard">‹ Dashboard</a><div class="top"><div><h1>Search</h1><p>${hotels.length + acts.length + quotes.length + cards.length + items.length} results for “${esc(q)}”</p></div></div>
    <div class="searchbar" style="margin-bottom:10px">${ICON.search}<input type="search" id="gsearch" value="${esc(q)}" aria-label="Search everything"></div>
    ${hotels.length ? `<h2>Hotels</h2><div class="list">${hotels.slice(0, 50).map(hotelRow).join('')}</div>` : ''}
    ${acts.length ? `<h2>Activity notes</h2><div class="list">${acts.slice(0, 50).map(a => `<a class="row" href="#hotel/${a.hotelId}"><div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.type)} — ${esc(a.reason)} ${esc(a.summary)}</div></div><div class="end">${fdate(a.date)}</div></a>`).join('')}</div>` : ''}
@@ -2332,7 +2297,7 @@ Object.assign(ICON, {
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>',
 });
 const NAVG = [
-  ['dashboard', 'Dashboard'], ['today', 'Today'],
+  ['dashboard', 'Dashboard'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
@@ -3059,6 +3024,7 @@ Object.assign(ACTIONS, {
      - an activation set to Live: the technician (Setup by), on the systems that were activated;
      - a signed contract: the sales person of the quotation (Quotation for sale), on the whole quotation.
    First month fee = the monthly fees + the one-time fees (+ a yearly fee / 12), after discount; commission items give no amount.
+   The credit is an amount in the currency of the quotation (a VND quotation gives VND), so each currency has its own Total line.
    The list can be filtered by staff, department and dates, with a Total line and a total for each staff, to see the production of each person. */
 const itemNet = i => { const p = qpNum(i.price), d = qpDisc(i.price, i.disc); return Math.max(0, p - d.amt); };
 const itemFirstMonth = i => /month$/.test(i.unit || '') ? itemNet(i) : /one time$/.test(i.unit || '') ? itemNet(i) : /year$/.test(i.unit || '') ? itemNet(i) / 12 : 0;
@@ -3097,15 +3063,15 @@ function vCredits() {
 function paintCredits() {
   const f = UI.crd || {}, tb = $('#crdbody'); if (!tb) return;
   const rows = creditEvents().filter(e => (!f.from || e.date >= f.from) && (!f.to || e.date <= f.to) && (!f.who || kpiKey(e.who) === kpiKey(f.who)) && (!f.dept || deptOf(e.who) === f.dept)).sort((a, b) => b.date.localeCompare(a.date));
-  const m = n => n ? fmt(Math.round(n * 100) / 100) : '0';
-  const tot = rows.reduce((t, e) => t + e.credit, 0), base = rows.reduce((t, e) => t + e.base, 0);
-  tb.innerHTML = rows.length ? rows.map((e, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(e.date))}</td><td class="l">${esc(e.who || '(No name)')}</td><td>${esc(deptOf(e.who))}</td><td>${esc(e.type)}</td><td class="l">${esc(e.hotel)}</td><td class="nw">${esc(e.no)}</td><td class="l">${esc(e.what)}</td><td style="text-align:right">${m(e.base)}</td><td>${esc(String(e.pct))} %</td><td style="text-align:right"><b>${m(e.credit)}</b></td></tr>`).join('')
-      + `<tr class="kp-tot"><td colspan="8" style="text-align:right"><b>Total · ${rows.length} credit${rows.length === 1 ? '' : 's'}</b></td><td style="text-align:right"><b>${m(base)}</b></td><td></td><td style="text-align:right"><b>${m(tot)}</b></td></tr>`
+  const m = n => n ? fmt(Math.round(n * 100) / 100) : '0', mc = (n, c) => m(n) + ' ' + (c || 'THB');
+  const curs = [...new Set(rows.map(e => e.cur || 'THB'))].sort();
+  tb.innerHTML = rows.length ? rows.map((e, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(e.date))}</td><td class="l">${esc(e.who || '(No name)')}</td><td>${esc(deptOf(e.who))}</td><td>${esc(e.type)}</td><td class="l">${esc(e.hotel)}</td><td class="nw">${esc(e.no)}</td><td class="l">${esc(e.what)}</td><td style="text-align:right">${esc(mc(e.base, e.cur))}</td><td>${esc(String(e.pct))} %</td><td style="text-align:right"><b>${esc(mc(e.credit, e.cur))}</b></td></tr>`).join('')
+      + curs.map(c => { const rs = rows.filter(e => (e.cur || 'THB') === c); return `<tr class="kp-tot"><td colspan="8" style="text-align:right"><b>Total ${esc(c)} · ${rs.length} credit${rs.length === 1 ? '' : 's'}</b></td><td style="text-align:right"><b>${esc(mc(rs.reduce((x, e) => x + e.base, 0), c))}</b></td><td></td><td style="text-align:right"><b>${esc(mc(rs.reduce((x, e) => x + e.credit, 0), c))}</b></td></tr>`; }).join('')
     : '<tr><td colspan="11" class="empty">No credit in this period for this staff. Credit is earned when an activation is set to Live and when a quotation is signed. Change the dates or the staff, then press Search.</td></tr>';
   const box = $('#crdstaff'); if (!box) return;
   if (f.who || !rows.length) { box.innerHTML = ''; return; }
-  const by = new Map(); rows.forEach(e => { const k = kpiKey(e.who), r = by.get(k) || {who: e.who || '(No name)', act: 0, sign: 0, credit: 0}; if (e.type === 'Activation') r.act++; else r.sign++; r.credit += e.credit; by.set(k, r); });
-  box.innerHTML = `<div class="fu-sub" style="margin-top:22px"><b>Total</b> for each staff</div><div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Staff</th><th>Department</th><th>Activations</th><th>Signed contracts</th><th>Credit</th></tr></thead><tbody>${[...by.values()].sort((a, b) => b.credit - a.credit).map((r, i) => `<tr><td>${i + 1}</td><td class="l">${esc(r.who)}</td><td>${esc(deptOf(r.who))}</td><td>${r.act}</td><td>${r.sign}</td><td style="text-align:right"><b>${m(r.credit)}</b></td></tr>`).join('')}</tbody></table></div>`;
+  const by = new Map(); rows.forEach(e => { const k = kpiKey(e.who), r = by.get(k) || {who: e.who || '(No name)', act: 0, sign: 0, cred: {}}; if (e.type === 'Activation') r.act++; else r.sign++; r.cred[e.cur || 'THB'] = (r.cred[e.cur || 'THB'] || 0) + e.credit; by.set(k, r); });
+  box.innerHTML = `<div class="fu-sub" style="margin-top:22px"><b>Total</b> for each staff</div><div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Staff</th><th>Department</th><th>Activations</th><th>Signed contracts</th><th>Credit</th></tr></thead><tbody>${[...by.values()].sort((a, b) => Object.values(b.cred).reduce((x, y) => x + y, 0) - Object.values(a.cred).reduce((x, y) => x + y, 0)).map((r, i) => `<tr><td>${i + 1}</td><td class="l">${esc(r.who)}</td><td>${esc(deptOf(r.who))}</td><td>${r.act}</td><td>${r.sign}</td><td style="text-align:right"><b>${esc(Object.entries(r.cred).map(([c, v]) => mc(v, c)).join(' + '))}</b></td></tr>`).join('')}</tbody></table></div>`;
 }
 Object.assign(ACTIONS, {
   crdSearch: () => { const f = UI.crd = UI.crd || {}; f.from = $('#cr_from').value; f.to = $('#cr_to').value; f.who = $('#cr_who').value; f.dept = $('#cr_dept').value; paintCredits(); },
