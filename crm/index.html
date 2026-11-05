@@ -518,6 +518,19 @@ table{border-radius:12px}
 .cbn{padding:10px;font-size:12.5px;color:var(--ink-2)}
 /* every field keeps its width inside its column (padding and border are counted in) */
 input,select,textarea{box-sizing:border-box}
+/* ---------- More details: short boxes in a few lines ---------- */
+.hi-row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;margin-bottom:12px}
+.hi-c{display:block;margin:0}.hi-c>span{display:block;font-weight:700;font-size:12.5px;margin-bottom:4px}
+.hi-c select,.hi-c input{width:auto}
+.hi-fz{background:#efefef!important;color:#666!important;border-color:#e3e3e3!important;cursor:not-allowed}
+/* ---------- The calendar button sits inside the date box (as in the PMS) ---------- */
+.dpk{border:1px solid var(--line);border-radius:9px;background:#fff;overflow:hidden;max-width:200px}
+.dpk input.dpt{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.dpk .dpb{border:0;border-left:1px solid var(--line);border-radius:0;background:#f4efe6}
+/* ---------- Close X: red, thick, nothing behind it ---------- */
+.sheet-head .iconbtn,.sheet-head .iconbtn:hover{background:none!important;border:0!important;box-shadow:none!important;color:#d93025;padding:2px 4px}
+.sheet-head .iconbtn svg{width:24px;height:24px;stroke-width:3.6}
+.sheet-head .iconbtn:hover{color:#b3261e}
 </style>
 </head>
 <body>
@@ -1806,7 +1819,7 @@ function quoteRow(q) {
   const c = compute(q); const bits = [c.month ? fmt(c.month) + '/mo' : '', c.year ? fmt(c.year) + '/yr' : '', c.items.some(i => i.cad === 'comm') ? 'commission' : ''].filter(Boolean).join(' + ');
   const ap = approvalState(q); const sc = ap === 'waiting' ? '#D49A38' : {Draft:'#8A9A8C', Sent:'#2E6B8A', Accepted:'#1F8A4C', Rejected:'#B4432F', Expired:'#A0763A'}[q.status] || '#8A9A8C';
   return `<a class="row" href="#quote/${q.id}"><span class="stripe" style="background:${sc}"></span><div class="main"><div class="t">${esc(q.no || 'No number')} — ${esc(q.hotelName || hotelName(q.hotelId))}</div>
-   <div class="s">${esc(c.names.join(', ') || 'No products')}</div></div><div class="end"><span class="status" style="color:${sc}">${ap === 'waiting' ? 'Waiting for approval' : esc(q.status || 'Draft')}</span><div>${esc(bits)}</div></div></a>`;
+   <div class="s">${esc(c.names.join(', ') || 'No products')}</div></div><div class="end"><span class="status" style="color:${sc}">${ap === 'waiting' ? 'Waiting for approval' : esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))}</span><div>${esc(bits)}</div></div></a>`;
 }
 function vQuotes(st) {
   if (st !== undefined) UI.quoteSt = st;
@@ -1858,7 +1871,8 @@ function vQuote(id) {
      ${field({k:'date', label:'Quote date', type:'date'}, q.date)}
      ${field({k:'rooms', label:'Rooms', type:'number'}, q.rooms)}
      ${field({k:'contact', label:'Prepared for (contact)'}, q.contact)}
-     ${field({k:'status', label:'Status', type:'select', opts:['Draft', 'Sent', 'Accepted', 'Rejected', 'Expired']}, q.status)}
+     ${field({k:'status', label:'Status', type:'select', opts:[['Draft', 'Draft'], ['Sent', 'Sent'], ['Accepted', 'Signed'], ['Rejected', 'Rejected'], ['Expired', 'Expired']]}, q.status)}
+     ${field({k:'leadSource', label:'Lead source', type:'select', opts:[['', 'Please select'], ...[...new Set(['Cold call', 'Referral', 'Agent', 'Website', 'Social media', 'OneHotel', 'Walk-in', 'Other'].concat(K('hotel').map(x => x.source).filter(Boolean)))]]}, q.leadSource || (byId(q.hotelId) || {}).source || '')}
      ${field({k:'setup', label:'Set-up fee', type:'select', opts:[['none', 'No set-up fee'], ['3000', '3,000 THB — take over existing channels'], ['25000', '25,000 THB — full set-up from zero']]}, q.setup)}
      <label class="f" style="display:flex;gap:8px;align-items:center;margin-top:22px"><input type="checkbox" id="q_waived" ${q.waived ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--forest)"> Set-up fee waived</label>
      <label class="f" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="q_hide" ${q.hideRooms ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--forest)"> Hide room count on the quotation</label>
@@ -1879,7 +1893,7 @@ function vQuote(id) {
 
   const sync = () => {
     const hn = $('#q_hotel').value.trim(); q.hotelName = hn; const h = K('hotel').find(x => norm(x.name) === norm(hn)); q.hotelId = h ? h.id : '';
-    ['no', 'date', 'rooms', 'contact', 'status', 'setup', 'note', 'discType', 'discValue', 'discReason'].forEach(k => q[k] = $(`[name=${k}]`).value.trim());
+    ['no', 'date', 'rooms', 'contact', 'status', 'leadSource', 'setup', 'note', 'discType', 'discValue', 'discReason'].forEach(k => q[k] = $(`[name=${k}]`).value.trim());
     q.waived = $('#q_waived').checked; q.hideRooms = $('#q_hide').checked;
     $$('.pline [data-prod]').forEach(cb => { q.lines[cb.dataset.prod] = {...(q.lines[cb.dataset.prod] || {}), on: cb.checked}; });
     $$('[data-opt]').forEach(el => { const l = q.lines[el.dataset.p] = q.lines[el.dataset.p] || {}; l[el.dataset.opt] = el.type === 'checkbox' ? el.checked : el.value; });
@@ -2154,7 +2168,7 @@ const ACTIONS = {
     if (['Sent', 'Accepted'].includes(q.status) && !['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before it is Sent'); return; }
     if (!q.hotelId) { const h = {id: uid(), kind:'hotel', name: q.hotelName, rooms: q.rooms, contact: q.contact, status:'Quoted', managed:'No'}; await save(h); q.hotelId = h.id; }
     else { const h = byId(q.hotelId); if (['New lead', 'Called', 'Follow up', 'Meeting set', undefined, ''].includes(h.status) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
-    const wasNew = q.isNew; delete q.isNew; await save(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
+    const wasNew = q.isNew; delete q.isNew; await save(q); if (q.status === 'Accepted') await dealFromQuote(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
   },
   saveMsa: async () => {
     vMsa.sync(); const m = vMsa.current; if (!m.company && !m.hotelName) { toast('Add the hotel or company name'); return; }
@@ -2535,7 +2549,7 @@ function paintDbCity() {
   let list = K('hotel').filter(h => hCountry(h) === S.country && hCity(h) === S.city && (!S.loc || h.area === S.loc) && (!q || norm(h.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name) * (S.sort === 'asc' ? 1 : -1));
   const acts = K('act'), shown = list.slice(0, S.limit);
   const contactOf = (h, acc) => { const cs = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact, position: h.contactTitle}]).filter(c => c && c.name); const isAcc = c => /account|financ/i.test(c.position || ''); const c = acc ? cs.find(isAcc) : cs.find(x => !isAcc(x)); return c ? c.name : ''; };
-  const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
+  const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [scoreText(h) || h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
   const tb = $('#dbhbody'); if (!tb) return;
   tb.innerHTML = shown.length ? shown.map((h, i) => {
     const mine = acts.filter(a => a.hotelId === h.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')), last = mine[0], [sc, rv] = sr(h), ours = ['pms', 'cm', 'be', 'pvo'].some(k => /maha/i.test(h[k] || ''));
@@ -2559,8 +2573,39 @@ function bindCombo(root, allowNew) {
   inp.addEventListener('blur', () => setTimeout(() => { list.hidden = true; if (!allowNew && inp.value.trim() && !opts().some(a => norm(a) === norm(inp.value))) { inp.value = ''; toast('Choose the location from the list'); } }, 120));
   inp.addEventListener('keydown', e => { if (e.key === 'Escape') list.hidden = true; });
 }
+/* ---- OTA channels of the world with the scale of their review score (5, 10 or %) ---- */
+const OTA_LIST = [['Booking.com', '10'], ['Agoda', '10'], ['Expedia', '10'], ['Hotels.com', '10'], ['Trip.com', '5'], ['Ctrip', '5'], ['Airbnb', '5'], ['Tripadvisor', '5'], ['Google', '5'], ['Traveloka', '10'], ['Tiket.com', '10'], ['Pegipegi', '10'], ['Hostelworld', '10'], ['Trivago', '%'], ['Kayak', '10'], ['Priceline', '10'], ['Orbitz', '5'], ['Travelocity', '5'], ['Hotwire', '5'], ['Vrbo', '5'], ['Despegar', '10'], ['Decolar', '10'], ['MakeMyTrip', '5'], ['Goibibo', '5'], ['Yatra', '5'], ['Cleartrip', '5'], ['Ixigo', '5'], ['EaseMyTrip', '5'], ['Rakuten Travel', '5'], ['Jalan', '5'], ['Ikyu', '5'], ['Yahoo Travel Japan', '5'], ['Jalan.net', '5'], ['Fliggy', '5'], ['Meituan', '5'], ['Qunar', '5'], ['Tongcheng', '5'], ['Elong', '5'], ['Mafengwo', '5'], ['Klook', '5'], ['KKday', '5'], ['Viator', '5'], ['GetYourGuide', '5'], ['Mytrip', '5'], ['Zuzu', '5'], ['Hotelbeds', '10'], ['WebBeds', '10'], ['HRS', '10'], ['Hotel Urbano', '10'], ['Lastminute.com', '10'], ['eDreams', '5'], ['Opodo', '5'], ['Logitravel', '10'], ['Weg.de', '10'], ['HolidayCheck', '5'], ['Ostrovok', '10'], ['Tutu.ru', '5'], ['Sutochno', '5'], ['Oyo', '5'], ['Treebo', '5'], ['FabHotels', '5'], ['Zostel', '10'], ['Hostelbookers', '10'], ['Hotelstonight', '5'], ['Hotels Combined', '10'], ['Momondo', '10'], ['Skyscanner', '5'], ['Wego', '10'], ['Almosafer', '5'], ['Rehlat', '5'], ['Booking.com Hostels', '10'], ['Mr & Mrs Smith', '10'], ['Secret Escapes', '5'], ['Splendia', '10'], ['Agoda Homes', '10'], ['Stayz', '5'], ['Houfy', '5'], ['Hostelz', '10'], ['Direct website', '5'], ['Other', '10']].sort((a, b) => a[0].localeCompare(b[0]));
+const otaScale = n => (OTA_LIST.find(o => norm(o[0]) === norm(n)) || [])[1] || '';
+function scoreOpts(scale) {
+  const o = []; if (scale === '%') { for (let i = 100; i >= 0; i--) o.push(String(i)); return o; }
+  const max = scale === '5' ? 5 : 10; for (let i = max * 10; i >= 10; i--) o.push((i / 10).toFixed(1)); return o;
+}
+const scoreText = h => h.otaScore ? h.otaScore + ({'5': ' / 5', '10': ' / 10', '%': '%'}[otaScale(h.otaName)] || '') : '';
+/* what the signed quotation says about the deal (frozen in the Property information) */
+async function dealFromQuote(q) {
+  const h = byId(q.hotelId); if (!h || q.status !== 'Accepted') return;
+  const c = compute(q), fixed = c.month || c.year, comm = c.items.filter(i => i.cad === 'comm'), pcts = comm.map(i => (String(i.text || '').match(/\d+(\.\d+)?\s*%/) || [''])[0].replace(/\s/g, '')).filter(Boolean);
+  h.dealModel = fixed && comm.length ? 'Monthly Fee + Commission' : fixed ? 'Monthly Fee' : comm.length ? 'Commission' : '';
+  h.dealPrice = [fixed ? fmt(fixed) : '', ...pcts].filter(Boolean).join(' + ');
+  h.dealTerm = !c.month && c.year ? 'Annually' : 'Monthly';
+  if (q.leadSource) h.source = q.leadSource;
+  h.dealQuote = q.id; await save(h);
+}
+/* a combo that must pick from a list (type to find) */
+function pickBox(inp, list, getOpts, onPick, msg) {
+  const show = () => { const q = norm(inp.value), o = getOpts().filter(a => !q || norm(a).includes(q)).slice(0, 120); list.innerHTML = o.length ? o.map(a => `<button type="button" class="cbo" data-v="${esc(a)}">${esc(a)}</button>`).join('') : '<div class="cbn">No match</div>'; list.hidden = false; };
+  inp.addEventListener('focus', show); inp.addEventListener('input', show);
+  list.addEventListener('pointerdown', e => { const b = e.target.closest('.cbo'); if (!b) return; e.preventDefault(); inp.value = b.dataset.v; list.hidden = true; onPick(b.dataset.v); });
+  inp.addEventListener('blur', () => setTimeout(() => { list.hidden = true; const hit = getOpts().find(a => norm(a) === norm(inp.value)); if (inp.value.trim() && !hit) { inp.value = ''; onPick(''); toast(msg); } else if (hit) { inp.value = hit; onPick(hit); } }, 120));
+  inp.addEventListener('keydown', e => { if (e.key === 'Escape') list.hidden = true; });
+}
+function bindOta(root) {
+  const inp = $('[data-hf=otaName]', root), list = $('.cbl.ota', root), sc = $('[data-hf=otaScore]', root); if (!inp || !list || !sc) return;
+  const fill = (name, keep) => { const s = otaScale(name); sc.innerHTML = s ? '<option value="">Score</option>' + scoreOpts(s).map(v => `<option ${v === keep ? 'selected' : ''}>${v}</option>`).join('') : '<option value="">Pick OTA first</option>'; sc.disabled = !s; if (s) sc.title = 'Review score out of ' + (s === '%' ? '100 %' : s); };
+  pickBox(inp, list, () => OTA_LIST.map(o => o[0]), n => fill(n, ''), 'Choose the OTA from the list');
+  fill(inp.value, sc.dataset.keep || '');
+}
 /* ---- Property information (full info of a hotel: edit it, add contacts) ---- */
-const HI_EXTRA = ['status', 'managed', 'type', 'stars', 'otas', 'gha', 'model', 'source', 'agent', 'tags', 'line'];
 function hotelSheet(h, pre) {
   const isNew = !h; h = h || Object.assign({status: 'New lead', managed: 'No', country: 'Thailand'}, pre || {});
   const contacts = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact || '', position: h.contactTitle || '', email: h.email || '', phone: ''}]).slice(); while (contacts.length < 2) contacts.push({});
@@ -2568,7 +2613,9 @@ function hotelSheet(h, pre) {
   const inp = (k, label, req, cls) => `<label class="f ${cls || ''}"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><input data-hf="${k}" value="${esc(h[k] ?? '')}"></label>`;
   const sel = (k, label) => `<label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${known(k).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
   const cg = (c, i) => `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name" value="${esc(c.name || '')}"></label><label class="f"><span>Contact Position</span><input data-c="position" value="${esc(c.position || '')}"></label><label class="f"><span>Contact Email</span><input data-c="email" value="${esc(c.email || '')}"></label><label class="f"><span>Contact Phone</span><input data-c="phone" value="${esc(c.phone || '')}"></label></div>`;
-  const extra = HOTEL_FIELDS.filter(f => HI_EXTRA.includes(f.k));
+  const dd = (k, label, opts, w, ph) => `<label class="f hi-c"><span>${label}</span><select data-hf="${k}" style="width:${w}">${ph ? '<option value="">' + ph + '</option>' : ''}${opts.map(o => `<option ${String(h[k] ?? '') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`;
+  const tx = (k, label, w) => `<label class="f hi-c"><span>${label}</span><input data-hf="${k}" value="${esc(h[k] ?? '')}" style="width:${w}"></label>`;
+  const fz = (label, v, w) => `<label class="f hi-c" title="Filled from the quotation once it is marked Signed"><span>${label}</span><input class="hi-fz" value="${esc(v || '')}" style="width:${w}" disabled></label>`;
   openSheet(`${fuHead(isNew ? 'Property information' : 'Property information for ' + h.name)}
    <div class="hi">${inp('name', 'Hotel Name', 1, 'wide')}<div class="f wide"><span>Location</span><div class="cb"><input type="text" data-hf="area" autocomplete="off" placeholder="${isNew ? 'Type to find, then choose' : 'Choose or type the area'}" value="${esc(h.area || '')}"><div class="cbl" hidden></div></div></div>
     <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div>${inp('website', 'Website', 0, 'wide')}
@@ -2578,17 +2625,24 @@ function hotelSheet(h, pre) {
     <div id="hiContacts">${contacts.map(cg).join('')}</div><div class="hi-add"><button type="button" class="btn info sm" data-act="hiAddContact">Add more contact</button></div>
     <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(h.notes || '')}</textarea></label>
     <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
-    <details class="hi-more"><summary>More details</summary><div class="grid two">${extra.map(f => field(f, h[f.k])).join('')}</div></details></div>
+    <details class="hi-more"><summary>More details</summary>
+     <div class="hi-row">${dd('status', 'Status', STAGES.map(s => s[0]), '9.5em')}${dd('type', 'Property type', ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'], '11em', '—')}</div>
+     <div class="hi-row"><label class="f hi-c"><span>OTA</span><div class="cb" style="width:15em"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
+      <label class="f hi-c"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}" style="width:7.5em"></select></label></div>
+     <div class="hi-row">${tx('line', 'LINE ID', '13em')}${dd('managed', 'Managed by Maha Hub', ['No', 'Yes'], '7em')}</div>
+     <div class="hi-row">${fz('Commercial model', h.dealModel, '15.5em')}${fz('Pricing', h.dealPrice, '10em')}${fz('Term', h.dealTerm, '7.5em')}</div>
+     <div class="hi-row">${fz('Lead source', h.source, '12.5em')}${tx('agent', 'Agent', '13em')}</div>
+     <div class="hi-row">${tx('tags', 'Tags', '20em')}</div></details></div>
    <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="hi_del">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="hi_save">Save</button></div>`, root => {
-    root.classList.add('wide'); bindCombo(root, !isNew);
+    root.classList.add('wide'); bindCombo(root, !isNew); bindOta(root);
     const del = $('#hi_del', root); if (del) del.onclick = () => { const n = K('act').filter(a => a.hotelId === h.id).length; if (confirm(`Delete ${h.name} and its ${n} follow ups? Quotations are kept.`)) { K('act').filter(a => a.hotelId === h.id).forEach(a => remove(a.id)); remove(h.id); closeSheet(); toast('Hotel deleted'); if (location.hash.startsWith('#hotel/')) location.hash = 'hotels'; else rerender(); } };
     $('#hi_save', root).onclick = async () => {
       const v = {}; $$('[data-hf]', root).forEach(e => v[e.dataset.hf] = (e.value || '').trim());
       if (!v.name) { toast('Hotel Name is required'); return; }
       if (isNew) { const dup = K('hotel').find(x => norm(x.name) === norm(v.name) && norm(x.city) === norm(v.city)); if (dup && !confirm(`"${dup.name}" is already in the database. Add another anyway?`)) return; }
       const cs = $$('[data-cg]', root).map(g => ({name: $('[data-c=name]', g).value.trim(), position: $('[data-c=position]', g).value.trim(), email: $('[data-c=email]', g).value.trim(), phone: $('[data-c=phone]', g).value.trim()})).filter(c => c.name || c.position || c.email || c.phone);
-      const ex = readForm(root, extra), c0 = cs[0] || {};
-      const rec = {...h, ...v, ...ex, contacts: cs, contact: c0.name || '', contactTitle: c0.position || '', email: c0.email || '', closed: ($('[name=hi_st]:checked', root) || {}).value === 'close', id: h.id || uid(), kind: 'hotel'};
+      const c0 = cs[0] || {};
+      const rec = {...h, ...v, contacts: cs, contact: c0.name || '', contactTitle: c0.position || '', email: c0.email || '', closed: ($('[name=hi_st]:checked', root) || {}).value === 'close', id: h.id || uid(), kind: 'hotel'};
       await save(rec); closeSheet(); toast(isNew ? 'Hotel added' : 'Saved'); if (location.hash.startsWith('#hotels/')) rerender(); else if (isNew && !location.hash.startsWith('#hotels')) location.hash = 'hotel/' + rec.id; else rerender();
     };
   });
