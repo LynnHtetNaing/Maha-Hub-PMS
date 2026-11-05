@@ -3692,7 +3692,7 @@ async function mailApi(body) {
     const d = await r.json().catch(() => ({})); return r.ok ? d : {error: d.error || 'http_' + r.status};
   } catch { return {error: 'network'}; }
 }
-const mailErr = e => ({provider_only: 'Only the CEO can send the Enewletter', not_configured: 'The email service is not set up yet', not_signed_in: 'Please sign in again', not_allowed: 'Your user cannot send email', network: 'No connection to the email service', bad_recipients: 'Check the email addresses'})[e] || 'The email could not be sent';
+const mailErr = e => ({not_configured: 'The email service is not set up yet', not_signed_in: 'Please sign in again', not_allowed: 'Your user cannot send email', network: 'No connection to the email service', bad_recipients: 'Check the email addresses'})[e] || 'The email could not be sent';
 const mailtoOpen = (to, subject, body) => { location.href = 'mailto:' + to.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body); };
 /* the document a hotel opens from the link: only the Save as PDF button, no internal check message, no automatic print window */
 const shareHtml = html => html.replace('setTimeout(function(){window.print();},400);', '').replace('Save PDF again', 'Save as PDF').replace('</head>', '<style>#qtbmsg{display:none}</style></head>');
@@ -3723,7 +3723,7 @@ async function sendQuoteSheet(q, to) {
   });
 }
 function enewsSendSheet() {
-  const e = UI.enews; if (!Auth.isProvider()) { toast('Only the CEO can send the Enewletter'); return; }
+  const e = UI.enews;
   if (!(e.subject || '').trim() || !(e.body || '').trim()) { toast('Write a subject and a message first'); return; }
   const to = [...new Set(enewsAudience().map(h => String(h.email).trim().toLowerCase()).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))];
   if (!to.length) { toast('No hotel with an email address in this list'); return; }
@@ -3767,7 +3767,7 @@ function vEnews() {
     <label class="f wide"><span>Subject</span><input id="en_subject" value="${esc(e.subject)}"></label>
     <label class="f wide"><span>Message</span><textarea id="en_body" rows="9">${esc(e.body)}</textarea></label></div>
     <p class="muted small" id="en_n"></p>
-    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">${Auth.isProvider() ? '<button class="btn primary" data-act="enewsSend">Send from the CRM</button>' : ''}<button class="btn" data-act="enewsOpen">Open in my email program</button><button class="btn" data-act="enewsCopy">Copy email addresses</button><button class="btn" data-act="enewsSave">Save draft</button></div></div>
+    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="enewsSend">Send from the CRM</button><button class="btn" data-act="enewsOpen">Open in my email program</button><button class="btn" data-act="enewsCopy">Copy email addresses</button><button class="btn" data-act="enewsSave">Save draft</button></div></div>
    <h2>Saved <span class="count">${saved.length}</span></h2>
    ${saved.length ? `<div class="list">${saved.map(s => `<a class="row" href="#enews" data-act="enewsLoad" data-id="${s.id}"><div class="main"><div class="t">${esc(s.subject || '(no subject)')}</div><div class="s">${esc([s.stage, s.city].filter(Boolean).join(' · ') || 'All hotels')}</div></div><div class="end">${fdate((s.updated || '').slice(0, 10))}</div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No saved drafts.</div></div>'}`;
   const sync = () => { e.stage = $('#en_stage').value; e.city = $('#en_city').value; e.subject = $('#en_subject').value; e.body = $('#en_body').value; $('#en_n').textContent = enewsAudience().length + ' hotels with an email address will receive it.'; };
