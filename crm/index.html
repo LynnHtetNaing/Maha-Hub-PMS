@@ -596,6 +596,16 @@ input,select,textarea{box-sizing:border-box}
 .rf-box{text-align:left;width:min(520px,100%)}.rf-box h3{text-align:center}.rf-box p{text-align:left;margin-bottom:14px}
 .rf-o{display:grid;gap:8px;margin:0 0 12px}.rf-h{margin:6px 0 14px}.rf-h>label{font-weight:700;display:block;margin-bottom:6px}.rf-h .req{color:#d93025;font-style:normal}
 .rf-n{font-size:12.5px;color:#666;margin:8px 0 0!important}.rf-box .dd-b{margin-top:10px}
+/* ---------- Manage Quotation ---------- */
+.mq-rs{display:inline-flex;gap:14px;align-items:center}
+.mq-rad{display:inline-flex;align-items:center;gap:6px;border:0;background:none;cursor:pointer;padding:0;font:inherit}
+.mq-rad i{width:22px;height:22px;border-radius:50%;border:1.5px solid #cfd4d9;background:#fff;display:inline-block;position:relative}
+.mq-rad.on i{background:#8fb8c6;border-color:#8fb8c6}.mq-rad.on i::after{content:"";position:absolute;left:6px;top:2px;width:6px;height:11px;border:solid #fff;border-width:0 2.2px 2.2px 0;transform:rotate(45deg)}
+.mq-rad b{font-size:13px}.mq-rad:hover i{border-color:#8fb8c6}
+.mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
+.mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
+.mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mq-ref{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:#fffdf8}.mq-refn{font-weight:700;margin-bottom:8px}.mq-ref textarea{width:100%}
 </style>
 </head>
 <body>
@@ -2343,7 +2353,7 @@ const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
-  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
+  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
@@ -2934,7 +2944,7 @@ const meetCount = hid => meetActs().filter(a => a.hotelId === hid).length;
    A hotel's name opens its Property information; the last column (Manage(n)) opens the meetings or the quotations of the hotel. */
 const TK = {
   meeting: {st: 'sm', title: 'Task Report - Setup Meeting', col: 'Meeting', act: 'smManage', count: hid => meetCount(hid), back: '#setupmeeting'},
-  quote: {st: 'qt', title: 'Task Report - Quotation', col: 'Quotation', act: 'qtManage', count: hid => K('quote').filter(q => q.hotelId === hid).length, back: '#quotes'},
+  quote: {st: 'qt', title: 'Task Report - Quotation Generation', col: 'Quotation', act: 'qtManage', count: hid => K('quote').filter(q => q.hotelId === hid).length, back: '#quotes'},
 };
 function vTask(mode) {
   UI.tkMode = mode; const c = TK[mode], u = UI[c.st] = UI[c.st] || {tab: 'Thailand', q: '', open: []};
@@ -2958,7 +2968,104 @@ Object.assign(ACTIONS, {
   smToggle: el => { const u = UI[TK[UI.tkMode].st], k = el.dataset.c, i = u.open.indexOf(k); if (i >= 0) u.open.splice(i, 1); else u.open.push(k); paintSm(); },
   qtManage: el => quotesSheet(el.dataset.hid),
 });
-const vQuotesRoute = id => (id === 'pending' || id === 'waiting') ? vQuotes(id) : vTask('quote');
+/* ================= MANAGE QUOTATION (the Pending Quotations page) =================
+   Every quotation of the period with the choice Sign / Pending / Reject (none chosen for a new quotation, and it can never be cleared back: only changed).
+   Any choice opens "Quotation status for <no>". Sign needs every box except the payment slip (a commission-only quotation also needs no payment date and no tax invoice
+   number); only then does it count as Signed (KPI, Dashboard). Reject needs its date, person and detail. Pending only has an optional detail.
+   A referral hotel of the quotation (from the meeting) must be confirmed or cancelled (with a reason) when it is signed: a confirmed one earns a credit
+   (a discount or promotion from the provider, to be set in Pricing & Commercial) that will pass to the Hotel PMS billing and the Finance system (REF_LINK). */
+const REF_LINK = {credit: rec => null /* later: the Hotel PMS billing and the Company Finance system take the credit from here */};
+const mqState = q => ({Accepted: 'Sign', Pending: 'Pending', Rejected: 'Reject'})[q.status] || '';
+const mqIsComm = q => { const c = qCompute(q); return !(c.month || c.year || c.once) && c.items.some(i => i.cad === 'comm'); };
+function mqPrice(q) { const c = qCompute(q), fixed = (c.month || 0) + (c.year || 0) + (c.once || 0); if (fixed) return fmt(fixed); const p = c.items.filter(i => i.cad === 'comm').map(i => (String(i.text || '').match(/[\d.]+/) || [''])[0]).filter(Boolean); return p.join(' + '); }
+function refDefault(hid) { const m = meetActs().filter(a => a.hotelId === hid && a.meetLead === 'Customer Referral' && a.refHotelId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]; return m ? m.refHotelId : ''; }
+async function refCredit(q, refId, decision, reason) {
+  const id = 'rc_' + q.id, ex = byId(id);
+  await save({...(ex || {}), id, kind: 'refcredit', quoteId: q.id, quoteNo: q.no || '', referrerId: refId, referredId: q.hotelId, signedDate: (q.signInfo && q.signInfo.signDate) || today(), status: decision === 'confirm' ? 'Earned' : 'Cancelled', reason: reason || ''});
+  try { REF_LINK.credit(byId(id)); } catch {}
+}
+function mqRows() {
+  const f = UI.mq || {}, q = norm(f.q || '');
+  return K('quote').filter(x => (!f.from || (x.date || '') >= f.from) && (!f.to || (x.date || '') <= f.to) && (!q || norm([hotelName(x.hotelId), x.hotelName, x.no].join(' ')).includes(q)))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.no || '').localeCompare(b.no || ''));
+}
+function vPending() {
+  const f = UI.mq = UI.mq || {from: today(), to: today(), q: ''};
+  view().innerHTML = `<div class="top"><div><h1>Manage Quotation</h1></div><div class="actions"><label class="dbs"><input type="search" id="mq_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search quotation"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>Quotations</b> information</div>
+   <div class="fu-form"><label for="mq_from">Start Date :</label><div><input type="date" id="mq_from" value="${esc(f.from || '')}"></div><label for="mq_to">End Date :</label><div><input type="date" id="mq_to" value="${esc(f.to || '')}"></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="mqSearch">${ICON.search}Search</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Quotation date</th><th>Hotel name</th><th>Quotation No.</th><th>Price</th><th>Sign by</th><th>Action</th><th>Action</th></tr></thead><tbody id="mqbody"></tbody></table></div>`;
+  paintMq(); const q = $('#mq_q'); q.addEventListener('input', () => { f.q = q.value; paintMq(); });
+}
+function paintMq() {
+  const rows = mqRows(), tb = $('#mqbody'); if (!tb) return;
+  const rad = (x, s) => `<button type="button" class="mq-rad${mqState(x) === s ? ' on' : ''}" data-act="mqStatus" data-id="${x.id}" data-s="${s}" aria-pressed="${mqState(x) === s}"><i></i><b>${s}</b></button>`;
+  tb.innerHTML = rows.length ? rows.map((x, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(x.date))}</td><td class="l">${esc(x.hotelName || hotelName(x.hotelId))}</td><td class="nw">${esc(x.no || '')}</td><td style="text-align:right">${esc(mqPrice(x))}</td><td>${esc((x.signInfo && x.signInfo.by) || '')}</td><td><span class="mq-rs">${['Sign', 'Pending', 'Reject'].map(s => rad(x, s)).join('')}</span></td><td><button type="button" class="btn info sm" data-act="mqView" data-id="${x.id}">${ICON.edit}View</button></td></tr>`).join('') : '<tr><td colspan="8" class="empty"></td></tr>';
+}
+function mqViewSheet(id) {
+  const q = byId(id); if (!q) return;
+  const pdf = q.upload ? `<a href="#quotes/pending" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#quotes/pending" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#quotes/pending" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`;
+  const rev = quoteIsNew(q) && (q.items || []).some(i => i.id === 'rev' && i.on);
+  openSheet(`${fuHead('Quotation information')}<div class="fu-pop" style="margin-top:14px"><div class="fu-qr"><b>Quotation PDF</b><span>${pdf}</span></div>
+   ${rev ? `<div class="fu-qr"><b>MSA</b><span><a href="#quotes/pending" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a></span></div>` : ''}
+   <div class="fu-qr"><b>Date</b><span>${esc(meetDmy(q.date))}</span></div><div class="fu-qr"><b>Quotation number</b><span>${esc(q.no || '')}</span></div>
+   ${qLines(q).map((l, k) => `<div class="fu-qr"><b>Product ${k + 1}</b><span>${esc(l)}</span></div>`).join('')}</div>`);
+}
+/* the status pop-up */
+function mqStatusSheet(id, pick) {
+  const q = byId(id); if (!q) return; const h = byId(q.hotelId) || {}, si = q.signInfo || {}, ri = q.rejectInfo || {}, comm = mqIsComm(q), refId = refDefault(q.hotelId), ref = refId ? byId(refId) : null;
+  const who = [...new Set(K('act').map(a => a.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], si.by ? [si.by] : []))].sort();
+  const req = (label, on = true) => `<label class="mq-l">${label}${on ? ' <i class="req">*</i>' : ''}</label>`;
+  const inp = (k, v, type) => `<input type="${type || 'text'}" data-sf="${k}" value="${esc(v || '')}">`;
+  const panel = s => s === 'Sign' ? `<div class="mq-g">
+      <div>${req('Sign date')}${inp('signDate', si.signDate || today(), 'date')}</div><div>${req('Sign contact by')}<select data-sf="by"><option value="">Please select</option>${who.map(x => `<option ${si.by === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+      <div>${req('Payment date', !comm)}${inp('payDate', si.payDate, 'date')}</div><div>${req('Tax invoice number', !comm)}${inp('taxNo', si.taxNo)}</div>
+      <div>${req('Sign contact name')}${inp('name', si.name)}</div><div>${req('Sign contact position')}${inp('pos', si.pos)}</div></div>
+      <div class="mq-b"><label class="mq-l">Payment slip (Max 5 images)</label><div class="mq-up"><input type="file" id="mq_slip" accept="image/*" multiple><button type="button" class="btn info" data-act="mqSlip">Upload File</button><span class="muted small" id="mq_slipn">${(si.slips || []).length ? (si.slips || []).length + ' image(s) uploaded' : ''}</span></div></div>
+      ${ref ? `<div class="mq-ref"><label class="mq-l">Referral hotel <i class="req">*</i></label><div class="mq-refn">${esc(refLabel(ref))}</div><div class="fu-opts"><label class="fu-rad"><input type="radio" name="mq_rf" value="confirm" ${(q.referral || {}).decision === 'confirm' ? 'checked' : ''}> Confirm: this signing came through the referral hotel (it earns a credit)</label><label class="fu-rad"><input type="radio" name="mq_rf" value="cancel" ${(q.referral || {}).decision === 'cancel' ? 'checked' : ''}> Cancel the referral</label></div><label class="mq-l" style="margin-top:8px">Reason <i class="req">*</i></label><textarea data-sf="rfReason" rows="2">${esc((q.referral || {}).reason || '')}</textarea></div>` : ''}
+      <div class="mq-b">${req('Detail')}<textarea data-sf="detail" rows="5">${esc(si.detail || '')}</textarea></div>`
+    : s === 'Reject' ? `<div class="mq-g"><div>${req('Reject date')}${inp('rejDate', ri.date, 'date')}</div><div>${req('Reject by')}<select data-sf="rejBy"><option value="">Please select</option>${who.map(x => `<option ${ri.by === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div></div><div class="mq-b">${req('Detail')}<textarea data-sf="rejDetail" rows="5">${esc(ri.detail || '')}</textarea></div>`
+    : `<div class="mq-b"><label class="mq-l">Detail</label><textarea data-sf="penDetail" rows="5">${esc(q.pendingNote || '')}</textarea></div>`;
+  openSheet(`${fuHead('Quotation status for ' + (q.no || ''))}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Quotation No. <i class="req">*</i></label><input value="${esc(q.no || '')}" disabled class="hi-fz" style="max-width:340px"></div>
+   <div class="mq-b"><label class="mq-l" id="mq_sl">Quotation Status ${pick}<i class="req">*</i></label><div class="fu-opts">${['Sign', 'Pending', 'Reject'].map(s => `<label class="fu-rad"><input type="radio" name="mq_st" value="${s}" ${pick === s ? 'checked' : ''}> ${s}</label>`).join('')}</div></div>
+   <div id="mq_panel">${panel(pick)}</div></div><div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="mq_save">Save</button></div>`, root => {
+    root.classList.add('wide'); let slips = (si.slips || []).slice();
+    const cur = () => ($('[name=mq_st]:checked', root) || {}).value;
+    $$('[name=mq_st]', root).forEach(r => r.onchange = () => { $('#mq_sl', root).innerHTML = 'Quotation Status ' + cur() + '<i class="req">*</i>'; $('#mq_panel', root).innerHTML = panel(cur()); enhanceDates($('#mq_panel', root)); slips = (si.slips || []).slice(); });
+    root.addEventListener('click', async e => {
+      if (!e.target.closest('[data-act=mqSlip]')) return; e.stopPropagation();
+      const fs = [...($('#mq_slip', root).files || [])]; if (!fs.length) { toast('Choose the image files first'); return; } if (slips.length + fs.length > 5) { toast('A payment slip can have at most 5 images'); return; }
+      for (const f of fs) { if (f.size > 1.5 * 1024 * 1024) { toast(f.name + ' is bigger than 1.5 MB'); return; } }
+      for (const f of fs) slips.push({name: f.name, data: await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(f); })});
+      $('#mq_slipn', root).textContent = slips.length + ' image(s) uploaded'; $('#mq_slip', root).value = '';
+    }, true);
+    $('#mq_save', root).onclick = async () => {
+      const s = cur(), g = k => { const e = $(`[data-sf=${k}]`, root); return e ? (e.value || '').trim() : ''; }, miss = list => list.find(([k]) => !g(k));
+      if (s === 'Pending') { q.status = 'Pending'; q.pendingNote = g('penDetail'); await save(q); toast('Saved'); }
+      else if (s === 'Reject') { const m = miss([['rejDate', 'Reject date'], ['rejBy', 'Reject by'], ['rejDetail', 'Detail']]); if (m) { toast(m[1] + ' is required'); return; } q.status = 'Rejected'; q.rejectInfo = {date: g('rejDate'), by: g('rejBy'), detail: g('rejDetail')}; await save(q); toast('Saved'); }
+      else {
+        const m = miss([['signDate', 'Sign date'], ['by', 'Sign contact by']].concat(comm ? [] : [['payDate', 'Payment date'], ['taxNo', 'Tax invoice number']], [['name', 'Sign contact name'], ['pos', 'Sign contact position'], ['detail', 'Detail']])); if (m) { toast(m[1] + ' is required'); return; }
+        if (!['none', 'approved'].includes(approvalState(q))) { toast('The discount needs the manager\'s approval before it can be signed'); return; }
+        const dec = ($('[name=mq_rf]:checked', root) || {}).value;
+        if (ref) { if (!dec) { toast('Confirm or cancel the referral hotel'); return; } if (dec === 'cancel' && !g('rfReason')) { toast('Write the reason for cancelling the referral'); return; } }
+        q.status = 'Accepted'; q.signInfo = {signDate: g('signDate'), by: g('by'), payDate: g('payDate'), taxNo: g('taxNo'), name: g('name'), pos: g('pos'), detail: g('detail'), slips};
+        if (ref) q.referral = {refHotelId: refId, decision: dec, reason: g('rfReason'), at: new Date().toISOString(), by: Auth.who() || ''};
+        await save(q); await dealFromQuote(q); const hh = byId(q.hotelId); if (hh && hh.status !== 'Live' && hh.status !== 'Signed') { hh.status = 'Signed'; await save(hh); }
+        if (ref) await refCredit(q, refId, dec, g('rfReason'));
+        toast('Signed');
+      }
+      closeSheet(); if (location.hash.startsWith('#quotes/pending')) paintMq();
+    };
+  });
+}
+Object.assign(ACTIONS, {
+  mqSearch: () => { UI.mq.from = $('#mq_from').value; UI.mq.to = $('#mq_to').value; paintMq(); },
+  mqView: el => mqViewSheet(el.dataset.id),
+  mqStatus: el => mqStatusSheet(el.dataset.id, el.dataset.s),
+});
+
+const vQuotesRoute = id => id === 'pending' ? vPending() : id === 'waiting' ? vQuotes(id) : vTask('quote');
 
 /* ================= QUOTATION FORM (pop-up) =================
    The products with their price, unit, discount and payment method, and the terms (English and Thai) as boxes that can be changed.
@@ -3009,7 +3116,6 @@ function quoteFormSheet(hid, q) {
   openSheet(`${fuHead('Quotation information for ' + h.name)}<div class="fu-qtop"><button type="button" class="btn gray" data-act="qAdd" data-hid="${hid}">Add new quotation</button><button type="button" class="btn gray" data-act="qUp" data-hid="${hid}">Upload quotation</button></div>
    <div class="fu-pop">${row('Date', 1, `<input type="date" data-q="date" value="${esc(q.date || '')}">`)}${row('Quotation number', 1, `<input data-q="no" value="${esc(q.no || '')}" disabled class="hi-fz">`)}
     ${row('Quotation for sale', 1, `<select data-q="forSale"><option value="">Please select</option>${sales.map(s => `<option ${q.forSale === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}
-    ${row('Status', 0, `<select data-q="status">${[['Draft', 'Draft'], ['Sent', 'Sent'], ['Accepted', 'Signed'], ['Rejected', 'Rejected'], ['Expired', 'Expired']].map(([v, l]) => `<option value="${v}" ${(q.status || 'Draft') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
     ${row('Lead source', 0, `<select data-q="leadSource"><option value="">Please select</option>${leads.map(s => `<option ${(q.leadSource || h.source) === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}</div>
    <h3 class="qp-h">PRODUCT INFORMATION</h3>${items.map(item).join('')}
    <h3 class="qp-h2">Terms &amp; Conditions · ข้อกำหนดและเงื่อนไข</h3><div id="qpTerms">${terms.map(term).join('')}</div>
@@ -3024,7 +3130,7 @@ function quoteFormSheet(hid, q) {
       const bad = on.find(i => i.price === '' || isNaN(parseFloat(i.price))); if (bad) { toast('Write the price of ' + bad.name); return; }
       const hasBE = on.some(i => QP_BE.includes(i.id)), hasPay = on.some(i => QP_PAYS.includes(i.id));
       const tms = $$('[data-tm]', root).map(el => ({te: $('[data-t=te]', el).value.trim(), xe: $('[data-t=xe]', el).value.trim(), tt: $('[data-t=tt]', el).value.trim(), xt: $('[data-t=xt]', el).value.trim(), cond: el.dataset.cond || ''})).filter(x => (x.te || x.xe || x.tt || x.xt) && !(x.cond === 'be' && !hasBE) && !(x.cond === 'pay' && !hasPay));
-      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, status: g('status') || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
+      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, status: q.status || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
       /* below the list price (a discount) needs the manager's approval before it is sent */
       const sig = discSig(rec), need = belowList(rec).length > 0;
       if (need) { if (!(rec.approval && rec.approvedSig === sig)) { rec.approval = 'requested'; rec.approvedSig = sig; rec.requestedBy = Auth.who() || 'Sales'; rec.requestedAt = new Date().toISOString(); rec.approvedBy = ''; rec.approvedAt = ''; } if (['Sent', 'Accepted'].includes(rec.status) && rec.approval !== 'approved') { toast('A discount needs the manager\'s approval before it is Sent or Signed'); return; } } else { rec.approval = ''; }
@@ -3323,7 +3429,7 @@ function dashData(n) {
   /* a hotel counts as signed in the month of its signed MSA, or of its accepted quotation when there is no MSA */
   const signed = new Map();
   msas.filter(m => m.status === 'Signed' && m.hotelId).forEach(m => signed.set(m.hotelId, m.date || (m.updated || '').slice(0, 10)));
-  quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, q.date || (q.updated || '').slice(0, 10)));
+  quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, (q.signInfo && q.signInfo.signDate) || q.date || (q.updated || '').slice(0, 10)));
   const fee = hid => { const qs = quotes.filter(q => q.hotelId === hid && q.status !== 'Rejected' && q.status !== 'Draft').sort((a, b) => (b.date || '').localeCompare(a.date || '')); if (!qs.length) return {mrr:0, once:0}; const c = qCompute(qs[0]); return {mrr: Math.round(c.month + c.year / 12), once: Math.round(c.once)}; };
   const own = {}, P = o => own[o || ''] = own[o || ''] || {appointment:0, generated:0, rejected:0, signed:0, mrr:0, activation:0};
   const inRange = d => ms.includes((d || '').slice(0, 7));
