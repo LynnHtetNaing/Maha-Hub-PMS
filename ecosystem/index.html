@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="9fedaf50f3">
+<meta name="maha-build" content="838f92aad3">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -2539,6 +2539,11 @@ html[data-mode=dark] .hsdet .hstat th,html[data-mode=dark] .hsdet .hstat th.var,
 @media (hover:hover){.hsnew tbody tr:hover td,.hs2d tbody tr:hover td{background:var(--hs-soft)}}.hsnew tr.z td{color:var(--hs-mut)}.hsnew tr.go{cursor:pointer}
 .hs2-rs{display:inline-block;background:var(--hs-cur);color:var(--hs-acc);border-radius:6px;padding:1px 8px;font-weight:700;font-size:12px}
 .hs2-lk{border:0;background:transparent;color:var(--hs-acc);font:inherit;font-weight:700;cursor:pointer;padding:0;text-decoration:underline}
+#hsLst tr.hs2-go{cursor:pointer}#hsLst tr.hs2-go:hover td{background:rgba(5,150,105,.08)}
+#hsLst tr.hs2-done td{color:#8a949c;background:rgba(120,130,140,.12)}#hsLst tr.hs2-done td b{color:#8a949c;font-weight:600}
+html[data-mode=dark] #hsLst tr.hs2-done td,html[data-mode=dark] #hsLst tr.hs2-done td b{color:#7d8791;background:rgba(255,255,255,.05)}
+.hs2-act{border:0;border-radius:8px;padding:5px 12px;font:700 12px Inter,system-ui,sans-serif;cursor:pointer;color:#fff;background:var(--hs-acc,#059669);white-space:nowrap}.hs2-act.co{background:#d97706}.hs2-act:hover{filter:brightness(.92)}
+.hs2-grey{color:#8a949c;font-weight:600}html[data-mode=dark] .hs2-grey{color:#7d8791}
 .hs2-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:-1px}
 .hs2-empty{text-align:center;color:var(--hs-mut);padding:16px!important}
 .hs2-ch{font-style:normal;font-size:11px;margin-left:4px}.hs2-ch.up{color:#1b7f57}.hs2-ch.dn{color:#b3261e}.hs2-ch.z{color:var(--hs-mut)}html[data-mode=dark] .hs2-ch.up{color:#4ade80}html[data-mode=dark] .hs2-ch.dn{color:#ff8a7c}
@@ -9234,6 +9239,8 @@ function hxChartSvg(bd){const B=hxBuckets(bd),vals=B.map(b=>hxVal(HX.type,hxAgg(
 
 /* Hotel Status: the reservation in a small box (the person stays on the page) */
 let HSTAB='arr';
+/* the Reservation Detail screen as a pop-up page; the Hotel Status page is repainted when it closes (a check-in or check-out done inside shows at once) */
+function hsResDetail(b){const m=modal('Reservation Detail','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=()=>{try{if(VIEW==='fo.status')render()}catch(e){}};reservationScreen($('#rdB',m),resOf(b),b,{compact:false})}
 function hsResPopup(b){
   const g=G(b.guestId),r=resOf(b),ch=chanOfBooking(b),n=stayNights(b).length;
   const kv=[['Guest',gName(g)],['Room',b.room||'—'],['Room type · rate',(b.type||'')+' · '+(b.rateCode||'')],['Stay',fd(b.arr)+' – '+fd(b.dep)+' ('+n+' night'+(n===1?'':'s')+')'],['Guests',pax(b)],['Channel',ch?ch.name:'Direct'],['Status',({inhouse:'In house',confirmed:'Reserved',tentative:'Tentative',out:'Checked out',cancelled:'Cancelled',noshow:'No show'}[b.status]||b.status)],['Balance',m2(bal(b))]];
@@ -9286,9 +9293,14 @@ VIEWS['fo.status']=el=>{
   const shiftRecv=isFO?(H.shifts||[]).filter(s=>s.bd===bd&&!s.virtual&&!s.noShift).sort((a,b)=>(a.openAt||0)-(b.openAt||0)).map(s=>({s,rec:r2(sum(paymentsIn(allLinesH(H).filter(l=>l.shiftId===s.id)).filter(p=>p.amt>0),p=>p.amt))})):[];
   const nd=a=>a.filter(b=>!isDummyB(b)),hsTabs=[['arr','Arrivals',nd(S.arrProj),nd(S.arrAct).length],['dep','Departures',nd(S.depProj),nd(S.depAct).length],['ih','In-house',nd(S.ih)],['stay','Stay over',nd(S.stay)],['pocc','Project occupied',nd(S.occProj)]];
   if(!hsTabs.some(t=>t[0]===HSTAB))HSTAB='arr';
-  const hsStat=(k,b)=>k==='arr'?(['inhouse','out'].includes(b.status)?'Arrived':'Expected'):k==='dep'?(b.status==='out'?'Departed':'Expected'):({inhouse:'In house',confirmed:'Reserved',tentative:'Tentative',out:'Checked out'}[b.status]||b.status);
-  const hsRows=(k,list)=>list.map(b=>{const g=G(b.guestId),ch=chanOfBooking(b),st=hsStat(k,b),n=stayNights(b).length;
-    return `<tr><td><b>${esc(gName(g))}</b></td><td class="nw">${resOf(b).no}</td><td class="hs2-sm">${esc(b.type||'')} · ${esc(b.rateCode||'')}</td><td class="nw">${b.room?`<span class="hs2-rs">${esc(b.room)}</span>`:'—'}</td><td>${fd(b.arr)} – ${fd(b.dep)} <span class="hs2-mut">· ${n} night${n===1?'':'s'}</span></td><td class="hs2-sm">${esc(ch?ch.name:'Direct')}</td><td class="nw ${/Arrived|Departed|In house|Checked out/.test(st)?'hs2-ok':'hs2-mut'}">${st}</td><td class="nw"><button type="button" class="hs2-lk" data-hso="${b.id}">Open</button></td></tr>`}).join('')||'<tr><td colspan="8" class="hs2-empty">Nobody in this list.</td></tr>';
+  const hsStat=(k,b)=>k==='arr'?(['inhouse','out'].includes(b.status)?'In house':'Expected'):k==='dep'?(b.status==='out'?'Checked out':'Expected'):({inhouse:'In house',confirmed:'Reserved',tentative:'Tentative',out:'Checked out'}[b.status]||b.status);
+  const hsRows=(k,list)=>list.map(b=>{const g=G(b.guestId),ch=chanOfBooking(b),n=stayNights(b).length,res=resOf(b);
+    /* arrivals: an expected guest has a Check-in button, one already in house (or gone) is grey; departures: an in-house guest has a Check-out button, a checked-out one is grey */
+    let cell,done=false;
+    if(k==='arr'){if(['confirmed','tentative'].includes(b.status)){cell=can('checkin')&&!(DB.session&&DB.session.provider)?`<button type="button" class="hs2-act ci" data-hci="${b.id}">Check-in</button>`:'<span class="hs2-mut">Expected</span>'}else{done=true;cell=b.status==='out'?'<span class="hs2-grey">Checked out</span>':'<span class="hs2-grey">In house</span>'}}
+    else if(k==='dep'){if(b.status==='inhouse'){cell=can('checkout')&&!(DB.session&&DB.session.provider)?`<button type="button" class="hs2-act co" data-hco="${b.id}">Check-out</button>`:'<span class="hs2-mut">Expected</span>'}else if(b.status==='out'){done=true;cell='<span class="hs2-grey">Checked out</span>'}else cell='<span class="hs2-mut">Expected</span>'}
+    else{const st=hsStat(k,b);cell=`<span class="${/In house|Checked out/.test(st)?'hs2-ok':'hs2-mut'}">${st}</span>`}
+    return `<tr class="hs2-go${done?' hs2-done':''}" data-hso="${b.id}" title="Open the reservation"><td><b>${esc(gName(g))}</b></td><td class="nw">${esc(res.reference||res.no)}</td><td class="hs2-sm">${esc(b.type||'')} · ${esc(b.rateCode||'')}</td><td class="nw">${b.room?`<span class="hs2-rs">${esc(b.room)}</span>`:'—'}</td><td>${fd(b.arr)} – ${fd(b.dep)} <span class="hs2-mut">· ${n} night${n===1?'':'s'}</span></td><td class="hs2-sm">${esc(ch?ch.name:'Direct')}</td><td class="nw">${cell}</td></tr>`}).join('')||'<tr><td colspan="7" class="hs2-empty">Nobody in this list.</td></tr>';
   const cur0=hsTabs.find(t=>t[0]===HSTAB);
   const kvx=(l,v,sub)=>`<div class="hs2-kv"><span>${l}${sub?`<small class="hs2-sb">${sub}</small>`:''}</span><b>${v}</b></div>`;
   const chRows=chanLegend.map(c=>`<tr><td><i class="hs2-dot" style="background:${c.col}"></i>${esc(c.name)}</td><td class="n">${c.n}</td><td class="n">${S.occAct.length?Math.round(c.n/S.occAct.length*100):0}%</td></tr>`).join('')||'<tr><td colspan="3" class="hs2-empty">Nobody in house.</td></tr>';
@@ -9304,7 +9316,7 @@ VIEWS['fo.status']=el=>{
      ${mgmt?`<div class="hs2-card"><h2>Management only</h2>${kvx('Revenue month to date',m2(mtdRev)+'<small class="hs2-mut"> '+esc(curMain())+'</small>')}${kvx('ADR',m2(adr))}${kvx('RevPAR',m2(revpar))}${kvx('Departure balance',m2(depBal))}</div>`:''}
     </div>
     <div class="hs2-col"><div class="hs2-card"><h2>Booking information</h2><div class="hs2-tabs" id="hsTabs">${hsTabs.map(t=>`<button type="button" class="hs2-tab ${t[0]===HSTAB?'on':''}" data-hst="${t[0]}"><span class="hs2-tno"><b>${t[3]!=null?t[3]+'/'+t[2].length:t[2].length}</b><i class="hs2-tic">${mIc({arr:'arrin',dep:'arrout',ih:'bed',stay:'moon',pocc:'trend'}[t[0]]||'bed')}</i></span><span class="hs2-tlb">${t[1]}</span></button>`).join('')}</div>
-     <div class="hs2-tw fix"><table id="hsLst"><thead><tr><th>Guest</th><th>RSVN#</th><th class="hs2-sm">Room type · rate</th><th>Room</th><th>Stay</th><th class="hs2-sm">Channel</th><th>Status</th><th></th></tr></thead><tbody>${hsRows(HSTAB,cur0[2])}</tbody></table></div></div>
+     <div class="hs2-tw fix"><table id="hsLst"><thead><tr><th>Guest</th><th>Booking Ref</th><th class="hs2-sm">Room type · rate</th><th>Room</th><th>Stay</th><th class="hs2-sm">Channel</th><th>Status</th></tr></thead><tbody>${hsRows(HSTAB,cur0[2])}</tbody></table></div></div>
      ${isFO?`<div class="hs2-card"><h2>Money received by shift</h2>${shiftRecv.length?`<div class="hs2-tw free"><table class="hs2-shift"><thead><tr><th></th>${shiftRecv.map(x=>`<th class="n">${esc(x.s.name)}</th>`).join('')}</tr></thead><tbody><tr><td>Cashier</td>${shiftRecv.map(x=>`<td class="n">${esc(x.s.userName||'')}</td>`).join('')}</tr><tr><td>Status</td>${shiftRecv.map(x=>`<td class="n ${x.s.status==='open'?'hs2-ok':'hs2-mut'}">${x.s.status==='open'?'Open':'Closed'}</td>`).join('')}</tr><tr><td><b>Received</b></td>${shiftRecv.map(x=>`<td class="n"><b>${m2(x.rec)}</b></td>`).join('')}</tr></tbody></table></div>`:'<div class="hs2-empty">No shift opened today.</div>'}</div>`:''}</div></div>
    <div class="hs2-row3"><div class="hs2-card"><h2>Occupancy by channel <span class="hs2-mut">· ${S.sal} salable rooms</span></h2><div class="hs2-tw free"><table><thead><tr><th>Channel</th><th class="n">Rooms</th><th class="n">%</th></tr></thead><tbody>${chRows}</tbody></table></div></div>
     <div class="hs2-card"><h2>Housekeeping</h2><div class="hs2-tw free"><table><thead><tr><th>Room status</th><th class="n">Rooms</th></tr></thead><tbody>${hkRows}</tbody></table></div></div>
@@ -9313,7 +9325,9 @@ VIEWS['fo.status']=el=>{
    ${hxAnHtml}
    <div class="hs2-card"><h2>Trend <span class="hs2-mut">· each day against the day before it</span></h2><div class="hs2-tw free"><table><thead><tr><th>Measure</th>${rows.map(r=>`<th class="n">${r.lab}</th>`).join('')}</tr></thead><tbody>${trRows}</tbody></table></div></div></div>`;
   $$('[data-hst]',el).forEach(b=>b.onclick=()=>{HSTAB=b.dataset.hst;render()});
-  $$('[data-hso]',el).forEach(b=>b.onclick=()=>{const x=bookingById(b.dataset.hso);if(x)hsResPopup(x)});
+  $$('[data-hso]',el).forEach(b=>b.onclick=()=>{const x=bookingById(b.dataset.hso);if(x)hsResDetail(x)});
+  $$('[data-hci]',el).forEach(b=>b.onclick=async e=>{e.stopPropagation();const x=bookingById(b.dataset.hci);if(x&&await checkInUI(x))render()});
+  $$('[data-hco]',el).forEach(b=>b.onclick=async e=>{e.stopPropagation();const x=bookingById(b.dataset.hco);if(x&&await checkOut(x))render()});
   $('#hsPr',el).onclick=()=>printPages(hxPrintHtml(S,{mtdRev,todayRev,depBal,adr,revpar,HK,occNow,occEnd,mix,excep,multi:multi?{today:todayO.by,mtd:mtdO.by}:null}),'Hotel Status');
   $$('#hxSeg button',el).forEach(b=>b.onclick=()=>{HX.range=b.dataset.r;$$('#hxSeg button',el).forEach(x=>x.classList.toggle('on',x===b));$('#hxChart',el).innerHTML=hxChartSvg(bd)});
   const closeMenus=()=>$$('.hx-menu',el).forEach(x=>x.hidden=true);
