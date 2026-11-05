@@ -2736,7 +2736,7 @@ function vDbCity(country, city, partner) {
    <div class="fu-form dbf"><label for="db_loc">Location :</label><div><select id="db_loc"><option value="">All</option>${locs.map(l => `<option ${S.loc === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
     <label for="db_name">Hotel name :</label><div><input type="text" id="db_name" value="${esc(S.name)}"></div></div>
    <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="dbSearch">${ICON.search}Search</button></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Position</th><th><a href="#" class="dbsort" data-act="dbSort">Hotel name <span>${S.sort === 'asc' ? '▾' : '▴'}</span></a></th><th>Location</th><th>Score</th><th>Reviews</th><th>Price</th><th>BE</th><th>CM</th><th>PMS</th><th>PVO</th><th>No.of room</th><th>Contact person Sales</th><th>Contact person Accounting</th><th>Address</th><th>Latest updates</th><th>Follow up</th></tr></thead><tbody id="dbhbody"></tbody></table></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Position</th><th><a href="#" class="dbsort" data-act="dbSort">Hotel name <span>${S.sort === 'asc' ? '▾' : '▴'}</span></a></th><th>Location</th><th>Online Travel Agency(OTA)</th><th>Reviews</th><th>Price</th><th>BE</th><th>CM</th><th>PMS</th><th>PVO</th><th>No.of room</th><th>Contact person Sales</th><th>Contact person Accounting</th><th>Address</th><th>Latest updates</th><th>Follow up</th></tr></thead><tbody id="dbhbody"></tbody></table></div>
    <p class="dbmore" id="dbmore"></p>`;
   paintDbCity();
 }
@@ -2745,7 +2745,7 @@ function paintDbCity() {
   let list = K('hotel').filter(h => (S.partner ? h.partnerId === S.partner : hCountry(h) === S.country && hCity(h) === S.city) && (!S.loc || h.area === S.loc) && (!q || norm(h.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name) * (S.sort === 'asc' ? 1 : -1));
   const acts = fuActs(), shown = list.slice(0, S.limit);
   const contactOf = (h, acc) => { const cs = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact, position: h.contactTitle}]).filter(c => c && c.name); const isAcc = c => /account|financ/i.test(c.position || ''); const c = acc ? cs.find(isAcc) : cs.find(x => !isAcc(x)); return c ? c.name : ''; };
-  const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [scoreText(h) || h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
+  const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [otaLine(h) || h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
   const tb = $('#dbhbody'); if (!tb) return;
   tb.innerHTML = shown.length ? shown.map((h, i) => {
     const mine = acts.filter(a => a.hotelId === h.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')), last = mine[0], [sc, rv] = sr(h), ours = ['pms', 'cm', 'be', 'pvo'].some(k => /maha/i.test(h[k] || ''));
@@ -2776,6 +2776,7 @@ function scoreOpts(scale) {
   const o = []; if (scale === '%') { for (let i = 100; i >= 0; i--) o.push(String(i)); return o; }
   const max = scale === '5' ? 5 : 10; for (let i = max * 10; i >= 10; i--) o.push((i / 10).toFixed(1)); return o;
 }
+const otaLine = h => h.otaName ? h.otaName + (h.otaScore ? ' : ' + h.otaScore + ({'5': '/5', '10': '/10', '%': '%'}[otaScale(h.otaName)] || '') : '') : '';
 const scoreText = h => h.otaScore ? h.otaScore + ({'5': ' / 5', '10': ' / 10', '%': '%'}[otaScale(h.otaName)] || '') : '';
 /* what the signed quotation says about the deal (frozen in the Property information) */
 async function dealFromQuote(q) {
@@ -2966,7 +2967,7 @@ function paintSm() {
   K('hotel').filter(h => smCountry(h) === u.tab && (!q || norm(h.name).includes(q))).forEach(h => { const k = hCity(h); if (!by.has(k)) by.set(k, []); by.get(k).push(h); });
   const rows = [...by.entries()].sort((a, b) => a[0].localeCompare(b[0])), total = rows.reduce((s, r) => s + r[1].length, 0), tb = $('#smbody'); if (!tb) return;
   const nest = hs => { const shown = hs.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 200);
-    return `<div class="smnest"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Hotel name</th><th>No.of room</th><th>Address</th><th>Tripadvisor</th><th>BE</th><th>CM</th><th>PMS</th><th>${c.col}</th></tr></thead><tbody>${shown.map((h, i) => `<tr><td>${i + 1}</td><td class="l"><a href="${c.back}" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td>${esc(h.rooms || 0)}</td><td class="l adr">${esc(h.address || '')}</td><td>${esc(norm(h.otaName) === 'tripadvisor' ? scoreText(h) : '')}</td><td>${esc(h.be || '')}</td><td>${esc(h.cm || '')}</td><td>${esc(h.pms || '')}</td><td class="nw"><a href="${c.back}" class="fu-mg" data-act="${c.act}" data-hid="${h.id}">Manage(${c.count(h.id)})</a></td></tr>`).join('')}</tbody></table>${hs.length > 200 ? `<p class="muted small" style="text-align:center">First 200 of ${hs.length}. Search a hotel name to narrow it.</p>` : ''}</div>`; };
+    return `<div class="smnest"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Hotel name</th><th>No.of room</th><th>Address</th><th>Online Travel Agency(OTA)</th><th>BE</th><th>CM</th><th>PMS</th><th>${c.col}</th></tr></thead><tbody>${shown.map((h, i) => `<tr><td>${i + 1}</td><td class="l"><a href="${c.back}" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td>${esc(h.rooms || 0)}</td><td class="l adr">${esc(h.address || '')}</td><td>${esc(otaLine(h))}</td><td>${esc(h.be || '')}</td><td>${esc(h.cm || '')}</td><td>${esc(h.pms || '')}</td><td class="nw"><a href="${c.back}" class="fu-mg" data-act="${c.act}" data-hid="${h.id}">Manage(${c.count(h.id)})</a></td></tr>`).join('')}</tbody></table>${hs.length > 200 ? `<p class="muted small" style="text-align:center">First 200 of ${hs.length}. Search a hotel name to narrow it.</p>` : ''}</div>`; };
   tb.innerHTML = rows.length ? rows.map(([k, hs], i) => { const open = !!q || u.open.includes(k); return `<tr data-act="smToggle" data-c="${esc(k)}" class="smrow"><td class="c">${i + 1}</td><td class="l">${esc(k === '(No province)' ? '' : k)}</td><td class="c">${props(hs.length)}</td><td class="c">${ICON.down}</td></tr>${open ? `<tr class="smsub"><td colspan="4">${nest(hs)}</td></tr>` : ''}`; }).join('') + `<tr class="dbtot"><td></td><td class="l">Total</td><td class="c">${props(total)}</td><td></td></tr>`
     : '<tr class="dbempty"><td colspan="4">No properties here.</td></tr>';
 }
