@@ -549,6 +549,17 @@ input,select,textarea{box-sizing:border-box}
 /* ---------- Database log create ---------- */
 .dl-tb tbody tr:nth-child(odd) td{background:#e6e6e6}.dl-tb tbody tr:nth-child(even) td{background:#fff}
 .dl-tb td.dlt{width:92px;line-height:1.35}
+/* ---------- Database upload ---------- */
+.up-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 32px;align-items:start;margin:6px 0 24px}
+.up-file{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.up-file label{font-weight:700}.up-file .req,.up-f .req{color:#d93025;font-style:normal}
+.up-browse{color:#2a7fc1;text-decoration:none;font-weight:600}
+.up-go{background:#ececec;border-color:#b9b9b9;color:#333;min-width:96px}
+.up-name{color:var(--ink-2);font-size:13px}
+.up-ex{display:flex;flex-direction:column;align-items:flex-start;gap:4px;color:#1f6fb5;font-weight:700;text-decoration:none;font-size:13.5px}
+.up-sel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 32px;margin:18px 0 6px}
+.up-f label{display:block;font-weight:700;margin-bottom:6px}.up-f select{width:100%}
+.up-sum{margin:0 0 12px;font-size:13.5px;padding:10px 14px;border-radius:10px;background:#f1f6f2;border:1px solid #d6e5da}
+.up-err{color:#b3261e;font-weight:600;margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -1663,9 +1674,9 @@ const NAVS = {cur: '', stack: [], back: false};
 function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'deleted', 'userlog', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'upload', 'deleted', 'userlog', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog,  dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload,  dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -2272,7 +2283,7 @@ const ACTIONS = {
   }),
   reset: async () => { if (confirm('Erase all hotels, activities, quotes, cards and sockets on this device?') && confirm('This cannot be undone. Download a backup first if unsure. Erase now?')) { await clearAll(); await seed(); toast('Reset to starter data'); location.hash = 'today'; rerender(); } },
 };
-function pickFile(accept, cb) { const f = $('#filepick'); f.accept = accept; f.value = ''; f.onchange = () => { const file = f.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => cb(rd.result); rd.readAsText(file, 'utf-8'); }; f.click(); }
+function pickFile(accept, cb, onFile) { const f = $('#filepick'); f.accept = accept; f.value = ''; f.onchange = () => { const file = f.files[0]; if (!file) return; if (onFile) { onFile(file); return; } const rd = new FileReader(); rd.onload = () => cb(rd.result); rd.readAsText(file, 'utf-8'); }; f.click(); }
 /* ================= ONEHOTEL SALES TITLES AND FUNCTIONS =================
    The menu titles of the OneHotel Sales system (Database, Follow up, Meeting & quotation, Activation, KPI, Enewletter) as folding groups in the left menu,
    each with its own page. They use the same records and the same look as the rest of Maha Sales. */
@@ -2283,7 +2294,7 @@ Object.assign(ICON, {
 });
 const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
-  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Deleted database', '#deleted', 'trash'], ['Upload database', 'act:importCSV', 'upload'], ['Agent list', '#agents', 'users'], ['Add new agent', 'act:newAgent', 'userplus']]},
+  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Deleted database', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Agent list', '#agents', 'users'], ['Add new agent', 'act:newAgent', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', 'act:newMeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
@@ -2741,6 +2752,71 @@ Object.assign(ACTIONS, {
   hiAddContact: () => { const box = $('#hiContacts'); const i = box.children.length; box.insertAdjacentHTML('beforeend', `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name"></label><label class="f"><span>Contact Position</span><input data-c="position"></label><label class="f"><span>Contact Email</span><input data-c="email"></label><label class="f"><span>Contact Phone</span><input data-c="phone"></label></div>`); },
 });
 
+/* ================= DATABASE UPLOAD (as in OneHotel Sales) =================
+   Choose an Excel (or CSV) file, press Upload to read it and see what it holds, choose the property type and the country, then Save to add the hotels.
+   A hotel that is already in the database (same name, city and country) is skipped, so nothing is overwritten or doubled. */
+const UP_TYPES = ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'];
+const UP_COUNTRIES = ['Thailand', 'Vietnam', 'Cambodia', 'Myanmar', 'Lao', 'Malaysia', 'Indonesia', 'Philippines', 'Singapore', 'Other'];
+const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['CM', 'cm'], ['BE', 'be'], ['Virtual Offline Payment', 'pvo'], ['Remarks', 'notes']];
+const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], cm:['cm', 'channel manager'], be:['be', 'booking engine'], pvo:['virtual offline payment', 'pvo'], notes:['remarks', 'remark', 'notes', 'note']};
+function upMap(headers) { return headers.map(h => { const n = norm(h); for (const [k, al] of Object.entries(UP_ALIAS)) if (al.map(norm).includes(n)) return k; return null; }); }
+Object.assign(ICON, {xls:'<svg viewBox="0 0 40 44" width="34" height="38"><rect x="8" y="4" width="26" height="34" rx="2" fill="#fff" stroke="#9aa0a6" stroke-width="1.6"/><path d="M14 14h14M14 20h14M14 26h14M14 32h14M20 10v26" stroke="#c5ccd3" stroke-width="1.4"/><rect x="2" y="16" width="16" height="16" rx="2" fill="#1f8a4c"/><path d="M6.5 20.5l7 7M13.5 20.5l-7 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>', save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg>'});
+function vUpload() {
+  const u = UI.up = UI.up || {};
+  view().innerHTML = `<div class="top"><div><h1>Database upload</h1></div></div>
+   <div class="up-top"><div class="up-file"><label>Import excel file <i class="req">*</i></label><a href="#upload" class="up-browse" data-act="upBrowse">Browse</a><button type="button" class="btn up-go" data-act="upParse">Upload</button><span class="up-name" id="upName">${esc(u.name || '')}</span></div>
+    <a href="#upload" class="up-ex" data-act="upExample">${ICON.xls}<span>Download example excel file</span></a></div>
+   <div id="upInfo">${upInfoHTML()}</div>
+   <div class="up-sel"><div class="up-f"><label for="up_type">Property type <i class="req">*</i></label><select id="up_type">${UP_TYPES.map(o => `<option ${(u.type || 'Hotel') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
+    <div class="up-f"><label for="up_country">Country <i class="req">*</i></label><select id="up_country">${UP_COUNTRIES.map(o => `<option ${(u.country || 'Thailand') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div></div>
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.search}Reset</button></div>`;
+}
+function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
+function upRead(rows, country) {
+  const map = upMap(rows[0].map(String)); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
+  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0;
+  for (const r of rows.slice(1)) {
+    const v = {}; map.forEach((k, i) => { const x = r[i] === undefined || r[i] === null ? '' : String(r[i]).trim(); if (k && x) v[k] = x; });
+    if (!v.name) { empty++; continue; }
+    const key = upKey(v, country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
+  }
+  return {list, skipped, empty, total: rows.length - 1};
+}
+function upInfoHTML() {
+  const u = UI.up || {}; if (!u.res) return '';
+  if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
+  const r = u.res;
+  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}.</div>
+   ${r.list.length ? `<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No. of room</th><th>Contact person</th></tr></thead><tbody>${r.list.slice(0, 8).map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.area || '')}</td><td>${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(h.contact || '')}</td></tr>`).join('')}</tbody></table></div>${r.list.length > 8 ? `<p class="muted small">…and ${r.list.length - 8} more.</p>` : ''}` : ''}`;
+}
+async function upParse() {
+  const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return false; }
+  try {
+    const buf = await u.file.arrayBuffer(), wb = XLSX.read(buf, {type: 'array'}), ws = wb.Sheets[wb.SheetNames[0]], rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''}).filter(r => r.some(c => String(c).trim()));
+    if (rows.length < 2) { u.res = {error: 'The file has no rows.'}; }
+    else { u.type = $('#up_type').value; u.country = $('#up_country').value; u.res = upRead(rows, u.country); }
+  } catch (e) { u.res = {error: 'The file could not be read. Use an Excel (.xlsx, .xls) or CSV file.'}; }
+  $('#upInfo').innerHTML = upInfoHTML(); return !u.res.error;
+}
+Object.assign(ACTIONS, {
+  upBrowse: () => pickFile('.xlsx,.xls,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv', null, file => { const u = UI.up = UI.up || {}; u.file = file; u.name = file.name; u.res = null; $('#upName').textContent = file.name; $('#upInfo').innerHTML = ''; }),
+  upParse: () => { upParse(); },
+  upReset: () => { UI.up = {}; vUpload(); },
+  upExample: () => {
+    const rows = [UP_COLS.map(c => c[0]), ['Example Hotel Bangkok', 'Sukhumvit', 'Bangkok', '+66-2-000-0000', 32, 'www.example.com', '1 Example Road, Bangkok 10110', 'K. Somchai', 'Owner', 'somchai@example.com', '+66-81-000-0000', '', '', '', '', 'Asked us to call back'], ['Second Example Hostel', 'Silom', 'Bangkok', '', 18, '', '', '', '', '', '', '', '', '', '', '']];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Database');
+    download('CRM database example.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  },
+  upSave: async () => {
+    const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return; }
+    if (!u.res || u.type !== $('#up_type').value || u.country !== $('#up_country').value) { if (!await upParse()) return; }
+    const list = u.res.list; if (!list.length) { toast('Nothing new to add'); return; }
+    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: u.type, country: u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
+    await saveMany(batch); toast(`${batch.length} hotels added`);
+    const n = batch.length, c = u.country; UI.up = {}; vUpload(); $('#upInfo').innerHTML = `<div class="up-sum"><b>${n}</b> hotels were added to ${esc(c)}. They show in the Database Hotel List and in Database log create.</div>`;
+  },
+});
+
 /* ----- Meetings ----- */
 const MEET_ST = ['Scheduled', 'Held', 'Postponed', 'Cancelled'];
 const meetSt = a => a.meetStatus || (a.date > today() ? 'Scheduled' : a.outcome ? 'Held' : a.date === today() ? 'Scheduled' : 'Held');
@@ -2931,7 +3007,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', agents:'users', dblog:'gear', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', agents:'users', dblog:'gear', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
