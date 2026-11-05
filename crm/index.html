@@ -516,18 +516,6 @@ table{border-radius:12px}
 .cbl{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(60,40,10,.18);max-height:230px;overflow:auto;padding:4px;scrollbar-width:none}.cbl::-webkit-scrollbar{display:none}
 .cbo{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;font:inherit;font-size:13.5px;cursor:pointer}.cbo:hover{background:color-mix(in srgb,var(--a1) 10%,transparent)}
 .cbn{padding:10px;font-size:12.5px;color:var(--ink-2)}
-/* ---------- KPI report (as the reference) ---------- */
-.kr{max-width:900px;margin:0 auto;padding:8px 4px 24px;color:#1f2a24;font-family:var(--font)}
-.kr-t{margin:0 0 18px;font:700 26px/1.2 var(--font);color:#0b4a2f}
-.kr-hero{display:grid;grid-template-columns:1fr 1fr;gap:20px;text-align:center;margin:8px 0 26px}
-.kr-hero b{display:block;font:700 44px/1.1 var(--font);color:#0b4a2f}.kr-hero span{display:block;font-weight:700;font-size:14px;margin-top:4px}.kr-hero small{display:block;color:#666;font-size:12.5px;margin-top:2px}
-.kr-h{font:700 24px/1.2 var(--font);color:#0b4a2f;margin:26px 0 6px;text-transform:none;letter-spacing:0}
-.kr-s{font-weight:700;font-size:13px;margin:0 0 10px}
-.kr-tb{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #cfd8d2;border-radius:10px;overflow:hidden;font-size:13px}
-.kr-tb th{background:#0b4a2f;color:#fff;text-align:left;padding:10px 14px;font-weight:700}
-.kr-tb td{padding:9px 14px;border-top:1px solid #e1e7e3}.kr-tb tbody tr:first-child td{border-top:0}.kr-tb td.kr-e{text-align:center;color:#777;padding:18px}
-.kr-m{min-width:140px;text-align:center}
-.kr-p{max-width:none}
 </style>
 </head>
 <body>
@@ -1781,7 +1769,6 @@ function actSheet(a, hid, type) {
     <label class="f wide"><span>Hotel *</span><input list="hlist" id="a_hotel" value="${esc(current ? current.name : '')}" placeholder="Type to find or add a hotel" autocomplete="off">
      <datalist id="hlist">${hotels.map(x => `<option value="${esc(x.name)}">`).join('')}</datalist></label>
     ${field({k:'date', label:'Date', type:'date'}, a.date)}
-    ${field({k:'time', label:'Time', type:'time'}, a.time)}
     ${field({k:'type', label:'Type', type:'select', opts:ACT_TYPES}, a.type)}
     ${field({k:'meetStatus', label:'Meeting status (meetings only)', type:'select', opts:['', ...MEET_ST]}, a.meetStatus)}
     ${field({k:'reason', label:'Reason / topic', wide:1}, a.reason)}
@@ -1799,7 +1786,7 @@ function actSheet(a, hid, type) {
       const name = $('#a_hotel', root).value.trim(); if (!name) { toast('Pick a hotel'); return; }
       let h = K('hotel').find(x => norm(x.name) === norm(name));
       if (!h) { h = {id: uid(), kind:'hotel', name, status:'Called', managed:'No'}; await save(h); }
-      const v = readForm(root, [{k:'date'}, {k:'time'}, {k:'type'}, {k:'meetStatus'}, {k:'reason'}, {k:'summary'}, {k:'outcome'}, {k:'nextDate'}, {k:'nextAction'}, {k:'setStatus'}]);
+      const v = readForm(root, [{k:'date'}, {k:'type'}, {k:'meetStatus'}, {k:'reason'}, {k:'summary'}, {k:'outcome'}, {k:'nextDate'}, {k:'nextAction'}, {k:'setStatus'}]);
       const {setStatus, ...rest} = v;
       const rec = {...a, ...rest, id: a.id || uid(), kind:'act', hotelId: h.id, done: rest.nextDate ? (a.nextDate === rest.nextDate ? !!a.done : false) : true};
       await save(rec);
@@ -2266,7 +2253,7 @@ const NAVG = [
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', 'act:newMeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
-  {g:'KPI', i:'kpi', items:[['Performance report', '#kpi/report', 'kpi'], ['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
+  {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
   ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
 ];
@@ -2658,61 +2645,7 @@ function vActivations() {
 }
 
 /* ----- KPI: appointments (target 20 a month), signed contracts, activations ----- */
-/* ================= KPI: PERFORMANCE DETAILS (monthly report) =================
-   "<Month> <year> Performance Details": the meetings held and the properties signed in that month, as two big numbers and two tables.
-   Meetings = Meeting activities that were held (Setup meeting, with its time). Signed = a hotel with a signed MSA or an accepted quotation, in the month of the signing. */
-const monthName = m => new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', {month:'long'});
-function signedMap() {
-  const quotes = K('quote'), signed = new Map();
-  K('msa').filter(m => m.status === 'Signed' && m.hotelId).forEach(m => signed.set(m.hotelId, m.date || (m.updated || '').slice(0, 10)));
-  quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, q.date || (q.updated || '').slice(0, 10)));
-  return signed;
-}
-function kpiData(m) {
-  const meetings = K('act').filter(a => a.type === 'Meeting' && meetSt(a) === 'Held' && (a.date || '').slice(0, 7) === m).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''))
-    .map(a => ({date: a.date, time: a.time || '', name: hotelName(a.hotelId)}));
-  const signed = [];
-  signedMap().forEach((d, hid) => {
-    if ((d || '').slice(0, 7) !== m) return;
-    const qs = K('quote').filter(q => q.hotelId === hid && !['Rejected', 'Draft'].includes(q.status)).sort((a, b) => (b.date || '').localeCompare(a.date || '')), q = qs[0], L = (q && q.lines) || {}, c = q ? compute(q) : {items: [], month: 0, year: 0};
-    const service = FU_PROD.filter(p => p[2].some(id => L[id] && L[id].on)).map(p => p[1]).join(' / ');
-    const price = []; if (c.month) price.push(fmt(c.month) + ' / month'); if (c.year) price.push(fmt(c.year) + ' / year');
-    c.items.filter(i => i.cad === 'comm').forEach(i => { const p = String(i.text || '').match(/\d+(\.\d+)?\s*%/); const pc = p ? p[0].replace(/\s/g, '') : ''; price.push(pc ? (/booking engine/i.test(i.label) ? 'BE commission ' + pc : pc + ' commission') : i.label); });
-    signed.push({date: d, name: hotelName(hid), service, price: price.join(' + ')});
-  });
-  signed.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  return {meetings, signed};
-}
-function kpiReportHTML(m, d, forPrint) {
-  const mn = monthName(m), y = m.slice(0, 4), tr = rows => rows.join('');
-  return `<div class="kr${forPrint ? ' kr-p' : ''}"><h1 class="kr-t">${mn} ${y} Performance Details</h1>
-   <div class="kr-hero"><div><b>${d.meetings.length}</b><span>Total Meetings Held</span><small>${mn}: ${d.meetings.length} ${d.meetings.length === 1 ? 'meeting' : 'meetings'} held</small></div><div><b>${d.signed.length}</b><span>Total Signed</span><small>${mn}: ${d.signed.length} ${d.signed.length === 1 ? 'property' : 'properties'} signed</small></div></div>
-   <h2 class="kr-h">Meetings Held (${mn})</h2><p class="kr-s">A total of ${d.meetings.length} ${d.meetings.length === 1 ? 'meeting was' : 'meetings were'} conducted in ${mn}.</p>
-   <table class="kr-tb"><thead><tr><th>Date</th><th>Time</th><th>Property Name</th></tr></thead><tbody>${d.meetings.length ? tr(d.meetings.map(r => `<tr><td>${esc(r.date)}</td><td>${esc(r.time)}</td><td>${esc(r.name)}</td></tr>`)) : '<tr><td colspan="3" class="kr-e">No meetings held.</td></tr>'}</tbody></table>
-   <h2 class="kr-h">Successfully Signed (${mn})</h2><p class="kr-s">${mn} saw ${d.signed.length} ${d.signed.length === 1 ? 'property' : 'properties'} successfully signed.</p>
-   <table class="kr-tb"><thead><tr><th>Property Name</th><th>Service</th><th>Pricing (THB)</th><th>Signed Date</th></tr></thead><tbody>${d.signed.length ? tr(d.signed.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.service)}</td><td>${esc(r.price)}</td><td>${esc(r.date)}</td></tr>`)) : '<tr><td colspan="4" class="kr-e">Nobody signed.</td></tr>'}</tbody></table></div>`;
-}
-function vKpiReport() {
-  const m = UI.kpiM = UI.kpiM || today().slice(0, 7), d = kpiData(m), tabs = [['report', 'Performance report'], ['appointment', 'Appointments'], ['signed', 'Signed contracts'], ['activation', 'Activations']];
-  view().innerHTML = `<div class="top"><div><h1>KPI</h1></div><div class="actions"><button type="button" class="btn" data-act="kpiPrev" aria-label="Previous month">‹</button><b class="kr-m">${monthName(m)} ${m.slice(0, 4)}</b><button type="button" class="btn" data-act="kpiNext" aria-label="Next month">›</button><button type="button" class="btn primary" data-act="kpiPrint">Print</button></div></div>
-   <div class="chips">${tabs.map(([k, l]) => `<a class="chip" href="#kpi/${k}" aria-pressed="${k === 'report'}">${l}</a>`).join('')}</div>${kpiReportHTML(m, d, false)}`;
-}
-Object.assign(ACTIONS, {
-  kpiPrev: () => { const [y, mo] = UI.kpiM.split('-').map(Number), n = new Date(y, mo - 2, 1); UI.kpiM = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); vKpiReport(); },
-  kpiNext: () => { const [y, mo] = UI.kpiM.split('-').map(Number), n = new Date(y, mo, 1); UI.kpiM = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); vKpiReport(); },
-  kpiPrint: () => {
-    const css = $$('style').map(s => s.textContent).filter(s => s.includes('.kr-t')).join('\n');
-    const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;width:0;height:0;border:0'; document.body.appendChild(f);
-    f.contentDocument.open(); f.contentDocument.write('<!doctype html><meta charset="utf-8"><title>' + monthName(UI.kpiM) + ' ' + UI.kpiM.slice(0, 4) + ' Performance Details</title><style>' + css + '</style>' + kpiReportHTML(UI.kpiM, kpiData(UI.kpiM), true)); f.contentDocument.close();
-    setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 1500); }, 300);
-  },
-});
-
 function vKpi(which) {
-  if (!['appointment', 'signed', 'activation'].includes(which)) return vKpiReport();
-  return vKpiCharts(which);
-}
-function vKpiCharts(which) {
   which = ['appointment', 'signed', 'activation'].includes(which) ? which : 'appointment';
   const months = []; const d0 = new Date(); for (let i = 5; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
   const src = {
@@ -2723,7 +2656,7 @@ function vKpiCharts(which) {
   const n = m => src.filter(x => (x || '').slice(0, 7) === m).length, vals = months.map(n), max = Math.max(...vals, which === 'appointment' ? 20 : 1);
   const cur = vals[vals.length - 1], target = which === 'appointment' ? 20 : 0;
   const title = {appointment:'Number of appointment', signed:'Number of signed contract', activation:'Number of activation'}[which];
-  const tabs = [['report', 'Performance report'], ['appointment', 'Appointments'], ['signed', 'Signed contracts'], ['activation', 'Activations']];
+  const tabs = [['appointment', 'Appointments'], ['signed', 'Signed contracts'], ['activation', 'Activations']];
   view().innerHTML = `<div class="top"><div><h1>${title}</h1><p>${target ? `Target: ${target} / month` : 'Per month'}</p></div></div>
    <div class="chips">${tabs.map(([k, l]) => `<a class="chip" href="#kpi/${k}" aria-pressed="${k === which}">${l}</a>`).join('')}</div>
    <div class="kpis"><div class="kpi"><div class="v">${cur}${target ? ' / ' + target : ''}</div><div class="l">This month</div></div><div class="kpi"><div class="v">${src.length}</div><div class="l">All time</div></div></div>
