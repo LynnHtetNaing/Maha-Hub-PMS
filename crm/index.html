@@ -604,8 +604,7 @@ input,select,textarea{box-sizing:border-box}
 .mq-rad b{font-size:13px}.mq-rad:hover i{border-color:#8fb8c6}
 .ap-ok{color:#1b7a3a;font-weight:600}.ap-no{color:#b3261e;font-weight:600}.ap-wait{color:#b3261e;font-weight:600}
 .ac-g3{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1fr);gap:14px 28px}.ac-g3 input[type=text],.ac-g3 input[type=date]{width:100%}.acf .cb{position:relative}.acf .cb input{width:100%}
-.as-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}.as-nm{flex:1;font-weight:600}.as-row input{width:110px}.as-x{border:0;background:#dccfbd;border-radius:50%;width:22px;height:22px;cursor:pointer;line-height:1}
-.as-chip{display:inline-flex;align-items:center;gap:6px;background:#f1ece4;border-radius:999px;padding:4px 6px 4px 12px;margin:0 6px 6px 0;font-size:13px}.as-chip button{border:0;background:#dccfbd;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1}
+.ac-ro{background:#f3efe8;color:#555}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -3076,8 +3075,8 @@ Object.assign(ACTIONS, {
 /* ---------- Pricing & Commercial: Commercial Module and Referral Rewards ----------
    Everyone sees both lists; only the provider (the company admin) can add or edit. Records: kind comodule and refplan (kept, never deleted: set Inactive). */
 const PR = {
-  commercial: {kind: 'comodule', title: 'Commercial Module', one: 'module', cols: [['name', 'Module name'], ['model', 'Commercial model'], ['price', 'Price / rate'], ['term', 'Term'], ['applies', 'Applies to'], ['status', 'Status']],
-    fields: [['name', 'Module name', 'text', 1], ['model', 'Commercial model', ['Monthly fee', 'Yearly fee', 'One-time fee', 'Commission per booking', 'Commission % of revenue', 'Hybrid', 'Free'], 1], ['price', 'Price / rate', 'text', 1], ['term', 'Term', 'text'], ['applies', 'Applies to (product)', 'text'], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Description', 'area']]},
+  commercial: {kind: 'comodule', title: 'Commercial Module', one: 'staff commercial structure', cols: [['name', 'Staff name'], ['dept', 'Department'], ['pct', 'Credit %'], ['status', 'Status']],
+    fields: [['name', 'Staff name', 'text', 1], ['dept', 'Department', ['Technician', 'Sales', 'Other'], 1], ['pct', 'Credit %', 'number', 1], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Detail', 'area']]},
   referral: {kind: 'refplan', title: 'Referral Rewards', one: 'reward plan', cols: [['name', 'Plan name'], ['type', 'Reward type'], ['value', 'Reward'], ['applies', 'Goes to'], ['from', 'Valid from'], ['to', 'Valid to'], ['status', 'Status']],
     fields: [['name', 'Plan name', 'text', 1], ['type', 'Reward type', ['Discount %', 'Discount THB', 'Free months', 'Promotion'], 1], ['value', 'Reward value', 'text', 1], ['applies', 'Goes to', ['Hotel PMS billing', 'Next invoice', 'Company Finance'], 1], ['from', 'Valid from', 'date'], ['to', 'Valid to', 'date'], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Conditions', 'area']]},
 };
@@ -3092,7 +3091,7 @@ function vPricing(id) {
 function paintPr(key) {
   const c = PR[key], tb = $('#prbody'); if (!tb) return; const adm = Auth.isProvider(), n = norm((UI.pr || {}).q || '');
   const rows = K(c.kind).filter(r => !n || norm(Object.values(r).join(' ')).includes(n)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const cell = (r, k) => k === 'status' ? `<span class="${r.status === 'Inactive' ? 'ap-wait' : 'ap-ok'}">${esc(r.status || 'Active')}</span>` : k === 'value' ? esc(prReward(r)) : (k === 'from' || k === 'to') ? esc(r[k] ? meetDmy(r[k]) : '') : esc(r[k] || '');
+  const cell = (r, k) => k === 'pct' ? esc(r.pct === undefined || r.pct === '' ? '' : r.pct + ' %') : k === 'status' ? `<span class="${r.status === 'Inactive' ? 'ap-wait' : 'ap-ok'}">${esc(r.status || 'Active')}</span>` : k === 'value' ? esc(prReward(r)) : (k === 'from' || k === 'to') ? esc(r[k] ? meetDmy(r[k]) : '') : esc(r[k] || '');
   tb.innerHTML = rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${c.cols.map(([k]) => `<td class="l">${cell(r, k)}</td>`).join('')}${adm ? `<td><button type="button" class="btn info sm" data-act="prEdit" data-k="${key}" data-id="${r.id}">${ICON.edit}Edit</button></td>` : ''}</tr>`).join('') : `<tr><td colspan="${c.cols.length + 1 + (adm ? 1 : 0)}" class="empty"></td></tr>`;
 }
 function prSheet(key, id) {
@@ -3106,6 +3105,7 @@ function prSheet(key, id) {
     root.classList.add('wide');
     $('#pr_save', root).onclick = async () => {
       const v = {}; $$('[data-pf]', root).forEach(e => v[e.dataset.pf] = (e.value || '').trim());
+      if (key === 'commercial') { if (isNaN(parseFloat(v.pct)) || parseFloat(v.pct) < 0) { toast('Credit % is required'); return; } v.pct = parseFloat(v.pct); if (K('comodule').some(x => x.id !== (r || {}).id && norm(x.name) === norm(v.name))) { toast('This staff member is already in the list: edit that row'); return; } }
       const m = c.fields.find(f => f[3] && !v[f[0]]); if (m) { toast(m[1] + ' is required'); return; }
       if (v.from && v.to && v.to < v.from) { toast('Valid to is before Valid from'); return; }
       await save({...(r || {}), ...v, id: r ? r.id : uid(), kind: c.kind, updatedBy: Auth.who() || ''}); closeSheet(); toast('Saved'); paintPr(key);
@@ -3415,8 +3415,8 @@ function actSystems(q) {
   if (quoteIsNew(q)) { const on = (q.items || []).filter(i => i.on).map(i => i.id); return ACT_SYS.filter(s => s[2].some(id => on.includes(id))).map(s => s[0]); }
   const names = qCompute(q).names.join(' | '); return ACT_SYS.filter(s => s[3].test(names)).map(s => s[0]);
 }
-const actPctOf = name => { const r = K('techuser').find(x => x.name === name); return r && r.pct !== undefined && r.pct !== '' ? r.pct : ''; };   /* the credit is a % (of the system fee or commission received), set for each technician by the provider */
-const actTechs = () => [...new Set(K('techuser').map(r => r.name).filter(Boolean))].sort();
+const actPctOf = name => { const r = K('comodule').find(x => x.name === name && x.status !== 'Inactive'); return r && r.pct !== undefined && r.pct !== '' ? r.pct : ''; };   /* the credit % of a staff member: set once in Pricing & Commercial > Commercial Module, then shown and frozen in Setup activation */
+const actTechs = () => [...new Set(K('comodule').filter(r => r.dept === 'Technician' && r.status !== 'Inactive').map(r => r.name).filter(Boolean))].sort();
 const quoteForHotel = hid => { const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '')); return qs.filter(q => q.status === 'Accepted').pop() || qs.pop() || null; };
 const actProducts = a => ACT_SYS.filter(s => a.sys && s[0] in a.sys).map(s => s[1].replace(' System', '')).join(', ');
 function vActivations(id) {
@@ -3443,13 +3443,13 @@ function vActSetup(a) {
   const dis = frozen ? ' disabled' : '';
   const req = (l, on) => `<label class="mq-l">${l}${on ? ' <i class="req">*</i>' : ''}</label>`;
   const techs = actTechs().concat(a.techBy && !actTechs().includes(a.techBy) ? [a.techBy] : []);
-  view().innerHTML = `<div class="top"><div><h1>${frozen ? 'Activation' : 'Setup Activation'}</h1></div><div class="actions">${adm ? `<button type="button" class="btn" data-act="acSettings">${ICON.gear || ''}Technicians &amp; credit</button>` : ''}</div></div>
+  view().innerHTML = `<div class="top"><div><h1>${frozen ? 'Activation' : 'Setup Activation'}</h1></div><div class="actions"></div></div>
    <div class="mq-b acf" id="acform">
     <div class="ac-g3"><div>${req('Hotel Name', 1)}<div class="cb"><input type="text" data-af="hotel" autocomplete="off" placeholder="Type to find the hotel" value=""${dis}><div class="cbl" hidden></div></div></div>
      <div>${req('Quotation', 0)}<div class="cb"><input type="text" data-af="quote" autocomplete="off" placeholder="Type the quotation number" value=""${dis}><div class="cbl" hidden></div></div></div>
      <div>${req('Activation date', 1)}<input type="date" data-af="date" value="${esc(a.date || '')}"${dis}></div></div>
     <div class="mq-g" style="margin-top:14px"><div>${req('Setup by', 1)}<select data-af="techBy"${dis}><option value="">Please select</option>${techs.map(x => `<option ${a.techBy === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
-     <div>${req('Credit (%)', 0)}<input type="number" min="0" step="any" data-af="credit" value="${esc(a.credit === undefined ? '' : a.credit)}"${dis}></div>
+     <div>${req('Credit (%)', 0)}<input type="number" readonly tabindex="-1" class="ac-ro" data-af="credit" value="${esc(a.credit === undefined ? '' : a.credit)}"${dis}></div>
      <div>${req('Questionnaire Send to Hotel', 0)}<input type="date" data-af="qSend" value="${esc(a.qSend || '')}"${dis}></div><div>${req('Questionnaire get back from Hotel', 0)}<input type="date" data-af="qBack" value="${esc(a.qBack || '')}"${dis}></div></div>
     <div class="mq-b">${req('Send introduction email to hotel', 0)}<div class="fu-opts">${['Yes', 'No'].map(v => `<label class="fu-rad"><input type="radio" name="ac_intro" value="${v}" ${(a.intro || 'No') === v ? 'checked' : ''}${dis}> ${v}</label>`).join('')}</div></div>
     <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th style="width:70px">No.</th><th>Product</th><th style="width:300px">Complete date</th></tr></thead><tbody id="acsys"></tbody></table></div>
@@ -3463,7 +3463,7 @@ function vActSetup(a) {
     $('#acsys', root).innerHTML = keys.length ? ACT_SYS.filter(s => keys.includes(s[0])).map((s, i) => `<tr><td>${i + 1}</td><td class="l">${esc(s[1])}</td><td><input type="date" data-sys="${s[0]}" value="${esc(cur.sys[s[0]] || '')}"${dis}></td></tr>`).join('') : '<tr><td colspan="3" class="empty"></td></tr>';
     enhanceDates($('#acsys', root));
   };
-  const autoCredit = () => { const c = $('[data-af=credit]', root); if (!frozen && c && c.dataset.touched !== '1' && (isNew || a.credit === undefined || a.credit === '')) c.value = actPctOf(val('techBy')); };
+  const autoCredit = () => { const c = $('[data-af=credit]', root); if (!frozen && c && !cur.sys) return; };
   hIn.value = cur.hotelId && byId(cur.hotelId) ? hLabel(byId(cur.hotelId)) : ''; qIn.value = cur.quoteId && byId(cur.quoteId) ? qLabel(byId(cur.quoteId)) : '';
   if (!frozen) {
     pickBox(hIn, lists[0], () => hotelsAll().map(hLabel), v => {
@@ -3476,7 +3476,7 @@ function vActSetup(a) {
     }, 'Choose the quotation from the list');
     $('[data-af=credit]', root).addEventListener('input', e => e.target.dataset.touched = '1');
   }
-  $('[data-af=techBy]', root).addEventListener('change', () => { const c = $('[data-af=credit]', root); if (c) { c.dataset.touched = ''; c.value = actPctOf(val('techBy')); } });
+  $('[data-af=techBy]', root).addEventListener('change', () => { const c = $('[data-af=credit]', root); if (c) c.value = actPctOf(val('techBy')); });
   paintSys();
   if (frozen) return;
   $('#acsys', root).addEventListener('change', e => { const k = e.target.dataset.sys; if (k) cur.sys[k] = e.target.value; });
@@ -3499,21 +3499,8 @@ function vActSetup(a) {
     toast('Live'); location.hash = 'activations';
   };
 }
-function actSettingsSheet() {
-  if (!Auth.isProvider()) { toast('Only the manager (provider) can change this'); return; }
-  const techs = K('techuser').sort((x, y) => (x.name || '').localeCompare(y.name || ''));
-  const rowH = t => `<div class="as-row" data-asid="${t.id}"><span class="as-nm">${esc(t.name)}</span><input type="number" min="0" step="any" data-aspct placeholder="Credit %" value="${esc(t.pct === undefined ? '' : t.pct)}"><span>%</span><button type="button" class="as-x" data-asdel="${t.id}" aria-label="Remove">×</button></div>`;
-  openSheet(`${fuHead('Technicians & credit')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Technician department (who can be chosen in Setup by) and their credit %</label><div id="as_list">${techs.map(rowH).join('')}</div>
-    <div class="mq-up" style="margin-top:8px"><input type="text" id="as_name" placeholder="User name"><button type="button" class="btn info" id="as_add">Add</button></div></div></div>
-    <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="as_save">Save</button></div>`, root => {
-    root.addEventListener('click', async e => { const d = e.target.closest('[data-asdel]'); if (!d) return; const r = byId(d.dataset.asdel); if (r) { await softDelete(r); d.parentElement.remove(); } });
-    $('#as_add', root).onclick = async () => { const n = $('#as_name', root).value.trim(); if (!n) { toast('Write the user name'); return; } if (actTechs().some(x => norm(x) === norm(n))) { toast('Already in the list'); return; } const r = {id: uid(), kind: 'techuser', name: n, pct: ''}; await save(r); $('#as_name', root).value = ''; $('#as_list', root).insertAdjacentHTML('beforeend', rowH(r)); };
-    $('#as_save', root).onclick = async () => { for (const row of $$('[data-asid]', root)) { const r = byId(row.dataset.asid); if (r) { const v = $('[data-aspct]', row).value.trim(); await save({...r, pct: v === '' ? '' : parseFloat(v)}); } } closeSheet(); toast('Saved'); if (location.hash.startsWith('#activations/')) vActivations(location.hash.split('/')[1]); };
-  });
-}
 Object.assign(ACTIONS, {
   acSearch: () => { const f = UI.act = UI.act || {}; f.from = $('#ac_from').value; f.to = $('#ac_to').value; paintAc(); },
-  acSettings: () => actSettingsSheet(),
   delActivation: async el => { const a = byId(el.dataset.id); if (!a) return; if (!await confirmDelete('Do you want delete activation of ' + hotelName(a.hotelId) + '? It moves to Delete records.')) return; await softDelete(a); toast('Activation deleted'); paintAc(); },
 });
 
