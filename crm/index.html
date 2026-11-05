@@ -606,6 +606,7 @@ input,select,textarea{box-sizing:border-box}
 .ap-ok{color:#1b7a3a;font-weight:600}.ap-no{color:#b3261e;font-weight:600}.ap-wait{color:#b3261e;font-weight:600}
 .ac-g3{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1fr);gap:14px 28px}.ac-g3 input[type=text],.ac-g3 input[type=date]{width:100%}.acf .cb{position:relative}.acf .cb input{width:100%}
 .ac-ro{background:#f3efe8;color:#555}
+.kp-p{margin:22px 0 8px;font:600 15px var(--font)}.kp-t td,.kp-t th{text-align:center}.kp-t td.kp-l{text-align:center;white-space:nowrap}.kp-n{color:#1a4fa0;font-weight:600;text-decoration:none}.kp-n:hover{text-decoration:underline}.kp-tot td{background:#e8e8e8}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -3556,8 +3557,42 @@ Object.assign(ACTIONS, {
 });
 
 /* ----- KPI: appointments (target 20 a month), signed contracts, activations ----- */
+/* ---------- KPI: Number of appointment (a meeting counts once it is marked Completed in Meeting status) ---------- */
+const KPI_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const KPI_ROWS = [['', 'No specify type'], ['Sales Call', 'Sales call'], ['Guest Contact Us', 'Guest contact us'], ['Customer Referral', 'Customer referral']];
+const kpiDone = () => meetActs().filter(a => meetSt(a) === 'Completed' && /^\d{4}-\d\d/.test(a.date || ''));
+function vKpiAppt() {
+  const all = kpiDone(), thisY = String(new Date().getFullYear()), years = [...new Set(all.map(a => a.date.slice(0, 4)).concat(thisY))].sort().reverse();
+  const y = UI.kpiY = (UI.kpiY && years.includes(UI.kpiY)) ? UI.kpiY : thisY;
+  view().innerHTML = `<div class="top"><div><h1>Number of appointment</h1></div></div>
+   <div class="fu-form" style="grid-template-columns:130px minmax(0,1fr)"><label for="kp_y">Year :</label><div><select id="kp_y" style="max-width:520px">${years.map(v => `<option ${v === y ? 'selected' : ''}>${v}</option>`).join('')}</select></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="kpiSearch">${ICON.search}Search</button></div>
+   <div class="fu-sub" style="margin-top:26px"><b>Number of appointment</b> information</div><div id="kpbody"></div>`;
+  paintKpiAppt();
+}
+function paintKpiAppt() {
+  const box = $('#kpbody'); if (!box) return; const y = UI.kpiY, rows = kpiDone().filter(a => a.date.slice(0, 4) === y);
+  const people = [...new Set(rows.map(a => a.owner || '(No name)'))].sort((a, b) => a.localeCompare(b));
+  box.innerHTML = people.length ? people.map(p => {
+    const mine = rows.filter(a => (a.owner || '(No name)') === p), cnt = (lead, m) => mine.filter(a => (a.meetLead || '') === lead && +a.date.slice(5, 7) === m + 1).length;
+    const cell = (n, lead, m) => n ? `<td><a href="#kpi/appointment" class="kp-n" data-act="kpiOpen" data-who="${esc(p)}" data-lead="${esc(lead)}" data-m="${m}">${n}</a></td>` : '<td>0</td>';
+    return `<h3 class="kp-p">${esc(p)}</h3><div class="tablewrap fu-tw kp-w"><table class="fu-tb dl-tb kp-t"><thead><tr><th></th>${KPI_MON.map(m => `<th>${m}</th>`).join('')}</tr></thead><tbody>
+     ${KPI_ROWS.map(([k, l]) => `<tr><td class="kp-l">${l}</td>${KPI_MON.map((_, m) => cell(cnt(k, m), k, m)).join('')}</tr>`).join('')}
+     <tr class="kp-tot"><td class="kp-l"><b>Total</b></td>${KPI_MON.map((_, m) => { const n = mine.filter(a => +a.date.slice(5, 7) === m + 1).length; return n ? `<td><a href="#kpi/appointment" class="kp-n" data-act="kpiOpen" data-who="${esc(p)}" data-lead="*" data-m="${m}"><b>${n}</b></a></td>` : '<td><b>0</b></td>'; }).join('')}</tr></tbody></table></div>`;
+  }).join('') : '<div class="empty">No appointment completed in ' + esc(y) + '.</div>';
+}
+function kpiSheet(who, lead, m) {
+  const y = UI.kpiY, rows = kpiDone().filter(a => a.date.slice(0, 4) === y && +a.date.slice(5, 7) === m + 1 && (a.owner || '(No name)') === who && (lead === '*' || (a.meetLead || '') === lead)).sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+  openSheet(`${fuHead('Appointment information')}<div class="tablewrap fu-tw" style="margin-top:12px"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Create date</th><th>Meeting date</th><th>Meeting time</th><th>Hotel name</th><th>Contact person name</th><th>Description</th></tr></thead><tbody>
+   ${rows.map((a, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy((a.created || '').slice(0, 10)))}</td><td class="nw">${esc(meetDmy(a.date))}</td><td>${esc(a.time || '')}</td><td class="l">${esc(hotelName(a.hotelId))}</td><td>${esc(a.contactName || '')}</td><td class="l">${esc(a.summary || '')}</td></tr>`).join('')}</tbody></table></div>`, root => root.classList.add('wide'));
+}
+Object.assign(ACTIONS, {
+  kpiSearch: () => { UI.kpiY = $('#kp_y').value; paintKpiAppt(); },
+  kpiOpen: el => kpiSheet(el.dataset.who, el.dataset.lead, +el.dataset.m),
+});
 function vKpi(which) {
   which = ['appointment', 'signed', 'activation'].includes(which) ? which : 'appointment';
+  if (which === 'appointment') return vKpiAppt();
   const months = []; const d0 = new Date(); for (let i = 5; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
   const src = {
     appointment: meetActs().filter(a => meetSt(a) === 'Completed').map(a => a.date),
@@ -3569,7 +3604,6 @@ function vKpi(which) {
   const title = {appointment:'Number of appointment', signed:'Number of signed contract', activation:'Number of activation'}[which];
   const tabs = [['appointment', 'Appointments'], ['signed', 'Signed contracts'], ['activation', 'Activations']];
   view().innerHTML = `<div class="top"><div><h1>${title}</h1><p>${target ? `Target: ${target} / month` : 'Per month'}</p></div></div>
-   <div class="chips">${tabs.map(([k, l]) => `<a class="chip" href="#kpi/${k}" aria-pressed="${k === which}">${l}</a>`).join('')}</div>
    <div class="kpis"><div class="kpi"><div class="v">${cur}${target ? ' / ' + target : ''}</div><div class="l">This month</div></div><div class="kpi"><div class="v">${src.length}</div><div class="l">All time</div></div></div>
    <h2>Last 6 months</h2><div class="list">${months.map((m, i) => `<div class="row"><div class="main"><div class="t">${new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', {month:'long', year:'numeric'})}</div>
     <div style="margin-top:6px;height:10px;border-radius:5px;background:var(--line,#dfe6e2);overflow:hidden"><div style="height:100%;width:${Math.round(vals[i] / max * 100)}%;background:${target && vals[i] >= target ? '#1F8A4C' : 'var(--accent,#176B50)'}"></div></div></div><div class="end"><b>${vals[i]}</b></div></div>`).join('')}</div>`;
