@@ -405,7 +405,7 @@ body{font-family:var(--font)}
 .fu-opts{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
 .fu-chk,.fu-rad{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer}
 .fu-chk input,.fu-rad input{width:17px;height:17px;min-height:0;accent-color:var(--a1)}
-.fu-btns{display:flex;justify-content:center;gap:10px;margin:20px 0 6px}
+.fu-btns{display:flex;justify-content:flex-end;gap:10px;margin:20px 0 6px}
 .btn.dark{background:#3f4654;border-color:#3f4654;color:#fff}.btn.dark:hover{background:#2f3541}
 .btn.amber{background:#f5b53f;border-color:#f5b53f;color:#fff}.btn.amber:hover{background:#e0a02c}
 .btn svg{width:15px;height:15px}
@@ -413,10 +413,33 @@ body{font-family:var(--font)}
 .btn.gold{background:#4db98a;border-color:#4db98a;color:#fff}
 .fu-tw{overflow-x:auto}.fu-tb{width:100%;border-collapse:collapse;font-size:13.5px}
 .fu-tb th{padding:12px 10px;text-align:center;font-weight:700;color:#7a3b2a;border-bottom:2px solid var(--line);white-space:nowrap}
-.fu-tb td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}.fu-tb td.nw{white-space:nowrap}.fu-tb tr:hover td{background:rgba(5,150,105,.06)}
+.fu-tb td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}.fu-tb td.nw{white-space:nowrap}
 .fu-tb td.empty{text-align:center;padding:26px}
 @media (max-width:900px){.fu-form{grid-template-columns:110px minmax(0,1fr)}}
 @media (max-width:560px){.fu-form{grid-template-columns:minmax(0,1fr)}.fu-form>label{text-align:left}}
+/* ---------- Follow ups: coloured rows, quotation and follow-up pop-ups ---------- */
+.fu-tb{border:1px solid #d5d5d5}
+.fu-tb th{background:#f7f7f7;border:1px solid #d5d5d5}
+.fu-tb td{border:1px solid #d5d5d5;text-align:center;vertical-align:middle}.fu-tb td.l{text-align:left}
+.fu-tb tbody tr td{background:#ffffff}
+.fu-tb tbody tr.fu-s-follow td{background:#f8e6a2}.fu-tb tbody tr.fu-s-reject td{background:#b3bcbc}.fu-tb tbody tr.fu-s-processing td{background:#b9a1d2}.fu-tb tbody tr.fu-s-sign td{background:#59a577}.fu-tb tbody tr.fu-s-meeting td{background:#a8d4e8}
+.fu-mg{color:#1a4fa0;text-decoration:underline;cursor:pointer}
+.btn.info{background:#5bb5d6;border-color:#5bb5d6;color:#fff}.btn.info:hover{background:#45a2c4}
+.btn.redb{background:#e15353;border-color:#e15353;color:#fff}.btn.redb:hover{background:#c93f3f}
+.btn.gray{background:#8d9298;border-color:#8d9298;color:#fff;font-weight:700}.btn.gray:hover{background:#767b81}
+.fu-tb .btn.info svg{width:13px;height:13px}
+.fu-qtop{display:flex;justify-content:flex-end;gap:8px;margin:6px 0 16px}
+.fu-none{text-align:center;margin:34px 0 40px;font-size:15px}
+.fu-qb{border-top:1px solid var(--line);padding:14px 0 6px}.fu-qb:first-of-type{border-top:0}
+.fu-qr{display:grid;grid-template-columns:170px minmax(0,1fr) auto;gap:10px;align-items:start;margin-bottom:12px;font-size:14px}
+.fu-qr>b{font-weight:700}.fu-qa{display:flex;gap:6px}
+.fu-pdf{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;cursor:pointer}
+.fu-pop .fu-ph{display:flex;justify-content:space-between;align-items:center;margin:4px 0 14px}
+.fu-pr{display:grid;grid-template-columns:200px minmax(0,1fr);gap:12px;align-items:start;margin-bottom:12px;font-size:14px}
+.fu-pr>label{font-weight:700;padding-top:7px}.fu-pr .req{color:#d93025;font-style:normal}
+.fu-pr input[type=text],.fu-pr input[type=date],.fu-pr select,.fu-pr textarea{width:100%;max-width:100%}.fu-pr input[type=date]{max-width:180px}
+.fu-pr input:disabled,.fu-pr select:disabled,.fu-pr textarea:disabled{background:#efefef;color:#555;border-color:#e3e3e3;opacity:1}
+@media (max-width:640px){.fu-qr{grid-template-columns:minmax(0,1fr)}.fu-pr{grid-template-columns:minmax(0,1fr);gap:4px}.fu-pr>label{padding-top:0}}
 </style>
 </head>
 <body>
@@ -2215,36 +2238,44 @@ function vDblog() {
    ${rows.length ? `<div class="list">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(nm(r)) || '—'}</div><div class="s">${kinds[r.kind]} · ${r.created && r.created.slice(0, 16) === (r.updated || '').slice(0, 16) ? 'added' : 'changed'}</div></div><div class="end">${when(r.updated)}</div></div>`).join('')}</div>` : '<div class="list"><div class="empty">Nothing yet.</div></div>'}`;
 }
 
-/* ----- Follow up: the page as in OneHotel Sales (Latest Follow ups): filters, Search / Reset, Export Excel, the table ----- */
+/* ----- Follow up: the page as in OneHotel Sales (Latest Follow ups): filters, Search / Reset, Export Excel, the coloured table,
+   Manage(n) = the quotations of the hotel in a pop-up, View = the follow-up information in a pop-up. Everything else in the table is plain text. ----- */
 const FU_PROD = [['pms', 'PMS', ['pms']], ['cm', 'CM', ['cm']], ['be', 'BE', ['be', 'becom']], ['vop', 'Virtual Offline Payment', ['inv']]];
 const FU_STATUS = [['processing', 'Processing', ['New lead', 'Called', 'Quoted', 'Negotiating']], ['meeting', 'Meeting', ['Meeting set']], ['follow', 'Follow up', ['Follow up']], ['reject', 'Reject', ['Lost', 'On hold']], ['sign', 'Sign', ['Signed', 'Live']], ['old', 'Old data', []]];
-const fuStatusOf = h => (FU_STATUS.find(s => s[2].includes((h && h.status) || 'New lead')) || ['', 'Processing'])[1];
+const FU_TO_STAGE = {processing:'Called', meeting:'Meeting set', follow:'Follow up', reject:'Lost', sign:'Signed'};
+Object.assign(ICON, {
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
+  pdf:'<svg viewBox="0 0 48 56" width="40" height="46"><path d="M6 2h26l10 10v40a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke="#9aa0a6" stroke-width="2"/><path d="M32 2v10h10" fill="#e9ecef" stroke="#9aa0a6" stroke-width="2"/><rect x="2" y="26" width="30" height="15" rx="2" fill="#d93025"/><text x="17" y="37.5" text-anchor="middle" font-family="Arial" font-weight="700" font-size="10.5" fill="#fff">PDF</text></svg>',
+});
+const fuKey = (a, h) => { if (a.fuStatus) return a.fuStatus; const s = FU_STATUS.find(x => x[0] !== 'old' && x[2].includes((h && h.status) || 'New lead')); return s ? s[0] : ''; };
+const fuLabel = k => (FU_STATUS.find(x => x[0] === k) || ['', ''])[1];
+const fuLatestQ = hid => K('quote').filter(q => q.hotelId === hid).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+const fuProds = (a, q) => { if (Array.isArray(a.products)) return a.products; const L = (q && q.lines) || {}; return FU_PROD.filter(p => p[2].some(id => L[id] && L[id].on)).map(p => p[0]); };
 function fuRows() {
-  const f = UI.fu || {}, quotes = K('quote'), acts = K('act');
-  const latestQ = hid => quotes.filter(q => q.hotelId === hid).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+  const f = UI.fu || {}, acts = K('act'), quotes = K('quote');
   const meetOf = hid => (acts.filter(a => a.hotelId === hid && a.type === 'Meeting').sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0] || {}).date || '';
   const old = a => !!a.done || !a.nextDate;
   return acts.filter(a => {
-    const h = byId(a.hotelId) || {}, q = latestQ(a.hotelId);
+    const h = byId(a.hotelId) || {}, q = fuLatestQ(a.hotelId);
     if (f.status === 'old' ? !old(a) : old(a)) return false;
     if (f.from && (a.date || '') < f.from) return false;
     if (f.to && (a.date || '') > f.to) return false;
     if (f.staff && (a.owner || '') !== f.staff) return false;
     if (f.hotel && !norm(h.name).includes(norm(f.hotel))) return false;
-    if (f.lead && (h.source || '') !== f.lead) return false;
+    if (f.lead && (a.leadType || h.source || '') !== f.lead) return false;
     if (f.chan && a.type !== f.chan) return false;
-    if (f.status && f.status !== 'old') { const s = FU_STATUS.find(x => x[0] === f.status); if (!s[2].includes(h.status || 'New lead')) return false; }
-    if ((f.prod || []).length) { const L = (q && q.lines) || {}; if (!f.prod.every(p => FU_PROD.find(x => x[0] === p)[2].some(id => L[id] && L[id].on))) return false; }
+    if (f.status && f.status !== 'old' && fuKey(a, h) !== f.status) return false;
+    if ((f.prod || []).length && !f.prod.every(p => fuProds(a, q).includes(p))) return false;
     return true;
   }).sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(a => {
-    const h = byId(a.hotelId) || {}, q = latestQ(a.hotelId), L = (q && q.lines) || {};
-    return {id: a.id, hid: a.hotelId, date: a.date || '', hotel: h.name || 'Unknown hotel', meeting: meetOf(a.hotelId), remind: a.nextDate || '', quote: (q && q.no) || '', by: a.owner || '', result: a.outcome || a.summary || a.reason || '',
-      product: CAT.filter(p => L[p.id] && L[p.id].on).map(p => p.name.replace(/ \(.*\)$/, '')).join(', '), status: fuStatusOf(h)};
+    const h = byId(a.hotelId) || {}, q = fuLatestQ(a.hotelId), key = fuKey(a, h);
+    return {id: a.id, hid: a.hotelId, date: a.date || '', hotel: h.name || 'Unknown hotel', meeting: meetOf(a.hotelId), remind: a.nextDate || '', nq: quotes.filter(x => x.hotelId === a.hotelId).length, by: a.owner || '', result: a.outcome || '',
+      product: fuProds(a, q).map(k => FU_PROD.find(p => p[0] === k)[1]).join(', '), key, status: fuLabel(key)};
   });
 }
 function vFollowup() {
   UI.fu = UI.fu || {}; const f = UI.fu, acts = K('act'), hotels = K('hotel');
-  const staff = [...new Set(acts.map(a => a.owner).filter(Boolean))].sort(), leads = [...new Set(hotels.map(h => h.source).filter(Boolean))].sort();
+  const staff = [...new Set(acts.map(a => a.owner).filter(Boolean))].sort(), leads = [...new Set(hotels.map(h => h.source).filter(Boolean).concat(acts.map(a => a.leadType).filter(Boolean)))].sort();
   const rows = fuRows(), CAP = 300, shown = rows.slice(0, CAP);
   const sel = (id, opts, v, ph) => `<select id="${id}"><option value="">${ph}</option>${opts.map(o => `<option ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
   view().innerHTML = `<div class="top"><div><h1>Latest Follow ups</h1></div></div>
@@ -2262,20 +2293,104 @@ function vFollowup() {
    <div class="fu-btns"><button type="button" class="btn dark" data-act="fuSearch">${ICON.search}Search</button><button type="button" class="btn amber" data-act="fuReset">${ICON.search}Reset</button></div>
    <div class="fu-exp"><button type="button" class="btn gold" data-act="fuExport">Export Excell</button></div>
    <div class="tablewrap fu-tw"><table class="fu-tb"><thead><tr><th>No.</th><th>Follow up date</th><th>Hotel name</th><th>Meeting Date</th><th>Remind date</th><th>Quotation</th><th>Follow up by</th><th>Result</th><th>Product</th><th>Status</th><th>View</th></tr></thead>
-    <tbody>${shown.length ? shown.map((r, i) => `<tr><td>${i + 1}</td><td class="nw">${fdate(r.date)}</td><td>${esc(r.hotel)}</td><td class="nw">${fdate(r.meeting)}</td><td class="nw ${r.remind && r.remind <= today() ? 'due' : ''}">${fdate(r.remind)}</td><td class="nw">${esc(r.quote)}</td><td>${esc(r.by)}</td><td>${esc(r.result)}</td><td>${esc(r.product)}</td><td class="nw">${esc(r.status)}</td><td><button type="button" class="btn sm" data-go="#hotel/${r.hid}">View</button></td></tr>`).join('') : '<tr><td colspan="11" class="empty">No follow ups found.</td></tr>'}</tbody></table></div>
+    <tbody>${shown.length ? shown.map((r, i) => `<tr class="fu-s-${r.key}"><td>${i + 1}</td><td class="nw">${fdate(r.date)}</td><td class="l">${esc(r.hotel)}</td><td class="nw">${fdate(r.meeting)}</td><td class="nw">${fdate(r.remind)}</td><td class="nw"><a href="#followup" class="fu-mg" data-act="fuManage" data-hid="${r.hid}">Manage(${r.nq})</a></td><td>${esc(r.by)}</td><td class="l">${esc(r.result)}</td><td class="l">${esc(r.product)}</td><td class="nw">${esc(r.status)}</td><td><button type="button" class="btn info sm" data-act="fuView" data-id="${r.id}">${ICON.edit}View</button></td></tr>`).join('') : '<tr><td colspan="11" class="empty">No follow ups found.</td></tr>'}</tbody></table></div>
    ${rows.length > CAP ? `<p class="muted small" style="text-align:center">First ${CAP} of ${rows.length}. Narrow the search to see the rest.</p>` : ''}`;
 }
 function fuRead() {
   const g = id => ($(id) ? $(id).value : '');
   UI.fu = {from: g('#fu_from'), to: g('#fu_to'), staff: g('#fu_staff'), hotel: g('#fu_hotel').trim(), lead: g('#fu_lead'), chan: g('#fu_chan'), prod: g('#fu_prod') ? [g('#fu_prod')] : [], status: g('#fu_st')};
 }
+
+/* ---- Manage(n): the quotations of a hotel ---- */
+const qCad = {once:'one-time', month:'Per month', year:'Per year'};
+function qLines(q) { return compute(q).items.map(i => i.label + ' - ' + (i.amount != null ? fmt(i.amount) + ' THB ' + (qCad[i.cad] || '') : (i.text || ''))); }
+function hotelEmails(hid) { const h = byId(hid) || {}; return [...new Set([h.email].concat(K('act').filter(a => a.hotelId === hid).map(a => a.contactEmail)).flatMap(e => String(e || '').split(/[,;\s]+/)).filter(x => /@/.test(x)))]; }
+function quotesSheet(hid) {
+  const h = byId(hid); if (!h) return; const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.no || '').localeCompare(b.no || '')), em = hotelEmails(hid);
+  const block = (q, i) => `<div class="fu-qb" data-qid="${q.id}">
+    <div class="fu-qr"><b>Quotation issue #${i + 1}</b><span>${q.upload ? `<a href="#followup" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#followup" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`}</span>
+     <span class="fu-qa"><button type="button" class="btn info sm" data-act="qEdit" data-id="${q.id}">Edit</button><button type="button" class="btn redb sm" data-act="qDel" data-id="${q.id}">Delete</button></span></div>
+    <div class="fu-qr"><b>Send email to</b><span>${em.length ? em.map(e => `<label class="fu-chk"><input type="checkbox" data-qe value="${esc(e)}" checked> ${esc(e)}</label>`).join('<br>') : '<span class="muted">No email address on this hotel</span>'}</span><span class="fu-qa"><button type="button" class="btn gold" data-act="qSend" data-id="${q.id}">Send email</button></span></div>
+    <div class="fu-qr"><b>Date</b><span>${esc(fdate(q.date))}</span></div>
+    <div class="fu-qr"><b>Quotation number</b><span>${esc(q.no || '')}</span></div>
+    ${qLines(q).map((l, k) => `<div class="fu-qr"><b>Product ${k + 1}</b><span>${esc(l)}</span></div>`).join('')}</div>`;
+  openSheet(`<div class="sheet-head"><h2>Quotation information for ${esc(h.name)}</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>
+   <div class="fu-qtop"><button type="button" class="btn gray" data-act="qAdd" data-hid="${hid}">Add new quotation</button><button type="button" class="btn gray" data-act="qUp" data-hid="${hid}">Upload quotation</button></div>
+   ${qs.length ? qs.map(block).join('') : '<p class="fu-none">Don\'t have any quotation for this hotel.</p>'}`);
+  $('#sheet-body').dataset.hid = hid;
+}
+function uploadQuoteSheet(hid, q) {
+  const h = byId(hid), isNew = !q; q = q || {no: suggestQuoteNo(), date: today()};
+  openSheet(`<div class="sheet-head"><h2>${isNew ? 'Upload quotation' : 'Edit quotation'} — ${esc(h.name)}</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>
+   <div class="grid two">${field({k:'no', label:'Quotation number'}, q.no)}${field({k:'date', label:'Date', type:'date'}, q.date)}
+   <label class="f wide"><span>PDF file${isNew ? '' : ' (leave empty to keep the file)'}</span><input type="file" id="qu_file" accept="application/pdf,.pdf"></label></div>
+   <div class="sheet-foot"><button class="btn" data-act="qBack" data-hid="${hid}">Cancel</button><button class="btn primary" id="qu_save">Save</button></div>`, root => {
+    $('#qu_save', root).onclick = async () => {
+      const v = readForm(root, [{k:'no'}, {k:'date'}]); if (!v.no) { toast('Add the quotation number'); return; }
+      const file = $('#qu_file', root).files[0]; if (isNew && !file) { toast('Choose the PDF file'); return; }
+      if (file && file.size > 3 * 1024 * 1024) { toast('The file is bigger than 3 MB'); return; }
+      let upload = q.upload; if (file) upload = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res({name: file.name, type: file.type || 'application/pdf', data: r.result}); r.onerror = rej; r.readAsDataURL(file); });
+      await save({...q, ...v, id: q.id || uid(), kind:'quote', hotelId: hid, hotelName: h.name, status: q.status || 'Sent', lines: q.lines || {}, custom: q.custom || [], upload});
+      toast('Saved'); quotesSheet(hid);
+    };
+  });
+}
+
+/* ---- View: the follow-up information ---- */
+function followSheet(id, edit) {
+  const a = byId(id); if (!a) return; const h = byId(a.hotelId) || {}, mine = K('act').filter(x => x.hotelId === a.hotelId).sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.created || '').localeCompare(y.created || ''));
+  const no = mine.findIndex(x => x.id === id) + 1, key = fuKey(a, h), prods = fuProds(a, fuLatestQ(a.hotelId)), dis = edit ? '' : ' disabled';
+  const leads = [...new Set(K('hotel').map(x => x.source).filter(Boolean).concat([a.leadType, h.source].filter(Boolean)))].sort();
+  const row = (label, req, inner) => `<div class="fu-pr"><label>${label}${req ? ' <i class="req">*</i>' : ''}</label><div>${inner}</div></div>`;
+  const val = (k, v, type) => `<input ${type ? 'type="' + type + '"' : 'type="text"'} data-ff="${k}" value="${esc(v || '')}"${dis}>`;
+  openSheet(`<div class="sheet-head"><h2>Follow up information</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>
+   <div class="fu-pop"><div class="fu-ph"><b>Follow up issue #${no}</b>${edit ? '' : `<button type="button" class="btn gray" data-act="fuEdit" data-id="${id}">Edit follow up</button>`}</div>
+   ${row('Date', 1, val('date', a.date, 'date'))}${row('Contact person name', 1, val('contactName', a.contactName || h.contact))}${row('Contact person position', 1, val('contactPos', a.contactPos || h.contactTitle || ''))}
+   ${row('Contact person email', 1, val('contactEmail', a.contactEmail || h.email))}${row('Contact person phone', 1, val('contactPhone', a.contactPhone || h.phone))}
+   ${row('Description', 0, `<textarea data-ff="summary" rows="5"${dis}>${esc(a.summary || a.reason || '')}</textarea>`)}${row('Reminder date', 0, val('nextDate', a.nextDate, 'date'))}
+   ${row('Lead Type', 0, `<select data-ff="leadType"${dis}><option value="">Please select</option>${leads.map(l => `<option ${(a.leadType || h.source) === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
+   ${row('Channal', 0, `<select data-ff="type"${dis}>${ACT_TYPES.map(l => `<option ${a.type === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
+   ${row('Product', 0, `<div class="fu-opts">${FU_PROD.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-fpp="${k}" ${prods.includes(k) ? 'checked' : ''}${dis}> ${esc(l)}</label>`).join('')}</div>`)}
+   ${row('Status', 0, `<div class="fu-opts">${FU_STATUS.filter(s => s[0] !== 'old').map(([k, l]) => `<label class="fu-rad"><input type="radio" name="fp_st" value="${k}" ${key === k ? 'checked' : ''}${dis}> ${esc(l)}</label>`).join('')}</div>`)}
+   ${row('Follow up By', 1, val('owner', a.owner))}</div>
+   ${edit ? `<div class="sheet-foot"><button class="btn" data-act="fuView" data-id="${id}">Cancel</button><button class="btn primary" id="fp_save">Save</button></div>` : ''}`, root => {
+    const sv = $('#fp_save', root); if (!sv) return;
+    sv.onclick = async () => {
+      const g = k => ($(`[data-ff=${k}]`, root).value || '').trim();
+      const need = [['date', 'Date'], ['contactName', 'Contact person name'], ['contactPos', 'Contact person position'], ['contactEmail', 'Contact person email'], ['contactPhone', 'Contact person phone'], ['owner', 'Follow up By']].find(([k]) => !g(k));
+      if (need) { toast(need[1] + ' is required'); return; }
+      const st = ($('[name=fp_st]:checked', root) || {}).value || '';
+      const rec = {...a, date: g('date'), contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), nextDate: g('nextDate'), leadType: g('leadType'), type: g('type'), owner: g('owner'),
+        products: $$('[data-fpp]', root).filter(c => c.checked).map(c => c.dataset.fpp), fuStatus: st};
+      rec.done = rec.nextDate ? (a.nextDate === rec.nextDate ? !!a.done : false) : true;
+      await save(rec);
+      if (st && FU_TO_STAGE[st] && h.id) { const to = FU_TO_STAGE[st]; if (h.status !== to && !(st === 'processing' && !['New lead', ''].includes(h.status || ''))) { h.status = to; await save(h); } }
+      toast('Saved'); followSheet(id, false); if (location.hash === '#followup') vFollowup();
+    };
+  });
+}
+
 Object.assign(ACTIONS, {
   fuSearch: () => { fuRead(); vFollowup(); },
   fuReset: () => { UI.fu = {}; vFollowup(); },
+  fuManage: el => quotesSheet(el.dataset.hid),
+  fuView: el => followSheet(el.dataset.id, false),
+  fuEdit: el => followSheet(el.dataset.id, true),
+  qBack: el => quotesSheet(el.dataset.hid),
+  qAdd: el => { closeSheet(); location.hash = 'quote/new?hotel=' + el.dataset.hid; },
+  qUp: el => uploadQuoteSheet(el.dataset.hid),
+  qOpen: el => { closeSheet(); location.hash = 'quote/' + el.dataset.id; },
+  qFile: el => { const q = byId(el.dataset.id); if (!q || !q.upload) return; const w = window.open(); if (w) w.location.href = q.upload.data; else download(q.upload.name || 'quotation.pdf', new Blob([Uint8Array.from(atob(q.upload.data.split(',')[1]), c => c.charCodeAt(0))], {type: q.upload.type}), q.upload.type); },
+  qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else { closeSheet(); location.hash = 'quote/' + q.id; } },
+  qDel: el => { const q = byId(el.dataset.id); if (!q || !confirm('Delete quotation ' + (q.no || '') + '?')) return; const hid = q.hotelId; remove(q.id); toast('Deleted'); quotesSheet(hid); },
+  qSend: el => {
+    const q = byId(el.dataset.id), box = el.closest('.fu-qb'), to = $$('[data-qe]', box).filter(c => c.checked).map(c => c.value); if (!to.length) { toast('Tick at least one email address'); return; }
+    location.href = 'mailto:' + to.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent('Quotation ' + (q.no || '') + ' — ' + (q.hotelName || '')) + '&body=' + encodeURIComponent('Dear ' + ((byId(q.hotelId) || {}).contact || 'Sir/Madam') + ',\n\nPlease find our quotation ' + (q.no || '') + ' dated ' + fdate(q.date) + '.\n' + qLines(q).join('\n') + '\n\nBest regards');
+  },
   fuExport: () => {
     const rows = fuRows(); if (!rows.length) { toast('Nothing to export'); return; }
     const head = ['No.', 'Follow up date', 'Hotel name', 'Meeting Date', 'Remind date', 'Quotation', 'Follow up by', 'Result', 'Product', 'Status'];
-    const aoa = [head, ...rows.map((r, i) => [i + 1, r.date, r.hotel, r.meeting, r.remind, r.quote, r.by, r.result, r.product, r.status])];
+    const aoa = [head, ...rows.map((r, i) => [i + 1, r.date, r.hotel, r.meeting, r.remind, r.nq, r.by, r.result, r.product, r.status])];
     try { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Follow ups'); download('CRM Follow ups - ' + today() + '.xlsx', new Blob([XLSX.write(wb, {bookType:'xlsx', type:'array'})], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); }
     catch { download('CRM Follow ups - ' + today() + '.csv', toCSV(aoa.slice(1).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])))), 'text/csv'); }
   },
