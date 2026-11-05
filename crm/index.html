@@ -603,6 +603,8 @@ input,select,textarea{box-sizing:border-box}
 .mq-rad.on i{background:#8fb8c6;border-color:#8fb8c6}.mq-rad.on i::after{content:"";position:absolute;left:6px;top:2px;width:6px;height:11px;border:solid #fff;border-width:0 2.2px 2.2px 0;transform:rotate(45deg)}
 .mq-rad b{font-size:13px}.mq-rad:hover i{border-color:#8fb8c6}
 .ap-ok{color:#1b7a3a;font-weight:600}.ap-no{color:#b3261e;font-weight:600}.ap-wait{color:#b3261e;font-weight:600}
+.ac-g3{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1fr);gap:14px 28px}.ac-g3 input[type=text],.ac-g3 input[type=date]{width:100%}.acf .cb{position:relative}.acf .cb input{width:100%}
+.as-chip{display:inline-flex;align-items:center;gap:6px;background:#f1ece4;border-radius:999px;padding:4px 6px 4px 12px;margin:0 6px 6px 0;font-size:13px}.as-chip button{border:0;background:#dccfbd;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -2356,7 +2358,7 @@ const NAVG = [
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
   {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Referral Rewards', '#pricing/referral', 'users']]},
-  {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
+  {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
   ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
@@ -2456,10 +2458,11 @@ function vDeleted() {
   const T = {
     hotel: {rows: deletedOf('hotel'), head: ['Hotel name', 'City', 'Country', 'Contact Person'], cells: h => [esc(h.name), esc(h.city || ''), esc(h.country || ''), esc(h.contact || '')]},
     quote: {rows: deletedOf('quote'), head: ['Quotation number', 'Hotel name', 'Date', 'Status'], cells: q => [esc(q.no || ''), esc(q.hotelName || hotelName(q.hotelId)), esc(meetDmy(q.date)), esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))]},
+    activation: {rows: deletedOf('activation'), head: ['Activation date', 'Hotel name', 'Setup by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(hotelName(a.hotelId)), esc(a.techBy || ''), esc(a.status || '')]},
     meeting: {rows: deletedOf('act').filter(isMeet), head: ['Meeting date', 'Meeting time', 'Hotel name', 'Contact person', 'Meeting by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(a.time || ''), esc(hotelName(a.hotelId)), esc(a.contactName || ''), esc(a.owner || ''), esc(meetSt(a))]},
   }[tab], rows = T.rows.sort((a, b) => ((b.deleted || {}).at || '').localeCompare((a.deleted || {}).at || ''));
   view().innerHTML = `<div class="top"><div><h1>Delete records</h1></div></div>
-   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
+   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted'], ['activation', 'Activation deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
    <div class="tablewrap fu-tw dbw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${T.head.map(h => `<th>${h}</th>`).join('')}<th>Deleted by</th><th>Deleted date time</th><th>Action</th></tr></thead>
    <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${T.cells(r).map((c, k) => `<td${k === 0 || k === 1 ? ' class="l"' : ''}>${c}</td>`).join('')}<td>${who(r)}</td><td class="dlt">${when(r)}</td>${btn(r)}</tr>`).join('') : `<tr><td colspan="${T.head.length + 4}" class="empty">Nothing deleted here.</td></tr>`}</tbody></table></div>`;
 }
@@ -3401,36 +3404,116 @@ function followLatestSheet(hid) {
    ${a ? `<div class="fu-pop"><div class="fu-ph"><b>Follow up issue #${fuNo(a)}</b></div>${fuForm(a, h, true, 'fp_latest', true)}</div>` : '<p class="fu-none">Don\'t have any follow up for this hotel.</p>'}`);
 }
 
-/* ----- Activation ----- */
-const ACT_ST = ['Planned', 'In progress', 'Live', 'Cancelled'];
-const ACT_COL = {Planned:'#8A9A8C', 'In progress':'#D49A38', Live:'#1F8A4C', Cancelled:'#B4432F'};
-function activationSheet(a, hid) {
-  const isNew = !a; a = a || {date: today(), status:'Planned', hotelId: hid || ''};
-  const hotels = K('hotel').sort((x, y) => x.name.localeCompare(y.name)), cur = byId(a.hotelId);
-  openSheet(`${sheetHead(isNew ? 'Setup activation' : 'Edit activation')}<div class="grid two">
-    <label class="f wide"><span>Hotel *</span><input list="hlist2" id="v_hotel" value="${esc(cur ? cur.name : '')}" placeholder="Type to find a hotel" autocomplete="off"><datalist id="hlist2">${hotels.map(x => `<option value="${esc(x.name)}">`).join('')}</datalist></label>
-    ${field({k:'date', label:'Activation date', type:'date'}, a.date)}${field({k:'status', label:'Status', type:'select', opts:ACT_ST}, a.status)}
-    ${field({k:'products', label:'What is activated (PMS, booking engine, channel manager…)', wide:1}, a.products)}
-    ${field({k:'owner', label:'Responsible person'}, a.owner)}${field({k:'notes', label:'Notes', type:'textarea', wide:1}, a.notes)}</div>
-   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="vsave">${isNew ? 'Save activation' : 'Save changes'}</button></div>`, root => {
-    const del = $('#vdel', root); if (del) del.onclick = () => { if (confirm('Delete this activation?')) { remove(a.id); closeSheet(); rerender(); toast('Deleted'); } };
-    $('#vsave', root).onclick = async () => {
-      const name = $('#v_hotel', root).value.trim(); if (!name) { toast('Pick a hotel'); return; }
-      let h = K('hotel').find(x => norm(x.name) === norm(name)); if (!h) { h = {id: uid(), kind:'hotel', name, status:'Signed', managed:'No'}; await save(h); }
-      const v = readForm(root, [{k:'date'}, {k:'status'}, {k:'products'}, {k:'owner'}, {k:'notes'}]);
-      await save({...a, ...v, id: a.id || uid(), kind:'activation', hotelId: h.id});
-      if (v.status === 'Live' && h.status !== 'Live') { h.status = 'Live'; await save(h); }
-      else if (v.status !== 'Cancelled' && ['New lead', 'Called', 'Follow up', 'Meeting set', 'Quoted', 'Negotiating'].includes(h.status || 'New lead')) { h.status = 'Signed'; await save(h); }
-      closeSheet(); toast('Activation saved'); if (location.hash === '#activations') rerender(); else location.hash = 'activations';
-    };
+/* ----- Activation -----
+   Setup activation: the hotel (picked from the database list) and its quotation are linked both ways (pick either one, the other follows);
+   the systems to set up come from the services of the quotation. Save keeps it in the List of activation (still editable); Live freezes everything.
+   Settings (provider only): the technicians who can be chosen in Setup by, and the credit of each system (the bonus is based on it later). */
+const ACT_SYS = [['be', 'Booking Engine System', ['be', 'becom', 'beh', 'becm', 'allsol', 'allsolh'], /booking engine/i], ['cm', 'Channel Manager System', ['cm', 'cmh', 'becm', 'allsol', 'allsolh'], /channel manager/i], ['pms', 'Property Management System', ['pms', 'pmsh', 'allsol', 'allsolh'], /property management/i]];
+function actSystems(q) {
+  if (!q) return [];
+  if (quoteIsNew(q)) { const on = (q.items || []).filter(i => i.on).map(i => i.id); return ACT_SYS.filter(s => s[2].some(id => on.includes(id))).map(s => s[0]); }
+  const names = qCompute(q).names.join(' | '); return ACT_SYS.filter(s => s[3].test(names)).map(s => s[0]);
+}
+const actCreditOf = k => { const r = byId('ac_' + k); return r && !r.deleted ? (parseFloat(r.credit) || 0) : 0; };
+const actTechs = () => [...new Set(K('techuser').map(r => r.name).filter(Boolean))].sort();
+const quoteForHotel = hid => { const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '')); return qs.filter(q => q.status === 'Accepted').pop() || qs.pop() || null; };
+const actProducts = a => ACT_SYS.filter(s => a.sys && s[0] in a.sys).map(s => s[1].replace(' System', '')).join(', ');
+function vActivations(id) {
+  if (id) return vActSetup(id === 'new' ? null : byId(id));
+  const f = UI.act = UI.act || {from: today(), to: today(), q: ''};
+  view().innerHTML = `<div class="top"><div><h1>List of Activation</h1></div><div class="actions"><label class="dbs"><input type="search" id="ac_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search activation"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>Activation</b> information</div>
+   <div class="fu-form"><label for="ac_from">Start Date :</label><div><input type="date" id="ac_from" value="${esc(f.from || '')}"></div><label for="ac_to">End Date :</label><div><input type="date" id="ac_to" value="${esc(f.to || '')}"></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="acSearch">${ICON.search}Search</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Activation date</th><th>Hotel name</th><th>Date send form</th><th>Date get form</th><th>Send introduction email</th><th>Setup by</th><th>Product</th><th>Action</th></tr></thead><tbody id="acbody"></tbody></table></div>`;
+  paintAc(); const q = $('#ac_q'); q.addEventListener('input', () => { f.q = q.value; paintAc(); });
+}
+function paintAc() {
+  const f = UI.act || {}, tb = $('#acbody'), q = norm(f.q || ''); if (!tb) return;
+  const rows = K('activation').filter(a => (!f.from || (a.date || '') >= f.from) && (!f.to || (a.date || '') <= f.to) && (!q || norm([hotelName(a.hotelId), a.techBy, a.date].join(' ')).includes(q))).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  tb.innerHTML = rows.length ? rows.map((a, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(a.date))}</td><td class="l">${esc(hotelName(a.hotelId))}</td><td class="nw">${esc(a.qSend ? meetDmy(a.qSend) : '')}</td><td class="nw">${esc(a.qBack ? meetDmy(a.qBack) : '')}</td><td>${a.intro === 'Yes' ? 'Yes' : ''}</td><td>${esc(a.techBy || '')}</td><td class="l">${esc(actProducts(a))}</td>
+    <td class="nw"><button type="button" class="btn info sm" data-act="editActivation" data-id="${a.id}">${ICON.edit}Edit</button> <button type="button" class="btn redb sm" data-act="delActivation" data-id="${a.id}">${ICON.trash || ''}Delete</button></td></tr>`).join('') : '<tr><td colspan="9" class="empty"></td></tr>';
+}
+function vActSetup(a) {
+  const isNew = !a, frozen = !!(a && a.status === 'Live'), adm = Auth.isProvider();
+  a = a || {date: today(), intro: 'No', sys: {}};
+  const cur = {hotelId: a.hotelId || (isNew && UI.actHid) || '', quoteId: a.quoteId || '', sys: {...(a.sys || {})}};
+  if (isNew) UI.actHid = '';
+  const dis = frozen ? ' disabled' : '';
+  const req = (l, on) => `<label class="mq-l">${l}${on ? ' <i class="req">*</i>' : ''}</label>`;
+  const techs = actTechs().concat(a.techBy && !actTechs().includes(a.techBy) ? [a.techBy] : []);
+  view().innerHTML = `<div class="top"><div><h1>${frozen ? 'Activation' : 'Setup Activation'}</h1></div><div class="actions">${adm ? `<button type="button" class="btn" data-act="acSettings">${ICON.gear || ''}Technicians &amp; credit</button>` : ''}</div></div>
+   <div class="mq-b acf" id="acform">
+    <div class="ac-g3"><div>${req('Hotel Name', 1)}<div class="cb"><input type="text" data-af="hotel" autocomplete="off" placeholder="Type to find the hotel" value=""${dis}><div class="cbl" hidden></div></div></div>
+     <div>${req('Quotation', 0)}<div class="cb"><input type="text" data-af="quote" autocomplete="off" placeholder="Type the quotation number" value=""${dis}><div class="cbl" hidden></div></div></div>
+     <div>${req('Activation date', 1)}<input type="date" data-af="date" value="${esc(a.date || '')}"${dis}></div></div>
+    <div class="mq-g" style="margin-top:14px"><div>${req('Setup by', 1)}<select data-af="techBy"${dis}><option value="">Please select</option>${techs.map(x => `<option ${a.techBy === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+     <div>${req('Credit', 0)}<input type="number" min="0" step="any" data-af="credit" value="${esc(a.credit === undefined ? '' : a.credit)}"${dis}></div>
+     <div>${req('Questionnaire Send to Hotel', 0)}<input type="date" data-af="qSend" value="${esc(a.qSend || '')}"${dis}></div><div>${req('Questionnaire get back from Hotel', 0)}<input type="date" data-af="qBack" value="${esc(a.qBack || '')}"${dis}></div></div>
+    <div class="mq-b">${req('Send introduction email to hotel', 0)}<div class="fu-opts">${['Yes', 'No'].map(v => `<label class="fu-rad"><input type="radio" name="ac_intro" value="${v}" ${(a.intro || 'No') === v ? 'checked' : ''}${dis}> ${v}</label>`).join('')}</div></div>
+    <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th style="width:70px">No.</th><th>Product</th><th style="width:300px">Complete date</th></tr></thead><tbody id="acsys"></tbody></table></div>
+    ${frozen ? '' : `<div class="fu-btns" style="justify-content:flex-start;margin-top:18px"><button type="button" class="btn dark" id="ac_save">${ICON.check}Save</button><button type="button" class="btn amber" id="ac_reset">${ICON.reset || ''}Reset</button><span style="flex:1"></span><button type="button" class="btn primary" id="ac_live">Live</button></div>`}</div>`;
+  const root = $('#acform'), val = k => ($(`[data-af=${k}]`, root) || {}).value || '';
+  const hIn = $('[data-af=hotel]', root), qIn = $('[data-af=quote]', root), lists = $$('.cbl', root);
+  const hotelsAll = () => K('hotel').filter(h => h.name).sort((x, y) => x.name.localeCompare(y.name)), hLabel = h => h.name + (h.city ? ' (' + h.city + ')' : '');
+  const qLabel = q => (q.no || '') + (q.hotelName || hotelName(q.hotelId) ? ' - ' + (q.hotelName || hotelName(q.hotelId)) : '');
+  const paintSys = () => {
+    const q = byId(cur.quoteId), keys = actSystems(q), old = cur.sys; cur.sys = {}; keys.forEach(k => cur.sys[k] = old[k] || '');
+    $('#acsys', root).innerHTML = keys.length ? ACT_SYS.filter(s => keys.includes(s[0])).map((s, i) => `<tr><td>${i + 1}</td><td class="l">${esc(s[1])}</td><td><input type="date" data-sys="${s[0]}" value="${esc(cur.sys[s[0]] || '')}"${dis}></td></tr>`).join('') : '<tr><td colspan="3" class="empty"></td></tr>';
+    enhanceDates($('#acsys', root));
+  };
+  const autoCredit = () => { const keys = Object.keys(cur.sys), c = $('[data-af=credit]', root); if (!frozen && c && (isNew || c.dataset.touched !== '1') && keys.length && (isNew || a.credit === undefined)) c.value = keys.reduce((t, k) => t + actCreditOf(k), 0) || ''; };
+  hIn.value = cur.hotelId && byId(cur.hotelId) ? hLabel(byId(cur.hotelId)) : ''; qIn.value = cur.quoteId && byId(cur.quoteId) ? qLabel(byId(cur.quoteId)) : '';
+  if (!frozen) {
+    pickBox(hIn, lists[0], () => hotelsAll().map(hLabel), v => {
+      const h = hotelsAll().find(x => hLabel(x) === v); if (!h) { cur.hotelId = ''; return; }
+      if (cur.hotelId !== h.id) { cur.hotelId = h.id; const q = quoteForHotel(h.id); cur.quoteId = q ? q.id : ''; qIn.value = q ? qLabel(q) : ''; paintSys(); autoCredit(); }
+    }, 'Choose the hotel from the list');
+    pickBox(qIn, lists[1], () => K('quote').filter(q => q.no && (!cur.hotelId || q.hotelId === cur.hotelId)).sort((x, y) => (y.date || '').localeCompare(x.date || '')).map(qLabel), v => {
+      const q = K('quote').find(x => qLabel(x) === v); if (!q) { cur.quoteId = ''; paintSys(); return; }
+      if (cur.quoteId !== q.id) { cur.quoteId = q.id; if (q.hotelId && byId(q.hotelId)) { cur.hotelId = q.hotelId; hIn.value = hLabel(byId(q.hotelId)); } paintSys(); autoCredit(); }
+    }, 'Choose the quotation from the list');
+    $('[data-af=credit]', root).addEventListener('input', e => e.target.dataset.touched = '1');
+  }
+  paintSys(); if (isNew) autoCredit();
+  if (frozen) return;
+  $('#acsys', root).addEventListener('change', e => { const k = e.target.dataset.sys; if (k) cur.sys[k] = e.target.value; });
+  const collect = async () => {
+    if (!cur.hotelId || !byId(cur.hotelId)) { toast('Choose the hotel from the list'); return null; }
+    if (!val('date')) { toast('Activation date is required'); return null; }
+    if (!val('techBy')) { toast('Setup by is required'); return null; }
+    $$('[data-sys]', root).forEach(e => cur.sys[e.dataset.sys] = e.value);
+    return {...a, id: a.id || uid(), kind: 'activation', hotelId: cur.hotelId, quoteId: cur.quoteId, date: val('date'), techBy: val('techBy'), credit: val('credit') === '' ? '' : parseFloat(val('credit')), qSend: val('qSend'), qBack: val('qBack'), intro: ($('[name=ac_intro]:checked', root) || {}).value || 'No', sys: {...cur.sys}, status: a.status || 'In progress', owner: a.owner || val('techBy')};
+  };
+  $('#ac_save', root).onclick = async () => { const rec = await collect(); if (!rec) return; delete rec.isNew; await save(rec); const h = byId(rec.hotelId); if (h && ['New lead', 'Called', 'Follow up', 'Meeting set', 'Quoted', 'Negotiating', undefined, ''].includes(h.status)) { h.status = 'Signed'; await save(h); } toast('Saved'); location.hash = 'activations'; };
+  $('#ac_reset', root).onclick = () => { vActSetup(isNew ? null : byId(a.id)); };
+  $('#ac_live', root).onclick = async () => {
+    const rec = await collect(); if (!rec) return;
+    const keys = Object.keys(rec.sys); if (!keys.length) { toast('There is no product to set up: choose a quotation with a system'); return; }
+    const miss = ACT_SYS.find(s => keys.includes(s[0]) && !rec.sys[s[0]]); if (miss) { toast('Complete date of ' + miss[1] + ' is required before Live'); return; }
+    if (!await confirmDelete('Set this activation to Live? After Live nothing can be changed.')) return;
+    rec.status = 'Live'; rec.liveAt = new Date().toISOString(); rec.liveBy = Auth.who() || ''; await save(rec);
+    const h = byId(rec.hotelId); if (h && h.status !== 'Live') { h.status = 'Live'; await save(h); }
+    toast('Live'); location.hash = 'activations';
+  };
+}
+function actSettingsSheet() {
+  if (!Auth.isProvider()) { toast('Only the manager (provider) can change this'); return; }
+  const techs = K('techuser').sort((x, y) => (x.name || '').localeCompare(y.name || ''));
+  openSheet(`${fuHead('Technicians & credit')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Technician department (who can be chosen in Setup by)</label><div id="as_list">${techs.map(t => `<span class="as-chip">${esc(t.name)}<button type="button" data-asdel="${t.id}" aria-label="Remove">×</button></span>`).join('')}</div>
+    <div class="mq-up" style="margin-top:8px"><input type="text" id="as_name" placeholder="User name"><button type="button" class="btn info" id="as_add">Add</button></div></div>
+    <div class="mq-b"><label class="mq-l">Credit of each system</label><div class="mq-g">${ACT_SYS.map(s => `<div><label class="mq-l">${esc(s[1])}</label><input type="number" min="0" step="any" data-ascr="${s[0]}" value="${esc(actCreditOf(s[0]) || '')}"></div>`).join('')}</div></div></div>
+    <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="as_save">Save</button></div>`, root => {
+    root.addEventListener('click', async e => { const d = e.target.closest('[data-asdel]'); if (!d) return; const r = byId(d.dataset.asdel); if (r) { await softDelete(r); d.parentElement.remove(); } });
+    $('#as_add', root).onclick = async () => { const n = $('#as_name', root).value.trim(); if (!n) { toast('Write the user name'); return; } if (actTechs().some(x => norm(x) === norm(n))) { toast('Already in the list'); return; } const r = {id: uid(), kind: 'techuser', name: n}; await save(r); $('#as_name', root).value = ''; $('#as_list', root).insertAdjacentHTML('beforeend', `<span class="as-chip">${esc(n)}<button type="button" data-asdel="${r.id}" aria-label="Remove">×</button></span>`); };
+    $('#as_save', root).onclick = async () => { for (const i of $$('[data-ascr]', root)) await save({...(byId('ac_' + i.dataset.ascr) || {}), id: 'ac_' + i.dataset.ascr, kind: 'actcredit', system: i.dataset.ascr, credit: parseFloat(i.value) || 0}); closeSheet(); toast('Saved'); if (location.hash.startsWith('#activations/')) vActivations(location.hash.split('/')[1]); };
   });
 }
-function vActivations() {
-  const all = K('activation').sort((a, b) => (b.date || '').localeCompare(a.date || '')), f = UI.actSt || '', list = f ? all.filter(a => a.status === f) : all;
-  view().innerHTML = `<div class="top"><div><h1>List of activation</h1><p>${all.length} activations</p></div><div class="actions"><button class="btn primary" data-act="newActivation">${ICON.plus}Setup activation</button></div></div>
-   <div class="chips"><button class="chip" data-act="actf" data-s="" aria-pressed="${!f}">All<b>${all.length}</b></button>${ACT_ST.map(s => `<button class="chip" data-act="actf" data-s="${s}" aria-pressed="${f === s}">${s}<b>${all.filter(a => a.status === s).length}</b></button>`).join('')}</div>
-   ${list.length ? `<div class="list">${list.map(a => `<a class="row" href="#activations" data-act="editActivation" data-id="${a.id}"><span class="stripe" style="background:${ACT_COL[a.status] || '#8A9A8C'}"></span><div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc([a.products, a.owner].filter(Boolean).join(' · ')) || '&nbsp;'}</div></div><div class="end"><span class="status" style="color:${ACT_COL[a.status] || '#8A9A8C'}">${esc(a.status)}</span><div>${fdate(a.date)}</div></div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No activations yet.<br><button class="btn primary" data-act="newActivation">Setup activation</button></div></div>'}`;
-}
+Object.assign(ACTIONS, {
+  acSearch: () => { const f = UI.act = UI.act || {}; f.from = $('#ac_from').value; f.to = $('#ac_to').value; paintAc(); },
+  acSettings: () => actSettingsSheet(),
+  delActivation: async el => { const a = byId(el.dataset.id); if (!a) return; if (!await confirmDelete('Do you want delete activation of ' + hotelName(a.hotelId) + '? It moves to Delete records.')) return; await softDelete(a); toast('Activation deleted'); paintAc(); },
+});
 
 /* ----- KPI: appointments (target 20 a month), signed contracts, activations ----- */
 function vKpi(which) {
@@ -3477,9 +3560,8 @@ function vEnews() {
 Object.assign(ACTIONS, {
   newMeeting: el => { const hid = el && el.dataset && el.dataset.hid; if (hid) meetingFormSheet(hid); else location.hash = 'setupmeeting'; },
   meetf: el => { UI.meetSt = el.dataset.s; vMeetings(); },
-  newActivation: el => activationSheet(null, el && el.dataset ? el.dataset.hid : ''),
-  editActivation: el => activationSheet(byId(el.dataset.id)),
-  actf: el => { UI.actSt = el.dataset.s; vActivations(); },
+  newActivation: el => { UI.actHid = el && el.dataset ? el.dataset.hid || '' : ''; location.hash = 'activations/new'; },
+  editActivation: el => { location.hash = 'activations/' + el.dataset.id; },
   enewsOpen: () => { const to = enewsAudience().map(h => h.email); if (!to.length) { toast('No hotel with an email address in this list'); return; } const e = UI.enews; location.href = 'mailto:?bcc=' + encodeURIComponent(to.join(',')) + '&subject=' + encodeURIComponent(e.subject) + '&body=' + encodeURIComponent(e.body); },
   enewsCopy: () => copyText(enewsAudience().map(h => h.email).join(', '), 'Email addresses copied'),
   enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, stage: e.stage, city: e.city}); toast('Draft saved'); rerender(); },
