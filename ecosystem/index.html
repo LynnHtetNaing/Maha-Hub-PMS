@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="838f92aad3">
+<meta name="maha-build" content="ea3d017f88">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1312,6 +1312,10 @@ html[data-mode=dark] .gstk .gtx b{color:#d4b15a}html[data-mode=dark] .gstk .gtx 
 @media (max-width:700px){.eco-shell .eco-hero .eco-lockup.gfull,.eco-hero .eco-lockup.gfull{width:190px!important;margin-bottom:18px}}
 .eco-login .gstk{width:230px;margin:0 auto 14px}.eco-shell .eco-login .gstk,.eco-login .eco-tile.gstk{box-shadow:none!important;border-radius:0!important;background:none!important}.eco-shell .eco-login .gstk{width:min(240px,66%);margin:0 auto 10px}
 @media (max-width:900px){.eco-login .gstk{width:150px}}
+/* the device-check pop-up (the same look as the CRM) */
+.emc-brand{display:flex;align-items:center;gap:12px;margin:0 0 10px}.emc-brand img{width:44px;height:auto;filter:brightness(.4) saturate(3.4) contrast(1.35)}.emc-brand b{font:800 20px/1 Inter,system-ui,sans-serif;letter-spacing:.14em;color:#0b3d2e}
+.emc-chk{display:flex;gap:8px;align-items:center;font-size:13px;margin:10px 0}.emc-chk input{width:auto;min-height:0}
+.emc-btns{display:grid;gap:8px;margin-top:8px}.emc-btns .btn{width:100%;justify-content:center;min-height:42px}.emc-btns .linkbtn{width:100%;text-align:center;padding:8px 0}
 /* Modern sidebar logo: the gold gate on a soft plaque taken from the theme */
 html[data-skin="modern"] .msb-top img.msb-gate{width:40px;height:40px;padding:6px;border-radius:12px;object-fit:contain;background:var(--m-side-hi);border:1px solid var(--m-side-line);box-shadow:none}
 /* Report bar (Modern): the gate on a soft plaque so it reads on the bright gradient, name in white */
@@ -3445,14 +3449,17 @@ const MahaAuth={
   /* Asks for the emailed 6-digit code. Resolves {code,remember}, {resend:true}, or null when the box is closed. Replaced in tests. */
   askEmailCode(info,again){
     return new Promise(resolve=>{
-      const body=`<p class="sub">It appears this is your first time signing in, or it is time for the monthly check. To keep your account safe, we sent a 6-digit code to <b>${esc(info.sentTo||'your email')}</b>. It is valid for 10 minutes. You will not be asked again on any device for 30 days.</p>`
-        +`<div class="form2">${fld('When you receive the code, type it here',`<input id="emCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus>`)}</div>`
+      /* the same pop-up as the CRM device check: the system name, Check your email, the code, Remember this device, Continue / Send a new code / Cancel */
+      const prov=typeof stackKind==='function'&&stackKind()==='provider';
+      const body=`<div class="emc"><div class="emc-brand"><img src="/brand/maha/gate-gold.png" alt=""><b>${prov?'PROVIDER':'PMS'}</b></div>`
+        +`<p class="sub">We sent a 6-digit code to <b>${esc(info.sentTo||'your email')}</b>. It is valid for 10 minutes. Look in the junk folder if it does not arrive.</p>`
+        +`<div class="form2">${fld('Code',`<input id="emCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus>`)}</div>`
+        +`<label class="emc-chk"><input type="checkbox" id="emRem" checked> Remember this device for 30 days</label>`
         +`<div class="err" id="emErr">${again?esc(again):''}</div>`
-        +`<p class="sub">The email should arrive within a minute. Please check your spam or junk folder if it does not.</p>`
-        +`<div class="btns"><button class="btn gold" id="emGo">Yes, this is me</button><button class="btn" id="emNo">Cancel</button><button type="button" class="linkbtn" id="emAgain">Send a new code</button></div>`;
-      const m=modal('Identity verification code required',body,{w:760});
+        +`<div class="emc-btns"><button class="btn gold" id="emGo">Continue</button><button type="button" class="linkbtn" id="emAgain">Send a new code</button><button type="button" class="linkbtn" id="emNo">Cancel</button></div></div>`;
+      const m=modal('Check your email',body,{w:420});
       let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
-      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Enter the 6 digits from the email.';return}finish({code:v,remember:true})};
+      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/s+/g,'');if(!/^d{6}$/.test(v)){$('#emErr',m).textContent='Type the 6 digits.';return}finish({code:v,remember:!!$('#emRem',m).checked})};
       $('#emCode',m).onkeydown=e=>{if(e.key==='Enter')$('#emGo',m).onclick()};
       $('#emNo',m).onclick=()=>finish(null);
       $('#emAgain',m).onclick=()=>finish({resend:true});
@@ -5287,8 +5294,10 @@ function findStaff(un){for(const h of Object.values(DB.hotels)){const u=h.users.
 function usernameTaken(un){return !!findStaff(un.toLowerCase())||DB.providers.some(p=>p.username===un.toLowerCase())}
 const LOGO=()=>`<img src="${ICON_BAR}" class="tblogo" alt="Maha">`;
 const lgTileSrc=k=>k==='hub'?'/brand/maha/pms-stack-light.png':'/brand/maha/solutions-lockup-light.png';
-const gateStack=()=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b>MAHA PMS</b><small>HOTEL MANAGEMENT SOFTWARE</small></span>';
-const LOGO_TILE=()=>{const hub=typeof lgTargetSys!=='undefined'&&lgTargetSys==='hub';return hub?`<div id="lgTile" class="eco-tile gstk" role="img" aria-label="Maha PMS">${gateStack()}</div>`:`<img id="lgTile" src="${lgTileSrc(typeof lgTargetSys!=='undefined'?lgTargetSys:null)}" class="eco-lockup eco-tile" alt="Maha Solutions">`};
+const gateStack=(kind)=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b>'+(kind==='provider'?'MAHA PROVIDER':'MAHA PMS')+'</b><small>'+(kind==='provider'?'PROVIDER CONSOLE':'HOTEL MANAGEMENT SOFTWARE')+'</small></span>';
+/* the sign-in logo: the Maha PMS stack for the hotel system, the same stack (Maha Provider) for the provider console */
+const stackKind=()=>(typeof lgTargetSys!=='undefined'&&lgTargetSys==='hub')?'hub':(typeof lgProvider!=='undefined'&&lgProvider)?'provider':'';
+const LOGO_TILE=()=>{const kind=stackKind();return kind?`<div id="lgTile" class="eco-tile gstk" data-kind="${kind}" role="img" aria-label="${kind==='provider'?'Maha Provider':'Maha PMS'}">${gateStack(kind)}</div>`:`<img id="lgTile" src="${lgTileSrc(typeof lgTargetSys!=='undefined'?lgTargetSys:null)}" class="eco-lockup eco-tile" alt="Maha Solutions">`};
 const LOGO_FULL=()=>`<div class="eco-lockup gfull" role="img" aria-label="Maha Solutions"><img src="/brand/maha/gate-gold.png" alt=""><b>MAHA SOLUTIONS</b></div>`;
 const ECO_SOON=[
   {name:'Maha HR',blurb:'Team, attendance and payroll.'},
@@ -8761,7 +8770,7 @@ function showLogin(msg){
   const applyPick=()=>{
     const box=$('#lgCards');if(!box)return;
     const picked=!!lgTargetSys;
-    {const tl=$('#lgTile');if(tl){const hubNow=lgTargetSys==='hub',isDiv=tl.tagName==='DIV';if(hubNow===isDiv){/* same kind: nothing to change */}else{const w=document.createElement('div');w.innerHTML=LOGO_TILE();const nn=w.firstElementChild;if(nn)tl.replaceWith(nn)}if(!hubNow){const t2=$('#lgTile');if(t2&&t2.tagName==='IMG'){t2.src=lgTileSrc(lgTargetSys);t2.alt='Maha Solutions'}}}}
+    {const tl=$('#lgTile');if(tl){const kindNow=stackKind(),hubNow=!!kindNow,isDiv=tl.tagName==='DIV';if(hubNow===isDiv&&(!hubNow||tl.dataset.kind===kindNow)){/* same kind: nothing to change */}else{const w=document.createElement('div');w.innerHTML=LOGO_TILE();const nn=w.firstElementChild;if(nn)tl.replaceWith(nn)}if(!hubNow){const t2=$('#lgTile');if(t2&&t2.tagName==='IMG'){t2.src=lgTileSrc(lgTargetSys);t2.alt='Maha Solutions'}}}}
     const open=!!(lgTargetSys||lgProvider);
     const shell=document.querySelector('.eco-shell');
     if(shell){shell.classList.toggle('is-signin',open);shell.classList.toggle('is-chosen',picked)}
