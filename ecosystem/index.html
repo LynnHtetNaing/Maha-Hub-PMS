@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="ea3d017f88">
+<meta name="maha-build" content="897cb26f76">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1312,6 +1312,13 @@ html[data-mode=dark] .gstk .gtx b{color:#d4b15a}html[data-mode=dark] .gstk .gtx 
 @media (max-width:700px){.eco-shell .eco-hero .eco-lockup.gfull,.eco-hero .eco-lockup.gfull{width:190px!important;margin-bottom:18px}}
 .eco-login .gstk{width:230px;margin:0 auto 14px}.eco-shell .eco-login .gstk,.eco-login .eco-tile.gstk{box-shadow:none!important;border-radius:0!important;background:none!important}.eco-shell .eco-login .gstk{width:min(240px,66%);margin:0 auto 10px}
 @media (max-width:900px){.eco-login .gstk{width:150px}}
+/* Maha Provider sign-in: the name on one line, and more room around the heading and the form (the text stays on the left) */
+.eco-login .gstk[data-kind=provider] .gtx b{font-size:7.3cqw;white-space:nowrap;letter-spacing:.16em;text-indent:.16em}
+.eco-login .gstk[data-kind=provider] .gtx small{font-size:3cqw}
+.eco-shell.eco-console .eco-login .gstk{margin-bottom:24px}
+.eco-shell.eco-console .eco-login .eco-sysrow{margin:4px 0 10px}
+.eco-shell.eco-console .eco-login .eco-hisub{margin-top:6px}
+.eco-shell.eco-console .eco-login .eco-form{margin-top:16px}
 /* the device-check pop-up (the same look as the CRM) */
 .emc-brand{display:flex;align-items:center;gap:12px;margin:0 0 10px}.emc-brand img{width:44px;height:auto;filter:brightness(.4) saturate(3.4) contrast(1.35)}.emc-brand b{font:800 20px/1 Inter,system-ui,sans-serif;letter-spacing:.14em;color:#0b3d2e}
 .emc-chk{display:flex;gap:8px;align-items:center;font-size:13px;margin:10px 0}.emc-chk input{width:auto;min-height:0}
@@ -8918,7 +8925,8 @@ function doLogin(){
       if(btn)btn.disabled=false;
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
       err.textContent='';try{PlatSet.begin()}catch(e){}   /* the shared codes and logos load in the background; the screen updates when they arrive */
-      if(r.provider){const want=lgTargetSys;enterProvider(un,r.userId);if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
+      if(r.provider){if(onSplitHost()&&hostRole()!=='console'){if(MahaAuth.on())MahaAuth.signOut();err.textContent='The provider signs in at console.maha-hub.com, not on this address.';return}   /* the provider has its own address: no provider sign-in on the PMS or any other system address */
+        const want=lgTargetSys;enterProvider(un,r.userId);if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
   }
