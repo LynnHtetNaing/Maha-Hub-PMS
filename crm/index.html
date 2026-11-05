@@ -614,6 +614,8 @@ input,select,textarea{box-sizing:border-box}
 .hi-sys{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px;margin-bottom:8px;align-items:end}@media (max-width:560px){.hi-sys{grid-template-columns:minmax(0,1fr)}}
 .hi-ct{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}.hi .hi-ct input{border:0!important;border-radius:0!important;flex:1;min-width:0;width:auto!important}.hi .hi-ct select{border:0!important;border-left:1px solid var(--line)!important;border-radius:0!important;width:9.5em!important;flex:none;background:#f4efe6}
 .pv-ok{color:#1b7a3a;font-weight:700}.pv-ticks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}.cp-hit{background:#fff3d6;font-weight:600}
+.rp-tiles{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.rp-t{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 16px;min-width:130px}.rp-t .v{font-size:22px;font-weight:700}.rp-t .l{font-size:12px;color:var(--ink-2)}.rp-h{font-size:14px;margin:22px 0 8px}
+.fu-tb td.r{text-align:right}.fu-tb td.red{color:#b3261e;font-weight:600}.fu-tb td.hit{color:#1b7a3a;font-weight:700}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -765,8 +767,9 @@ const PB_DEFAULT = [
 - Staff Credit: the credit % of each staff member (set by the CEO). It shows in Setup activation and is kept on each activation and each signed contract
 - Credit Report: every activation set to Live and every signed contract with its credit (the staff's Credit % x the first month fee). Filter by staff, department and dates; the Total line and the total for each staff show the production of each person
 - Referral Rewards: the reward a referral hotel earns when a signing comes through it
-- System Providers: the companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
+- System Providers: the CEO adds, edits and deletes them. The companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
 - Competitor Analysis (own menu title): the hotel list filtered by software and provider
+- Report (own menu title): Quotation, Revenue, Pipeline, Lead Source, Activation Speed and Referral Rewards. Each has filters, Search, Reset and Export to Excel. The Revenue and Referral Rewards reports are for the CEO only
 - Everyone can view these pages; only the CEO can add or change them`},
 
  {cat: 'Other tools', title: 'Enewletter', body:
@@ -1695,17 +1698,17 @@ const NAV = [['dashboard','Dashboard'],['hotels','Hotels'],['quotes','Quotes'],[
 function drawNav(cur) {
   drawRail(cur);
 }
-const SECTION_OF = {competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'dashboard', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {report:'dashboard', competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'dashboard', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 const NAVS = {cur: '', stack: [], back: false};
 function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'report', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
   drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
-  ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
+  ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, report:vReport, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
   crumb(SECTION_OF[r] || 'dashboard');
 }
 async function decide(result) {
@@ -2305,6 +2308,7 @@ const NAVG = [
   {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
+  {g:'Report', i:'kpi', items:[['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
   ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
 ];
@@ -2316,7 +2320,7 @@ function drawRail(cur) {
     if (!n.g) return `<div class="mg"><a class="mgb${cur === n[0] ? ' on' : ''}" href="#${n[0]}" title="${esc(n[1])}">${mi(n[0])}<span>${esc(n[1])}</span></a></div>`;
     if (n.items.some(x => x[1] === h)) NAVOPEN[n.g] = true;
     return `<div class="mg${NAVOPEN[n.g] ? ' open' : ''}" data-gt="${esc(n.g)}"><button type="button" class="mgb" data-g="${esc(n.g)}" title="${esc(n.g)}">${mi(n.i)}<span>${esc(n.g)}</span>${mi('chev', 'car')}</button>
-     <div class="mgi">${n.items.filter(it => it[1] !== '#userlog' || Auth.isProvider()).map(([l, x, k]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${mi(k || 'chev')}<span>${esc(l)}</span></button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${mi(k || 'chev')}<span>${esc(l)}</span></a>`).join('')}</div></div>`;
+     <div class="mgi">${n.items.filter(it => !['#userlog', '#report/revenue', '#report/rewards'].includes(it[1]) || Auth.isProvider()).map(([l, x, k]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${mi(k || 'chev')}<span>${esc(l)}</span></button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${mi(k || 'chev')}<span>${esc(l)}</span></a>`).join('')}</div></div>`;
   }).join('');
 }
 
@@ -2403,11 +2407,12 @@ function vDeleted() {
   const T = {
     hotel: {rows: deletedOf('hotel'), head: ['Hotel name', 'City', 'Country', 'OTA', 'Contact Person'], cells: h => [esc(h.name), esc(h.city || ''), esc(h.country || ''), esc(otaLine(h)), esc(h.contact || '')]},
     quote: {rows: deletedOf('quote'), head: ['Quotation number', 'Hotel name', 'Date', 'Status'], cells: q => [esc(q.no || ''), esc(q.hotelName || hotelName(q.hotelId)), esc(meetDmy(q.date)), esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))]},
+    sysprov: {rows: deletedOf('sysprov'), head: ['Provider name', 'Software'], cells: p => [esc(p.name), esc((p.types || []).map(k => (SYS_TYPES.find(s => s[0] === k) || [0, k])[1]).join(', '))]},
     activation: {rows: deletedOf('activation'), head: ['Activation date', 'Hotel name', 'Setup by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(hotelName(a.hotelId)), esc(a.techBy || ''), esc(a.status || '')]},
     meeting: {rows: deletedOf('act').filter(isMeet), head: ['Meeting date', 'Meeting time', 'Hotel name', 'Contact person', 'Meeting by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(a.time || ''), esc(hotelName(a.hotelId)), esc(a.contactName || ''), esc(a.owner || ''), esc(meetSt(a))]},
   }[tab], rows = T.rows.sort((a, b) => ((b.deleted || {}).at || '').localeCompare((a.deleted || {}).at || ''));
   view().innerHTML = `<div class="top"><div><h1>Delete records</h1></div></div>
-   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted'], ['activation', 'Activation deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
+   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted'], ['activation', 'Activation deleted'], ['sysprov', 'Provider deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
    <div class="tablewrap fu-tw dbw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${T.head.map(h => `<th>${h}</th>`).join('')}<th>Deleted by</th><th>Deleted date time</th><th>Action</th></tr></thead>
    <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${T.cells(r).map((c, k) => `<td${k === 0 || k === 1 ? ' class="l"' : ''}>${c}</td>`).join('')}<td>${who(r)}</td><td class="dlt">${when(r)}</td>${btn(r)}</tr>`).join('') : `<tr><td colspan="${T.head.length + 4}" class="empty">Nothing deleted here.</td></tr>`}</tbody></table></div>`;
 }
@@ -3078,6 +3083,123 @@ Object.assign(ACTIONS, {
   crdReset: () => { UI.crd = null; vCredits(); },
 });
 
+/* ---------- Report: six reports (Quotation, Revenue, Pipeline, Lead Source, Activation Speed, Referral Rewards) ----------
+   One page for each: filters, Search / Reset, tables with a Total line, and Export to Excel (what the page shows). Revenue and Referral Rewards are for the provider only. */
+const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
+const monthLabel = ym => new Date(ym + '-01T00:00:00').toLocaleDateString('en-GB', {month: 'short', year: 'numeric'});
+const RP_PROVIDER = ['revenue', 'rewards'];
+const rpStaff = () => [...new Set(K('staffcr').map(r => String(r.name || '').trim()).filter(Boolean).concat(K('quote').map(q => q.forSale || q.owner || ''), K('activation').map(a => a.techBy || a.owner || ''), meetActs().map(a => a.owner || '')).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+const rpSame = (a, b) => kpiKey(a) === kpiKey(b);
+const rpNum = (n, d = 0) => { const x = Math.round((+n || 0) * Math.pow(10, d)) / Math.pow(10, d); return x ? fmt(x) : '0'; };
+/* the money of a quotation: monthly fees (a yearly fee / 12 counts as monthly), one-time fees, and whether it has a commission */
+function quoteMoney(q) {
+  if (quoteIsNew(q)) { const on = (q.items || []).filter(i => i.on); return {month: on.filter(i => /month$/.test(i.unit || '')).reduce((t, i) => t + itemNet(i), 0) + on.filter(i => /year$/.test(i.unit || '')).reduce((t, i) => t + itemNet(i) / 12, 0), once: on.filter(i => /one time$/.test(i.unit || '')).reduce((t, i) => t + itemNet(i), 0), comm: on.some(i => /booking$/.test(i.unit || ''))}; }
+  const c = qCompute(q); return {month: (c.month || 0) + (c.year || 0) / 12, once: c.once || 0, comm: c.items.some(i => i.cad === 'comm')};
+}
+const quoteGroup = q => q.status === 'Accepted' ? 'Signed' : q.status === 'Rejected' ? 'Rejected' : 'Pending';
+const RP = {
+  quote: {title: 'Quotation Report', info: 'Quotation', def: () => ({from: today().slice(0, 8) + '01', to: today(), who: '', status: ''}),
+    filters: f => [['from', 'Start Date', 'date'], ['to', 'End Date', 'date'], ['who', 'Staff', ['', ...rpStaff()], 'All staff'], ['status', 'Status', [['', 'All'], ['Signed', 'Signed'], ['Rejected', 'Rejected'], ['Pending', 'Pending']]]],
+    build(f) {
+      const qs = K('quote').filter(q => (!f.from || (q.date || '') >= f.from) && (!f.to || (q.date || '') <= f.to) && (!f.who || rpSame(q.forSale || q.owner, f.who)) && (!f.status || quoteGroup(q) === f.status));
+      const by = new Map(); qs.forEach(q => { const w = q.forSale || q.owner || '(No name)', k = kpiKey(w), r = by.get(k) || {w, g: 0, s: 0, r: 0, p: 0}; r.g++; const g = quoteGroup(q); if (g === 'Signed') r.s++; else if (g === 'Rejected') r.r++; else r.p++; by.set(k, r); });
+      const rows = [...by.values()].sort((a, b) => b.g - a.g), T = rows.reduce((t, r) => ({g: t.g + r.g, s: t.s + r.s, r: t.r + r.r, p: t.p + r.p}), {g: 0, s: 0, r: 0, p: 0}), pc = (s, r) => s + r ? Math.round(s / (s + r) * 1000) / 10 + '%' : '-';
+      const why = new Map(); qs.filter(q => q.status === 'Rejected').forEach(q => { const d = String((q.rejectInfo || {}).detail || '').trim() || '(No reason written)', k = norm(d), r = why.get(k) || {d, n: 0}; r.n++; why.set(k, r); });
+      return {tiles: [['Generated', T.g], ['Signed', T.s], ['Rejected', T.r], ['Pending', T.p], ['Signed of decided', pc(T.s, T.r)]],
+        tables: [{name: 'Quotations', head: ['No.', 'Staff', 'Generated', 'Signed', 'Rejected', 'Pending', 'Signed %'], al: 'clccccc', rows: rows.map((r, i) => [i + 1, r.w, r.g, r.s, r.r, r.p, pc(r.s, r.r)]), foot: [['Total', T.g, T.s, T.r, T.p, pc(T.s, T.r)]], footSpan: 2},
+          {title: 'Reasons for rejection', name: 'Reasons', head: ['Reason', 'Quotations'], al: 'lc', rows: [...why.values()].sort((a, b) => b.n - a.n).map(r => [r.d, r.n])}]};
+    }},
+  revenue: {title: 'Revenue Report', info: 'Revenue', provider: true, def: () => ({from: today().slice(0, 4) + '-01-01', to: today(), who: '', cur: ''}),
+    filters: () => [['from', 'Start Date', 'date'], ['to', 'End Date', 'date'], ['who', 'Staff', ['', ...rpStaff()], 'All staff'], ['cur', 'Currency', ['', ...CRM_CUR.map(c => c[0])], 'All']],
+    build(f) {
+      const qs = K('quote').filter(q => q.status === 'Accepted' && (!f.from || quoteSignDate(q) >= f.from) && (!f.to || quoteSignDate(q) <= f.to) && (!f.who || rpSame(q.forSale || q.owner, f.who)) && (!f.cur || curOf(q) === f.cur));
+      const g = new Map(); qs.forEach(q => { const ym = quoteSignDate(q).slice(0, 7), c = curOf(q), k = ym + '|' + c, m = quoteMoney(q), r = g.get(k) || {ym, c, n: 0, month: 0, once: 0, comm: 0}; r.n++; r.month += m.month; r.once += m.once; if (m.comm) r.comm++; g.set(k, r); });
+      const rows = [...g.values()].sort((a, b) => a.ym.localeCompare(b.ym) || a.c.localeCompare(b.c)), curs = [...new Set(rows.map(r => r.c))].sort();
+      const live = new Map(); K('activation').filter(a => a.status === 'Live').sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(a => live.set(a.hotelId, a));
+      const act = new Map(); live.forEach(a => { const q = byId(a.quoteId) || quoteForHotel(a.hotelId); if (!q || (f.cur && curOf(q) !== f.cur)) return; const c = curOf(q), r = act.get(c) || {c, n: 0, month: 0}; r.n++; r.month += quoteMoney(q).month; act.set(c, r); });
+      return {tables: [{name: 'Fees signed', head: ['No.', 'Month', 'Signed', 'Monthly fees signed', 'One-time fees signed', 'Commission deals', 'Currency'], al: 'cccrrcc', rows: rows.map((r, i) => [i + 1, monthLabel(r.ym), r.n, rpNum(r.month), rpNum(r.once), r.comm, r.c]),
+          foot: curs.map(c => { const rs = rows.filter(r => r.c === c); return ['Total ' + c, rs.reduce((t, r) => t + r.n, 0), rpNum(rs.reduce((t, r) => t + r.month, 0)), rpNum(rs.reduce((t, r) => t + r.once, 0)), rs.reduce((t, r) => t + r.comm, 0), c]; }), footSpan: 2},
+        {title: 'Monthly fees now active (live hotels)', name: 'Active monthly fees', head: ['Currency', 'Hotels live', 'Monthly fees'], al: 'lcr', rows: [...act.values()].sort((a, b) => a.c.localeCompare(b.c)).map(r => [r.c, r.n, rpNum(r.month)])}]};
+    }},
+  pipeline: {title: 'Pipeline Report', info: 'Pipeline', def: () => ({who: '', city: ''}),
+    filters: () => [['who', 'Staff', ['', ...[...new Set(K('hotel').map(h => h.owner).filter(Boolean))].sort()], 'All staff'], ['city', 'City', ['', ...[...new Set(K('hotel').map(h => h.city).filter(Boolean))].sort()], 'All cities']],
+    build(f) {
+      const hs = K('hotel').filter(h => (!f.who || rpSame(h.owner, f.who)) && (!f.city || rpSame(h.city, f.city))), st = STAGES.map(s => s[0]), cols = h => st.map(s => hs.filter(x => h(x) && (x.status || 'New lead') === s).length);
+      const grp = (key, none) => [...new Set(hs.map(h => (key(h) || none)))].sort((a, b) => a.localeCompare(b));
+      const sRows = grp(h => h.owner, '(No name)').map(w => { const c = cols(h => (h.owner || '(No name)') === w); return [w, ...c, c.reduce((a, b) => a + b, 0)]; });
+      const cRows = grp(h => h.city, '(No city)').map(w => { const c = cols(h => (h.city || '(No city)') === w); return [w, ...c, c.reduce((a, b) => a + b, 0)]; });
+      const tot = rows => ['Total', ...st.map((_, i) => rows.reduce((t, r) => t + r[i + 1], 0)), rows.reduce((t, r) => t + r[st.length + 1], 0)];
+      return {tables: [{name: 'By staff', head: ['Staff', ...st, 'Total'], al: 'l' + 'c'.repeat(st.length + 1), rows: sRows, foot: [tot(sRows)], footSpan: 1},
+        {title: 'By city', name: 'By city', head: ['City', ...st, 'Total'], al: 'l' + 'c'.repeat(st.length + 1), rows: cRows, foot: [tot(cRows)], footSpan: 1}]};
+    }},
+  leads: {title: 'Lead Source Report', info: 'Lead source', def: () => ({from: today().slice(0, 4) + '-01-01', to: today()}),
+    filters: () => [['from', 'Start Date', 'date'], ['to', 'End Date', 'date']],
+    build(f) {
+      const inR = d => (!f.from || d >= f.from) && (!f.to || d <= f.to), types = [['Sales Call', 'Sales Call'], ['Guest Contact Us', 'Guest Contact Us'], ['Customer Referral', 'Customer Referral'], ['', 'No specify type']];
+      const ap = meetActs().filter(a => meetSt(a) === 'Completed' && inR(a.date || '')), qs = K('quote').filter(q => inR(q.date || '')), sg = K('quote').filter(q => q.status === 'Accepted' && inR(quoteSignDate(q)));
+      const rows = types.map(([k, l]) => { const a = ap.filter(x => (x.meetLead || '') === k).length, q = qs.filter(x => leadOfHotel(x.hotelId) === k).length, s = sg.filter(x => leadOfHotel(x.hotelId) === k).length; return [l, a, q, s, q ? Math.round(s / q * 100) + '%' : '-']; });
+      const T = rows.reduce((t, r) => [t[0] + r[1], t[1] + r[2], t[2] + r[3]], [0, 0, 0]);
+      const ref = new Map(); meetActs().filter(a => a.meetLead === 'Customer Referral' && a.refHotelId && inR(a.date || '')).forEach(a => { const r = ref.get(a.refHotelId) || new Set(); r.add(a.hotelId); ref.set(a.refHotelId, r); });
+      const signedH = new Set(K('quote').filter(q => q.status === 'Accepted').map(q => q.hotelId)), best = [...ref.entries()].map(([id, set]) => [hotelName(id), set.size, [...set].filter(h => signedH.has(h)).length]).sort((a, b) => b[2] - a[2] || b[1] - a[1]);
+      return {tables: [{name: 'Lead types', head: ['Lead Type', 'Appointments', 'Quotations', 'Signed', 'Signed %'], al: 'lcccc', rows, foot: [['Total', T[0], T[1], T[2], T[1] ? Math.round(T[2] / T[1] * 100) + '%' : '-']], footSpan: 1},
+        {title: 'Best referral hotels', name: 'Referral hotels', head: ['Referral hotel', 'Hotels referred', 'Signed'], al: 'lcc', rows: best}]};
+    }},
+  speed: {title: 'Activation Speed Report', info: 'Activation', def: () => ({from: today().slice(0, 4) + '-01-01', to: today(), who: '', status: ''}),
+    filters: () => [['from', 'Start Date', 'date'], ['to', 'End Date', 'date'], ['who', 'Technician', ['', ...[...new Set(K('staffcr').filter(r => r.dept === 'Technician').map(r => r.name).concat(K('activation').map(a => a.techBy)).filter(Boolean))].sort()], 'All technicians'], ['status', 'Status', [['', 'All'], ['Live', 'Live'], ['Waiting', 'Waiting']]]],
+    build(f) {
+      const t = today(), rows = [], withAct = new Set();
+      K('activation').forEach(a => { withAct.add(a.hotelId); const q = byId(a.quoteId) || quoteForHotel(a.hotelId), signed = q ? quoteSignDate(q) : (a.date || ''), live = a.status === 'Live' ? ((a.liveAt || '').slice(0, 10) || a.date || '') : ''; rows.push({hotel: hotelName(a.hotelId), signed, live, tech: a.techBy || '', waiting: !live, started: true}); });
+      K('quote').filter(q => q.status === 'Accepted' && !withAct.has(q.hotelId)).forEach(q => rows.push({hotel: q.hotelName || hotelName(q.hotelId), signed: quoteSignDate(q), live: '', tech: '', waiting: true, started: false}));
+      const rs = rows.filter(r => r.signed && (!f.from || r.signed >= f.from) && (!f.to || r.signed <= f.to) && (!f.who || rpSame(r.tech, f.who)) && (!f.status || (f.status === 'Live') === !r.waiting)).sort((a, b) => a.signed.localeCompare(b.signed));
+      const days = r => r.live ? dayDiff(r.signed, r.live) : dayDiff(r.signed, t), done = rs.filter(r => r.live), avg = done.length ? Math.round(done.reduce((s, r) => s + days(r), 0) / done.length * 10) / 10 : 0;
+      const by = new Map(); rs.forEach(r => { const w = r.tech || '(Not started)', x = by.get(w) || {w, live: 0, wait: 0, d: 0}; if (r.live) { x.live++; x.d += days(r); } else x.wait++; by.set(w, x); });
+      return {tables: [{name: 'Activations', head: ['No.', 'Hotel name', 'Signed date', 'Live date', 'Days', 'Technician'], al: 'clcccl', rows: rs.map((r, i) => [i + 1, r.hotel, meetDmy(r.signed), r.live ? meetDmy(r.live) : (r.started ? 'Waiting' : 'Not started'), days(r), r.tech]), foot: [['Average days to Live', avg, '']], footSpan: 4, red: 3},
+        {title: 'By technician', name: 'By technician', head: ['Technician', 'Live', 'Waiting', 'Average days'], al: 'lccc', rows: [...by.values()].map(x => [x.w, x.live, x.wait, x.live ? Math.round(x.d / x.live * 10) / 10 : '-'])}]};
+    }},
+  rewards: {title: 'Referral Rewards Report', info: 'Referral rewards', provider: true, def: () => ({from: today().slice(0, 4) + '-01-01', to: today(), status: '', ref: ''}),
+    filters: () => [['from', 'Start Date', 'date'], ['to', 'End Date', 'date'], ['status', 'Status', [['', 'All'], ['Earned', 'Earned'], ['Cancelled', 'Cancelled']]], ['ref', 'Referral hotel', ['', ...[...new Set(K('refcredit').map(r => hotelName(r.referrerId)).filter(Boolean))].sort()], 'All hotels']],
+    build(f) {
+      const rs = K('refcredit').filter(r => (!f.from || (r.signedDate || '') >= f.from) && (!f.to || (r.signedDate || '') <= f.to) && (!f.status || r.status === f.status) && (!f.ref || hotelName(r.referrerId) === f.ref)).sort((a, b) => (b.signedDate || '').localeCompare(a.signedDate || ''));
+      return {tables: [{name: 'Referral rewards', head: ['No.', 'Signed date', 'Referral hotel', 'Referred hotel', 'Quotation No.', 'Reward plan', 'Reward', 'Status'], al: 'ccllcllc', rows: rs.map((r, i) => [i + 1, meetDmy(r.signedDate), hotelName(r.referrerId), hotelName(r.referredId), r.quoteNo || '', r.planName || '', r.reward || '', r.status || '']),
+        foot: [['Total earned', rs.filter(r => r.status === 'Earned').length]], footSpan: 7, ok: 7}]};
+    }},
+};
+function vReport(key) {
+  const c = RP[key]; if (!c) { location.hash = 'dashboard'; return; }
+  if (c.provider && !Auth.isProvider()) { view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div></div><div class="empty">Only the CEO can open this report.</div>`; return; }
+  const S = UI.rp = UI.rp || {}, f = S[key] = S[key] || c.def();
+  const fld = ([k, label, type, ph]) => {
+    const id = 'rp_' + k, v = f[k] || '';
+    const inner = type === 'date' ? `<input type="date" id="${id}" value="${esc(v)}">` : `<select id="${id}">${(type || []).map(o => { const [val, text] = Array.isArray(o) ? o : [o, o || ph || 'All']; return `<option value="${esc(val)}" ${v === val ? 'selected' : ''}>${esc(text)}</option>`; }).join('')}</select>`;
+    return `<label for="${id}">${label} :</label><div>${inner}</div>`;
+  };
+  view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div></div>
+   <div class="fu-sub"><b>${c.info}</b> information</div>
+   <div class="fu-form">${c.filters(f).map(fld).join('')}</div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="rpSearch" data-k="${key}">${ICON.search}Search</button><button type="button" class="btn amber" data-act="rpReset" data-k="${key}">${ICON.reset}Reset</button><button type="button" class="btn gold" data-act="rpExport" data-k="${key}">Export to Excel</button></div>
+   <div id="rpbody"></div>`;
+  paintReport(key);
+}
+function paintReport(key) {
+  const c = RP[key], f = UI.rp[key], box = $('#rpbody'); if (!box) return; const r = c.build(f);
+  const tbl = t => `${t.title ? `<h3 class="rp-h">${esc(t.title)}</h3>` : ''}<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>
+    ${t.rows.length ? t.rows.map(row => `<tr>${row.map((v, i) => `<td class="${t.al[i] === 'l' ? 'l' : t.al[i] === 'r' ? 'r' : ''}${t.red === i && /^(Waiting|Not started)$/.test(String(v)) ? ' red' : ''}${t.ok === i && v === 'Earned' ? ' hit' : ''}">${esc(String(v ?? ''))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.head.length}" class="empty">Nothing found for these filters. Change them, then press Search.</td></tr>`}
+    ${t.rows.length ? (t.foot || []).map(fr => `<tr class="kp-tot"><td colspan="${t.footSpan || 1}" style="text-align:right"><b>${esc(String(fr[0]))}</b></td>${fr.slice(1).map(v => `<td><b>${esc(String(v ?? ''))}</b></td>`).join('')}</tr>`).join('') : ''}</tbody></table></div>`;
+  box.innerHTML = (r.tiles ? `<div class="rp-tiles">${r.tiles.map(([l, v]) => `<div class="rp-t"><div class="v">${esc(String(v))}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>` : '') + r.tables.map(tbl).join('');
+}
+function rpExport(key) {
+  const c = RP[key], r = c.build(UI.rp[key]);
+  const sheets = r.tables.map(t => ({name: (t.name || 'Report').slice(0, 31), aoa: [t.head, ...t.rows, ...(t.rows.length ? (t.foot || []).map(fr => [fr[0], ...Array(Math.max(0, (t.footSpan || 1) - 1)).fill(''), ...fr.slice(1)]) : [])]}));
+  const name = c.title + ' - ' + today();
+  try { const wb = XLSX.utils.book_new(); sheets.forEach(s => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s.aoa), s.name)); download(name + '.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); }
+  catch { download(name + '.csv', toCSV(sheets[0].aoa), 'text/csv'); }
+}
+Object.assign(ACTIONS, {
+  rpSearch: el => { const k = el.dataset.k, f = UI.rp[k]; Object.keys(f).forEach(x => { const e = $('#rp_' + x); if (e) f[x] = e.value; }); paintReport(k); },
+  rpReset: el => { UI.rp[el.dataset.k] = null; vReport(el.dataset.k); },
+  rpExport: el => rpExport(el.dataset.k),
+});
+
 /* ---------- System Providers and Competitor Analysis ----------
    System Providers (Pricing & Commercial): the companies that supply a hotel's software (a competitor, or Maha), with the software each one supplies. Only the provider adds names.
    A hotel's More details has one row for each software (PMS, CM, BE, Virtual Offline Payment, POS): the provider chosen from this list, and beside it the amount and the commercial term the hotel pays.
@@ -3091,29 +3213,38 @@ function sysRows(h) {
   return SYS_TYPES.map(([k, label]) => `<div class="hi-sys"><label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${provOptions(k, h[k]).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
     <div class="f"><span>Amount · Commercial term</span><div class="hi-ct"><input data-hf="${k}Amt" value="${esc(h[k + 'Amt'] ?? '')}" placeholder="Amount" inputmode="decimal" autocomplete="off"><select data-hf="${k}Term"><option value="">Term</option>${SYS_TERMS.map(v => `<option ${h[k + 'Term'] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div></div></div>`).join('');
 }
+/* the providers the CEO listed from the old drop-down (kinds ticked where they are known; empty = to be checked). They are added once, the first time the CEO opens System Providers; the CEO can edit or delete each one. */
+const SYSPROV_SEED = [["eZee (Yanolja Cloud)",["pms","cm","be","pos"]],["D-EDGE",["cm","be"]],["Cloudbeds",["pms","cm","be"]],["Exely / TravelLine",["pms","cm","be"]],["SiteMinder",["cm","be"]],["Little Hotelier",["pms","cm","be"]],["Hotel Link Solutions",["cm","be"]],["Hoteliers Guru",["pms","cm","be","pvo"]],["Innsoft Connect-Inn",["cm","be"]],["Readyplanet",["be"]],["Amadeus / TravelClick",["be","cm"]],["Reserve Online",["be"]],["Web Connection",["be","cm"]],["Simple Booking",["be"]],["Bravo",["pms","pos"]],["CiHMS",["pms","cm"]],["EzCloud",["pms","cm"]],["Guestdiary",["pms","be","cm"]],["Hotech (Otello Gem)",["pms"]],["hoteliga",["pms","cm","be"]],["Hoteltime",["pms","pos"]],["IQware",["pms"]],["Mycloud",["pms","pos","cm","be"]],["RedForts",["pms","cm","be"]],["Reseliva",["be","cm"]],["Softinn",["pms","cm","be"]],["WinHMS",["pms","pos","be"]],["HMP (HMP Master)",["pms","be"]],["Hotel-Rez",["be"]],["Roomscope",["pms"]],["Simplotel",["be"]],["Centrum Cloud",["pms","pos","be"]],["Comanche",["pms","pos"]],["EASYFO",["pms","pos","be"]],["Epitome",["pms"]],["OASIS",["pms"]],["Smile",["pms"]],["Wincloud",["pms","pos"]],["365Villas",["pms","cm","be"]],["AHAROOMS",["cm","be"]],["AIOSELL",["cm","be"]],["Axisrooms",["cm","be"]],["Beds24",["pms","cm","be"]],["Blue Jay Pms",["pms"]],["Blue Jay Pos Viet Nam",["pos"]],["Booking Factory",["be"]],["Bookwize",["be"]],["Channex",["cm"]],["channelmanager.com.au",["cm"]],["Checkfront",["be"]],["CultBooking",["cm","be"]],["eviivo",["pms","cm","be"]],["Fidelio",["pms"]],["Freetobook",["pms","cm","be"]],["Frontdesk Anywhere",["pms"]],["FrontDesk Master",["pms"]],["Guestline",["pms","cm","be"]],["Guesty",["pms","cm"]],["Hostaway",["pms","cm"]],["Hotelogix",["pms","cm","be"]],["Hotelrunner",["pms","cm","be"]],["Infor Starlight",["pms"]],["Lodgify",["pms","cm","be"]],["MaxiBooking",["pms","cm","be"]],["Mews",["pms"]],["Mirai",["be","cm"]],["Octorate",["pms","cm","be"]],["Opera",["pms"]],["Paraty Tech",["be","cm"]],["Profitroom",["be","cm"]],["RateGain",["cm"]],["RateTiger",["cm"]],["Resavenue",["pms","cm","be"]],["reservation-system.net",["be"]],["roiback",["be"]],["RoomRaccoon",["pms","cm","be"]],["Sabeeapp",["pms","cm","be"]],["Seekda",["be","cm"]],["SHR / Windsurfer (Shiji Group)",["pms","be"]],["Sirvoy",["pms","cm","be"]],["Springer-Miller Systems",["pms"]],["Staah",["pms","cm","be"]],["Synxis (Sabre)",["be","cm"]],["Travelanium",["cm","be"]],["Vertical Booking",["be","cm"]],["WebHotelier",["pms","cm","be"]],["WuBook",["pms","cm","be"]],["zoombookdirect",["be"]],["Bedzzle",["pms","cm","be"]],["Allotz",["cm"]],["BookNPay",["be","cm"]],["Blue House Travel / Booking2Hotels",["be"]],["Bookcore",["be"]],["DiHotel",["pms"]],["Directwithhotels",["be"]],["Phuket Solution",["pms"]],["Pelican Solutions",["pms","be"]],["Smart Hotel Software",["pms"]],["Zuzu / ZUZU Hospitality",["cm","be","pvo"]],["Wink (Wink.travel)",["be"]],["Roomie",["pvo"]],["Wixhotels",["be"]],["radiant1",[]],["Newway",[]],["Hotelchamp",[]],["The Hotels Network",[]],["Triptease",[]],["MakeWebEasy",[]],["Ace Marketing Solutions",[]],["All Hands Marketing",[]],["The Percentage",[]],["H.I.S",[]],["lenotre",[]],["Grabrooms",[]],["ADS",[]],["AsiaTech",[]],["Backhotel Lite",[]],["Backhotelengine",[]],["Bookcall",[]],["bookings247",[]],["CALYPSO",[]],["DJUBQ",[]],["FROMAS",[]],["Frontdeskey",[]],["Getbestbooking",[]],["GHS Booking Engine",[]],["Gihotech",[]],["HotelX",[]],["Hotelbizsolution",[]],["Intelio",[]],["LEO",[]],["Myxcaliber",[]],["PMS Boxes",[]],["reveto",[]],["Roomy",[]],["Sky Software",[]],["SmartFinder",[]],["Sophia Software Solutions",[]],["OHOTEL",[]],["OYO",[]],["Onehotel.asia",[]]];
+async function sysprovSeed() {
+  if (!Auth.isProvider() || UI.pvSeeding || byId('sysprov_seed_v1') || K('sysprov').length) return; UI.pvSeeding = true;
+  for (const [name, types] of SYSPROV_SEED) await save({id: 'sp_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), kind: 'sysprov', name, types});
+  await save({id: 'sysprov_seed_v1', kind: 'sysprovseed', at: new Date().toISOString()}); UI.pvSeeding = false;
+}
 function vProviders() {
+  if (Auth.isProvider() && !byId('sysprov_seed_v1') && !K('sysprov').length && !UI.pvSeeding) sysprovSeed().then(() => { if (location.hash === '#pricing/providers') vProviders(); });
   const adm = Auth.isProvider(), f = UI.prv = UI.prv || {q: ''};
   view().innerHTML = `<div class="top"><div><h1>System Providers</h1></div><div class="actions">${adm ? `<button type="button" class="btn primary" data-act="prvAdd">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pv_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="fu-sub"><b>System Providers</b> information</div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Provider name</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Added</th></tr></thead><tbody id="pvbody"></tbody></table></div>`;
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Provider name</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Added</th>${adm ? '<th>Action</th>' : ''}</tr></thead><tbody id="pvbody"></tbody></table></div>`;
   paintProviders(); const q = $('#pv_q'); q.addEventListener('input', () => { f.q = q.value; paintProviders(); });
 }
 function paintProviders() {
   const tb = $('#pvbody'); if (!tb) return; const n = norm((UI.prv || {}).q || ''), adm = Auth.isProvider();
   const rows = K('sysprov').filter(p => !n || norm(p.name).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
-  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td>${SYS_TYPES.map(s => `<td>${(p.types || []).includes(s[0]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td>`).join('')}<td class="nw">${esc(meetDmy((p.created || '').slice(0, 10)))}</td></tr>`).join('')
-    : `<tr><td colspan="${SYS_TYPES.length + 3}" class="empty">${n ? 'Nothing matches your search.' : adm ? 'No provider yet. Press Add new to add the first one.' : 'No provider has been added yet.'}</td></tr>`;
+  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td>${SYS_TYPES.map(s => `<td>${(p.types || []).includes(s[0]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td>`).join('')}<td class="nw">${esc(meetDmy((p.created || '').slice(0, 10)))}</td>${adm ? `<td class="nw"><button type="button" class="btn info sm" data-act="prvEdit" data-id="${p.id}">${ICON.edit}Edit</button> <button type="button" class="btn redb sm" data-act="prvDel" data-id="${p.id}">${ICON.trash}Delete</button></td>` : ''}</tr>`).join('')
+    : `<tr><td colspan="${SYS_TYPES.length + 3 + (adm ? 1 : 0)}" class="empty">${n ? 'Nothing matches your search.' : adm ? 'No provider yet. Press Add new to add the first one.' : 'No provider has been added yet.'}</td></tr>`;
 }
-function prvSheet() {
-  if (!Auth.isProvider()) { toast('Only the CEO can add a provider'); return; }
-  openSheet(`${fuHead('Add new provider')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Provider name <i class="req">*</i></label><input id="pv_name" autocomplete="off" style="width:100%"></div>
-   <div class="mq-b"><label class="mq-l">Software it supplies <i class="req">*</i></label><div class="pv-ticks">${SYS_TYPES.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-pt="${k}"> ${esc(l)}</label>`).join('')}</div></div></div>
+function prvSheet(id) {
+  if (!Auth.isProvider()) { toast('Only the CEO can add or change a provider'); return; }
+  const cur = id ? byId(id) : null;
+  openSheet(`${fuHead(cur ? 'Edit provider' : 'Add new provider')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Provider name <i class="req">*</i></label><input id="pv_name" autocomplete="off" style="width:100%" value="${esc(cur ? cur.name : '')}"></div>
+   <div class="mq-b"><label class="mq-l">Software it supplies${cur ? '' : ' <i class="req">*</i>'}</label><div class="pv-ticks">${SYS_TYPES.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-pt="${k}" ${cur && (cur.types || []).includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></div></div>
    <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="pv_save">Save</button></div>`, root => {
     $('#pv_save', root).onclick = async () => {
       const name = $('#pv_name', root).value.trim().replace(/\s+/g, ' '), types = $$('[data-pt]', root).filter(c => c.checked).map(c => c.dataset.pt);
-      if (!name) { toast('Provider name is required'); return; } if (!types.length) { toast('Tick at least one software'); return; }
-      if (K('sysprov').some(p => norm(p.name) === norm(name))) { toast('This provider is already in the list'); return; }
-      await save({id: uid(), kind: 'sysprov', name, types}); closeSheet(); toast('Saved'); vProviders();
+      if (!name) { toast('Provider name is required'); return; } if (!cur && !types.length) { toast('Tick at least one software'); return; }
+      if (K('sysprov').some(p => p.id !== (cur || {}).id && norm(p.name) === norm(name))) { toast('This provider is already in the list'); return; }
+      await save({...(cur || {}), id: cur ? cur.id : uid(), kind: 'sysprov', name, types}); closeSheet(); toast('Saved'); vProviders();
     };
   });
 }
@@ -3140,6 +3271,8 @@ function paintCompetitors() {
 }
 Object.assign(ACTIONS, {
   prvAdd: () => prvSheet(),
+  prvEdit: el => prvSheet(el.dataset.id),
+  prvDel: async el => { const p = byId(el.dataset.id); if (!p || !Auth.isProvider()) return; if (!await confirmDelete('Do you want delete provider ' + p.name + '? A hotel that already has it keeps the name. It moves to Delete records.')) return; await softDelete(p); toast('Provider deleted'); vProviders(); },
   cpSearch: () => { const f = UI.cmp = UI.cmp || {}; f.sys = $('#cp_sys').value; f.prov = $('#cp_prov').value; f.go = true; paintCompetitors(); },
   cpReset: () => { UI.cmp = {sys: '', prov: '', q: '', go: false}; vCompetitors(); },
 });
@@ -3906,7 +4039,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {competitors:'kpi', pricing:'gear', setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {report:'kpi', competitors:'kpi', pricing:'gear', setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
