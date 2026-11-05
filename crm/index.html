@@ -2139,8 +2139,25 @@ function vCollect() {
 }
 
 /* ---------- more: sockets + data ---------- */
+/* the quotations made before the new quotation form (the old format, not an uploaded file): the provider can clear them once */
+const oldQuotes = () => R.filter(r => r.kind === 'quote' && !Array.isArray(r.items) && !r.upload);
+function clearOldSheet() {
+  if (!Auth.isProvider()) { toast('Only the CEO can clear the old quotations'); return; }
+  const list = oldQuotes().sort((a, b) => (a.date || '').localeCompare(b.date || '')); if (!list.length) { toast('There is no old quotation'); return; }
+  openSheet(`${fuHead('Clear old quotations')}<div class="fu-pop" style="margin-top:14px"><p class="mq-t">${list.length} quotation${list.length === 1 ? '' : 's'} made before the new quotation form. They are removed for good and no longer count in the KPI and the Dashboard. A backup file downloads first.</p>
+   <div class="tablewrap fu-tw" style="max-height:260px;overflow:auto"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Quotation No.</th><th>Hotel name</th><th>Date</th><th>Status</th></tr></thead><tbody>${list.map((q, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(q.no || '')}</td><td class="l">${esc(q.hotelName || hotelName(q.hotelId))}</td><td class="nw">${esc(meetDmy(q.date))}</td><td>${esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))}</td></tr>`).join('')}</tbody></table></div>
+   <div class="mq-b" style="margin-top:14px"><label class="mq-l">Type CLEAR to confirm</label><input id="co_w" autocomplete="off" style="max-width:240px"></div></div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn redb" id="co_go">Clear ${list.length} old quotation${list.length === 1 ? '' : 's'}</button></div>`, root => {
+    root.classList.add('wide');
+    $('#co_go', root).onclick = () => {
+      if ($('#co_w', root).value.trim() !== 'CLEAR') { toast('Type CLEAR to confirm'); return; }
+      download('Maha CRM old quotations backup ' + today() + '.json', JSON.stringify(list, null, 1), 'application/json');
+      list.forEach(q => remove(q.id)); closeSheet(); toast(list.length + ' old quotation' + (list.length === 1 ? '' : 's') + ' cleared'); vMore();
+    };
+  });
+}
 function vMore() {
-  const n = K('hotel').length;
+  const n = K('hotel').length, oq = Auth.isProvider() ? oldQuotes().length : 0;
   view().innerHTML = `<div class="top"><div><h1>More</h1></div></div>
    <div class="mo-grid">
     <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.upload || ''}</span><div><h3>Hotel data</h3><p>${n} hotel${n === 1 ? '' : 's'} in the database</p></div></div>
@@ -2148,7 +2165,7 @@ function vMore() {
      <div class="mo-b"><button type="button" class="btn dark" data-act="importCSV">Import hotels CSV</button><button type="button" class="btn" data-act="exportCSV">Export hotels CSV</button></div></section>
     <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.phone || ''}</span><div><h3>Install the CRM</h3><p>Opens full screen like an app</p></div></div>
      <ul class="mo-l"><li><b>Windows / Mac</b><span>Chrome or Edge: the install icon at the right of the address bar</span></li><li><b>Android</b><span>Chrome: menu ⋮ → Install app</span></li><li><b>iPhone</b><span>Safari: Share → Add to Home Screen</span></li></ul></section>
-   </div>`;
+   </div>${oq ? `<div class="mo-grid" style="margin-top:18px"><section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.trash || ''}</span><div><h3>Old quotations</h3><p>${oq} made before the new quotation form</p></div></div><p class="mo-t">Only you see this. Clear them once, so the Quotation lists and the KPI start with the new quotations only. A backup file downloads first.</p><div class="mo-b"><button type="button" class="btn redb" data-act="clearOld">Clear old quotations</button></div></section></div>` : ''}`;
 }
 function collSheet(c) {
   const isNew = !c; c = c || {name:'', fields:['Name', 'Details', 'Notes']};
@@ -2637,7 +2654,7 @@ Object.assign(ACTIONS, {
   qUp: el => uploadQuoteSheet(el.dataset.hid),
   qOpen: el => { closeSheet(); location.hash = 'quote/' + el.dataset.id; },
   qFile: el => { const q = byId(el.dataset.id); if (!q || !q.upload) return; const w = window.open(); if (w) w.location.href = q.upload.data; else download(q.upload.name || 'quotation.pdf', new Blob([Uint8Array.from(atob(q.upload.data.split(',')[1]), c => c.charCodeAt(0))], {type: q.upload.type}), q.upload.type); },
-  qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else if (quoteIsNew(q)) quoteFormSheet(q.hotelId, q); else { closeSheet(); location.hash = 'quote/' + q.id; } },
+  qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else if (q.hotelId && byId(q.hotelId)) quoteFormSheet(q.hotelId, convertLegacyQuote(q)); else { closeSheet(); location.hash = 'quote/' + q.id; } },
   qDel: async el => { const q = byId(el.dataset.id); if (!q || !await confirmDelete('Do you want delete quotation ' + (q.no || ''))) return; const hid = q.hotelId; await softDelete(q); toast('Quotation deleted'); quotesSheet(hid); },
   qSend: el => {
     const q = byId(el.dataset.id), box = el.closest('.fu-qb'), to = $$('[data-qe]', box).filter(c => c.checked).map(c => c.value); if (!to.length) { toast('Tick at least one email address'); return; }
@@ -3154,8 +3171,33 @@ function qpCatalog(q) {
     out.push({id, name: nm, price: r && r.fee !== undefined && r.fee !== '' ? r.fee : price, unit: r && r.unit ? r.unit : QP_UNITS[ui]});
   });
   rows.filter(r => r.status !== 'Inactive' && !QP_LIST.some(([id, name]) => norm(name) === norm(r.name) || (id === 'rev' && norm(REV_NAME) === norm(r.name)))).forEach(r => out.push({id: 'cm_' + r.id, name: r.name, price: r.fee, unit: r.unit || QP_UNITS[0]}));
-  (q.items || []).filter(i => i.on && String(i.id).startsWith('cm_') && !out.some(o => o.id === i.id)).forEach(i => out.push({id: i.id, name: i.name, price: i.price, unit: i.unit}));
+  (q.items || []).filter(i => i.on && /^(cm|lg)_/.test(String(i.id)) && !out.some(o => o.id === i.id)).forEach(i => out.push({id: i.id, name: i.name, price: i.price, unit: i.unit}));
   return out;
+}
+const LEGACY_QP = {be: 'be', cm: 'cm', pms: 'pms', becom: 'becom', rm: 'rev', inv: 'inv', domain: 'domain', ssl: 'ssl', hm: 'hm', host: 'host', maint: 'maint', pdpa: 'pdpa', webt: 'webt', webc: 'webc'};
+function convertLegacyQuote(q) {
+  if (quoteIsNew(q)) return q;
+  const U = {once: 'per / one time', month: 'per / month', year: 'per / year', comm: '% per booking'}, items = [], L = q.lines || {}, t = tierOf(q.rooms); let n = 0;
+  const add = (id, name, price, unit, extra) => items.push({id, name, on: true, price: String(price === undefined ? '' : price), unit, disc: '', discNote: '', pay: '', info: '', ...(extra || {})});
+  const extra = (name, price, unit, extra) => add('lg_' + (++n), name, price, unit, extra);
+  if (q.setup && q.setup !== 'none') extra('System Set-Up', q.setup, U.once, q.waived ? {disc: '100%', discNote: 'Waived'} : {});
+  for (const p of CAT) {
+    const l = L[p.id]; if (!l || !l.on) continue; const qid = LEGACY_QP[p.id], nm = p.name.replace(' (monthly)', '');
+    const put = (price, unit, label) => qid ? add(qid, qid === 'rev' ? REV_NAME : (QP_LIST.find(x => x[0] === qid) || [0, nm])[1], price, unit) : extra(label || nm, price, unit);
+    if (p.kind === 'tier') { const m = t >= 0 && t < 4 ? p.p[t] : ''; if (l.yearly && m !== '') put(Math.round(m * 12 * 0.9), U.year); else put(m, U.month); }
+    else if (p.kind === 'comm') put(qpNum(l.rate || p.rate), U.comm);
+    else if (p.kind === 'qty') { const c = Math.max(1, parseInt(l.qty) || 1); extra(nm + ' \u00d7 ' + c, c * p.price, U.once); }
+    else if (p.kind === 'mail') { const gb = l.gb || 10; extra(nm + ' \u2014 ' + gb + ' GB', p.opts[gb], U.year); }
+    else if (p.kind === 'flat') put(p.price, U[p.cad]);
+  }
+  for (const c of (q.custom || [])) { if (!c.name) continue; const cad = c.cad || 'month'; extra(c.name, cad === 'comm' ? qpNum(c.amount) : qpNum(c.amount), U[cad] || U.month); }
+  /* an old discount on the monthly / yearly fees becomes a discount on those lines */
+  const dv = String(q.discValue || '').trim();
+  if (q.discType && qpNum(dv) > 0) { const rec = items.filter(i => i.unit === U.month || i.unit === U.year); if (q.discType === 'pct') rec.forEach(i => { i.disc = qpNum(dv) + '%'; i.discNote = 'Discount'; }); else if (rec[0]) { rec[0].disc = String(qpNum(dv)); rec[0].discNote = 'Discount'; } }
+  const r = {...q, items, terms: null, lines: {}, custom: [], setup: 'none', waived: false, discType: '', discValue: '', approval: '', approvedSig: '', approvedBy: '', approvedAt: ''};
+  /* a quotation that was already approved or already sent keeps its standing: the carried-over discount is not asked for again */
+  if (belowList(r).length && (['approved', 'none'].includes(approvalState(q)) || ['Sent', 'Accepted'].includes(q.status))) { r.approval = 'approved'; r.approvedSig = discSig(r); r.approvedBy = q.approvedBy || 'Old quotation'; r.approvedAt = q.approvedAt || ''; }
+  return r;
 }
 const quoteIsNew = q => Array.isArray(q && q.items);
 const qpUnitCad = u => ({'per / month': 'month', 'per / year': 'year', 'per / one time': 'once', '% per booking': 'comm'})[u] || 'month';
@@ -3666,6 +3708,7 @@ Object.assign(ACTIONS, {
   editActivation: el => { location.hash = 'activations/' + el.dataset.id; },
   enewsOpen: () => { const to = enewsAudience().map(h => h.email); if (!to.length) { toast('No hotel with an email address in this list'); return; } const e = UI.enews; location.href = 'mailto:?bcc=' + encodeURIComponent(to.join(',')) + '&subject=' + encodeURIComponent(e.subject) + '&body=' + encodeURIComponent(e.body); },
   enewsSend: () => enewsSendSheet(),
+  clearOld: () => clearOldSheet(),
   enewsCopy: () => copyText(enewsAudience().map(h => h.email).join(', '), 'Email addresses copied'),
   enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, stage: e.stage, city: e.city}); toast('Draft saved'); rerender(); },
   enewsLoad: el => { const s = byId(el.dataset.id); UI.enews = {id: s.id, subject: s.subject, body: s.body, stage: s.stage || '', city: s.city || ''}; vEnews(); scrollTo(0, 0); },
