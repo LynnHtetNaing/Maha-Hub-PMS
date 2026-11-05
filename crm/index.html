@@ -397,6 +397,26 @@ body{font-family:var(--font)}
 .pagebox>h2:first-child{margin-top:0}
 .mit .mi{width:16px;height:16px;opacity:.75}.mit.on .mi{opacity:1}
 @media (max-width:700px){.pagebox{padding:14px 12px}.top h1{font-size:22px}.top h1 .pgi svg{width:24px;height:24px}.top p{margin-left:0}}
+/* ---------- Latest Follow ups (as in OneHotel Sales) ---------- */
+.fu-sub{font-size:16px;margin:0 0 16px;color:var(--ink)}.fu-sub b{font-weight:700}
+.fu-form{display:grid;grid-template-columns:130px minmax(0,1fr) 130px minmax(0,1fr);gap:12px 14px;align-items:center}
+.fu-form>label{text-align:right;font-weight:600;color:var(--ink-2);font-size:13.5px}
+.fu-form input[type=date],.fu-form input[type=text],.fu-form select{width:100%;max-width:260px}
+.fu-opts{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+.fu-chk,.fu-rad{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer}
+.fu-chk input,.fu-rad input{width:17px;height:17px;min-height:0;accent-color:var(--a1)}
+.fu-btns{display:flex;justify-content:center;gap:10px;margin:20px 0 6px}
+.btn.dark{background:#3f4654;border-color:#3f4654;color:#fff}.btn.dark:hover{background:#2f3541}
+.btn.amber{background:#f5b53f;border-color:#f5b53f;color:#fff}.btn.amber:hover{background:#e0a02c}
+.btn svg{width:15px;height:15px}
+.fu-exp{display:flex;justify-content:flex-end;margin:10px 0 8px}
+.btn.gold{background:#4db98a;border-color:#4db98a;color:#fff}
+.fu-tw{overflow-x:auto}.fu-tb{width:100%;border-collapse:collapse;font-size:13.5px}
+.fu-tb th{padding:12px 10px;text-align:center;font-weight:700;color:#7a3b2a;border-bottom:2px solid var(--line);white-space:nowrap}
+.fu-tb td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}.fu-tb td.nw{white-space:nowrap}.fu-tb tr:hover td{background:rgba(5,150,105,.06)}
+.fu-tb td.empty{text-align:center;padding:26px}
+@media (max-width:900px){.fu-form{grid-template-columns:110px minmax(0,1fr)}}
+@media (max-width:560px){.fu-form{grid-template-columns:minmax(0,1fr)}.fu-form>label{text-align:left}}
 </style>
 </head>
 <body>
@@ -2195,17 +2215,71 @@ function vDblog() {
    ${rows.length ? `<div class="list">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(nm(r)) || '—'}</div><div class="s">${kinds[r.kind]} · ${r.created && r.created.slice(0, 16) === (r.updated || '').slice(0, 16) ? 'added' : 'changed'}</div></div><div class="end">${when(r.updated)}</div></div>`).join('')}</div>` : '<div class="list"><div class="empty">Nothing yet.</div></div>'}`;
 }
 
-/* ----- Follow up ----- */
-function vFollowup() {
-  const t = today();
-  const open = K('act').filter(a => a.nextDate && !a.done && !CLOSED.includes((byId(a.hotelId) || {}).status)).sort((a, b) => a.nextDate.localeCompare(b.nextDate));
-  const late = open.filter(a => a.nextDate < t), now = open.filter(a => a.nextDate === t), next = open.filter(a => a.nextDate > t);
-  const row = a => `<a class="row" href="#hotel/${a.hotelId}"><span class="stripe" style="background:${a.nextDate <= t ? 'var(--alert)' : 'var(--gold)'}"></span>
-    <div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.nextAction || a.reason || a.summary || 'Follow up')}</div></div>
-    <div class="end"><div class="${a.nextDate <= t ? 'due' : ''}">${fdate(a.nextDate)}</div><button class="btn sm" data-act="done" data-id="${a.id}">Done</button></div></a>`;
-  const sec = (h, l) => `<h2>${h} <span class="count">${l.length}</span></h2>${l.length ? `<div class="list">${l.map(row).join('')}</div>` : '<div class="list"><div class="empty">None.</div></div>'}`;
-  view().innerHTML = `<div class="top"><div><h1>Latest follow up</h1><p>${open.length} open follow-ups</p></div><div class="actions"><button class="btn primary" data-act="log">${ICON.plus}Log a call</button></div></div>${sec('Overdue', late)}${sec('Today', now)}${sec('Coming up', next)}`;
+/* ----- Follow up: the page as in OneHotel Sales (Latest Follow ups): filters, Search / Reset, Export Excel, the table ----- */
+const FU_PROD = [['pms', 'PMS', ['pms']], ['cm', 'CM', ['cm']], ['be', 'BE', ['be', 'becom']], ['vop', 'Virtual Offline Payment', ['inv']]];
+const FU_STATUS = [['processing', 'Processing', ['New lead', 'Called', 'Quoted', 'Negotiating']], ['meeting', 'Meeting', ['Meeting set']], ['follow', 'Follow up', ['Follow up']], ['reject', 'Reject', ['Lost', 'On hold']], ['sign', 'Sign', ['Signed', 'Live']], ['old', 'Old data', []]];
+const fuStatusOf = h => (FU_STATUS.find(s => s[2].includes((h && h.status) || 'New lead')) || ['', 'Processing'])[1];
+function fuRows() {
+  const f = UI.fu || {}, quotes = K('quote'), acts = K('act');
+  const latestQ = hid => quotes.filter(q => q.hotelId === hid).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+  const meetOf = hid => (acts.filter(a => a.hotelId === hid && a.type === 'Meeting').sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0] || {}).date || '';
+  const old = a => !!a.done || !a.nextDate;
+  return acts.filter(a => {
+    const h = byId(a.hotelId) || {}, q = latestQ(a.hotelId);
+    if (f.status === 'old' ? !old(a) : old(a)) return false;
+    if (f.from && (a.date || '') < f.from) return false;
+    if (f.to && (a.date || '') > f.to) return false;
+    if (f.staff && (a.owner || '') !== f.staff) return false;
+    if (f.hotel && !norm(h.name).includes(norm(f.hotel))) return false;
+    if (f.lead && (h.source || '') !== f.lead) return false;
+    if (f.chan && a.type !== f.chan) return false;
+    if (f.status && f.status !== 'old') { const s = FU_STATUS.find(x => x[0] === f.status); if (!s[2].includes(h.status || 'New lead')) return false; }
+    if ((f.prod || []).length) { const L = (q && q.lines) || {}; if (!f.prod.every(p => FU_PROD.find(x => x[0] === p)[2].some(id => L[id] && L[id].on))) return false; }
+    return true;
+  }).sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(a => {
+    const h = byId(a.hotelId) || {}, q = latestQ(a.hotelId), L = (q && q.lines) || {};
+    return {id: a.id, hid: a.hotelId, date: a.date || '', hotel: h.name || 'Unknown hotel', meeting: meetOf(a.hotelId), remind: a.nextDate || '', quote: (q && q.no) || '', by: a.owner || '', result: a.outcome || a.summary || a.reason || '',
+      product: CAT.filter(p => L[p.id] && L[p.id].on).map(p => p.name.replace(/ \(.*\)$/, '')).join(', '), status: fuStatusOf(h)};
+  });
 }
+function vFollowup() {
+  UI.fu = UI.fu || {}; const f = UI.fu, acts = K('act'), hotels = K('hotel');
+  const staff = [...new Set(acts.map(a => a.owner).filter(Boolean))].sort(), leads = [...new Set(hotels.map(h => h.source).filter(Boolean))].sort();
+  const rows = fuRows(), CAP = 300, shown = rows.slice(0, CAP);
+  const sel = (id, opts, v, ph) => `<select id="${id}"><option value="">${ph}</option>${opts.map(o => `<option ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  view().innerHTML = `<div class="top"><div><h1>Latest Follow ups</h1></div></div>
+   <div class="fu-sub"><b>Follow ups</b> information</div>
+   <div class="fu-form">
+    <label for="fu_from">Start Date :</label><div><input type="date" id="fu_from" value="${esc(f.from || '')}"></div>
+    <label for="fu_to">End Date :</label><div><input type="date" id="fu_to" value="${esc(f.to || '')}"></div>
+    <label for="fu_staff">Staff :</label><div>${sel('fu_staff', staff, f.staff, 'Select')}</div>
+    <label for="fu_hotel">Hotel name :</label><div><input type="text" id="fu_hotel" value="${esc(f.hotel || '')}"></div>
+    <label for="fu_lead">Lead Type :</label><div>${sel('fu_lead', leads, f.lead, 'Please select')}</div>
+    <label for="fu_chan">Channal :</label><div>${sel('fu_chan', ACT_TYPES, f.chan, 'Please select')}</div>
+    <label>Product</label><div class="fu-opts">${FU_PROD.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-fp="${k}" ${(f.prod || []).includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div>
+    <label>Status</label><div class="fu-opts">${FU_STATUS.map(([k, l]) => `<label class="fu-rad"><input type="radio" name="fu_st" value="${k}" ${f.status === k ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div>
+   </div>
+   <div class="fu-btns"><button type="button" class="btn dark" data-act="fuSearch">${ICON.search}Search</button><button type="button" class="btn amber" data-act="fuReset">${ICON.search}Reset</button></div>
+   <div class="fu-exp"><button type="button" class="btn gold" data-act="fuExport">Export Excell</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb"><thead><tr><th>No.</th><th>Follow up date</th><th>Hotel name</th><th>Meeting Date</th><th>Remind date</th><th>Quotation</th><th>Follow up by</th><th>Result</th><th>Product</th><th>Status</th><th>View</th></tr></thead>
+    <tbody>${shown.length ? shown.map((r, i) => `<tr><td>${i + 1}</td><td class="nw">${fdate(r.date)}</td><td>${esc(r.hotel)}</td><td class="nw">${fdate(r.meeting)}</td><td class="nw ${r.remind && r.remind <= today() ? 'due' : ''}">${fdate(r.remind)}</td><td class="nw">${esc(r.quote)}</td><td>${esc(r.by)}</td><td>${esc(r.result)}</td><td>${esc(r.product)}</td><td class="nw">${esc(r.status)}</td><td><button type="button" class="btn sm" data-go="#hotel/${r.hid}">View</button></td></tr>`).join('') : '<tr><td colspan="11" class="empty">No follow ups found.</td></tr>'}</tbody></table></div>
+   ${rows.length > CAP ? `<p class="muted small" style="text-align:center">First ${CAP} of ${rows.length}. Narrow the search to see the rest.</p>` : ''}`;
+}
+function fuRead() {
+  const g = id => ($(id) ? $(id).value : '');
+  UI.fu = {from: g('#fu_from'), to: g('#fu_to'), staff: g('#fu_staff'), hotel: g('#fu_hotel').trim(), lead: g('#fu_lead'), chan: g('#fu_chan'), prod: $$('[data-fp]').filter(c => c.checked).map(c => c.dataset.fp), status: ($('[name=fu_st]:checked') || {}).value || ''};
+}
+Object.assign(ACTIONS, {
+  fuSearch: () => { fuRead(); vFollowup(); },
+  fuReset: () => { UI.fu = {}; vFollowup(); },
+  fuExport: () => {
+    const rows = fuRows(); if (!rows.length) { toast('Nothing to export'); return; }
+    const head = ['No.', 'Follow up date', 'Hotel name', 'Meeting Date', 'Remind date', 'Quotation', 'Follow up by', 'Result', 'Product', 'Status'];
+    const aoa = [head, ...rows.map((r, i) => [i + 1, r.date, r.hotel, r.meeting, r.remind, r.quote, r.by, r.result, r.product, r.status])];
+    try { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Follow ups'); download('CRM Follow ups - ' + today() + '.xlsx', new Blob([XLSX.write(wb, {bookType:'xlsx', type:'array'})], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); }
+    catch { download('CRM Follow ups - ' + today() + '.csv', toCSV(aoa.slice(1).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])))), 'text/csv'); }
+  },
+});
 
 /* ----- Meetings ----- */
 const MEET_ST = ['Scheduled', 'Held', 'Postponed', 'Cancelled'];
