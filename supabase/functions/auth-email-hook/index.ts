@@ -6,6 +6,7 @@
 // Deploy with JWT verification off (--no-verify-jwt): Supabase signs the call (Standard Webhooks) and this function checks the signature itself.
 // Never log email addresses, codes or links.
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { build } from "./render.mjs";
 
 const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -33,6 +34,16 @@ Deno.serve(async (req) => {
     const key = Deno.env.get("RESEND_API_KEY"), from = Deno.env.get("AUTH_MAIL_FROM"), base = Deno.env.get("SUPABASE_URL");
     if (!key || !from || !base) return fail(503, "not_configured");
     let payload: unknown; try { payload = JSON.parse(body); } catch { return fail(400, "bad_request"); }
+    // a login that shares its email address with another login signs in by a private address; the email goes to its real address
+    const p = payload as { user?: { id?: string; email?: string } };
+    if (/@accounts\.maha-hub\.invalid$/i.test(p.user?.email || "")) {
+      const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (!svc || !p.user?.id) return fail(503, "not_configured");
+      const { data } = await createClient(base, svc).from("maha_login_identities").select("recovery_email").eq("user_id", p.user.id).maybeSingle();
+      const real = (data as { recovery_email?: string } | null)?.recovery_email;
+      if (!real) return fail(400, "no_recipient");
+      p.user.email = real;
+    }
     const m = build(payload as never, base);
     if (!m.to) return fail(400, "no_recipient");
     const r = await fetch("https://api.resend.com/emails", {

@@ -100,7 +100,7 @@ const handle = async (req: Request): Promise<Response> => {
   };
   const { data: identity, error: lookupError } = await admin
     .from("maha_login_identities")
-    .select("user_id,recovery_email")
+    .select("user_id,recovery_email,auth_email")
     .eq("username_normalized", username.toLowerCase())
     .maybeSingle();
 
@@ -108,7 +108,7 @@ const handle = async (req: Request): Promise<Response> => {
   if (action === "request_password_reset") {
     if (!lookupError && identity?.recovery_email) {
       const recoveryClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-      await recoveryClient.auth.resetPasswordForEmail(identity.recovery_email, {
+      await recoveryClient.auth.resetPasswordForEmail(identity.auth_email || identity.recovery_email, {
         redirectTo: systemUrl(req, "/reset-password.html") || "https://solutions.maha-hub.com/reset-password.html",
       });
       logEvent("password_reset_requested", identity.user_id, true, null);
@@ -154,7 +154,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (tryResult !== "ok") return json({ error: "code_expired" }, 401);
 
     const { data: verified, error: verifyError } = await authClient.auth.verifyOtp({
-      email: identity.recovery_email, token: code, type: "email",
+      email: identity.auth_email || identity.recovery_email, token: code, type: "email",
     });
     if (verifyError || !verified.session || verified.user?.id !== identity.user_id) {
       logEvent("sign_in_code_failed", identity.user_id, false, "wrong code");
@@ -167,7 +167,7 @@ const handle = async (req: Request): Promise<Response> => {
 
   // ---- step 1: the password ----
   const { data, error } = await authClient.auth.signInWithPassword({
-    email: identity.recovery_email,
+    email: identity.auth_email || identity.recovery_email,
     password,
   });
 
@@ -210,7 +210,7 @@ const handle = async (req: Request): Promise<Response> => {
       if (challengeError || typeof challenge !== "string") return json({ error: "code_unavailable" }, 503);
       const mailClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
       const { error: mailError } = await mailClient.auth.signInWithOtp({
-        email: identity.recovery_email, options: { shouldCreateUser: false, emailRedirectTo: systemUrl(req, "/") },
+        email: identity.auth_email || identity.recovery_email, options: { shouldCreateUser: false, emailRedirectTo: systemUrl(req, "/") },
       });
       if (mailError) {
         const limited = (mailError as { status?: number }).status === 429;

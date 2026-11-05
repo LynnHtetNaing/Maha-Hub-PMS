@@ -198,8 +198,8 @@ const handle = async (req: Request): Promise<Response> => {
   if (!isMaster) return respond({ error: "master_only" }, 403);
 
   let mailError = "";   // reason the last email was refused (e.g. over_email_send_rate_limit); never includes addresses
-  const sendSetPasswordEmail = async (to: string, system = "pms") => {
-    const { error } = await authClient.auth.resetPasswordForEmail(to, { redirectTo: resetRedirect(system) });
+  const sendSetPasswordEmail = async (to: string, system = "pms", userId?: string) => {
+    const { error } = await authClient.auth.resetPasswordForEmail(await authEmailFor(to, userId), { redirectTo: resetRedirect(system) });
     mailError = error ? String((error as { code?: string }).code || error.status || "email_failed") : "";
     return !error;
   };
@@ -209,15 +209,37 @@ const handle = async (req: Request): Promise<Response> => {
     return !!data;
   };
   // Creates the auth user, runs the DB step, and removes the auth user again if the DB step fails.
+  // One email address can have a login in more than one system. Supabase Auth allows one account per address, so a login on an address that is
+  // already taken gets a private sign-in address (u-<random>@accounts.maha-hub.invalid, nobody can receive mail on it); its real address stays in
+  // maha_login_identities.recovery_email and every sign-in code / set-password email is sent there (see migration 035 and auth-email-hook).
+  const createAuthUser = async (mail: string, uname: string) => {
+    let alias = "";
+    let r = await admin.auth.admin.createUser({ email: mail, email_confirm: true, user_metadata: { maha_username: uname } });
+    if (r.error && String((r.error as { code?: string }).code ?? "") === "email_exists") {
+      alias = `u-${crypto.randomUUID()}@accounts.maha-hub.invalid`;
+      r = await admin.auth.admin.createUser({ email: alias, email_confirm: true, user_metadata: { maha_username: uname } });
+    }
+    return { user: r.data?.user ?? null, error: r.error, alias };
+  };
+  // the address Supabase Auth knows a login by (the private one when it has one), for the emails Supabase Auth sends
+  const authEmailFor = async (to: string, userId?: string): Promise<string> => {
+    if (!userId) return to;
+    const { data } = await admin.from("maha_login_identities").select("auth_email").eq("user_id", userId).maybeSingle();
+    return (data as { auth_email?: string | null } | null)?.auth_email || to;
+  };
   const createAccountThen = async (
     runDb: (userId: string) => Promise<{ data: unknown; error: { code?: string } | null }>,
   ) => {
-    const { data: created, error: createError } = await admin.auth.admin.createUser({
-      email, email_confirm: true, user_metadata: { maha_username: username },
-    });
-    if (createError || !created.user) return { ok: false as const, response: json({ error: "account_create_failed" }, 400) };
-    const userId = created.user.id;
-    const { data, error } = await runDb(userId);
+    const { user: createdUser, error: createError, alias } = await createAuthUser(email, username);
+    if (createError || !createdUser) return { ok: false as const, response: json({ error: "account_create_failed" }, 400) };
+    const userId = createdUser.id;
+    const ran = await runDb(userId);
+    const data = ran.data;
+    let error = ran.error as { code?: string } | null;
+    if (!error && data && alias) {
+      const { error: aliasError } = await admin.from("maha_login_identities").update({ auth_email: alias }).eq("user_id", userId);
+      if (aliasError) error = { code: aliasError.code };
+    }
     if (error || !data) {
       const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
       const dup = error?.code === "23505";
@@ -274,7 +296,7 @@ const handle = async (req: Request): Promise<Response> => {
     const ids = result.data as { organization_id: string; property_id: string };
     return respond({
       ok: true, organization_id: ids.organization_id, property_id: ids.property_id, username, role,
-      invitation_sent: await sendSetPasswordEmail(email),
+      invitation_sent: await sendSetPasswordEmail(email, "pms", result.userId),
       invitation_error: mailError || undefined,
     }, 201);
   }
@@ -301,7 +323,7 @@ const handle = async (req: Request): Promise<Response> => {
       return { data: r.data, error: r.error };
     });
     if (!result.ok) return result.response;
-    const sent = await sendSetPasswordEmail(email);
+    const sent = await sendSetPasswordEmail(email, "pms", result.userId);
     return respond({ ok: true, property_id: property.id, username, role, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
   }
 
@@ -312,7 +334,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (action === "reset_password") {
       const { data, error } = await admin.rpc("maha_owned_staff", { p_owner: ownerId, p_username: username });
       if (error || !data) return respond({ error: "staff_not_found" }, 404);
-      const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email);
+      const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email, "pms", (data as { user_id: string }).user_id);
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
 
@@ -384,8 +406,19 @@ const handle = async (req: Request): Promise<Response> => {
     });
     if (changeError || !changed) return signinError(changeError);
     const done = changed as { user_id: string; old_email: string; masked_new: string };
+    { const { data: idn } = await admin.from("maha_login_identities").select("auth_email").eq("user_id", done.user_id).maybeSingle();
+      if ((idn as { auth_email?: string | null } | null)?.auth_email) return respond({ ok: true, masked_email: done.masked_new }); }   // it signs in by its private address: only the real address changed
     // 2. the sign-in account (Supabase Auth) gets the same address; if that fails the old address is put back, so nothing stays half-changed
     const { error: authError } = await admin.auth.admin.updateUserById(done.user_id, { email: newEmail, email_confirm: true });
+    if (authError && String((authError as { code?: string }).code ?? "") === "email_exists") {
+      // the address already belongs to another login: this login keeps working under a private sign-in address
+      const alias = `u-${crypto.randomUUID()}@accounts.maha-hub.invalid`;
+      const { error: aliasAuthError } = await admin.auth.admin.updateUserById(done.user_id, { email: alias, email_confirm: true });
+      if (!aliasAuthError) {
+        const { error: aliasSetError } = await admin.from("maha_login_identities").update({ auth_email: alias }).eq("user_id", done.user_id);
+        if (!aliasSetError) return respond({ ok: true, masked_email: done.masked_new });
+      }
+    }
     if (authError) {
       const { error: revertError } = await admin.rpc("maha_change_staff_email", {
         p_owner: ownerId, p_username: username, p_new_email: done.old_email,
@@ -594,7 +627,7 @@ const handle = async (req: Request): Promise<Response> => {
         return { data: r.error ? null : true, error: r.error };
       });
       if (!result.ok) return result.response;
-      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email, "console"), invitation_error: mailError || undefined }, 201);
+      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email, "console", result.userId), invitation_error: mailError || undefined }, 201);
     }
     if (!USERNAME.test(username)) return respond({ error: "invalid_fields" }, 400);
     const { data: ident } = await admin.from("maha_login_identities").select("user_id,recovery_email").eq("username_normalized", username.toLowerCase()).maybeSingle();
@@ -617,7 +650,7 @@ const handle = async (req: Request): Promise<Response> => {
       return respond({ ok: true, active });
     }
     if (action === "resend_admin_invite") {
-      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email, "console");
+      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email, "console", (ident as { user_id: string }).user_id);
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
     // remove_admin
@@ -650,18 +683,16 @@ const handle = async (req: Request): Promise<Response> => {
       const name = str("name");
       if (!EMAIL.test(email) || email.length > 254 || name.length < 1 || name.length > 80) return respond({ error: "invalid_fields" }, 400);
       if (await usernameTaken(username)) return respond({ error: "username_taken" }, 409);
-      const { data: created, error: createError } = await admin.auth.admin.createUser({
-        email, email_confirm: true, user_metadata: { maha_username: username },
-      });
-      if (createError || !created.user) return respond({ error: "account_create_failed" }, 400);
-      const uid = created.user.id;
-      const { error: identError } = await admin.from("maha_login_identities").insert({ user_id: uid, username, recovery_email: email });
+      const { user: createdUser, error: createError, alias } = await createAuthUser(email, username);
+      if (createError || !createdUser) return respond({ error: "account_create_failed" }, 400);
+      const uid = createdUser.id;
+      const { error: identError } = await admin.from("maha_login_identities").insert({ user_id: uid, username, recovery_email: email, ...(alias ? { auth_email: alias } : {}) });
       const { error: memberError } = identError ? { error: identError } : await admin.from("maha_crm_members").insert({ user_id: uid, name, active: true, created_by: ownerId });
       if (identError || memberError) {
         await admin.auth.admin.deleteUser(uid);   // nothing is left half-made
         return respond({ error: (identError ?? memberError)?.code === "23505" ? "username_taken" : "provisioning_failed" }, (identError ?? memberError)?.code === "23505" ? 409 : 400);
       }
-      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email, "crm"), invitation_error: mailError || undefined }, 201);
+      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email, "crm", uid), invitation_error: mailError || undefined }, 201);
     }
     const { data: ident } = await admin.from("maha_login_identities").select("user_id,recovery_email")
       .eq("username_normalized", username.toLowerCase()).maybeSingle();
@@ -669,7 +700,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (!ident || !mem) return respond({ error: "member_not_found" }, 404);
     const uid = (ident as { user_id: string }).user_id;
     if (action === "crm_reset_password") {
-      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email, "crm");
+      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email, "crm", (ident as { user_id: string }).user_id);
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
     if (typeof body.active !== "boolean") return respond({ error: "invalid_fields" }, 400);
