@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="838f92aad3">
+<meta name="maha-build" content="f6a66b7631">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -5287,8 +5287,10 @@ function findStaff(un){for(const h of Object.values(DB.hotels)){const u=h.users.
 function usernameTaken(un){return !!findStaff(un.toLowerCase())||DB.providers.some(p=>p.username===un.toLowerCase())}
 const LOGO=()=>`<img src="${ICON_BAR}" class="tblogo" alt="Maha">`;
 const lgTileSrc=k=>k==='hub'?'/brand/maha/pms-stack-light.png':'/brand/maha/solutions-lockup-light.png';
-const gateStack=()=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b>MAHA PMS</b><small>HOTEL MANAGEMENT SOFTWARE</small></span>';
-const LOGO_TILE=()=>{const hub=typeof lgTargetSys!=='undefined'&&lgTargetSys==='hub';return hub?`<div id="lgTile" class="eco-tile gstk" role="img" aria-label="Maha PMS">${gateStack()}</div>`:`<img id="lgTile" src="${lgTileSrc(typeof lgTargetSys!=='undefined'?lgTargetSys:null)}" class="eco-lockup eco-tile" alt="Maha Solutions">`};
+const gateStack=(kind)=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b>'+(kind==='provider'?'MAHA PROVIDER':'MAHA PMS')+'</b><small>'+(kind==='provider'?'PROVIDER CONSOLE':'HOTEL MANAGEMENT SOFTWARE')+'</small></span>';
+/* the sign-in logo: the Maha PMS stack for the hotel system, the same stack (Maha Provider) for the provider console */
+const stackKind=()=>(typeof lgTargetSys!=='undefined'&&lgTargetSys==='hub')?'hub':(typeof lgProvider!=='undefined'&&lgProvider)?'provider':'';
+const LOGO_TILE=()=>{const kind=stackKind();return kind?`<div id="lgTile" class="eco-tile gstk" data-kind="${kind}" role="img" aria-label="${kind==='provider'?'Maha Provider':'Maha PMS'}">${gateStack(kind)}</div>`:`<img id="lgTile" src="${lgTileSrc(typeof lgTargetSys!=='undefined'?lgTargetSys:null)}" class="eco-lockup eco-tile" alt="Maha Solutions">`};
 const LOGO_FULL=()=>`<div class="eco-lockup gfull" role="img" aria-label="Maha Solutions"><img src="/brand/maha/gate-gold.png" alt=""><b>MAHA SOLUTIONS</b></div>`;
 const ECO_SOON=[
   {name:'Maha HR',blurb:'Team, attendance and payroll.'},
@@ -8761,7 +8763,7 @@ function showLogin(msg){
   const applyPick=()=>{
     const box=$('#lgCards');if(!box)return;
     const picked=!!lgTargetSys;
-    {const tl=$('#lgTile');if(tl){const hubNow=lgTargetSys==='hub',isDiv=tl.tagName==='DIV';if(hubNow===isDiv){/* same kind: nothing to change */}else{const w=document.createElement('div');w.innerHTML=LOGO_TILE();const nn=w.firstElementChild;if(nn)tl.replaceWith(nn)}if(!hubNow){const t2=$('#lgTile');if(t2&&t2.tagName==='IMG'){t2.src=lgTileSrc(lgTargetSys);t2.alt='Maha Solutions'}}}}
+    {const tl=$('#lgTile');if(tl){const kindNow=stackKind(),hubNow=!!kindNow,isDiv=tl.tagName==='DIV';if(hubNow===isDiv&&(!hubNow||tl.dataset.kind===kindNow)){/* same kind: nothing to change */}else{const w=document.createElement('div');w.innerHTML=LOGO_TILE();const nn=w.firstElementChild;if(nn)tl.replaceWith(nn)}if(!hubNow){const t2=$('#lgTile');if(t2&&t2.tagName==='IMG'){t2.src=lgTileSrc(lgTargetSys);t2.alt='Maha Solutions'}}}}
     const open=!!(lgTargetSys||lgProvider);
     const shell=document.querySelector('.eco-shell');
     if(shell){shell.classList.toggle('is-signin',open);shell.classList.toggle('is-chosen',picked)}
