@@ -767,7 +767,7 @@ const PB_DEFAULT = [
 - Staff Credit: the credit % of each staff member (set by the CEO). It shows in Setup activation and is kept on each activation and each signed contract
 - Credit Report: every activation set to Live and every signed contract with its credit (the staff's Credit % x the first month fee). Filter by staff, department and dates; the Total line and the total for each staff show the production of each person
 - Referral Rewards: the reward a referral hotel earns when a signing comes through it
-- System Providers: the companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
+- System Providers: the CEO adds, edits and deletes them. The companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
 - Competitor Analysis (own menu title): the hotel list filtered by software and provider
 - Report (own menu title): Quotation, Revenue, Pipeline, Lead Source, Activation Speed and Referral Rewards. Each has filters, Search, Reset and Export to Excel. The Revenue and Referral Rewards reports are for the CEO only
 - Everyone can view these pages; only the CEO can add or change them`},
@@ -2407,11 +2407,12 @@ function vDeleted() {
   const T = {
     hotel: {rows: deletedOf('hotel'), head: ['Hotel name', 'City', 'Country', 'OTA', 'Contact Person'], cells: h => [esc(h.name), esc(h.city || ''), esc(h.country || ''), esc(otaLine(h)), esc(h.contact || '')]},
     quote: {rows: deletedOf('quote'), head: ['Quotation number', 'Hotel name', 'Date', 'Status'], cells: q => [esc(q.no || ''), esc(q.hotelName || hotelName(q.hotelId)), esc(meetDmy(q.date)), esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))]},
+    sysprov: {rows: deletedOf('sysprov'), head: ['Provider name', 'Software'], cells: p => [esc(p.name), esc((p.types || []).map(k => (SYS_TYPES.find(s => s[0] === k) || [0, k])[1]).join(', '))]},
     activation: {rows: deletedOf('activation'), head: ['Activation date', 'Hotel name', 'Setup by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(hotelName(a.hotelId)), esc(a.techBy || ''), esc(a.status || '')]},
     meeting: {rows: deletedOf('act').filter(isMeet), head: ['Meeting date', 'Meeting time', 'Hotel name', 'Contact person', 'Meeting by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(a.time || ''), esc(hotelName(a.hotelId)), esc(a.contactName || ''), esc(a.owner || ''), esc(meetSt(a))]},
   }[tab], rows = T.rows.sort((a, b) => ((b.deleted || {}).at || '').localeCompare((a.deleted || {}).at || ''));
   view().innerHTML = `<div class="top"><div><h1>Delete records</h1></div></div>
-   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted'], ['activation', 'Activation deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
+   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted'], ['activation', 'Activation deleted'], ['sysprov', 'Provider deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
    <div class="tablewrap fu-tw dbw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${T.head.map(h => `<th>${h}</th>`).join('')}<th>Deleted by</th><th>Deleted date time</th><th>Action</th></tr></thead>
    <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${T.cells(r).map((c, k) => `<td${k === 0 || k === 1 ? ' class="l"' : ''}>${c}</td>`).join('')}<td>${who(r)}</td><td class="dlt">${when(r)}</td>${btn(r)}</tr>`).join('') : `<tr><td colspan="${T.head.length + 4}" class="empty">Nothing deleted here.</td></tr>`}</tbody></table></div>`;
 }
@@ -3212,29 +3213,38 @@ function sysRows(h) {
   return SYS_TYPES.map(([k, label]) => `<div class="hi-sys"><label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${provOptions(k, h[k]).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
     <div class="f"><span>Amount · Commercial term</span><div class="hi-ct"><input data-hf="${k}Amt" value="${esc(h[k + 'Amt'] ?? '')}" placeholder="Amount" inputmode="decimal" autocomplete="off"><select data-hf="${k}Term"><option value="">Term</option>${SYS_TERMS.map(v => `<option ${h[k + 'Term'] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div></div></div>`).join('');
 }
+/* the providers the CEO listed from the old drop-down (kinds ticked where they are known; empty = to be checked). They are added once, the first time the CEO opens System Providers; the CEO can edit or delete each one. */
+const SYSPROV_SEED = [["eZee (Yanolja Cloud)",["pms","cm","be","pos"]],["D-EDGE",["cm","be"]],["Cloudbeds",["pms","cm","be"]],["Exely / TravelLine",["pms","cm","be"]],["SiteMinder",["cm","be"]],["Little Hotelier",["pms","cm","be"]],["Hotel Link Solutions",["cm","be"]],["Hoteliers Guru",["pms","cm","be","pvo"]],["Innsoft Connect-Inn",["cm","be"]],["Readyplanet",["be"]],["Amadeus / TravelClick",["be","cm"]],["Reserve Online",["be"]],["Web Connection",["be","cm"]],["Simple Booking",["be"]],["Bravo",["pms","pos"]],["CiHMS",["pms","cm"]],["EzCloud",["pms","cm"]],["Guestdiary",["pms","be","cm"]],["Hotech (Otello Gem)",["pms"]],["hoteliga",["pms","cm","be"]],["Hoteltime",["pms","pos"]],["IQware",["pms"]],["Mycloud",["pms","pos","cm","be"]],["RedForts",["pms","cm","be"]],["Reseliva",["be","cm"]],["Softinn",["pms","cm","be"]],["WinHMS",["pms","pos","be"]],["HMP (HMP Master)",["pms","be"]],["Hotel-Rez",["be"]],["Roomscope",["pms"]],["Simplotel",["be"]],["Centrum Cloud",["pms","pos","be"]],["Comanche",["pms","pos"]],["EASYFO",["pms","pos","be"]],["Epitome",["pms"]],["OASIS",["pms"]],["Smile",["pms"]],["Wincloud",["pms","pos"]],["365Villas",["pms","cm","be"]],["AHAROOMS",["cm","be"]],["AIOSELL",["cm","be"]],["Axisrooms",["cm","be"]],["Beds24",["pms","cm","be"]],["Blue Jay Pms",["pms"]],["Blue Jay Pos Viet Nam",["pos"]],["Booking Factory",["be"]],["Bookwize",["be"]],["Channex",["cm"]],["channelmanager.com.au",["cm"]],["Checkfront",["be"]],["CultBooking",["cm","be"]],["eviivo",["pms","cm","be"]],["Fidelio",["pms"]],["Freetobook",["pms","cm","be"]],["Frontdesk Anywhere",["pms"]],["FrontDesk Master",["pms"]],["Guestline",["pms","cm","be"]],["Guesty",["pms","cm"]],["Hostaway",["pms","cm"]],["Hotelogix",["pms","cm","be"]],["Hotelrunner",["pms","cm","be"]],["Infor Starlight",["pms"]],["Lodgify",["pms","cm","be"]],["MaxiBooking",["pms","cm","be"]],["Mews",["pms"]],["Mirai",["be","cm"]],["Octorate",["pms","cm","be"]],["Opera",["pms"]],["Paraty Tech",["be","cm"]],["Profitroom",["be","cm"]],["RateGain",["cm"]],["RateTiger",["cm"]],["Resavenue",["pms","cm","be"]],["reservation-system.net",["be"]],["roiback",["be"]],["RoomRaccoon",["pms","cm","be"]],["Sabeeapp",["pms","cm","be"]],["Seekda",["be","cm"]],["SHR / Windsurfer (Shiji Group)",["pms","be"]],["Sirvoy",["pms","cm","be"]],["Springer-Miller Systems",["pms"]],["Staah",["pms","cm","be"]],["Synxis (Sabre)",["be","cm"]],["Travelanium",["cm","be"]],["Vertical Booking",["be","cm"]],["WebHotelier",["pms","cm","be"]],["WuBook",["pms","cm","be"]],["zoombookdirect",["be"]],["Bedzzle",["pms","cm","be"]],["Allotz",["cm"]],["BookNPay",["be","cm"]],["Blue House Travel / Booking2Hotels",["be"]],["Bookcore",["be"]],["DiHotel",["pms"]],["Directwithhotels",["be"]],["Phuket Solution",["pms"]],["Pelican Solutions",["pms","be"]],["Smart Hotel Software",["pms"]],["Zuzu / ZUZU Hospitality",["cm","be","pvo"]],["Wink (Wink.travel)",["be"]],["Roomie",["pvo"]],["Wixhotels",["be"]],["radiant1",[]],["Newway",[]],["Hotelchamp",[]],["The Hotels Network",[]],["Triptease",[]],["MakeWebEasy",[]],["Ace Marketing Solutions",[]],["All Hands Marketing",[]],["The Percentage",[]],["H.I.S",[]],["lenotre",[]],["Grabrooms",[]],["ADS",[]],["AsiaTech",[]],["Backhotel Lite",[]],["Backhotelengine",[]],["Bookcall",[]],["bookings247",[]],["CALYPSO",[]],["DJUBQ",[]],["FROMAS",[]],["Frontdeskey",[]],["Getbestbooking",[]],["GHS Booking Engine",[]],["Gihotech",[]],["HotelX",[]],["Hotelbizsolution",[]],["Intelio",[]],["LEO",[]],["Myxcaliber",[]],["PMS Boxes",[]],["reveto",[]],["Roomy",[]],["Sky Software",[]],["SmartFinder",[]],["Sophia Software Solutions",[]],["OHOTEL",[]],["OYO",[]],["Onehotel.asia",[]]];
+async function sysprovSeed() {
+  if (!Auth.isProvider() || UI.pvSeeding || byId('sysprov_seed_v1') || K('sysprov').length) return; UI.pvSeeding = true;
+  for (const [name, types] of SYSPROV_SEED) await save({id: 'sp_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), kind: 'sysprov', name, types});
+  await save({id: 'sysprov_seed_v1', kind: 'sysprovseed', at: new Date().toISOString()}); UI.pvSeeding = false;
+}
 function vProviders() {
+  if (Auth.isProvider() && !byId('sysprov_seed_v1') && !K('sysprov').length && !UI.pvSeeding) sysprovSeed().then(() => { if (location.hash === '#pricing/providers') vProviders(); });
   const adm = Auth.isProvider(), f = UI.prv = UI.prv || {q: ''};
   view().innerHTML = `<div class="top"><div><h1>System Providers</h1></div><div class="actions">${adm ? `<button type="button" class="btn primary" data-act="prvAdd">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pv_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="fu-sub"><b>System Providers</b> information</div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Provider name</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Added</th></tr></thead><tbody id="pvbody"></tbody></table></div>`;
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Provider name</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Added</th>${adm ? '<th>Action</th>' : ''}</tr></thead><tbody id="pvbody"></tbody></table></div>`;
   paintProviders(); const q = $('#pv_q'); q.addEventListener('input', () => { f.q = q.value; paintProviders(); });
 }
 function paintProviders() {
   const tb = $('#pvbody'); if (!tb) return; const n = norm((UI.prv || {}).q || ''), adm = Auth.isProvider();
   const rows = K('sysprov').filter(p => !n || norm(p.name).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
-  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td>${SYS_TYPES.map(s => `<td>${(p.types || []).includes(s[0]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td>`).join('')}<td class="nw">${esc(meetDmy((p.created || '').slice(0, 10)))}</td></tr>`).join('')
-    : `<tr><td colspan="${SYS_TYPES.length + 3}" class="empty">${n ? 'Nothing matches your search.' : adm ? 'No provider yet. Press Add new to add the first one.' : 'No provider has been added yet.'}</td></tr>`;
+  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td>${SYS_TYPES.map(s => `<td>${(p.types || []).includes(s[0]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td>`).join('')}<td class="nw">${esc(meetDmy((p.created || '').slice(0, 10)))}</td>${adm ? `<td class="nw"><button type="button" class="btn info sm" data-act="prvEdit" data-id="${p.id}">${ICON.edit}Edit</button> <button type="button" class="btn redb sm" data-act="prvDel" data-id="${p.id}">${ICON.trash}Delete</button></td>` : ''}</tr>`).join('')
+    : `<tr><td colspan="${SYS_TYPES.length + 3 + (adm ? 1 : 0)}" class="empty">${n ? 'Nothing matches your search.' : adm ? 'No provider yet. Press Add new to add the first one.' : 'No provider has been added yet.'}</td></tr>`;
 }
-function prvSheet() {
-  if (!Auth.isProvider()) { toast('Only the CEO can add a provider'); return; }
-  openSheet(`${fuHead('Add new provider')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Provider name <i class="req">*</i></label><input id="pv_name" autocomplete="off" style="width:100%"></div>
-   <div class="mq-b"><label class="mq-l">Software it supplies <i class="req">*</i></label><div class="pv-ticks">${SYS_TYPES.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-pt="${k}"> ${esc(l)}</label>`).join('')}</div></div></div>
+function prvSheet(id) {
+  if (!Auth.isProvider()) { toast('Only the CEO can add or change a provider'); return; }
+  const cur = id ? byId(id) : null;
+  openSheet(`${fuHead(cur ? 'Edit provider' : 'Add new provider')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Provider name <i class="req">*</i></label><input id="pv_name" autocomplete="off" style="width:100%" value="${esc(cur ? cur.name : '')}"></div>
+   <div class="mq-b"><label class="mq-l">Software it supplies${cur ? '' : ' <i class="req">*</i>'}</label><div class="pv-ticks">${SYS_TYPES.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-pt="${k}" ${cur && (cur.types || []).includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></div></div>
    <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="pv_save">Save</button></div>`, root => {
     $('#pv_save', root).onclick = async () => {
       const name = $('#pv_name', root).value.trim().replace(/\s+/g, ' '), types = $$('[data-pt]', root).filter(c => c.checked).map(c => c.dataset.pt);
-      if (!name) { toast('Provider name is required'); return; } if (!types.length) { toast('Tick at least one software'); return; }
-      if (K('sysprov').some(p => norm(p.name) === norm(name))) { toast('This provider is already in the list'); return; }
-      await save({id: uid(), kind: 'sysprov', name, types}); closeSheet(); toast('Saved'); vProviders();
+      if (!name) { toast('Provider name is required'); return; } if (!cur && !types.length) { toast('Tick at least one software'); return; }
+      if (K('sysprov').some(p => p.id !== (cur || {}).id && norm(p.name) === norm(name))) { toast('This provider is already in the list'); return; }
+      await save({...(cur || {}), id: cur ? cur.id : uid(), kind: 'sysprov', name, types}); closeSheet(); toast('Saved'); vProviders();
     };
   });
 }
@@ -3261,6 +3271,8 @@ function paintCompetitors() {
 }
 Object.assign(ACTIONS, {
   prvAdd: () => prvSheet(),
+  prvEdit: el => prvSheet(el.dataset.id),
+  prvDel: async el => { const p = byId(el.dataset.id); if (!p || !Auth.isProvider()) return; if (!await confirmDelete('Do you want delete provider ' + p.name + '? A hotel that already has it keeps the name. It moves to Delete records.')) return; await softDelete(p); toast('Provider deleted'); vProviders(); },
   cpSearch: () => { const f = UI.cmp = UI.cmp || {}; f.sys = $('#cp_sys').value; f.prov = $('#cp_prov').value; f.go = true; paintCompetitors(); },
   cpReset: () => { UI.cmp = {sys: '', prov: '', q: '', go: false}; vCompetitors(); },
 });
