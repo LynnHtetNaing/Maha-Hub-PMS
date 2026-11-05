@@ -607,6 +607,10 @@ input,select,textarea{box-sizing:border-box}
 .ac-g3{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1fr);gap:14px 28px}.ac-g3 input[type=text],.ac-g3 input[type=date]{width:100%}.acf .cb{position:relative}.acf .cb input{width:100%}
 .ac-ro{background:#f3efe8;color:#555}
 .kp-p{margin:22px 0 8px;font:600 15px var(--font)}.kp-t td,.kp-t th{text-align:center}.kp-t td.kp-l{text-align:center;white-space:nowrap}.kp-n{color:#1a4fa0;font-weight:600;text-decoration:none}.kp-n:hover{text-decoration:underline}.kp-tot td{background:#e8e8e8}
+.mo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}@media (max-width:860px){.mo-grid{grid-template-columns:minmax(0,1fr)}}
+.mo-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px}.mo-h{display:flex;gap:14px;align-items:center;margin-bottom:12px}.mo-h h3{margin:0;font:600 16px var(--font)}.mo-h p{margin:2px 0 0;color:var(--ink-2);font-size:13px}
+.mo-i{width:42px;height:42px;border-radius:12px;background:#f3efe8;display:grid;place-items:center;flex:none}.mo-i svg{width:20px;height:20px}.mo-t{margin:0 0 16px;color:var(--ink-2);font-size:13.5px;line-height:1.6}.mo-b{display:flex;gap:10px;flex-wrap:wrap}
+.mo-l{list-style:none;margin:0;padding:0;display:grid;gap:10px}.mo-l li{display:grid;gap:2px;padding:10px 14px;border-radius:12px;background:#faf8f4}.mo-l b{font-size:13.5px}.mo-l span{font-size:13px;color:var(--ink-2)}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -2135,28 +2139,15 @@ function vCollect() {
 
 /* ---------- more: sockets + data ---------- */
 function vMore() {
-  const colls = K('coll'); const m = meta();
-  let persisted = '';
-  view().innerHTML = `<div class="top"><div><h1>More</h1><p>Your own sockets, backups and app settings</p></div></div>
-   <h2>My sockets <span class="count">${colls.length}</span></h2>
-   <p class="muted small" style="margin-top:-4px">A socket is your own list with the fields you choose — addresses, billing details, suppliers, anything.</p>
-   <div class="list">${colls.map(c => `<a class="row" href="#coll/${c.id}"><div class="main"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.fields.join(', '))}</div></div><div class="end">${K('item').filter(i => i.collId === c.id).length} items</div></a>`).join('') || '<div class="empty">No sockets yet.</div>'}</div>
-   <p><button class="btn primary" data-act="newColl">${ICON.plus}New socket</button></p>
-   <h2>Backup &amp; move data</h2>
-   <div class="panel"><p style="margin-top:0">Data is stored on this device only. Back up weekly, and use the same file to move everything to your phone or laptop. To bring in your Excel Hotel Database: in Excel choose File → Save As → CSV UTF-8, then Import hotels CSV — matching hotel names are updated, new ones added.</p>
-    <div class="actions"><button class="btn gold" data-act="backup">Download full backup</button><button class="btn" data-act="restore">Restore from backup</button>
-     <button class="btn" data-act="exportCSV">Export hotels CSV</button><button class="btn" data-act="importCSV">Import hotels CSV</button></div>
-    <div class="actions" style="margin-top:10px"><button class="btn primary" data-act="salesImport">Import from Sales System</button></div>
-    <p class="muted small">Sales System: copy the follow-up table from the screen and paste it, or import an exported .xlsx / .xls / .csv. Re-importing the same rows does not create duplicates.${meta().lastSalesImport ? ' Last import: ' + fdate(meta().lastSalesImport) + '.' : ''}</p>
-    <p class="muted small">Last backup: ${m.lastBackup ? fdate(m.lastBackup) : 'never'} · ${K('hotel').length} hotels · ${K('act').length} activities · ${K('quote').length} quotes · <span id="persist"></span></p></div>
-   <h2>Install on your devices</h2>
-   <div class="panel small"><ul style="margin:0;padding-left:18px">
-    <li><b>Android (Chrome):</b> menu ⋮ → Install app / Add to Home screen</li>
-    <li><b>iPhone (Safari):</b> Share → Add to Home Screen</li>
-    <li><b>Windows / Mac (Chrome or Edge):</b> install icon at the right of the address bar</li></ul>
-    <p class="muted" style="margin-bottom:0">Once installed it opens full-screen and works without internet.</p></div>
-   <p class="muted small"><b>CRM version 5 (Oct 2026)</b> — Quotation PDF, MSA PDF, Sales System import. If you don't see this line, the new index.html is not uploaded yet.</p>`;
-  if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(p => { const el = $('#persist'); if (el) el.textContent = p ? 'storage protected' : 'storage may be cleared by the browser — back up'; });
+  const n = K('hotel').length;
+  view().innerHTML = `<div class="top"><div><h1>More</h1></div></div>
+   <div class="mo-grid">
+    <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.upload || ''}</span><div><h3>Hotel data</h3><p>${n} hotel${n === 1 ? '' : 's'} in the database</p></div></div>
+     <p class="mo-t">Bring a hotel list in from Excel, or take the hotel list out. Save the Excel file as CSV UTF-8 first. A hotel with the same name is updated; a new name is added.</p>
+     <div class="mo-b"><button type="button" class="btn dark" data-act="importCSV">Import hotels CSV</button><button type="button" class="btn" data-act="exportCSV">Export hotels CSV</button></div></section>
+    <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.phone || ''}</span><div><h3>Install the CRM</h3><p>Opens full screen like an app</p></div></div>
+     <ul class="mo-l"><li><b>Windows / Mac</b><span>Chrome or Edge: the install icon at the right of the address bar</span></li><li><b>Android</b><span>Chrome: menu ⋮ → Install app</span></li><li><b>iPhone</b><span>Safari: Share → Add to Home Screen</span></li></ul></section>
+   </div>`;
 }
 function collSheet(c) {
   const isNew = !c; c = c || {name:'', fields:['Name', 'Details', 'Notes']};
