@@ -507,6 +507,15 @@ table{border-radius:12px}
  .mtop{display:flex;position:sticky;top:0;height:46px;padding:0 10px;background:#fff;border-bottom:1px solid var(--line)}
  .mcrumb,.msearch{display:none}
 }
+/* ---------- Pop-ups: wider, no scroll bar (so the round corners stay round), no overlapping boxes ---------- */
+.sheet-card{scrollbar-width:none;-ms-overflow-style:none}.sheet-card::-webkit-scrollbar{display:none}
+.sheet-card.wide{max-width:900px}
+.grid.two>*{min-width:0}.grid select,.grid input:not([type=checkbox]):not([type=radio]),.grid textarea,.hi select,.hi input:not([type=checkbox]):not([type=radio]),.hi textarea{width:100%;min-width:0;max-width:100%}
+.hi-r2,.hi-cg,.hi-more .grid{gap:12px 18px}
+.cb{position:relative}
+.cbl{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(60,40,10,.18);max-height:230px;overflow:auto;padding:4px;scrollbar-width:none}.cbl::-webkit-scrollbar{display:none}
+.cbo{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;font:inherit;font-size:13.5px;cursor:pointer}.cbo:hover{background:color-mix(in srgb,var(--a1) 10%,transparent)}
+.cbn{padding:10px;font-size:12.5px;color:var(--ink-2)}
 </style>
 </head>
 <body>
@@ -901,7 +910,7 @@ function openSheet(html, mount) {
   enhanceDates($('#sheet-body'));
   mount && mount($('#sheet-body'));
 }
-function closeSheet() { $('#sheet').hidden = true; document.body.style.overflow = ''; $('#sheet-body').innerHTML = ''; }
+function closeSheet() { $('#sheet-body').classList.remove('wide'); $('#sheet').hidden = true; document.body.style.overflow = ''; $('#sheet-body').innerHTML = ''; }
 $('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
 const sheetHead = t => `<div class="sheet-head"><h2>${esc(t)}</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>`;
@@ -2534,6 +2543,20 @@ function paintDbCity() {
   const mo = $('#dbmore'); if (mo) mo.innerHTML = list.length > shown.length ? `<button type="button" class="btn" data-act="dbMore">Show more (${list.length - shown.length} left)</button>` : (list.length ? `<span class="muted small">${list.length} hotel${list.length === 1 ? '' : 's'}</span>` : '');
 }
 
+/* ---- Location: a drop-down you can type in to find; a new property must pick from the list, an existing one may get a new area ---- */
+function areasOf(country, city) {
+  const same = K('hotel').filter(h => (!country || hCountry(h) === hCountry({country})) && (!city || norm(hCity(h)) === norm(city)));
+  return [...new Set(same.map(h => String(h.area || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+function bindCombo(root, allowNew) {
+  const inp = $('[data-hf=area]', root), list = $('.cbl', root); if (!inp || !list) return;
+  const opts = () => areasOf(($('[data-hf=country]', root) || {}).value || '', (($('[data-hf=city]', root) || {}).value || '').trim());
+  const show = () => { const q = norm(inp.value), o = opts().filter(a => !q || norm(a).includes(q)).slice(0, 80); list.innerHTML = o.length ? o.map(a => `<button type="button" class="cbo" data-v="${esc(a)}">${esc(a)}</button>`).join('') : `<div class="cbn">${allowNew ? 'No other area yet. Type the new area.' : 'No area in this city yet. Leave it empty and save; add the area later from the list.'}</div>`; list.hidden = false; };
+  inp.addEventListener('focus', show); inp.addEventListener('input', show);
+  list.addEventListener('pointerdown', e => { const b = e.target.closest('.cbo'); if (!b) return; e.preventDefault(); inp.value = b.dataset.v; list.hidden = true; });
+  inp.addEventListener('blur', () => setTimeout(() => { list.hidden = true; if (!allowNew && inp.value.trim() && !opts().some(a => norm(a) === norm(inp.value))) { inp.value = ''; toast('Choose the location from the list'); } }, 120));
+  inp.addEventListener('keydown', e => { if (e.key === 'Escape') list.hidden = true; });
+}
 /* ---- Property information (full info of a hotel: edit it, add contacts) ---- */
 const HI_EXTRA = ['status', 'managed', 'type', 'stars', 'otas', 'gha', 'model', 'source', 'agent', 'tags', 'line'];
 function hotelSheet(h, pre) {
@@ -2545,7 +2568,7 @@ function hotelSheet(h, pre) {
   const cg = (c, i) => `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name" value="${esc(c.name || '')}"></label><label class="f"><span>Contact Position</span><input data-c="position" value="${esc(c.position || '')}"></label><label class="f"><span>Contact Email</span><input data-c="email" value="${esc(c.email || '')}"></label><label class="f"><span>Contact Phone</span><input data-c="phone" value="${esc(c.phone || '')}"></label></div>`;
   const extra = HOTEL_FIELDS.filter(f => HI_EXTRA.includes(f.k));
   openSheet(`${fuHead(isNew ? 'Property information' : 'Property information for ' + h.name)}
-   <div class="hi">${inp('name', 'Hotel Name', 1, 'wide')}${inp('area', 'Location', 1, 'wide')}
+   <div class="hi">${inp('name', 'Hotel Name', 1, 'wide')}<div class="f wide"><span>Location</span><div class="cb"><input type="text" data-hf="area" autocomplete="off" placeholder="${isNew ? 'Type to find, then choose' : 'Choose or type the area'}" value="${esc(h.area || '')}"><div class="cbl" hidden></div></div></div>
     <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div>${inp('website', 'Website', 0, 'wide')}
     <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(h.address || '')}</textarea></label>
     <div class="hi-r2">${inp('city', 'Address City')}${inp('country', 'Country')}</div>
@@ -2555,10 +2578,11 @@ function hotelSheet(h, pre) {
     <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
     <details class="hi-more"><summary>More details</summary><div class="grid two">${extra.map(f => field(f, h[f.k])).join('')}</div></details></div>
    <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="hi_del">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="hi_save">Save</button></div>`, root => {
+    root.classList.add('wide'); bindCombo(root, !isNew);
     const del = $('#hi_del', root); if (del) del.onclick = () => { const n = K('act').filter(a => a.hotelId === h.id).length; if (confirm(`Delete ${h.name} and its ${n} follow ups? Quotations are kept.`)) { K('act').filter(a => a.hotelId === h.id).forEach(a => remove(a.id)); remove(h.id); closeSheet(); toast('Hotel deleted'); if (location.hash.startsWith('#hotel/')) location.hash = 'hotels'; else rerender(); } };
     $('#hi_save', root).onclick = async () => {
       const v = {}; $$('[data-hf]', root).forEach(e => v[e.dataset.hf] = (e.value || '').trim());
-      if (!v.name) { toast('Hotel Name is required'); return; } if (!v.area) { toast('Location is required'); return; }
+      if (!v.name) { toast('Hotel Name is required'); return; }
       if (isNew) { const dup = K('hotel').find(x => norm(x.name) === norm(v.name) && norm(x.city) === norm(v.city)); if (dup && !confirm(`"${dup.name}" is already in the database. Add another anyway?`)) return; }
       const cs = $$('[data-cg]', root).map(g => ({name: $('[data-c=name]', g).value.trim(), position: $('[data-c=position]', g).value.trim(), email: $('[data-c=email]', g).value.trim(), phone: $('[data-c=phone]', g).value.trim()})).filter(c => c.name || c.position || c.email || c.phone);
       const ex = readForm(root, extra), c0 = cs[0] || {};
