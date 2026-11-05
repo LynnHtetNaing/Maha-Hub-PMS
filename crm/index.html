@@ -611,6 +611,9 @@ input,select,textarea{box-sizing:border-box}
 .mo-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px}.mo-h{display:flex;gap:14px;align-items:center;margin-bottom:12px}.mo-h h3{margin:0;font:600 16px var(--font)}.mo-h p{margin:2px 0 0;color:var(--ink-2);font-size:13px}
 .mo-i{width:42px;height:42px;border-radius:12px;background:#f3efe8;display:grid;place-items:center;flex:none}.mo-i svg{width:20px;height:20px}.mo-t{margin:0 0 16px;color:var(--ink-2);font-size:13.5px;line-height:1.6}.mo-b{display:flex;gap:10px;flex-wrap:wrap}
 .mo-l{list-style:none;margin:0;padding:0;display:grid;gap:10px}.mo-l li{display:grid;gap:2px;padding:10px 14px;border-radius:12px;background:#faf8f4}.mo-l b{font-size:13.5px}.mo-l span{font-size:13px;color:var(--ink-2)}
+.hi-sys{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px;margin-bottom:8px;align-items:end}@media (max-width:560px){.hi-sys{grid-template-columns:minmax(0,1fr)}}
+.hi-ct{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}.hi .hi-ct input{border:0!important;border-radius:0!important;flex:1;min-width:0;width:auto!important}.hi .hi-ct select{border:0!important;border-left:1px solid var(--line)!important;border-radius:0!important;width:9.5em!important;flex:none;background:#f4efe6}
+.pv-ok{color:#1b7a3a;font-weight:700}.pv-ticks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}.cp-hit{background:#fff3d6;font-weight:600}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -761,6 +764,8 @@ const PB_DEFAULT = [
 `- Commercial Module: every service and fee we sell, with its unit. Check the price here before you quote
 - Staff Credit: the credit % of each staff member (set once by the CEO). It shows in Setup activation
 - Referral Rewards: the reward a referral hotel earns when a signing comes through it
+- System Providers: the companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
+- Competitor Analysis (own menu title): the hotel list filtered by software and provider
 - Everyone can view these pages; only the CEO can add or change them`},
 
  {cat: 'Other tools', title: 'Enewletter', body:
@@ -1689,16 +1694,16 @@ const NAV = [['dashboard','Dashboard'],['today','Today'],['hotels','Hotels'],['q
 function drawNav(cur) {
   drawRail(cur);
 }
-const SECTION_OF = {pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 const NAVS = {cur: '', stack: [], back: false};
 function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -2330,7 +2335,8 @@ const NAVG = [
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
-  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Referral Rewards', '#pricing/referral', 'users']]},
+  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['System Providers', '#pricing/providers', 'db'], ['Referral Rewards', '#pricing/referral', 'users']]},
+  {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
@@ -2355,7 +2361,7 @@ const partnerName = id => (byId(id) || {}).name || '';
 const ctOf = (r, acc) => { const cs = (r.contacts && r.contacts.length ? r.contacts : [{name: r.contact, position: r.contactTitle}]).filter(c => c && c.name); const isAcc = c => /account|financ/i.test(c.position || ''); const c = acc ? cs.find(isAcc) : cs.find(x => !isAcc(x)); return c ? c.name : ''; };
 function partnerForm(p, isNew) {
   const contacts = (p.contacts && p.contacts.length ? p.contacts : [{}]).slice(); while (contacts.length < 2) contacts.push({});
-  const known = k => [...new Set(K('hotel').concat(K('partner')).map(x => x[k]).filter(Boolean).concat(['Maha'], p[k] ? [p[k]] : []))].sort();
+  const known = k => provOptions(k, p[k]);
   const inp = (k, label, req, cls) => `<label class="f ${cls || ''}"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><input data-hf="${k}" value="${esc(p[k] ?? '')}"></label>`;
   const sel = (k, label) => `<label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${known(k).map(v => `<option ${p[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
   const cg = (c, i) => `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name" value="${esc(c.name || '')}"></label><label class="f"><span>Contact Position</span><input data-c="position" value="${esc(c.position || '')}"></label><label class="f"><span>Contact Email</span><input data-c="email" value="${esc(c.email || '')}"></label><label class="f"><span>Contact Phone</span><input data-c="phone" value="${esc(c.phone || '')}"></label></div>`;
@@ -2794,7 +2800,7 @@ function hotelForm(h, isNew) {
     <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div>${inp('website', 'Website', 0, 'wide')}
     <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(h.address || '')}</textarea></label>
     <div class="hi-r2">${inp('city', 'Address City')}${inp('country', 'Country')}</div>
-    <div class="hi-r2">${sel('pms', 'PMS')}${sel('cm', 'CM')}</div><div class="hi-r2">${sel('be', 'BE')}${sel('pvo', 'Virtual Offline Payment')}</div>
+    ${sysRows(h)}
     <div id="hiContacts">${contacts.map(cg).join('')}</div><div class="hi-add"><button type="button" class="btn info sm" data-act="hiAddContact">Add more contact</button></div>
     <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(h.notes || '')}</textarea></label>
     <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
@@ -3047,6 +3053,72 @@ Object.assign(ACTIONS, {
   mqStatus: el => mqStatusSheet(el.dataset.id, el.dataset.s),
 });
 
+/* ---------- System Providers and Competitor Analysis ----------
+   System Providers (Pricing & Commercial): the companies that supply a hotel's software (a competitor, or Maha), with the software each one supplies. Only the provider adds names.
+   A hotel's More details has one row for each software (PMS, CM, BE, Virtual Offline Payment, POS): the provider chosen from this list, and beside it the amount and the commercial term the hotel pays.
+   Competitor Analysis: the hotel list filtered by provider. To add a software later, add one line to SYS_TYPES. */
+const SYS_TYPES = [['pms', 'PMS'], ['cm', 'CM'], ['be', 'BE'], ['pvo', 'Virtual Offline Payment'], ['pos', 'POS']];
+const SYS_TERMS = ['per day', '% per booking', 'Monthly', '3 months', '6 months', 'Annually', '2 years', '3 years', '4 years', '5 years'];
+/* the providers to choose for one software: the ones added for it, Maha, and the value the hotel already has */
+const provOptions = (k, current) => [...new Set(K('sysprov').filter(p => (p.types || []).includes(k)).map(p => p.name).concat(['Maha'], current ? [current] : []))].sort((a, b) => a.localeCompare(b));
+const provCell = (h, k) => { const t = [h[k + 'Amt'], h[k + 'Term']].filter(Boolean).join(' '); return h[k] ? h[k] + (t ? ' · ' + t : '') : ''; };
+function sysRows(h) {
+  return SYS_TYPES.map(([k, label]) => `<div class="hi-sys"><label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${provOptions(k, h[k]).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+    <div class="f"><span>Amount · Commercial term</span><div class="hi-ct"><input data-hf="${k}Amt" value="${esc(h[k + 'Amt'] ?? '')}" placeholder="Amount" inputmode="decimal" autocomplete="off"><select data-hf="${k}Term"><option value="">Term</option>${SYS_TERMS.map(v => `<option ${h[k + 'Term'] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div></div></div>`).join('');
+}
+function vProviders() {
+  const adm = Auth.isProvider(), f = UI.prv = UI.prv || {q: ''};
+  view().innerHTML = `<div class="top"><div><h1>System Providers</h1></div><div class="actions">${adm ? `<button type="button" class="btn primary" data-act="prvAdd">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pv_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>System Providers</b> information</div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Provider name</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Added</th></tr></thead><tbody id="pvbody"></tbody></table></div>`;
+  paintProviders(); const q = $('#pv_q'); q.addEventListener('input', () => { f.q = q.value; paintProviders(); });
+}
+function paintProviders() {
+  const tb = $('#pvbody'); if (!tb) return; const n = norm((UI.prv || {}).q || ''), adm = Auth.isProvider();
+  const rows = K('sysprov').filter(p => !n || norm(p.name).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
+  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td>${SYS_TYPES.map(s => `<td>${(p.types || []).includes(s[0]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td>`).join('')}<td class="nw">${esc(meetDmy((p.created || '').slice(0, 10)))}</td></tr>`).join('')
+    : `<tr><td colspan="${SYS_TYPES.length + 3}" class="empty">${n ? 'Nothing matches your search.' : adm ? 'No provider yet. Press Add new to add the first one.' : 'No provider has been added yet.'}</td></tr>`;
+}
+function prvSheet() {
+  if (!Auth.isProvider()) { toast('Only the CEO can add a provider'); return; }
+  openSheet(`${fuHead('Add new provider')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Provider name <i class="req">*</i></label><input id="pv_name" autocomplete="off" style="width:100%"></div>
+   <div class="mq-b"><label class="mq-l">Software it supplies <i class="req">*</i></label><div class="pv-ticks">${SYS_TYPES.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-pt="${k}"> ${esc(l)}</label>`).join('')}</div></div></div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="pv_save">Save</button></div>`, root => {
+    $('#pv_save', root).onclick = async () => {
+      const name = $('#pv_name', root).value.trim().replace(/\s+/g, ' '), types = $$('[data-pt]', root).filter(c => c.checked).map(c => c.dataset.pt);
+      if (!name) { toast('Provider name is required'); return; } if (!types.length) { toast('Tick at least one software'); return; }
+      if (K('sysprov').some(p => norm(p.name) === norm(name))) { toast('This provider is already in the list'); return; }
+      await save({id: uid(), kind: 'sysprov', name, types}); closeSheet(); toast('Saved'); vProviders();
+    };
+  });
+}
+function vCompetitors() {
+  const f = UI.cmp = UI.cmp || {sys: '', prov: '', q: '', go: false};
+  const provs = [...new Set(K('sysprov').map(p => p.name).concat(['Maha']))].sort((a, b) => a.localeCompare(b));
+  view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions"><label class="dbs"><input type="search" id="cp_q" placeholder="Search hotel.." value="${esc(f.q || '')}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>Competitor</b> (Provider) information</div>
+   <div class="fu-form"><label for="cp_sys">Software :</label><div><select id="cp_sys"><option value="">All software</option>${SYS_TYPES.map(s => `<option value="${s[0]}" ${f.sys === s[0] ? 'selected' : ''}>${esc(s[1])}</option>`).join('')}</select></div>
+    <label for="cp_prov">Provider :</label><div><select id="cp_prov"><option value="">All providers</option>${provs.map(p => `<option ${f.prov === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="cpSearch">${ICON.search}Search</button><button type="button" class="btn amber" data-act="cpReset">${ICON.reset}Reset</button></div>
+   <div class="fu-sub" id="cp_n" style="margin-top:18px"></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No.of room</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Contact person</th><th>Latest updates</th></tr></thead><tbody id="cpbody"></tbody></table></div>`;
+  paintCompetitors(); const q = $('#cp_q'); q.addEventListener('input', () => { f.q = q.value; paintCompetitors(); });
+}
+function paintCompetitors() {
+  const f = UI.cmp || {}, tb = $('#cpbody'), nb = $('#cp_n'); if (!tb) return; const n = norm(f.q || '');
+  if (!f.go) { tb.innerHTML = `<tr><td colspan="${SYS_TYPES.length + 7}" class="empty">Choose the software and the provider, then press Search. The hotels that use that provider show here.</td></tr>`; if (nb) nb.textContent = ''; return; }
+  const keys = f.sys ? [f.sys] : SYS_TYPES.map(s => s[0]);
+  const rows = K('hotel').filter(h => keys.some(k => f.prov ? norm(h[k]) === norm(f.prov) : !!h[k])).filter(h => !n || norm(h.name).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
+  if (nb) nb.innerHTML = `<b>${rows.length}</b> hotel${rows.length === 1 ? '' : 's'}${f.prov ? ' using <b>' + esc(f.prov) + '</b>' : ''}${f.sys ? ' for <b>' + esc((SYS_TYPES.find(s => s[0] === f.sys) || [0, ''])[1]) + '</b>' : ''}`;
+  tb.innerHTML = rows.length ? rows.map((h, i) => `<tr><td>${i + 1}</td><td class="l"><a href="#competitors" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td class="l">${esc(h.area || '')}</td><td class="l">${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td>${SYS_TYPES.map(([k]) => `<td class="l${f.prov && norm(h[k]) === norm(f.prov) ? ' cp-hit' : ''}">${esc(provCell(h, k))}</td>`).join('')}<td class="l">${esc(h.contact || '')}</td><td class="nw">${esc(meetDmy((h.updated || '').slice(0, 10)))}</td></tr>`).join('')
+    : `<tr><td colspan="${SYS_TYPES.length + 7}" class="empty">No hotel found for this provider. Change the software or the provider, then press Search.</td></tr>`;
+}
+Object.assign(ACTIONS, {
+  prvAdd: () => prvSheet(),
+  cpSearch: () => { const f = UI.cmp = UI.cmp || {}; f.sys = $('#cp_sys').value; f.prov = $('#cp_prov').value; f.go = true; paintCompetitors(); },
+  cpReset: () => { UI.cmp = {sys: '', prov: '', q: '', go: false}; vCompetitors(); },
+});
+
 /* ---------- Pricing & Commercial: Commercial Module (services and fees), Staff Credit and Referral Rewards ----------
    Everyone sees the three lists; only the provider (the company admin) can add or edit. Records: comodule (services and fees to sell), staffcr (credit % of each staff member), refplan (kept, never deleted: set Inactive). */
 const PR = {
@@ -3059,6 +3131,7 @@ const PR = {
 };
 const prReward = p => p.type === 'Discount %' ? p.value + '% discount' : p.type === 'Discount THB' ? p.value + ' THB discount' : p.type === 'Free months' ? p.value + ' free month(s)' : (p.value || 'Promotion');
 function vPricing(id) {
+  if (id === 'providers') return vProviders();
   const key = id === 'referral' ? 'referral' : id === 'staff' ? 'staff' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
   view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm && key === 'commercial' && !K('comodule').length ? `<button type="button" class="btn" data-act="prSeed">Load the price list</button>` : ''}${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="fu-sub"><b>${c.title}</b> information</div>
@@ -3807,7 +3880,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {pricing:'gear', setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {competitors:'kpi', pricing:'gear', setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
