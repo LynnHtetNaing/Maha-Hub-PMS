@@ -596,6 +596,19 @@ input,select,textarea{box-sizing:border-box}
 .rf-box{text-align:left;width:min(520px,100%)}.rf-box h3{text-align:center}.rf-box p{text-align:left;margin-bottom:14px}
 .rf-o{display:grid;gap:8px;margin:0 0 12px}.rf-h{margin:6px 0 14px}.rf-h>label{font-weight:700;display:block;margin-bottom:6px}.rf-h .req{color:#d93025;font-style:normal}
 .rf-n{font-size:12.5px;color:#666;margin:8px 0 0!important}.rf-box .dd-b{margin-top:10px}
+/* ---------- Manage Quotation ---------- */
+.mq-rs{display:inline-flex;gap:14px;align-items:center}
+.mq-rad{display:inline-flex;align-items:center;gap:6px;border:0;background:none;cursor:pointer;padding:0;font:inherit}
+.mq-rad i{width:22px;height:22px;border-radius:50%;border:1.5px solid #cfd4d9;background:#fff;display:inline-block;position:relative}
+.mq-rad.on i{background:#8fb8c6;border-color:#8fb8c6}.mq-rad.on i::after{content:"";position:absolute;left:6px;top:2px;width:6px;height:11px;border:solid #fff;border-width:0 2.2px 2.2px 0;transform:rotate(45deg)}
+.mq-rad b{font-size:13px}.mq-rad:hover i{border-color:#8fb8c6}
+.ap-ok{color:#1b7a3a;font-weight:600}.ap-no{color:#b3261e;font-weight:600}.ap-wait{color:#b3261e;font-weight:600}
+.ac-g3{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1fr);gap:14px 28px}.ac-g3 input[type=text],.ac-g3 input[type=date]{width:100%}.acf .cb{position:relative}.acf .cb input{width:100%}
+.ac-ro{background:#f3efe8;color:#555}
+.mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
+.mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
+.mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mq-ref{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;background:#fffdf8}.mq-refn{font-weight:700;margin-bottom:8px}.mq-ref textarea{width:100%}
 </style>
 </head>
 <body>
@@ -1713,16 +1726,16 @@ const NAV = [['dashboard','Dashboard'],['today','Today'],['hotels','Hotels'],['q
 function drawNav(cur) {
   drawRail(cur);
 }
-const SECTION_OF = {setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 const NAVS = {cur: '', stack: [], back: false};
 function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting,  dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -2343,8 +2356,9 @@ const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
-  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
-  {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
+  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
+  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Referral Rewards', '#pricing/referral', 'users']]},
+  {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
   ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
@@ -2444,10 +2458,11 @@ function vDeleted() {
   const T = {
     hotel: {rows: deletedOf('hotel'), head: ['Hotel name', 'City', 'Country', 'Contact Person'], cells: h => [esc(h.name), esc(h.city || ''), esc(h.country || ''), esc(h.contact || '')]},
     quote: {rows: deletedOf('quote'), head: ['Quotation number', 'Hotel name', 'Date', 'Status'], cells: q => [esc(q.no || ''), esc(q.hotelName || hotelName(q.hotelId)), esc(meetDmy(q.date)), esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))]},
+    activation: {rows: deletedOf('activation'), head: ['Activation date', 'Hotel name', 'Setup by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(hotelName(a.hotelId)), esc(a.techBy || ''), esc(a.status || '')]},
     meeting: {rows: deletedOf('act').filter(isMeet), head: ['Meeting date', 'Meeting time', 'Hotel name', 'Contact person', 'Meeting by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(a.time || ''), esc(hotelName(a.hotelId)), esc(a.contactName || ''), esc(a.owner || ''), esc(meetSt(a))]},
   }[tab], rows = T.rows.sort((a, b) => ((b.deleted || {}).at || '').localeCompare((a.deleted || {}).at || ''));
   view().innerHTML = `<div class="top"><div><h1>Delete records</h1></div></div>
-   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
+   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted'], ['activation', 'Activation deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
    <div class="tablewrap fu-tw dbw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${T.head.map(h => `<th>${h}</th>`).join('')}<th>Deleted by</th><th>Deleted date time</th><th>Action</th></tr></thead>
    <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${T.cells(r).map((c, k) => `<td${k === 0 || k === 1 ? ' class="l"' : ''}>${c}</td>`).join('')}<td>${who(r)}</td><td class="dlt">${when(r)}</td>${btn(r)}</tr>`).join('') : `<tr><td colspan="${T.head.length + 4}" class="empty">Nothing deleted here.</td></tr>`}</tbody></table></div>`;
 }
@@ -2557,17 +2572,19 @@ function fuRead() {
 const qCad = {once:'one-time', month:'Per month', year:'Per year'};
 function qLines(q) { if (quoteIsNew(q)) return qpLines(q); return compute(q).items.map(i => i.label + ' - ' + (i.amount != null ? fmt(i.amount) + ' THB ' + (qCad[i.cad] || '') : (i.text || ''))); }
 function hotelEmails(hid) { const h = byId(hid) || {}; return [...new Set([h.email].concat(K('act').filter(a => a.hotelId === hid).map(a => a.contactEmail)).flatMap(e => String(e || '').split(/[,;\s]+/)).filter(x => /@/.test(x)))]; }
+const apSee = q => ['none', 'approved'].includes(approvalState(q)) || Auth.isProvider();
+const apGate = (q, html) => apSee(q) ? html : `<span class="ap-wait">${approvalState(q) === 'declined' ? 'Declined' : 'Waiting Approval'}</span>`;
 function qExtraRows(q) {
   if (!quoteIsNew(q)) return '';
   const st = approvalState(q), rev = (q.items || []).some(i => i.id === 'rev' && i.on);
-  const msa = rev ? `<div class="fu-qr"><b>MSA</b><span><a href="#followup" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a></span></div>` : '';
+  const msa = rev ? `<div class="fu-qr"><b>MSA</b><span>${apGate(q, `<a href="#followup" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`)}</span></div>` : '';
   const ap = ['waiting', 'needed', 'declined'].includes(st) ? `<div class="fu-qr"><b>Approval</b><span style="color:#b3261e;font-weight:600">${st === 'declined' ? 'Declined by the manager' : 'Waiting for the manager\'s approval (discount)'}</span><span class="fu-qa">${st === 'waiting' ? `<button type="button" class="btn sm primary" data-act="qApprove" data-id="${q.id}">Approve</button><button type="button" class="btn sm" data-act="qDecline" data-id="${q.id}">Decline</button>` : ''}</span></div>` : '';
   return msa + ap;
 }
 function quotesSheet(hid) {
   const h = byId(hid); if (!h) return; const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.no || '').localeCompare(b.no || '')), em = hotelEmails(hid);
   const block = (q, i) => `<div class="fu-qb" data-qid="${q.id}">
-    <div class="fu-qr"><b>Quotation issue #${i + 1}</b><span>${q.upload ? `<a href="#followup" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#followup" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#followup" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`}</span>
+    <div class="fu-qr"><b>Quotation issue #${i + 1}</b><span>${apGate(q, q.upload ? `<a href="#followup" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#followup" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#followup" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`)}</span>
      <span class="fu-qa"><button type="button" class="btn info sm" data-act="qEdit" data-id="${q.id}">Edit</button><button type="button" class="btn redb sm" data-act="qDel" data-id="${q.id}">Delete</button></span></div>
     ${qExtraRows(q)}<div class="fu-qr"><b>Send email to</b><span>${em.length ? em.map(e => `<label class="fu-chk"><input type="checkbox" data-qe value="${esc(e)}" checked> ${esc(e)}</label>`).join('<br>') : '<span class="muted">No email address on this hotel</span>'}</span><span class="fu-qa"><button type="button" class="btn gold" data-act="qSend" data-id="${q.id}">Send email</button></span></div>
     <div class="fu-qr"><b>Date</b><span>${esc(fdate(q.date))}</span></div>
@@ -2934,7 +2951,7 @@ const meetCount = hid => meetActs().filter(a => a.hotelId === hid).length;
    A hotel's name opens its Property information; the last column (Manage(n)) opens the meetings or the quotations of the hotel. */
 const TK = {
   meeting: {st: 'sm', title: 'Task Report - Setup Meeting', col: 'Meeting', act: 'smManage', count: hid => meetCount(hid), back: '#setupmeeting'},
-  quote: {st: 'qt', title: 'Task Report - Quotation', col: 'Quotation', act: 'qtManage', count: hid => K('quote').filter(q => q.hotelId === hid).length, back: '#quotes'},
+  quote: {st: 'qt', title: 'Task Report - Quotation Generation', col: 'Quotation', act: 'qtManage', count: hid => K('quote').filter(q => q.hotelId === hid).length, back: '#quotes'},
 };
 function vTask(mode) {
   UI.tkMode = mode; const c = TK[mode], u = UI[c.st] = UI[c.st] || {tab: 'Thailand', q: '', open: []};
@@ -2958,7 +2975,183 @@ Object.assign(ACTIONS, {
   smToggle: el => { const u = UI[TK[UI.tkMode].st], k = el.dataset.c, i = u.open.indexOf(k); if (i >= 0) u.open.splice(i, 1); else u.open.push(k); paintSm(); },
   qtManage: el => quotesSheet(el.dataset.hid),
 });
-const vQuotesRoute = id => (id === 'pending' || id === 'waiting') ? vQuotes(id) : vTask('quote');
+/* ================= MANAGE QUOTATION (the Pending Quotations page) =================
+   Every quotation of the period with the choice Sign / Pending / Reject (none chosen for a new quotation, and it can never be cleared back: only changed).
+   Any choice opens "Quotation status for <no>". Sign needs every box except the payment slip (a commission-only quotation also needs no payment date and no tax invoice
+   number); only then does it count as Signed (KPI, Dashboard). Reject needs its date, person and detail. Pending only has an optional detail.
+   A referral hotel of the quotation (from the meeting) must be confirmed or cancelled (with a reason) when it is signed: a confirmed one earns a credit
+   (a discount or promotion from the provider, to be set in Pricing & Commercial) that will pass to the Hotel PMS billing and the Finance system (REF_LINK). */
+const REF_LINK = {credit: rec => null /* later: the Hotel PMS billing and the Company Finance system take the credit from here */};
+const mqState = q => ({Accepted: 'Sign', Pending: 'Pending', Rejected: 'Reject'})[q.status] || '';
+const mqIsComm = q => { const c = qCompute(q); return !(c.month || c.year || c.once) && c.items.some(i => i.cad === 'comm'); };
+function mqPrice(q) { const c = qCompute(q), fixed = (c.month || 0) + (c.year || 0) + (c.once || 0); if (fixed) return fmt(fixed); const p = c.items.filter(i => i.cad === 'comm').map(i => (String(i.text || '').match(/[\d.]+/) || [''])[0]).filter(Boolean); return p.join(' + '); }
+function refDefault(hid) { const m = meetActs().filter(a => a.hotelId === hid && a.meetLead === 'Customer Referral' && a.refHotelId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]; return m ? m.refHotelId : ''; }
+async function refCredit(q, refId, decision, reason) {
+  const id = 'rc_' + q.id, ex = byId(id);
+  await save({...(ex || {}), id, kind: 'refcredit', quoteId: q.id, quoteNo: q.no || '', referrerId: refId, referredId: q.hotelId, signedDate: (q.signInfo && q.signInfo.signDate) || today(), status: decision === 'confirm' ? 'Earned' : 'Cancelled', reason: reason || '', ...(decision === 'confirm' ? (p => p ? {planId: p.id, planName: p.name, reward: prReward(p)} : {})(K('refplan').find(x => x.status !== 'Inactive')) : {})});
+  try { REF_LINK.credit(byId(id)); } catch {}
+}
+function mqRows() {
+  const f = UI.mq || {}, q = norm(f.q || '');
+  return K('quote').filter(x => (!f.from || (x.date || '') >= f.from) && (!f.to || (x.date || '') <= f.to) && (!q || norm([hotelName(x.hotelId), x.hotelName, x.no].join(' ')).includes(q)))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.no || '').localeCompare(b.no || ''));
+}
+function vPending() {
+  const f = UI.mq = UI.mq || {from: today(), to: today(), q: ''};
+  view().innerHTML = `<div class="top"><div><h1>Manage Quotation</h1></div><div class="actions"><label class="dbs"><input type="search" id="mq_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search quotation"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>Quotations</b> information</div>
+   <div class="fu-form"><label for="mq_from">Start Date :</label><div><input type="date" id="mq_from" value="${esc(f.from || '')}"></div><label for="mq_to">End Date :</label><div><input type="date" id="mq_to" value="${esc(f.to || '')}"></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="mqSearch">${ICON.search}Search</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Quotation date</th><th>Hotel name</th><th>Quotation No.</th><th>Price</th><th>Sign by</th><th>Action</th><th>Action</th></tr></thead><tbody id="mqbody"></tbody></table></div>`;
+  paintMq(); const q = $('#mq_q'); q.addEventListener('input', () => { f.q = q.value; paintMq(); });
+}
+function paintMq() {
+  const rows = mqRows(), tb = $('#mqbody'); if (!tb) return;
+  const rad = (x, s) => `<button type="button" class="mq-rad${mqState(x) === s ? ' on' : ''}" data-act="mqStatus" data-id="${x.id}" data-s="${s}" aria-pressed="${mqState(x) === s}"><i></i><b>${s}</b></button>`;
+  tb.innerHTML = rows.length ? rows.map((x, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(x.date))}</td><td class="l">${esc(x.hotelName || hotelName(x.hotelId))}</td><td class="nw">${esc(x.no || '')}</td><td style="text-align:right">${esc(mqPrice(x))}</td><td>${esc((x.signInfo && x.signInfo.by) || '')}</td><td><span class="mq-rs">${['Sign', 'Pending', 'Reject'].map(s => rad(x, s)).join('')}</span></td><td><button type="button" class="btn info sm" data-act="mqView" data-id="${x.id}">${ICON.edit}View</button></td></tr>`).join('') : '<tr><td colspan="8" class="empty"></td></tr>';
+}
+function mqViewSheet(id) {
+  const q = byId(id); if (!q) return;
+  const pdf = q.upload ? `<a href="#quotes/pending" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#quotes/pending" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#quotes/pending" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`;
+  const rev = quoteIsNew(q) && (q.items || []).some(i => i.id === 'rev' && i.on);
+  openSheet(`${fuHead('Quotation information')}<div class="fu-pop" style="margin-top:14px"><div class="fu-qr"><b>Quotation PDF</b><span>${apGate(q, pdf)}</span></div>
+   ${rev ? `<div class="fu-qr"><b>MSA</b><span>${apGate(q, `<a href="#quotes/pending" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`)}</span></div>` : ''}
+   <div class="fu-qr"><b>Date</b><span>${esc(meetDmy(q.date))}</span></div><div class="fu-qr"><b>Quotation number</b><span>${esc(q.no || '')}</span></div>
+   ${qLines(q).map((l, k) => `<div class="fu-qr"><b>Product ${k + 1}</b><span>${esc(l)}</span></div>`).join('')}</div>`);
+}
+/* the status pop-up */
+function mqStatusSheet(id, pick) {
+  const q = byId(id); if (!q) return; const h = byId(q.hotelId) || {}, si = q.signInfo || {}, ri = q.rejectInfo || {}, comm = mqIsComm(q), refId = refDefault(q.hotelId), ref = refId ? byId(refId) : null;
+  const who = [...new Set(K('act').map(a => a.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], si.by ? [si.by] : []))].sort();
+  const req = (label, on = true) => `<label class="mq-l">${label}${on ? ' <i class="req">*</i>' : ''}</label>`;
+  const inp = (k, v, type) => `<input type="${type || 'text'}" data-sf="${k}" value="${esc(v || '')}">`;
+  const panel = s => s === 'Sign' ? `<div class="mq-g">
+      <div>${req('Sign date')}${inp('signDate', si.signDate || today(), 'date')}</div><div>${req('Sign contact by')}<select data-sf="by"><option value="">Please select</option>${who.map(x => `<option ${si.by === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+      <div>${req('Payment date', !comm)}${inp('payDate', si.payDate, 'date')}</div><div>${req('Tax invoice number', !comm)}${inp('taxNo', si.taxNo)}</div>
+      <div>${req('Sign contact name')}${inp('name', si.name)}</div><div>${req('Sign contact position')}${inp('pos', si.pos)}</div></div>
+      <div class="mq-b"><label class="mq-l">Payment slip (Max 5 images)</label><div class="mq-up"><input type="file" id="mq_slip" accept="image/*" multiple><button type="button" class="btn info" data-act="mqSlip">Upload File</button><span class="muted small" id="mq_slipn">${(si.slips || []).length ? (si.slips || []).length + ' image(s) uploaded' : ''}</span></div></div>
+      ${ref ? `<div class="mq-ref"><label class="mq-l">Referral hotel <i class="req">*</i></label><div class="mq-refn">${esc(refLabel(ref))}</div><div class="fu-opts"><label class="fu-rad"><input type="radio" name="mq_rf" value="confirm" ${(q.referral || {}).decision === 'confirm' ? 'checked' : ''}> Confirm: this signing came through the referral hotel (it earns a credit)</label><label class="fu-rad"><input type="radio" name="mq_rf" value="cancel" ${(q.referral || {}).decision === 'cancel' ? 'checked' : ''}> Cancel the referral</label></div><label class="mq-l" style="margin-top:8px">Reason <i class="req">*</i></label><textarea data-sf="rfReason" rows="2">${esc((q.referral || {}).reason || '')}</textarea></div>` : ''}
+      <div class="mq-b">${req('Detail')}<textarea data-sf="detail" rows="5">${esc(si.detail || '')}</textarea></div>`
+    : s === 'Reject' ? `<div class="mq-g"><div>${req('Reject date')}${inp('rejDate', ri.date, 'date')}</div><div>${req('Reject by')}<select data-sf="rejBy"><option value="">Please select</option>${who.map(x => `<option ${ri.by === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div></div><div class="mq-b">${req('Detail')}<textarea data-sf="rejDetail" rows="5">${esc(ri.detail || '')}</textarea></div>`
+    : `<div class="mq-b"><label class="mq-l">Detail</label><textarea data-sf="penDetail" rows="5">${esc(q.pendingNote || '')}</textarea></div>`;
+  openSheet(`${fuHead('Quotation status for ' + (q.no || ''))}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Quotation No. <i class="req">*</i></label><input value="${esc(q.no || '')}" disabled class="hi-fz" style="max-width:340px"></div>
+   <div class="mq-b"><label class="mq-l" id="mq_sl">Quotation Status ${pick}<i class="req">*</i></label><div class="fu-opts">${['Sign', 'Pending', 'Reject'].map(s => `<label class="fu-rad"><input type="radio" name="mq_st" value="${s}" ${pick === s ? 'checked' : ''}> ${s}</label>`).join('')}</div></div>
+   <div id="mq_panel">${panel(pick)}</div></div><div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="mq_save">Save</button></div>`, root => {
+    root.classList.add('wide'); let slips = (si.slips || []).slice();
+    const cur = () => ($('[name=mq_st]:checked', root) || {}).value;
+    $$('[name=mq_st]', root).forEach(r => r.onchange = () => { $('#mq_sl', root).innerHTML = 'Quotation Status ' + cur() + '<i class="req">*</i>'; $('#mq_panel', root).innerHTML = panel(cur()); enhanceDates($('#mq_panel', root)); slips = (si.slips || []).slice(); });
+    root.addEventListener('click', async e => {
+      if (!e.target.closest('[data-act=mqSlip]')) return; e.stopPropagation();
+      const fs = [...($('#mq_slip', root).files || [])]; if (!fs.length) { toast('Choose the image files first'); return; } if (slips.length + fs.length > 5) { toast('A payment slip can have at most 5 images'); return; }
+      for (const f of fs) { if (f.size > 1.5 * 1024 * 1024) { toast(f.name + ' is bigger than 1.5 MB'); return; } }
+      for (const f of fs) slips.push({name: f.name, data: await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(f); })});
+      $('#mq_slipn', root).textContent = slips.length + ' image(s) uploaded'; $('#mq_slip', root).value = '';
+    }, true);
+    $('#mq_save', root).onclick = async () => {
+      const s = cur(), g = k => { const e = $(`[data-sf=${k}]`, root); return e ? (e.value || '').trim() : ''; }, miss = list => list.find(([k]) => !g(k));
+      if (s === 'Pending') { q.status = 'Pending'; q.pendingNote = g('penDetail'); await save(q); toast('Saved'); }
+      else if (s === 'Reject') { const m = miss([['rejDate', 'Reject date'], ['rejBy', 'Reject by'], ['rejDetail', 'Detail']]); if (m) { toast(m[1] + ' is required'); return; } q.status = 'Rejected'; q.rejectInfo = {date: g('rejDate'), by: g('rejBy'), detail: g('rejDetail')}; await save(q); toast('Saved'); }
+      else {
+        const m = miss([['signDate', 'Sign date'], ['by', 'Sign contact by']].concat(comm ? [] : [['payDate', 'Payment date'], ['taxNo', 'Tax invoice number']], [['name', 'Sign contact name'], ['pos', 'Sign contact position'], ['detail', 'Detail']])); if (m) { toast(m[1] + ' is required'); return; }
+        if (!['none', 'approved'].includes(approvalState(q))) { toast('The discount needs the manager\'s approval before it can be signed'); return; }
+        const dec = ($('[name=mq_rf]:checked', root) || {}).value;
+        if (ref) { if (!dec) { toast('Confirm or cancel the referral hotel'); return; } if (dec === 'cancel' && !g('rfReason')) { toast('Write the reason for cancelling the referral'); return; } }
+        q.status = 'Accepted'; q.signInfo = {signDate: g('signDate'), by: g('by'), payDate: g('payDate'), taxNo: g('taxNo'), name: g('name'), pos: g('pos'), detail: g('detail'), slips};
+        if (ref) q.referral = {refHotelId: refId, decision: dec, reason: g('rfReason'), at: new Date().toISOString(), by: Auth.who() || ''};
+        await save(q); await dealFromQuote(q); const hh = byId(q.hotelId); if (hh && hh.status !== 'Live' && hh.status !== 'Signed') { hh.status = 'Signed'; await save(hh); }
+        if (ref) await refCredit(q, refId, dec, g('rfReason'));
+        toast('Signed');
+      }
+      closeSheet(); if (location.hash.startsWith('#quotes/pending')) paintMq();
+    };
+  });
+}
+Object.assign(ACTIONS, {
+  mqSearch: () => { UI.mq.from = $('#mq_from').value; UI.mq.to = $('#mq_to').value; paintMq(); },
+  mqView: el => mqViewSheet(el.dataset.id),
+  mqStatus: el => mqStatusSheet(el.dataset.id, el.dataset.s),
+});
+
+/* ---------- Pricing & Commercial: Commercial Module and Referral Rewards ----------
+   Everyone sees both lists; only the provider (the company admin) can add or edit. Records: kind comodule and refplan (kept, never deleted: set Inactive). */
+const PR = {
+  commercial: {kind: 'comodule', title: 'Commercial Module', one: 'staff commercial structure', cols: [['name', 'Staff name'], ['dept', 'Department'], ['pct', 'Credit %'], ['status', 'Status']],
+    fields: [['name', 'Staff name', 'text', 1], ['dept', 'Department', ['Technician', 'Sales', 'Other'], 1], ['pct', 'Credit %', 'number', 1], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Detail', 'area']]},
+  referral: {kind: 'refplan', title: 'Referral Rewards', one: 'reward plan', cols: [['name', 'Plan name'], ['type', 'Reward type'], ['value', 'Reward'], ['applies', 'Goes to'], ['from', 'Valid from'], ['to', 'Valid to'], ['status', 'Status']],
+    fields: [['name', 'Plan name', 'text', 1], ['type', 'Reward type', ['Discount %', 'Discount THB', 'Free months', 'Promotion'], 1], ['value', 'Reward value', 'text', 1], ['applies', 'Goes to', ['Hotel PMS billing', 'Next invoice', 'Company Finance'], 1], ['from', 'Valid from', 'date'], ['to', 'Valid to', 'date'], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Conditions', 'area']]},
+};
+const prReward = p => p.type === 'Discount %' ? p.value + '% discount' : p.type === 'Discount THB' ? p.value + ' THB discount' : p.type === 'Free months' ? p.value + ' free month(s)' : (p.value || 'Promotion');
+function vPricing(id) {
+  const key = id === 'referral' ? 'referral' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
+  view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>${c.title}</b> information</div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${c.cols.map(x => `<th>${x[1]}</th>`).join('')}${adm ? '<th>Action</th>' : ''}</tr></thead><tbody id="prbody"></tbody></table></div>`;
+  paintPr(key); const q = $('#pr_q'); q.addEventListener('input', () => { f.q = q.value; paintPr(key); });
+}
+function paintPr(key) {
+  const c = PR[key], tb = $('#prbody'); if (!tb) return; const adm = Auth.isProvider(), n = norm((UI.pr || {}).q || '');
+  const rows = K(c.kind).filter(r => !n || norm(Object.values(r).join(' ')).includes(n)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const cell = (r, k) => k === 'pct' ? esc(r.pct === undefined || r.pct === '' ? '' : r.pct + ' %') : k === 'status' ? `<span class="${r.status === 'Inactive' ? 'ap-wait' : 'ap-ok'}">${esc(r.status || 'Active')}</span>` : k === 'value' ? esc(prReward(r)) : (k === 'from' || k === 'to') ? esc(r[k] ? meetDmy(r[k]) : '') : esc(r[k] || '');
+  tb.innerHTML = rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${c.cols.map(([k]) => `<td class="l">${cell(r, k)}</td>`).join('')}${adm ? `<td><button type="button" class="btn info sm" data-act="prEdit" data-k="${key}" data-id="${r.id}">${ICON.edit}Edit</button></td>` : ''}</tr>`).join('') : `<tr><td colspan="${c.cols.length + 1 + (adm ? 1 : 0)}" class="empty"></td></tr>`;
+}
+function prSheet(key, id) {
+  const c = PR[key], r = id ? byId(id) : null; if (!Auth.isProvider()) { toast('Only the manager (provider) can add or edit'); return; }
+  const req = (l, on) => `<label class="mq-l">${l}${on ? ' <i class="req">*</i>' : ''}</label>`;
+  const fld = ([k, l, t, on]) => { const v = (r && r[k]) || (k === 'status' ? 'Active' : '');
+    return t === 'area' ? `<div class="mq-b">${req(l, on)}<textarea data-pf="${k}" rows="4">${esc(v)}</textarea></div>`
+      : `<div>${req(l, on)}${Array.isArray(t) ? `<select data-pf="${k}"><option value="">Please select</option>${t.map(o => `<option ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>` : `<input type="${t}" data-pf="${k}" value="${esc(v)}">`}</div>`; };
+  const big = c.fields.filter(f => f[2] !== 'area'), area = c.fields.filter(f => f[2] === 'area');
+  openSheet(`${fuHead((r ? 'Edit ' : 'Add new ') + c.one)}<div class="fu-pop" style="margin-top:14px"><div class="mq-g">${big.map(fld).join('')}</div>${area.map(fld).join('')}</div><div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="pr_save">Save</button></div>`, root => {
+    root.classList.add('wide');
+    $('#pr_save', root).onclick = async () => {
+      const v = {}; $$('[data-pf]', root).forEach(e => v[e.dataset.pf] = (e.value || '').trim());
+      if (key === 'commercial') { if (isNaN(parseFloat(v.pct)) || parseFloat(v.pct) < 0) { toast('Credit % is required'); return; } v.pct = parseFloat(v.pct); if (K('comodule').some(x => x.id !== (r || {}).id && norm(x.name) === norm(v.name))) { toast('This staff member is already in the list: edit that row'); return; } }
+      const m = c.fields.find(f => f[3] && !v[f[0]]); if (m) { toast(m[1] + ' is required'); return; }
+      if (v.from && v.to && v.to < v.from) { toast('Valid to is before Valid from'); return; }
+      await save({...(r || {}), ...v, id: r ? r.id : uid(), kind: c.kind, updatedBy: Auth.who() || ''}); closeSheet(); toast('Saved'); paintPr(key);
+    };
+  });
+}
+Object.assign(ACTIONS, {prEdit: el => prSheet(el.dataset.k, el.dataset.id)});
+/* ---------- For Approval: the discounted quotations wait here until the approver (the provider) approves ---------- */
+function apRows() {
+  const n = norm(((UI.ap || {}).q) || '');
+  const out = [];
+  K('quote').filter(q => ['waiting', 'approved', 'declined'].includes(approvalState(q))).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.no || '').localeCompare(a.no || '')).forEach(q => {
+    const c = qCompute(q), why = belowList(q), names = c.names.length ? c.names : [''];
+    names.forEach(nm => { const key = nm.replace(' (monthly)', '').replace(/ \(yearly\)$/, ''), det = why.filter(w => nm && w.includes(key)).join('; ');
+      const r = {q, name: nm, det: det || (why.length === 1 && names.length === 1 ? why[0] : '')};
+      if (!n || norm([q.no, q.hotelName || hotelName(q.hotelId), nm, q.date].join(' ')).includes(n)) out.push(r); });
+  });
+  return out;
+}
+function vApproval() {
+  const f = UI.ap = UI.ap || {q: ''};
+  view().innerHTML = `<div class="top"><div><h1>For Approval</h1></div><div class="actions"><label class="dbs"><input type="search" id="ap_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search approval"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>Approval</b> information</div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Quotation date</th><th>Hotel name</th><th>Quotation No.</th><th>Product name</th><th>Approve status</th><th>Approve detail</th></tr></thead><tbody id="apbody"></tbody></table></div>`;
+  paintAp(); const q = $('#ap_q'); q.addEventListener('input', () => { f.q = q.value; paintAp(); });
+}
+function paintAp() {
+  const tb = $('#apbody'); if (!tb) return; const rows = apRows(), adm = Auth.isProvider();
+  const stat = q => { const s = approvalState(q);
+    if (s === 'approved') return '<span class="ap-ok">Approved</span>';
+    if (s === 'declined') return '<span class="ap-no">Declined</span>';
+    return adm ? `<span class="mq-rs"><button type="button" class="btn dark sm" data-act="apApprove" data-id="${q.id}">Approve</button><button type="button" class="btn sm" data-act="apDecline" data-id="${q.id}">Decline</button></span>` : '<span class="ap-wait">Waiting Approval</span>'; };
+  tb.innerHTML = rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(r.q.date))}</td><td class="l">${esc(r.q.hotelName || hotelName(r.q.hotelId))}</td><td class="nw">${adm ? `<a href="#quotes/waiting" data-act="mqView" data-id="${r.q.id}">${esc(r.q.no || '')}</a>` : esc(r.q.no || '')}</td><td class="l">${esc(r.name)}</td><td>${stat(r.q)}</td><td class="l">${esc(r.det)}</td></tr>`).join('') : '<tr><td colspan="7" class="empty"></td></tr>';
+}
+async function decideAp(id, result) {
+  const q = byId(id); if (!q) return;
+  if (!(await Auth.canApprove())) { toast('Only the manager (provider) can approve or decline'); return; }
+  if (approvalState(q) !== 'waiting') { toast('Nothing is waiting on this quotation'); return; }
+  q.approval = result; q.approvedSig = discSig(q); q.approvedBy = Auth.who() || 'Approver'; q.approvedAt = new Date().toISOString();
+  await save(q); toast(result === 'approved' ? 'Approved' : 'Declined'); paintAp();
+}
+Object.assign(ACTIONS, {
+  apApprove: el => decideAp(el.dataset.id, 'approved'),
+  apDecline: el => decideAp(el.dataset.id, 'declined'),
+});
+const vQuotesRoute = id => id === 'pending' ? vPending() : id === 'waiting' ? vApproval() : vTask('quote');
 
 /* ================= QUOTATION FORM (pop-up) =================
    The products with their price, unit, discount and payment method, and the terms (English and Thai) as boxes that can be changed.
@@ -3009,7 +3202,6 @@ function quoteFormSheet(hid, q) {
   openSheet(`${fuHead('Quotation information for ' + h.name)}<div class="fu-qtop"><button type="button" class="btn gray" data-act="qAdd" data-hid="${hid}">Add new quotation</button><button type="button" class="btn gray" data-act="qUp" data-hid="${hid}">Upload quotation</button></div>
    <div class="fu-pop">${row('Date', 1, `<input type="date" data-q="date" value="${esc(q.date || '')}">`)}${row('Quotation number', 1, `<input data-q="no" value="${esc(q.no || '')}" disabled class="hi-fz">`)}
     ${row('Quotation for sale', 1, `<select data-q="forSale"><option value="">Please select</option>${sales.map(s => `<option ${q.forSale === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}
-    ${row('Status', 0, `<select data-q="status">${[['Draft', 'Draft'], ['Sent', 'Sent'], ['Accepted', 'Signed'], ['Rejected', 'Rejected'], ['Expired', 'Expired']].map(([v, l]) => `<option value="${v}" ${(q.status || 'Draft') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
     ${row('Lead source', 0, `<select data-q="leadSource"><option value="">Please select</option>${leads.map(s => `<option ${(q.leadSource || h.source) === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}</div>
    <h3 class="qp-h">PRODUCT INFORMATION</h3>${items.map(item).join('')}
    <h3 class="qp-h2">Terms &amp; Conditions · ข้อกำหนดและเงื่อนไข</h3><div id="qpTerms">${terms.map(term).join('')}</div>
@@ -3024,7 +3216,7 @@ function quoteFormSheet(hid, q) {
       const bad = on.find(i => i.price === '' || isNaN(parseFloat(i.price))); if (bad) { toast('Write the price of ' + bad.name); return; }
       const hasBE = on.some(i => QP_BE.includes(i.id)), hasPay = on.some(i => QP_PAYS.includes(i.id));
       const tms = $$('[data-tm]', root).map(el => ({te: $('[data-t=te]', el).value.trim(), xe: $('[data-t=xe]', el).value.trim(), tt: $('[data-t=tt]', el).value.trim(), xt: $('[data-t=xt]', el).value.trim(), cond: el.dataset.cond || ''})).filter(x => (x.te || x.xe || x.tt || x.xt) && !(x.cond === 'be' && !hasBE) && !(x.cond === 'pay' && !hasPay));
-      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, status: g('status') || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
+      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, status: q.status || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
       /* below the list price (a discount) needs the manager's approval before it is sent */
       const sig = discSig(rec), need = belowList(rec).length > 0;
       if (need) { if (!(rec.approval && rec.approvedSig === sig)) { rec.approval = 'requested'; rec.approvedSig = sig; rec.requestedBy = Auth.who() || 'Sales'; rec.requestedAt = new Date().toISOString(); rec.approvedBy = ''; rec.approvedAt = ''; } if (['Sent', 'Accepted'].includes(rec.status) && rec.approval !== 'approved') { toast('A discount needs the manager\'s approval before it is Sent or Signed'); return; } } else { rec.approval = ''; }
@@ -3035,7 +3227,7 @@ function quoteFormSheet(hid, q) {
 }
 /* the documents: the Master quotation filled with the boxes, and the MSA for RevPilot */
 async function openQuotePdf(q) {
-  const st = approvalState(q); if (!['none', 'approved'].includes(st)) { toast('The discount needs the manager\'s approval before the quotation PDF'); return; }
+  const st = approvalState(q); if (!['none', 'approved'].includes(st) && !Auth.isProvider()) { toast('Waiting for the manager\'s approval'); return; }
   const w = window.open('', '_blank');
   try { const {html, blockers} = await buildQuoteHTML(q); if (blockers && blockers.length) { if (w) w.close(); alert('Fix before generating:\n\n- ' + blockers.join('\n- ')); return; } if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(`Maha Hub Quotation - ${q.hotelName} - ${q.date || today()}.html`, html, 'text/html'); }
   catch (e) { if (w) w.close(); alert('The quotation could not be opened: ' + (e && e.message ? e.message : e)); }
@@ -3047,7 +3239,7 @@ function msaFromQuote(q) {
   return m;
 }
 async function openMsaPdf(q) {
-  const st = approvalState(q); if (!['none', 'approved'].includes(st)) { toast('The discount needs the manager\'s approval first'); return; }
+  const st = approvalState(q); if (!['none', 'approved'].includes(st) && !Auth.isProvider()) { toast('Waiting for the manager\'s approval'); return; }
   const w = window.open(''); try { const html = buildMsaHTML(msaFromQuote(q)); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(`Maha Hub MSA - ${q.hotelName}.html`, html, 'text/html'); } catch (e) { if (w) w.close(); alert('The MSA could not be opened: ' + (e && e.message ? e.message : e)); }
 }
 Object.assign(ACTIONS, {
@@ -3213,36 +3405,104 @@ function followLatestSheet(hid) {
    ${a ? `<div class="fu-pop"><div class="fu-ph"><b>Follow up issue #${fuNo(a)}</b></div>${fuForm(a, h, true, 'fp_latest', true)}</div>` : '<p class="fu-none">Don\'t have any follow up for this hotel.</p>'}`);
 }
 
-/* ----- Activation ----- */
-const ACT_ST = ['Planned', 'In progress', 'Live', 'Cancelled'];
-const ACT_COL = {Planned:'#8A9A8C', 'In progress':'#D49A38', Live:'#1F8A4C', Cancelled:'#B4432F'};
-function activationSheet(a, hid) {
-  const isNew = !a; a = a || {date: today(), status:'Planned', hotelId: hid || ''};
-  const hotels = K('hotel').sort((x, y) => x.name.localeCompare(y.name)), cur = byId(a.hotelId);
-  openSheet(`${sheetHead(isNew ? 'Setup activation' : 'Edit activation')}<div class="grid two">
-    <label class="f wide"><span>Hotel *</span><input list="hlist2" id="v_hotel" value="${esc(cur ? cur.name : '')}" placeholder="Type to find a hotel" autocomplete="off"><datalist id="hlist2">${hotels.map(x => `<option value="${esc(x.name)}">`).join('')}</datalist></label>
-    ${field({k:'date', label:'Activation date', type:'date'}, a.date)}${field({k:'status', label:'Status', type:'select', opts:ACT_ST}, a.status)}
-    ${field({k:'products', label:'What is activated (PMS, booking engine, channel manager…)', wide:1}, a.products)}
-    ${field({k:'owner', label:'Responsible person'}, a.owner)}${field({k:'notes', label:'Notes', type:'textarea', wide:1}, a.notes)}</div>
-   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="vsave">${isNew ? 'Save activation' : 'Save changes'}</button></div>`, root => {
-    const del = $('#vdel', root); if (del) del.onclick = () => { if (confirm('Delete this activation?')) { remove(a.id); closeSheet(); rerender(); toast('Deleted'); } };
-    $('#vsave', root).onclick = async () => {
-      const name = $('#v_hotel', root).value.trim(); if (!name) { toast('Pick a hotel'); return; }
-      let h = K('hotel').find(x => norm(x.name) === norm(name)); if (!h) { h = {id: uid(), kind:'hotel', name, status:'Signed', managed:'No'}; await save(h); }
-      const v = readForm(root, [{k:'date'}, {k:'status'}, {k:'products'}, {k:'owner'}, {k:'notes'}]);
-      await save({...a, ...v, id: a.id || uid(), kind:'activation', hotelId: h.id});
-      if (v.status === 'Live' && h.status !== 'Live') { h.status = 'Live'; await save(h); }
-      else if (v.status !== 'Cancelled' && ['New lead', 'Called', 'Follow up', 'Meeting set', 'Quoted', 'Negotiating'].includes(h.status || 'New lead')) { h.status = 'Signed'; await save(h); }
-      closeSheet(); toast('Activation saved'); if (location.hash === '#activations') rerender(); else location.hash = 'activations';
-    };
-  });
+/* ----- Activation -----
+   Setup activation: the hotel (picked from the database list) and its quotation are linked both ways (pick either one, the other follows);
+   the systems to set up come from the services of the quotation. Save keeps it in the List of activation (still editable); Live freezes everything.
+   Settings (provider only): the technicians who can be chosen in Setup by, and the credit of each system (the bonus is based on it later). */
+const ACT_SYS = [['be', 'Booking Engine System', ['be', 'becom', 'beh', 'becm', 'allsol', 'allsolh'], /booking engine/i], ['cm', 'Channel Manager System', ['cm', 'cmh', 'becm', 'allsol', 'allsolh'], /channel manager/i], ['pms', 'Property Management System', ['pms', 'pmsh', 'allsol', 'allsolh'], /property management/i]];
+function actSystems(q) {
+  if (!q) return [];
+  if (quoteIsNew(q)) { const on = (q.items || []).filter(i => i.on).map(i => i.id); return ACT_SYS.filter(s => s[2].some(id => on.includes(id))).map(s => s[0]); }
+  const names = qCompute(q).names.join(' | '); return ACT_SYS.filter(s => s[3].test(names)).map(s => s[0]);
 }
-function vActivations() {
-  const all = K('activation').sort((a, b) => (b.date || '').localeCompare(a.date || '')), f = UI.actSt || '', list = f ? all.filter(a => a.status === f) : all;
-  view().innerHTML = `<div class="top"><div><h1>List of activation</h1><p>${all.length} activations</p></div><div class="actions"><button class="btn primary" data-act="newActivation">${ICON.plus}Setup activation</button></div></div>
-   <div class="chips"><button class="chip" data-act="actf" data-s="" aria-pressed="${!f}">All<b>${all.length}</b></button>${ACT_ST.map(s => `<button class="chip" data-act="actf" data-s="${s}" aria-pressed="${f === s}">${s}<b>${all.filter(a => a.status === s).length}</b></button>`).join('')}</div>
-   ${list.length ? `<div class="list">${list.map(a => `<a class="row" href="#activations" data-act="editActivation" data-id="${a.id}"><span class="stripe" style="background:${ACT_COL[a.status] || '#8A9A8C'}"></span><div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc([a.products, a.owner].filter(Boolean).join(' · ')) || '&nbsp;'}</div></div><div class="end"><span class="status" style="color:${ACT_COL[a.status] || '#8A9A8C'}">${esc(a.status)}</span><div>${fdate(a.date)}</div></div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No activations yet.<br><button class="btn primary" data-act="newActivation">Setup activation</button></div></div>'}`;
+const actPctOf = name => { const r = K('comodule').find(x => x.name === name && x.status !== 'Inactive'); return r && r.pct !== undefined && r.pct !== '' ? r.pct : ''; };   /* the credit % of a staff member: set once in Pricing & Commercial > Commercial Module, then shown and frozen in Setup activation */
+const actTechs = () => [...new Set(K('comodule').filter(r => r.dept === 'Technician' && r.status !== 'Inactive').map(r => r.name).filter(Boolean))].sort();
+const quoteForHotel = hid => { const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '')); return qs.filter(q => q.status === 'Accepted').pop() || qs.pop() || null; };
+const actProducts = a => ACT_SYS.filter(s => a.sys && s[0] in a.sys).map(s => s[1].replace(' System', '')).join(', ');
+function vActivations(id) {
+  if (id) return vActSetup(id === 'new' ? null : byId(id));
+  const f = UI.act = UI.act || {from: today(), to: today(), q: ''};
+  view().innerHTML = `<div class="top"><div><h1>List of Activation</h1></div><div class="actions"><label class="dbs"><input type="search" id="ac_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search activation"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>Activation</b> information</div>
+   <div class="fu-form"><label for="ac_from">Start Date :</label><div><input type="date" id="ac_from" value="${esc(f.from || '')}"></div><label for="ac_to">End Date :</label><div><input type="date" id="ac_to" value="${esc(f.to || '')}"></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="acSearch">${ICON.search}Search</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Activation date</th><th>Hotel name</th><th>Date send form</th><th>Date get form</th><th>Send introduction email</th><th>Setup by</th><th>Product</th><th>Action</th></tr></thead><tbody id="acbody"></tbody></table></div>`;
+  paintAc(); const q = $('#ac_q'); q.addEventListener('input', () => { f.q = q.value; paintAc(); });
 }
+function paintAc() {
+  const f = UI.act || {}, tb = $('#acbody'), q = norm(f.q || ''); if (!tb) return;
+  const rows = K('activation').filter(a => (!f.from || (a.date || '') >= f.from) && (!f.to || (a.date || '') <= f.to) && (!q || norm([hotelName(a.hotelId), a.techBy, a.date].join(' ')).includes(q))).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  tb.innerHTML = rows.length ? rows.map((a, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(a.date))}</td><td class="l">${esc(hotelName(a.hotelId))}</td><td class="nw">${esc(a.qSend ? meetDmy(a.qSend) : '')}</td><td class="nw">${esc(a.qBack ? meetDmy(a.qBack) : '')}</td><td>${a.intro === 'Yes' ? 'Yes' : ''}</td><td>${esc(a.techBy || '')}</td><td class="l">${esc(actProducts(a))}</td>
+    <td class="nw"><button type="button" class="btn info sm" data-act="editActivation" data-id="${a.id}">${ICON.edit}Edit</button> <button type="button" class="btn redb sm" data-act="delActivation" data-id="${a.id}">${ICON.trash || ''}Delete</button></td></tr>`).join('') : '<tr><td colspan="9" class="empty"></td></tr>';
+}
+function vActSetup(a) {
+  const isNew = !a, frozen = !!(a && a.status === 'Live'), adm = Auth.isProvider();
+  a = a || {date: today(), intro: 'No', sys: {}};
+  const cur = {hotelId: a.hotelId || (isNew && UI.actHid) || '', quoteId: a.quoteId || '', sys: {...(a.sys || {})}};
+  if (isNew) UI.actHid = '';
+  const dis = frozen ? ' disabled' : '';
+  const req = (l, on) => `<label class="mq-l">${l}${on ? ' <i class="req">*</i>' : ''}</label>`;
+  const techs = actTechs().concat(a.techBy && !actTechs().includes(a.techBy) ? [a.techBy] : []);
+  view().innerHTML = `<div class="top"><div><h1>${frozen ? 'Activation' : 'Setup Activation'}</h1></div><div class="actions"></div></div>
+   <div class="mq-b acf" id="acform">
+    <div class="ac-g3"><div>${req('Hotel Name', 1)}<div class="cb"><input type="text" data-af="hotel" autocomplete="off" placeholder="Type to find the hotel" value=""${dis}><div class="cbl" hidden></div></div></div>
+     <div>${req('Quotation', 0)}<div class="cb"><input type="text" data-af="quote" autocomplete="off" placeholder="Type the quotation number" value=""${dis}><div class="cbl" hidden></div></div></div>
+     <div>${req('Activation date', 1)}<input type="date" data-af="date" value="${esc(a.date || '')}"${dis}></div></div>
+    <div class="mq-g" style="margin-top:14px"><div>${req('Setup by', 1)}<select data-af="techBy"${dis}><option value="">Please select</option>${techs.map(x => `<option ${a.techBy === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
+     <div>${req('Credit (%)', 0)}<input type="number" readonly tabindex="-1" class="ac-ro" data-af="credit" value="${esc(a.credit === undefined ? '' : a.credit)}"${dis}></div>
+     <div>${req('Questionnaire Send to Hotel', 0)}<input type="date" data-af="qSend" value="${esc(a.qSend || '')}"${dis}></div><div>${req('Questionnaire get back from Hotel', 0)}<input type="date" data-af="qBack" value="${esc(a.qBack || '')}"${dis}></div></div>
+    <div class="mq-b">${req('Send introduction email to hotel', 0)}<div class="fu-opts">${['Yes', 'No'].map(v => `<label class="fu-rad"><input type="radio" name="ac_intro" value="${v}" ${(a.intro || 'No') === v ? 'checked' : ''}${dis}> ${v}</label>`).join('')}</div></div>
+    <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th style="width:70px">No.</th><th>Product</th><th style="width:300px">Complete date</th></tr></thead><tbody id="acsys"></tbody></table></div>
+    ${frozen ? '' : `<div class="fu-btns" style="justify-content:flex-start;margin-top:18px"><button type="button" class="btn dark" id="ac_save">${ICON.check}Save</button><button type="button" class="btn amber" id="ac_reset">${ICON.reset || ''}Reset</button><span style="flex:1"></span><button type="button" class="btn primary" id="ac_live">Live</button></div>`}</div>`;
+  const root = $('#acform'), val = k => ($(`[data-af=${k}]`, root) || {}).value || '';
+  const hIn = $('[data-af=hotel]', root), qIn = $('[data-af=quote]', root), lists = $$('.cbl', root);
+  const hotelsAll = () => K('hotel').filter(h => h.name).sort((x, y) => x.name.localeCompare(y.name)), hLabel = h => h.name + (h.city ? ' (' + h.city + ')' : '');
+  const qLabel = q => (q.no || '') + (q.hotelName || hotelName(q.hotelId) ? ' - ' + (q.hotelName || hotelName(q.hotelId)) : '');
+  const paintSys = () => {
+    const q = byId(cur.quoteId), keys = actSystems(q), old = cur.sys; cur.sys = {}; keys.forEach(k => cur.sys[k] = old[k] || '');
+    $('#acsys', root).innerHTML = keys.length ? ACT_SYS.filter(s => keys.includes(s[0])).map((s, i) => `<tr><td>${i + 1}</td><td class="l">${esc(s[1])}</td><td><input type="date" data-sys="${s[0]}" value="${esc(cur.sys[s[0]] || '')}"${dis}></td></tr>`).join('') : '<tr><td colspan="3" class="empty"></td></tr>';
+    enhanceDates($('#acsys', root));
+  };
+  const autoCredit = () => { const c = $('[data-af=credit]', root); if (!frozen && c && !cur.sys) return; };
+  hIn.value = cur.hotelId && byId(cur.hotelId) ? hLabel(byId(cur.hotelId)) : ''; qIn.value = cur.quoteId && byId(cur.quoteId) ? qLabel(byId(cur.quoteId)) : '';
+  if (!frozen) {
+    pickBox(hIn, lists[0], () => hotelsAll().map(hLabel), v => {
+      const h = hotelsAll().find(x => hLabel(x) === v); if (!h) { cur.hotelId = ''; return; }
+      if (cur.hotelId !== h.id) { cur.hotelId = h.id; const q = quoteForHotel(h.id); cur.quoteId = q ? q.id : ''; qIn.value = q ? qLabel(q) : ''; paintSys(); autoCredit(); }
+    }, 'Choose the hotel from the list');
+    pickBox(qIn, lists[1], () => K('quote').filter(q => q.no && (!cur.hotelId || q.hotelId === cur.hotelId)).sort((x, y) => (y.date || '').localeCompare(x.date || '')).map(qLabel), v => {
+      const q = K('quote').find(x => qLabel(x) === v); if (!q) { cur.quoteId = ''; paintSys(); return; }
+      if (cur.quoteId !== q.id) { cur.quoteId = q.id; if (q.hotelId && byId(q.hotelId)) { cur.hotelId = q.hotelId; hIn.value = hLabel(byId(q.hotelId)); } paintSys(); autoCredit(); }
+    }, 'Choose the quotation from the list');
+    $('[data-af=credit]', root).addEventListener('input', e => e.target.dataset.touched = '1');
+  }
+  $('[data-af=techBy]', root).addEventListener('change', () => { const c = $('[data-af=credit]', root); if (c) c.value = actPctOf(val('techBy')); });
+  paintSys();
+  if (frozen) return;
+  $('#acsys', root).addEventListener('change', e => { const k = e.target.dataset.sys; if (k) cur.sys[k] = e.target.value; });
+  const collect = async () => {
+    if (!cur.hotelId || !byId(cur.hotelId)) { toast('Choose the hotel from the list'); return null; }
+    if (!val('date')) { toast('Activation date is required'); return null; }
+    if (!val('techBy')) { toast('Setup by is required'); return null; }
+    $$('[data-sys]', root).forEach(e => cur.sys[e.dataset.sys] = e.value);
+    return {...a, id: a.id || uid(), kind: 'activation', hotelId: cur.hotelId, quoteId: cur.quoteId, date: val('date'), techBy: val('techBy'), credit: val('credit') === '' ? '' : parseFloat(val('credit')), qSend: val('qSend'), qBack: val('qBack'), intro: ($('[name=ac_intro]:checked', root) || {}).value || 'No', sys: {...cur.sys}, status: a.status || 'In progress', owner: a.owner || val('techBy')};
+  };
+  $('#ac_save', root).onclick = async () => { const rec = await collect(); if (!rec) return; delete rec.isNew; await save(rec); const h = byId(rec.hotelId); if (h && ['New lead', 'Called', 'Follow up', 'Meeting set', 'Quoted', 'Negotiating', undefined, ''].includes(h.status)) { h.status = 'Signed'; await save(h); } toast('Saved'); location.hash = 'activations'; };
+  $('#ac_reset', root).onclick = () => { vActSetup(isNew ? null : byId(a.id)); };
+  $('#ac_live', root).onclick = async () => {
+    const rec = await collect(); if (!rec) return;
+    const keys = Object.keys(rec.sys); if (!keys.length) { toast('There is no product to set up: choose a quotation with a system'); return; }
+    const miss = ACT_SYS.find(s => keys.includes(s[0]) && !rec.sys[s[0]]); if (miss) { toast('Complete date of ' + miss[1] + ' is required before Live'); return; }
+    if (!await confirmDelete('Set this activation to Live? After Live nothing can be changed.')) return;
+    rec.status = 'Live'; rec.liveAt = new Date().toISOString(); rec.liveBy = Auth.who() || ''; await save(rec);
+    const h = byId(rec.hotelId); if (h && h.status !== 'Live') { h.status = 'Live'; await save(h); }
+    toast('Live'); location.hash = 'activations';
+  };
+}
+Object.assign(ACTIONS, {
+  acSearch: () => { const f = UI.act = UI.act || {}; f.from = $('#ac_from').value; f.to = $('#ac_to').value; paintAc(); },
+  delActivation: async el => { const a = byId(el.dataset.id); if (!a) return; if (!await confirmDelete('Do you want delete activation of ' + hotelName(a.hotelId) + '? It moves to Delete records.')) return; await softDelete(a); toast('Activation deleted'); paintAc(); },
+});
 
 /* ----- KPI: appointments (target 20 a month), signed contracts, activations ----- */
 function vKpi(which) {
@@ -3289,9 +3549,8 @@ function vEnews() {
 Object.assign(ACTIONS, {
   newMeeting: el => { const hid = el && el.dataset && el.dataset.hid; if (hid) meetingFormSheet(hid); else location.hash = 'setupmeeting'; },
   meetf: el => { UI.meetSt = el.dataset.s; vMeetings(); },
-  newActivation: el => activationSheet(null, el && el.dataset ? el.dataset.hid : ''),
-  editActivation: el => activationSheet(byId(el.dataset.id)),
-  actf: el => { UI.actSt = el.dataset.s; vActivations(); },
+  newActivation: el => { UI.actHid = el && el.dataset ? el.dataset.hid || '' : ''; location.hash = 'activations/new'; },
+  editActivation: el => { location.hash = 'activations/' + el.dataset.id; },
   enewsOpen: () => { const to = enewsAudience().map(h => h.email); if (!to.length) { toast('No hotel with an email address in this list'); return; } const e = UI.enews; location.href = 'mailto:?bcc=' + encodeURIComponent(to.join(',')) + '&subject=' + encodeURIComponent(e.subject) + '&body=' + encodeURIComponent(e.body); },
   enewsCopy: () => copyText(enewsAudience().map(h => h.email).join(', '), 'Email addresses copied'),
   enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, stage: e.stage, city: e.city}); toast('Draft saved'); rerender(); },
@@ -3323,7 +3582,7 @@ function dashData(n) {
   /* a hotel counts as signed in the month of its signed MSA, or of its accepted quotation when there is no MSA */
   const signed = new Map();
   msas.filter(m => m.status === 'Signed' && m.hotelId).forEach(m => signed.set(m.hotelId, m.date || (m.updated || '').slice(0, 10)));
-  quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, q.date || (q.updated || '').slice(0, 10)));
+  quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, (q.signInfo && q.signInfo.signDate) || q.date || (q.updated || '').slice(0, 10)));
   const fee = hid => { const qs = quotes.filter(q => q.hotelId === hid && q.status !== 'Rejected' && q.status !== 'Draft').sort((a, b) => (b.date || '').localeCompare(a.date || '')); if (!qs.length) return {mrr:0, once:0}; const c = qCompute(qs[0]); return {mrr: Math.round(c.month + c.year / 12), once: Math.round(c.once)}; };
   const own = {}, P = o => own[o || ''] = own[o || ''] || {appointment:0, generated:0, rejected:0, signed:0, mrr:0, activation:0};
   const inRange = d => ms.includes((d || '').slice(0, 7));
@@ -3391,7 +3650,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {pricing:'gear', setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
