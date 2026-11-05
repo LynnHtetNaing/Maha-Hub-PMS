@@ -2640,7 +2640,8 @@ Object.assign(ACTIONS, {
   qDel: async el => { const q = byId(el.dataset.id); if (!q || !await confirmDelete('Do you want delete quotation ' + (q.no || ''))) return; const hid = q.hotelId; await softDelete(q); toast('Quotation deleted'); quotesSheet(hid); },
   qSend: el => {
     const q = byId(el.dataset.id), box = el.closest('.fu-qb'), to = $$('[data-qe]', box).filter(c => c.checked).map(c => c.value); if (!to.length) { toast('Tick at least one email address'); return; }
-    location.href = 'mailto:' + to.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent('Quotation ' + (q.no || '') + ' — ' + (q.hotelName || '')) + '&body=' + encodeURIComponent('Dear ' + ((byId(q.hotelId) || {}).contact || 'Sir/Madam') + ',\n\nPlease find our quotation ' + (q.no || '') + ' dated ' + fdate(q.date) + '.\n' + qLines(q).join('\n') + '\n\nBest regards');
+    if (q.upload) { mailtoOpen(to, 'Quotation ' + (q.no || '') + ' — ' + (q.hotelName || ''), 'Dear ' + ((byId(q.hotelId) || {}).contact || 'Sir/Madam') + ',\n\nPlease find our quotation ' + (q.no || '') + ' dated ' + fdate(q.date) + '.\n' + qLines(q).join('\n') + '\n\nBest regards'); return; }
+    sendQuoteSheet(q, to);
   },
   fuExport: () => {
     const rows = fuRows(); if (!rows.length) { toast('Nothing to export'); return; }
@@ -3560,7 +3561,79 @@ function vKpi(which) {
   return vKpiPage(['appointment', 'signed', 'activation'].includes(which) ? which : 'appointment');
 }
 
-/* ----- Enewletter: write one message, pick who gets it, send from your own email program ----- */
+/* ---------- sending email from the CRM ----------
+   The CRM asks the crm-send-mail function (Brevo, sender crm@maha-hub.com) to send. A quotation / MSA goes as a link that opens the document (crm.maha-hub.com/d/...).
+   Until the service is set up (or when it fails) the old way stays: the message opens in the person's own email program. */
+const MAIL_URL = 'https://wragaoglvksbbgmfjyzp.supabase.co/functions/v1/crm-send-mail', MAIL_KEY = 'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
+async function mailApi(body) {
+  if (!Auth.required) return {error: 'not_configured'};
+  try {
+    const tk = await Auth.token(); if (!tk) return {error: 'not_signed_in'};
+    const r = await fetch(MAIL_URL, {method: 'POST', headers: {'Content-Type': 'application/json', apikey: MAIL_KEY, Authorization: 'Bearer ' + tk}, body: JSON.stringify(body)});
+    const d = await r.json().catch(() => ({})); return r.ok ? d : {error: d.error || 'http_' + r.status};
+  } catch { return {error: 'network'}; }
+}
+const mailErr = e => ({not_configured: 'The email service is not set up yet', not_signed_in: 'Please sign in again', not_allowed: 'Your user cannot send email', network: 'No connection to the email service', bad_recipients: 'Check the email addresses'})[e] || 'The email could not be sent';
+const mailtoOpen = (to, subject, body) => { location.href = 'mailto:' + to.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body); };
+/* the document a hotel opens from the link: only the Save as PDF button, no internal check message, no automatic print window */
+const shareHtml = html => html.replace('setTimeout(function(){window.print();},400);', '').replace('Save PDF again', 'Save as PDF').replace('</head>', '<style>#qtbmsg{display:none}</style></head>');
+async function sendQuoteSheet(q, to) {
+  const h = byId(q.hotelId) || {}, st = approvalState(q), rev = quoteIsNew(q) && (q.items || []).some(i => i.id === 'rev' && i.on);
+  const subject0 = 'Quotation ' + (q.no || '') + ' \u2014 ' + (q.hotelName || h.name || ''), msg0 = 'Dear ' + (h.contact || 'Sir/Madam') + ',\n\nPlease find our quotation ' + (q.no || '') + ' dated ' + fdate(q.date) + (rev ? ', and the Master Service Agreement,' : '') + ' using the link' + (rev ? 's' : '') + ' below.\n\nBest regards,\n' + (Auth.who() || '') + '\nMaha Hub';
+  if (!['none', 'approved'].includes(st)) { toast('Waiting for the manager\'s approval: the quotation cannot be sent yet'); return; }
+  openSheet(`${fuHead('Send quotation')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">To</label><div>${to.map(x => `<span class="as-chip">${esc(x)}</span>`).join('')}</div></div>
+   <div class="mq-b"><label class="mq-l">From</label><div>Maha Hub &lt;crm@maha-hub.com&gt;</div></div>
+   <div class="mq-b"><label class="mq-l">Subject</label><input id="sq_s" style="width:100%" value="${esc(subject0)}"></div>
+   <div class="mq-b"><label class="mq-l">Message</label><textarea id="sq_m" rows="8" style="width:100%">${esc(msg0)}</textarea></div>
+   <div class="mq-b"><label class="mq-l">Links in the email</label><div>Quotation ${esc(q.no || '')}${rev ? ' · Master Service Agreement' : ''}</div></div></div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="sq_go">Send</button></div>`, root => {
+    root.classList.add('wide');
+    $('#sq_go', root).onclick = async () => {
+      const subject = $('#sq_s', root).value.trim(), message = $('#sq_m', root).value.trim(); if (!subject || !message) { toast('Write the subject and the message'); return; }
+      const b = $('#sq_go', root); b.disabled = true; b.textContent = 'Sending…';
+      const docs = [], qd = await buildQuoteHTML(q); if (qd.blockers && qd.blockers.length) { b.disabled = false; b.textContent = 'Send'; alert('Fix before sending:\n\n- ' + qd.blockers.join('\n- ')); return; }
+      docs.push({title: 'Quotation ' + (q.no || ''), quoteNo: q.no || '', html: shareHtml(qd.html)});
+      if (rev) docs.push({title: 'Master Service Agreement', quoteNo: q.no || '', html: shareHtml(buildMsaHTML(msaFromQuote(q)))});
+      const r = await mailApi({action: 'send', to, subject, message, quoteNo: q.no || '', docs});
+      b.disabled = false; b.textContent = 'Send';
+      if (r.error) { toast(mailErr(r.error) + (r.error === 'not_configured' || r.error === 'network' ? ': opening your email program' : '')); if (r.error === 'not_configured' || r.error === 'network') { closeSheet(); mailtoOpen(to, subject, message + '\n\n' + qLines(q).join('\n')); } return; }
+      if (!r.sent) { toast('The email was not sent' + (r.errors && r.errors[0] ? ': ' + r.errors[0] : '')); return; }
+      q.mailLog = [...(q.mailLog || []), {at: new Date().toISOString(), to, by: Auth.who() || ''}]; await save(q);
+      closeSheet(); toast('Email sent to ' + r.sent + ' address' + (r.sent === 1 ? '' : 'es'));
+    };
+  });
+}
+function enewsSendSheet() {
+  const e = UI.enews; if (!Auth.isProvider()) { toast('Only the CEO can send the Enewletter'); return; }
+  if (!(e.subject || '').trim() || !(e.body || '').trim()) { toast('Write a subject and a message first'); return; }
+  const to = [...new Set(enewsAudience().map(h => String(h.email).trim().toLowerCase()).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))];
+  if (!to.length) { toast('No hotel with an email address in this list'); return; }
+  openSheet(`${fuHead('Send Enewletter')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">From</label><div>Maha Hub &lt;crm@maha-hub.com&gt;</div></div>
+   <div class="mq-b"><label class="mq-l">To</label><div>${to.length} hotel${to.length === 1 ? '' : 's'} with an email address. A hotel that unsubscribed before is skipped. Every email has an unsubscribe link.</div></div>
+   <div class="mq-b"><label class="mq-l">Subject</label><div>${esc(e.subject)}</div></div>
+   <div class="mq-b"><label class="mq-l">Send a test first</label><div class="mq-up"><input id="en_test" type="email" placeholder="your email address"><button type="button" class="btn info" id="en_testgo">Send test</button></div></div>
+   <p class="muted small" id="en_prog"></p></div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="en_go">Send to ${to.length} hotel${to.length === 1 ? '' : 's'}</button></div>`, root => {
+    const prog = $('#en_prog', root);
+    $('#en_testgo', root).onclick = async () => {
+      const a = $('#en_test', root).value.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)) { toast('Write your email address'); return; }
+      const r = await mailApi({action: 'test', to: [a], subject: '[Test] ' + e.subject, message: e.body}); toast(r.error ? mailErr(r.error) : r.sent ? 'Test email sent' : 'The test was not sent');
+    };
+    $('#en_go', root).onclick = async () => {
+      const go = $('#en_go', root); go.disabled = true; let sent = 0, skipped = 0, failed = 0;
+      for (let i = 0; i < to.length; i += 50) {
+        prog.textContent = 'Sending ' + Math.min(i + 50, to.length) + ' of ' + to.length + '…';
+        const r = await mailApi({action: 'newsletter', to: to.slice(i, i + 50), subject: e.subject, message: e.body});
+        if (r.error) { toast(mailErr(r.error)); failed += to.length - i; break; }
+        sent += r.sent || 0; skipped += r.skipped || 0; failed += r.failed || 0;
+      }
+      if (e.id) { const rec = byId(e.id); if (rec) await save({...rec, sentAt: new Date().toISOString(), sentCount: sent}); }
+      closeSheet(); toast('Sent ' + sent + (skipped ? ', skipped ' + skipped + ' (unsubscribed)' : '') + (failed ? ', not sent ' + failed : ''));
+    };
+  });
+}
+
+/* ----- Enewletter: write one message, pick who gets it, send it from the CRM (or from your own email program) ----- */
 function enewsAudience() {
   const e = UI.enews;
   return K('hotel').filter(h => h.email && (!e.stage || (h.status || 'New lead') === e.stage) && (!e.city || h.city === e.city));
@@ -3575,7 +3648,7 @@ function vEnews() {
     <label class="f wide"><span>Subject</span><input id="en_subject" value="${esc(e.subject)}"></label>
     <label class="f wide"><span>Message</span><textarea id="en_body" rows="9">${esc(e.body)}</textarea></label></div>
     <p class="muted small" id="en_n"></p>
-    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="enewsOpen">Open in my email program</button><button class="btn" data-act="enewsCopy">Copy email addresses</button><button class="btn" data-act="enewsSave">Save draft</button></div></div>
+    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">${Auth.isProvider() ? '<button class="btn primary" data-act="enewsSend">Send from the CRM</button>' : ''}<button class="btn" data-act="enewsOpen">Open in my email program</button><button class="btn" data-act="enewsCopy">Copy email addresses</button><button class="btn" data-act="enewsSave">Save draft</button></div></div>
    <h2>Saved <span class="count">${saved.length}</span></h2>
    ${saved.length ? `<div class="list">${saved.map(s => `<a class="row" href="#enews" data-act="enewsLoad" data-id="${s.id}"><div class="main"><div class="t">${esc(s.subject || '(no subject)')}</div><div class="s">${esc([s.stage, s.city].filter(Boolean).join(' · ') || 'All hotels')}</div></div><div class="end">${fdate((s.updated || '').slice(0, 10))}</div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No saved drafts.</div></div>'}`;
   const sync = () => { e.stage = $('#en_stage').value; e.city = $('#en_city').value; e.subject = $('#en_subject').value; e.body = $('#en_body').value; $('#en_n').textContent = enewsAudience().length + ' hotels with an email address will receive it.'; };
@@ -3588,6 +3661,7 @@ Object.assign(ACTIONS, {
   newActivation: el => { UI.actHid = el && el.dataset ? el.dataset.hid || '' : ''; location.hash = 'activations/new'; },
   editActivation: el => { location.hash = 'activations/' + el.dataset.id; },
   enewsOpen: () => { const to = enewsAudience().map(h => h.email); if (!to.length) { toast('No hotel with an email address in this list'); return; } const e = UI.enews; location.href = 'mailto:?bcc=' + encodeURIComponent(to.join(',')) + '&subject=' + encodeURIComponent(e.subject) + '&body=' + encodeURIComponent(e.body); },
+  enewsSend: () => enewsSendSheet(),
   enewsCopy: () => copyText(enewsAudience().map(h => h.email).join(', '), 'Email addresses copied'),
   enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, stage: e.stage, city: e.city}); toast('Draft saved'); rerender(); },
   enewsLoad: el => { const s = byId(el.dataset.id); UI.enews = {id: s.id, subject: s.subject, body: s.body, stage: s.stage || '', city: s.city || ''}; vEnews(); scrollTo(0, 0); },
