@@ -2458,7 +2458,7 @@ async function softDeleteHotel(h) {
 function vDeleted() {
   const tab = UI.dr = UI.dr || 'hotel', who = r => esc((r.deleted || {}).by || ''), when = r => esc(dlStamp((r.deleted || {}).at)), btn = r => `<td><button type="button" class="btn sm" data-act="recRestore" data-id="${r.id}">Restore</button></td>`;
   const T = {
-    hotel: {rows: deletedOf('hotel'), head: ['Hotel name', 'City', 'Country', 'Contact Person'], cells: h => [esc(h.name), esc(h.city || ''), esc(h.country || ''), esc(h.contact || '')]},
+    hotel: {rows: deletedOf('hotel'), head: ['Hotel name', 'City', 'Country', 'OTA', 'Contact Person'], cells: h => [esc(h.name), esc(h.city || ''), esc(h.country || ''), esc(otaLine(h)), esc(h.contact || '')]},
     quote: {rows: deletedOf('quote'), head: ['Quotation number', 'Hotel name', 'Date', 'Status'], cells: q => [esc(q.no || ''), esc(q.hotelName || hotelName(q.hotelId)), esc(meetDmy(q.date)), esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))]},
     activation: {rows: deletedOf('activation'), head: ['Activation date', 'Hotel name', 'Setup by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(hotelName(a.hotelId)), esc(a.techBy || ''), esc(a.status || '')]},
     meeting: {rows: deletedOf('act').filter(isMeet), head: ['Meeting date', 'Meeting time', 'Hotel name', 'Contact person', 'Meeting by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(a.time || ''), esc(hotelName(a.hotelId)), esc(a.contactName || ''), esc(a.owner || ''), esc(meetSt(a))]},
@@ -2828,7 +2828,7 @@ function hotelForm(h, isNew) {
     <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
     <details class="hi-more"><summary>More details</summary>
      <div class="hi-row">${dd('status', 'Status', STAGES.map(s => s[0]), '9.5em')}${dd('type', 'Property type', ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'], '11em', '—')}</div>
-     <div class="hi-row"><label class="f hi-c"><span>OTA</span><div class="cb" style="width:15em"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
+     <div class="hi-row"><label class="f hi-c"><span>Online Travel Agency(OTA)</span><div class="cb" style="width:15em"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
       <label class="f hi-c"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}" style="width:7.5em"></select></label></div>
      <div class="hi-row">${tx('line', 'LINE ID', '13em')}${dd('managed', 'Managed by Maha Hub', ['No', 'Yes'], '7em')}</div>
      <div class="hi-row c3">${fz('Commercial model', h.dealModel, '15.5em')}${fz('Pricing', h.dealPrice, '10em')}${fz('Term', h.dealTerm, '7.5em')}</div>
