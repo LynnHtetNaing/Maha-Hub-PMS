@@ -1720,9 +1720,9 @@ const NAVS = {cur: '', stack: [], back: false};
 function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'refcredits', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, refcredits:vRefCredits,  dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting,  dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -2246,10 +2246,7 @@ const ACTIONS = {
     if (['Sent', 'Accepted'].includes(q.status) && !['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before it is Sent'); return; }
     if (!q.hotelId) { const h = {id: uid(), kind:'hotel', name: q.hotelName, rooms: q.rooms, contact: q.contact, status:'Quoted', managed:'No'}; await save(h); q.hotelId = h.id; }
     else { const h = byId(q.hotelId); if (['New lead', 'Called', 'Follow up', 'Meeting set', undefined, ''].includes(h.status) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
-    const wasNew = q.isNew; delete q.isNew;
-    let rf = null, hh = byId(q.hotelId);
-    if (q.status === 'Accepted' && hh && !(q.referral && q.referral.confirmed)) { rf = await refConfirm(hh, refDefault(hh.id)); if (!rf) { toast('Signing was not confirmed'); return; } q.referral = {confirmed: true, refHotelId: rf.refHotelId || '', at: new Date().toISOString(), by: Auth.who() || ''}; }
-    await save(q); if (q.status === 'Accepted') { await dealFromQuote(q); if (rf) await refCredit(q, rf.refHotelId); } toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
+    const wasNew = q.isNew; delete q.isNew; await save(q); if (q.status === 'Accepted') await dealFromQuote(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
   },
   saveMsa: async () => {
     vMsa.sync(); const m = vMsa.current; if (!m.company && !m.hotelName) { toast('Add the hotel or company name'); return; }
@@ -2346,7 +2343,7 @@ const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
-  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check'], ['Referral credits', '#refcredits', 'users']]},
+  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
@@ -2565,8 +2562,7 @@ function qExtraRows(q) {
   const st = approvalState(q), rev = (q.items || []).some(i => i.id === 'rev' && i.on);
   const msa = rev ? `<div class="fu-qr"><b>MSA</b><span><a href="#followup" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a></span></div>` : '';
   const ap = ['waiting', 'needed', 'declined'].includes(st) ? `<div class="fu-qr"><b>Approval</b><span style="color:#b3261e;font-weight:600">${st === 'declined' ? 'Declined by the manager' : 'Waiting for the manager\'s approval (discount)'}</span><span class="fu-qa">${st === 'waiting' ? `<button type="button" class="btn sm primary" data-act="qApprove" data-id="${q.id}">Approve</button><button type="button" class="btn sm" data-act="qDecline" data-id="${q.id}">Decline</button>` : ''}</span></div>` : '';
-  const rf = q.referral && q.referral.refHotelId ? `<div class="fu-qr"><b>Referral hotel</b><span>${esc(hotelName(q.referral.refHotelId))}</span></div>` : '';
-  return msa + ap + rf;
+  return msa + ap;
 }
 function quotesSheet(hid) {
   const h = byId(hid); if (!h) return; const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.no || '').localeCompare(b.no || '')), em = hotelEmails(hid);
@@ -3032,9 +3028,7 @@ function quoteFormSheet(hid, q) {
       /* below the list price (a discount) needs the manager's approval before it is sent */
       const sig = discSig(rec), need = belowList(rec).length > 0;
       if (need) { if (!(rec.approval && rec.approvedSig === sig)) { rec.approval = 'requested'; rec.approvedSig = sig; rec.requestedBy = Auth.who() || 'Sales'; rec.requestedAt = new Date().toISOString(); rec.approvedBy = ''; rec.approvedAt = ''; } if (['Sent', 'Accepted'].includes(rec.status) && rec.approval !== 'approved') { toast('A discount needs the manager\'s approval before it is Sent or Signed'); return; } } else { rec.approval = ''; }
-      let rf = null;
-      if (rec.status === 'Accepted' && !(rec.referral && rec.referral.confirmed)) { rf = await refConfirm(h, refDefault(hid)); if (!rf) { toast('Signing was not confirmed'); return; } rec.referral = {confirmed: true, refHotelId: rf.refHotelId || '', at: new Date().toISOString(), by: Auth.who() || ''}; }
-      await save(rec); if (rec.status === 'Accepted') { await dealFromQuote(rec); if (rf) await refCredit(rec, rf.refHotelId); }
+      await save(rec); if (rec.status === 'Accepted') await dealFromQuote(rec);
       toast(isNew ? 'Quotation created' : 'Saved'); quotesSheet(hid); if (location.hash.startsWith('#quotes') && TK.quote) paintSm();
     };
   });
@@ -3067,10 +3061,9 @@ Object.assign(ACTIONS, {
 const meetDmy = iso => isoToDmy(iso).replace(/\//g, '-');
 /* ================= LEAD TYPE AND REFERRAL =================
    A meeting says how the lead came: Sales Call, Guest Contact Us or Customer Referral (then the referral hotel is chosen from the database).
-   When a quotation is marked Signed there is one more step: confirm whether it was signed through a referral hotel. If yes, that hotel earns a credit
-   (a discount or promotion from the provider). The credits are kept as records (kind refcredit); REF_LINK is where they will be handed to the PMS billing and the Finance system. */
+   Still to come (its own page, given later): the Quotation Signed page confirms whether a signing came through a referral hotel; that hotel then earns a credit
+   (a discount or promotion from the provider), passed to the Hotel PMS billing and the Finance system. */
 const MEET_LEAD = ['Sales Call', 'Guest Contact Us', 'Customer Referral'];
-const REF_LINK = {credit: rec => null /* later: the Hotel PMS billing and the Company Finance system take the credit from here */};
 const refLabel = h => h.name + (h.city ? ' — ' + h.city : '');
 const refLabels = exId => K('hotel').filter(x => x.id !== exId).map(refLabel).sort((a, b) => a.localeCompare(b));
 const refIdOf = (label, exId) => { const h = K('hotel').find(x => x.id !== exId && norm(refLabel(x)) === norm(label)); return h ? h.id : ''; };
@@ -3088,36 +3081,6 @@ function refRead(root, exId) {
   const lead = (($('[data-mf=meetLead]', root) || {}).value || '').trim(), name = (($('[data-mf=refName]', root) || {}).value || '').trim();
   return {meetLead: lead, refHotelId: lead === 'Customer Referral' ? refIdOf(name, exId) : ''};
 }
-/* the extra step when a quotation is Signed */
-function refConfirm(h, defId) {
-  return new Promise(res => {
-    const o = document.createElement('div'); o.className = 'dd-ov'; const yes0 = !!defId, ref0 = defId ? byId(defId) : null;
-    o.innerHTML = `<div class="dd-box rf-box" role="dialog"><h3>Confirm Signed Quotation</h3><p>Was <b>${esc(h.name)}</b> signed through a referral hotel?</p>
-      <div class="rf-o"><label class="fu-rad"><input type="radio" name="rf_y" value="yes" ${yes0 ? 'checked' : ''}> Yes, through a referral hotel</label><label class="fu-rad"><input type="radio" name="rf_y" value="no" ${yes0 ? '' : 'checked'}> No</label></div>
-      <div class="rf-h" ${yes0 ? '' : 'hidden'}><label>Referral hotel name <i class="req">*</i></label><div class="cb"><input type="text" id="rf_name" autocomplete="off" placeholder="Type to find the hotel" value="${esc(ref0 ? refLabel(ref0) : '')}"><div class="cbl" id="rf_list" hidden></div></div><p class="rf-n">The referral hotel gets a credit: a discount or a promotion offered by Maha Hub. It is passed to the hotel's PMS billing and to the company Finance system.</p></div>
-      <div class="dd-b"><button type="button" class="dd-c">Cancel</button><button type="button" class="dd-y rf-ok">Confirm</button></div></div>`;
-    document.body.appendChild(o); const done = v => { o.remove(); res(v); };
-    const yes = () => ($('[name=rf_y]:checked', o) || {}).value === 'yes';
-    $$('[name=rf_y]', o).forEach(r => r.onchange = () => { $('.rf-h', o).hidden = !yes(); });
-    pickBox($('#rf_name', o), $('#rf_list', o), () => refLabels(h.id), () => {}, 'Choose the hotel from the list');
-    $('.dd-c', o).onclick = () => done(null);
-    $('.rf-ok', o).onclick = () => { if (!yes()) { done({refHotelId: ''}); return; } const id = refIdOf($('#rf_name', o).value, h.id); if (!id) { toast('Choose the referral hotel from the list'); return; } done({refHotelId: id}); };
-  });
-}
-function refDefault(hid) { const m = meetActs().filter(a => a.hotelId === hid && a.meetLead === 'Customer Referral' && a.refHotelId).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]; return m ? m.refHotelId : ''; }
-async function refCredit(q, refHotelId) {
-  const id = 'rc_' + q.id, ex = byId(id);
-  if (refHotelId) await save({...(ex || {}), id, kind: 'refcredit', quoteId: q.id, quoteNo: q.no || '', referrerId: refHotelId, referredId: q.hotelId, signedDate: (ex && ex.signedDate) || today(), status: ex && ex.status !== 'Cancelled' ? ex.status : 'Earned'});
-  else if (ex && ex.status !== 'Cancelled') { ex.status = 'Cancelled'; await save(ex); }
-  try { REF_LINK.credit(byId(id)); } catch {}
-}
-function vRefCredits() {
-  const rows = K('refcredit').sort((a, b) => (b.signedDate || '').localeCompare(a.signedDate || ''));
-  view().innerHTML = `<div class="top"><div><h1>Referral credits</h1></div></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Referral hotel (gets the credit)</th><th>Signed hotel</th><th>Quotation number</th><th>Signed date</th><th>Credit</th><th>Status</th><th>Action</th></tr></thead>
-   <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td><td class="l">${esc(hotelName(r.referrerId))}</td><td class="l">${esc(hotelName(r.referredId))}</td><td>${esc(r.quoteNo || '')}</td><td class="nw">${esc(meetDmy(r.signedDate))}</td><td>Discount / promotion from Maha Hub</td><td><b style="color:${r.status === 'Applied' ? '#1F8A4C' : r.status === 'Cancelled' ? '#B4432F' : '#B7791F'}">${esc(r.status)}</b></td><td>${r.status === 'Earned' ? `<button type="button" class="btn sm" data-act="rcApply" data-id="${r.id}">Mark as applied</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="8" class="empty">No referral credit yet.</td></tr>'}</tbody></table></div>`;
-}
-Object.assign(ACTIONS, {rcApply: async el => { const r = byId(el.dataset.id); if (!r) return; r.status = 'Applied'; r.appliedAt = new Date().toISOString(); r.appliedBy = Auth.who() || ''; await save(r); toast('Marked as applied'); vRefCredits(); }});
 
 function meetFields(a, h, mode, nm) {   /* mode: 'view' | 'new' | 'edit' */
   const dis = mode === 'view' ? ' disabled' : '', [hh, mm] = String(a.time || '00:00').split(':'), who = [...new Set(K('act').map(x => x.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], a.owner ? [a.owner] : []))].sort();
@@ -3428,7 +3391,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {refcredits:'check', setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
