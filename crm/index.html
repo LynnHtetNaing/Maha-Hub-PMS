@@ -762,7 +762,8 @@ const PB_DEFAULT = [
 
  {cat: 'Pricing & Commercial', title: 'Commercial Module, Staff Credit and Referral Rewards', body:
 `- Commercial Module: every service and fee we sell, with its unit. Check the price here before you quote
-- Staff Credit: the credit % of each staff member (set once by the CEO). It shows in Setup activation
+- Staff Credit: the credit % of each staff member (set by the CEO). It shows in Setup activation and is kept on each activation and each signed contract
+- Credit Report: every activation set to Live and every signed contract with its credit (the staff's Credit % x the first month fee). Filter by staff, department and dates; the Total line and the total for each staff show the production of each person
 - Referral Rewards: the reward a referral hotel earns when a signing comes through it
 - System Providers: the companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
 - Competitor Analysis (own menu title): the hotel list filtered by software and provider
@@ -1690,11 +1691,11 @@ function mapHeaders(headers) {
 }
 
 /* ================= NAV ================= */
-const NAV = [['dashboard','Dashboard'],['today','Today'],['hotels','Hotels'],['quotes','Quotes'],['playbook','Playbook'],['more','More']];
+const NAV = [['dashboard','Dashboard'],['hotels','Hotels'],['quotes','Quotes'],['playbook','Playbook'],['more','More']];
 function drawNav(cur) {
   drawRail(cur);
 }
-const SECTION_OF = {competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'dashboard', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 const NAVS = {cur: '', stack: [], back: false};
@@ -1702,9 +1703,10 @@ function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
-  drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
-  crumb(SECTION_OF[r] || 'today');
+  if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
+  drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
+  ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
+  crumb(SECTION_OF[r] || 'dashboard');
 }
 async function decide(result) {
   const q = vQuote.current; vQuote.sync(); const st = approvalState(q);
@@ -1725,47 +1727,11 @@ function hotelRow(h) {
    <div class="end"><span class="status" style="color:${stageColor(h.status)}">${esc(h.status || 'New lead')}</span>${nf ? `<div class="${overdue ? 'due' : ''}">${overdue ? 'Due ' : 'Next '}${fdate(nf)}</div>` : ''}</div></a>`;
 }
 
-function vToday() {
-  const t = today(), hotels = K('hotel'), acts = K('act');
-  const open = acts.filter(a => a.nextDate && !a.done && !CLOSED.includes((byId(a.hotelId) || {}).status));
-  const due = open.filter(a => a.nextDate <= t).sort((a, b) => a.nextDate.localeCompare(b.nextDate));
-  const soon = open.filter(a => a.nextDate > t && a.nextDate <= addDays(t, 7)).sort((a, b) => a.nextDate.localeCompare(b.nextDate));
-  const recent = [...acts].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || '').localeCompare(a.created || '')).slice(0, 6);
-  const quotes = K('quote'), openQ = quotes.filter(q => ['Draft', 'Sent'].includes(q.status));
-  const m = meta(); const lb = m.lastBackup; const needBackup = (!lb || (Date.now() - new Date(lb)) > 7 * 864e5) && Cloud.state !== 'ok';
-  const counts = STAGES.map(([s, c]) => [s, c, hotels.filter(h => (h.status || 'New lead') === s).length]);
-  const total = hotels.length || 1;
-  const hr = new Date().getHours(); const hello = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
-  const fu = a => `<a class="row" href="#hotel/${a.hotelId}"><span class="stripe" style="background:${a.nextDate <= t ? 'var(--alert)' : 'var(--gold)'}"></span>
-    <div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.nextAction || a.reason || a.summary || 'Follow up')}</div></div>
-    <div class="end"><div class="${a.nextDate <= t ? 'due' : ''}">${a.nextDate < t ? 'Overdue · ' : a.nextDate === t ? 'Today · ' : ''}${fdate(a.nextDate)}</div>
-    <button class="btn sm" data-act="done" data-id="${a.id}">Done</button></div></a>`;
-  view().innerHTML = `
-   <div class="top"><div><h1>${hello}${Auth.who() ? ', ' + esc(Auth.who()) : ''}</h1><p>${new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</p></div>
-    <div class="actions"><button class="btn primary" data-act="log">${ICON.plus}Log a call</button><button class="btn" data-act="newHotel">Add hotel</button><button class="btn" data-go="#quote/new">New quote</button></div></div>
-   ${needBackup ? `<div class="banner"><span>${lb ? 'Last backup ' + fdate(lb) + '.' : 'No backup yet.'} Your data lives only on this device.</span><button class="btn sm gold" data-act="backup">Back up now</button></div>` : ''}
-   <div class="searchbar" style="margin-bottom:14px">${ICON.search}<input type="search" id="gsearch" placeholder="Search hotels, contacts, quotes, playbook…" aria-label="Search everything"></div>
-   <div class="kpis">
-    <a class="kpi ${due.length ? 'alert' : ''}" href="#today"><div class="v">${due.length}</div><div class="l">Follow-ups due</div></a>
-    <a class="kpi" href="#hotels"><div class="v">${hotels.length}</div><div class="l">Hotels in database</div></a>
-    <a class="kpi" href="#quotes"><div class="v">${openQ.length}</div><div class="l">Open quotes</div></a>
-    <a class="kpi" href="#hotels" data-stage="Live"><div class="v">${hotels.filter(h => h.managed === 'Yes' && h.status === 'Live').length}</div><div class="l">Managed &amp; live</div></a>
-   </div>
-   <div class="pipe"><div class="bar" aria-hidden="true">${counts.filter(c => c[2]).map(([s, c, n]) => `<span style="flex:${n};background:${c}" title="${esc(s)}: ${n}"></span>`).join('')}</div>
-    <div class="legend">${counts.map(([s, c, n]) => `<button data-act="stage" data-stage="${esc(s)}"><i style="background:${c}"></i>${esc(s)}<b>${n}</b></button>`).join('')}</div></div>
-   <h2>Due now <span class="count">${due.length}</span></h2>
-   ${due.length ? `<div class="list">${due.map(fu).join('')}</div>` : '<div class="list"><div class="empty">Nothing due. Log a call and set a follow-up date to see it here.</div></div>'}
-   ${soon.length ? `<h2>Next 7 days <span class="count">${soon.length}</span></h2><div class="list">${soon.map(fu).join('')}</div>` : ''}
-   <h2>Recent activity</h2>
-   ${recent.length ? `<div class="list">${recent.map(a => `<a class="row" href="#hotel/${a.hotelId}"><div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.type)} — ${esc(a.reason || a.summary || '')}</div></div><div class="end">${fdate(a.date)}</div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No activity yet.</div></div>'}`;
-  const gs = $('#gsearch'); gs.addEventListener('keydown', e => { if (e.key === 'Enter' && gs.value.trim()) location.hash = 'search/' + encodeURIComponent(gs.value.trim()); });
-}
-
 function vSearch(q) {
   const n = norm(q); const hit = r => norm(Object.values(r).filter(v => typeof v === 'string' || typeof v === 'number').join(' ')).includes(n);
   const hotels = K('hotel').filter(hit), acts = K('act').filter(hit), quotes = K('quote').filter(r => hit(r) || norm(r.hotelName).includes(n));
   const cards = pbCards().filter(hit), items = K('item').filter(i => norm(Object.values(i.values || {}).join(' ')).includes(n));
-  view().innerHTML = `<a class="back" href="#today">‹ Today</a><div class="top"><div><h1>Search</h1><p>${hotels.length + acts.length + quotes.length + cards.length + items.length} results for “${esc(q)}”</p></div></div>
+  view().innerHTML = `<a class="back" href="#dashboard">‹ Dashboard</a><div class="top"><div><h1>Search</h1><p>${hotels.length + acts.length + quotes.length + cards.length + items.length} results for “${esc(q)}”</p></div></div>
    <div class="searchbar" style="margin-bottom:10px">${ICON.search}<input type="search" id="gsearch" value="${esc(q)}" aria-label="Search everything"></div>
    ${hotels.length ? `<h2>Hotels</h2><div class="list">${hotels.slice(0, 50).map(hotelRow).join('')}</div>` : ''}
    ${acts.length ? `<h2>Activity notes</h2><div class="list">${acts.slice(0, 50).map(a => `<a class="row" href="#hotel/${a.hotelId}"><div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.type)} — ${esc(a.reason)} ${esc(a.summary)}</div></div><div class="end">${fdate(a.date)}</div></a>`).join('')}</div>` : ''}
@@ -2331,11 +2297,11 @@ Object.assign(ICON, {
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>',
 });
 const NAVG = [
-  ['dashboard', 'Dashboard'], ['today', 'Today'],
+  ['dashboard', 'Dashboard'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
-  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['System Providers', '#pricing/providers', 'db'], ['Referral Rewards', '#pricing/referral', 'users']]},
+  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Credit Report', '#pricing/credits', 'kpi'], ['System Providers', '#pricing/providers', 'db'], ['Referral Rewards', '#pricing/referral', 'users']]},
   {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
@@ -3037,7 +3003,7 @@ function mqStatusSheet(id, pick) {
         if (!['none', 'approved'].includes(approvalState(q))) { toast('The discount needs the manager\'s approval before it can be signed'); return; }
         const dec = ($('[name=mq_rf]:checked', root) || {}).value;
         if (ref) { if (!dec) { toast('Confirm or cancel the referral hotel'); return; } if (dec === 'cancel' && !g('rfReason')) { toast('Write the reason for cancelling the referral'); return; } }
-        q.status = 'Accepted'; q.signInfo = {signDate: g('signDate'), by: g('by'), payDate: g('payDate'), taxNo: g('taxNo'), name: g('name'), pos: g('pos'), detail: g('detail'), slips};
+        q.status = 'Accepted'; q.signInfo = {creditPct: actPctOf(q.forSale || q.owner || ''), signDate: g('signDate'), by: g('by'), payDate: g('payDate'), taxNo: g('taxNo'), name: g('name'), pos: g('pos'), detail: g('detail'), slips};
         if (ref) q.referral = {refHotelId: refId, decision: dec, reason: g('rfReason'), at: new Date().toISOString(), by: Auth.who() || ''};
         await save(q); await dealFromQuote(q); const hh = byId(q.hotelId); if (hh && hh.status !== 'Live' && hh.status !== 'Signed') { hh.status = 'Signed'; await save(hh); }
         if (ref) await refCredit(q, refId, dec, g('rfReason'));
@@ -3051,6 +3017,65 @@ Object.assign(ACTIONS, {
   mqSearch: () => { UI.mq.from = $('#mq_from').value; UI.mq.to = $('#mq_to').value; paintMq(); },
   mqView: el => mqViewSheet(el.dataset.id),
   mqStatus: el => mqStatusSheet(el.dataset.id, el.dataset.s),
+});
+
+/* ---------- Credit Report ----------
+   Staff Credit gives each staff member a fixed Credit % (kept on the activation or the signing when it happens). The credit of ONE event = that % x the first month fee:
+     - an activation set to Live: the technician (Setup by), on the systems that were activated;
+     - a signed contract: the sales person of the quotation (Quotation for sale), on the whole quotation.
+   First month fee = the monthly fees + the one-time fees (+ a yearly fee / 12), after discount; commission items give no amount.
+   The credit is an amount in the currency of the quotation (a VND quotation gives VND), so each currency has its own Total line.
+   The list can be filtered by staff, department and dates, with a Total line and a total for each staff, to see the production of each person. */
+const itemNet = i => { const p = qpNum(i.price), d = qpDisc(i.price, i.disc); return Math.max(0, p - d.amt); };
+const itemFirstMonth = i => /month$/.test(i.unit || '') ? itemNet(i) : /one time$/.test(i.unit || '') ? itemNet(i) : /year$/.test(i.unit || '') ? itemNet(i) / 12 : 0;
+function firstMonthFee(q, match) {
+  if (!q) return 0;
+  if (quoteIsNew(q)) return (q.items || []).filter(i => i.on && (!match || match(i))).reduce((t, i) => t + itemFirstMonth(i), 0);
+  const c = qCompute(q); return (c.month || 0) + (c.once || 0) + (c.year || 0) / 12;
+}
+function creditEvents() {
+  const out = [], pctOf = (frozen, name) => frozen !== undefined && frozen !== '' && frozen !== null ? +frozen : (+actPctOf(name) || 0);
+  K('activation').filter(a => a.status === 'Live').forEach(a => {
+    const q = byId(a.quoteId), defs = actDefs().filter(s => a.sys && s[0] in a.sys), who = a.techBy || a.owner || '';
+    const base = firstMonthFee(q, defs.length ? (i => defs.some(s => s[2].includes(i.id) || (s[4] && norm(i.name) === norm(s[4])))) : null), pct = pctOf(a.credit, who);
+    out.push({date: a.date, who, type: 'Activation', hotel: hotelName(a.hotelId), no: q ? q.no || '' : '', what: actProducts(a), cur: curOf(q), base, pct, credit: Math.round(base * pct) / 100});
+  });
+  K('quote').filter(q => q.status === 'Accepted').forEach(q => {
+    const who = q.forSale || q.owner || '', base = firstMonthFee(q), pct = pctOf(q.signInfo && q.signInfo.creditPct, who);
+    out.push({date: quoteSignDate(q), who, type: 'Signed contract', hotel: q.hotelName || hotelName(q.hotelId), no: q.no || '', what: qLines(q).map(l => l.split(' - ')[0]).join(', '), cur: curOf(q), base, pct, credit: Math.round(base * pct) / 100});
+  });
+  return out.filter(e => /^\d{4}-\d\d-\d\d/.test(e.date || ''));
+}
+const deptOf = name => { const r = K('staffcr').find(x => kpiKey(x.name) === kpiKey(name)); return r ? r.dept || '' : ''; };
+function vCredits() {
+  const d0 = today(), f = UI.crd = UI.crd || {from: d0.slice(0, 8) + '01', to: d0, who: '', dept: '', go: true};
+  const names = [...new Set(K('staffcr').map(r => String(r.name || '').trim()).filter(Boolean).concat(creditEvents().map(e => e.who).filter(Boolean)))].sort((a, b) => a.localeCompare(b));
+  view().innerHTML = `<div class="top"><div><h1>Credit Report</h1></div></div>
+   <div class="fu-sub"><b>Staff credit</b> information</div>
+   <div class="fu-form"><label for="cr_from">Start Date :</label><div><input type="date" id="cr_from" value="${esc(f.from)}"></div><label for="cr_to">End Date :</label><div><input type="date" id="cr_to" value="${esc(f.to)}"></div>
+    <label for="cr_who">Staff :</label><div><select id="cr_who"><option value="">All staff</option>${names.map(n => `<option ${f.who === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+    <label for="cr_dept">Department :</label><div><select id="cr_dept"><option value="">All departments</option>${['Technician', 'Sales', 'Other'].map(n => `<option ${f.dept === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="crdSearch">${ICON.search}Search</button><button type="button" class="btn amber" data-act="crdReset">${ICON.reset}Reset</button></div>
+   <div class="tablewrap fu-tw" style="margin-top:14px"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Date</th><th>Staff</th><th>Department</th><th>Type</th><th>Hotel name</th><th>Quotation No.</th><th>Systems</th><th>First month fee</th><th>Credit %</th><th>Credit</th></tr></thead><tbody id="crdbody"></tbody></table></div>
+   <div id="crdstaff"></div>`;
+  paintCredits();
+}
+function paintCredits() {
+  const f = UI.crd || {}, tb = $('#crdbody'); if (!tb) return;
+  const rows = creditEvents().filter(e => (!f.from || e.date >= f.from) && (!f.to || e.date <= f.to) && (!f.who || kpiKey(e.who) === kpiKey(f.who)) && (!f.dept || deptOf(e.who) === f.dept)).sort((a, b) => b.date.localeCompare(a.date));
+  const m = n => n ? fmt(Math.round(n * 100) / 100) : '0', mc = (n, c) => m(n) + ' ' + (c || 'THB');
+  const curs = [...new Set(rows.map(e => e.cur || 'THB'))].sort();
+  tb.innerHTML = rows.length ? rows.map((e, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(e.date))}</td><td class="l">${esc(e.who || '(No name)')}</td><td>${esc(deptOf(e.who))}</td><td>${esc(e.type)}</td><td class="l">${esc(e.hotel)}</td><td class="nw">${esc(e.no)}</td><td class="l">${esc(e.what)}</td><td style="text-align:right">${esc(mc(e.base, e.cur))}</td><td>${esc(String(e.pct))} %</td><td style="text-align:right"><b>${esc(mc(e.credit, e.cur))}</b></td></tr>`).join('')
+      + curs.map(c => { const rs = rows.filter(e => (e.cur || 'THB') === c); return `<tr class="kp-tot"><td colspan="8" style="text-align:right"><b>Total ${esc(c)} · ${rs.length} credit${rs.length === 1 ? '' : 's'}</b></td><td style="text-align:right"><b>${esc(mc(rs.reduce((x, e) => x + e.base, 0), c))}</b></td><td></td><td style="text-align:right"><b>${esc(mc(rs.reduce((x, e) => x + e.credit, 0), c))}</b></td></tr>`; }).join('')
+    : '<tr><td colspan="11" class="empty">No credit in this period for this staff. Credit is earned when an activation is set to Live and when a quotation is signed. Change the dates or the staff, then press Search.</td></tr>';
+  const box = $('#crdstaff'); if (!box) return;
+  if (f.who || !rows.length) { box.innerHTML = ''; return; }
+  const by = new Map(); rows.forEach(e => { const k = kpiKey(e.who), r = by.get(k) || {who: e.who || '(No name)', act: 0, sign: 0, cred: {}}; if (e.type === 'Activation') r.act++; else r.sign++; r.cred[e.cur || 'THB'] = (r.cred[e.cur || 'THB'] || 0) + e.credit; by.set(k, r); });
+  box.innerHTML = `<div class="fu-sub" style="margin-top:22px"><b>Total</b> for each staff</div><div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Staff</th><th>Department</th><th>Activations</th><th>Signed contracts</th><th>Credit</th></tr></thead><tbody>${[...by.values()].sort((a, b) => Object.values(b.cred).reduce((x, y) => x + y, 0) - Object.values(a.cred).reduce((x, y) => x + y, 0)).map((r, i) => `<tr><td>${i + 1}</td><td class="l">${esc(r.who)}</td><td>${esc(deptOf(r.who))}</td><td>${r.act}</td><td>${r.sign}</td><td style="text-align:right"><b>${esc(Object.entries(r.cred).map(([c, v]) => mc(v, c)).join(' + '))}</b></td></tr>`).join('')}</tbody></table></div>`;
+}
+Object.assign(ACTIONS, {
+  crdSearch: () => { const f = UI.crd = UI.crd || {}; f.from = $('#cr_from').value; f.to = $('#cr_to').value; f.who = $('#cr_who').value; f.dept = $('#cr_dept').value; paintCredits(); },
+  crdReset: () => { UI.crd = null; vCredits(); },
 });
 
 /* ---------- System Providers and Competitor Analysis ----------
@@ -3132,6 +3157,7 @@ const PR = {
 const prReward = p => p.type === 'Discount %' ? p.value + '% discount' : p.type === 'Discount THB' ? p.value + ' THB discount' : p.type === 'Free months' ? p.value + ' free month(s)' : (p.value || 'Promotion');
 function vPricing(id) {
   if (id === 'providers') return vProviders();
+  if (id === 'credits') return vCredits();
   const key = id === 'referral' ? 'referral' : id === 'staff' ? 'staff' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
   view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm && key === 'commercial' && !K('comodule').length ? `<button type="button" class="btn" data-act="prSeed">Load the price list</button>` : ''}${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="fu-sub"><b>${c.title}</b> information</div>
@@ -3269,7 +3295,7 @@ function convertLegacyQuote(q) {
   if (q.discType && qpNum(dv) > 0) { const rec = items.filter(i => i.unit === U.month || i.unit === U.year); if (q.discType === 'pct') rec.forEach(i => { i.disc = qpNum(dv) + '%'; i.discNote = 'Discount'; }); else if (rec[0]) { rec[0].disc = String(qpNum(dv)); rec[0].discNote = 'Discount'; } }
   const r = {...q, items, terms: null, lines: {}, custom: [], setup: 'none', waived: false, discType: '', discValue: '', approval: '', approvedSig: '', approvedBy: '', approvedAt: ''};
   /* a quotation that was already approved or already sent keeps its standing: the carried-over discount is not asked for again */
-  if (belowList(r).length && (['approved', 'none'].includes(approvalState(q)) || ['Sent', 'Accepted'].includes(q.status))) { r.approval = 'approved'; r.approvedSig = discSig(r); r.approvedBy = q.approvedBy || 'Old quotation'; r.approvedAt = q.approvedAt || ''; }
+  if (belowList(r).length && approvalState(q) === 'approved') { r.approval = 'approved'; r.approvedSig = discSig(r); r.approvedBy = q.approvedBy || 'Old quotation'; r.approvedAt = q.approvedAt || ''; }
   return r;
 }
 const quoteIsNew = q => Array.isArray(q && q.items);
@@ -3723,7 +3749,7 @@ async function sendQuoteSheet(q, to) {
   });
 }
 function enewsSendSheet() {
-  const e = UI.enews; if (!Auth.isProvider()) { toast('Only the CEO can send the Enewletter'); return; }
+  const e = UI.enews;
   if (!(e.subject || '').trim() || !(e.body || '').trim()) { toast('Write a subject and a message first'); return; }
   const to = [...new Set(enewsAudience().map(h => String(h.email).trim().toLowerCase()).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))];
   if (!to.length) { toast('No hotel with an email address in this list'); return; }
@@ -3767,7 +3793,7 @@ function vEnews() {
     <label class="f wide"><span>Subject</span><input id="en_subject" value="${esc(e.subject)}"></label>
     <label class="f wide"><span>Message</span><textarea id="en_body" rows="9">${esc(e.body)}</textarea></label></div>
     <p class="muted small" id="en_n"></p>
-    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap">${Auth.isProvider() ? '<button class="btn primary" data-act="enewsSend">Send from the CRM</button>' : ''}<button class="btn" data-act="enewsOpen">Open in my email program</button><button class="btn" data-act="enewsCopy">Copy email addresses</button><button class="btn" data-act="enewsSave">Save draft</button></div></div>
+    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="enewsSend">Send from the CRM</button><button class="btn" data-act="enewsOpen">Open in my email program</button><button class="btn" data-act="enewsCopy">Copy email addresses</button><button class="btn" data-act="enewsSave">Save draft</button></div></div>
    <h2>Saved <span class="count">${saved.length}</span></h2>
    ${saved.length ? `<div class="list">${saved.map(s => `<a class="row" href="#enews" data-act="enewsLoad" data-id="${s.id}"><div class="main"><div class="t">${esc(s.subject || '(no subject)')}</div><div class="s">${esc([s.stage, s.city].filter(Boolean).join(' · ') || 'All hotels')}</div></div><div class="end">${fdate((s.updated || '').slice(0, 10))}</div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No saved drafts.</div></div>'}`;
   const sync = () => { e.stage = $('#en_stage').value; e.city = $('#en_city').value; e.subject = $('#en_subject').value; e.body = $('#en_body').value; $('#en_n').textContent = enewsAudience().length + ' hotels with an email address will receive it.'; };
