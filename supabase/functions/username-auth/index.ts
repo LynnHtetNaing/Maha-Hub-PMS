@@ -53,6 +53,13 @@ const withOrigin = (req: Request, res: Response): Response => {
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
 };
 
+// With AUTH_SYSTEM_REDIRECTS=on the email links point at the system the person came from (the email hook then shows that system's own look).
+const systemUrl = (req: Request, page: string): string | undefined => {
+  if (Deno.env.get("AUTH_SYSTEM_REDIRECTS") !== "on") return undefined;
+  const origin = req.headers.get("Origin") || "";
+  return ALLOWED_ORIGINS.includes(origin) ? origin + page : undefined;
+};
+
 const handle = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -102,7 +109,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (!lookupError && identity?.recovery_email) {
       const recoveryClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
       await recoveryClient.auth.resetPasswordForEmail(identity.recovery_email, {
-        redirectTo: "https://solutions.maha-hub.com/reset-password.html",
+        redirectTo: systemUrl(req, "/reset-password.html") || "https://solutions.maha-hub.com/reset-password.html",
       });
       logEvent("password_reset_requested", identity.user_id, true, null);
     }
@@ -203,7 +210,7 @@ const handle = async (req: Request): Promise<Response> => {
       if (challengeError || typeof challenge !== "string") return json({ error: "code_unavailable" }, 503);
       const mailClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
       const { error: mailError } = await mailClient.auth.signInWithOtp({
-        email: identity.recovery_email, options: { shouldCreateUser: false },
+        email: identity.recovery_email, options: { shouldCreateUser: false, emailRedirectTo: systemUrl(req, "/") },
       });
       if (mailError) {
         const limited = (mailError as { status?: number }).status === 429;

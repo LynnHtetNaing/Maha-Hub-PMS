@@ -64,6 +64,9 @@ const USERNAME = /^[A-Za-z0-9._-]{3,40}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE = /^[A-Z0-9_-]{2,24}$/;
 const RESET_REDIRECT = "https://solutions.maha-hub.com/reset-password.html";
+// With AUTH_SYSTEM_REDIRECTS=on the set-password link opens on the system it is for (the email hook then shows that system's own look).
+const SYSTEM_RESET: Record<string, string> = { pms: "https://pms.maha-hub.com/reset-password.html", console: "https://console.maha-hub.com/reset-password.html", crm: "https://crm.maha-hub.com/reset-password.html" };
+const resetRedirect = (system: string) => (Deno.env.get("AUTH_SYSTEM_REDIRECTS") === "on" && SYSTEM_RESET[system]) || RESET_REDIRECT;
 
 // Reads one claim from a JWT. The token was already verified by Supabase Auth (getUser) before this is used.
 function jwtClaim(token: string, name: string): string {
@@ -195,8 +198,8 @@ const handle = async (req: Request): Promise<Response> => {
   if (!isMaster) return respond({ error: "master_only" }, 403);
 
   let mailError = "";   // reason the last email was refused (e.g. over_email_send_rate_limit); never includes addresses
-  const sendSetPasswordEmail = async (to: string) => {
-    const { error } = await authClient.auth.resetPasswordForEmail(to, { redirectTo: RESET_REDIRECT });
+  const sendSetPasswordEmail = async (to: string, system = "pms") => {
+    const { error } = await authClient.auth.resetPasswordForEmail(to, { redirectTo: resetRedirect(system) });
     mailError = error ? String((error as { code?: string }).code || error.status || "email_failed") : "";
     return !error;
   };
@@ -591,7 +594,7 @@ const handle = async (req: Request): Promise<Response> => {
         return { data: r.error ? null : true, error: r.error };
       });
       if (!result.ok) return result.response;
-      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email), invitation_error: mailError || undefined }, 201);
+      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email, "console"), invitation_error: mailError || undefined }, 201);
     }
     if (!USERNAME.test(username)) return respond({ error: "invalid_fields" }, 400);
     const { data: ident } = await admin.from("maha_login_identities").select("user_id,recovery_email").eq("username_normalized", username.toLowerCase()).maybeSingle();
@@ -614,7 +617,7 @@ const handle = async (req: Request): Promise<Response> => {
       return respond({ ok: true, active });
     }
     if (action === "resend_admin_invite") {
-      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email);
+      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email, "console");
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
     // remove_admin
@@ -658,7 +661,7 @@ const handle = async (req: Request): Promise<Response> => {
         await admin.auth.admin.deleteUser(uid);   // nothing is left half-made
         return respond({ error: (identError ?? memberError)?.code === "23505" ? "username_taken" : "provisioning_failed" }, (identError ?? memberError)?.code === "23505" ? 409 : 400);
       }
-      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email), invitation_error: mailError || undefined }, 201);
+      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email, "crm"), invitation_error: mailError || undefined }, 201);
     }
     const { data: ident } = await admin.from("maha_login_identities").select("user_id,recovery_email")
       .eq("username_normalized", username.toLowerCase()).maybeSingle();
@@ -666,7 +669,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (!ident || !mem) return respond({ error: "member_not_found" }, 404);
     const uid = (ident as { user_id: string }).user_id;
     if (action === "crm_reset_password") {
-      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email);
+      const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email, "crm");
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
     if (typeof body.active !== "boolean") return respond({ error: "invalid_fields" }, 400);
