@@ -2139,8 +2139,25 @@ function vCollect() {
 }
 
 /* ---------- more: sockets + data ---------- */
+/* the quotations made before the new quotation form (the old format, not an uploaded file): the provider can clear them once */
+const oldQuotes = () => R.filter(r => r.kind === 'quote' && !Array.isArray(r.items) && !r.upload);
+function clearOldSheet() {
+  if (!Auth.isProvider()) { toast('Only the CEO can clear the old quotations'); return; }
+  const list = oldQuotes().sort((a, b) => (a.date || '').localeCompare(b.date || '')); if (!list.length) { toast('There is no old quotation'); return; }
+  openSheet(`${fuHead('Clear old quotations')}<div class="fu-pop" style="margin-top:14px"><p class="mq-t">${list.length} quotation${list.length === 1 ? '' : 's'} made before the new quotation form. They are removed for good and no longer count in the KPI and the Dashboard. A backup file downloads first.</p>
+   <div class="tablewrap fu-tw" style="max-height:260px;overflow:auto"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Quotation No.</th><th>Hotel name</th><th>Date</th><th>Status</th></tr></thead><tbody>${list.map((q, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(q.no || '')}</td><td class="l">${esc(q.hotelName || hotelName(q.hotelId))}</td><td class="nw">${esc(meetDmy(q.date))}</td><td>${esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))}</td></tr>`).join('')}</tbody></table></div>
+   <div class="mq-b" style="margin-top:14px"><label class="mq-l">Type CLEAR to confirm</label><input id="co_w" autocomplete="off" style="max-width:240px"></div></div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn redb" id="co_go">Clear ${list.length} old quotation${list.length === 1 ? '' : 's'}</button></div>`, root => {
+    root.classList.add('wide');
+    $('#co_go', root).onclick = () => {
+      if ($('#co_w', root).value.trim() !== 'CLEAR') { toast('Type CLEAR to confirm'); return; }
+      download('Maha CRM old quotations backup ' + today() + '.json', JSON.stringify(list, null, 1), 'application/json');
+      list.forEach(q => remove(q.id)); closeSheet(); toast(list.length + ' old quotation' + (list.length === 1 ? '' : 's') + ' cleared'); vMore();
+    };
+  });
+}
 function vMore() {
-  const n = K('hotel').length;
+  const n = K('hotel').length, oq = Auth.isProvider() ? oldQuotes().length : 0;
   view().innerHTML = `<div class="top"><div><h1>More</h1></div></div>
    <div class="mo-grid">
     <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.upload || ''}</span><div><h3>Hotel data</h3><p>${n} hotel${n === 1 ? '' : 's'} in the database</p></div></div>
@@ -2148,7 +2165,7 @@ function vMore() {
      <div class="mo-b"><button type="button" class="btn dark" data-act="importCSV">Import hotels CSV</button><button type="button" class="btn" data-act="exportCSV">Export hotels CSV</button></div></section>
     <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.phone || ''}</span><div><h3>Install the CRM</h3><p>Opens full screen like an app</p></div></div>
      <ul class="mo-l"><li><b>Windows / Mac</b><span>Chrome or Edge: the install icon at the right of the address bar</span></li><li><b>Android</b><span>Chrome: menu ⋮ → Install app</span></li><li><b>iPhone</b><span>Safari: Share → Add to Home Screen</span></li></ul></section>
-   </div>`;
+   </div>${oq ? `<div class="mo-grid" style="margin-top:18px"><section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.trash || ''}</span><div><h3>Old quotations</h3><p>${oq} made before the new quotation form</p></div></div><p class="mo-t">Only you see this. Clear them once, so the Quotation lists and the KPI start with the new quotations only. A backup file downloads first.</p><div class="mo-b"><button type="button" class="btn redb" data-act="clearOld">Clear old quotations</button></div></section></div>` : ''}`;
 }
 function collSheet(c) {
   const isNew = !c; c = c || {name:'', fields:['Name', 'Details', 'Notes']};
@@ -3691,6 +3708,7 @@ Object.assign(ACTIONS, {
   editActivation: el => { location.hash = 'activations/' + el.dataset.id; },
   enewsOpen: () => { const to = enewsAudience().map(h => h.email); if (!to.length) { toast('No hotel with an email address in this list'); return; } const e = UI.enews; location.href = 'mailto:?bcc=' + encodeURIComponent(to.join(',')) + '&subject=' + encodeURIComponent(e.subject) + '&body=' + encodeURIComponent(e.body); },
   enewsSend: () => enewsSendSheet(),
+  clearOld: () => clearOldSheet(),
   enewsCopy: () => copyText(enewsAudience().map(h => h.email).join(', '), 'Email addresses copied'),
   enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, stage: e.stage, city: e.city}); toast('Draft saved'); rerender(); },
   enewsLoad: el => { const s = byId(el.dataset.id); UI.enews = {id: s.id, subject: s.subject, body: s.body, stage: s.stage || '', city: s.city || ''}; vEnews(); scrollTo(0, 0); },
