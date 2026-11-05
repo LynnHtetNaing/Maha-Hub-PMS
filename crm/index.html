@@ -2637,7 +2637,7 @@ Object.assign(ACTIONS, {
   qUp: el => uploadQuoteSheet(el.dataset.hid),
   qOpen: el => { closeSheet(); location.hash = 'quote/' + el.dataset.id; },
   qFile: el => { const q = byId(el.dataset.id); if (!q || !q.upload) return; const w = window.open(); if (w) w.location.href = q.upload.data; else download(q.upload.name || 'quotation.pdf', new Blob([Uint8Array.from(atob(q.upload.data.split(',')[1]), c => c.charCodeAt(0))], {type: q.upload.type}), q.upload.type); },
-  qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else if (quoteIsNew(q)) quoteFormSheet(q.hotelId, q); else { closeSheet(); location.hash = 'quote/' + q.id; } },
+  qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else if (q.hotelId && byId(q.hotelId)) quoteFormSheet(q.hotelId, convertLegacyQuote(q)); else { closeSheet(); location.hash = 'quote/' + q.id; } },
   qDel: async el => { const q = byId(el.dataset.id); if (!q || !await confirmDelete('Do you want delete quotation ' + (q.no || ''))) return; const hid = q.hotelId; await softDelete(q); toast('Quotation deleted'); quotesSheet(hid); },
   qSend: el => {
     const q = byId(el.dataset.id), box = el.closest('.fu-qb'), to = $$('[data-qe]', box).filter(c => c.checked).map(c => c.value); if (!to.length) { toast('Tick at least one email address'); return; }
@@ -3154,8 +3154,33 @@ function qpCatalog(q) {
     out.push({id, name: nm, price: r && r.fee !== undefined && r.fee !== '' ? r.fee : price, unit: r && r.unit ? r.unit : QP_UNITS[ui]});
   });
   rows.filter(r => r.status !== 'Inactive' && !QP_LIST.some(([id, name]) => norm(name) === norm(r.name) || (id === 'rev' && norm(REV_NAME) === norm(r.name)))).forEach(r => out.push({id: 'cm_' + r.id, name: r.name, price: r.fee, unit: r.unit || QP_UNITS[0]}));
-  (q.items || []).filter(i => i.on && String(i.id).startsWith('cm_') && !out.some(o => o.id === i.id)).forEach(i => out.push({id: i.id, name: i.name, price: i.price, unit: i.unit}));
+  (q.items || []).filter(i => i.on && /^(cm|lg)_/.test(String(i.id)) && !out.some(o => o.id === i.id)).forEach(i => out.push({id: i.id, name: i.name, price: i.price, unit: i.unit}));
   return out;
+}
+const LEGACY_QP = {be: 'be', cm: 'cm', pms: 'pms', becom: 'becom', rm: 'rev', inv: 'inv', domain: 'domain', ssl: 'ssl', hm: 'hm', host: 'host', maint: 'maint', pdpa: 'pdpa', webt: 'webt', webc: 'webc'};
+function convertLegacyQuote(q) {
+  if (quoteIsNew(q)) return q;
+  const U = {once: 'per / one time', month: 'per / month', year: 'per / year', comm: '% per booking'}, items = [], L = q.lines || {}, t = tierOf(q.rooms); let n = 0;
+  const add = (id, name, price, unit, extra) => items.push({id, name, on: true, price: String(price === undefined ? '' : price), unit, disc: '', discNote: '', pay: '', info: '', ...(extra || {})});
+  const extra = (name, price, unit, extra) => add('lg_' + (++n), name, price, unit, extra);
+  if (q.setup && q.setup !== 'none') extra('System Set-Up', q.setup, U.once, q.waived ? {disc: '100%', discNote: 'Waived'} : {});
+  for (const p of CAT) {
+    const l = L[p.id]; if (!l || !l.on) continue; const qid = LEGACY_QP[p.id], nm = p.name.replace(' (monthly)', '');
+    const put = (price, unit, label) => qid ? add(qid, qid === 'rev' ? REV_NAME : (QP_LIST.find(x => x[0] === qid) || [0, nm])[1], price, unit) : extra(label || nm, price, unit);
+    if (p.kind === 'tier') { const m = t >= 0 && t < 4 ? p.p[t] : ''; if (l.yearly && m !== '') put(Math.round(m * 12 * 0.9), U.year); else put(m, U.month); }
+    else if (p.kind === 'comm') put(qpNum(l.rate || p.rate), U.comm);
+    else if (p.kind === 'qty') { const c = Math.max(1, parseInt(l.qty) || 1); extra(nm + ' \u00d7 ' + c, c * p.price, U.once); }
+    else if (p.kind === 'mail') { const gb = l.gb || 10; extra(nm + ' \u2014 ' + gb + ' GB', p.opts[gb], U.year); }
+    else if (p.kind === 'flat') put(p.price, U[p.cad]);
+  }
+  for (const c of (q.custom || [])) { if (!c.name) continue; const cad = c.cad || 'month'; extra(c.name, cad === 'comm' ? qpNum(c.amount) : qpNum(c.amount), U[cad] || U.month); }
+  /* an old discount on the monthly / yearly fees becomes a discount on those lines */
+  const dv = String(q.discValue || '').trim();
+  if (q.discType && qpNum(dv) > 0) { const rec = items.filter(i => i.unit === U.month || i.unit === U.year); if (q.discType === 'pct') rec.forEach(i => { i.disc = qpNum(dv) + '%'; i.discNote = 'Discount'; }); else if (rec[0]) { rec[0].disc = String(qpNum(dv)); rec[0].discNote = 'Discount'; } }
+  const r = {...q, items, terms: null, lines: {}, custom: [], setup: 'none', waived: false, discType: '', discValue: '', approval: '', approvedSig: '', approvedBy: '', approvedAt: ''};
+  /* a quotation that was already approved or already sent keeps its standing: the carried-over discount is not asked for again */
+  if (belowList(r).length && (['approved', 'none'].includes(approvalState(q)) || ['Sent', 'Accepted'].includes(q.status))) { r.approval = 'approved'; r.approvedSig = discSig(r); r.approvedBy = q.approvedBy || 'Old quotation'; r.approvedAt = q.approvedAt || ''; }
+  return r;
 }
 const quoteIsNew = q => Array.isArray(q && q.items);
 const qpUnitCad = u => ({'per / month': 'month', 'per / year': 'year', 'per / one time': 'once', '% per booking': 'comm'})[u] || 'month';
