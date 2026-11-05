@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CRM">
-<title>CRM</title>
+<meta name="apple-mobile-web-app-title" content="Maha CRM">
+<title>Maha CRM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap" rel="stylesheet">
@@ -532,9 +532,34 @@ input,select,textarea{box-sizing:border-box}
 .sheet-head .iconbtn svg{width:24px;height:24px;stroke-width:3.6}
 .sheet-head .iconbtn:hover{color:#b3261e}
 /* ---------- Add new Hotel page, Back button ---------- */
-.pagebox .hi{max-width:980px}
+/* the Add new Hotel page fills the whole box: two even columns that grow and shrink with the page (menu open or folded) */
+.pagebox .hi{max-width:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 32px}
+.pagebox .hi>.f.wide{grid-column:auto}
+.pagebox .hi>.f.wide:has(textarea),.pagebox .hi>.hi-r2,.pagebox .hi>#hiContacts,.pagebox .hi>.hi-add,.pagebox .hi>.hi-more,.pagebox .hi>.f.wide:has(.hi-st){grid-column:1/-1}
+.pagebox .hi>.hi-r2,.pagebox .hi-cg{gap:16px 32px}
+.pagebox .hi>#hiContacts{display:grid;gap:12px}
 .hi-pgbtn{justify-content:flex-end;margin-top:22px}
 .pgback{margin-left:8px}
+/* ---------- More details: boxes as long as their column, so the pop-up looks even ---------- */
+.hi-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;align-items:end}
+.hi-row.c3{grid-template-columns:1.5fr 1fr 1fr}.hi-row.one{grid-template-columns:minmax(0,1fr)}
+.hi-row .hi-c select,.hi-row .hi-c input,.hi-row .hi-c .cb{width:100%!important;max-width:none}
+.hi-more.flat summary{list-style:none;cursor:default;pointer-events:none;margin:6px 0 10px}.hi-more.flat summary::-webkit-details-marker{display:none}
+.hi-more.flat{margin:4px 0 6px}
+/* ---------- Database log create ---------- */
+.dl-tb tbody tr:nth-child(odd) td{background:#e6e6e6}.dl-tb tbody tr:nth-child(even) td{background:#fff}
+.dl-tb td.dlt{width:92px;line-height:1.35}
+/* ---------- Database upload ---------- */
+.up-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 32px;align-items:start;margin:6px 0 24px}
+.up-file{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.up-file label{font-weight:700}.up-file .req,.up-f .req{color:#d93025;font-style:normal}
+.up-browse{color:#2a7fc1;text-decoration:none;font-weight:600}
+.up-go{background:#ececec;border-color:#b9b9b9;color:#333;min-width:96px}
+.up-name{color:var(--ink-2);font-size:13px}
+.up-ex{display:flex;flex-direction:column;align-items:flex-start;gap:4px;color:#1f6fb5;font-weight:700;text-decoration:none;font-size:13.5px}
+.up-sel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 32px;margin:18px 0 6px}
+.up-f label{display:block;font-weight:700;margin-bottom:6px}.up-f select{width:100%}
+.up-sum{margin:0 0 12px;font-size:13.5px;padding:10px 14px;border-radius:10px;background:#f1f6f2;border:1px solid #d6e5da}
+.up-err{color:#b3261e;font-weight:600;margin:0 0 12px}
 </style>
 </head>
 <body>
@@ -894,7 +919,8 @@ function saveMany(arr) {
 }
 function remove(id) { const gone = byId(id); R = R.filter(x => x.id !== id); if (db) store('readwrite').delete(id); Cloud.mark(id, gone && gone.kind); }
 function clearAll() { R = []; try { localStorage.removeItem('maha.sales.lastPull'); } catch {} if (!db) return Promise.resolve(); return new Promise(res => { const q = store('readwrite').clear(); q.onsuccess = res; }); }
-const K = k => R.filter(r => r.kind === k);
+const K = k => R.filter(r => r.kind === k && !(r.kind === 'hotel' && r.deleted));   /* a deleted hotel is kept but hidden from every list */
+const deletedHotels = () => R.filter(r => r.kind === 'hotel' && r.deleted);
 const byId = id => R.find(r => r.id === id);
 const meta = () => byId('meta') || {id:'meta', kind:'meta'};
 
@@ -1361,7 +1387,7 @@ function vMsa(id, state) {
      <div id="m_rows"></div>
      <p class="muted small">Only the three row values change — labels and every other clause stay exactly as the master. Check the Thai wording before sending.</p>
     </div>
-    ${!m.isNew ? '<p style="margin-top:18px"><button class="btn danger sm" data-act="delMsa">Delete MSA</button></p>' : ''}
+
    </div><div class="sticky"><div class="panel"><h2 style="margin-top:0">Before you send</h2><div id="m_flags"></div>
     <p class="muted small" style="margin-bottom:0">Fixed in the master: 15-day payment, 12-month term with auto-renew, 90-day notice, early termination 300,000 THB or remaining value, Thai law. Kritipah signs for Maha Hub.</p></div>
     <div class="note"><b>⬇ Download MSA PDF</b> builds the official MSA v10 (10 pages + Letter of Appointment) right here — no Claude, no tokens. The save window opens by itself: choose <b>Save as PDF</b> → <b>Save</b>.</div></div></div>`;
@@ -1648,9 +1674,9 @@ const NAVS = {cur: '', stack: [], back: false};
 function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'upload', 'deleted', 'userlog', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard,  dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload,  dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -1800,7 +1826,7 @@ function actSheet(a, hid, type) {
     ${field({k:'setStatus', label:'Move hotel to stage', type:'select', opts:['(keep current)', ...STAGES.map(s => s[0])]}, '(keep current)')}
    </div>
    <div class="chips" style="margin-top:10px">${[['Tomorrow',1],['In 3 days',3],['Next week',7],['In 2 weeks',14]].map(([l, d]) => `<button class="chip" data-quick="${d}">${l}</button>`).join('')}</div>
-   <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="adel">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="asave">${isNew ? 'Save activity' : 'Save changes'}</button></div>`, root => {
+   <div class="sheet-foot">${!isNew && a.type === 'Meeting' ? '<button class="btn danger left" id="adel">Delete meeting</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="asave">${isNew ? 'Save activity' : 'Save changes'}</button></div>`, root => {
     $$('[data-quick]', root).forEach(b => b.onclick = () => { $('[name=nextDate]', root).value = addDays(today(), +b.dataset.quick); });
     const del = $('#adel', root); if (del) del.onclick = () => { if (confirm('Delete this activity?')) { remove(a.id); closeSheet(); rerender(); toast('Deleted'); } };
     $('#asave', root).onclick = async () => {
@@ -1956,7 +1982,7 @@ function cardSheet(c) {
     <label class="f"><span>Section</span><input list="catl" name="cat" value="${esc(c.cat)}" placeholder="e.g. Document rules"><datalist id="catl">${cats.map(x => `<option value="${esc(x)}">`).join('')}</datalist></label>
     ${field({k:'title', label:'Title', req:1}, c.title)}
     ${field({k:'body', label:'Content — start a line with "- " for bullets, "#### " for a sub-heading', type:'textarea'}, c.body)}</div>
-   <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="cdel">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="csave">Save card</button></div>`, root => {
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="csave">Save card</button></div>`, root => {
     $('[name=body]', root).style.minHeight = '240px';
     const d = $('#cdel', root); if (d) d.onclick = () => { if (confirm('Delete this card?')) { remove(c.id); closeSheet(); rerender(); } };
     $('#csave', root).onclick = async () => { const v = readForm(root, [{k:'cat'}, {k:'title'}, {k:'body'}]); if (!v.title) { toast('Add a title'); return; }
@@ -2105,8 +2131,6 @@ function vMore() {
     <li><b>iPhone (Safari):</b> Share → Add to Home Screen</li>
     <li><b>Windows / Mac (Chrome or Edge):</b> install icon at the right of the address bar</li></ul>
     <p class="muted" style="margin-bottom:0">Once installed it opens full-screen and works without internet.</p></div>
-   <h2>Reset</h2>
-   <p><button class="btn danger" data-act="reset">Erase everything on this device</button></p>
    <p class="muted small"><b>CRM version 5 (Oct 2026)</b> — Quotation PDF, MSA PDF, Sales System import. If you don't see this line, the new index.html is not uploaded yet.</p>`;
   if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(p => { const el = $('#persist'); if (el) el.textContent = p ? 'storage protected' : 'storage may be cleared by the browser — back up'; });
 }
@@ -2114,7 +2138,7 @@ function collSheet(c) {
   const isNew = !c; c = c || {name:'', fields:['Name', 'Details', 'Notes']};
   openSheet(`${sheetHead(isNew ? 'New socket' : 'Edit socket')}<div class="grid">${field({k:'name', label:'Socket name', req:1}, c.name)}
     ${field({k:'fields', label:'Fields — one per line (the first one is the title)', type:'textarea'}, c.fields.join('\n'))}</div>
-   <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="coldel">Delete socket</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="colsave">${isNew ? 'Create socket' : 'Save'}</button></div>`, root => {
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="colsave">${isNew ? 'Create socket' : 'Save'}</button></div>`, root => {
     const d = $('#coldel', root); if (d) d.onclick = () => { const n = K('item').filter(i => i.collId === c.id).length; if (confirm(`Delete "${c.name}" and its ${n} items?`)) { K('item').filter(i => i.collId === c.id).forEach(i => remove(i.id)); remove(c.id); closeSheet(); location.hash = 'more'; } };
     $('#colsave', root).onclick = async () => { const name = $('[name=name]', root).value.trim(); const fields = $('[name=fields]', root).value.split('\n').map(s => s.trim()).filter(Boolean);
       if (!name || !fields.length) { toast('Add a name and at least one field'); return; }
@@ -2138,7 +2162,7 @@ function itemSheet(c, it) {
   const isNew = !it; it = it || {values:{}};
   const long = f => /note|address|detail|description|remark/i.test(f);
   openSheet(`${sheetHead((isNew ? 'Add to ' : 'Edit — ') + c.name)}<div class="grid two">${c.fields.map((f, i) => field({k:'v' + i, label:f, type: long(f) ? 'textarea' : 'text', wide: long(f) || i === 0}, it.values[f])).join('')}</div>
-   <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="idel">Delete</button><button class="btn" id="icopy">' + ICON.copy + 'Copy</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="isave">Save</button></div>`, root => {
+   <div class="sheet-foot">${!isNew ? '<button class="btn left" id="icopy">' + ICON.copy + 'Copy</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="isave">Save</button></div>`, root => {
     const d = $('#idel', root); if (d) d.onclick = () => { if (confirm('Delete this item?')) { remove(it.id); closeSheet(); rerender(); } };
     const cp = $('#icopy', root); if (cp) cp.onclick = () => copyText(c.fields.map(f => it.values[f] ? `${f}: ${it.values[f]}` : '').filter(Boolean).join('\n'));
     $('#isave', root).onclick = async () => { const values = Object.fromEntries(c.fields.map((f, i) => [f, $(`[name=v${i}]`, root).value.trim()]));
@@ -2155,7 +2179,8 @@ const ACTIONS = {
   done: async el => { const a = byId(el.dataset.id); a.done = true; await save(a); toast('Marked done'); rerender(); },
   newHotel: () => { location.hash = 'hotels/new'; },
   editHotel: el => hotelSheet(byId(el.dataset.id)),
-  delHotel: el => { const h = byId(el.dataset.id); const n = actsFor(h.id).length; if (confirm(`Delete ${h.name} and its ${n} activities? Quotes are kept.`)) { actsFor(h.id).forEach(a => remove(a.id)); remove(h.id); toast('Hotel deleted'); location.hash = 'hotels'; } },
+  delHotel: async el => { const h0 = byId(el.dataset.id); if (h0 && await softDeleteHotel(h0)) location.hash = 'hotels'; },
+  delHotelOld: el => { const h = byId(el.dataset.id); const n = actsFor(h.id).length; if (confirm(`Delete ${h.name} and its ${n} activities? Quotes are kept.`)) { actsFor(h.id).forEach(a => remove(a.id)); remove(h.id); toast('Hotel deleted'); location.hash = 'hotels'; } },
   stage: () => { if (location.hash !== '#hotels') location.hash = 'hotels'; },
   more: () => { UI.hotelLimit += 300; rerender(); },
   copyBrief: el => { const h = byId(el.dataset.id); copyText([h.name, h.area, h.city].filter(Boolean).join(', '), 'Research request copied — paste into Claude'); },
@@ -2189,7 +2214,7 @@ const ACTIONS = {
       if (!m.isNew) await save(m);
     } catch (e) { if (w) w.close(); alert('The MSA could not be opened: ' + (e && e.message ? e.message : e)); }
   },
-  delMsa: () => { const m = vMsa.current; if (confirm('Delete this MSA?')) { remove(m.id); toast('MSA deleted'); location.hash = 'quotes'; } },
+  delMsa: () => toast('An MSA is kept and cannot be deleted'),
   makePDF: async () => {
     vQuote.sync(); const q = vQuote.current;
     if (!['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before the quotation is downloaded'); return; }
@@ -2243,7 +2268,7 @@ const ACTIONS = {
     await saveMany(batch); toast(`${added} added, ${updated} updated`); rerender();
     const skipped = rows[0].filter((h, i) => !map[i]); if (skipped.length) setTimeout(() => alert('Imported. These columns had no matching field and were skipped:\n' + skipped.join(', ')), 300);
   }),
-  signOut: () => { if (!confirm('Sign out of CRM on this device?')) return; Auth.signOut(); location.reload(); },
+  signOut: async () => { if (!confirm('Sign out of CRM on this device?')) return; await logUser('Signed out'); Auth.signOut(); location.reload(); },
   install: async () => { const p = window.__inst; if (p) { p.prompt(); try { await p.userChoice; } catch {} window.__inst = null; } else if (/iphone|ipad|ipod/i.test(navigator.userAgent)) alert('Tap the Share button, then "Add to Home Screen".'); },
   backup: async () => {
     const m = meta(); m.lastBackup = new Date().toISOString(); await save(m);
@@ -2253,14 +2278,12 @@ const ACTIONS = {
   restore: () => pickFile('.json,application/json', async text => {
     let data; try { data = JSON.parse(text); } catch { alert('That file is not a CRM backup.'); return; }
     if (!data || (data.app !== 'maha-sales' && data.app !== 'onesales-desk') || !Array.isArray(data.records)) { alert('That file is not a CRM backup.'); return; }
-    const mode = confirm(`Backup from ${fdate(data.exported)} with ${data.records.length} records.\n\nOK = merge into this device (keeps the newer copy of each item)\nCancel = choose replace instead`);
-    if (!mode) { if (!confirm('Replace ALL data on this device with the backup?')) return; await clearAll(); await saveMany(data.records); }
-    else { const merged = data.records.filter(r => { const cur = byId(r.id); return !cur || (r.updated || '') > (cur.updated || ''); }); await saveMany(merged); }
-    toast('Backup restored'); applyTheme(); rerender();
+    { const merged = data.records.filter(r => { const cur = byId(r.id); return !cur || (r.updated || '') > (cur.updated || ''); }); await saveMany(merged); }
+    toast('Backup merged'); applyTheme(); rerender();
   }),
   reset: async () => { if (confirm('Erase all hotels, activities, quotes, cards and sockets on this device?') && confirm('This cannot be undone. Download a backup first if unsure. Erase now?')) { await clearAll(); await seed(); toast('Reset to starter data'); location.hash = 'today'; rerender(); } },
 };
-function pickFile(accept, cb) { const f = $('#filepick'); f.accept = accept; f.value = ''; f.onchange = () => { const file = f.files[0]; if (!file) return; const rd = new FileReader(); rd.onload = () => cb(rd.result); rd.readAsText(file, 'utf-8'); }; f.click(); }
+function pickFile(accept, cb, onFile) { const f = $('#filepick'); f.accept = accept; f.value = ''; f.onchange = () => { const file = f.files[0]; if (!file) return; if (onFile) { onFile(file); return; } const rd = new FileReader(); rd.onload = () => cb(rd.result); rd.readAsText(file, 'utf-8'); }; f.click(); }
 /* ================= ONEHOTEL SALES TITLES AND FUNCTIONS =================
    The menu titles of the OneHotel Sales system (Database, Follow up, Meeting & quotation, Activation, KPI, Enewletter) as folding groups in the left menu,
    each with its own page. They use the same records and the same look as the rest of Maha Sales. */
@@ -2271,7 +2294,7 @@ Object.assign(ICON, {
 });
 const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
-  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log', '#dblog', 'log'], ['Upload database', 'act:importCSV', 'upload'], ['Agent list', '#agents', 'users'], ['Add new agent', 'act:newAgent', 'userplus']]},
+  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Deleted database', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Agent list', '#agents', 'users'], ['Add new agent', 'act:newAgent', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', 'act:newMeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
@@ -2287,7 +2310,7 @@ function drawRail(cur) {
     if (!n.g) return `<div class="mg"><a class="mgb${cur === n[0] ? ' on' : ''}" href="#${n[0]}" title="${esc(n[1])}">${mi(n[0])}<span>${esc(n[1])}</span></a></div>`;
     if (n.items.some(x => x[1] === h)) NAVOPEN[n.g] = true;
     return `<div class="mg${NAVOPEN[n.g] ? ' open' : ''}" data-gt="${esc(n.g)}"><button type="button" class="mgb" data-g="${esc(n.g)}" title="${esc(n.g)}">${mi(n.i)}<span>${esc(n.g)}</span>${mi('chev', 'car')}</button>
-     <div class="mgi">${n.items.map(([l, x, k]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${mi(k || 'chev')}<span>${esc(l)}</span></button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${mi(k || 'chev')}<span>${esc(l)}</span></a>`).join('')}</div></div>`;
+     <div class="mgi">${n.items.filter(it => it[1] !== '#userlog' || Auth.isProvider()).map(([l, x, k]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${mi(k || 'chev')}<span>${esc(l)}</span></button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${mi(k || 'chev')}<span>${esc(l)}</span></a>`).join('')}</div></div>`;
   }).join('');
 }
 
@@ -2300,7 +2323,7 @@ const AGENT_FIELDS = [
 function agentSheet(a) {
   const isNew = !a; a = a || {};
   openSheet(`${sheetHead(isNew ? 'Add new agent' : 'Edit agent')}<form class="grid two">${AGENT_FIELDS.map(f => field(f, a[f.k])).join('')}</form>
-   <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="gdel">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="gsave">${isNew ? 'Add agent' : 'Save changes'}</button></div>`, root => {
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="gsave">${isNew ? 'Add agent' : 'Save changes'}</button></div>`, root => {
     const del = $('#gdel', root); if (del) del.onclick = () => { if (confirm('Delete this agent?')) { remove(a.id); closeSheet(); rerender(); toast('Deleted'); } };
     $('#gsave', root).onclick = async () => {
       const v = readForm(root, AGENT_FIELDS); if (!v.name) { toast('Agent name is required'); return; }
@@ -2318,15 +2341,60 @@ function vAgents() {
   const gq = $('#gq'); gq.addEventListener('input', () => { UI.agentQ = gq.value; const p = gq.selectionStart; vAgents(); const n = $('#gq'); n.focus(); n.setSelectionRange(p, p); });
 }
 
-/* ----- Database log: everything that was added or changed, newest first ----- */
-function vDblog() {
-  const kinds = {hotel:'Hotel', act:'Activity', quote:'Quotation', msa:'MSA', agent:'Agent', activation:'Activation', enews:'Enewletter'};
-  const rows = R.filter(r => kinds[r.kind]).sort((a, b) => (b.updated || '').localeCompare(a.updated || '')).slice(0, 300);
-  const nm = r => r.kind === 'act' ? hotelName(r.hotelId) + ' — ' + (r.type || '') : r.kind === 'quote' ? (r.no || '') + ' ' + (r.hotelName || '') : r.kind === 'msa' ? (r.company || r.hotelName || '') : r.kind === 'activation' ? hotelName(r.hotelId) : r.kind === 'enews' ? (r.subject || '') : (r.name || '');
-  const when = iso => iso ? new Date(iso).toLocaleString('en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
-  view().innerHTML = `<div class="top"><div><h1>Database log</h1><p>The last ${rows.length} changes</p></div></div>
-   ${rows.length ? `<div class="list">${rows.map(r => `<div class="row"><div class="main"><div class="t">${esc(nm(r)) || '—'}</div><div class="s">${kinds[r.kind]} · ${r.created && r.created.slice(0, 16) === (r.updated || '').slice(0, 16) ? 'added' : 'changed'}</div></div><div class="end">${when(r.updated)}</div></div>`).join('')}</div>` : '<div class="list"><div class="empty">Nothing yet.</div></div>'}`;
+/* ----- Database log create: the hotels added to the database, by date and by person ----- */
+Object.assign(ICON, {trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>', gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="3"/><path d="M10 3.5v2M10 14.5v2M3.5 10h2M14.5 10h2M5.4 5.4l1.4 1.4M13.2 13.2l1.4 1.4M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4"/><circle cx="17.5" cy="17" r="2.2"/><path d="M17.5 12.8v1.1M17.5 20.1v1.1M13.3 17h1.1M20.6 17h1.1"/></svg>'});
+const dlStamp = iso => { const d = new Date(iso); if (isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '-' + p(d.getMonth() + 1) + '-' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); };
+function dlRows() {
+  const f = UI.dl || {}, from = f.from || '0000-00-00', to = f.to || '9999-99-99';
+  return K('hotel').filter(h => h.created && h.created.slice(0, 10) >= from && h.created.slice(0, 10) <= to && (!f.user || (h.owner || '') === f.user)).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
 }
+async function softDeleteHotel(h) {
+  if (!confirm('Delete ' + h.name + '?\n\nIt moves to the Deleted database and is kept there. To keep it in the list, set its Status to Close instead.')) return false;
+  h.deleted = {at: new Date().toISOString(), by: Auth.who() || ''}; await save(h); toast('Moved to the Deleted database'); return true;
+}
+function vDeleted() {
+  const rows = deletedHotels().sort((a, b) => (b.deleted.at || '').localeCompare(a.deleted.at || ''));
+  view().innerHTML = `<div class="top"><div><h1>Deleted database</h1></div></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>City</th><th>Country</th><th>Contact Person</th><th>Deleted by</th><th>Deleted date time</th><th>Action</th></tr></thead>
+   <tbody>${rows.length ? rows.map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.city || '')}</td><td>${esc(h.country || '')}</td><td>${esc(h.contact || '')}</td><td>${esc(h.deleted.by || '')}</td><td class="dlt">${esc(dlStamp(h.deleted.at))}</td><td><button type="button" class="btn sm" data-act="hotelRestore" data-id="${h.id}">Restore</button></td></tr>`).join('') : '<tr><td colspan="8" class="empty">No deleted hotel.</td></tr>'}</tbody></table></div>`;
+}
+/* ---------- the user log: who opened the CRM and when (only the provider sees it) ---------- */
+async function logUser(ev) {
+  const user = Auth.who(); if (!Auth.required || !user) return;
+  const mine = R.filter(r => r.kind === 'ulog' && r.user === user).sort((a, b) => (b.at || '').localeCompare(a.at || ''))[0];
+  if (ev === 'Opened CRM' && mine && Date.now() - new Date(mine.at) < 30 * 60e3) return;
+  let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch {}
+  await save({id: uid(), kind: 'ulog', user, event: ev, at: new Date().toISOString(), tz});
+}
+async function vUserLog() {
+  view().innerHTML = '<div class="top"><div><h1>User log</h1></div></div><div class="empty">Loading…</div>';
+  if (!(await Auth.canApprove())) { view().innerHTML = '<div class="top"><div><h1>User log</h1></div></div><div class="empty">Only the provider can see the user log.</div>'; return; }
+  const f = UI.ul = UI.ul || {from: today().slice(0, 8) + '01', to: today(), user: ''}, users = [...new Set(K('ulog').map(r => r.user).filter(Boolean))].sort();
+  const rows = K('ulog').filter(r => (r.at || '').slice(0, 10) >= (f.from || '0') && (r.at || '').slice(0, 10) <= (f.to || '9') && (!f.user || r.user === f.user)).sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 500);
+  view().innerHTML = `<div class="top"><div><h1>User log</h1></div></div>
+   <div class="fu-form"><label for="ul_from">Start Date :</label><div><input type="date" id="ul_from" value="${esc(f.from)}"></div><label for="ul_to">End Date :</label><div><input type="date" id="ul_to" value="${esc(f.to)}"></div>
+    <label for="ul_user">User :</label><div><select id="ul_user"><option value="">All</option>${users.map(u => `<option ${f.user === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="ulSearch">${ICON.search}Search</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>User</th><th>Event</th><th>Date time (your time)</th><th>Where the user was</th></tr></thead>
+   <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.user)}</td><td>${esc(r.event)}</td><td class="dlt">${esc(dlStamp(r.at))}</td><td>${esc((r.tz || '').replace('_', ' '))}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">No user log in this time.</td></tr>'}</tbody></table></div>`;
+}
+Object.assign(ACTIONS, {
+  ulSearch: () => { UI.ul = {from: $('#ul_from').value, to: $('#ul_to').value, user: $('#ul_user').value}; vUserLog(); },
+  hotelRestore: async el => { const h = byId(el.dataset.id); if (!h) return; h.deleted = null; await save(h); toast('Restored'); vDeleted(); },
+});
+function vDblog() {
+  if (!UI.dl) UI.dl = {from: today().slice(0, 8) + '01', to: today(), user: Auth.who() && K('hotel').some(h => h.owner === Auth.who()) ? Auth.who() : ''};
+  const f = UI.dl, users = [...new Set(K('hotel').map(h => h.owner).filter(Boolean))].sort(), rows = dlRows(), CAP = 500, shown = rows.slice(0, CAP);
+  view().innerHTML = `<div class="top"><div><h1>Database log create</h1></div></div>
+   <div class="fu-sub"><b>Database</b> information</div>
+   <div class="fu-form"><label for="dl_from">Start Date :</label><div><input type="date" id="dl_from" value="${esc(f.from || '')}"></div><label for="dl_to">End Date :</label><div><input type="date" id="dl_to" value="${esc(f.to || '')}"></div>
+    <label for="dl_user">User :</label><div><select id="dl_user"><option value="">All</option>${users.map(u => `<option ${f.user === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="dlSearch">${ICON.search}Search</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>No.of room</th><th>Address</th><th>Contact Person</th><th>Contact Position</th><th>Contact Email</th><th>Contact Phone</th><th>Log date time</th><th>Log user</th></tr></thead>
+    <tbody>${shown.length ? shown.map((h, i) => { const c = (h.contacts && h.contacts[0]) || {}; return `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.rooms || 0)}</td><td class="l">${esc(h.address || '')}</td><td>${esc(c.name || h.contact || '')}</td><td>${esc(c.position || h.contactTitle || '') || '-'}</td><td>${esc(c.email || h.email || '') || '-'}</td><td>${esc(c.phone || h.phone || '') || '-'}</td><td class="dlt">${esc(dlStamp(h.created))}</td><td>${esc(h.owner || '')}</td></tr>`; }).join('') : '<tr><td colspan="10" class="empty">No hotel was added in this time.</td></tr>'}</tbody></table></div>
+   ${rows.length > CAP ? `<p class="muted small" style="text-align:center">First ${CAP} of ${rows.length}. Narrow the dates to see the rest.</p>` : ''}`;
+}
+Object.assign(ACTIONS, {dlSearch: () => { UI.dl = {from: $('#dl_from').value, to: $('#dl_to').value, user: $('#dl_user').value}; vDblog(); }});
 
 /* ----- Follow up: the page as in OneHotel Sales (Latest Follow ups): filters, Search / Reset, Export Excel, the coloured table,
    Manage(n) = the quotations of the hotel in a pop-up, View = the follow-up information in a pop-up. Everything else in the table is plain text. ----- */
@@ -2347,6 +2415,7 @@ function fuRows() {
   const old = a => !!a.done || !a.nextDate;
   return acts.filter(a => {
     const h = byId(a.hotelId) || {}, q = fuLatestQ(a.hotelId);
+    if (h.deleted) return false;
     if (f.status === 'old' ? !old(a) : old(a)) return false;
     if (f.from && (a.date || '') < f.from) return false;
     if (f.to && (a.date || '') > f.to) return false;
@@ -2637,9 +2706,9 @@ function hotelForm(h, isNew) {
      <div class="hi-row"><label class="f hi-c"><span>OTA</span><div class="cb" style="width:15em"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
       <label class="f hi-c"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}" style="width:7.5em"></select></label></div>
      <div class="hi-row">${tx('line', 'LINE ID', '13em')}${dd('managed', 'Managed by Maha Hub', ['No', 'Yes'], '7em')}</div>
-     <div class="hi-row">${fz('Commercial model', h.dealModel, '15.5em')}${fz('Pricing', h.dealPrice, '10em')}${fz('Term', h.dealTerm, '7.5em')}</div>
+     <div class="hi-row c3">${fz('Commercial model', h.dealModel, '15.5em')}${fz('Pricing', h.dealPrice, '10em')}${fz('Term', h.dealTerm, '7.5em')}</div>
      <div class="hi-row">${fz('Lead source', h.source, '12.5em')}${tx('agent', 'Agent', '13em')}</div>
-     <div class="hi-row">${tx('tags', 'Tags', '20em')}</div></details></div>`;
+     <div class="hi-row one">${tx('tags', 'Tags', '20em')}</div></details></div>`;
 }
 function hotelFormBind(root, h, isNew, done) {
   bindCombo(root, !isNew); bindOta(root);
@@ -2658,7 +2727,7 @@ function hotelSheet(h, pre) {
   openSheet(`${fuHead(isNew ? 'Property information' : 'Property information for ' + h.name)}${hotelForm(h, isNew)}
    <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="hi_del">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="hi_save">Save</button></div>`, root => {
     root.classList.add('wide');
-    const del = $('#hi_del', root); if (del) del.onclick = () => { const n = K('act').filter(a => a.hotelId === h.id).length; if (confirm(`Delete ${h.name} and its ${n} follow ups? Quotations are kept.`)) { K('act').filter(a => a.hotelId === h.id).forEach(a => remove(a.id)); remove(h.id); closeSheet(); toast('Hotel deleted'); if (location.hash.startsWith('#hotel/')) location.hash = 'hotels'; else rerender(); } };
+    const del = $('#hi_del', root); if (del) del.onclick = async () => { if (await softDeleteHotel(h)) { closeSheet(); if (location.hash.startsWith('#hotel/')) location.hash = 'hotels'; else rerender(); } };
     hotelFormBind(root, h, isNew, rec => { closeSheet(); toast(isNew ? 'Hotel added' : 'Saved'); if (isNew && !location.hash.startsWith('#hotels')) location.hash = 'hotel/' + rec.id; else rerender(); });
   });
 }
@@ -2667,6 +2736,7 @@ function vHotelNew(id) {
   const q = new URLSearchParams((id || '').split('?')[1] || ''), h = hotelDefaults({country: q.get('country') ?? 'Thailand', city: q.get('city') || ''});
   view().innerHTML = `<div class="top"><div><h1>Add new Hotel</h1></div></div>${hotelForm(h, true)}
    <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" id="hi_save">${ICON.check}Save</button><button type="button" class="btn amber" data-act="hiReset" data-q="${esc((id || '').split('?')[1] || '')}">${ICON.search}Reset</button></div>`;
+  { const d = $('.hi-more', view()), c = $('#hiContacts', view()); if (d && c) { d.open = true; d.classList.add('flat'); c.before(d); } }   /* the page shows More details open, above the contact persons */
   hotelFormBind(view(), h, true, rec => { toast('Hotel added'); const c = hCountry(rec); location.hash = 'hotels/' + encodeURIComponent(c) + '/' + encodeURIComponent(hCity(rec)); });
 }
 
@@ -2680,6 +2750,71 @@ Object.assign(ACTIONS, {
   hiReset: el => vHotelNew('new' + (el.dataset.q ? '?' + el.dataset.q : '')),
   hotelInfo: el => hotelSheet(byId(el.dataset.id)),
   hiAddContact: () => { const box = $('#hiContacts'); const i = box.children.length; box.insertAdjacentHTML('beforeend', `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name"></label><label class="f"><span>Contact Position</span><input data-c="position"></label><label class="f"><span>Contact Email</span><input data-c="email"></label><label class="f"><span>Contact Phone</span><input data-c="phone"></label></div>`); },
+});
+
+/* ================= DATABASE UPLOAD (as in OneHotel Sales) =================
+   Choose an Excel (or CSV) file, press Upload to read it and see what it holds, choose the property type and the country, then Save to add the hotels.
+   A hotel that is already in the database (same name, city and country) is skipped, so nothing is overwritten or doubled. */
+const UP_TYPES = ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'];
+const UP_COUNTRIES = ['Thailand', 'Vietnam', 'Cambodia', 'Myanmar', 'Lao', 'Malaysia', 'Indonesia', 'Philippines', 'Singapore', 'Other'];
+const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['CM', 'cm'], ['BE', 'be'], ['Virtual Offline Payment', 'pvo'], ['Remarks', 'notes']];
+const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], cm:['cm', 'channel manager'], be:['be', 'booking engine'], pvo:['virtual offline payment', 'pvo'], notes:['remarks', 'remark', 'notes', 'note']};
+function upMap(headers) { return headers.map(h => { const n = norm(h); for (const [k, al] of Object.entries(UP_ALIAS)) if (al.map(norm).includes(n)) return k; return null; }); }
+Object.assign(ICON, {xls:'<svg viewBox="0 0 40 44" width="34" height="38"><rect x="8" y="4" width="26" height="34" rx="2" fill="#fff" stroke="#9aa0a6" stroke-width="1.6"/><path d="M14 14h14M14 20h14M14 26h14M14 32h14M20 10v26" stroke="#c5ccd3" stroke-width="1.4"/><rect x="2" y="16" width="16" height="16" rx="2" fill="#1f8a4c"/><path d="M6.5 20.5l7 7M13.5 20.5l-7 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>', save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg>'});
+function vUpload() {
+  const u = UI.up = UI.up || {};
+  view().innerHTML = `<div class="top"><div><h1>Database upload</h1></div></div>
+   <div class="up-top"><div class="up-file"><label>Import excel file <i class="req">*</i></label><a href="#upload" class="up-browse" data-act="upBrowse">Browse</a><button type="button" class="btn up-go" data-act="upParse">Upload</button><span class="up-name" id="upName">${esc(u.name || '')}</span></div>
+    <a href="#upload" class="up-ex" data-act="upExample">${ICON.xls}<span>Download example excel file</span></a></div>
+   <div id="upInfo">${upInfoHTML()}</div>
+   <div class="up-sel"><div class="up-f"><label for="up_type">Property type <i class="req">*</i></label><select id="up_type">${UP_TYPES.map(o => `<option ${(u.type || 'Hotel') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
+    <div class="up-f"><label for="up_country">Country <i class="req">*</i></label><select id="up_country">${UP_COUNTRIES.map(o => `<option ${(u.country || 'Thailand') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div></div>
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.search}Reset</button></div>`;
+}
+function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
+function upRead(rows, country) {
+  const map = upMap(rows[0].map(String)); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
+  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0;
+  for (const r of rows.slice(1)) {
+    const v = {}; map.forEach((k, i) => { const x = r[i] === undefined || r[i] === null ? '' : String(r[i]).trim(); if (k && x) v[k] = x; });
+    if (!v.name) { empty++; continue; }
+    const key = upKey(v, country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
+  }
+  return {list, skipped, empty, total: rows.length - 1};
+}
+function upInfoHTML() {
+  const u = UI.up || {}; if (!u.res) return '';
+  if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
+  const r = u.res;
+  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}.</div>
+   ${r.list.length ? `<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No. of room</th><th>Contact person</th></tr></thead><tbody>${r.list.slice(0, 8).map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.area || '')}</td><td>${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(h.contact || '')}</td></tr>`).join('')}</tbody></table></div>${r.list.length > 8 ? `<p class="muted small">…and ${r.list.length - 8} more.</p>` : ''}` : ''}`;
+}
+async function upParse() {
+  const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return false; }
+  try {
+    const buf = await u.file.arrayBuffer(), wb = XLSX.read(buf, {type: 'array'}), ws = wb.Sheets[wb.SheetNames[0]], rows = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''}).filter(r => r.some(c => String(c).trim()));
+    if (rows.length < 2) { u.res = {error: 'The file has no rows.'}; }
+    else { u.type = $('#up_type').value; u.country = $('#up_country').value; u.res = upRead(rows, u.country); }
+  } catch (e) { u.res = {error: 'The file could not be read. Use an Excel (.xlsx, .xls) or CSV file.'}; }
+  $('#upInfo').innerHTML = upInfoHTML(); return !u.res.error;
+}
+Object.assign(ACTIONS, {
+  upBrowse: () => pickFile('.xlsx,.xls,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv', null, file => { const u = UI.up = UI.up || {}; u.file = file; u.name = file.name; u.res = null; $('#upName').textContent = file.name; $('#upInfo').innerHTML = ''; }),
+  upParse: () => { upParse(); },
+  upReset: () => { UI.up = {}; vUpload(); },
+  upExample: () => {
+    const rows = [UP_COLS.map(c => c[0]), ['Example Hotel Bangkok', 'Sukhumvit', 'Bangkok', '+66-2-000-0000', 32, 'www.example.com', '1 Example Road, Bangkok 10110', 'K. Somchai', 'Owner', 'somchai@example.com', '+66-81-000-0000', '', '', '', '', 'Asked us to call back'], ['Second Example Hostel', 'Silom', 'Bangkok', '', 18, '', '', '', '', '', '', '', '', '', '', '']];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Database');
+    download('CRM database example.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  },
+  upSave: async () => {
+    const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return; }
+    if (!u.res || u.type !== $('#up_type').value || u.country !== $('#up_country').value) { if (!await upParse()) return; }
+    const list = u.res.list; if (!list.length) { toast('Nothing new to add'); return; }
+    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: u.type, country: u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
+    await saveMany(batch); toast(`${batch.length} hotels added`);
+    const n = batch.length, c = u.country; UI.up = {}; vUpload(); $('#upInfo').innerHTML = `<div class="up-sum"><b>${n}</b> hotels were added to ${esc(c)}. They show in the Database Hotel List and in Database log create.</div>`;
+  },
 });
 
 /* ----- Meetings ----- */
@@ -2705,7 +2840,7 @@ function activationSheet(a, hid) {
     ${field({k:'date', label:'Activation date', type:'date'}, a.date)}${field({k:'status', label:'Status', type:'select', opts:ACT_ST}, a.status)}
     ${field({k:'products', label:'What is activated (PMS, booking engine, channel manager…)', wide:1}, a.products)}
     ${field({k:'owner', label:'Responsible person'}, a.owner)}${field({k:'notes', label:'Notes', type:'textarea', wide:1}, a.notes)}</div>
-   <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="vdel">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary" id="vsave">${isNew ? 'Save activation' : 'Save changes'}</button></div>`, root => {
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="vsave">${isNew ? 'Save activation' : 'Save changes'}</button></div>`, root => {
     const del = $('#vdel', root); if (del) del.onclick = () => { if (confirm('Delete this activation?')) { remove(a.id); closeSheet(); rerender(); toast('Deleted'); } };
     $('#vsave', root).onclick = async () => {
       const name = $('#v_hotel', root).value.trim(); if (!name) { toast('Pick a hotel'); return; }
@@ -2872,7 +3007,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', agents:'users', dblog:'log', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', agents:'users', dblog:'gear', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
@@ -2938,7 +3073,7 @@ function pageFrame() {
   let n = top.nextSibling; while (n) { const nx = n.nextSibling; box.appendChild(n); n = nx; }
   v.appendChild(box);
   { let ac = top.querySelector('.actions'); if (NAVS.stack.length) { if (!ac) { ac = document.createElement('div'); ac.className = 'actions'; top.appendChild(ac); } ac.insertAdjacentHTML('beforeend', '<button type="button" class="btn sm pgback" data-act="pgBack">‹ Back</button>'); } }
-  { const t1 = top.querySelector('h1'); if (t1) document.title = 'CRM - ' + t1.textContent.replace(/\s+/g, ' ').trim(); }
+  { const t1 = top.querySelector('h1'); if (t1) document.title = 'Maha CRM - ' + t1.textContent.replace(/\s+/g, ' ').trim(); }
   const h = top.querySelector('h1');
   if (h && !h.querySelector('.pgi')) { const r = (location.hash.slice(1) || 'dashboard').split('/')[0]; h.insertAdjacentHTML('afterbegin', '<span class="pgi">' + (ICON[PAGE_ICON[r] || r] || ICON.more) + '</span>'); }
 }
@@ -3123,12 +3258,13 @@ const Auth = (() => {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } } });
   }
   /* only the provider (the company approver) approves a discount: a sales team member does not */
+  const isProvider = () => !required || (!!sess && sess.member === false);
   async function canApprove() {
     if (!required) return true; if (!sess) return false;
     if (sess.member == null) { try { const tk = await token(); const r = await fetch(URL_ + '/rest/v1/maha_crm_members?select=name', {headers: {apikey: KEY, Authorization: 'Bearer ' + tk}}); if (r.ok) { const rows = await r.json(); sess.member = !!(rows && rows[0]); save(); } } catch {} }
     return sess.member === false;
   }
-  return {required, signIn, verify, token, session, signOut, onChange, require: require_, who, status, present, canApprove};
+  return {required, signIn, verify, token, session, signOut, onChange, require: require_, who, status, present, canApprove, isProvider};
 })();
 
 /* ================= PROFILE (the badge at the top right, like the PMS) ================= */
@@ -3261,6 +3397,7 @@ const Cloud = (() => {
   else if (byId('meta') && !inCloud) Cloud.uploadAll();
   applyTheme(); shellInit(); route(); Cloud.start();
   Profile.start();
+  logUser('Opened CRM'); Auth.canApprove().then(() => { try { drawRail((location.hash.slice(1) || 'dashboard').split('/')[0]); } catch {} });
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) Profile.canInstall = true;
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__inst = e; Profile.canInstall = true; });
