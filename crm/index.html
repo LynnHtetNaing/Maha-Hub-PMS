@@ -579,6 +579,23 @@ input,select,textarea{box-sizing:border-box}
 .dd-box h3{margin:0 0 12px;font:700 26px var(--font);color:#575757}.dd-box p{margin:0 0 22px;color:#777;font-size:15px}
 .dd-b{display:flex;gap:12px;justify-content:center}.dd-b button{border:0;border-radius:6px;padding:11px 26px;font:600 15px var(--font);cursor:pointer;color:#fff}
 .dd-c{background:#c3c3c3}.dd-c:hover{background:#b0b0b0}.dd-y{background:#e06b55}.dd-y:hover{background:#cc5a45}
+/* ---------- Quotation form ---------- */
+.qp-h{margin:20px 0 10px;font:700 14px var(--font);color:#1a4fa0;letter-spacing:.02em}
+.qp-h2{margin:22px 0 10px;font:700 15px var(--font)}
+.qp-it{padding:12px 0 14px;border-top:1px solid var(--line)}
+.qp-r1{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.qp-chk{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:14px}.qp-chk input{width:17px;height:17px;min-height:0;accent-color:var(--a1)}
+.qp-pr{display:flex;gap:8px}.qp-pr input{width:110px}.qp-pr select{width:150px}
+.qp-r2{display:flex;align-items:center;gap:10px;margin:10px 0 0 18px;flex-wrap:wrap}.qp-r2>b{font-size:13px;min-width:70px}.qp-r2>input{width:190px}.qp-d{margin-left:auto;display:flex;align-items:center;gap:8px}.qp-d input{width:110px}
+.qp-r3{display:flex;align-items:center;gap:10px;margin:10px 0 0 18px}.qp-r3>b{font-size:13px;min-width:110px}.qp-r3 select{width:180px}.qp-r3{justify-content:flex-start}
+.qp-it textarea{width:100%;margin-top:10px;min-height:44px}
+.qp-tm{display:flex;gap:12px;margin-bottom:14px}.qp-tn{width:24px;flex:none;font-weight:700;color:var(--ink-2);padding-top:8px}.qp-tb{flex:1;display:grid;gap:6px}.qp-tb input{font-weight:700}.qp-tb textarea{width:100%}
+.qp-note{color:#d93025;font-size:13px;margin:6px 0 4px}
+.qp-cond{color:#8a949c;font-size:11.5px}
+/* ---------- Lead type, referral ---------- */
+[data-refrow][hidden],.rf-h[hidden]{display:none!important}
+.rf-box{text-align:left;width:min(520px,100%)}.rf-box h3{text-align:center}.rf-box p{text-align:left;margin-bottom:14px}
+.rf-o{display:grid;gap:8px;margin:0 0 12px}.rf-h{margin:6px 0 14px}.rf-h>label{font-weight:700;display:block;margin-bottom:6px}.rf-h .req{color:#d93025;font-style:normal}
+.rf-n{font-size:12.5px;color:#666;margin:8px 0 0!important}.rf-box .dd-b{margin-top:10px}
 </style>
 </head>
 <body>
@@ -853,6 +870,7 @@ const fdate = iso => { if (!iso) return ''; const d = new Date(iso.slice(0,10) +
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g, ' ').trim();
 
 const ICON = {
+ reset:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v6h6"/><path d="M4.6 14a8 8 0 1 0 1.9-8.3L4 10"/></svg>',
  today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/><path d="M8 14l2.5 2.5L16 12"/></svg>',
  hotels:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M2.5 21h19"/><path d="M8 8h3M8 12h3M8 16h3"/></svg>',
  quotes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2.5h9l4 4V21a.5.5 0 0 1-.5.5h-12A.5.5 0 0 1 6 21z"/><path d="M14.5 2.5V7h4.5M9 12h6M9 16h6"/></svg>',
@@ -937,6 +955,7 @@ function saveMany(arr) {
 }
 function remove(id) { const gone = byId(id); R = R.filter(x => x.id !== id); if (db) store('readwrite').delete(id); Cloud.mark(id, gone && gone.kind); }
 function clearAll() { R = []; try { localStorage.removeItem('maha.sales.lastPull'); } catch {} if (!db) return Promise.resolve(); return new Promise(res => { const q = store('readwrite').clear(); q.onsuccess = res; }); }
+const REV_NAME = 'RevPilot';   /* the revenue service (was Revboost): change its name here */
 const K = k => R.filter(r => r.kind === k && !r.deleted);   /* a deleted hotel, quotation or meeting is kept but hidden from every list */
 const deletedOf = k => R.filter(r => r.kind === k && r.deleted);
 const deletedHotels = () => deletedOf('hotel');
@@ -1055,6 +1074,7 @@ function belowList(q) {
   const out = [];
   if (q.discType && (parseFloat(String(q.discValue || '').replace(/[^\d.]/g, '')) || 0) > 0) out.push(q.discType === 'pct' ? 'Discount ' + parseFloat(q.discValue) + '%' : 'Discount ' + fmt(parseFloat(q.discValue)) + ' THB a month');
   for (const p of CAT) { const l = (q.lines || {})[p.id]; if (l && l.on && p.kind === 'comm' && l.rate && norm(l.rate) !== norm(p.rate)) out.push(p.name + ' at ' + l.rate + ' (list: ' + p.rate + ')'); }
+  (q.items || []).filter(i => i.on && parseFloat(i.disc) > 0).forEach(i => out.push('Discount on ' + i.name + ' ' + fmt(parseFloat(i.disc)) + ' THB'));
   return out;
 }
 const discSig = q => JSON.stringify([q.discType || '', String(q.discValue || ''), belowList(q).join('|')]);
@@ -1231,7 +1251,8 @@ function quoteDocParts(q) {
   return {rows, tot, blockers, hasBE, hasSys, hasPay};
 }
 
-async function buildQuoteHTML(q) {
+async function buildQuoteHTML(q0) {
+  const q = quoteIsNew(q0) ? qpDoc(q0) : q0, terms = quoteIsNew(q0) ? q0.terms : null;
   let html = QUOTE_TEMPLATE;
   const h = byId(q.hotelId) || {}, P = quoteDocParts(q);
   const put = (k, v) => { html = html.split(`{{${k}}}`).join(v); };
@@ -1239,9 +1260,12 @@ async function buildQuoteHTML(q) {
   html = html.replace(/<!-- ITEMS -->[\s\S]*?<!-- \/ITEMS -->/, `<!-- ITEMS -->\n${P.rows.join('\n')}\n    <!-- /ITEMS -->`);
   html = html.replace(/<!-- TOTALS -->[\s\S]*?<!-- \/TOTALS -->/, `<!-- TOTALS -->\n    ${P.tot.join('\n    ')}\n    <!-- /TOTALS -->`);
   // terms: BE clause only when a Booking Engine is quoted; chargebacks only with Invoice & Online Payment
+  if (terms && terms.length) { const ta = html.indexOf('<div class="term">'), tb = html.indexOf('<div class="sign">'); if (ta > 0 && tb > ta) html = html.slice(0, ta) + terms.map((x, i) => termHTML(x, i + 1)).join('\n    ') + '\n\n  ' + html.slice(tb); }
+  else {
   if (!P.hasBE) html = html.replace(/<div class="term"><span class="num">9<\/span>[\s\S]*?<\/div><\/div>\s*/, '');
   html = P.hasPay ? html.replace(/<!--CHARGEBACKS_CLAUSE[^\n]*\n/, '').replace(/\s*CHARGEBACKS_CLAUSE-->/, '')
                   : html.replace(/<!--CHARGEBACKS_CLAUSE[\s\S]*?CHARGEBACKS_CLAUSE-->\s*/, '');
+  }
   let n = 0; html = html.replace(/<span class="num">\d+<\/span>/g, () => `<span class="num">${++n}</span>`);
   if (!P.hasSys) html = html.replace(' Booking Engine / Channel Manager / PMS: 10% discount on yearly payment.', '');
   if (q.hideRooms) html = html.replace('<div class="lab">Rooms</div><div class="val">{{ROOMS}}</div>', '');
@@ -1698,7 +1722,7 @@ function route() {
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting,  dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting,  dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -1870,7 +1894,7 @@ function actSheet(a, hid, type) {
 
 /* ---------- quotes ---------- */
 function quoteRow(q) {
-  const c = compute(q); const bits = [c.month ? fmt(c.month) + '/mo' : '', c.year ? fmt(c.year) + '/yr' : '', c.items.some(i => i.cad === 'comm') ? 'commission' : ''].filter(Boolean).join(' + ');
+  const c = qCompute(q); const bits = [c.month ? fmt(c.month) + '/mo' : '', c.year ? fmt(c.year) + '/yr' : '', c.items.some(i => i.cad === 'comm') ? 'commission' : ''].filter(Boolean).join(' + ');
   const ap = approvalState(q); const sc = ap === 'waiting' ? '#D49A38' : {Draft:'#8A9A8C', Sent:'#2E6B8A', Accepted:'#1F8A4C', Rejected:'#B4432F', Expired:'#A0763A'}[q.status] || '#8A9A8C';
   return `<a class="row" href="#quote/${q.id}"><span class="stripe" style="background:${sc}"></span><div class="main"><div class="t">${esc(q.no || 'No number')} — ${esc(q.hotelName || hotelName(q.hotelId))}</div>
    <div class="s">${esc(c.names.join(', ') || 'No products')}</div></div><div class="end"><span class="status" style="color:${sc}">${ap === 'waiting' ? 'Waiting for approval' : esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))}</span><div>${esc(bits)}</div></div></a>`;
@@ -1892,6 +1916,7 @@ function vQuotes(st) {
   const qq = $('#qq'); qq.addEventListener('input', () => { UI.quoteQ = qq.value; const p = qq.selectionStart; vQuotes(); const n = $('#qq'); n.focus(); n.setSelectionRange(p, p); });
 }
 function vQuote(id) {
+  { const r0 = byId(id); if (r0 && quoteIsNew(r0)) { location.hash = 'quotes'; setTimeout(() => quotesSheet(r0.hotelId), 120); return; } }
   let q;
   if (id.startsWith('new')) {
     const hid = new URLSearchParams(id.split('?')[1] || '').get('hotel'); const h = byId(hid);
@@ -2374,7 +2399,7 @@ function partnerSheet(p) {
 }
 function vPartnerNew() {
   view().innerHTML = `<div class="top"><div><h1>Add new Partner / White Label</h1></div></div>${partnerForm({}, true)}
-   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" id="hi_save">${ICON.save}Save</button><button type="button" class="btn amber" data-act="partnerReset">${ICON.search}Reset</button></div>`;
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" id="hi_save">${ICON.save}Save</button><button type="button" class="btn amber" data-act="partnerReset">${ICON.reset}Reset</button></div>`;
   partnerFormBind(view(), {}, true, rec => { toast('Partner added'); location.hash = 'partners'; });
 }
 function vPartners(id) {
@@ -2467,7 +2492,7 @@ Object.assign(ACTIONS, {dlSearch: () => { UI.dl = {from: $('#dl_from').value, to
 
 /* ----- Follow up: the page as in OneHotel Sales (Latest Follow ups): filters, Search / Reset, Export Excel, the coloured table,
    Manage(n) = the quotations of the hotel in a pop-up, View = the follow-up information in a pop-up. Everything else in the table is plain text. ----- */
-const FU_PROD = [['pms', 'PMS', ['pms']], ['cm', 'CM', ['cm']], ['be', 'BE', ['be', 'becom']], ['vop', 'Virtual Offline Payment', ['inv']], ['rb', 'Revboost', ['rm']]];
+const FU_PROD = [['pms', 'PMS', ['pms']], ['cm', 'CM', ['cm']], ['be', 'BE', ['be', 'becom']], ['vop', 'Virtual Offline Payment', ['inv']], ['rb', REV_NAME, ['rm']]];
 const FU_STATUS = [['processing', 'Processing', ['New lead', 'Called', 'Quoted', 'Negotiating']], ['meeting', 'Meeting', ['Meeting set']], ['follow', 'Follow up', ['Follow up']], ['reject', 'Reject', ['Lost', 'On hold']], ['sign', 'Sign', ['Signed', 'Live']], ['old', 'Old data', []]];
 const FU_TO_STAGE = {processing:'Called', meeting:'Meeting set', follow:'Follow up', reject:'Lost', sign:'Signed'};
 Object.assign(ICON, {
@@ -2518,7 +2543,7 @@ function vFollowup() {
     <label for="fu_prod">Product :</label><div><select id="fu_prod"><option value="">Please select</option>${FU_PROD.map(([k, l]) => `<option value="${k}" ${(f.prod || [])[0] === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
     <label for="fu_st">Status :</label><div><select id="fu_st"><option value="">Please select</option>${FU_STATUS.map(([k, l]) => `<option value="${k}" ${f.status === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
    </div>
-   <div class="fu-btns"><button type="button" class="btn dark" data-act="fuSearch">${ICON.search}Search</button><button type="button" class="btn amber" data-act="fuReset">${ICON.search}Reset</button><button type="button" class="btn gold" data-act="fuExport">Export Excell</button></div>
+   <div class="fu-btns"><button type="button" class="btn dark" data-act="fuSearch">${ICON.search}Search</button><button type="button" class="btn amber" data-act="fuReset">${ICON.reset}Reset</button><button type="button" class="btn gold" data-act="fuExport">Export Excell</button></div>
    <div class="tablewrap fu-tw"><table class="fu-tb"><thead><tr><th>No.</th><th>Follow up date</th><th>Hotel name</th><th>Meeting Date</th><th>Remind date</th><th>Quotation</th><th>Follow up by</th><th>Result</th><th>Product</th><th>Status</th><th>View</th></tr></thead>
     <tbody>${shown.length ? shown.map((r, i) => `<tr class="fu-s-${r.key}"><td>${i + 1}</td><td class="nw">${fdate(r.date)}</td><td class="l">${esc(r.hotel)}</td><td class="nw">${fdate(r.meeting)}</td><td class="nw">${fdate(r.remind)}</td><td class="nw"><a href="#followup" class="fu-mg" data-act="fuManage" data-hid="${r.hid}">Manage(${r.nq})</a></td><td>${esc(r.by)}</td><td class="l">${esc(r.result)}</td><td class="l">${esc(r.product)}</td><td class="nw">${esc(r.status)}</td><td><button type="button" class="btn info sm" data-act="fuView" data-id="${r.id}">${ICON.edit}View</button></td></tr>`).join('') : '<tr><td colspan="11" class="empty">No follow ups found.</td></tr>'}</tbody></table></div>
    ${rows.length > CAP ? `<p class="muted small" style="text-align:center">First ${CAP} of ${rows.length}. Narrow the search to see the rest.</p>` : ''}`;
@@ -2530,14 +2555,21 @@ function fuRead() {
 
 /* ---- Manage(n): the quotations of a hotel ---- */
 const qCad = {once:'one-time', month:'Per month', year:'Per year'};
-function qLines(q) { return compute(q).items.map(i => i.label + ' - ' + (i.amount != null ? fmt(i.amount) + ' THB ' + (qCad[i.cad] || '') : (i.text || ''))); }
+function qLines(q) { if (quoteIsNew(q)) return qpLines(q); return compute(q).items.map(i => i.label + ' - ' + (i.amount != null ? fmt(i.amount) + ' THB ' + (qCad[i.cad] || '') : (i.text || ''))); }
 function hotelEmails(hid) { const h = byId(hid) || {}; return [...new Set([h.email].concat(K('act').filter(a => a.hotelId === hid).map(a => a.contactEmail)).flatMap(e => String(e || '').split(/[,;\s]+/)).filter(x => /@/.test(x)))]; }
+function qExtraRows(q) {
+  if (!quoteIsNew(q)) return '';
+  const st = approvalState(q), rev = (q.items || []).some(i => i.id === 'rev' && i.on);
+  const msa = rev ? `<div class="fu-qr"><b>MSA</b><span><a href="#followup" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a></span></div>` : '';
+  const ap = ['waiting', 'needed', 'declined'].includes(st) ? `<div class="fu-qr"><b>Approval</b><span style="color:#b3261e;font-weight:600">${st === 'declined' ? 'Declined by the manager' : 'Waiting for the manager\'s approval (discount)'}</span><span class="fu-qa">${st === 'waiting' ? `<button type="button" class="btn sm primary" data-act="qApprove" data-id="${q.id}">Approve</button><button type="button" class="btn sm" data-act="qDecline" data-id="${q.id}">Decline</button>` : ''}</span></div>` : '';
+  return msa + ap;
+}
 function quotesSheet(hid) {
   const h = byId(hid); if (!h) return; const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.no || '').localeCompare(b.no || '')), em = hotelEmails(hid);
   const block = (q, i) => `<div class="fu-qb" data-qid="${q.id}">
-    <div class="fu-qr"><b>Quotation issue #${i + 1}</b><span>${q.upload ? `<a href="#followup" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#followup" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`}</span>
+    <div class="fu-qr"><b>Quotation issue #${i + 1}</b><span>${q.upload ? `<a href="#followup" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#followup" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#followup" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`}</span>
      <span class="fu-qa"><button type="button" class="btn info sm" data-act="qEdit" data-id="${q.id}">Edit</button><button type="button" class="btn redb sm" data-act="qDel" data-id="${q.id}">Delete</button></span></div>
-    <div class="fu-qr"><b>Send email to</b><span>${em.length ? em.map(e => `<label class="fu-chk"><input type="checkbox" data-qe value="${esc(e)}" checked> ${esc(e)}</label>`).join('<br>') : '<span class="muted">No email address on this hotel</span>'}</span><span class="fu-qa"><button type="button" class="btn gold" data-act="qSend" data-id="${q.id}">Send email</button></span></div>
+    ${qExtraRows(q)}<div class="fu-qr"><b>Send email to</b><span>${em.length ? em.map(e => `<label class="fu-chk"><input type="checkbox" data-qe value="${esc(e)}" checked> ${esc(e)}</label>`).join('<br>') : '<span class="muted">No email address on this hotel</span>'}</span><span class="fu-qa"><button type="button" class="btn gold" data-act="qSend" data-id="${q.id}">Send email</button></span></div>
     <div class="fu-qr"><b>Date</b><span>${esc(fdate(q.date))}</span></div>
     <div class="fu-qr"><b>Quotation number</b><span>${esc(q.no || '')}</span></div>
     ${qLines(q).map((l, k) => `<div class="fu-qr"><b>Product ${k + 1}</b><span>${esc(l)}</span></div>`).join('')}</div>`;
@@ -2628,11 +2660,11 @@ Object.assign(ACTIONS, {
   fuNew: el => { UI.fuL = false; followNewSheet(el.dataset.hid); },
   fuNewL: el => { UI.fuL = true; followNewSheet(el.dataset.hid); },
   qBack: el => quotesSheet(el.dataset.hid),
-  qAdd: el => { closeSheet(); location.hash = 'quote/new?hotel=' + el.dataset.hid; },
+  qAdd: el => quoteFormSheet(el.dataset.hid),
   qUp: el => uploadQuoteSheet(el.dataset.hid),
   qOpen: el => { closeSheet(); location.hash = 'quote/' + el.dataset.id; },
   qFile: el => { const q = byId(el.dataset.id); if (!q || !q.upload) return; const w = window.open(); if (w) w.location.href = q.upload.data; else download(q.upload.name || 'quotation.pdf', new Blob([Uint8Array.from(atob(q.upload.data.split(',')[1]), c => c.charCodeAt(0))], {type: q.upload.type}), q.upload.type); },
-  qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else { closeSheet(); location.hash = 'quote/' + q.id; } },
+  qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else if (quoteIsNew(q)) quoteFormSheet(q.hotelId, q); else { closeSheet(); location.hash = 'quote/' + q.id; } },
   qDel: async el => { const q = byId(el.dataset.id); if (!q || !await confirmDelete('Do you want delete quotation ' + (q.no || ''))) return; const hid = q.hotelId; await softDelete(q); toast('Quotation deleted'); quotesSheet(hid); },
   qSend: el => {
     const q = byId(el.dataset.id), box = el.closest('.fu-qb'), to = $$('[data-qe]', box).filter(c => c.checked).map(c => c.value); if (!to.length) { toast('Tick at least one email address'); return; }
@@ -2731,7 +2763,7 @@ const scoreText = h => h.otaScore ? h.otaScore + ({'5': ' / 5', '10': ' / 10', '
 /* what the signed quotation says about the deal (frozen in the Property information) */
 async function dealFromQuote(q) {
   const h = byId(q.hotelId); if (!h || q.status !== 'Accepted') return;
-  const c = compute(q), fixed = c.month || c.year, comm = c.items.filter(i => i.cad === 'comm'), pcts = comm.map(i => (String(i.text || '').match(/\d+(\.\d+)?\s*%/) || [''])[0].replace(/\s/g, '')).filter(Boolean);
+  const c = qCompute(q), fixed = c.month || c.year, comm = c.items.filter(i => i.cad === 'comm'), pcts = comm.map(i => (String(i.text || '').match(/\d+(\.\d+)?\s*%/) || [''])[0].replace(/\s/g, '')).filter(Boolean);
   h.dealModel = fixed && comm.length ? 'Monthly Fee + Commission' : fixed ? 'Monthly Fee' : comm.length ? 'Commission' : '';
   h.dealPrice = [fixed ? fmt(fixed) : '', ...pcts].filter(Boolean).join(' + ');
   h.dealTerm = !c.month && c.year ? 'Annually' : 'Monthly';
@@ -2808,7 +2840,7 @@ function hotelSheet(h, pre) {
 function vHotelNew(id) {
   const q = new URLSearchParams((id || '').split('?')[1] || ''), h = hotelDefaults({country: q.get('country') ?? 'Thailand', city: q.get('city') || '', partnerId: q.get('partner') || ''}), fromPartner = q.get('partner') || '';
   view().innerHTML = `<div class="top"><div><h1>Add new Hotel</h1></div></div>${hotelForm(h, true)}
-   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" id="hi_save">${ICON.check}Save</button><button type="button" class="btn amber" data-act="hiReset" data-q="${esc((id || '').split('?')[1] || '')}">${ICON.search}Reset</button></div>`;
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" id="hi_save">${ICON.check}Save</button><button type="button" class="btn amber" data-act="hiReset" data-q="${esc((id || '').split('?')[1] || '')}">${ICON.reset}Reset</button></div>`;
   { const d = $('.hi-more', view()), c = $('#hiContacts', view()); if (d && c) { d.open = true; d.classList.add('flat'); c.before(d); } }   /* the page shows More details open, above the contact persons */
   hotelFormBind(view(), h, true, rec => { toast('Hotel added'); if (fromPartner) { location.hash = 'partners/' + fromPartner; return; } const c = hCountry(rec); location.hash = 'hotels/' + encodeURIComponent(c) + '/' + encodeURIComponent(hCity(rec)); });
 }
@@ -2842,7 +2874,7 @@ function vUpload() {
    <div id="upInfo">${upInfoHTML()}</div>
    <div class="up-sel"><div class="up-f"><label for="up_type">Property type <i class="req">*</i></label><select id="up_type">${UP_TYPES.map(o => `<option ${(u.type || 'Hotel') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
     <div class="up-f"><label for="up_country">Country <i class="req">*</i></label><select id="up_country">${UP_COUNTRIES.map(o => `<option ${(u.country || 'Thailand') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div></div>
-   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.search}Reset</button></div>`;
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.reset}Reset</button></div>`;
 }
 function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
 function upRead(rows, country) {
@@ -2895,26 +2927,161 @@ Object.assign(ACTIONS, {
    A hotel's name opens its Property information; Manage(n) opens its meetings (n = how many), newest first, with Add new meeting. */
 const SM_TABS = ['Thailand', 'Vietnam', 'Other'];
 const smCountry = h => { const c = hCountry(h); return c === 'Thailand' || c === 'Vietnam' ? c : 'Other'; };
-const MEET_TYPES = ['Sale call', 'Onsite meeting', 'Online meeting', 'Video call', 'Phone call', 'Visit'];
+const MEET_TYPES = ['Onsite', 'Online'];
 const meetCount = hid => meetActs().filter(a => a.hotelId === hid).length;
-function vSetupMeeting() {
-  const u = UI.sm = UI.sm || {tab: 'Thailand', q: '', open: []};
-  view().innerHTML = `<div class="top"><div><h1>Task Report - Setup Meeting</h1></div><div class="actions"><label class="dbs"><input type="search" id="smq" placeholder="Search.." value="${esc(u.q)}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
+/* ================= TASK REPORT (Setup Meeting and Quotation share one page) =================
+   A tab for Thailand, Vietnam and Other, a line for every province or city with its properties; a line opens to show its hotels, a hotel search narrows it.
+   A hotel's name opens its Property information; the last column (Manage(n)) opens the meetings or the quotations of the hotel. */
+const TK = {
+  meeting: {st: 'sm', title: 'Task Report - Setup Meeting', col: 'Meeting', act: 'smManage', count: hid => meetCount(hid), back: '#setupmeeting'},
+  quote: {st: 'qt', title: 'Task Report - Quotation', col: 'Quotation', act: 'qtManage', count: hid => K('quote').filter(q => q.hotelId === hid).length, back: '#quotes'},
+};
+function vTask(mode) {
+  UI.tkMode = mode; const c = TK[mode], u = UI[c.st] = UI[c.st] || {tab: 'Thailand', q: '', open: []};
+  view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions"><label class="dbs"><input type="search" id="tkq" placeholder="Search.." value="${esc(u.q)}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="dbtabs">${SM_TABS.map(t => `<button type="button" class="dbt" data-act="smTab" data-t="${t}" aria-pressed="${u.tab === t}">${t.toUpperCase()}</button>`).join('')}</div>
    <div class="tablewrap dbw"><table class="dbtb"><thead><tr><th class="c w1">No.</th><th class="l">Destination name</th><th class="c w2">Total properties</th><th class="c w3">Action</th></tr></thead><tbody id="smbody"></tbody></table></div>`;
-  paintSm(); const q = $('#smq'); q.addEventListener('input', () => { u.q = q.value; paintSm(); });
+  paintSm(); const q = $('#tkq'); q.addEventListener('input', () => { u.q = q.value; paintSm(); });
 }
+const vSetupMeeting = () => vTask('meeting');
 function paintSm() {
-  const u = UI.sm, q = norm(u.q), by = new Map();
-  K('hotel').filter(h => smCountry(h) === u.tab && (!q || norm(h.name).includes(q))).forEach(h => { const c = hCity(h); if (!by.has(c)) by.set(c, []); by.get(c).push(h); });
+  const c = TK[UI.tkMode || 'meeting'], u = UI[c.st], q = norm(u.q), by = new Map();
+  K('hotel').filter(h => smCountry(h) === u.tab && (!q || norm(h.name).includes(q))).forEach(h => { const k = hCity(h); if (!by.has(k)) by.set(k, []); by.get(k).push(h); });
   const rows = [...by.entries()].sort((a, b) => a[0].localeCompare(b[0])), total = rows.reduce((s, r) => s + r[1].length, 0), tb = $('#smbody'); if (!tb) return;
   const nest = hs => { const shown = hs.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 200);
-    return `<div class="smnest"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Hotel name</th><th>No.of room</th><th>Address</th><th>Tripadvisor</th><th>BE</th><th>CM</th><th>PMS</th><th>Meeting</th></tr></thead><tbody>${shown.map((h, i) => `<tr><td>${i + 1}</td><td class="l"><a href="#setupmeeting" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td>${esc(h.rooms || 0)}</td><td class="l adr">${esc(h.address || '')}</td><td>${esc(norm(h.otaName) === 'tripadvisor' ? scoreText(h) : '')}</td><td>${esc(h.be || '')}</td><td>${esc(h.cm || '')}</td><td>${esc(h.pms || '')}</td><td class="nw"><a href="#setupmeeting" class="fu-mg" data-act="smManage" data-hid="${h.id}">Manage(${meetCount(h.id)})</a></td></tr>`).join('')}</tbody></table>${hs.length > 200 ? `<p class="muted small" style="text-align:center">First 200 of ${hs.length}. Search a hotel name to narrow it.</p>` : ''}</div>`; };
-  tb.innerHTML = rows.length ? rows.map(([c, hs], i) => { const open = !!q || u.open.includes(c); return `<tr data-act="smToggle" data-c="${esc(c)}" class="smrow"><td class="c">${i + 1}</td><td class="l">${esc(c === '(No province)' ? '' : c)}</td><td class="c">${props(hs.length)}</td><td class="c">${ICON.down}</td></tr>${open ? `<tr class="smsub"><td colspan="4">${nest(hs)}</td></tr>` : ''}`; }).join('') + `<tr class="dbtot"><td></td><td class="l">Total</td><td class="c">${props(total)}</td><td></td></tr>`
+    return `<div class="smnest"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Hotel name</th><th>No.of room</th><th>Address</th><th>Tripadvisor</th><th>BE</th><th>CM</th><th>PMS</th><th>${c.col}</th></tr></thead><tbody>${shown.map((h, i) => `<tr><td>${i + 1}</td><td class="l"><a href="${c.back}" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td>${esc(h.rooms || 0)}</td><td class="l adr">${esc(h.address || '')}</td><td>${esc(norm(h.otaName) === 'tripadvisor' ? scoreText(h) : '')}</td><td>${esc(h.be || '')}</td><td>${esc(h.cm || '')}</td><td>${esc(h.pms || '')}</td><td class="nw"><a href="${c.back}" class="fu-mg" data-act="${c.act}" data-hid="${h.id}">Manage(${c.count(h.id)})</a></td></tr>`).join('')}</tbody></table>${hs.length > 200 ? `<p class="muted small" style="text-align:center">First 200 of ${hs.length}. Search a hotel name to narrow it.</p>` : ''}</div>`; };
+  tb.innerHTML = rows.length ? rows.map(([k, hs], i) => { const open = !!q || u.open.includes(k); return `<tr data-act="smToggle" data-c="${esc(k)}" class="smrow"><td class="c">${i + 1}</td><td class="l">${esc(k === '(No province)' ? '' : k)}</td><td class="c">${props(hs.length)}</td><td class="c">${ICON.down}</td></tr>${open ? `<tr class="smsub"><td colspan="4">${nest(hs)}</td></tr>` : ''}`; }).join('') + `<tr class="dbtot"><td></td><td class="l">Total</td><td class="c">${props(total)}</td><td></td></tr>`
     : '<tr class="dbempty"><td colspan="4">No properties here.</td></tr>';
 }
+Object.assign(ACTIONS, {
+  smTab: el => { UI[TK[UI.tkMode].st].tab = el.dataset.t; vTask(UI.tkMode); },
+  smToggle: el => { const u = UI[TK[UI.tkMode].st], k = el.dataset.c, i = u.open.indexOf(k); if (i >= 0) u.open.splice(i, 1); else u.open.push(k); paintSm(); },
+  qtManage: el => quotesSheet(el.dataset.hid),
+});
+const vQuotesRoute = id => (id === 'pending' || id === 'waiting') ? vQuotes(id) : vTask('quote');
+
+/* ================= QUOTATION FORM (pop-up) =================
+   The products with their price, unit, discount and payment method, and the terms (English and Thai) as boxes that can be changed.
+   A discount needs the manager's approval before the quotation can be sent. The quotation PDF is the Master quotation template filled with these boxes;
+   a quotation with RevPilot also has the MSA. */
+const QP_UNITS = ['per / month', 'per / year', 'per / one time', '% per booking'], QP_PAY = ['Per month', 'Per 3 months', 'Per 6 months', 'Per year', 'One time', 'Per booking'];
+const QP_LIST = [['yield', '(Yield Rate) Option on Channel manager', '', 0], ['allsol', 'All solution BE + CM + PMS', '', 0], ['allsolh', 'All solution BE + CM + PMS (Hostel)', '', 0], ['spam', 'Anti spam email', '', 0], ['becm', 'BE + CM', '', 0], ['be', 'Booking Engine', 1000, 0], ['becom', 'Booking Engine (Commission)', 5, 3], ['beh', 'Booking Engine (Hostel)', '', 0], ['cm', 'Channel Manager', 2000, 0], ['cmh', 'Channel Manager (Hostel)', '', 0], ['cmc', 'CM connectivity', '', 1], ['domain', 'Domain name', 1500, 1], ['hm', 'Hosting and Maintenance', 9000, 1], ['host', 'Hosting service', 5000, 1], ['inv', 'Invoice & Online Payment', '', 0], ['maint', 'Maintenance service', 5000, 0], ['mig', 'Migration Fee', '', 2], ['other', 'Other', '', 0], ['pgc', 'Payment Gateway Connectivity', '', 2], ['pdpa', 'PDPA on website', '', 2], ['pmsc', 'PMS connectivity', '', 0], ['pms', 'Property Management System', 2000, 0], ['pmsh', 'Property Management System (Hostel)', '', 0], ['rev', REV_NAME, '', 0], ['seo', 'SEO', '', 0], ['ssl', 'SSL', 3000, 1], ['vop', 'Virtual Offline Payment', 3000, 0], ['webc', 'Website development service (Customise)', '', 2], ['webt', 'Website development service (Template)', '', 2]];   /* [id, name, price, unit index in QP_UNITS] */
+/* the terms of the Master quotation template (English and Thai), in its own order; two of them are printed only when they apply (as in the Master):
+   the Booking Engine rate adjustment (a Booking Engine is quoted) and Payments & Chargebacks (an invoice, virtual or payment-gateway service is quoted) */
+function qpMasterTerms() {
+  const de = s => { const e = document.createElement('textarea'); e.innerHTML = s; return e.value; };
+  const strip = s => de(s.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '')).trim();
+  const out = [], re = /<div class="term"><span class="num">\d+<\/span><div class="en"><b>([^<]*)<\/b>([\s\S]*?)<\/div>\s*<div class="th">([\s\S]*?)<\/div><\/div>/g; let m;
+  while ((m = re.exec(QUOTE_TEMPLATE_RAW))) {
+    const te = strip(m[1]).replace(/\s*—\s*$/, ''), th = strip(m[3]), i = th.indexOf(' — ');
+    out.push({te, xe: strip(m[2]), tt: i > 0 ? th.slice(0, i) : '', xt: i > 0 ? th.slice(i + 3) : th, cond: /^Booking Engine Rate/i.test(te) ? 'be' : /^Payments & Chargebacks/i.test(te) ? 'pay' : ''});
+  }
+  return out;
+}
+const QP_BE = ['be', 'becom', 'beh', 'becm', 'allsol', 'allsolh'], QP_PAYS = ['inv', 'vop', 'pgc'];
+const quoteIsNew = q => Array.isArray(q && q.items);
+const qpUnitCad = u => ({'per / month': 'month', 'per / year': 'year', 'per / one time': 'once', '% per booking': 'comm'})[u] || 'month';
+/* the quotation as the document builders know it: every ticked product becomes a line (the discount is taken off a fixed price) */
+function qpDoc(q) {
+  const h = byId(q.hotelId) || {}, custom = (q.items || []).filter(i => i.on).map(i => {
+    const cad = qpUnitCad(i.unit), p = parseFloat(String(i.price).replace(/[^\d.]/g, '')) || 0, d = parseFloat(i.disc) || 0;
+    const name = i.name + (i.info ? ' — ' + i.info : '') + (d > 0 && cad !== 'comm' ? ` (discount ${fmt(d)} THB${i.discNote ? ': ' + i.discNote : ''})` : '');
+    return {name, cad, amount: cad === 'comm' ? p + '% per booking' : String(Math.max(0, p - d))};
+  });
+  return {...q, lines: {}, custom, setup: 'none', rooms: q.rooms || h.rooms || '', contact: q.contact || h.contact || '', hotelName: q.hotelName || h.name || ''};
+}
+const qCompute = q => compute(quoteIsNew(q) ? qpDoc(q) : q);
+function qpLines(q) { return (q.items || []).filter(i => i.on).map(i => `${i.name} - ${i.price === '' ? '' : i.price + ' '}${i.unit}${i.pay ? ' / payment ' + i.pay : ''}${parseFloat(i.disc) > 0 ? ' · discount ' + fmt(parseFloat(i.disc)) + ' THB' : ''}`); }
+const termHTML = (t, n) => `<div class="term"><span class="num">${n}</span><div class="en"><b>${esc(t.te)} —</b> ${esc(t.xe).replace(/\n/g, '<br>')}</div>\n    <div class="th">${esc(t.tt)} — ${esc(t.xt).replace(/\n/g, '<br>')}</div></div>`;
+function quoteFormSheet(hid, q) {
+  const h = byId(hid); if (!h) return; const isNew = !q; q = q || {no: suggestQuoteNo(), date: today(), status: 'Draft', items: [], terms: null};
+  const items = QP_LIST.map(([id, name, price, ui]) => { const x = (q.items || []).find(i => i.id === id) || {}; return {id, name: id === 'rev' ? REV_NAME : name, on: !!x.on, price: x.price !== undefined ? x.price : price, unit: x.unit || QP_UNITS[ui], disc: x.disc !== undefined ? x.disc : 0, discNote: x.discNote || '', pay: x.pay || '', info: x.info || ''}; });
+  const master = qpMasterTerms(), terms = q.terms && q.terms.length ? q.terms.slice() : master.slice();
+  master.forEach((m, i) => { if (m.cond && !terms.some(x => x.cond === m.cond)) terms.splice(Math.min(i, terms.length), 0, m); });   /* the two conditional terms stay in the boxes: they are printed only when they apply */
+  const sales = [...new Set(K('act').map(a => a.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], q.forSale ? [q.forSale] : []))].sort();
+  const leads = [...new Set(['Cold call', 'Referral', 'Partner / White Label', 'Website', 'Social media', 'OneHotel', 'Walk-in', 'Other'].concat(K('hotel').map(x => x.source).filter(Boolean), q.leadSource ? [q.leadSource] : []))];
+  const row = (label, req, inner) => `<div class="fu-pr"><label>${label}${req ? ' <i class="req">*</i>' : ''}</label><div>${inner}</div></div>`;
+  const item = i => `<div class="qp-it" data-qp="${i.id}"><div class="qp-r1"><label class="qp-chk"><input type="checkbox" data-k="on" ${i.on ? 'checked' : ''}> <b>${esc(i.name)}</b></label><div class="qp-pr"><input data-k="price" value="${esc(i.price)}"><select data-k="unit">${QP_UNITS.map(u => `<option ${i.unit === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div></div>
+    <div class="qp-r2"><b>Discount</b><input data-k="discNote" placeholder="Detail" value="${esc(i.discNote)}"><div class="qp-d"><input data-k="disc" value="${esc(i.disc)}"><span>THB</span></div></div>
+    <div class="qp-r3"><b>Payment method</b><select data-k="pay"><option value="">Please select</option>${QP_PAY.map(u => `<option ${i.pay === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
+    <textarea data-k="info" placeholder="Product information" rows="2">${esc(i.info)}</textarea></div>`;
+  const term = (t, n) => `<div class="qp-tm" data-tm data-cond="${t.cond || ''}"><div class="qp-tn">${n + 1}</div><div class="qp-tb"><input data-t="te" value="${esc(t.te)}" aria-label="Term title"><textarea data-t="xe" rows="3">${esc(t.xe)}</textarea><input data-t="tt" value="${esc(t.tt)}" aria-label="Thai title"><textarea data-t="xt" rows="3">${esc(t.xt)}</textarea>${t.cond ? `<small class="qp-cond">${t.cond === 'be' ? 'Printed only when a Booking Engine is quoted' : 'Printed only when an invoice, virtual or payment-gateway service is quoted'}</small>` : ''}</div></div>`;
+  openSheet(`${fuHead('Quotation information for ' + h.name)}<div class="fu-qtop"><button type="button" class="btn gray" data-act="qAdd" data-hid="${hid}">Add new quotation</button><button type="button" class="btn gray" data-act="qUp" data-hid="${hid}">Upload quotation</button></div>
+   <div class="fu-pop">${row('Date', 1, `<input type="date" data-q="date" value="${esc(q.date || '')}">`)}${row('Quotation number', 1, `<input data-q="no" value="${esc(q.no || '')}" disabled class="hi-fz">`)}
+    ${row('Quotation for sale', 1, `<select data-q="forSale"><option value="">Please select</option>${sales.map(s => `<option ${q.forSale === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}
+    ${row('Status', 0, `<select data-q="status">${[['Draft', 'Draft'], ['Sent', 'Sent'], ['Accepted', 'Signed'], ['Rejected', 'Rejected'], ['Expired', 'Expired']].map(([v, l]) => `<option value="${v}" ${(q.status || 'Draft') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+    ${row('Lead source', 0, `<select data-q="leadSource"><option value="">Please select</option>${leads.map(s => `<option ${(q.leadSource || h.source) === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}</div>
+   <h3 class="qp-h">PRODUCT INFORMATION</h3>${items.map(item).join('')}
+   <h3 class="qp-h2">Terms &amp; Conditions · ข้อกำหนดและเงื่อนไข</h3><div id="qpTerms">${terms.map(term).join('')}</div>
+   <p class="qp-note">* For discount request please wait for manager approve</p>
+   <div class="sheet-foot"><button class="btn" data-act="qtManage" data-hid="${hid}">Cancel</button><button class="btn primary ok2" id="qp_save">Save</button></div>`, root => {
+    root.classList.add('wide');
+    $('#qp_save', root).onclick = async () => {
+      const g = k => ($(`[data-q=${k}]`, root).value || '').trim(), date = g('date'), forSale = g('forSale');
+      if (!date) { toast('Date is required'); return; } if (!forSale) { toast('Quotation for sale is required'); return; }
+      const its = $$('.qp-it', root).map(el => { const f = k => { const e = $(`[data-k=${k}]`, el); return e.type === 'checkbox' ? e.checked : (e.value || '').trim(); }; const base = items.find(x => x.id === el.dataset.qp); return {id: base.id, name: base.name, on: f('on'), price: f('price'), unit: f('unit'), disc: f('disc') || '0', discNote: f('discNote'), pay: f('pay'), info: f('info')}; });
+      const on = its.filter(i => i.on); if (!on.length) { toast('Tick at least one product'); return; }
+      const bad = on.find(i => i.price === '' || isNaN(parseFloat(i.price))); if (bad) { toast('Write the price of ' + bad.name); return; }
+      const hasBE = on.some(i => QP_BE.includes(i.id)), hasPay = on.some(i => QP_PAYS.includes(i.id));
+      const tms = $$('[data-tm]', root).map(el => ({te: $('[data-t=te]', el).value.trim(), xe: $('[data-t=xe]', el).value.trim(), tt: $('[data-t=tt]', el).value.trim(), xt: $('[data-t=xt]', el).value.trim(), cond: el.dataset.cond || ''})).filter(x => (x.te || x.xe || x.tt || x.xt) && !(x.cond === 'be' && !hasBE) && !(x.cond === 'pay' && !hasPay));
+      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, status: g('status') || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
+      /* below the list price (a discount) needs the manager's approval before it is sent */
+      const sig = discSig(rec), need = belowList(rec).length > 0;
+      if (need) { if (!(rec.approval && rec.approvedSig === sig)) { rec.approval = 'requested'; rec.approvedSig = sig; rec.requestedBy = Auth.who() || 'Sales'; rec.requestedAt = new Date().toISOString(); rec.approvedBy = ''; rec.approvedAt = ''; } if (['Sent', 'Accepted'].includes(rec.status) && rec.approval !== 'approved') { toast('A discount needs the manager\'s approval before it is Sent or Signed'); return; } } else { rec.approval = ''; }
+      await save(rec); if (rec.status === 'Accepted') await dealFromQuote(rec);
+      toast(isNew ? 'Quotation created' : 'Saved'); quotesSheet(hid); if (location.hash.startsWith('#quotes') && TK.quote) paintSm();
+    };
+  });
+}
+/* the documents: the Master quotation filled with the boxes, and the MSA for RevPilot */
+async function openQuotePdf(q) {
+  const st = approvalState(q); if (!['none', 'approved'].includes(st)) { toast('The discount needs the manager\'s approval before the quotation PDF'); return; }
+  const w = window.open('', '_blank');
+  try { const {html, blockers} = await buildQuoteHTML(q); if (blockers && blockers.length) { if (w) w.close(); alert('Fix before generating:\n\n- ' + blockers.join('\n- ')); return; } if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(`Maha Hub Quotation - ${q.hotelName} - ${q.date || today()}.html`, html, 'text/html'); }
+  catch (e) { if (w) w.close(); alert('The quotation could not be opened: ' + (e && e.message ? e.message : e)); }
+}
+function msaFromQuote(q) {
+  const h = byId(q.hotelId) || {}, it = (q.items || []).find(i => i.id === 'rev' && i.on);
+  const m = {id: uid(), kind: 'msa', status: 'Draft', date: q.date || today(), preparedBy: PREPARED_BY, hotelId: h.id || '', hotelName: h.name || '', company: h.name || '', address: h.address || '', contact: [h.contact, h.phone, h.email].filter(Boolean).join(' · '), signName: '', signTitle: '', setup: '3000', waived: true, model: 'master', fee: '8,000', target: '500,000', rate: '5', rows: null};
+  if (it) { const p = parseFloat(it.price); if (it.unit === '% per booking' && p) { m.model = 'commission'; m.rate = String(p); } else if (p) { m.model = 'fee'; m.fee = fmt(p); } }
+  return m;
+}
+async function openMsaPdf(q) {
+  const st = approvalState(q); if (!['none', 'approved'].includes(st)) { toast('The discount needs the manager\'s approval first'); return; }
+  const w = window.open(''); try { const html = buildMsaHTML(msaFromQuote(q)); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(`Maha Hub MSA - ${q.hotelName}.html`, html, 'text/html'); } catch (e) { if (w) w.close(); alert('The MSA could not be opened: ' + (e && e.message ? e.message : e)); }
+}
+Object.assign(ACTIONS, {
+  qPdf: el => { const q = byId(el.dataset.id); if (q) openQuotePdf(q); },
+  qMsa: el => { const q = byId(el.dataset.id); if (q) openMsaPdf(q); },
+  qApprove: async el => { const q = byId(el.dataset.id); if (!q) return; if (!(await Auth.canApprove())) { toast('Only the manager (provider) can approve'); return; } q.approval = 'approved'; q.approvedSig = discSig(q); q.approvedBy = Auth.who() || 'Approver'; q.approvedAt = new Date().toISOString(); await save(q); toast('Approved'); quotesSheet(q.hotelId); },
+  qDecline: async el => { const q = byId(el.dataset.id); if (!q) return; if (!(await Auth.canApprove())) { toast('Only the manager (provider) can decline'); return; } q.approval = 'declined'; q.approvedSig = discSig(q); q.approvedBy = Auth.who() || 'Approver'; q.approvedAt = new Date().toISOString(); await save(q); toast('Declined'); quotesSheet(q.hotelId); },
+});
+
 /* ---- the meetings of a hotel (pop-ups) ---- */
 const meetDmy = iso => isoToDmy(iso).replace(/\//g, '-');
+/* ================= LEAD TYPE AND REFERRAL =================
+   A meeting says how the lead came: Sales Call, Guest Contact Us or Customer Referral (then the referral hotel is chosen from the database).
+   Still to come (its own page, given later): the Quotation Signed page confirms whether a signing came through a referral hotel; that hotel then earns a credit
+   (a discount or promotion from the provider), passed to the Hotel PMS billing and the Finance system. */
+const MEET_LEAD = ['Sales Call', 'Guest Contact Us', 'Customer Referral'];
+const refLabel = h => h.name + (h.city ? ' — ' + h.city : '');
+const refLabels = exId => K('hotel').filter(x => x.id !== exId).map(refLabel).sort((a, b) => a.localeCompare(b));
+const refIdOf = (label, exId) => { const h = K('hotel').find(x => x.id !== exId && norm(refLabel(x)) === norm(label)); return h ? h.id : ''; };
+function meetLeadRows(a, h, dis, row) {
+  const cur = a.meetLead || '', ref = a.refHotelId ? byId(a.refHotelId) : null;
+  return row('Lead Type', 1, `<select data-mf="meetLead"${dis}><option value="">Please select</option>${MEET_LEAD.map(x => `<option ${cur === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`)
+    + `<div class="fu-pr" data-refrow${cur === 'Customer Referral' ? '' : ' hidden'}><label>Referral hotel name <i class="req">*</i></label><div><div class="cb"><input type="text" data-mf="refName" autocomplete="off" placeholder="Type to find the hotel" value="${esc(ref ? refLabel(ref) : '')}"${dis}><div class="cbl ref" hidden></div></div></div></div>`;
+}
+function bindRef(root, exId) {
+  const sel = $('[data-mf=meetLead]', root), box = $('[data-mf=refName]', root), list = $('.cbl.ref', root), row = $('[data-refrow]', root); if (!sel || !box || !list || !row) return;
+  sel.addEventListener('change', () => { row.hidden = sel.value !== 'Customer Referral'; if (row.hidden) box.value = ''; });
+  if (!box.disabled) pickBox(box, list, () => refLabels(exId), () => {}, 'Choose the hotel from the list');
+}
+function refRead(root, exId) {
+  const lead = (($('[data-mf=meetLead]', root) || {}).value || '').trim(), name = (($('[data-mf=refName]', root) || {}).value || '').trim();
+  return {meetLead: lead, refHotelId: lead === 'Customer Referral' ? refIdOf(name, exId) : ''};
+}
+
 function meetFields(a, h, mode, nm) {   /* mode: 'view' | 'new' | 'edit' */
   const dis = mode === 'view' ? ' disabled' : '', [hh, mm] = String(a.time || '00:00').split(':'), who = [...new Set(K('act').map(x => x.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], a.owner ? [a.owner] : []))].sort();
   const row = (label, req, inner) => `<div class="fu-pr"><label>${label}${req ? ' <i class="req">*</i>' : ''}</label><div>${inner}</div></div>`;
@@ -2926,6 +3093,7 @@ function meetFields(a, h, mode, nm) {   /* mode: 'view' | 'new' | 'edit' */
    ${row('Contact person email', 1, val('contactEmail', a.contactEmail || (mode === 'new' ? h.email : '')))}${row('Contact person phone', 1, val('contactPhone', a.contactPhone || (mode === 'new' ? h.phone : '')))}
    ${row('Description', 0, `<textarea data-mf="summary" rows="3"${dis}>${esc(a.summary || a.reason || '')}</textarea>`)}
    ${row('Meeting type', 1, `<select data-mf="meetType"${dis}><option value="">Please select</option>${MEET_TYPES.concat(a.meetType && !MEET_TYPES.includes(a.meetType) ? [a.meetType] : []).map(x => `<option ${a.meetType === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`)}
+   ${meetLeadRows(a, h, dis, row)}
    ${row('Meeting by', 0, `<select data-mf="owner"${dis}><option value="">Please select</option>${who.map(x => `<option ${(a.owner || (mode === 'new' ? Auth.who() : '')) === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`)}
    ${mode === 'new' ? '' : row('Status', 0, `<select data-mf="meetStatus"${dis}>${MEET_ST.map(x => `<option ${meetSt(a) === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`)}`;
 }
@@ -2937,10 +3105,11 @@ function meetingsSheet(hid) {
 }
 async function meetingSave(root, a, h, isNew) {
   const g = k => { const e = $(`[data-mf=${k}]`, root); return e ? (e.value || '').trim() : ''; };
-  const need = [['date', 'Meeting date'], ['contactName', 'Contact person name'], ['contactEmail', 'Contact person email'], ['contactPhone', 'Contact person phone'], ['meetType', 'Meeting type']].find(([k]) => !g(k));
+  const need = [['date', 'Meeting date'], ['contactName', 'Contact person name'], ['contactEmail', 'Contact person email'], ['contactPhone', 'Contact person phone'], ['meetType', 'Meeting type'], ['meetLead', 'Lead Type']].find(([k]) => !g(k));
   if (need) { toast(need[1] + ' is required'); return false; }
+  const rr = refRead(root, h.id); if (rr.meetLead === 'Customer Referral' && !rr.refHotelId) { toast('Choose the referral hotel from the list'); return false; }
   const date = g('date'), time = g('hh') + ':' + g('mm');
-  const rec = {...a, id: a.id || uid(), kind: 'act', hotelId: h.id, type: 'Meeting', date, time, contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), meetType: g('meetType'), owner: g('owner') || a.owner || Auth.who() || '', meetStatus: isNew ? 'On Process' : (g('meetStatus') || a.meetStatus), meeting: true, done: true};
+  const rec = {...a, id: a.id || uid(), kind: 'act', hotelId: h.id, type: 'Meeting', date, time, contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), meetType: g('meetType'), meetLead: rr.meetLead, refHotelId: rr.refHotelId, owner: g('owner') || a.owner || Auth.who() || '', meetStatus: isNew ? 'On Process' : (g('meetStatus') || a.meetStatus), meeting: true, done: true};
   await save(rec);
   if (['New lead', 'Called', 'Follow up', ''].includes(h.status || '')) { h.status = 'Meeting set'; await save(h); }
   return true;
@@ -2949,13 +3118,12 @@ function meetingFormSheet(hid, a) {
   const h = byId(hid), isNew = !a; a = a || {date: today(), time: '10:00'};
   openSheet(`${fuHead('Meeting information for ' + h.name)}<div class="fu-pop">${meetFields(a, h, isNew ? 'new' : 'edit')}</div>
    <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="mt_del">Delete meeting</button>' : ''}<button class="btn" data-act="smManage" data-hid="${hid}">Cancel</button><button class="btn primary ok2" id="mt_save">Save</button></div>`, root => {
+    bindRef(root, hid);
     const del = $('#mt_del', root); if (del) del.onclick = () => { if (confirm('Delete this meeting?')) { remove(a.id); toast('Meeting deleted'); meetingsSheet(hid); if (location.hash === '#setupmeeting') paintSm(); } };
     $('#mt_save', root).onclick = async () => { if (!await meetingSave(root, a, h, isNew)) return; toast(isNew ? 'Meeting added' : 'Saved'); meetingsSheet(hid); if (location.hash === '#setupmeeting') paintSm(); };
   });
 }
 Object.assign(ACTIONS, {
-  smTab: el => { UI.sm.tab = el.dataset.t; vSetupMeeting(); },
-  smToggle: el => { const u = UI.sm, c = el.dataset.c, i = u.open.indexOf(c); if (i >= 0) u.open.splice(i, 1); else u.open.push(c); paintSm(); },
   smManage: el => meetingsSheet(el.dataset.hid),
   smNew: el => meetingFormSheet(el.dataset.hid),
   smEdit: el => { closeSheet(); location.hash = 'meetings/edit/' + el.dataset.id; },
@@ -3010,9 +3178,12 @@ function vMeetingEdit(id) {
     ${f('Description', 0, `<textarea data-mf="summary" rows="5">${esc(a.summary || '')}</textarea>`, 'full')}
     ${f('Meeting by', 0, `<select data-mf="owner"><option value="">Please select</option>${who.map(x => `<option ${a.owner === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`)}
     ${f('Meeting type', 1, `<select data-mf="meetType"><option value="">Please select</option>${MEET_TYPES.concat(a.meetType && !MEET_TYPES.includes(a.meetType) ? [a.meetType] : []).map(x => `<option ${a.meetType === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`)}
+    ${f('Lead Type', 1, `<select data-mf="meetLead"><option value="">Please select</option>${MEET_LEAD.map(x => `<option ${a.meetLead === x ? 'selected' : ''}>${x}</option>`).join('')}</select>`)}
+    <div class="f" data-refrow ${a.meetLead === 'Customer Referral' ? '' : 'hidden'}><span>Referral hotel name <i class="req">*</i></span><div class="cb"><input type="text" data-mf="refName" autocomplete="off" placeholder="Type to find the hotel" value="${esc(a.refHotelId && byId(a.refHotelId) ? refLabel(byId(a.refHotelId)) : '')}"><div class="cbl ref" hidden></div></div></div>
     <div class="f full"><span>Meeting status</span><div class="fu-opts">${MEET_PICK.map(s => `<label class="fu-rad"><input type="radio" name="me_st" value="${s}" ${cur === s ? 'checked' : ''}> ${s}</label>`).join('')}${cur === 'On Process' ? '<span class="muted small" style="margin-left:10px">On Process — choose the result of the meeting</span>' : ''}</div></div>
     ${f('Meeting Feedback', 1, `<textarea data-mf="feedback" rows="3">${esc(a.feedback || '')}</textarea>`, 'full')}</div>
-   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="meSave" data-id="${id}">${ICON.save}Save</button><button type="button" class="btn amber" data-act="meReset" data-id="${id}">${ICON.search}Reset</button></div>`;
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="meSave" data-id="${id}">${ICON.save}Save</button><button type="button" class="btn amber" data-act="meReset" data-id="${id}">${ICON.reset}Reset</button></div>`;
+  bindRef(view(), a.hotelId);
 }
 Object.assign(ACTIONS, {
   mrSearch: () => { UI.mr = {from: $('#mr_from').value, to: $('#mr_to').value, staff: $('#mr_staff').value, status: $('#mr_status').value}; vMeetings(''); },
@@ -3028,8 +3199,10 @@ Object.assign(ACTIONS, {
   meSave: async el => {
     const a = byId(el.dataset.id); if (!a) return; const v = k => { const e = $(`[data-mf=${k}]`); return e ? (e.value || '').trim() : ''; }, st = ($('[name=me_st]:checked') || {}).value || '';
     const need = [['date', 'Meeting date'], ['contactName', 'Contact person name'], ['meetType', 'Meeting type']].find(([k]) => !v(k));
-    if (need) { toast(need[1] + ' is required'); return; } if (!st) { toast('Choose the meeting status'); return; } if (!v('feedback')) { toast('Meeting Feedback is required'); return; }
-    Object.assign(a, {date: v('date'), time: v('hh') + ':' + v('mm'), contactName: v('contactName'), contactPos: v('contactPos'), contactEmail: v('contactEmail'), contactPhone: v('contactPhone'), summary: v('summary'), owner: v('owner'), meetType: v('meetType'), meetStatus: st, feedback: v('feedback'), meeting: true});
+    if (need) { toast(need[1] + ' is required'); return; }
+    const rr = refRead(document, a.hotelId); if (!rr.meetLead) { toast('Lead Type is required'); return; } if (rr.meetLead === 'Customer Referral' && !rr.refHotelId) { toast('Choose the referral hotel from the list'); return; }
+    if (!st) { toast('Choose the meeting status'); return; } if (!v('feedback')) { toast('Meeting Feedback is required'); return; }
+    Object.assign(a, {date: v('date'), time: v('hh') + ':' + v('mm'), contactName: v('contactName'), contactPos: v('contactPos'), contactEmail: v('contactEmail'), contactPhone: v('contactPhone'), summary: v('summary'), owner: v('owner'), meetType: v('meetType'), meetLead: rr.meetLead, refHotelId: rr.refHotelId, meetStatus: st, feedback: v('feedback'), meeting: true});
     await save(a); toast('Saved'); location.hash = 'meetings';
   },
 });
@@ -3151,7 +3324,7 @@ function dashData(n) {
   const signed = new Map();
   msas.filter(m => m.status === 'Signed' && m.hotelId).forEach(m => signed.set(m.hotelId, m.date || (m.updated || '').slice(0, 10)));
   quotes.filter(q => q.status === 'Accepted' && q.hotelId && !signed.has(q.hotelId)).forEach(q => signed.set(q.hotelId, q.date || (q.updated || '').slice(0, 10)));
-  const fee = hid => { const qs = quotes.filter(q => q.hotelId === hid && q.status !== 'Rejected' && q.status !== 'Draft').sort((a, b) => (b.date || '').localeCompare(a.date || '')); if (!qs.length) return {mrr:0, once:0}; const c = compute(qs[0]); return {mrr: Math.round(c.month + c.year / 12), once: Math.round(c.once)}; };
+  const fee = hid => { const qs = quotes.filter(q => q.hotelId === hid && q.status !== 'Rejected' && q.status !== 'Draft').sort((a, b) => (b.date || '').localeCompare(a.date || '')); if (!qs.length) return {mrr:0, once:0}; const c = qCompute(qs[0]); return {mrr: Math.round(c.month + c.year / 12), once: Math.round(c.once)}; };
   const own = {}, P = o => own[o || ''] = own[o || ''] || {appointment:0, generated:0, rejected:0, signed:0, mrr:0, activation:0};
   const inRange = d => ms.includes((d || '').slice(0, 7));
   quotes.forEach(q => { const d = q.date || q.created; if (inRange(d)) P(q.owner).generated++; if (q.status === 'Rejected' && inRange(q.date || q.updated)) P(q.owner).rejected++; });
