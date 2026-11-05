@@ -584,7 +584,7 @@ input,select,textarea{box-sizing:border-box}
 .qp-h2{margin:22px 0 10px;font:700 15px var(--font)}
 .qp-it{padding:12px 0 14px;border-top:1px solid var(--line)}
 .qp-g{display:grid;grid-template-columns:minmax(0,1fr) 268px;gap:10px 14px;align-items:center}.qp-chk{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:14px}.qp-chk input{width:17px;height:17px;min-height:0;accent-color:var(--a1)}
-.qp-pr{display:flex;gap:8px}.qp-pr input{width:110px}.qp-pr select{width:150px}
+.qp-fx{background:#f3efe8;color:#555}.qp-pr{display:flex;gap:8px}.qp-pr input{width:110px}.qp-pr select{width:150px}
 .qp-lf{display:flex;align-items:center;gap:10px;margin-left:18px}.qp-lf>b{font-size:13px;min-width:110px}.qp-lf>input{width:100%;max-width:300px}
 .qp-d{display:flex;align-items:center;gap:8px}.qp-d input{width:110px}.qp-pay{width:268px}
 @media (max-width:700px){.qp-g{grid-template-columns:minmax(0,1fr)}.qp-pay{width:100%}}
@@ -1090,7 +1090,7 @@ function belowList(q) {
   const out = [];
   if (q.discType && (parseFloat(String(q.discValue || '').replace(/[^\d.]/g, '')) || 0) > 0) out.push(q.discType === 'pct' ? 'Discount ' + parseFloat(q.discValue) + '%' : 'Discount ' + fmt(parseFloat(q.discValue)) + ' THB a month');
   for (const p of CAT) { const l = (q.lines || {})[p.id]; if (l && l.on && p.kind === 'comm' && l.rate && norm(l.rate) !== norm(p.rate)) out.push(p.name + ' at ' + l.rate + ' (list: ' + p.rate + ')'); }
-  (q.items || []).filter(i => i.on && parseFloat(i.disc) > 0).forEach(i => out.push('Discount on ' + i.name + ' ' + fmt(parseFloat(i.disc)) + ' THB'));
+  (q.items || []).filter(i => i.on && qpDisc(i.price, i.disc).amt > 0).forEach(i => { const dd = qpDisc(i.price, i.disc); out.push('Discount on ' + i.name + ' ' + (dd.waived ? 'Waived (100%)' : dd.pct ? dd.pct + '%' : fmt(dd.amt) + ' ' + curOf(q))); });
   return out;
 }
 const discSig = q => JSON.stringify([q.discType || '', String(q.discValue || ''), belowList(q).join('|')]);
@@ -1239,7 +1239,7 @@ function quoteDocParts(q) {
     if (cad === 'comm') { comm.push(`${c.name}: ${c.amount}`); rows.push(row(c.name, '', 'comm', 'monthly', esc(c.amount))); continue; }
     const a = +String(c.amount).replace(/[^\d.]/g, '') || 0;
     if (cad === 'once') once += a; else if (cad === 'month') month += a; else yearFlat += a;
-    rows.push(row(c.name, '', cad, PAY[cad], `${fmt(a)} THB`));
+    rows.push(row(c.name, '', cad, PAY[cad], c.waived ? `<span style="text-decoration:line-through;color:#6B7280;font-weight:500">${fmt(c.orig)} THB</span> <span style="color:#0E7C53">Waived</span>` : `${fmt(a)} THB`));
   }
   if (!rows.length) blockers.push('Tick at least one product.');
   // totals card — only the cadences that apply
@@ -1264,7 +1264,8 @@ function quoteDocParts(q) {
   }
   if (comm.length) tot.push(`<div class="row sub${grp()}" data-fit="comm"><span class="lbl">Commission services</span><span style="text-align:right">${comm.map(esc).join('<br>')}</span></div>`);
   const hasBE = !!(L.be?.on || L.becom?.on), hasSys = !!(L.be?.on || L.cm?.on || L.pms?.on), hasPay = !!L.inv?.on;
-  return {rows, tot, blockers, hasBE, hasSys, hasPay};
+  const cur = curOf(q), cc = s => cur === 'THB' ? s : s.replace(/ THB/g, ' ' + cur);
+  return {rows: rows.map(cc), tot: tot.map(cc), blockers, hasBE, hasSys, hasPay};
 }
 
 async function buildQuoteHTML(q0) {
@@ -1354,12 +1355,12 @@ function msaFlags(m) {
 
 function buildMsaHTML(m) {
   let h = MSA_TEMPLATE_RAW;
-  const rows = msaRows(m); let i = 0;
+  const rows = msaRows(m).map(r => curOf(m) === 'THB' ? r : {en: String(r.en || '').replace(/THB/g, curOf(m)), th: String(r.th || '').replace(/บาท/g, curOf(m))}); let i = 0;
   h = h.replace(/(<table class="comm">)([\s\S]*?)(<\/table>)/, (all, a, body, c) => a + body.replace(/(<td class="ck">[^<]*<\/td><td class="cv">)[^<]*<div class="th">[^<]*<\/div>(<\/td>)/g,
     (x, p, s) => { const r = rows[i++] || {en:'', th:''}; return p + esc(r.en) + `<div class="th">${esc(r.th || '')}</div>` + s; }) + c);
   const addrLines = String(m.address || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
   const addressBlock = [...addrLines.map(esc), m.contact ? esc(m.contact) : ''].filter(Boolean).join('<br>') || DOTS;
-  const fee = m.setup && m.setup !== 'none' ? `${thb(m.setup)} THB${m.waived ? ' (waived)' : ''}` : '0 THB';
+  const cur = curOf(m), fee = m.setup && m.setup !== 'none' ? `${thb(m.setup)} ${cur}${m.waived ? ' (waived)' : ''}` : '0 ' + cur;
   const put = (k, v) => { h = h.split(`{{${k}}}`).join(v); };
   put('HOTEL_COMPANY_NAME', esc(m.company || DOTS)); put('HOTEL_ADDRESS', addressBlock); put('HOTEL_ADDRESS_LINE', esc(addrLines.join(', ') || DOTS));
   put('EFFECTIVE_DATE', esc(longDate(m.date))); put('PREPARED_BY', esc(m.preparedBy || PREPARED_BY));
@@ -3089,7 +3090,7 @@ const PR = {
 const prReward = p => p.type === 'Discount %' ? p.value + '% discount' : p.type === 'Discount THB' ? p.value + ' THB discount' : p.type === 'Free months' ? p.value + ' free month(s)' : (p.value || 'Promotion');
 function vPricing(id) {
   const key = id === 'referral' ? 'referral' : id === 'staff' ? 'staff' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
-  view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
+  view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm && key === 'commercial' && !K('comodule').length ? `<button type="button" class="btn" data-act="prSeed">Load the price list</button>` : ''}${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="fu-sub"><b>${c.title}</b> information</div>
    <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${c.cols.map(x => `<th>${x[1]}</th>`).join('')}${adm ? '<th>Action</th>' : ''}</tr></thead><tbody id="prbody"></tbody></table></div>`;
   paintPr(key); const q = $('#pr_q'); q.addEventListener('input', () => { f.q = q.value; paintPr(key); });
@@ -3118,7 +3119,8 @@ function prSheet(key, id) {
     };
   });
 }
-Object.assign(ACTIONS, {prEdit: el => prSheet(el.dataset.k, el.dataset.id)});
+Object.assign(ACTIONS, {prEdit: el => prSheet(el.dataset.k, el.dataset.id),
+  prSeed: async () => { if (!Auth.isProvider() || K('comodule').length) return; for (const [id, name, price, ui] of QP_LIST) await save({id: uid(), kind: 'comodule', name: id === 'rev' ? REV_NAME : name, fee: price === '' ? '' : String(price), unit: QP_UNITS[ui], status: 'Active', detail: ''}); toast('Price list loaded'); vPricing('commercial'); }});
 /* ---------- For Approval: the discounted quotations wait here until the approver (the provider) approves ---------- */
 function apRows() {
   const n = norm(((UI.ap || {}).q) || '');
@@ -3163,6 +3165,8 @@ const vQuotesRoute = id => id === 'pending' ? vPending() : id === 'waiting' ? vA
    The products with their price, unit, discount and payment method, and the terms (English and Thai) as boxes that can be changed.
    A discount needs the manager's approval before the quotation can be sent. The quotation PDF is the Master quotation template filled with these boxes;
    a quotation with RevPilot also has the MSA. */
+const CRM_CUR = [['THB', 'Thai Baht'], ['USD', 'US Dollar'], ['EUR', 'Euro'], ['GBP', 'Pound Sterling'], ['JPY', 'Japanese Yen'], ['CNY', 'Chinese Yuan'], ['HKD', 'Hong Kong Dollar'], ['TWD', 'New Taiwan Dollar'], ['KRW', 'South Korean Won'], ['SGD', 'Singapore Dollar'], ['MMK', 'Myanmar Kyat'], ['MYR', 'Malaysian Ringgit'], ['VND', 'Vietnamese Dong'], ['LAK', 'Lao Kip'], ['KHR', 'Cambodian Riel'], ['IDR', 'Indonesian Rupiah'], ['PHP', 'Philippine Peso'], ['INR', 'Indian Rupee'], ['PKR', 'Pakistani Rupee'], ['BDT', 'Bangladeshi Taka'], ['LKR', 'Sri Lankan Rupee'], ['NPR', 'Nepalese Rupee'], ['AUD', 'Australian Dollar'], ['NZD', 'New Zealand Dollar'], ['CAD', 'Canadian Dollar'], ['CHF', 'Swiss Franc'], ['SEK', 'Swedish Krona'], ['NOK', 'Norwegian Krone'], ['DKK', 'Danish Krone'], ['AED', 'UAE Dirham'], ['SAR', 'Saudi Riyal'], ['QAR', 'Qatari Riyal'], ['KWD', 'Kuwaiti Dinar'], ['ILS', 'Israeli Shekel'], ['TRY', 'Turkish Lira'], ['RUB', 'Russian Ruble'], ['ZAR', 'South African Rand'], ['BRL', 'Brazilian Real'], ['MXN', 'Mexican Peso'], ['EGP', 'Egyptian Pound']];
+const curOf = q => (q && q.currency) || 'THB';
 const QP_UNITS = ['per / month', 'per / year', 'per / one time', '% per booking'], QP_PAY = ['One time', 'Per month', 'Per 2 months', 'Per 3 months', 'Per 4 months', 'Per 6 months', 'Per 9 months', 'Per year', 'Per 2 years', 'Per booking'];
 const QP_LIST = [['yield', '(Yield Rate) Option on Channel manager', '', 0], ['allsol', 'All solution BE + CM + PMS', '', 0], ['allsolh', 'All solution BE + CM + PMS (Hostel)', '', 0], ['spam', 'Anti spam email', '', 0], ['becm', 'BE + CM', '', 0], ['be', 'Booking Engine', 1000, 0], ['becom', 'Booking Engine (Commission)', 5, 3], ['beh', 'Booking Engine (Hostel)', '', 0], ['cm', 'Channel Manager', 2000, 0], ['cmh', 'Channel Manager (Hostel)', '', 0], ['cmc', 'CM connectivity', '', 1], ['domain', 'Domain name', 1500, 1], ['hm', 'Hosting and Maintenance', 9000, 1], ['host', 'Hosting service', 5000, 1], ['inv', 'Invoice & Online Payment', '', 0], ['maint', 'Maintenance service', 5000, 0], ['mig', 'Migration Fee', '', 2], ['other', 'Other', '', 0], ['pgc', 'Payment Gateway Connectivity', '', 2], ['pdpa', 'PDPA on website', '', 2], ['pmsc', 'PMS connectivity', '', 0], ['pms', 'Property Management System', 2000, 0], ['pmsh', 'Property Management System (Hostel)', '', 0], ['rev', REV_NAME, '', 0], ['seo', 'SEO', '', 0], ['ssl', 'SSL', 3000, 1], ['vop', 'Virtual Offline Payment', 3000, 0], ['webc', 'Website development service (Customise)', '', 2], ['webt', 'Website development service (Template)', '', 2]];   /* [id, name, price, unit index in QP_UNITS] */
 /* the terms of the Master quotation template (English and Thai), in its own order; two of them are printed only when they apply (as in the Master):
@@ -3178,52 +3182,71 @@ function qpMasterTerms() {
   return out;
 }
 const QP_BE = ['be', 'becom', 'beh', 'becm', 'allsol', 'allsolh'], QP_PAYS = ['inv', 'vop', 'pgc'];
+const qpNum = s => parseFloat(String(s === undefined || s === null ? '' : s).replace(/[^\d.]/g, '')) || 0;
+/* a discount is an amount, or a percentage typed with % (100% = waived) */
+function qpDisc(price, d) { const s = String(d === undefined || d === null ? '' : d).trim(), p = qpNum(price); if (/%/.test(s)) { const pc = Math.min(100, qpNum(s)); return {amt: p * pc / 100, pct: pc, waived: pc >= 100 && p > 0}; } const a = qpNum(s); return {amt: Math.min(a, p || a), pct: 0, waived: p > 0 && a >= p}; }
+const qpDiscText = (i, dd) => dd.waived ? 'Waived (100%)' : dd.pct ? dd.pct + '%' : fmt(dd.amt);
+function qpCatalog(q) {
+  const rows = K('comodule'), find = nm => rows.find(r => norm(r.name) === norm(nm)), out = [];
+  QP_LIST.forEach(([id, name, price, ui]) => {
+    const nm = id === 'rev' ? REV_NAME : name, r = find(nm) || find(name), used = (q.items || []).some(i => i.id === id && i.on);
+    if (r && r.status === 'Inactive' && !used) return;
+    out.push({id, name: nm, price: r && r.fee !== undefined && r.fee !== '' ? r.fee : price, unit: r && r.unit ? r.unit : QP_UNITS[ui]});
+  });
+  rows.filter(r => r.status !== 'Inactive' && !QP_LIST.some(([id, name]) => norm(name) === norm(r.name) || (id === 'rev' && norm(REV_NAME) === norm(r.name)))).forEach(r => out.push({id: 'cm_' + r.id, name: r.name, price: r.fee, unit: r.unit || QP_UNITS[0]}));
+  (q.items || []).filter(i => i.on && String(i.id).startsWith('cm_') && !out.some(o => o.id === i.id)).forEach(i => out.push({id: i.id, name: i.name, price: i.price, unit: i.unit}));
+  return out;
+}
 const quoteIsNew = q => Array.isArray(q && q.items);
 const qpUnitCad = u => ({'per / month': 'month', 'per / year': 'year', 'per / one time': 'once', '% per booking': 'comm'})[u] || 'month';
 /* the quotation as the document builders know it: every ticked product becomes a line (the discount is taken off a fixed price) */
 function qpDoc(q) {
   const h = byId(q.hotelId) || {}, custom = (q.items || []).filter(i => i.on).map(i => {
-    const cad = qpUnitCad(i.unit), p = parseFloat(String(i.price).replace(/[^\d.]/g, '')) || 0, d = parseFloat(i.disc) || 0;
-    const name = i.name + (i.info ? ' — ' + i.info : '') + (d > 0 && cad !== 'comm' ? ` (discount ${fmt(d)} THB${i.discNote ? ': ' + i.discNote : ''})` : '');
-    return {name, cad, amount: cad === 'comm' ? p + '% per booking' : String(Math.max(0, p - d))};
+    const cad = qpUnitCad(i.unit), p = qpNum(i.price), dd = cad === 'comm' ? {amt: 0, pct: 0, waived: false} : qpDisc(i.price, i.disc), d = dd.amt;
+    const name = i.name + (i.info ? ' — ' + i.info : '') + (d > 0 && !dd.waived ? ` (discount ${dd.pct ? dd.pct + '%' : fmt(d) + ' ' + curOf(q)}${i.discNote ? ': ' + i.discNote : ''})` : dd.waived && i.discNote ? ` (${i.discNote})` : '');
+    return {name, cad, amount: cad === 'comm' ? p + '% per booking' : String(Math.max(0, p - d)), waived: dd.waived, orig: p};
   });
   return {...q, lines: {}, custom, setup: 'none', rooms: q.rooms || h.rooms || '', contact: q.contact || h.contact || '', hotelName: q.hotelName || h.name || ''};
 }
 const qCompute = q => compute(quoteIsNew(q) ? qpDoc(q) : q);
-function qpLines(q) { return (q.items || []).filter(i => i.on).map(i => `${i.name} - ${i.price === '' ? '' : i.price + ' '}${i.unit}${i.pay ? ' / payment ' + i.pay : ''}${parseFloat(i.disc) > 0 ? ' · discount ' + fmt(parseFloat(i.disc)) + ' THB' : ''}`); }
+function qpLinesX(q) { return (q.items || []).filter(i => i.on).map(i => `${i.name} - ${i.price === '' ? '' : i.price + ' '}${i.unit}${i.pay ? ' / payment ' + i.pay : ''}${parseFloat(i.disc) > 0 ? ' · discount ' + fmt(parseFloat(i.disc)) + ' THB' : ''}`); }
+function qpLines(q) { return (q.items || []).filter(i => i.on).map(i => { const dd = qpDisc(i.price, i.disc); return `${i.name} - ${i.price === '' ? '' : i.price + ' '}${i.unit}${i.pay ? ' / payment ' + i.pay : ''}${dd.amt > 0 ? ' · discount ' + qpDiscText(i, dd) + (dd.pct || dd.waived ? '' : ' ' + curOf(q)) : ''}`; }); }
 const termHTML = (t, n) => `<div class="term"><span class="num">${n}</span><div class="en"><b>${esc(t.te)} —</b> ${esc(t.xe).replace(/\n/g, '<br>')}</div>\n    <div class="th">${esc(t.tt)} — ${esc(t.xt).replace(/\n/g, '<br>')}</div></div>`;
 function quoteFormSheet(hid, q) {
   const h = byId(hid); if (!h) return; const isNew = !q; q = q || {no: suggestQuoteNo(), date: today(), status: 'Draft', items: [], terms: null};
-  const items = QP_LIST.map(([id, name, price, ui]) => { const x = (q.items || []).find(i => i.id === id) || {}; return {id, name: id === 'rev' ? REV_NAME : name, on: !!x.on, price: x.price !== undefined ? x.price : price, unit: x.unit || QP_UNITS[ui], disc: x.disc !== undefined ? x.disc : 0, discNote: x.discNote || '', pay: x.pay || '', info: x.info || ''}; });
+  const items = qpCatalog(q).map(c => { const x = (q.items || []).find(i => i.id === c.id) || {}, keep = x.on && x.price !== undefined; return {id: c.id, name: c.name, on: !!x.on, price: keep ? x.price : c.price, unit: keep && x.unit ? x.unit : c.unit, fixed: !(c.price === '' || c.price === undefined || !qpNum(c.price) || c.id === 'other'), disc: x.disc !== undefined && x.disc !== '' ? x.disc : '', discNote: x.discNote || '', pay: x.pay || '', info: x.info || ''}; });
+  const cur0 = curOf(q);
   const master = qpMasterTerms(), terms = q.terms && q.terms.length ? q.terms.slice() : master.slice();
   master.forEach((m, i) => { if (m.cond && !terms.some(x => x.cond === m.cond)) terms.splice(Math.min(i, terms.length), 0, m); });   /* the two conditional terms stay in the boxes: they are printed only when they apply */
   const sales = [...new Set(K('act').map(a => a.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], q.forSale ? [q.forSale] : []))].sort();
   const leads = [...new Set(['Cold call', 'Referral', 'Partner / White Label', 'Website', 'Social media', 'OneHotel', 'Walk-in', 'Other'].concat(K('hotel').map(x => x.source).filter(Boolean), q.leadSource ? [q.leadSource] : []))];
   const row = (label, req, inner) => `<div class="fu-pr"><label>${label}${req ? ' <i class="req">*</i>' : ''}</label><div>${inner}</div></div>`;
   /* each service: the service on the left, its amount on the right; the discount note on the left with the discount amount on the right (taken off the amount above); the payment method under it */
-  const item = i => `<div class="qp-it" data-qp="${i.id}"><div class="qp-g"><label class="qp-chk"><input type="checkbox" data-k="on" ${i.on ? 'checked' : ''}> <b>${esc(i.name)}</b></label><div class="qp-pr"><input data-k="price" value="${esc(i.price)}" aria-label="Amount"><select data-k="unit">${QP_UNITS.map(u => `<option ${i.unit === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
-    <div class="qp-lf"><b>Discount</b><input data-k="discNote" placeholder="Detail" value="${esc(i.discNote)}"></div><div class="qp-d"><input data-k="disc" value="${esc(i.disc)}" aria-label="Discount amount"><span>THB</span></div>
+  const item = i => `<div class="qp-it" data-qp="${i.id}"><div class="qp-g"><label class="qp-chk"><input type="checkbox" data-k="on" ${i.on ? 'checked' : ''}> <b>${esc(i.name)}</b></label><div class="qp-pr"><input data-k="price" value="${esc(i.price)}" aria-label="Amount"${i.fixed ? ' readonly class="qp-fx" tabindex="-1"' : ''}><select data-k="unit"${i.fixed ? ' disabled class="qp-fx"' : ''}>${QP_UNITS.map(u => `<option ${i.unit === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
+    <div class="qp-lf"><b>Discount</b><input data-k="discNote" placeholder="Detail" value="${esc(i.discNote)}"></div><div class="qp-d"><input data-k="disc" value="${esc(i.disc)}" placeholder="0 or 30%" aria-label="Discount amount or percent"><span class="qp-cur">${esc(cur0)}</span></div>
     <div class="qp-lf"><b>Payment method</b></div><select data-k="pay" class="qp-pay"><option value="">Please select</option>${QP_PAY.map(u => `<option ${i.pay === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
     <textarea data-k="info" placeholder="Product information" rows="2">${esc(i.info)}</textarea></div>`;
   const term = (t, n) => `<div class="qp-tm" data-tm data-cond="${t.cond || ''}"><div class="qp-tn">${n + 1}</div><div class="qp-tb"><input data-t="te" value="${esc(t.te)}" aria-label="Term title"><textarea data-t="xe" rows="3">${esc(t.xe)}</textarea><input data-t="tt" value="${esc(t.tt)}" aria-label="Thai title"><textarea data-t="xt" rows="3">${esc(t.xt)}</textarea>${t.cond ? `<small class="qp-cond">${t.cond === 'be' ? 'Printed only when a Booking Engine is quoted' : 'Printed only when an invoice, virtual or payment-gateway service is quoted'}</small>` : ''}</div></div>`;
   openSheet(`${fuHead('Quotation information for ' + h.name)}<div class="fu-qtop"><button type="button" class="btn gray" data-act="qAdd" data-hid="${hid}">Add new quotation</button><button type="button" class="btn gray" data-act="qUp" data-hid="${hid}">Upload quotation</button></div>
    <div class="fu-pop">${row('Date', 1, `<input type="date" data-q="date" value="${esc(q.date || '')}">`)}${row('Quotation number', 1, `<input data-q="no" value="${esc(q.no || '')}" disabled class="hi-fz">`)}
     ${row('Quotation for sale', 1, `<select data-q="forSale"><option value="">Please select</option>${sales.map(s => `<option ${q.forSale === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}
+    ${row('Currency', 0, `<select data-q="currency">${CRM_CUR.map(c => `<option value="${c[0]}" ${cur0 === c[0] ? 'selected' : ''}>${c[0]} - ${esc(c[1])}</option>`).join('')}</select>`)}
     ${row('Lead source', 0, `<select data-q="leadSource"><option value="">Please select</option>${leads.map(s => `<option ${(q.leadSource || h.source) === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`)}</div>
    <h3 class="qp-h">PRODUCT INFORMATION</h3>${items.map(item).join('')}
    <h3 class="qp-h2">Terms &amp; Conditions · ข้อกำหนดและเงื่อนไข</h3><div id="qpTerms">${terms.map(term).join('')}</div>
    <p class="qp-note">* For discount request please wait for manager approve</p>
    <div class="sheet-foot"><button class="btn" data-act="qtManage" data-hid="${hid}">Cancel</button><button class="btn primary ok2" id="qp_save">Save</button></div>`, root => {
     root.classList.add('wide');
+    $('[data-q=currency]', root).addEventListener('change', e => $$('.qp-cur', root).forEach(s => s.textContent = e.target.value));
     $('#qp_save', root).onclick = async () => {
       const g = k => ($(`[data-q=${k}]`, root).value || '').trim(), date = g('date'), forSale = g('forSale');
       if (!date) { toast('Date is required'); return; } if (!forSale) { toast('Quotation for sale is required'); return; }
-      const its = $$('.qp-it', root).map(el => { const f = k => { const e = $(`[data-k=${k}]`, el); return e.type === 'checkbox' ? e.checked : (e.value || '').trim(); }; const base = items.find(x => x.id === el.dataset.qp); return {id: base.id, name: base.name, on: f('on'), price: f('price'), unit: f('unit'), disc: f('disc') || '0', discNote: f('discNote'), pay: f('pay'), info: f('info')}; });
+      const its = $$('.qp-it', root).map(el => { const f = k => { const e = $(`[data-k=${k}]`, el); return e.type === 'checkbox' ? e.checked : (e.value || '').trim(); }; const base = items.find(x => x.id === el.dataset.qp); return {id: base.id, name: base.name, on: f('on'), price: f('price'), unit: f('unit'), disc: f('disc') || '', discNote: f('discNote'), pay: f('pay'), info: f('info')}; });
       const on = its.filter(i => i.on); if (!on.length) { toast('Tick at least one product'); return; }
       const bad = on.find(i => i.price === '' || isNaN(parseFloat(i.price))); if (bad) { toast('Write the price of ' + bad.name); return; }
       const hasBE = on.some(i => QP_BE.includes(i.id)), hasPay = on.some(i => QP_PAYS.includes(i.id));
       const tms = $$('[data-tm]', root).map(el => ({te: $('[data-t=te]', el).value.trim(), xe: $('[data-t=xe]', el).value.trim(), tt: $('[data-t=tt]', el).value.trim(), xt: $('[data-t=xt]', el).value.trim(), cond: el.dataset.cond || ''})).filter(x => (x.te || x.xe || x.tt || x.xt) && !(x.cond === 'be' && !hasBE) && !(x.cond === 'pay' && !hasPay));
-      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, status: q.status || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
+      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, currency: g('currency') || 'THB', status: q.status || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
       /* below the list price (a discount) needs the manager's approval before it is sent */
       const sig = discSig(rec), need = belowList(rec).length > 0;
       if (need) { if (!(rec.approval && rec.approvedSig === sig)) { rec.approval = 'requested'; rec.approvedSig = sig; rec.requestedBy = Auth.who() || 'Sales'; rec.requestedAt = new Date().toISOString(); rec.approvedBy = ''; rec.approvedAt = ''; } if (['Sent', 'Accepted'].includes(rec.status) && rec.approval !== 'approved') { toast('A discount needs the manager\'s approval before it is Sent or Signed'); return; } } else { rec.approval = ''; }
@@ -3241,7 +3264,7 @@ async function openQuotePdf(q) {
 }
 function msaFromQuote(q) {
   const h = byId(q.hotelId) || {}, it = (q.items || []).find(i => i.id === 'rev' && i.on);
-  const m = {id: uid(), kind: 'msa', status: 'Draft', date: q.date || today(), preparedBy: PREPARED_BY, hotelId: h.id || '', hotelName: h.name || '', company: h.name || '', address: h.address || '', contact: [h.contact, h.phone, h.email].filter(Boolean).join(' · '), signName: '', signTitle: '', setup: '3000', waived: true, model: 'master', fee: '8,000', target: '500,000', rate: '5', rows: null};
+  const m = {currency: curOf(q), id: uid(), kind: 'msa', status: 'Draft', date: q.date || today(), preparedBy: PREPARED_BY, hotelId: h.id || '', hotelName: h.name || '', company: h.name || '', address: h.address || '', contact: [h.contact, h.phone, h.email].filter(Boolean).join(' · '), signName: '', signTitle: '', setup: '3000', waived: true, model: 'master', fee: '8,000', target: '500,000', rate: '5', rows: null};
   if (it) { const p = parseFloat(it.price); if (it.unit === '% per booking' && p) { m.model = 'commission'; m.rate = String(p); } else if (p) { m.model = 'fee'; m.fee = fmt(p); } }
   return m;
 }
