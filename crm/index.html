@@ -3269,7 +3269,7 @@ function convertLegacyQuote(q) {
   if (q.discType && qpNum(dv) > 0) { const rec = items.filter(i => i.unit === U.month || i.unit === U.year); if (q.discType === 'pct') rec.forEach(i => { i.disc = qpNum(dv) + '%'; i.discNote = 'Discount'; }); else if (rec[0]) { rec[0].disc = String(qpNum(dv)); rec[0].discNote = 'Discount'; } }
   const r = {...q, items, terms: null, lines: {}, custom: [], setup: 'none', waived: false, discType: '', discValue: '', approval: '', approvedSig: '', approvedBy: '', approvedAt: ''};
   /* a quotation that was already approved or already sent keeps its standing: the carried-over discount is not asked for again */
-  if (belowList(r).length && (['approved', 'none'].includes(approvalState(q)) || ['Sent', 'Accepted'].includes(q.status))) { r.approval = 'approved'; r.approvedSig = discSig(r); r.approvedBy = q.approvedBy || 'Old quotation'; r.approvedAt = q.approvedAt || ''; }
+  if (belowList(r).length && approvalState(q) === 'approved') { r.approval = 'approved'; r.approvedSig = discSig(r); r.approvedBy = q.approvedBy || 'Old quotation'; r.approvedAt = q.approvedAt || ''; }
   return r;
 }
 const quoteIsNew = q => Array.isArray(q && q.items);
@@ -3692,7 +3692,7 @@ async function mailApi(body) {
     const d = await r.json().catch(() => ({})); return r.ok ? d : {error: d.error || 'http_' + r.status};
   } catch { return {error: 'network'}; }
 }
-const mailErr = e => ({not_configured: 'The email service is not set up yet', not_signed_in: 'Please sign in again', not_allowed: 'Your user cannot send email', network: 'No connection to the email service', bad_recipients: 'Check the email addresses'})[e] || 'The email could not be sent';
+const mailErr = e => ({provider_only: 'Only the CEO can send the Enewletter', not_configured: 'The email service is not set up yet', not_signed_in: 'Please sign in again', not_allowed: 'Your user cannot send email', network: 'No connection to the email service', bad_recipients: 'Check the email addresses'})[e] || 'The email could not be sent';
 const mailtoOpen = (to, subject, body) => { location.href = 'mailto:' + to.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body); };
 /* the document a hotel opens from the link: only the Save as PDF button, no internal check message, no automatic print window */
 const shareHtml = html => html.replace('setTimeout(function(){window.print();},400);', '').replace('Save PDF again', 'Save as PDF').replace('</head>', '<style>#qtbmsg{display:none}</style></head>');

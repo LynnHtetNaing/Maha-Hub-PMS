@@ -76,6 +76,8 @@ const handle = async (req: Request): Promise<Response> => {
   const action = b.action, subject = String(b.subject || "").trim().slice(0, 200), message = String(b.message || "").slice(0, 20000);
   if (!["send", "newsletter", "test"].includes(action) || !subject || !message.trim()) return json(req, { error: "bad_request" }, 400);
   let to: string[] = [...new Set((Array.isArray(b.to) ? b.to : []).map((x: unknown) => String(x || "").trim().toLowerCase()))].filter(validEmail) as string[];
+  // the Enewletter (and its test) is for the provider only; a team member sends quotations
+  if ((action === "newsletter" || action === "test") && p.data !== true) return json(req, { error: "provider_only" }, 403);
   const max = action === "newsletter" ? 100 : action === "send" ? 10 : 1;
   if (!to.length || to.length > max) return json(req, { error: "bad_recipients", max }, 400);
 
