@@ -3849,7 +3849,23 @@ function dayPicker(btn, startIso, done, selIso) {
   };
   paint();
 }
+/* every type-to-find list (a text box with a native list) becomes the same drop-down list as the Location and OTA boxes: typing narrows it, a click picks, new text is still accepted */
+function enhanceLists(root) {
+  (root || document).querySelectorAll('input[list]:not([data-cbd])').forEach(inp => {
+    const dl = document.getElementById(inp.getAttribute('list')); if (!dl) return;
+    inp.dataset.cbd = '1'; const opts = () => [...dl.options].map(o => o.value).filter(Boolean);
+    const w = document.createElement('div'); w.className = 'cb'; inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    const list = document.createElement('div'); list.className = 'cbl'; list.hidden = true; w.appendChild(list);
+    inp.removeAttribute('list'); inp.autocomplete = 'off';
+    const show = () => { const q = norm(inp.value), o = opts().filter(a => !q || norm(a).includes(q)).slice(0, 80); list.innerHTML = o.length ? o.map(a => `<button type="button" class="cbo" data-v="${esc(a)}">${esc(a)}</button>`).join('') : '<div class="cbn">No match: the text you type is used as it is</div>'; list.hidden = false; };
+    inp.addEventListener('focus', show); inp.addEventListener('input', show);
+    list.addEventListener('pointerdown', e => { const b = e.target.closest('.cbo'); if (!b) return; e.preventDefault(); inp.value = b.dataset.v; list.hidden = true; inp.dispatchEvent(new Event('input', {bubbles: true})); inp.dispatchEvent(new Event('change', {bubbles: true})); });
+    inp.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 120));
+    inp.addEventListener('keydown', e => { if (e.key === 'Escape') list.hidden = true; });
+  });
+}
 function enhanceDates(root) {
+  enhanceLists(root);
   (root || document).querySelectorAll('input[type=date]:not([data-dp])').forEach(inp => {
     inp.dataset.dp = '1';
     const wrap = document.createElement('span'); wrap.className = 'dpk';
