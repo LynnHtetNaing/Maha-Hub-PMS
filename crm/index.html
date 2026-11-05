@@ -602,6 +602,7 @@ input,select,textarea{box-sizing:border-box}
 .mq-rad i{width:22px;height:22px;border-radius:50%;border:1.5px solid #cfd4d9;background:#fff;display:inline-block;position:relative}
 .mq-rad.on i{background:#8fb8c6;border-color:#8fb8c6}.mq-rad.on i::after{content:"";position:absolute;left:6px;top:2px;width:6px;height:11px;border:solid #fff;border-width:0 2.2px 2.2px 0;transform:rotate(45deg)}
 .mq-rad b{font-size:13px}.mq-rad:hover i{border-color:#8fb8c6}
+.ap-ok{color:#1b7a3a;font-weight:600}.ap-no{color:#b3261e;font-weight:600}.ap-wait{color:#b3261e;font-weight:600}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -2353,7 +2354,7 @@ const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
-  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
+  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
@@ -2567,17 +2568,19 @@ function fuRead() {
 const qCad = {once:'one-time', month:'Per month', year:'Per year'};
 function qLines(q) { if (quoteIsNew(q)) return qpLines(q); return compute(q).items.map(i => i.label + ' - ' + (i.amount != null ? fmt(i.amount) + ' THB ' + (qCad[i.cad] || '') : (i.text || ''))); }
 function hotelEmails(hid) { const h = byId(hid) || {}; return [...new Set([h.email].concat(K('act').filter(a => a.hotelId === hid).map(a => a.contactEmail)).flatMap(e => String(e || '').split(/[,;\s]+/)).filter(x => /@/.test(x)))]; }
+const apSee = q => ['none', 'approved'].includes(approvalState(q)) || Auth.isProvider();
+const apGate = (q, html) => apSee(q) ? html : `<span class="ap-wait">${approvalState(q) === 'declined' ? 'Declined' : 'Waiting Approval'}</span>`;
 function qExtraRows(q) {
   if (!quoteIsNew(q)) return '';
   const st = approvalState(q), rev = (q.items || []).some(i => i.id === 'rev' && i.on);
-  const msa = rev ? `<div class="fu-qr"><b>MSA</b><span><a href="#followup" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a></span></div>` : '';
+  const msa = rev ? `<div class="fu-qr"><b>MSA</b><span>${apGate(q, `<a href="#followup" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`)}</span></div>` : '';
   const ap = ['waiting', 'needed', 'declined'].includes(st) ? `<div class="fu-qr"><b>Approval</b><span style="color:#b3261e;font-weight:600">${st === 'declined' ? 'Declined by the manager' : 'Waiting for the manager\'s approval (discount)'}</span><span class="fu-qa">${st === 'waiting' ? `<button type="button" class="btn sm primary" data-act="qApprove" data-id="${q.id}">Approve</button><button type="button" class="btn sm" data-act="qDecline" data-id="${q.id}">Decline</button>` : ''}</span></div>` : '';
   return msa + ap;
 }
 function quotesSheet(hid) {
   const h = byId(hid); if (!h) return; const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.no || '').localeCompare(b.no || '')), em = hotelEmails(hid);
   const block = (q, i) => `<div class="fu-qb" data-qid="${q.id}">
-    <div class="fu-qr"><b>Quotation issue #${i + 1}</b><span>${q.upload ? `<a href="#followup" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#followup" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#followup" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`}</span>
+    <div class="fu-qr"><b>Quotation issue #${i + 1}</b><span>${apGate(q, q.upload ? `<a href="#followup" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#followup" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#followup" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`)}</span>
      <span class="fu-qa"><button type="button" class="btn info sm" data-act="qEdit" data-id="${q.id}">Edit</button><button type="button" class="btn redb sm" data-act="qDel" data-id="${q.id}">Delete</button></span></div>
     ${qExtraRows(q)}<div class="fu-qr"><b>Send email to</b><span>${em.length ? em.map(e => `<label class="fu-chk"><input type="checkbox" data-qe value="${esc(e)}" checked> ${esc(e)}</label>`).join('<br>') : '<span class="muted">No email address on this hotel</span>'}</span><span class="fu-qa"><button type="button" class="btn gold" data-act="qSend" data-id="${q.id}">Send email</button></span></div>
     <div class="fu-qr"><b>Date</b><span>${esc(fdate(q.date))}</span></div>
@@ -3007,8 +3010,8 @@ function mqViewSheet(id) {
   const q = byId(id); if (!q) return;
   const pdf = q.upload ? `<a href="#quotes/pending" data-act="qFile" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : quoteIsNew(q) ? `<a href="#quotes/pending" data-act="qPdf" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>` : `<a href="#quotes/pending" data-act="qOpen" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`;
   const rev = quoteIsNew(q) && (q.items || []).some(i => i.id === 'rev' && i.on);
-  openSheet(`${fuHead('Quotation information')}<div class="fu-pop" style="margin-top:14px"><div class="fu-qr"><b>Quotation PDF</b><span>${pdf}</span></div>
-   ${rev ? `<div class="fu-qr"><b>MSA</b><span><a href="#quotes/pending" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a></span></div>` : ''}
+  openSheet(`${fuHead('Quotation information')}<div class="fu-pop" style="margin-top:14px"><div class="fu-qr"><b>Quotation PDF</b><span>${apGate(q, pdf)}</span></div>
+   ${rev ? `<div class="fu-qr"><b>MSA</b><span>${apGate(q, `<a href="#quotes/pending" data-act="qMsa" data-id="${q.id}" class="fu-pdf">${ICON.pdf}<span>PDF file</span></a>`)}</span></div>` : ''}
    <div class="fu-qr"><b>Date</b><span>${esc(meetDmy(q.date))}</span></div><div class="fu-qr"><b>Quotation number</b><span>${esc(q.no || '')}</span></div>
    ${qLines(q).map((l, k) => `<div class="fu-qr"><b>Product ${k + 1}</b><span>${esc(l)}</span></div>`).join('')}</div>`);
 }
@@ -3065,7 +3068,45 @@ Object.assign(ACTIONS, {
   mqStatus: el => mqStatusSheet(el.dataset.id, el.dataset.s),
 });
 
-const vQuotesRoute = id => id === 'pending' ? vPending() : id === 'waiting' ? vQuotes(id) : vTask('quote');
+/* ---------- For Approval: the discounted quotations wait here until the approver (the provider) approves ---------- */
+function apRows() {
+  const n = norm(((UI.ap || {}).q) || '');
+  const out = [];
+  K('quote').filter(q => ['waiting', 'approved', 'declined'].includes(approvalState(q))).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.no || '').localeCompare(a.no || '')).forEach(q => {
+    const c = qCompute(q), why = belowList(q), names = c.names.length ? c.names : [''];
+    names.forEach(nm => { const key = nm.replace(' (monthly)', '').replace(/ \(yearly\)$/, ''), det = why.filter(w => nm && w.includes(key)).join('; ');
+      const r = {q, name: nm, det: det || (why.length === 1 && names.length === 1 ? why[0] : '')};
+      if (!n || norm([q.no, q.hotelName || hotelName(q.hotelId), nm, q.date].join(' ')).includes(n)) out.push(r); });
+  });
+  return out;
+}
+function vApproval() {
+  const f = UI.ap = UI.ap || {q: ''};
+  view().innerHTML = `<div class="top"><div><h1>For Approval</h1></div><div class="actions"><label class="dbs"><input type="search" id="ap_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search approval"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="fu-sub"><b>Approval</b> information</div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Quotation date</th><th>Hotel name</th><th>Quotation No.</th><th>Product name</th><th>Approve status</th><th>Approve detail</th></tr></thead><tbody id="apbody"></tbody></table></div>`;
+  paintAp(); const q = $('#ap_q'); q.addEventListener('input', () => { f.q = q.value; paintAp(); });
+}
+function paintAp() {
+  const tb = $('#apbody'); if (!tb) return; const rows = apRows(), adm = Auth.isProvider();
+  const stat = q => { const s = approvalState(q);
+    if (s === 'approved') return '<span class="ap-ok">Approved</span>';
+    if (s === 'declined') return '<span class="ap-no">Declined</span>';
+    return adm ? `<span class="mq-rs"><button type="button" class="btn dark sm" data-act="apApprove" data-id="${q.id}">Approve</button><button type="button" class="btn sm" data-act="apDecline" data-id="${q.id}">Decline</button></span>` : '<span class="ap-wait">Waiting Approval</span>'; };
+  tb.innerHTML = rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(r.q.date))}</td><td class="l">${esc(r.q.hotelName || hotelName(r.q.hotelId))}</td><td class="nw">${adm ? `<a href="#quotes/waiting" data-act="mqView" data-id="${r.q.id}">${esc(r.q.no || '')}</a>` : esc(r.q.no || '')}</td><td class="l">${esc(r.name)}</td><td>${stat(r.q)}</td><td class="l">${esc(r.det)}</td></tr>`).join('') : '<tr><td colspan="7" class="empty"></td></tr>';
+}
+async function decideAp(id, result) {
+  const q = byId(id); if (!q) return;
+  if (!(await Auth.canApprove())) { toast('Only the manager (provider) can approve or decline'); return; }
+  if (approvalState(q) !== 'waiting') { toast('Nothing is waiting on this quotation'); return; }
+  q.approval = result; q.approvedSig = discSig(q); q.approvedBy = Auth.who() || 'Approver'; q.approvedAt = new Date().toISOString();
+  await save(q); toast(result === 'approved' ? 'Approved' : 'Declined'); paintAp();
+}
+Object.assign(ACTIONS, {
+  apApprove: el => decideAp(el.dataset.id, 'approved'),
+  apDecline: el => decideAp(el.dataset.id, 'declined'),
+});
+const vQuotesRoute = id => id === 'pending' ? vPending() : id === 'waiting' ? vApproval() : vTask('quote');
 
 /* ================= QUOTATION FORM (pop-up) =================
    The products with their price, unit, discount and payment method, and the terms (English and Thai) as boxes that can be changed.
@@ -3141,7 +3182,7 @@ function quoteFormSheet(hid, q) {
 }
 /* the documents: the Master quotation filled with the boxes, and the MSA for RevPilot */
 async function openQuotePdf(q) {
-  const st = approvalState(q); if (!['none', 'approved'].includes(st)) { toast('The discount needs the manager\'s approval before the quotation PDF'); return; }
+  const st = approvalState(q); if (!['none', 'approved'].includes(st) && !Auth.isProvider()) { toast('Waiting for the manager\'s approval'); return; }
   const w = window.open('', '_blank');
   try { const {html, blockers} = await buildQuoteHTML(q); if (blockers && blockers.length) { if (w) w.close(); alert('Fix before generating:\n\n- ' + blockers.join('\n- ')); return; } if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(`Maha Hub Quotation - ${q.hotelName} - ${q.date || today()}.html`, html, 'text/html'); }
   catch (e) { if (w) w.close(); alert('The quotation could not be opened: ' + (e && e.message ? e.message : e)); }
@@ -3153,7 +3194,7 @@ function msaFromQuote(q) {
   return m;
 }
 async function openMsaPdf(q) {
-  const st = approvalState(q); if (!['none', 'approved'].includes(st)) { toast('The discount needs the manager\'s approval first'); return; }
+  const st = approvalState(q); if (!['none', 'approved'].includes(st) && !Auth.isProvider()) { toast('Waiting for the manager\'s approval'); return; }
   const w = window.open(''); try { const html = buildMsaHTML(msaFromQuote(q)); if (w) { w.document.open(); w.document.write(html); w.document.close(); } else download(`Maha Hub MSA - ${q.hotelName}.html`, html, 'text/html'); } catch (e) { if (w) w.close(); alert('The MSA could not be opened: ' + (e && e.message ? e.message : e)); }
 }
 Object.assign(ACTIONS, {
