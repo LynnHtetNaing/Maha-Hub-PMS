@@ -2360,7 +2360,7 @@ const NAVG = [
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
-  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Referral Rewards', '#pricing/referral', 'users']]},
+  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Referral Rewards', '#pricing/referral', 'users']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
@@ -3076,17 +3076,19 @@ Object.assign(ACTIONS, {
   mqStatus: el => mqStatusSheet(el.dataset.id, el.dataset.s),
 });
 
-/* ---------- Pricing & Commercial: Commercial Module and Referral Rewards ----------
-   Everyone sees both lists; only the provider (the company admin) can add or edit. Records: kind comodule and refplan (kept, never deleted: set Inactive). */
+/* ---------- Pricing & Commercial: Commercial Module (services and fees), Staff Credit and Referral Rewards ----------
+   Everyone sees the three lists; only the provider (the company admin) can add or edit. Records: comodule (services and fees to sell), staffcr (credit % of each staff member), refplan (kept, never deleted: set Inactive). */
 const PR = {
-  commercial: {kind: 'comodule', title: 'Commercial Module', one: 'staff commercial structure', cols: [['name', 'Staff name'], ['dept', 'Department'], ['pct', 'Credit %'], ['status', 'Status']],
+  commercial: {kind: 'comodule', title: 'Commercial Module', one: 'service', cols: [['name', 'Service'], ['fee', 'Fee'], ['unit', 'Unit'], ['status', 'Status'], ['detail', 'Detail']],
+    fields: [['name', 'Service', 'text', 1], ['fee', 'Fee', 'text', 1], ['unit', 'Unit', ['per / month', 'per / year', 'per / one time', '% per booking'], 1], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Detail', 'area']]},
+  staff: {kind: 'staffcr', title: 'Staff Credit', one: 'staff credit', cols: [['name', 'Staff name'], ['dept', 'Department'], ['pct', 'Credit %'], ['status', 'Status']],
     fields: [['name', 'Staff name', 'text', 1], ['dept', 'Department', ['Technician', 'Sales', 'Other'], 1], ['pct', 'Credit %', 'number', 1], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Detail', 'area']]},
   referral: {kind: 'refplan', title: 'Referral Rewards', one: 'reward plan', cols: [['name', 'Plan name'], ['type', 'Reward type'], ['value', 'Reward'], ['applies', 'Goes to'], ['from', 'Valid from'], ['to', 'Valid to'], ['status', 'Status']],
     fields: [['name', 'Plan name', 'text', 1], ['type', 'Reward type', ['Discount %', 'Discount THB', 'Free months', 'Promotion'], 1], ['value', 'Reward value', 'text', 1], ['applies', 'Goes to', ['Hotel PMS billing', 'Next invoice', 'Company Finance'], 1], ['from', 'Valid from', 'date'], ['to', 'Valid to', 'date'], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Conditions', 'area']]},
 };
 const prReward = p => p.type === 'Discount %' ? p.value + '% discount' : p.type === 'Discount THB' ? p.value + ' THB discount' : p.type === 'Free months' ? p.value + ' free month(s)' : (p.value || 'Promotion');
 function vPricing(id) {
-  const key = id === 'referral' ? 'referral' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
+  const key = id === 'referral' ? 'referral' : id === 'staff' ? 'staff' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
   view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="fu-sub"><b>${c.title}</b> information</div>
    <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${c.cols.map(x => `<th>${x[1]}</th>`).join('')}${adm ? '<th>Action</th>' : ''}</tr></thead><tbody id="prbody"></tbody></table></div>`;
@@ -3109,7 +3111,7 @@ function prSheet(key, id) {
     root.classList.add('wide');
     $('#pr_save', root).onclick = async () => {
       const v = {}; $$('[data-pf]', root).forEach(e => v[e.dataset.pf] = (e.value || '').trim());
-      if (key === 'commercial') { if (isNaN(parseFloat(v.pct)) || parseFloat(v.pct) < 0) { toast('Credit % is required'); return; } v.pct = parseFloat(v.pct); if (K('comodule').some(x => x.id !== (r || {}).id && norm(x.name) === norm(v.name))) { toast('This staff member is already in the list: edit that row'); return; } }
+      if (key === 'staff') { if (isNaN(parseFloat(v.pct)) || parseFloat(v.pct) < 0) { toast('Credit % is required'); return; } v.pct = parseFloat(v.pct); if (K('staffcr').some(x => x.id !== (r || {}).id && norm(x.name) === norm(v.name))) { toast('This staff member is already in the list: edit that row'); return; } }
       const m = c.fields.find(f => f[3] && !v[f[0]]); if (m) { toast(m[1] + ' is required'); return; }
       if (v.from && v.to && v.to < v.from) { toast('Valid to is before Valid from'); return; }
       await save({...(r || {}), ...v, id: r ? r.id : uid(), kind: c.kind, updatedBy: Auth.who() || ''}); closeSheet(); toast('Saved'); paintPr(key);
@@ -3420,8 +3422,8 @@ function actSystems(q) {
   if (quoteIsNew(q)) { const on = (q.items || []).filter(i => i.on).map(i => i.id); return ACT_SYS.filter(s => s[2].some(id => on.includes(id))).map(s => s[0]); }
   const names = qCompute(q).names.join(' | '); return ACT_SYS.filter(s => s[3].test(names)).map(s => s[0]);
 }
-const actPctOf = name => { const r = K('comodule').find(x => x.name === name && x.status !== 'Inactive'); return r && r.pct !== undefined && r.pct !== '' ? r.pct : ''; };   /* the credit % of a staff member: set once in Pricing & Commercial > Commercial Module, then shown and frozen in Setup activation */
-const actTechs = () => [...new Set(K('comodule').filter(r => r.dept === 'Technician' && r.status !== 'Inactive').map(r => r.name).filter(Boolean))].sort();
+const actPctOf = name => { const r = K('staffcr').find(x => x.name === name && x.status !== 'Inactive'); return r && r.pct !== undefined && r.pct !== '' ? r.pct : ''; };   /* the credit % of a staff member: set once in Pricing & Commercial > Staff Credit, then shown and frozen in Setup activation */
+const actTechs = () => [...new Set(K('staffcr').filter(r => r.dept === 'Technician' && r.status !== 'Inactive').map(r => r.name).filter(Boolean))].sort();
 const quoteForHotel = hid => { const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '')); return qs.filter(q => q.status === 'Accepted').pop() || qs.pop() || null; };
 const actProducts = a => ACT_SYS.filter(s => a.sys && s[0] in a.sys).map(s => s[1].replace(' System', '')).join(', ');
 function vActivations(id) {
