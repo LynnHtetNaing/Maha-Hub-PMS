@@ -384,6 +384,19 @@ input:not([type=checkbox]):not([type=radio]),select,textarea{background:#ffffff}
 .au-go{min-height:50px;font-size:16px;margin-top:6px}.au-link{min-height:44px;font-size:14.5px}
 .au-chk{font-size:14px}.au-err{font-size:14px}
 @media (max-width:560px){.au-box{padding:30px 22px 28px}.au-full{margin-left:0}}
+/* ---------- Page = the title with its icon on the page, the content in one box layer (as in the reference) ---------- */
+:root{--font:Inter,"Noto Sans","Noto Sans Thai","Noto Sans Myanmar",Tahoma,system-ui,sans-serif}
+body{font-family:var(--font)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+.top>div:first-child{flex:1 1 auto!important;min-width:0}
+.top h1{background:none!important;color:var(--ink)!important;border:0!important;text-transform:none!important;font:400 26px/1.2 var(--font)!important;letter-spacing:0!important;padding:0!important;display:flex;align-items:center;gap:12px}
+.top h1 .pgi{display:inline-grid;place-items:center;color:var(--a1);flex:none}.top h1 .pgi svg{width:28px;height:28px}
+.top p{margin:4px 0 0 40px;font-size:13px}
+.pagebox{background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--box-shadow);padding:18px 20px}
+.pagebox .list,.pagebox .panel,.pagebox .pipe,.pagebox .kpi,.pagebox .card,.pagebox .tablewrap{box-shadow:none;background:#ffffff}
+.pagebox>h2:first-child{margin-top:0}
+.mit .mi{width:16px;height:16px;opacity:.75}.mit.on .mi{opacity:1}
+@media (max-width:700px){.pagebox{padding:14px 12px}.top h1{font-size:22px}.top h1 .pgi svg{width:24px;height:24px}.top p{margin-left:0}}
 </style>
 </head>
 <body>
@@ -2125,12 +2138,12 @@ Object.assign(ICON, {
 });
 const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
-  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels'], ['Add new hotel', 'act:newHotel'], ['Database log', '#dblog'], ['Upload database', 'act:importCSV'], ['Agent list', '#agents'], ['Add new agent', 'act:newAgent']]},
-  {g:'Follow up', i:'today', items:[['Latest follow up', '#followup']]},
-  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', 'act:newMeeting'], ['Meeting status', '#meetings'], ['Manage quotation', '#quotes'], ['Pending', '#quotes/pending'], ['Waiting for approval', '#quotes/waiting']]},
-  {g:'Activation', i:'more', items:[['List of activation', '#activations'], ['Setup activation', 'act:newActivation']]},
-  {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment'], ['Number of signed contract', '#kpi/signed'], ['Number of activation', '#kpi/activation']]},
-  {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews']]},
+  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log', '#dblog', 'log'], ['Upload database', 'act:importCSV', 'upload'], ['Agent list', '#agents', 'users'], ['Add new agent', 'act:newAgent', 'userplus']]},
+  {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
+  {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', 'act:newMeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
+  {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
+  {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
+  {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
   ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
 ];
 const NAVOPEN = (() => { try { return JSON.parse(localStorage.getItem('maha.crm.nav') || '{}') || {}; } catch { return {}; } })();
@@ -2141,7 +2154,7 @@ function drawRail(cur) {
     if (!n.g) return `<div class="mg"><a class="mgb${cur === n[0] ? ' on' : ''}" href="#${n[0]}" title="${esc(n[1])}">${mi(n[0])}<span>${esc(n[1])}</span></a></div>`;
     if (n.items.some(x => x[1] === h)) NAVOPEN[n.g] = true;
     return `<div class="mg${NAVOPEN[n.g] ? ' open' : ''}" data-gt="${esc(n.g)}"><button type="button" class="mgb" data-g="${esc(n.g)}" title="${esc(n.g)}">${mi(n.i)}<span>${esc(n.g)}</span>${mi('chev', 'car')}</button>
-     <div class="mgi">${n.items.map(([l, x]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${esc(l)}</button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${esc(l)}</a>`).join('')}</div></div>`;
+     <div class="mgi">${n.items.map(([l, x, k]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${mi(k || 'chev')}<span>${esc(l)}</span></button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${mi(k || 'chev')}<span>${esc(l)}</span></a>`).join('')}</div></div>`;
   }).join('');
 }
 
@@ -2373,6 +2386,18 @@ Object.assign(ICON, {
   right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>',
   menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
 });
+Object.assign(ICON, {
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .7 3.5 2.6 3.5 5.5"/></svg>',
+  userplus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M19 8v6M16 11h6"/></svg>',
+  log:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
+  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1.5 1.5 0 0 1-1.6 1.5C10 20.5 3.5 14 3.5 5.6A1.5 1.5 0 0 1 5 4z"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>',
+  hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
+});
+const PAGE_ICON = {dashboard:'dashboard', today:'today', hotels:'hotels', hotel:'hotels', agents:'users', dblog:'log', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
@@ -2382,7 +2407,18 @@ function crumb(cur) {
   const h1 = $('#view h1'), t = title || (h1 ? h1.textContent.replace(/\s+/g, ' ').trim() : '');
   const c = $('#mcrumb'); if (c) c.innerHTML = 'Workspace' + (grp ? ' / ' + esc(grp) : '') + (t ? ' / <b>' + esc(t) + '</b>' : '');
 }
+function pageFrame() {
+  const v = $('#view'); if (!v || v.querySelector(':scope > .pagebox')) return;
+  const top = v.querySelector(':scope > .top'); if (!top) return;
+  const box = document.createElement('div'); box.className = 'pagebox';
+  let n = top.nextSibling; while (n) { const nx = n.nextSibling; box.appendChild(n); n = nx; }
+  v.appendChild(box);
+  const h = top.querySelector('h1');
+  if (h && !h.querySelector('.pgi')) { const r = (location.hash.slice(1) || 'dashboard').split('/')[0]; h.insertAdjacentHTML('afterbegin', '<span class="pgi">' + (ICON[PAGE_ICON[r] || r] || ICON.more) + '</span>'); }
+}
 function shellInit() {
+  { const v = $('#view'), d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');   /* every page that fills the view is framed at once (the caller can still focus its fields) */
+    Object.defineProperty(v, 'innerHTML', {configurable: true, get() { return d.get.call(this); }, set(h) { d.set.call(this, h); pageFrame(); }}); }
   const sh = $('#mshell'); if (!sh) return;
   if (msbSlim()) sh.classList.add('slim');
   const paintTog = () => { $('#msbTog').innerHTML = ICON[sh.classList.contains('slim') ? 'right' : 'left']; }; paintTog();
