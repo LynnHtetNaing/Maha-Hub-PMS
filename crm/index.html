@@ -3557,56 +3557,67 @@ Object.assign(ACTIONS, {
 });
 
 /* ----- KPI: appointments (target 20 a month), signed contracts, activations ----- */
-/* ---------- KPI: Number of appointment (a meeting counts once it is marked Completed in Meeting status) ---------- */
+/* ---------- KPI pages: Number of appointment / signed contract / activation ----------
+   One table per person (every person of the team shows, a new user shows by itself), months Jan-Dec, a row per type and a Total; a click on a number opens the list behind it.
+   Appointment = a meeting marked Completed (by meeting date); signed contract = a quotation signed in Manage Quotation (by sign date, for the sale person of the quotation);
+   activation = an activation set to Live (by activation date, for the technician of Setup by). Everybody can see all the tables, so the team can compare. */
 const KPI_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const KPI_ROWS = [['', 'No specify type'], ['Sales Call', 'Sales call'], ['Guest Contact Us', 'Guest contact us'], ['Customer Referral', 'Customer referral']];
-const kpiDone = () => meetActs().filter(a => meetSt(a) === 'Completed' && /^\d{4}-\d\d/.test(a.date || ''));
-function vKpiAppt() {
-  const all = kpiDone(), thisY = String(new Date().getFullYear()), years = [...new Set(all.map(a => a.date.slice(0, 4)).concat(thisY))].sort().reverse();
-  const y = UI.kpiY = (UI.kpiY && years.includes(UI.kpiY)) ? UI.kpiY : thisY;
-  view().innerHTML = `<div class="top"><div><h1>Number of appointment</h1></div></div>
+const KPI_LEAD = [['', 'No specify type'], ['Sales Call', 'Sales call'], ['Guest Contact Us', 'Guest contact us'], ['Customer Referral', 'Customer referral']];
+const leadOfHotel = hid => { const m = meetActs().filter(a => a.hotelId === hid && a.meetLead).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]; return m ? m.meetLead : ''; };
+const quoteSignDate = q => (q.signInfo && q.signInfo.signDate) || q.date || '';
+const KPI = {
+  appointment: {title: 'Number of appointment', rows: KPI_LEAD, items: () => meetActs().filter(a => meetSt(a) === 'Completed'), date: a => a.date, who: a => a.owner, inRow: (a, k) => (a.meetLead || '') === k,
+    head: ['Create date', 'Meeting date', 'Meeting time', 'Hotel name', 'Contact person name', 'Description'],
+    cells: a => [meetDmy((a.created || '').slice(0, 10)), meetDmy(a.date), a.time || '', hotelName(a.hotelId), a.contactName || '', a.summary || ''], left: [3, 5]},
+  signed: {title: 'Number of signed contract', rows: KPI_LEAD, items: () => K('quote').filter(q => q.status === 'Accepted'), date: quoteSignDate, who: q => q.forSale || q.owner, inRow: (q, k) => leadOfHotel(q.hotelId) === k,
+    head: ['Sign date', 'Quotation date', 'Quotation No.', 'Hotel name', 'Price', 'Sign contact by'],
+    cells: q => [meetDmy(quoteSignDate(q)), meetDmy(q.date), q.no || '', q.hotelName || hotelName(q.hotelId), mqPrice(q), (q.signInfo && q.signInfo.by) || ''], left: [3]},
+  activation: {title: 'Number of activation', rows: ACT_SYS.map(s => [s[0], s[1].replace(' System', '')]), items: () => K('activation').filter(a => a.status === 'Live'), date: a => a.date, who: a => a.techBy || a.owner, inRow: (a, k) => !!(a.sys && k in a.sys),
+    head: ['Activation date', 'Hotel name', 'Setup by', 'Product', 'Credit %', 'Questionnaire send / back'],
+    cells: a => [meetDmy(a.date), hotelName(a.hotelId), a.techBy || '', actProducts(a), a.credit === undefined || a.credit === '' ? '' : a.credit + ' %', [a.qSend ? meetDmy(a.qSend) : '', a.qBack ? meetDmy(a.qBack) : ''].filter(Boolean).join(' / ')], left: [1, 3]},
+};
+const kpiRecs = c => c.items().filter(r => /^\d{4}-\d\d/.test(c.date(r) || ''));
+const kpiKey = s => String(s || '').trim().toLowerCase() || '(no name)';
+function kpiPeople() {
+  const seen = new Map(); const add = n => { n = String(n || '').trim(); if (n && !seen.has(kpiKey(n))) seen.set(kpiKey(n), n); };
+  K('staffcr').filter(r => r.status !== 'Inactive').forEach(r => add(r.name));
+  [...K('act'), ...K('quote'), ...K('activation')].forEach(r => { add(r.owner); add(r.forSale); add(r.techBy); });
+  R.filter(r => r.kind === 'ulog').forEach(r => add(r.user));
+  add(Auth.who());
+  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+}
+function vKpiPage(which) {
+  const c = KPI[which], all = kpiRecs(c), thisY = String(new Date().getFullYear()), years = [...new Set(all.map(a => c.date(a).slice(0, 4)).concat(thisY))].sort().reverse();
+  const f = UI.kpiY = UI.kpiY || {}, y = f[which] = (f[which] && years.includes(f[which])) ? f[which] : thisY;
+  view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div></div>
    <div class="fu-form" style="grid-template-columns:130px minmax(0,1fr)"><label for="kp_y">Year :</label><div><select id="kp_y" style="max-width:520px">${years.map(v => `<option ${v === y ? 'selected' : ''}>${v}</option>`).join('')}</select></div></div>
-   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="kpiSearch">${ICON.search}Search</button></div>
-   <div class="fu-sub" style="margin-top:26px"><b>Number of appointment</b> information</div><div id="kpbody"></div>`;
-  paintKpiAppt();
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="kpiSearch" data-w="${which}">${ICON.search}Search</button></div>
+   <div class="fu-sub" style="margin-top:26px"><b>${c.title}</b> information</div><div id="kpbody"></div>`;
+  paintKpi(which);
 }
-function paintKpiAppt() {
-  const box = $('#kpbody'); if (!box) return; const y = UI.kpiY, rows = kpiDone().filter(a => a.date.slice(0, 4) === y);
-  const people = [...new Set(rows.map(a => a.owner || '(No name)'))].sort((a, b) => a.localeCompare(b));
-  box.innerHTML = people.length ? people.map(p => {
-    const mine = rows.filter(a => (a.owner || '(No name)') === p), cnt = (lead, m) => mine.filter(a => (a.meetLead || '') === lead && +a.date.slice(5, 7) === m + 1).length;
-    const cell = (n, lead, m) => n ? `<td><a href="#kpi/appointment" class="kp-n" data-act="kpiOpen" data-who="${esc(p)}" data-lead="${esc(lead)}" data-m="${m}">${n}</a></td>` : '<td>0</td>';
+function paintKpi(which) {
+  const box = $('#kpbody'); if (!box) return; const c = KPI[which], y = (UI.kpiY || {})[which], rows = kpiRecs(c).filter(a => c.date(a).slice(0, 4) === y);
+  const people = kpiPeople(), noName = rows.some(a => !String(c.who(a) || '').trim());
+  if (noName) people.push('(No name)');
+  const mine = p => rows.filter(a => kpiKey(c.who(a)) === kpiKey(p));
+  const num = (n, p, k, m, bold) => n ? `<td><a href="#kpi/${which}" class="kp-n" data-act="kpiOpen" data-w="${which}" data-who="${esc(p)}" data-row="${esc(k)}" data-m="${m}">${bold ? `<b>${n}</b>` : n}</a></td>` : `<td>${bold ? '<b>0</b>' : '0'}</td>`;
+  box.innerHTML = people.map(p => { const my = mine(p), inM = m => my.filter(a => +c.date(a).slice(5, 7) === m + 1);
     return `<h3 class="kp-p">${esc(p)}</h3><div class="tablewrap fu-tw kp-w"><table class="fu-tb dl-tb kp-t"><thead><tr><th></th>${KPI_MON.map(m => `<th>${m}</th>`).join('')}</tr></thead><tbody>
-     ${KPI_ROWS.map(([k, l]) => `<tr><td class="kp-l">${l}</td>${KPI_MON.map((_, m) => cell(cnt(k, m), k, m)).join('')}</tr>`).join('')}
-     <tr class="kp-tot"><td class="kp-l"><b>Total</b></td>${KPI_MON.map((_, m) => { const n = mine.filter(a => +a.date.slice(5, 7) === m + 1).length; return n ? `<td><a href="#kpi/appointment" class="kp-n" data-act="kpiOpen" data-who="${esc(p)}" data-lead="*" data-m="${m}"><b>${n}</b></a></td>` : '<td><b>0</b></td>'; }).join('')}</tr></tbody></table></div>`;
-  }).join('') : '<div class="empty">No appointment completed in ' + esc(y) + '.</div>';
+     ${c.rows.map(([k, l]) => `<tr><td class="kp-l">${esc(l)}</td>${KPI_MON.map((_, m) => num(inM(m).filter(a => c.inRow(a, k)).length, p, k, m)).join('')}</tr>`).join('')}
+     <tr class="kp-tot"><td class="kp-l"><b>Total</b></td>${KPI_MON.map((_, m) => num(inM(m).length, p, '*', m, true)).join('')}</tr></tbody></table></div>`; }).join('');
 }
-function kpiSheet(who, lead, m) {
-  const y = UI.kpiY, rows = kpiDone().filter(a => a.date.slice(0, 4) === y && +a.date.slice(5, 7) === m + 1 && (a.owner || '(No name)') === who && (lead === '*' || (a.meetLead || '') === lead)).sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
-  openSheet(`${fuHead('Appointment information')}<div class="tablewrap fu-tw" style="margin-top:12px"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Create date</th><th>Meeting date</th><th>Meeting time</th><th>Hotel name</th><th>Contact person name</th><th>Description</th></tr></thead><tbody>
-   ${rows.map((a, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy((a.created || '').slice(0, 10)))}</td><td class="nw">${esc(meetDmy(a.date))}</td><td>${esc(a.time || '')}</td><td class="l">${esc(hotelName(a.hotelId))}</td><td>${esc(a.contactName || '')}</td><td class="l">${esc(a.summary || '')}</td></tr>`).join('')}</tbody></table></div>`, root => root.classList.add('wide'));
+function kpiSheet(which, who, row, m) {
+  const c = KPI[which], y = UI.kpiY[which];
+  const rows = kpiRecs(c).filter(a => c.date(a).slice(0, 4) === y && +c.date(a).slice(5, 7) === m + 1 && kpiKey(c.who(a)) === kpiKey(who) && (row === '*' || c.inRow(a, row))).sort((a, b) => c.date(a).localeCompare(c.date(b)));
+  openSheet(`${fuHead(which === 'appointment' ? 'Appointment information' : which === 'signed' ? 'Signed contract information' : 'Activation information')}<div class="tablewrap fu-tw" style="margin-top:12px"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${c.head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>
+   ${rows.map((a, i) => `<tr><td>${i + 1}</td>${c.cells(a).map((v, k) => `<td class="${c.left.includes(k) ? 'l' : 'nw'}">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`, root => root.classList.add('wide'));
 }
 Object.assign(ACTIONS, {
-  kpiSearch: () => { UI.kpiY = $('#kp_y').value; paintKpiAppt(); },
-  kpiOpen: el => kpiSheet(el.dataset.who, el.dataset.lead, +el.dataset.m),
+  kpiSearch: el => { UI.kpiY[el.dataset.w] = $('#kp_y').value; paintKpi(el.dataset.w); },
+  kpiOpen: el => kpiSheet(el.dataset.w, el.dataset.who, el.dataset.row, +el.dataset.m),
 });
 function vKpi(which) {
-  which = ['appointment', 'signed', 'activation'].includes(which) ? which : 'appointment';
-  if (which === 'appointment') return vKpiAppt();
-  const months = []; const d0 = new Date(); for (let i = 5; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
-  const src = {
-    appointment: meetActs().filter(a => meetSt(a) === 'Completed').map(a => a.date),
-    signed: K('msa').filter(m => m.status === 'Signed').map(m => m.date),
-    activation: K('activation').filter(a => a.status === 'Live').map(a => a.date),
-  }[which];
-  const n = m => src.filter(x => (x || '').slice(0, 7) === m).length, vals = months.map(n), max = Math.max(...vals, which === 'appointment' ? 20 : 1);
-  const cur = vals[vals.length - 1], target = which === 'appointment' ? 20 : 0;
-  const title = {appointment:'Number of appointment', signed:'Number of signed contract', activation:'Number of activation'}[which];
-  const tabs = [['appointment', 'Appointments'], ['signed', 'Signed contracts'], ['activation', 'Activations']];
-  view().innerHTML = `<div class="top"><div><h1>${title}</h1><p>${target ? `Target: ${target} / month` : 'Per month'}</p></div></div>
-   <div class="kpis"><div class="kpi"><div class="v">${cur}${target ? ' / ' + target : ''}</div><div class="l">This month</div></div><div class="kpi"><div class="v">${src.length}</div><div class="l">All time</div></div></div>
-   <h2>Last 6 months</h2><div class="list">${months.map((m, i) => `<div class="row"><div class="main"><div class="t">${new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', {month:'long', year:'numeric'})}</div>
-    <div style="margin-top:6px;height:10px;border-radius:5px;background:var(--line,#dfe6e2);overflow:hidden"><div style="height:100%;width:${Math.round(vals[i] / max * 100)}%;background:${target && vals[i] >= target ? '#1F8A4C' : 'var(--accent,#176B50)'}"></div></div></div><div class="end"><b>${vals[i]}</b></div></div>`).join('')}</div>`;
+  return vKpiPage(['appointment', 'signed', 'activation'].includes(which) ? which : 'appointment');
 }
 
 /* ----- Enewletter: write one message, pick who gets it, send from your own email program ----- */
