@@ -560,6 +560,7 @@ input,select,textarea{box-sizing:border-box}
 .up-f label{display:block;font-weight:700;margin-bottom:6px}.up-f select{width:100%}
 .up-sum{margin:0 0 12px;font-size:13.5px;padding:10px 14px;border-radius:10px;background:#f1f6f2;border:1px solid #d6e5da}
 .up-err{color:#b3261e;font-weight:600;margin:0 0 12px}
+.ptclosed td{color:#8a949c}
 </style>
 </head>
 <body>
@@ -881,7 +882,6 @@ const HOTEL_FIELDS = [
  {k:'gha', label:'Direct rate on Google (GHA)', type:'select', opts:['','Yes','No','Not found']},
  {k:'model', label:'Deal / commercial model', wide:1},
  {k:'source', label:'Lead source'},
- {k:'agent', label:'Agent'},
  {k:'tags', label:'Tags (comma separated)'},
  {k:'notes', label:'Notes', type:'textarea', wide:1},
 ];
@@ -1667,16 +1667,16 @@ const NAV = [['dashboard','Dashboard'],['today','Today'],['hotels','Hotels'],['q
 function drawNav(cur) {
   drawRail(cur);
 }
-const SECTION_OF = {dashboard:'dashboard', dblog:'hotels', agents:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'today', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 const NAVS = {cur: '', stack: [], back: false};
 function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
-  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'upload', 'deleted', 'userlog', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload,  dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload,  dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -2294,7 +2294,7 @@ Object.assign(ICON, {
 });
 const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
-  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Deleted database', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Agent list', '#agents', 'users'], ['Add new agent', 'act:newAgent', 'userplus']]},
+  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Deleted database', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', 'act:newMeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
@@ -2314,31 +2314,71 @@ function drawRail(cur) {
   }).join('');
 }
 
-/* ----- Agents (people who bring hotels) ----- */
-const AGENT_FIELDS = [
-  {k:'name', label:'Agent name', req:1, wide:1}, {k:'company', label:'Company'}, {k:'area', label:'Area'},
-  {k:'phone', label:'Phone', type:'tel'}, {k:'email', label:'Email', type:'email'}, {k:'line', label:'LINE ID'},
-  {k:'commission', label:'Commission / terms', wide:1}, {k:'notes', label:'Notes', type:'textarea', wide:1},
-];
-function agentSheet(a) {
-  const isNew = !a; a = a || {};
-  openSheet(`${sheetHead(isNew ? 'Add new agent' : 'Edit agent')}<form class="grid two">${AGENT_FIELDS.map(f => field(f, a[f.k])).join('')}</form>
-   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="gsave">${isNew ? 'Add agent' : 'Save changes'}</button></div>`, root => {
-    const del = $('#gdel', root); if (del) del.onclick = () => { if (confirm('Delete this agent?')) { remove(a.id); closeSheet(); rerender(); toast('Deleted'); } };
-    $('#gsave', root).onclick = async () => {
-      const v = readForm(root, AGENT_FIELDS); if (!v.name) { toast('Agent name is required'); return; }
-      await save({...a, ...v, id: a.id || uid(), kind:'agent'}); closeSheet(); toast(isNew ? 'Agent added' : 'Saved'); if (location.hash === '#agents') rerender(); else location.hash = 'agents';
-    };
+/* ================= PARTNER / WHITE LABEL (replaces Agent) =================
+   A partner or white label is a company that brings hotels. Partner list: every partner like the Hotel list (company, registration number, address, location, systems, contacts).
+   Its name opens the hotels of that partner (the Hotel list table, with Add new hotel above); a hotel gets its partner in More details. */
+const partnerName = id => (byId(id) || {}).name || '';
+const ctOf = (r, acc) => { const cs = (r.contacts && r.contacts.length ? r.contacts : [{name: r.contact, position: r.contactTitle}]).filter(c => c && c.name); const isAcc = c => /account|financ/i.test(c.position || ''); const c = acc ? cs.find(isAcc) : cs.find(x => !isAcc(x)); return c ? c.name : ''; };
+function partnerForm(p, isNew) {
+  const contacts = (p.contacts && p.contacts.length ? p.contacts : [{}]).slice(); while (contacts.length < 2) contacts.push({});
+  const known = k => [...new Set(K('hotel').concat(K('partner')).map(x => x[k]).filter(Boolean).concat(['Maha'], p[k] ? [p[k]] : []))].sort();
+  const inp = (k, label, req, cls) => `<label class="f ${cls || ''}"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><input data-hf="${k}" value="${esc(p[k] ?? '')}"></label>`;
+  const sel = (k, label) => `<label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${known(k).map(v => `<option ${p[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
+  const cg = (c, i) => `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name" value="${esc(c.name || '')}"></label><label class="f"><span>Contact Position</span><input data-c="position" value="${esc(c.position || '')}"></label><label class="f"><span>Contact Email</span><input data-c="email" value="${esc(c.email || '')}"></label><label class="f"><span>Contact Phone</span><input data-c="phone" value="${esc(c.phone || '')}"></label></div>`;
+  return `<div class="hi">${inp('name', 'Company Name', 1, 'wide')}${inp('regNo', 'Company Registration number', 0, 'wide')}
+    <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(p.address || '')}</textarea></label>
+    <div class="hi-r2">${inp('area', 'Location')}${inp('country', 'Country')}</div>
+    <div class="hi-r2">${inp('phone', 'Phone')}${inp('website', 'Website')}</div>
+    <div class="hi-r2">${sel('pms', 'PMS')}${sel('cm', 'CM')}</div><div class="hi-r2">${sel('be', 'BE')}${sel('pvo', 'Virtual Offline Payment')}</div>
+    <div id="hiContacts">${contacts.map(cg).join('')}</div><div class="hi-add"><button type="button" class="btn info sm" data-act="hiAddContact">Add more contact</button></div>
+    <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(p.notes || '')}</textarea></label>
+    <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${p.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${p.closed ? 'checked' : ''}> Close</label></div></div></div>`;
+}
+function partnerFormBind(root, p, isNew, done) {
+  $('#hi_save', root).onclick = async () => {
+    const v = {}; $$('[data-hf]', root).forEach(e => v[e.dataset.hf] = (e.value || '').trim());
+    if (!v.name) { toast('Company Name is required'); return; }
+    if (isNew && K('partner').some(x => norm(x.name) === norm(v.name)) && !confirm(`"${v.name}" is already in the Partner list. Add another anyway?`)) return;
+    const cs = $$('[data-cg]', root).map(g => ({name: $('[data-c=name]', g).value.trim(), position: $('[data-c=position]', g).value.trim(), email: $('[data-c=email]', g).value.trim(), phone: $('[data-c=phone]', g).value.trim()})).filter(c => c.name || c.position || c.email || c.phone);
+    const c0 = cs[0] || {};
+    const rec = {...p, ...v, contacts: cs, contact: c0.name || '', contactTitle: c0.position || '', email: c0.email || '', closed: ($('[name=hi_st]:checked', root) || {}).value === 'close', id: p.id || uid(), kind: 'partner'};
+    await save(rec); done(rec);
+  };
+}
+function partnerSheet(p) {
+  openSheet(`${fuHead('Partner information for ' + p.name)}${partnerForm(p, false)}<div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="hi_save">Save</button></div>`, root => {
+    root.classList.add('wide'); partnerFormBind(root, p, false, () => { closeSheet(); toast('Saved'); rerender(); });
   });
 }
-function vAgents() {
-  const q = norm(UI.agentQ || ''); const all = K('agent').sort((a, b) => a.name.localeCompare(b.name));
-  const list = q ? all.filter(a => norm([a.name, a.company, a.area, a.phone, a.email].join(' ')).includes(q)) : all;
-  const nh = a => K('hotel').filter(h => norm(h.agent) === norm(a.name)).length;
-  view().innerHTML = `<div class="top"><div><h1>Agent list</h1><p>${all.length} agents</p></div><div class="actions"><button class="btn primary" data-act="newAgent">${ICON.plus}Add new agent</button></div></div>
-   <div class="toolbar"><div class="searchbar">${ICON.search}<input type="search" id="gq" placeholder="Name, company, area, phone…" value="${esc(UI.agentQ || '')}"></div></div>
-   ${list.length ? `<div class="list">${list.map(a => `<a class="row" href="#agents" data-act="editAgent" data-id="${a.id}"><div class="main"><div class="t">${esc(a.name)}</div><div class="s">${esc([a.company, a.area, a.phone].filter(Boolean).join(' · ')) || '&nbsp;'}</div></div><div class="end"><div>${nh(a)} hotels</div></div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No agents yet.<br><button class="btn primary" data-act="newAgent">Add new agent</button></div></div>'}`;
-  const gq = $('#gq'); gq.addEventListener('input', () => { UI.agentQ = gq.value; const p = gq.selectionStart; vAgents(); const n = $('#gq'); n.focus(); n.setSelectionRange(p, p); });
+function vPartnerNew() {
+  view().innerHTML = `<div class="top"><div><h1>Add new Partner / White Label</h1></div></div>${partnerForm({}, true)}
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" id="hi_save">${ICON.save}Save</button><button type="button" class="btn amber" data-act="partnerReset">${ICON.search}Reset</button></div>`;
+  partnerFormBind(view(), {}, true, rec => { toast('Partner added'); location.hash = 'partners'; });
+}
+function vPartners(id) {
+  if (id === 'new') return vPartnerNew();
+  if (id) return vPartnerHotels(id);
+  view().innerHTML = `<div class="top"><div><h1>Partner / White Label list</h1></div><div class="actions"><button type="button" class="btn primary" data-act="partnerNew">${ICON.plus}Add new partner</button></div></div>
+   <div class="fu-form dbf"><label for="pt_q">Company name :</label><div><input type="text" id="pt_q" value="${esc(UI.ptq || '')}"></div></div>
+   <div class="tablewrap fu-tw" style="margin-top:14px"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Company Name</th><th>Company Registration number</th><th>Address</th><th>Location</th><th>BE</th><th>CM</th><th>PMS</th><th>PVO</th><th>No. of hotels</th><th>Contact person Sales</th><th>Contact person Accounting</th><th>Latest updates</th></tr></thead><tbody id="ptbody"></tbody></table></div>`;
+  const paint = () => {
+    const q = norm(UI.ptq || ''), list = K('partner').filter(p => !q || norm(p.name).includes(q)).sort((a, b) => a.name.localeCompare(b.name)), hotels = K('hotel');
+    $('#ptbody').innerHTML = list.length ? list.map((p, i) => `<tr class="${p.closed ? 'ptclosed' : ''}"><td>${i + 1}</td><td class="l"><a href="#partners/${p.id}" class="dbname">${esc(p.name)}</a></td><td>${esc(p.regNo || '')}</td><td class="l adr">${esc(p.address || '')}</td><td class="l">${esc(p.area || '')}</td><td>${esc(p.be || '')}</td><td>${esc(p.cm || '')}</td><td>${esc(p.pms || '')}</td><td>${esc(p.pvo || '')}</td><td>${hotels.filter(h => h.partnerId === p.id).length}</td><td>${esc(ctOf(p, false))}</td><td>${esc(ctOf(p, true))}</td><td class="nw">${esc((p.updated || '').slice(0, 10))}</td></tr>`).join('') : '<tr><td colspan="13" class="empty">No partner yet. Use Add new partner.</td></tr>';
+  };
+  paint(); const q = $('#pt_q'); q.addEventListener('input', () => { UI.ptq = q.value; paint(); });
+}
+function vPartnerHotels(id) { const p = byId(id); if (!p || p.kind !== 'partner') { view().innerHTML = '<a class="back" href="#partners">‹ Partner / White Label list</a><div class="empty">This partner was not found.</div>'; return; } vDbCity('', '', id); }
+Object.assign(ACTIONS, {
+  partnerNew: () => { location.hash = 'partners/new'; },
+  partnerReset: () => vPartnerNew(),
+  partnerInfo: el => partnerSheet(byId(el.dataset.id)),
+});
+/* an old Agent becomes a Partner / White Label, and a hotel keeps its link by name */
+async function migrateAgents() {
+  const old = R.filter(r => r.kind === 'agent'); if (!old.length && !R.some(r => r.kind === 'hotel' && r.agent && !r.partnerId)) return;
+  for (const a of old) { a.kind = 'partner'; a.name = a.name || a.company || ''; if (a.company && a.company !== a.name) a.notes = [a.notes, 'Company: ' + a.company].filter(Boolean).join('\n'); delete a.company; await save(a); }
+  const ps = K('partner');
+  for (const h of R.filter(r => r.kind === 'hotel' && r.agent && !r.partnerId)) { const p = ps.find(x => norm(x.name) === norm(h.agent)); if (p) { h.partnerId = p.id; await save(h); } }
 }
 
 /* ----- Database log create: the hotels added to the database, by date and by person ----- */
@@ -2608,11 +2648,12 @@ function paintDb() {
   tb.innerHTML = rows.length ? rows.map(([c, n], i) => `<tr data-go="#hotels/${encodeURIComponent(UI.dbTab)}/${encodeURIComponent(c)}"><td class="c">${i + 1}</td><td class="l">${esc(c)}</td><td class="c">${props(n)}</td><td class="c">${ICON.down}</td></tr>`).join('') + `<tr class="dbtot"><td></td><td class="l">Total</td><td class="c">${props(total)}</td><td></td></tr>`
     : '<tr class="dbempty"><td colspan="4">No properties here.</td></tr>';
 }
-function vDbCity(country, city) {
-  const S = UI.dbc = (UI.dbc && UI.dbc.country === country && UI.dbc.city === city) ? UI.dbc : {country, city, loc: '', name: UI.dbq || '', sort: 'asc', limit: 100};
-  const inCity = K('hotel').filter(h => hCountry(h) === country && hCity(h) === city), locs = [...new Set(inCity.map(h => h.area).filter(Boolean))].sort();
-  view().innerHTML = `<a class="back" href="#hotels/${encodeURIComponent(country)}">‹ Database Hotel List</a>
-   <div class="top"><div><h1>Database Hotel List(${esc(city === '(No province)' ? 'No province' : city)})</h1></div><div class="actions"><button type="button" class="btn primary" data-act="dbAddHotel">${ICON.plus}Add new hotel</button></div></div>
+function vDbCity(country, city, partner) {
+  partner = partner || '';
+  const S = UI.dbc = (UI.dbc && UI.dbc.country === country && UI.dbc.city === city && (UI.dbc.partner || '') === partner) ? UI.dbc : {country, city, partner, loc: '', name: partner ? '' : UI.dbq || '', sort: 'asc', limit: 100};
+  const inCity = K('hotel').filter(h => partner ? h.partnerId === partner : hCountry(h) === country && hCity(h) === city), locs = [...new Set(inCity.map(h => h.area).filter(Boolean))].sort();
+  view().innerHTML = `<a class="back" href="${partner ? '#partners' : '#hotels/' + encodeURIComponent(country)}">‹ ${partner ? 'Partner / White Label list' : 'Database Hotel List'}</a>
+   <div class="top"><div><h1>${partner ? 'Partner / White Label(' + esc(partnerName(partner)) + ')' : 'Database Hotel List(' + esc(city === '(No province)' ? 'No province' : city) + ')'}</h1></div><div class="actions">${partner ? `<button type="button" class="btn" data-act="partnerInfo" data-id="${partner}">Partner details</button>` : ''}<button type="button" class="btn primary" data-act="dbAddHotel">${ICON.plus}Add new hotel</button></div></div>
    <div class="fu-form dbf"><label for="db_loc">Location :</label><div><select id="db_loc"><option value="">All</option>${locs.map(l => `<option ${S.loc === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
     <label for="db_name">Hotel name :</label><div><input type="text" id="db_name" value="${esc(S.name)}"></div></div>
    <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="dbSearch">${ICON.search}Search</button></div>
@@ -2622,7 +2663,7 @@ function vDbCity(country, city) {
 }
 function paintDbCity() {
   const S = UI.dbc, q = norm(S.name);
-  let list = K('hotel').filter(h => hCountry(h) === S.country && hCity(h) === S.city && (!S.loc || h.area === S.loc) && (!q || norm(h.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name) * (S.sort === 'asc' ? 1 : -1));
+  let list = K('hotel').filter(h => (S.partner ? h.partnerId === S.partner : hCountry(h) === S.country && hCity(h) === S.city) && (!S.loc || h.area === S.loc) && (!q || norm(h.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name) * (S.sort === 'asc' ? 1 : -1));
   const acts = K('act'), shown = list.slice(0, S.limit);
   const contactOf = (h, acc) => { const cs = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact, position: h.contactTitle}]).filter(c => c && c.name); const isAcc = c => /account|financ/i.test(c.position || ''); const c = acc ? cs.find(isAcc) : cs.find(x => !isAcc(x)); return c ? c.name : ''; };
   const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [scoreText(h) || h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
@@ -2693,6 +2734,8 @@ function hotelForm(h, isNew) {
   const dd = (k, label, opts, w, ph) => `<label class="f hi-c"><span>${label}</span><select data-hf="${k}" style="width:${w}">${ph ? '<option value="">' + ph + '</option>' : ''}${opts.map(o => `<option ${String(h[k] ?? '') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`;
   const tx = (k, label, w) => `<label class="f hi-c"><span>${label}</span><input data-hf="${k}" value="${esc(h[k] ?? '')}" style="width:${w}"></label>`;
   const fz = (label, v, w) => `<label class="f hi-c" title="Filled from the quotation once it is marked Signed"><span>${label}</span><input class="hi-fz" value="${esc(v || '')}" style="width:${w}" disabled></label>`;
+  const curP = h.partnerId || (K('partner').find(x => norm(x.name) === norm(h.agent)) || {}).id || '';
+  const partnerSelect = `<label class="f hi-c"><span>Partner / White Label</span><select data-hf="partnerId"><option value="">None</option>${K('partner').filter(x => !x.closed || x.id === curP).sort((a, b) => a.name.localeCompare(b.name)).map(x => `<option value="${x.id}" ${x.id === curP ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>`;
   return `<div class="hi">${inp('name', 'Hotel Name', 1, 'wide')}<div class="f wide"><span>Location</span><div class="cb"><input type="text" data-hf="area" autocomplete="off" placeholder="${isNew ? 'Type to find, then choose' : 'Choose or type the area'}" value="${esc(h.area || '')}"><div class="cbl" hidden></div></div></div>
     <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div>${inp('website', 'Website', 0, 'wide')}
     <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(h.address || '')}</textarea></label>
@@ -2707,7 +2750,7 @@ function hotelForm(h, isNew) {
       <label class="f hi-c"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}" style="width:7.5em"></select></label></div>
      <div class="hi-row">${tx('line', 'LINE ID', '13em')}${dd('managed', 'Managed by Maha Hub', ['No', 'Yes'], '7em')}</div>
      <div class="hi-row c3">${fz('Commercial model', h.dealModel, '15.5em')}${fz('Pricing', h.dealPrice, '10em')}${fz('Term', h.dealTerm, '7.5em')}</div>
-     <div class="hi-row">${fz('Lead source', h.source, '12.5em')}${tx('agent', 'Agent', '13em')}</div>
+     <div class="hi-row">${fz('Lead source', h.source, '12.5em')}${partnerSelect}</div>
      <div class="hi-row one">${tx('tags', 'Tags', '20em')}</div></details></div>`;
 }
 function hotelFormBind(root, h, isNew, done) {
@@ -2733,20 +2776,20 @@ function hotelSheet(h, pre) {
 }
 /* the Add new Hotel page: its own address (#hotels/new), the same boxes as the Property information */
 function vHotelNew(id) {
-  const q = new URLSearchParams((id || '').split('?')[1] || ''), h = hotelDefaults({country: q.get('country') ?? 'Thailand', city: q.get('city') || ''});
+  const q = new URLSearchParams((id || '').split('?')[1] || ''), h = hotelDefaults({country: q.get('country') ?? 'Thailand', city: q.get('city') || '', partnerId: q.get('partner') || ''}), fromPartner = q.get('partner') || '';
   view().innerHTML = `<div class="top"><div><h1>Add new Hotel</h1></div></div>${hotelForm(h, true)}
    <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" id="hi_save">${ICON.check}Save</button><button type="button" class="btn amber" data-act="hiReset" data-q="${esc((id || '').split('?')[1] || '')}">${ICON.search}Reset</button></div>`;
   { const d = $('.hi-more', view()), c = $('#hiContacts', view()); if (d && c) { d.open = true; d.classList.add('flat'); c.before(d); } }   /* the page shows More details open, above the contact persons */
-  hotelFormBind(view(), h, true, rec => { toast('Hotel added'); const c = hCountry(rec); location.hash = 'hotels/' + encodeURIComponent(c) + '/' + encodeURIComponent(hCity(rec)); });
+  hotelFormBind(view(), h, true, rec => { toast('Hotel added'); if (fromPartner) { location.hash = 'partners/' + fromPartner; return; } const c = hCountry(rec); location.hash = 'hotels/' + encodeURIComponent(c) + '/' + encodeURIComponent(hCity(rec)); });
 }
 
 Object.assign(ACTIONS, {
   pgBack: () => { const p = NAVS.stack.pop(); if (p) { NAVS.back = true; location.hash = p.replace(/^#/, ''); } },
   dbTab: el => { UI.dbTab = el.dataset.t; vDbList(''); },
   dbSearch: () => { const S = UI.dbc; S.loc = $('#db_loc').value; S.name = $('#db_name').value.trim(); S.limit = 100; paintDbCity(); },
-  dbSort: () => { UI.dbc.sort = UI.dbc.sort === 'asc' ? 'desc' : 'asc'; vDbCity(UI.dbc.country, UI.dbc.city); },
+  dbSort: () => { UI.dbc.sort = UI.dbc.sort === 'asc' ? 'desc' : 'asc'; vDbCity(UI.dbc.country, UI.dbc.city, UI.dbc.partner); },
   dbMore: () => { UI.dbc.limit += 200; paintDbCity(); },
-  dbAddHotel: () => { location.hash = 'hotels/new?country=' + encodeURIComponent(UI.dbc.country === 'Other' ? '' : UI.dbc.country) + '&city=' + encodeURIComponent(UI.dbc.city === '(No province)' ? '' : UI.dbc.city); },
+  dbAddHotel: () => { if (UI.dbc.partner) { location.hash = 'hotels/new?partner=' + UI.dbc.partner; return; } location.hash = 'hotels/new?country=' + encodeURIComponent(UI.dbc.country === 'Other' ? '' : UI.dbc.country) + '&city=' + encodeURIComponent(UI.dbc.city === '(No province)' ? '' : UI.dbc.city); },
   hiReset: el => vHotelNew('new' + (el.dataset.q ? '?' + el.dataset.q : '')),
   hotelInfo: el => hotelSheet(byId(el.dataset.id)),
   hiAddContact: () => { const box = $('#hiContacts'); const i = box.children.length; box.insertAdjacentHTML('beforeend', `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name"></label><label class="f"><span>Contact Position</span><input data-c="position"></label><label class="f"><span>Contact Email</span><input data-c="email"></label><label class="f"><span>Contact Phone</span><input data-c="phone"></label></div>`); },
@@ -2903,8 +2946,6 @@ function vEnews() {
 }
 
 Object.assign(ACTIONS, {
-  newAgent: () => agentSheet(),
-  editAgent: el => agentSheet(byId(el.dataset.id)),
   newMeeting: el => actSheet(null, el && el.dataset ? el.dataset.hid : '', 'Meeting'),
   meetf: el => { UI.meetSt = el.dataset.s; vMeetings(); },
   newActivation: el => activationSheet(null, el && el.dataset ? el.dataset.hid : ''),
@@ -3007,7 +3048,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', agents:'users', dblog:'gear', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
@@ -3395,6 +3436,7 @@ const Cloud = (() => {
   const inCloud = await Cloud.first();
   if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
   else if (byId('meta') && !inCloud) Cloud.uploadAll();
+  await migrateAgents();
   applyTheme(); shellInit(); route(); Cloud.start();
   Profile.start();
   logUser('Opened CRM'); Auth.canApprove().then(() => { try { drawRail((location.hash.slice(1) || 'dashboard').split('/')[0]); } catch {} });
