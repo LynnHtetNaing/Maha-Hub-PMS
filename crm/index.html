@@ -456,6 +456,18 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 .fu-tb th:last-child,.fu-tb td:last-child{border-right:0}.fu-tb tbody tr:last-child td{border-bottom:0}
 .msb-me,.msb-prop,.msearch,.mopen{border-radius:12px}
 table{border-radius:12px}
+/* ---------- The PMS calendar ---------- */
+.dpk{display:flex;width:100%;max-width:230px;position:relative}
+.dpk input.dpt{flex:1;min-width:0;width:auto;max-width:none;border-radius:9px 0 0 9px;border-right:0}
+.dpk .dpb{width:38px;flex:none;border:1px solid var(--line);border-left:0;border-radius:0 9px 9px 0;background:#f1ece2;color:#34495a;display:grid;place-items:center;cursor:pointer;padding:0}.dpk .dpb:hover{background:#e7dfd0}.dpk .dpb:disabled{opacity:.5;cursor:default}
+.dpk .dpb svg{width:16px;height:16px}
+.fu-pr .dpk{max-width:200px}
+.rgcal{position:fixed;z-index:5000;width:292px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px rgba(60,40,10,.30);padding:12px}
+.rgch{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:6px}.rgch button{border:0;background:transparent;color:inherit;font-size:20px;cursor:pointer;padding:0 10px}
+.rgcg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}.rgcg span{font-size:10.5px;color:var(--ink-2)}
+.rgcg button{height:30px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}.rgcg button:hover{background:color-mix(in srgb,var(--a1) 14%,transparent)}
+.rgcg button.td{box-shadow:inset 0 0 0 1.5px var(--a1)}.rgcg button.e{background:var(--a1);color:#fff;font-weight:700}
+.rgft{display:flex;justify-content:center;margin-top:8px}.rgft button{border:0;background:transparent;color:var(--a1);font:700 12.5px var(--font);cursor:pointer}
 </style>
 </head>
 <body>
@@ -843,6 +855,7 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.ad
 function openSheet(html, mount) {
   const s = $('#sheet'); $('#sheet-body').innerHTML = html; s.hidden = false; document.body.style.overflow = 'hidden';
   const f = $('#sheet-body input, #sheet-body select, #sheet-body textarea'); if (f && matchMedia('(min-width:760px)').matches) f.focus();
+  enhanceDates($('#sheet-body'));
   mount && mount($('#sheet-body'));
 }
 function closeSheet() { $('#sheet').hidden = true; document.body.style.overflow = ''; $('#sheet-body').innerHTML = ''; }
@@ -2611,6 +2624,55 @@ function crumb(cur) {
   const h1 = $('#view h1'), t = title || (h1 ? h1.textContent.replace(/\s+/g, ' ').trim() : '');
   const c = $('#mcrumb'); if (c) c.innerHTML = 'Workspace' + (grp ? ' / ' + esc(grp) : '') + (t ? ' / <b>' + esc(t) + '</b>' : '');
 }
+/* ================= DATE FIELDS (the same calendar as Maha PMS) =================
+   Every date field shows dd/mm/yyyy that can be typed, and a calendar button that opens the PMS day picker (month grid, previous / next month).
+   The real date input stays hidden under it and keeps the ISO value, so every form reads and writes dates as before. */
+const isoToDmy = iso => /^\d{4}-\d\d-\d\d$/.test(iso || '') ? iso.slice(8) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '';
+function dmyToIso(s) {
+  s = String(s || '').trim(); if (!s) return '';
+  const m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/);
+  if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3], dt = new Date(+y, +m[2] - 1, +m[1]); return dt.getFullYear() === +y && dt.getMonth() === +m[2] - 1 && dt.getDate() === +m[1] ? y + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : null; }
+  return /^\d{4}-\d\d-\d\d$/.test(s) ? s : null;
+}
+function dayPicker(btn, startIso, done, selIso) {
+  const old = document.getElementById('dayCal'); if (old) { old.remove(); return; }
+  const c = document.createElement('div'); c.className = 'rgcal'; c.id = 'dayCal'; document.body.appendChild(c);
+  const r = btn.getBoundingClientRect();
+  c.style.left = Math.max(8, Math.min(r.left, innerWidth - 304)) + 'px'; c.style.top = (r.bottom + 330 > innerHeight && r.top > 340 ? r.top - 336 : r.bottom + 6) + 'px';
+  let month = (startIso || today()).slice(0, 8) + '01';
+  const close = () => { c.remove(); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
+  const away = e => { if (!c.contains(e.target) && !btn.contains(e.target)) close(); }, key = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true);
+  const mk = (y, m) => y + '-' + String(m + 1).padStart(2, '0') + '-01';
+  const paint = () => {
+    const m = new Date(month + 'T00:00:00'), lead = m.getDay(), dim = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate(), td = today();
+    let g = '<div class="rgcg">' + ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span>${x}</span>`).join('') + '<span></span>'.repeat(lead);
+    for (let d = 1; d <= dim; d++) { const t = month.slice(0, 8) + String(d).padStart(2, '0'); g += `<button type="button" data-t="${t}" class="${t === selIso ? 'e' : ''}${t === td ? ' td' : ''}">${d}</button>`; }
+    c.innerHTML = `<div class="rgch"><button type="button" id="dcP" aria-label="Previous month">&lsaquo;</button><span>${esc(m.toLocaleDateString('en-GB', {month:'long', year:'numeric'}))}</span><button type="button" id="dcN" aria-label="Next month">&rsaquo;</button></div>${g}</div><div class="rgft"><button type="button" id="dcT">Today</button></div>`;
+    $('#dcP', c).onclick = () => { month = mk(m.getFullYear(), m.getMonth() - 1); paint(); };
+    $('#dcN', c).onclick = () => { month = mk(m.getFullYear(), m.getMonth() + 1); paint(); };
+    $('#dcT', c).onclick = () => { close(); done(today()); };
+    $$('[data-t]', c).forEach(x => x.onclick = () => { const t = x.dataset.t; close(); done(t); });
+  };
+  paint();
+}
+function enhanceDates(root) {
+  (root || document).querySelectorAll('input[type=date]:not([data-dp])').forEach(inp => {
+    inp.dataset.dp = '1';
+    const wrap = document.createElement('span'); wrap.className = 'dpk';
+    const txt = document.createElement('input'); txt.type = 'text'; txt.className = 'dpt'; txt.placeholder = 'dd/mm/yyyy'; txt.inputMode = 'numeric'; txt.autocomplete = 'off'; txt.disabled = inp.disabled;
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'dpb'; btn.title = 'Choose date'; btn.setAttribute('aria-label', 'Choose date'); btn.innerHTML = ICON.cal; btn.disabled = inp.disabled;
+    if (inp.id) { txt.id = inp.id + '_t'; document.querySelectorAll('label[for="' + inp.id + '"]').forEach(l => l.setAttribute('for', txt.id)); }
+    inp.parentNode.insertBefore(wrap, inp); wrap.append(txt, btn, inp); inp.style.display = 'none';
+    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value'), sync = () => { txt.value = isoToDmy(desc.get.call(inp)); };
+    Object.defineProperty(inp, 'value', {configurable: true, get() { return desc.get.call(this); }, set(v) { desc.set.call(this, v); sync(); }});
+    sync();
+    const setIso = iso => { desc.set.call(inp, iso); sync(); inp.dispatchEvent(new Event('input', {bubbles: true})); inp.dispatchEvent(new Event('change', {bubbles: true})); };
+    txt.addEventListener('change', e => { e.stopPropagation(); const iso = dmyToIso(txt.value); if (iso === null) { sync(); toast('Type the date as dd/mm/yyyy'); return; } setIso(iso); });
+    txt.addEventListener('input', e => e.stopPropagation());
+    btn.onclick = () => dayPicker(btn, desc.get.call(inp) || today(), setIso, desc.get.call(inp));
+  });
+}
 function pageFrame() {
   const v = $('#view'); if (!v || v.querySelector(':scope > .pagebox')) return;
   const top = v.querySelector(':scope > .top'); if (!top) return;
@@ -2622,7 +2684,7 @@ function pageFrame() {
 }
 function shellInit() {
   { const v = $('#view'), d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');   /* every page that fills the view is framed at once (the caller can still focus its fields) */
-    Object.defineProperty(v, 'innerHTML', {configurable: true, get() { return d.get.call(this); }, set(h) { d.set.call(this, h); pageFrame(); }}); }
+    Object.defineProperty(v, 'innerHTML', {configurable: true, get() { return d.get.call(this); }, set(h) { d.set.call(this, h); pageFrame(); enhanceDates(this); }}); }
   const sh = $('#mshell'); if (!sh) return;
   if (msbSlim()) sh.classList.add('slim');
   const paintTog = () => { $('#msbTog').innerHTML = ICON[sh.classList.contains('slim') ? 'right' : 'left']; }; paintTog();
