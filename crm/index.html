@@ -483,7 +483,7 @@ table{border-radius:12px}
 .dbtb tbody td:last-child{border-right:0}.dbtb tbody tr[data-go]{cursor:pointer}.dbtb tbody tr[data-go]:hover td{background:#8a8a8a}
 .dbtb tbody tr.dbtot td{background:#8d8d8d;font-weight:700}.dbtb tr.dbempty td{background:#fff;color:#777;text-align:center;padding:26px}
 .dbtb td svg{display:inline-block;vertical-align:middle}
-.dbh tbody tr:nth-child(odd) td{background:#fff}.dbh tbody tr:nth-child(even) td{background:#f1f6fb}.dbh tbody tr.dbours td{background:#b7f2c9}
+.dbh tbody tr:nth-child(odd) td{background:#fff}.dbh tbody tr:nth-child(even) td{background:#fbfaf7}.dbh tbody tr.dbours td{background:#e4f6ea}
 .dbh td.adr{min-width:190px;max-width:260px;font-size:12px;line-height:1.35}.dbh td{font-size:13px}
 .dbname{color:#222;text-decoration:none;font-weight:500}.dbname:hover{color:var(--a1);text-decoration:underline}
 .dbsort{color:#7a3b2a;text-decoration:none;font-weight:700}
@@ -498,6 +498,15 @@ table{border-radius:12px}
 .btn.ok2{background:#4db98a;border-color:#4db98a;color:#fff}
 .fu-rec{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
 @media (max-width:640px){.hi-r2,.hi-cg{grid-template-columns:minmax(0,1fr)}.dbf{grid-template-columns:minmax(0,1fr)}.dbs{width:100%}}
+/* ---------- No top bar: the page starts at the top (a phone keeps only the menu button) ---------- */
+.mshell{grid-template-rows:auto;grid-template-areas:"sb view"}
+.mtop{display:none}
+.mshell>main{padding-top:14px!important}
+@media (max-width:700px){
+ .mshell,.mshell.slim{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;grid-template-areas:"top" "view"}
+ .mtop{display:flex;position:sticky;top:0;height:46px;padding:0 10px;background:#fff;border-bottom:1px solid var(--line)}
+ .mcrumb,.msearch{display:none}
+}
 </style>
 </head>
 <body>
@@ -2518,7 +2527,7 @@ function paintDbCity() {
   const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
   const tb = $('#dbhbody'); if (!tb) return;
   tb.innerHTML = shown.length ? shown.map((h, i) => {
-    const mine = acts.filter(a => a.hotelId === h.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')), last = mine[0], [sc, rv] = sr(h), ours = h.managed === 'Yes' || ['Signed', 'Live'].includes(h.status);
+    const mine = acts.filter(a => a.hotelId === h.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')), last = mine[0], [sc, rv] = sr(h), ours = ['pms', 'cm', 'be', 'pvo'].some(k => /maha/i.test(h[k] || ''));
     return `<tr class="${ours ? 'dbours' : ''}"><td>${i + 1}</td><td>${esc(h.position || '')}</td><td class="l"><a href="#hotels" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td class="l">${esc(h.area || '')}</td><td>${esc(sc)}</td><td>${esc(rv)}</td><td>${esc(h.price || '')}</td><td>${esc(h.be || '')}</td><td>${esc(h.cm || '')}</td><td>${esc(h.pms || '')}</td><td>${esc(h.pvo || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(contactOf(h, false))}</td><td>${esc(contactOf(h, true))}</td><td class="l adr">${esc(h.address || '')}</td><td class="nw">${esc((h.updated || '').slice(0, 10))}</td>
      <td class="nw">${mine.length ? `<a href="#hotels" class="fu-mg" data-act="fuRecord" data-hid="${h.id}">View(${mine.length})</a><br><span class="dblast">Last : ${esc(isoToDmy(last.date).replace(/\//g, '-'))}${last.contactName || last.owner ? ' (' + esc(last.contactName || last.owner) + ')' : ''}</span>` : `<a href="#hotels" class="fu-mg" data-act="fuRecord" data-hid="${h.id}">View(0)</a>`}</td></tr>`;
   }).join('') : '<tr><td colspan="17" class="empty">No hotels found.</td></tr>';
@@ -2530,7 +2539,7 @@ const HI_EXTRA = ['status', 'managed', 'type', 'stars', 'otas', 'gha', 'model', 
 function hotelSheet(h, pre) {
   const isNew = !h; h = h || Object.assign({status: 'New lead', managed: 'No', country: 'Thailand'}, pre || {});
   const contacts = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact || '', position: h.contactTitle || '', email: h.email || '', phone: ''}]).slice(); while (contacts.length < 2) contacts.push({});
-  const known = k => [...new Set(K('hotel').map(x => x[k]).filter(Boolean).concat(['OneHotel.asia', 'Maha Hub'], h[k] ? [h[k]] : []))].sort();
+  const known = k => [...new Set(K('hotel').map(x => x[k]).filter(Boolean).concat(['Maha'], h[k] ? [h[k]] : []))].sort();
   const inp = (k, label, req, cls) => `<label class="f ${cls || ''}"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><input data-hf="${k}" value="${esc(h[k] ?? '')}"></label>`;
   const sel = (k, label) => `<label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${known(k).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
   const cg = (c, i) => `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name" value="${esc(c.name || '')}"></label><label class="f"><span>Contact Position</span><input data-c="position" value="${esc(c.position || '')}"></label><label class="f"><span>Contact Email</span><input data-c="email" value="${esc(c.email || '')}"></label><label class="f"><span>Contact Phone</span><input data-c="phone" value="${esc(c.phone || '')}"></label></div>`;
@@ -2833,7 +2842,7 @@ function shellInit() {
   if (msbSlim()) sh.classList.add('slim');
   const paintTog = () => { $('#msbTog').innerHTML = ICON[sh.classList.contains('slim') ? 'right' : 'left']; }; paintTog();
   $('#msbTog').onclick = () => { const s = sh.classList.toggle('slim'); try { localStorage.setItem('maha.msb', s ? 'slim' : 'wide'); } catch {} paintTog(); };
-  $('#msbOpen').innerHTML = ICON.menu; $('#msbOpen').onclick = () => sh.classList.toggle('msbopen');
+  $('#msbOpen').innerHTML = ICON.menu; $('#msbOpen').onclick = () => { if (innerWidth <= 700) { sh.classList.remove('slim'); paintTog(); } sh.classList.toggle('msbopen'); };
   $('#msbBack').onclick = () => sh.classList.remove('msbopen');
   const se = $('#msearch'); se.addEventListener('keydown', e => { if (e.key === 'Enter' && se.value.trim()) { location.hash = 'search/' + encodeURIComponent(se.value.trim()); se.value = ''; se.blur(); } });
   $('#railnav').addEventListener('click', e => {
