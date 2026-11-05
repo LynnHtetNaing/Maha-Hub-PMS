@@ -753,7 +753,8 @@ const PB_DEFAULT = [
 `- Number of appointment: Completed meetings, by meeting month and Lead Type
 - Number of signed contract: quotations signed in Manage Quotation, by sign month, for the sale person of the quotation
 - Number of activation: activations set to Live, by the technician in Setup by
-- One table per person; every user can see everyone's table, so the team can compare. A new user appears by itself
+- Appointments and signed contracts show the staff marked Sales; activations show the staff marked Technician (Staff Credit). Everyone can see every table, so the team can compare. A new person appears by itself
+- Activation systems: Booking Engine, Channel Manager, Property Management, and every Commercial Module service marked Needs activation
 - Click a number to see the list behind it`},
 
  {cat: 'Pricing & Commercial', title: 'Commercial Module, Staff Credit and Referral Rewards', body:
@@ -3032,8 +3033,8 @@ Object.assign(ACTIONS, {
 /* ---------- Pricing & Commercial: Commercial Module (services and fees), Staff Credit and Referral Rewards ----------
    Everyone sees the three lists; only the provider (the company admin) can add or edit. Records: comodule (services and fees to sell), staffcr (credit % of each staff member), refplan (kept, never deleted: set Inactive). */
 const PR = {
-  commercial: {kind: 'comodule', title: 'Commercial Module', one: 'service', cols: [['name', 'Service'], ['fee', 'Fee'], ['unit', 'Unit'], ['status', 'Status'], ['detail', 'Detail']],
-    fields: [['name', 'Service', 'text', 1], ['fee', 'Fee', 'text', 1], ['unit', 'Unit', ['per / month', 'per / year', 'per / one time', '% per booking'], 1], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Detail', 'area']]},
+  commercial: {kind: 'comodule', title: 'Commercial Module', one: 'service', cols: [['name', 'Service'], ['fee', 'Fee'], ['unit', 'Unit'], ['activation', 'Needs activation'], ['status', 'Status'], ['detail', 'Detail']],
+    fields: [['name', 'Service', 'text', 1], ['fee', 'Fee', 'text', 1], ['unit', 'Unit', ['per / month', 'per / year', 'per / one time', '% per booking'], 1], ['activation', 'Needs activation', ['No', 'Yes'], 1], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Detail', 'area']]},
   staff: {kind: 'staffcr', title: 'Staff Credit', one: 'staff credit', cols: [['name', 'Staff name'], ['dept', 'Department'], ['pct', 'Credit %'], ['status', 'Status']],
     fields: [['name', 'Staff name', 'text', 1], ['dept', 'Department', ['Technician', 'Sales', 'Other'], 1], ['pct', 'Credit %', 'number', 1], ['status', 'Status', ['Active', 'Inactive'], 1], ['detail', 'Detail', 'area']]},
   referral: {kind: 'refplan', title: 'Referral Rewards', one: 'reward plan', cols: [['name', 'Plan name'], ['type', 'Reward type'], ['value', 'Reward'], ['applies', 'Goes to'], ['from', 'Valid from'], ['to', 'Valid to'], ['status', 'Status']],
@@ -3056,7 +3057,7 @@ function paintPr(key) {
 function prSheet(key, id) {
   const c = PR[key], r = id ? byId(id) : null; if (!Auth.isProvider()) { toast('Only the manager (provider) can add or edit'); return; }
   const req = (l, on) => `<label class="mq-l">${l}${on ? ' <i class="req">*</i>' : ''}</label>`;
-  const fld = ([k, l, t, on]) => { const v = (r && r[k]) || (k === 'status' ? 'Active' : '');
+  const fld = ([k, l, t, on]) => { const v = (r && r[k]) || (k === 'status' ? 'Active' : k === 'activation' ? 'No' : '');
     return t === 'area' ? `<div class="mq-b">${req(l, on)}<textarea data-pf="${k}" rows="4">${esc(v)}</textarea></div>`
       : `<div>${req(l, on)}${Array.isArray(t) ? `<select data-pf="${k}"><option value="">Please select</option>${t.map(o => `<option ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>` : `<input type="${t}" data-pf="${k}" value="${esc(v)}">`}</div>`; };
   const big = c.fields.filter(f => f[2] !== 'area'), area = c.fields.filter(f => f[2] === 'area');
@@ -3072,7 +3073,7 @@ function prSheet(key, id) {
   });
 }
 Object.assign(ACTIONS, {prEdit: el => prSheet(el.dataset.k, el.dataset.id),
-  prSeed: async () => { if (!Auth.isProvider() || K('comodule').length) return; for (const [id, name, price, ui] of QP_LIST) await save({id: uid(), kind: 'comodule', name: id === 'rev' ? REV_NAME : name, fee: price === '' ? '' : String(price), unit: QP_UNITS[ui], status: 'Active', detail: ''}); toast('Price list loaded'); vPricing('commercial'); }});
+  prSeed: async () => { if (!Auth.isProvider() || K('comodule').length) return; for (const [id, name, price, ui] of QP_LIST) await save({id: uid(), kind: 'comodule', name: id === 'rev' ? REV_NAME : name, fee: price === '' ? '' : String(price), unit: QP_UNITS[ui], activation: 'No', status: 'Active', detail: ''}); toast('Price list loaded'); vPricing('commercial'); }});
 /* ---------- For Approval: the discounted quotations wait here until the approver (the provider) approves ---------- */
 function apRows() {
   const n = norm(((UI.ap || {}).q) || '');
@@ -3402,16 +3403,22 @@ function followLatestSheet(hid) {
    Setup activation: the hotel (picked from the database list) and its quotation are linked both ways (pick either one, the other follows);
    the systems to set up come from the services of the quotation. Save keeps it in the List of activation (still editable); Live freezes everything.
    Settings (provider only): the technicians who can be chosen in Setup by, and the credit of each system (the bonus is based on it later). */
-const ACT_SYS = [['be', 'Booking Engine System', ['be', 'becom', 'beh', 'becm', 'allsol', 'allsolh'], /booking engine/i], ['cm', 'Channel Manager System', ['cm', 'cmh', 'becm', 'allsol', 'allsolh'], /channel manager/i], ['pms', 'Property Management System', ['pms', 'pmsh', 'allsol', 'allsolh'], /property management/i]];
+const ACT_BASE = [['be', 'Booking Engine System', ['be', 'becom', 'beh', 'becm', 'allsol', 'allsolh'], /booking engine/i], ['cm', 'Channel Manager System', ['cm', 'cmh', 'becm', 'allsol', 'allsolh'], /channel manager/i], ['pms', 'Property Management System', ['pms', 'pmsh', 'allsol', 'allsolh'], /property management/i]];
+/* [key, name, quotation product ids, name test (old quotations), Commercial Module name] */
+function actDefs() {
+  const base = ACT_BASE.map(s => [...s, '']);
+  const extra = K('comodule').filter(r => r.activation === 'Yes' && !ACT_BASE.some(s => s[3].test(r.name))).map(r => ['cm_' + r.id, r.name, ['cm_' + r.id], null, r.name]);
+  return base.concat(extra);
+}
 function actSystems(q) {
   if (!q) return [];
-  if (quoteIsNew(q)) { const on = (q.items || []).filter(i => i.on).map(i => i.id); return ACT_SYS.filter(s => s[2].some(id => on.includes(id))).map(s => s[0]); }
-  const names = qCompute(q).names.join(' | '); return ACT_SYS.filter(s => s[3].test(names)).map(s => s[0]);
+  if (quoteIsNew(q)) { const on = (q.items || []).filter(i => i.on), ids = on.map(i => i.id), nm = on.map(i => norm(i.name)); return actDefs().filter(s => s[2].some(id => ids.includes(id)) || (s[4] && nm.includes(norm(s[4])))).map(s => s[0]); }
+  const names = qCompute(q).names.join(' | '); return actDefs().filter(s => s[3] && s[3].test(names)).map(s => s[0]);
 }
 const actPctOf = name => { const r = K('staffcr').find(x => x.name === name && x.status !== 'Inactive'); return r && r.pct !== undefined && r.pct !== '' ? r.pct : ''; };   /* the credit % of a staff member: set once in Pricing & Commercial > Staff Credit, then shown and frozen in Setup activation */
 const actTechs = () => [...new Set(K('staffcr').filter(r => r.dept === 'Technician' && r.status !== 'Inactive').map(r => r.name).filter(Boolean))].sort();
 const quoteForHotel = hid => { const qs = K('quote').filter(q => q.hotelId === hid).sort((a, b) => (a.date || '').localeCompare(b.date || '')); return qs.filter(q => q.status === 'Accepted').pop() || qs.pop() || null; };
-const actProducts = a => ACT_SYS.filter(s => a.sys && s[0] in a.sys).map(s => s[1].replace(' System', '')).join(', ');
+const actProducts = a => actDefs().filter(s => a.sys && s[0] in a.sys).map(s => s[1].replace(' System', '')).join(', ');
 function vActivations(id) {
   if (id) return vActSetup(id === 'new' ? null : byId(id));
   const f = UI.act = UI.act || {from: today(), to: today(), q: ''};
@@ -3453,7 +3460,7 @@ function vActSetup(a) {
   const qLabel = q => (q.no || '') + (q.hotelName || hotelName(q.hotelId) ? ' - ' + (q.hotelName || hotelName(q.hotelId)) : '');
   const paintSys = () => {
     const q = byId(cur.quoteId), keys = actSystems(q), old = cur.sys; cur.sys = {}; keys.forEach(k => cur.sys[k] = old[k] || '');
-    $('#acsys', root).innerHTML = keys.length ? ACT_SYS.filter(s => keys.includes(s[0])).map((s, i) => `<tr><td>${i + 1}</td><td class="l">${esc(s[1])}</td><td><input type="date" data-sys="${s[0]}" value="${esc(cur.sys[s[0]] || '')}"${dis}></td></tr>`).join('') : '<tr><td colspan="3" class="empty"></td></tr>';
+    $('#acsys', root).innerHTML = keys.length ? actDefs().filter(s => keys.includes(s[0])).map((s, i) => `<tr><td>${i + 1}</td><td class="l">${esc(s[1])}</td><td><input type="date" data-sys="${s[0]}" value="${esc(cur.sys[s[0]] || '')}"${dis}></td></tr>`).join('') : '<tr><td colspan="3" class="empty"></td></tr>';
     enhanceDates($('#acsys', root));
   };
   const autoCredit = () => { const c = $('[data-af=credit]', root); if (!frozen && c && !cur.sys) return; };
@@ -3485,7 +3492,7 @@ function vActSetup(a) {
   $('#ac_live', root).onclick = async () => {
     const rec = await collect(); if (!rec) return;
     const keys = Object.keys(rec.sys); if (!keys.length) { toast('There is no product to set up: choose a quotation with a system'); return; }
-    const miss = ACT_SYS.find(s => keys.includes(s[0]) && !rec.sys[s[0]]); if (miss) { toast('Complete date of ' + miss[1] + ' is required before Live'); return; }
+    const miss = actDefs().find(s => keys.includes(s[0]) && !rec.sys[s[0]]); if (miss) { toast('Complete date of ' + miss[1] + ' is required before Live'); return; }
     if (!await confirmDelete('Set this activation to Live? After Live nothing can be changed.')) return;
     rec.status = 'Live'; rec.liveAt = new Date().toISOString(); rec.liveBy = Auth.who() || ''; await save(rec);
     const h = byId(rec.hotelId); if (h && h.status !== 'Live') { h.status = 'Live'; await save(h); }
@@ -3507,24 +3514,22 @@ const KPI_LEAD = [['', 'No specify type'], ['Sales Call', 'Sales call'], ['Guest
 const leadOfHotel = hid => { const m = meetActs().filter(a => a.hotelId === hid && a.meetLead).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]; return m ? m.meetLead : ''; };
 const quoteSignDate = q => (q.signInfo && q.signInfo.signDate) || q.date || '';
 const KPI = {
-  appointment: {title: 'Number of appointment', rows: KPI_LEAD, items: () => meetActs().filter(a => meetSt(a) === 'Completed'), date: a => a.date, who: a => a.owner, inRow: (a, k) => (a.meetLead || '') === k,
+  appointment: {title: 'Number of appointment', dept: 'Sales', rows: KPI_LEAD, items: () => meetActs().filter(a => meetSt(a) === 'Completed'), date: a => a.date, who: a => a.owner, inRow: (a, k) => (a.meetLead || '') === k,
     head: ['Create date', 'Meeting date', 'Meeting time', 'Hotel name', 'Contact person name', 'Description'],
     cells: a => [meetDmy((a.created || '').slice(0, 10)), meetDmy(a.date), a.time || '', hotelName(a.hotelId), a.contactName || '', a.summary || ''], left: [3, 5]},
-  signed: {title: 'Number of signed contract', rows: KPI_LEAD, items: () => K('quote').filter(q => q.status === 'Accepted'), date: quoteSignDate, who: q => q.forSale || q.owner, inRow: (q, k) => leadOfHotel(q.hotelId) === k,
+  signed: {title: 'Number of signed contract', dept: 'Sales', single: true, rows: [['*', 'Number of signed contract']], items: () => K('quote').filter(q => q.status === 'Accepted'), date: quoteSignDate, who: q => q.forSale || q.owner, inRow: () => true,
     head: ['Quotation date', 'Hotel name', 'Quotation No.', 'Price', 'Payment date', 'Tax invoice number', 'Detail'],
     cells: q => { const s = q.signInfo || {}; return [meetDmy(q.date), q.hotelName || hotelName(q.hotelId), q.no || '', mqPrice(q), s.payDate ? meetDmy(s.payDate) : '-', s.taxNo || '-', s.detail || '']; }, left: [1, 6]},
-  activation: {title: 'Number of activation', rows: ACT_SYS.map(s => [s[0], s[1].replace(' System', '')]), items: () => K('activation').filter(a => a.status === 'Live'), date: a => a.date, who: a => a.techBy || a.owner, inRow: (a, k) => !!(a.sys && k in a.sys),
+  activation: {title: 'Number of activation', get rows() { return actDefs().map(s => [s[0], s[1].replace(' System', '')]); }, dept: 'Technician', items: () => K('activation').filter(a => a.status === 'Live'), date: a => a.date, who: a => a.techBy || a.owner, inRow: (a, k) => !!(a.sys && k in a.sys),
     head: ['Activation date', 'Hotel name', 'Quotation No.', 'Setup by', 'Credit %', 'Questionnaire send', 'Questionnaire get back', 'Send introduction email', 'Product', 'Complete date', 'Live date'],
-    cells: a => { const ks = ACT_SYS.filter(s => a.sys && s[0] in a.sys), q = byId(a.quoteId); return [meetDmy(a.date), hotelName(a.hotelId), (q && q.no) || '', a.techBy || '', a.credit === undefined || a.credit === '' ? '' : a.credit + ' %', a.qSend ? meetDmy(a.qSend) : '', a.qBack ? meetDmy(a.qBack) : '', a.intro === 'Yes' ? 'Yes' : 'No', ks.map(s => s[1].replace(' System', '')).join(', '), ks.map(s => a.sys[s[0]] ? meetDmy(a.sys[s[0]]) : '-').join(' / '), a.liveAt ? meetDmy(a.liveAt.slice(0, 10)) : '']; }, left: [1, 8]},
+    cells: a => { const ks = actDefs().filter(s => a.sys && s[0] in a.sys), q = byId(a.quoteId); return [meetDmy(a.date), hotelName(a.hotelId), (q && q.no) || '', a.techBy || '', a.credit === undefined || a.credit === '' ? '' : a.credit + ' %', a.qSend ? meetDmy(a.qSend) : '', a.qBack ? meetDmy(a.qBack) : '', a.intro === 'Yes' ? 'Yes' : 'No', ks.map(s => s[1].replace(' System', '')).join(', '), ks.map(s => a.sys[s[0]] ? meetDmy(a.sys[s[0]]) : '-').join(' / '), a.liveAt ? meetDmy(a.liveAt.slice(0, 10)) : '']; }, left: [1, 8]},
 };
 const kpiRecs = c => c.items().filter(r => /^\d{4}-\d\d/.test(c.date(r) || ''));
 const kpiKey = s => String(s || '').trim().toLowerCase() || '(no name)';
-function kpiPeople() {
-  const seen = new Map(); const add = n => { n = String(n || '').trim(); if (n && !seen.has(kpiKey(n))) seen.set(kpiKey(n), n); };
-  K('staffcr').filter(r => r.status !== 'Inactive').forEach(r => add(r.name));
-  [...K('act'), ...K('quote'), ...K('activation')].forEach(r => { add(r.owner); add(r.forSale); add(r.techBy); });
-  R.filter(r => r.kind === 'ulog').forEach(r => add(r.user));
-  add(Auth.who());
+/* the people of a KPI page: the staff marked with that department in Pricing & Commercial > Staff Credit (Sales for appointments and signed contracts, Technician for activations); a new one appears by itself */
+function kpiPeople(dept) {
+  const seen = new Map();
+  K('staffcr').filter(r => r.status !== 'Inactive' && r.dept === dept).forEach(r => { const n = String(r.name || '').trim(); if (n && !seen.has(kpiKey(n))) seen.set(kpiKey(n), n); });
   return [...seen.values()].sort((a, b) => a.localeCompare(b));
 }
 function vKpiPage(which) {
@@ -3538,14 +3543,13 @@ function vKpiPage(which) {
 }
 function paintKpi(which) {
   const box = $('#kpbody'); if (!box) return; const c = KPI[which], y = (UI.kpiY || {})[which], rows = kpiRecs(c).filter(a => c.date(a).slice(0, 4) === y);
-  const people = kpiPeople(), noName = rows.some(a => !String(c.who(a) || '').trim());
-  if (noName) people.push('(No name)');
+  const people = kpiPeople(c.dept);
   const mine = p => rows.filter(a => kpiKey(c.who(a)) === kpiKey(p));
   const num = (n, p, k, m, bold) => n ? `<td><a href="#kpi/${which}" class="kp-n" data-act="kpiOpen" data-w="${which}" data-who="${esc(p)}" data-row="${esc(k)}" data-m="${m}">${bold ? `<b>${n}</b>` : n}</a></td>` : `<td>${bold ? '<b>0</b>' : '0'}</td>`;
   box.innerHTML = people.map(p => { const my = mine(p), inM = m => my.filter(a => +c.date(a).slice(5, 7) === m + 1);
     return `<h3 class="kp-p">${esc(p)}</h3><div class="tablewrap fu-tw kp-w"><table class="fu-tb dl-tb kp-t"><thead><tr><th></th>${KPI_MON.map(m => `<th>${m}</th>`).join('')}</tr></thead><tbody>
      ${c.rows.map(([k, l]) => `<tr><td class="kp-l">${esc(l)}</td>${KPI_MON.map((_, m) => num(inM(m).filter(a => c.inRow(a, k)).length, p, k, m)).join('')}</tr>`).join('')}
-     <tr class="kp-tot"><td class="kp-l"><b>Total</b></td>${KPI_MON.map((_, m) => num(inM(m).length, p, '*', m, true)).join('')}</tr></tbody></table></div>`; }).join('');
+     ${c.single ? '' : `<tr class="kp-tot"><td class="kp-l"><b>Total</b></td>${KPI_MON.map((_, m) => num(inM(m).length, p, '*', m, true)).join('')}</tr>`}</tbody></table></div>`; }).join('') || `<div class="empty">No ${c.dept === 'Technician' ? 'technician' : 'sales person'} yet. Add them in Pricing & Commercial > Staff Credit (Department ${c.dept}).</div>`;
 }
 function kpiSheet(which, who, row, m) {
   const c = KPI[which], y = UI.kpiY[which];
