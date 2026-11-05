@@ -567,6 +567,18 @@ input,select,textarea{box-sizing:border-box}
 .smnest{border:1px solid #d5d5d5;border-radius:12px;overflow:auto;background:#fff}
 .smnest .fu-tb{width:100%}.smnest .fu-tb td,.smnest .fu-tb th{background:#fff!important}.smnest .fu-tb tbody tr:nth-child(even) td{background:#f6f9fc!important}
 .mt-hm{display:inline-flex;gap:10px}.mt-hm select{width:84px!important}
+/* ---------- Meeting Status Report, Meeting edit, the delete warning ---------- */
+.mr-head{display:flex;justify-content:space-between;align-items:flex-end;margin:18px 0 8px}.mr-head .fu-sub{margin:0}.mr-head .up-ex{font-weight:600;color:var(--ink);align-items:center;font-size:13px}
+.mr-act{display:flex;flex-direction:column;gap:6px;align-items:center}.mr-act .btn{min-width:78px}
+.fu-tb .btn.redb svg{width:13px;height:13px}
+.me-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 32px}.me-grid>.f{margin:0}.me-grid>.f.wide{grid-column:auto}.me-grid>.f.full{grid-column:1/-1}.me-grid .f>span{font-weight:700;font-size:13px}
+.me-grid .req{color:#d93025;font-style:normal}
+.dd-ov{position:fixed;inset:0;z-index:9000;background:rgba(40,40,40,.55);display:grid;place-items:center;padding:20px}
+.dd-box{width:min(480px,100%);background:#fff;border-radius:14px;padding:30px 34px 28px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.dd-i{width:86px;height:86px;margin:0 auto 14px;border-radius:50%;border:4px solid #f6c590;color:#f2a65a;font:300 56px/78px var(--font)}
+.dd-box h3{margin:0 0 12px;font:700 26px var(--font);color:#575757}.dd-box p{margin:0 0 22px;color:#777;font-size:15px}
+.dd-b{display:flex;gap:12px;justify-content:center}.dd-b button{border:0;border-radius:6px;padding:11px 26px;font:600 15px var(--font);cursor:pointer;color:#fff}
+.dd-c{background:#c3c3c3}.dd-c:hover{background:#b0b0b0}.dd-y{background:#e06b55}.dd-y:hover{background:#cc5a45}
 </style>
 </head>
 <body>
@@ -925,8 +937,12 @@ function saveMany(arr) {
 }
 function remove(id) { const gone = byId(id); R = R.filter(x => x.id !== id); if (db) store('readwrite').delete(id); Cloud.mark(id, gone && gone.kind); }
 function clearAll() { R = []; try { localStorage.removeItem('maha.sales.lastPull'); } catch {} if (!db) return Promise.resolve(); return new Promise(res => { const q = store('readwrite').clear(); q.onsuccess = res; }); }
-const K = k => R.filter(r => r.kind === k && !(r.kind === 'hotel' && r.deleted));   /* a deleted hotel is kept but hidden from every list */
-const deletedHotels = () => R.filter(r => r.kind === 'hotel' && r.deleted);
+const K = k => R.filter(r => r.kind === k && !r.deleted);   /* a deleted hotel, quotation or meeting is kept but hidden from every list */
+const deletedOf = k => R.filter(r => r.kind === k && r.deleted);
+const deletedHotels = () => deletedOf('hotel');
+const isMeet = a => !!a.meeting || (a.type === 'Meeting' && !!a.meetType);   /* made in Setup meeting */
+const meetActs = () => K('act').filter(isMeet);
+const fuActs = () => K('act').filter(a => !isMeet(a));
 const byId = id => R.find(r => r.id === id);
 const meta = () => byId('meta') || {id:'meta', kind:'meta'};
 
@@ -2235,7 +2251,7 @@ const ACTIONS = {
     } catch (e) { if (w) w.close(); alert('The quotation could not be opened: ' + (e && e.message ? e.message : e) + '\n\nIf pop-ups are blocked, allow pop-ups for this app and try again.'); }
   },
   copyPrompt: () => { vQuote.sync(); copyText(claudePrompt(vQuote.current), 'Copied — paste into Claude for the PDF'); },
-  delQuote: () => { const q = vQuote.current; if (confirm(`Delete quote ${q.no || ''}?`)) { remove(q.id); toast('Quote deleted'); location.hash = 'quotes'; } },
+  delQuote: async () => { const q = vQuote.current, r = byId(q.id); if (!r) { location.hash = 'quotes'; return; } if (!await confirmDelete('Do you want delete quotation ' + (r.no || ''))) return; await softDelete(r); toast('Quotation deleted'); location.hash = 'quotes'; },
   addCustom: () => { $('#customs').insertAdjacentHTML('beforeend', customRow({name:'', amount:'', cad:'month'})); vQuote.sync(); },
   rmCustom: el => { el.closest('.crow').remove(); vQuote.sync(); },
   newCard: () => cardSheet(),
@@ -2300,7 +2316,7 @@ Object.assign(ICON, {
 });
 const NAVG = [
   ['dashboard', 'Dashboard'], ['today', 'Today'],
-  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Deleted database', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
+  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Manage quotation', '#quotes', 'quotes'], ['Pending', '#quotes/pending', 'hourglass'], ['Waiting for approval', '#quotes/waiting', 'check']]},
   {g:'Activation', i:'more', items:[['List of activation', '#activations', 'list'], ['Setup activation', 'act:newActivation', 'plus']]},
@@ -2395,14 +2411,20 @@ function dlRows() {
   return K('hotel').filter(h => h.created && h.created.slice(0, 10) >= from && h.created.slice(0, 10) <= to && (!f.user || (h.owner || '') === f.user)).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
 }
 async function softDeleteHotel(h) {
-  if (!confirm('Delete ' + h.name + '?\n\nIt moves to the Deleted database and is kept there. To keep it in the list, set its Status to Close instead.')) return false;
-  h.deleted = {at: new Date().toISOString(), by: Auth.who() || ''}; await save(h); toast('Moved to the Deleted database'); return true;
+  if (!await confirmDelete('Do you want delete hotel ' + h.name + '? It moves to Delete records. To keep it in the list, set its Status to Close instead.')) return false;
+  await softDelete(h); toast('Moved to Delete records'); return true;
 }
 function vDeleted() {
-  const rows = deletedHotels().sort((a, b) => (b.deleted.at || '').localeCompare(a.deleted.at || ''));
-  view().innerHTML = `<div class="top"><div><h1>Deleted database</h1></div></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>City</th><th>Country</th><th>Contact Person</th><th>Deleted by</th><th>Deleted date time</th><th>Action</th></tr></thead>
-   <tbody>${rows.length ? rows.map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.city || '')}</td><td>${esc(h.country || '')}</td><td>${esc(h.contact || '')}</td><td>${esc(h.deleted.by || '')}</td><td class="dlt">${esc(dlStamp(h.deleted.at))}</td><td><button type="button" class="btn sm" data-act="hotelRestore" data-id="${h.id}">Restore</button></td></tr>`).join('') : '<tr><td colspan="8" class="empty">No deleted hotel.</td></tr>'}</tbody></table></div>`;
+  const tab = UI.dr = UI.dr || 'hotel', who = r => esc((r.deleted || {}).by || ''), when = r => esc(dlStamp((r.deleted || {}).at)), btn = r => `<td><button type="button" class="btn sm" data-act="recRestore" data-id="${r.id}">Restore</button></td>`;
+  const T = {
+    hotel: {rows: deletedOf('hotel'), head: ['Hotel name', 'City', 'Country', 'Contact Person'], cells: h => [esc(h.name), esc(h.city || ''), esc(h.country || ''), esc(h.contact || '')]},
+    quote: {rows: deletedOf('quote'), head: ['Quotation number', 'Hotel name', 'Date', 'Status'], cells: q => [esc(q.no || ''), esc(q.hotelName || hotelName(q.hotelId)), esc(meetDmy(q.date)), esc(q.status === 'Accepted' ? 'Signed' : (q.status || 'Draft'))]},
+    meeting: {rows: deletedOf('act').filter(isMeet), head: ['Meeting date', 'Meeting time', 'Hotel name', 'Contact person', 'Meeting by', 'Status'], cells: a => [esc(meetDmy(a.date)), esc(a.time || ''), esc(hotelName(a.hotelId)), esc(a.contactName || ''), esc(a.owner || ''), esc(meetSt(a))]},
+  }[tab], rows = T.rows.sort((a, b) => ((b.deleted || {}).at || '').localeCompare((a.deleted || {}).at || ''));
+  view().innerHTML = `<div class="top"><div><h1>Delete records</h1></div></div>
+   <div class="dbtabs">${[['hotel', 'Hotel deleted'], ['quote', 'Quotation deleted'], ['meeting', 'Meeting deleted']].map(([k, l]) => `<button type="button" class="dbt" data-act="drTab" data-t="${k}" aria-pressed="${tab === k}">${l.toUpperCase()}</button>`).join('')}</div>
+   <div class="tablewrap fu-tw dbw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th>${T.head.map(h => `<th>${h}</th>`).join('')}<th>Deleted by</th><th>Deleted date time</th><th>Action</th></tr></thead>
+   <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${T.cells(r).map((c, k) => `<td${k === 0 || k === 1 ? ' class="l"' : ''}>${c}</td>`).join('')}<td>${who(r)}</td><td class="dlt">${when(r)}</td>${btn(r)}</tr>`).join('') : `<tr><td colspan="${T.head.length + 4}" class="empty">Nothing deleted here.</td></tr>`}</tbody></table></div>`;
 }
 /* ---------- the user log: who opened the CRM and when (only the provider sees it) ---------- */
 async function logUser(ev) {
@@ -2426,7 +2448,8 @@ async function vUserLog() {
 }
 Object.assign(ACTIONS, {
   ulSearch: () => { UI.ul = {from: $('#ul_from').value, to: $('#ul_to').value, user: $('#ul_user').value}; vUserLog(); },
-  hotelRestore: async el => { const h = byId(el.dataset.id); if (!h) return; h.deleted = null; await save(h); toast('Restored'); vDeleted(); },
+  recRestore: async el => { const r = byId(el.dataset.id); if (!r) return; r.deleted = null; await save(r); toast('Restored'); vDeleted(); },
+  drTab: el => { UI.dr = el.dataset.t; vDeleted(); },
 });
 function vDblog() {
   if (!UI.dl) UI.dl = {from: today().slice(0, 8) + '01', to: today(), user: Auth.who() && K('hotel').some(h => h.owner === Auth.who()) ? Auth.who() : ''};
@@ -2456,7 +2479,7 @@ const fuLabel = k => (FU_STATUS.find(x => x[0] === k) || ['', ''])[1];
 const fuLatestQ = hid => K('quote').filter(q => q.hotelId === hid).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
 const fuProds = (a, q) => { if (Array.isArray(a.products)) return a.products; const L = (q && q.lines) || {}; return FU_PROD.filter(p => p[2].some(id => L[id] && L[id].on)).map(p => p[0]); };
 function fuRows() {
-  const f = UI.fu || {}, acts = K('act'), quotes = K('quote');
+  const f = UI.fu || {}, acts = fuActs(), quotes = K('quote');
   const meetOf = hid => (acts.filter(a => a.hotelId === hid && a.type === 'Meeting').sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0] || {}).date || '';
   const old = a => !!a.done || !a.nextDate;
   return acts.filter(a => {
@@ -2479,7 +2502,7 @@ function fuRows() {
   });
 }
 function vFollowup() {
-  UI.fu = UI.fu || {}; const f = UI.fu, acts = K('act'), hotels = K('hotel');
+  UI.fu = UI.fu || {}; const f = UI.fu, acts = fuActs(), hotels = K('hotel');
   const staff = [...new Set(acts.map(a => a.owner).filter(Boolean))].sort(), leads = [...new Set(hotels.map(h => h.source).filter(Boolean).concat(acts.map(a => a.leadType).filter(Boolean)))].sort();
   const rows = fuRows(), CAP = 300, shown = rows.slice(0, CAP);
   const sel = (id, opts, v, ph) => `<select id="${id}"><option value="">${ph}</option>${opts.map(o => `<option ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
@@ -2542,7 +2565,7 @@ function uploadQuoteSheet(hid, q) {
 
 /* ---- View: the follow-up information. From the Latest Follow ups page it is read-only (that follow-up only). From the Database Hotel List it is the whole record of the hotel:
    every follow-up with Edit follow up, and Add new follow up. ---- */
-function fuNo(a) { const mine = K('act').filter(x => x.hotelId === a.hotelId).sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.created || '').localeCompare(y.created || '')); return mine.findIndex(x => x.id === a.id) + 1; }
+function fuNo(a) { const mine = fuActs().filter(x => x.hotelId === a.hotelId).sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.created || '').localeCompare(y.created || '')); return mine.findIndex(x => x.id === a.id) + 1; }
 function fuForm(a, h, dis, nm, withOwner) {
   const key = fuKey(a, h), prods = fuProds(a, fuLatestQ(a.hotelId)), d = dis ? ' disabled' : '';
   const leads = [...new Set(K('hotel').map(x => x.source).filter(Boolean).concat([a.leadType, h.source].filter(Boolean)))].sort();
@@ -2582,7 +2605,7 @@ function followSheet(id, edit, back) {
 }
 function followRecordSheet(hid) {
   const h = byId(hid); if (!h) return;
-  const mine = K('act').filter(a => a.hotelId === hid).sort((x, y) => (y.date || '').localeCompare(x.date || '') || (y.created || '').localeCompare(x.created || ''));
+  const mine = fuActs().filter(a => a.hotelId === hid).sort((x, y) => (y.date || '').localeCompare(x.date || '') || (y.created || '').localeCompare(x.created || ''));
   openSheet(`${fuHead('Follow up information for ' + h.name)}
    <div class="fu-qtop"><button type="button" class="btn gray" data-act="fuNew" data-hid="${hid}">Add new follow up</button></div>
    ${mine.length ? mine.map(a => `<div class="fu-pop fu-rec"><div class="fu-ph"><b>Follow up issue #${fuNo(a)}</b><button type="button" class="btn gray" data-act="fuEdit" data-id="${a.id}" data-hid="${hid}">Edit follow up</button></div>${fuForm(a, h, true, 'fp_' + a.id, true)}</div>`).join('') : '<p class="fu-none">No follow up yet.</p>'}`);
@@ -2590,8 +2613,8 @@ function followRecordSheet(hid) {
 function followNewSheet(hid) {
   const h = byId(hid); if (!h) return; const a = {date: today(), hotelId: hid, type: 'Call', fuStatus: 'processing'};
   openSheet(`${fuHead('Follow up information for ' + h.name)}<div class="fu-pop">${fuForm(a, h, false, 'fp_st', false)}</div>
-   <div class="sheet-foot"><button class="btn" data-act="fuRecord" data-hid="${hid}">Cancel</button><button class="btn primary" id="fp_save">Save</button></div>`, root => {
-    $('#fp_save', root).onclick = async () => { if (!await fuSave(root, {}, h, true)) return; toast('Follow up added'); followRecordSheet(hid); if (location.hash.startsWith('#hotels')) rerender(); };
+   <div class="sheet-foot"><button class="btn" data-act="${UI.fuL ? 'mrFollow' : 'fuRecord'}" data-hid="${hid}">Cancel</button><button class="btn primary" id="fp_save">Save</button></div>`, root => {
+    $('#fp_save', root).onclick = async () => { if (!await fuSave(root, {}, h, true)) return; toast('Follow up added'); if (UI.fuL) followLatestSheet(hid); else followRecordSheet(hid); if (location.hash.startsWith('#hotels')) rerender(); };
   });
 }
 
@@ -2602,14 +2625,15 @@ Object.assign(ACTIONS, {
   fuView: el => followSheet(el.dataset.id, false),
   fuEdit: el => followSheet(el.dataset.id, true, el.dataset.hid),
   fuRecord: el => followRecordSheet(el.dataset.hid),
-  fuNew: el => followNewSheet(el.dataset.hid),
+  fuNew: el => { UI.fuL = false; followNewSheet(el.dataset.hid); },
+  fuNewL: el => { UI.fuL = true; followNewSheet(el.dataset.hid); },
   qBack: el => quotesSheet(el.dataset.hid),
   qAdd: el => { closeSheet(); location.hash = 'quote/new?hotel=' + el.dataset.hid; },
   qUp: el => uploadQuoteSheet(el.dataset.hid),
   qOpen: el => { closeSheet(); location.hash = 'quote/' + el.dataset.id; },
   qFile: el => { const q = byId(el.dataset.id); if (!q || !q.upload) return; const w = window.open(); if (w) w.location.href = q.upload.data; else download(q.upload.name || 'quotation.pdf', new Blob([Uint8Array.from(atob(q.upload.data.split(',')[1]), c => c.charCodeAt(0))], {type: q.upload.type}), q.upload.type); },
   qEdit: el => { const q = byId(el.dataset.id); if (!q) return; if (q.upload) uploadQuoteSheet(q.hotelId, q); else { closeSheet(); location.hash = 'quote/' + q.id; } },
-  qDel: el => { const q = byId(el.dataset.id); if (!q || !confirm('Delete quotation ' + (q.no || '') + '?')) return; const hid = q.hotelId; remove(q.id); toast('Deleted'); quotesSheet(hid); },
+  qDel: async el => { const q = byId(el.dataset.id); if (!q || !await confirmDelete('Do you want delete quotation ' + (q.no || ''))) return; const hid = q.hotelId; await softDelete(q); toast('Quotation deleted'); quotesSheet(hid); },
   qSend: el => {
     const q = byId(el.dataset.id), box = el.closest('.fu-qb'), to = $$('[data-qe]', box).filter(c => c.checked).map(c => c.value); if (!to.length) { toast('Tick at least one email address'); return; }
     location.href = 'mailto:' + to.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent('Quotation ' + (q.no || '') + ' — ' + (q.hotelName || '')) + '&body=' + encodeURIComponent('Dear ' + ((byId(q.hotelId) || {}).contact || 'Sir/Madam') + ',\n\nPlease find our quotation ' + (q.no || '') + ' dated ' + fdate(q.date) + '.\n' + qLines(q).join('\n') + '\n\nBest regards');
@@ -2670,7 +2694,7 @@ function vDbCity(country, city, partner) {
 function paintDbCity() {
   const S = UI.dbc, q = norm(S.name);
   let list = K('hotel').filter(h => (S.partner ? h.partnerId === S.partner : hCountry(h) === S.country && hCity(h) === S.city) && (!S.loc || h.area === S.loc) && (!q || norm(h.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name) * (S.sort === 'asc' ? 1 : -1));
-  const acts = K('act'), shown = list.slice(0, S.limit);
+  const acts = fuActs(), shown = list.slice(0, S.limit);
   const contactOf = (h, acc) => { const cs = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact, position: h.contactTitle}]).filter(c => c && c.name); const isAcc = c => /account|financ/i.test(c.position || ''); const c = acc ? cs.find(isAcc) : cs.find(x => !isAcc(x)); return c ? c.name : ''; };
   const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [scoreText(h) || h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
   const tb = $('#dbhbody'); if (!tb) return;
@@ -2872,7 +2896,7 @@ Object.assign(ACTIONS, {
 const SM_TABS = ['Thailand', 'Vietnam', 'Other'];
 const smCountry = h => { const c = hCountry(h); return c === 'Thailand' || c === 'Vietnam' ? c : 'Other'; };
 const MEET_TYPES = ['Sale call', 'Onsite meeting', 'Online meeting', 'Video call', 'Phone call', 'Visit'];
-const meetCount = hid => K('act').filter(a => a.hotelId === hid && a.type === 'Meeting').length;
+const meetCount = hid => meetActs().filter(a => a.hotelId === hid).length;
 function vSetupMeeting() {
   const u = UI.sm = UI.sm || {tab: 'Thailand', q: '', open: []};
   view().innerHTML = `<div class="top"><div><h1>Task Report - Setup Meeting</h1></div><div class="actions"><label class="dbs"><input type="search" id="smq" placeholder="Search.." value="${esc(u.q)}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
@@ -2907,7 +2931,7 @@ function meetFields(a, h, mode, nm) {   /* mode: 'view' | 'new' | 'edit' */
 }
 function meetingsSheet(hid) {
   const h = byId(hid); if (!h) return;
-  const mine = K('act').filter(a => a.hotelId === hid && a.type === 'Meeting').sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.time || '').localeCompare(y.time || '') || (x.created || '').localeCompare(y.created || ''));
+  const mine = meetActs().filter(a => a.hotelId === hid).sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.time || '').localeCompare(y.time || '') || (x.created || '').localeCompare(y.created || ''));
   const blocks = mine.map((a, i) => `<div class="fu-pop fu-rec"><div class="fu-ph"><b>Meeting issue #${i + 1}</b><button type="button" class="btn gray" data-act="smEdit" data-id="${a.id}">Edit meeting</button></div>${meetFields(a, h, 'view')}</div>`).reverse().join('');
   openSheet(`${fuHead('Meeting information for ' + h.name)}<div class="fu-qtop"><button type="button" class="btn gray" data-act="smNew" data-hid="${hid}">Add new meeting</button></div>${mine.length ? blocks : '<p class="fu-none">Don\'t have any meeting for this hotel.</p>'}`);
 }
@@ -2916,7 +2940,7 @@ async function meetingSave(root, a, h, isNew) {
   const need = [['date', 'Meeting date'], ['contactName', 'Contact person name'], ['contactEmail', 'Contact person email'], ['contactPhone', 'Contact person phone'], ['meetType', 'Meeting type']].find(([k]) => !g(k));
   if (need) { toast(need[1] + ' is required'); return false; }
   const date = g('date'), time = g('hh') + ':' + g('mm');
-  const rec = {...a, id: a.id || uid(), kind: 'act', hotelId: h.id, type: 'Meeting', date, time, contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), meetType: g('meetType'), owner: g('owner') || a.owner || Auth.who() || '', meetStatus: isNew ? (date > today() ? 'Scheduled' : 'Completed') : g('meetStatus'), done: true};
+  const rec = {...a, id: a.id || uid(), kind: 'act', hotelId: h.id, type: 'Meeting', date, time, contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), meetType: g('meetType'), owner: g('owner') || a.owner || Auth.who() || '', meetStatus: isNew ? 'On Process' : (g('meetStatus') || a.meetStatus), meeting: true, done: true};
   await save(rec);
   if (['New lead', 'Called', 'Follow up', ''].includes(h.status || '')) { h.status = 'Meeting set'; await save(h); }
   return true;
@@ -2934,19 +2958,86 @@ Object.assign(ACTIONS, {
   smToggle: el => { const u = UI.sm, c = el.dataset.c, i = u.open.indexOf(c); if (i >= 0) u.open.splice(i, 1); else u.open.push(c); paintSm(); },
   smManage: el => meetingsSheet(el.dataset.hid),
   smNew: el => meetingFormSheet(el.dataset.hid),
-  smEdit: el => { const a = byId(el.dataset.id); if (a) meetingFormSheet(a.hotelId, a); },
+  smEdit: el => { closeSheet(); location.hash = 'meetings/edit/' + el.dataset.id; },
 });
 
 /* ----- Meetings ----- */
-const MEET_ST = ['Scheduled', 'Completed', 'Postponed', 'Cancelled'];
-const meetSt = a => { const s = a.meetStatus || (a.date > today() ? 'Scheduled' : a.date === today() && !a.outcome ? 'Scheduled' : 'Completed'); return s === 'Held' ? 'Completed' : s; };
-const MEET_COL = {Scheduled:'#2E6B8A', Completed:'#1F8A4C', Postponed:'#D49A38', Cancelled:'#B4432F'};
-function vMeetings() {
-  const all = K('act').filter(a => a.type === 'Meeting').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const f = UI.meetSt || '', list = f ? all.filter(a => meetSt(a) === f) : all;
-  view().innerHTML = `<div class="top"><div><h1>Meeting status</h1><p>${all.length} meetings</p></div><div class="actions"><button class="btn primary" data-act="newMeeting">${ICON.plus}Setup meeting</button></div></div>
-   <div class="chips"><button class="chip" data-act="meetf" data-s="" aria-pressed="${!f}">All<b>${all.length}</b></button>${MEET_ST.map(s => `<button class="chip" data-act="meetf" data-s="${s}" aria-pressed="${f === s}">${s}<b>${all.filter(a => meetSt(a) === s).length}</b></button>`).join('')}</div>
-   ${list.length ? `<div class="list">${list.map(a => `<a class="row" href="#meetings" data-act="editAct" data-id="${a.id}"><span class="stripe" style="background:${MEET_COL[meetSt(a)]}"></span><div class="main"><div class="t">${esc(hotelName(a.hotelId))}</div><div class="s">${esc(a.reason || a.summary || '') || '&nbsp;'}</div></div><div class="end"><span class="status" style="color:${MEET_COL[meetSt(a)]}">${meetSt(a)}</span><div>${fdate(a.date)}</div></div></a>`).join('')}</div>` : '<div class="list"><div class="empty">No meetings here.<br><button class="btn primary" data-act="newMeeting">Setup meeting</button></div></div>'}`;
+const MEET_ST = ['On Process', 'Completed', 'Pending', 'No Show', 'Reject'], MEET_PICK = ['Completed', 'Pending', 'No Show', 'Reject'];
+const MEET_OLD = {Scheduled: 'On Process', Held: 'Completed', Postponed: 'Pending', Cancelled: 'Reject'};
+const meetSt = a => { const s = a.meetStatus || 'On Process'; return MEET_OLD[s] || s; };   /* only a person's choice changes On Process */
+const MEET_COL = {'On Process': '#2E6B8A', Completed: '#1F8A4C', Pending: '#B7791F', 'No Show': '#B4432F', Reject: '#B4432F'};
+/* ================= MEETING STATUS REPORT =================
+   Every meeting made in Setup meeting shows here (today and tomorrow first). A meeting starts as On Process; only when someone opens it with Edit and
+   chooses a status does it change. Completed is the only status that counts as a meeting held (KPI and Dashboard). Delete asks first and keeps the meeting in Delete records. */
+function confirmDelete(msg) {
+  return new Promise(res => {
+    const o = document.createElement('div'); o.className = 'dd-ov';
+    o.innerHTML = `<div class="dd-box" role="alertdialog"><div class="dd-i">!</div><h3>Delete Information!</h3><p>${esc(msg)}</p><div class="dd-b"><button type="button" class="dd-c">Cancel</button><button type="button" class="dd-y">Yes, delete it?</button></div></div>`;
+    document.body.appendChild(o); const done = v => { o.remove(); document.removeEventListener('keydown', key, true); res(v); }, key = e => { if (e.key === 'Escape') done(false); };
+    document.addEventListener('keydown', key, true); $('.dd-c', o).onclick = () => done(false); $('.dd-y', o).onclick = () => done(true); o.addEventListener('pointerdown', e => { if (e.target === o) done(false); }); $('.dd-c', o).focus();
+  });
+}
+async function softDelete(rec) { rec.deleted = {at: new Date().toISOString(), by: Auth.who() || ''}; await save(rec); }
+function mrRows() {
+  const f = UI.mr || {};
+  return meetActs().filter(a => (!f.from || (a.date || '') >= f.from) && (!f.to || (a.date || '') <= f.to) && (!f.staff || (a.owner || '') === f.staff) && (!f.status || meetSt(a) === f.status))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
+}
+function vMeetings(id) {
+  if (id && id.startsWith('edit/')) return vMeetingEdit(id.slice(5));
+  const f = UI.mr = UI.mr || {from: today(), to: addDays(today(), 1), staff: '', status: ''}, rows = mrRows(), staff = [...new Set(meetActs().map(a => a.owner).filter(Boolean))].sort();
+  view().innerHTML = `<div class="top"><div><h1>Meeting Status Report</h1></div></div>
+   <div class="fu-form"><label for="mr_from">Start Date :</label><div><input type="date" id="mr_from" value="${esc(f.from || '')}"></div><label for="mr_to">End Date :</label><div><input type="date" id="mr_to" value="${esc(f.to || '')}"></div>
+    <label for="mr_staff">Staff :</label><div><select id="mr_staff"><option value="">Select</option>${staff.map(s => `<option ${f.staff === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select></div>
+    <label for="mr_status">Status :</label><div><select id="mr_status"><option value="">Select</option>${MEET_ST.map(s => `<option ${f.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="mrSearch">${ICON.search}Search</button></div>
+   <div class="mr-head"><div class="fu-sub"><b>Meeting</b> information</div><a href="#meetings" class="up-ex" data-act="mrExport">${ICON.xls}<span>Export to excel</span></a></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Meeting date</th><th>Meeting time</th><th>Hotel name</th><th>Contact person</th><th>Meeting by</th><th>Status</th><th>Description</th><th>Action</th><th>View</th></tr></thead>
+    <tbody>${rows.length ? rows.map((a, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(meetDmy(a.date))}</td><td>${esc(a.time || '')}</td><td class="l">${esc(hotelName(a.hotelId))}</td><td>${esc([a.contactName, a.contactPos].filter(Boolean).join(' '))}</td><td>${esc(a.owner || '')}</td><td><b style="color:${MEET_COL[meetSt(a)]}">${esc(meetSt(a))}</b></td><td class="l">${esc(a.summary || '')}</td>
+     <td><div class="mr-act"><button type="button" class="btn info sm" data-act="mrEdit" data-id="${a.id}">${ICON.edit}Edit</button><button type="button" class="btn redb sm" data-act="mrDel" data-id="${a.id}">${ICON.trash}Delete</button></div></td>
+     <td><button type="button" class="btn info sm" data-act="mrFollow" data-hid="${a.hotelId}">${ICON.edit}Follow up</button></td></tr>`).join('') : '<tr><td colspan="10" class="empty"></td></tr>'}</tbody></table></div>`;
+}
+function vMeetingEdit(id) {
+  const a = byId(id), h = a && byId(a.hotelId); if (!a || !h || a.deleted) { view().innerHTML = '<a class="back" href="#meetings">‹ Meeting Status Report</a><div class="empty">This meeting was not found.</div>'; return; }
+  const [hh, mm] = String(a.time || '00:00').split(':'), hours = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0')), mins = [...new Set(Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0')).concat(mm ? [mm] : []))].sort();
+  const who = [...new Set(meetActs().map(x => x.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], a.owner ? [a.owner] : []))].sort();
+  const f = (label, req, inner, cls) => `<label class="f ${cls || ''}"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span>${inner}</label>`, inp = (k, v, type) => `<input type="${type || 'text'}" data-mf="${k}" value="${esc(v || '')}">`, cur = meetSt(a);
+  view().innerHTML = `<a class="back" href="#meetings">‹ Meeting Status Report</a><div class="top"><div><h1>Meeting edit :</h1></div></div>
+   <div class="hi me-grid">${f('Hotel Name', 1, `<input value="${esc(h.name)}" disabled class="hi-fz">`, 'wide')}<span></span>
+    ${f('Meeting date', 1, inp('date', a.date, 'date'))}${f('Meeting time', 1, `<span class="mt-hm"><select data-mf="hh">${hours.map(x => `<option ${x === (hh || '00') ? 'selected' : ''}>${x}</option>`).join('')}</select><select data-mf="mm">${mins.map(x => `<option ${x === (mm || '00') ? 'selected' : ''}>${x}</option>`).join('')}</select></span>`)}
+    ${f('Contact person name', 1, inp('contactName', a.contactName))}${f('Contact person position', 0, inp('contactPos', a.contactPos))}
+    ${f('Contact person email', 0, inp('contactEmail', a.contactEmail))}${f('Contact person phone', 0, inp('contactPhone', a.contactPhone))}
+    ${f('Description', 0, `<textarea data-mf="summary" rows="5">${esc(a.summary || '')}</textarea>`, 'full')}
+    ${f('Meeting by', 0, `<select data-mf="owner"><option value="">Please select</option>${who.map(x => `<option ${a.owner === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`)}
+    ${f('Meeting type', 1, `<select data-mf="meetType"><option value="">Please select</option>${MEET_TYPES.concat(a.meetType && !MEET_TYPES.includes(a.meetType) ? [a.meetType] : []).map(x => `<option ${a.meetType === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`)}
+    <div class="f full"><span>Meeting status</span><div class="fu-opts">${MEET_PICK.map(s => `<label class="fu-rad"><input type="radio" name="me_st" value="${s}" ${cur === s ? 'checked' : ''}> ${s}</label>`).join('')}${cur === 'On Process' ? '<span class="muted small" style="margin-left:10px">On Process — choose the result of the meeting</span>' : ''}</div></div>
+    ${f('Meeting Feedback', 1, `<textarea data-mf="feedback" rows="3">${esc(a.feedback || '')}</textarea>`, 'full')}</div>
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="meSave" data-id="${id}">${ICON.save}Save</button><button type="button" class="btn amber" data-act="meReset" data-id="${id}">${ICON.search}Reset</button></div>`;
+}
+Object.assign(ACTIONS, {
+  mrSearch: () => { UI.mr = {from: $('#mr_from').value, to: $('#mr_to').value, staff: $('#mr_staff').value, status: $('#mr_status').value}; vMeetings(''); },
+  mrEdit: el => { location.hash = 'meetings/edit/' + el.dataset.id; },
+  mrDel: async el => { const a = byId(el.dataset.id); if (!a || !await confirmDelete('Do you want delete meeting')) return; await softDelete(a); toast('Meeting deleted'); vMeetings(''); },
+  mrFollow: el => followLatestSheet(el.dataset.hid),
+  mrExport: () => {
+    const rows = mrRows(); if (!rows.length) { toast('Nothing to export'); return; }
+    const head = ['No.', 'Meeting date', 'Meeting time', 'Hotel name', 'Contact person', 'Meeting by', 'Status', 'Description'], aoa = [head, ...rows.map((a, i) => [i + 1, meetDmy(a.date), a.time || '', hotelName(a.hotelId), [a.contactName, a.contactPos].filter(Boolean).join(' '), a.owner || '', meetSt(a), a.summary || ''])];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Meetings'); download('CRM Meetings - ' + today() + '.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  },
+  meReset: el => vMeetingEdit(el.dataset.id),
+  meSave: async el => {
+    const a = byId(el.dataset.id); if (!a) return; const v = k => { const e = $(`[data-mf=${k}]`); return e ? (e.value || '').trim() : ''; }, st = ($('[name=me_st]:checked') || {}).value || '';
+    const need = [['date', 'Meeting date'], ['contactName', 'Contact person name'], ['meetType', 'Meeting type']].find(([k]) => !v(k));
+    if (need) { toast(need[1] + ' is required'); return; } if (!st) { toast('Choose the meeting status'); return; } if (!v('feedback')) { toast('Meeting Feedback is required'); return; }
+    Object.assign(a, {date: v('date'), time: v('hh') + ':' + v('mm'), contactName: v('contactName'), contactPos: v('contactPos'), contactEmail: v('contactEmail'), contactPhone: v('contactPhone'), summary: v('summary'), owner: v('owner'), meetType: v('meetType'), meetStatus: st, feedback: v('feedback'), meeting: true});
+    await save(a); toast('Saved'); location.hash = 'meetings';
+  },
+});
+/* ---- the latest follow-up of a hotel, with Add new follow up (no editing here) ---- */
+function followLatestSheet(hid) {
+  const h = byId(hid); if (!h) return; const a = fuActs().filter(x => x.hotelId === hid).sort((x, y) => (y.date || '').localeCompare(x.date || '') || (y.created || '').localeCompare(x.created || ''))[0];
+  openSheet(`${fuHead('Follow up information')}<div class="fu-qtop"><button type="button" class="btn gray" data-act="fuNewL" data-hid="${hid}">Add new follow up</button></div>
+   ${a ? `<div class="fu-pop"><div class="fu-ph"><b>Follow up issue #${fuNo(a)}</b></div>${fuForm(a, h, true, 'fp_latest', true)}</div>` : '<p class="fu-none">Don\'t have any follow up for this hotel.</p>'}`);
 }
 
 /* ----- Activation ----- */
@@ -2985,7 +3076,7 @@ function vKpi(which) {
   which = ['appointment', 'signed', 'activation'].includes(which) ? which : 'appointment';
   const months = []; const d0 = new Date(); for (let i = 5; i >= 0; i--) { const d = new Date(d0.getFullYear(), d0.getMonth() - i, 1); months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
   const src = {
-    appointment: K('act').filter(a => a.type === 'Meeting' && meetSt(a) !== 'Cancelled').map(a => a.date),
+    appointment: meetActs().filter(a => meetSt(a) === 'Completed').map(a => a.date),
     signed: K('msa').filter(m => m.status === 'Signed').map(m => m.date),
     activation: K('activation').filter(a => a.status === 'Live').map(a => a.date),
   }[which];
@@ -3064,13 +3155,14 @@ function dashData(n) {
   const own = {}, P = o => own[o || ''] = own[o || ''] || {appointment:0, generated:0, rejected:0, signed:0, mrr:0, activation:0};
   const inRange = d => ms.includes((d || '').slice(0, 7));
   quotes.forEach(q => { const d = q.date || q.created; if (inRange(d)) P(q.owner).generated++; if (q.status === 'Rejected' && inRange(q.date || q.updated)) P(q.owner).rejected++; });
-  K('act').filter(a => a.type === 'Meeting' && meetSt(a) !== 'Cancelled' && inRange(a.date)).forEach(a => P(a.owner).appointment++);
+  meetActs().filter(a => meetSt(a) === 'Completed' && inRange(a.date)).forEach(a => P(a.owner).appointment++);
   K('activation').filter(a => a.status === 'Live' && inRange(a.date)).forEach(a => P(a.owner).activation++);
   signed.forEach((d, hid) => { if (!inRange(d)) return; const m = msas.find(x => x.status === 'Signed' && x.hotelId === hid), q = quotes.find(x => x.hotelId === hid && x.status === 'Accepted'); const o = (m && m.owner) || (q && q.owner) || ''; const p = P(o); p.signed++; p.mrr += fee(hid).mrr; });
   const rev = ms.map(m => { let mrr = 0, once = 0; signed.forEach((d, hid) => { if (inM(d, m)) { const f = fee(hid); mrr += f.mrr; once += f.once; } }); return {mrr, once}; });
   return {
     ms,
     generated: ms.map(m => quotes.filter(q => inM(q.date || q.created, m)).length),
+    meetings: ms.map(m => meetActs().filter(a => meetSt(a) === 'Completed' && inM(a.date, m)).length),
     rejected: ms.map(m => quotes.filter(q => q.status === 'Rejected' && inM(q.date || q.updated, m)).length),
     signed: ms.map(m => [...signed.values()].filter(d => inM(d, m)).length),
     mrr: rev.map(r => r.mrr), once: rev.map(r => r.once),
@@ -3093,13 +3185,14 @@ function vDashboard() {
   view().innerHTML = `<div class="top"><div><h1>Dashboard</h1><p>Quotations, contracts and revenue — last ${n} months</p></div>
     <div class="actions"><button class="chip" data-act="dashn" data-n="6" aria-pressed="${n === 6}">6 months</button><button class="chip" data-act="dashn" data-n="12" aria-pressed="${n === 12}">12 months</button><button class="chip" data-act="dashn" data-n="24" aria-pressed="${n === 24}">24 months</button></div></div>
    <div class="kpis">
+    <a class="kpi" href="#meetings"><div class="v">${sum(d.meetings)}</div><div class="l">Meetings completed</div></a>
     <a class="kpi" href="#quotes"><div class="v">${gen}</div><div class="l">Quotations generated</div></a>
     <a class="kpi" href="#quotes"><div class="v">${rej}</div><div class="l">Rejected</div></a>
     <a class="kpi" href="#hotels"><div class="v">${sig}</div><div class="l">Signed${gen ? ' · ' + rate + '% of generated' : ''}</div></a>
     <a class="kpi" href="#quotes/waiting"><div class="v">${d.sent}</div><div class="l">Waiting for approval</div></a>
    </div>
    <h2>Quotation generated, rejected and signed</h2>
-   <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Generated', c:'#2E6B8A', v:d.generated}, {n:'Rejected', c:'#B4432F', v:d.rejected}, {n:'Signed', c:'#1F8A4C', v:d.signed}])}</div>
+   <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Generated', c:'#2E6B8A', v:d.generated}, {n:'Rejected', c:'#B4432F', v:d.rejected}, {n:'Signed', c:'#1F8A4C', v:d.signed}, {n:'Meetings completed', c:'#7A5C9E', v:d.meetings}])}</div>
    <h2>Revenue of signed hotels</h2>
    <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Monthly fees signed (THB / month)', c:'#176B50', v:d.mrr}, {n:'Set-up fees (THB, once)', c:'#D49A38', v:d.once}].concat(hasComm ? [{n:'Commission collected (THB)', c:'#7A5C9E', v:d.comm.map(v => v || 0)}] : []))}
     <p class="muted small" style="margin:10px 0 0">Fixed fees come from the signed hotel's quotation: ${thb(sum(d.mrr))} a month signed, ${thb(sum(d.once))} of set-up fees. ${hasComm ? '' : "Commission revenue (a % of the hotel's income) will appear here by itself once the Stripe records and the Accounting system are connected."}</p></div>${personTable(d)}`;
@@ -3125,7 +3218,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {setupmeeting:'playbook', upload:'upload', deleted:'trash', userlog:'log', dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', partners:'users', dblog:'gear', followup:'phone', meetings:'kpi', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
