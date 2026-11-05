@@ -1,12 +1,14 @@
-// The emails Supabase Auth sends (the sign-in code, the set-password / user-creation link), one look for each system.
+// The emails Supabase Auth sends (the sign-in code, the set-password / user-creation link): the same box for every system, with the system name in it.
 // Pure functions (no network): index.ts sends what these return; tests/sync/authmail-test.js checks them.
 // The system is read from the address the person came from (redirect_to / site_url): pms. = hotel side, console. = provider side, crm. / sales. = company CRM.
 
+// One look for every system (the same box, colours and logo as the Maha PMS email); only the name that mentions the system changes.
+const LOOK = { tag: "Maha Hub Group of Companies Limited", header: "#113732", accent: "#3fcf9f", soft: "#eef8f4", line: "#b7dccd", text: "#1d6e55", logo: "https://maha-hub.com/brand/maha/pms-icon-96.png" };
 export const SYSTEMS = {
-  pms: { name: "Maha PMS", tag: "Hotel system", header: "#113732", accent: "#3fcf9f", soft: "#eef8f4", line: "#b7dccd", text: "#1d6e55", logo: "https://maha-hub.com/brand/maha/pms-icon-96.png", page: "Maha PMS sign-in page" },
-  console: { name: "Maha Provider", tag: "Provider console", header: "#1f2a37", accent: "#d49a38", soft: "#fbf5e9", line: "#ead9b0", text: "#8a6217", logo: "https://maha-hub.com/brand/maha/pms-icon-96.png", page: "Maha Provider sign-in page" },
-  crm: { name: "Maha CRM", tag: "Company sales", header: "#0A3020", accent: "#d49a38", soft: "#fbf5e9", line: "#ead9b0", text: "#8a6217", logo: "https://maha-hub.com/brand/maha-mark.png", page: "Maha CRM sign-in page" },
-  default: { name: "Maha Hub", tag: "Maha Hub Group of Companies Limited", header: "#113732", accent: "#3fcf9f", soft: "#eef8f4", line: "#b7dccd", text: "#1d6e55", logo: "https://maha-hub.com/brand/maha/pms-icon-96.png", page: "Maha Hub sign-in page" },
+  pms: { ...LOOK, name: "Maha PMS", page: "Maha PMS sign-in page" },
+  console: { ...LOOK, name: "Maha Provider", page: "Maha Provider sign-in page" },
+  crm: { ...LOOK, name: "Maha CRM", page: "Maha CRM sign-in page" },
+  default: { ...LOOK, name: "Maha Hub", page: "Maha Hub sign-in page" },
 };
 
 const HOSTS = { "pms.maha-hub.com": "pms", "console.maha-hub.com": "console", "crm.maha-hub.com": "crm", "sales.maha-hub.com": "crm" };
