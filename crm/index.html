@@ -468,6 +468,45 @@ table{border-radius:12px}
 .rgcg button{height:30px;border:0;border-radius:8px;background:transparent;color:inherit;font:inherit;cursor:pointer}.rgcg button:hover{background:color-mix(in srgb,var(--a1) 14%,transparent)}
 .rgcg button.td{box-shadow:inset 0 0 0 1.5px var(--a1)}.rgcg button.e{background:var(--a1);color:#fff;font-weight:700}
 .rgft{display:flex;justify-content:center;margin-top:8px}.rgft button{border:0;background:transparent;color:var(--a1);font:700 12.5px var(--font);cursor:pointer}
+/* ---------- Database Hotel List ---------- */
+.dbs{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:99px;background:#fff;padding:0 14px;height:38px;width:240px}
+.dbs input{border:0!important;background:transparent!important;min-height:0!important;height:34px;padding:0!important;flex:1;min-width:0;outline:0;font-size:13.5px}
+.dbsi{color:#2a7fc1;display:grid}.dbsi svg{width:17px;height:17px}
+.dbtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 -1px;position:relative;z-index:1}
+.dbt{border:0;border-radius:10px 10px 0 0;background:#e9e7e2;color:#555;font:600 12.5px var(--font);letter-spacing:.04em;padding:11px 18px;cursor:pointer}.dbt:hover{background:#dedbd3}
+.dbt[aria-pressed="true"]{background:#74828f;color:#fff}
+.dbw{border:1px solid #d5d5d5;border-radius:0 14px 14px 14px;background:#fff!important}
+.dbtb{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
+.dbtb thead th{padding:14px 12px;font-weight:700;color:#7a3b2a;background:#fff;border-bottom:1px solid #d5d5d5}
+.dbtb th.c,.dbtb td.c{text-align:center}.dbtb th.l,.dbtb td.l{text-align:left}.dbtb .w1{width:70px}.dbtb .w2{width:190px}.dbtb .w3{width:110px}
+.dbtb tbody td{background:#999;color:#fff;padding:9px 12px;border-bottom:1px solid #c4c4c4;border-right:1px solid #c4c4c4;font-weight:500}
+.dbtb tbody td:last-child{border-right:0}.dbtb tbody tr[data-go]{cursor:pointer}.dbtb tbody tr[data-go]:hover td{background:#8a8a8a}
+.dbtb tbody tr.dbtot td{background:#8d8d8d;font-weight:700}.dbtb tr.dbempty td{background:#fff;color:#777;text-align:center;padding:26px}
+.dbtb td svg{display:inline-block;vertical-align:middle}
+.dbh tbody tr:nth-child(odd) td{background:#fff}.dbh tbody tr:nth-child(even) td{background:#fbfaf7}.dbh tbody tr.dbours td{background:#e4f6ea}
+.dbh td.adr{min-width:190px;max-width:260px;font-size:12px;line-height:1.35}.dbh td{font-size:13px}
+.dbname{color:#222;text-decoration:none;font-weight:500}.dbname:hover{color:var(--a1);text-decoration:underline}
+.dbsort{color:#7a3b2a;text-decoration:none;font-weight:700}
+.dblast{font-size:11.5px;color:#333}
+.dbmore{text-align:center;margin:12px 0}
+.dbf{grid-template-columns:130px minmax(0,1fr) 130px minmax(0,1fr)}
+.hi{display:grid;gap:12px}.hi .f{margin:0}.hi-r2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hi .f>span{font-weight:700;font-size:13.5px}.hi .req{color:#d93025;font-style:normal}
+.hi-cg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px}
+.hi-add{display:flex;justify-content:flex-end}
+.hi-more summary{cursor:pointer;font-weight:700;margin:6px 0 10px}
+.btn.ok2{background:#4db98a;border-color:#4db98a;color:#fff}
+.fu-rec{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+@media (max-width:640px){.hi-r2,.hi-cg{grid-template-columns:minmax(0,1fr)}.dbf{grid-template-columns:minmax(0,1fr)}.dbs{width:100%}}
+/* ---------- No top bar: the page starts at the top (a phone keeps only the menu button) ---------- */
+.mshell{grid-template-rows:auto;grid-template-areas:"sb view"}
+.mtop{display:none}
+.mshell>main{padding-top:14px!important}
+@media (max-width:700px){
+ .mshell,.mshell.slim{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;grid-template-areas:"top" "view"}
+ .mtop{display:flex;position:sticky;top:0;height:46px;padding:0 10px;background:#fff;border-bottom:1px solid var(--line)}
+ .mcrumb,.msearch{display:none}
+}
 </style>
 </head>
 <body>
@@ -770,6 +809,10 @@ const HOTEL_FIELDS = [
  {k:'rooms', label:'Rooms', type:'number'},
  {k:'area', label:'Area / cluster'},
  {k:'city', label:'City'},
+ {k:'country', label:'Country'},
+ {k:'position', label:'Position'},
+ {k:'price', label:'Price'},
+ {k:'pvo', label:'Virtual Offline Payment'},
  {k:'address', label:'Address', wide:1},
  {k:'contact', label:'Contact person'},
  {k:'contactTitle', label:'Contact title'},
@@ -1577,7 +1620,7 @@ function route() {
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'dblog', 'agents', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   drawNav(SECTION_OF[r] || 'today'); view().oninput = null; view().onchange = null;
-  ({today:vToday, hotels:vHotels, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
+  ({today:vToday, hotels:vDbList, hotel:vHotel, quotes:vQuotes, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard,  dblog:vDblog, agents:vAgents, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vToday)(id);
   crumb(SECTION_OF[r] || 'today');
 }
 async function decide(result) {
@@ -1706,19 +1749,6 @@ function vHotel(id) {
     ${quotes.length ? `<div class="list">${quotes.map(quoteRow).join('')}</div>` : '<div class="list"><div class="empty">No quotes yet.</div></div>'}
     <p><button class="btn danger sm" data-act="delHotel" data-id="${id}">Delete hotel</button></p>
    </div></div>`;
-}
-
-function hotelSheet(h) {
-  const isNew = !h; h = h || {status:'New lead', managed:'No'};
-  openSheet(`${sheetHead(isNew ? 'Add hotel' : 'Edit hotel')}<form id="hf" class="grid two">${HOTEL_FIELDS.map(f => field(f, h[f.k])).join('')}</form>
-   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary" id="hsave">${isNew ? 'Add hotel' : 'Save changes'}</button></div>`, root => {
-    $('#hsave', root).onclick = async () => {
-      const v = readForm(root, HOTEL_FIELDS); if (!v.name) { toast('Hotel name is required'); return; }
-      if (isNew) { const dup = K('hotel').find(x => norm(x.name) === norm(v.name)); if (dup && !confirm(`"${dup.name}" is already in the database. Add another anyway?`)) return; }
-      const rec = {...h, ...v, id: h.id || uid(), kind:'hotel'}; await save(rec); closeSheet(); toast(isNew ? 'Hotel added' : 'Saved');
-      isNew ? (location.hash = 'hotel/' + rec.id) : rerender();
-    };
-  });
 }
 
 function actSheet(a, hid, type) {
@@ -2095,7 +2125,7 @@ const ACTIONS = {
   newHotel: () => hotelSheet(),
   editHotel: el => hotelSheet(byId(el.dataset.id)),
   delHotel: el => { const h = byId(el.dataset.id); const n = actsFor(h.id).length; if (confirm(`Delete ${h.name} and its ${n} activities? Quotes are kept.`)) { actsFor(h.id).forEach(a => remove(a.id)); remove(h.id); toast('Hotel deleted'); location.hash = 'hotels'; } },
-  stage: el => { UI.hotelStage = el.dataset.stage; UI.hotelLimit = 150; if (location.hash !== '#hotels') location.hash = 'hotels'; else vHotels(); },
+  stage: () => { if (location.hash !== '#hotels') location.hash = 'hotels'; },
   more: () => { UI.hotelLimit += 300; rerender(); },
   copyBrief: el => { const h = byId(el.dataset.id); copyText([h.name, h.area, h.city].filter(Boolean).join(', '), 'Research request copied — paste into Claude'); },
   copyCard: el => { const h = byId(el.dataset.id); copyText(['name', 'contact', 'contactTitle', 'phone', 'email', 'line', 'address', 'website'].map(k => h[k] ? (k === 'name' ? h[k] : `${HOTEL_FIELDS.find(f => f.k === k).label}: ${h[k]}`) : '').filter(Boolean).join('\n')); },
@@ -2269,7 +2299,7 @@ function vDblog() {
 
 /* ----- Follow up: the page as in OneHotel Sales (Latest Follow ups): filters, Search / Reset, Export Excel, the coloured table,
    Manage(n) = the quotations of the hotel in a pop-up, View = the follow-up information in a pop-up. Everything else in the table is plain text. ----- */
-const FU_PROD = [['pms', 'PMS', ['pms']], ['cm', 'CM', ['cm']], ['be', 'BE', ['be', 'becom']], ['vop', 'Virtual Offline Payment', ['inv']]];
+const FU_PROD = [['pms', 'PMS', ['pms']], ['cm', 'CM', ['cm']], ['be', 'BE', ['be', 'becom']], ['vop', 'Virtual Offline Payment', ['inv']], ['rb', 'Revboost', ['rm']]];
 const FU_STATUS = [['processing', 'Processing', ['New lead', 'Called', 'Quoted', 'Negotiating']], ['meeting', 'Meeting', ['Meeting set']], ['follow', 'Follow up', ['Follow up']], ['reject', 'Reject', ['Lost', 'On hold']], ['sign', 'Sign', ['Signed', 'Live']], ['old', 'Old data', []]];
 const FU_TO_STAGE = {processing:'Called', meeting:'Meeting set', follow:'Follow up', reject:'Lost', sign:'Signed'};
 Object.assign(ICON, {
@@ -2364,37 +2394,58 @@ function uploadQuoteSheet(hid, q) {
   });
 }
 
-/* ---- View: the follow-up information ---- */
-function followSheet(id, edit) {
-  const a = byId(id); if (!a) return; const h = byId(a.hotelId) || {}, mine = K('act').filter(x => x.hotelId === a.hotelId).sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.created || '').localeCompare(y.created || ''));
-  const no = mine.findIndex(x => x.id === id) + 1, key = fuKey(a, h), prods = fuProds(a, fuLatestQ(a.hotelId)), dis = edit ? '' : ' disabled';
+/* ---- View: the follow-up information. From the Latest Follow ups page it is read-only (that follow-up only). From the Database Hotel List it is the whole record of the hotel:
+   every follow-up with Edit follow up, and Add new follow up. ---- */
+function fuNo(a) { const mine = K('act').filter(x => x.hotelId === a.hotelId).sort((x, y) => (x.date || '').localeCompare(y.date || '') || (x.created || '').localeCompare(y.created || '')); return mine.findIndex(x => x.id === a.id) + 1; }
+function fuForm(a, h, dis, nm, withOwner) {
+  const key = fuKey(a, h), prods = fuProds(a, fuLatestQ(a.hotelId)), d = dis ? ' disabled' : '';
   const leads = [...new Set(K('hotel').map(x => x.source).filter(Boolean).concat([a.leadType, h.source].filter(Boolean)))].sort();
   const row = (label, req, inner) => `<div class="fu-pr"><label>${label}${req ? ' <i class="req">*</i>' : ''}</label><div>${inner}</div></div>`;
-  const val = (k, v, type) => `<input ${type ? 'type="' + type + '"' : 'type="text"'} data-ff="${k}" value="${esc(v || '')}"${dis}>`;
-  openSheet(`<div class="sheet-head"><h2>Follow up information</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>
-   <div class="fu-pop"><div class="fu-ph"><b>Follow up issue #${no}</b>${edit ? '' : `<button type="button" class="btn gray" data-act="fuEdit" data-id="${id}">Edit follow up</button>`}</div>
-   ${row('Date', 1, val('date', a.date, 'date'))}${row('Contact person name', 1, val('contactName', a.contactName || h.contact))}${row('Contact person position', 1, val('contactPos', a.contactPos || h.contactTitle || ''))}
+  const val = (k, v, type) => `<input type="${type || 'text'}" data-ff="${k}" value="${esc(v || '')}"${d}>`;
+  return `${row('Date', 1, val('date', a.date, 'date'))}${row('Contact person name', 1, val('contactName', a.contactName || h.contact))}${row('Contact person position', 1, val('contactPos', a.contactPos || h.contactTitle || ''))}
    ${row('Contact person email', 1, val('contactEmail', a.contactEmail || h.email))}${row('Contact person phone', 1, val('contactPhone', a.contactPhone || h.phone))}
-   ${row('Description', 0, `<textarea data-ff="summary" rows="5"${dis}>${esc(a.summary || a.reason || '')}</textarea>`)}${row('Reminder date', 0, val('nextDate', a.nextDate, 'date'))}
-   ${row('Lead Type', 0, `<select data-ff="leadType"${dis}><option value="">Please select</option>${leads.map(l => `<option ${(a.leadType || h.source) === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
-   ${row('Channal', 0, `<select data-ff="type"${dis}>${ACT_TYPES.map(l => `<option ${a.type === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
-   ${row('Product', 0, `<div class="fu-opts">${FU_PROD.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-fpp="${k}" ${prods.includes(k) ? 'checked' : ''}${dis}> ${esc(l)}</label>`).join('')}</div>`)}
-   ${row('Status', 0, `<div class="fu-opts">${FU_STATUS.filter(s => s[0] !== 'old').map(([k, l]) => `<label class="fu-rad"><input type="radio" name="fp_st" value="${k}" ${key === k ? 'checked' : ''}${dis}> ${esc(l)}</label>`).join('')}</div>`)}
-   ${row('Follow up By', 1, val('owner', a.owner))}</div>
-   ${edit ? `<div class="sheet-foot"><button class="btn" data-act="fuView" data-id="${id}">Cancel</button><button class="btn primary" id="fp_save">Save</button></div>` : ''}`, root => {
+   ${row('Description', 0, `<textarea data-ff="summary" rows="5"${d}>${esc(a.summary || a.reason || '')}</textarea>`)}${row('Reminder date', 0, val('nextDate', a.nextDate, 'date'))}
+   ${row('Lead Type', 0, `<select data-ff="leadType"${d}><option value="">Please select</option>${leads.map(l => `<option ${(a.leadType || h.source) === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
+   ${row('Channal', 0, `<select data-ff="type"${d}>${ACT_TYPES.map(l => `<option ${a.type === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
+   ${row('Product', 0, `<select data-ff="product"${d}><option value="">Please select</option>${FU_PROD.map(([k, l]) => `<option value="${k}" ${prods[0] === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
+   ${row('Status', 0, `<div class="fu-opts">${FU_STATUS.filter(s => s[0] !== 'old').map(([k, l]) => `<label class="fu-rad"><input type="radio" name="${nm}" value="${k}" ${key === k ? 'checked' : ''}${d}> ${esc(l)}</label>`).join('')}</div>`)}
+   ${withOwner ? row('Follow up By', 1, val('owner', a.owner)) : ''}`;
+}
+const fuHead = t => `<div class="sheet-head"><h2>${esc(t)}</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>`;
+async function fuSave(root, a, h, isNew) {
+  const g = k => { const e = $(`[data-ff=${k}]`, root); return e ? (e.value || '').trim() : ''; };
+  const need = [['date', 'Date'], ['contactName', 'Contact person name'], ['contactPos', 'Contact person position'], ['contactEmail', 'Contact person email'], ['contactPhone', 'Contact person phone']].concat(isNew ? [] : [['owner', 'Follow up By']]).find(([k]) => !g(k));
+  if (need) { toast(need[1] + ' is required'); return false; }
+  const st = ($('[name=fp_st]:checked', root) || {}).value || '';
+  const rec = {...a, id: a.id || uid(), kind:'act', hotelId: h.id, date: g('date'), contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), nextDate: g('nextDate'), leadType: g('leadType'), type: g('type') || 'Call',
+    owner: isNew ? (Auth.who() || a.owner || '') : g('owner'), products: g('product') ? [g('product')] : [], fuStatus: st};
+  rec.done = rec.nextDate ? (a.nextDate === rec.nextDate ? !!a.done : false) : true;
+  await save(rec);
+  if (st && FU_TO_STAGE[st]) { const to = FU_TO_STAGE[st]; if (h.status !== to && !(st === 'processing' && !['New lead', ''].includes(h.status || ''))) { h.status = to; await save(h); } }
+  return true;
+}
+function followSheet(id, edit, back) {
+  const a = byId(id); if (!a) return; const h = byId(a.hotelId) || {};
+  openSheet(`${fuHead('Follow up information' + (back ? ' for ' + h.name : ''))}
+   <div class="fu-pop"><div class="fu-ph"><b>Follow up issue #${fuNo(a)}</b>${back && !edit ? `<button type="button" class="btn gray" data-act="fuEdit" data-id="${id}" data-hid="${back}">Edit follow up</button>` : ''}</div>
+   ${fuForm(a, h, !edit, 'fp_st', true)}</div>
+   ${edit ? `<div class="sheet-foot"><button class="btn" data-act="${back ? 'fuRecord' : 'fuView'}" data-hid="${back || ''}" data-id="${id}">Cancel</button><button class="btn primary" id="fp_save">Save</button></div>` : ''}`, root => {
     const sv = $('#fp_save', root); if (!sv) return;
-    sv.onclick = async () => {
-      const g = k => ($(`[data-ff=${k}]`, root).value || '').trim();
-      const need = [['date', 'Date'], ['contactName', 'Contact person name'], ['contactPos', 'Contact person position'], ['contactEmail', 'Contact person email'], ['contactPhone', 'Contact person phone'], ['owner', 'Follow up By']].find(([k]) => !g(k));
-      if (need) { toast(need[1] + ' is required'); return; }
-      const st = ($('[name=fp_st]:checked', root) || {}).value || '';
-      const rec = {...a, date: g('date'), contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), nextDate: g('nextDate'), leadType: g('leadType'), type: g('type'), owner: g('owner'),
-        products: $$('[data-fpp]', root).filter(c => c.checked).map(c => c.dataset.fpp), fuStatus: st};
-      rec.done = rec.nextDate ? (a.nextDate === rec.nextDate ? !!a.done : false) : true;
-      await save(rec);
-      if (st && FU_TO_STAGE[st] && h.id) { const to = FU_TO_STAGE[st]; if (h.status !== to && !(st === 'processing' && !['New lead', ''].includes(h.status || ''))) { h.status = to; await save(h); } }
-      toast('Saved'); followSheet(id, false); if (location.hash === '#followup') vFollowup();
-    };
+    sv.onclick = async () => { if (!await fuSave(root, a, h, false)) return; toast('Saved'); if (back) followRecordSheet(back); else followSheet(id, false); if (location.hash === '#followup') vFollowup(); };
+  });
+}
+function followRecordSheet(hid) {
+  const h = byId(hid); if (!h) return;
+  const mine = K('act').filter(a => a.hotelId === hid).sort((x, y) => (y.date || '').localeCompare(x.date || '') || (y.created || '').localeCompare(x.created || ''));
+  openSheet(`${fuHead('Follow up information for ' + h.name)}
+   <div class="fu-qtop"><button type="button" class="btn gray" data-act="fuNew" data-hid="${hid}">Add new follow up</button></div>
+   ${mine.length ? mine.map(a => `<div class="fu-pop fu-rec"><div class="fu-ph"><b>Follow up issue #${fuNo(a)}</b><button type="button" class="btn gray" data-act="fuEdit" data-id="${a.id}" data-hid="${hid}">Edit follow up</button></div>${fuForm(a, h, true, 'fp_' + a.id, true)}</div>`).join('') : '<p class="fu-none">No follow up yet.</p>'}`);
+}
+function followNewSheet(hid) {
+  const h = byId(hid); if (!h) return; const a = {date: today(), hotelId: hid, type: 'Call', fuStatus: 'processing'};
+  openSheet(`${fuHead('Follow up information for ' + h.name)}<div class="fu-pop">${fuForm(a, h, false, 'fp_st', false)}</div>
+   <div class="sheet-foot"><button class="btn" data-act="fuRecord" data-hid="${hid}">Cancel</button><button class="btn primary" id="fp_save">Save</button></div>`, root => {
+    $('#fp_save', root).onclick = async () => { if (!await fuSave(root, {}, h, true)) return; toast('Follow up added'); followRecordSheet(hid); if (location.hash.startsWith('#hotels')) rerender(); };
   });
 }
 
@@ -2403,7 +2454,9 @@ Object.assign(ACTIONS, {
   fuReset: () => { UI.fu = {}; vFollowup(); },
   fuManage: el => quotesSheet(el.dataset.hid),
   fuView: el => followSheet(el.dataset.id, false),
-  fuEdit: el => followSheet(el.dataset.id, true),
+  fuEdit: el => followSheet(el.dataset.id, true, el.dataset.hid),
+  fuRecord: el => followRecordSheet(el.dataset.hid),
+  fuNew: el => followNewSheet(el.dataset.hid),
   qBack: el => quotesSheet(el.dataset.hid),
   qAdd: el => { closeSheet(); location.hash = 'quote/new?hotel=' + el.dataset.hid; },
   qUp: el => uploadQuoteSheet(el.dataset.hid),
@@ -2422,6 +2475,106 @@ Object.assign(ACTIONS, {
     try { const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Follow ups'); download('CRM Follow ups - ' + today() + '.xlsx', new Blob([XLSX.write(wb, {bookType:'xlsx', type:'array'})], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); }
     catch { download('CRM Follow ups - ' + today() + '.csv', toCSV(aoa.slice(1).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])))), 'text/csv'); }
   },
+});
+
+/* ================= DATABASE HOTEL LIST (as in OneHotel Sales) =================
+   Page 1: a tab for every country and, in it, a line for every province or city with its number of properties (search by hotel name narrows it).
+   Page 2: the properties of one province or city (Location and Hotel name filter, 100 at a time).
+   Only the hotel name opens the full Property information (edit it, add contacts); View(n) opens the whole follow-up record of the hotel. */
+const DB_TABS = ['Thailand', 'Vietnam', 'Cambodia', 'Myanmar', 'Lao', 'Other'];
+const hCountry = h => { const c = String(h.country || 'Thailand').trim(); if (/^thai/i.test(c)) return 'Thailand'; if (/^viet ?nam/i.test(c)) return 'Vietnam'; if (/^cambodia/i.test(c)) return 'Cambodia'; if (/^myanmar|^burma/i.test(c)) return 'Myanmar'; if (/^lao/i.test(c)) return 'Lao'; return 'Other'; };
+const hCity = h => String(h.city || '').trim() || '(No province)';
+const props = n => n.toLocaleString('en-GB') + ' propert' + (n === 1 ? 'y' : 'ies');
+Object.assign(ICON, {
+  db:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6M4 11.5v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
+  down:'<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="10" fill="#fff"/><path d="M12 7v9M8 12.5l4 4 4-4" fill="none" stroke="#8d8d8d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+});
+function vDbList(id) {
+  const parts = id ? id.split('/') : [];
+  if (parts.length >= 2) return vDbCity(parts[0], parts.slice(1).join('/'));
+  if (parts[0] && DB_TABS.includes(parts[0])) UI.dbTab = parts[0];
+  UI.dbTab = UI.dbTab || 'Thailand'; UI.dbq = UI.dbq || '';
+  view().innerHTML = `<div class="top"><div><h1>Database Hotel List</h1></div><div class="actions"><label class="dbs"><input type="search" id="dbq" placeholder="Search.." value="${esc(UI.dbq)}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="dbtabs">${DB_TABS.map(t => `<button type="button" class="dbt" data-act="dbTab" data-t="${t}" aria-pressed="${UI.dbTab === t}">${t.toUpperCase()}</button>`).join('')}</div>
+   <div class="tablewrap dbw"><table class="dbtb"><thead><tr><th class="c w1">No.</th><th class="l">Destination name</th><th class="c w2">Total properties</th><th class="c w3">Action</th></tr></thead><tbody id="dbbody"></tbody></table></div>`;
+  paintDb();
+  const q = $('#dbq'); q.addEventListener('input', () => { UI.dbq = q.value; paintDb(); });
+}
+function paintDb() {
+  const q = norm(UI.dbq || ''), by = new Map();
+  K('hotel').filter(h => hCountry(h) === UI.dbTab && (!q || norm(h.name).includes(q))).forEach(h => by.set(hCity(h), (by.get(hCity(h)) || 0) + 1));
+  const rows = [...by.entries()].sort((a, b) => a[0].localeCompare(b[0])), total = rows.reduce((s, r) => s + r[1], 0), tb = $('#dbbody'); if (!tb) return;
+  tb.innerHTML = rows.length ? rows.map(([c, n], i) => `<tr data-go="#hotels/${encodeURIComponent(UI.dbTab)}/${encodeURIComponent(c)}"><td class="c">${i + 1}</td><td class="l">${esc(c)}</td><td class="c">${props(n)}</td><td class="c">${ICON.down}</td></tr>`).join('') + `<tr class="dbtot"><td></td><td class="l">Total</td><td class="c">${props(total)}</td><td></td></tr>`
+    : '<tr class="dbempty"><td colspan="4">No properties here.</td></tr>';
+}
+function vDbCity(country, city) {
+  const S = UI.dbc = (UI.dbc && UI.dbc.country === country && UI.dbc.city === city) ? UI.dbc : {country, city, loc: '', name: UI.dbq || '', sort: 'asc', limit: 100};
+  const inCity = K('hotel').filter(h => hCountry(h) === country && hCity(h) === city), locs = [...new Set(inCity.map(h => h.area).filter(Boolean))].sort();
+  view().innerHTML = `<a class="back" href="#hotels/${encodeURIComponent(country)}">‹ Database Hotel List</a>
+   <div class="top"><div><h1>Database Hotel List(${esc(city === '(No province)' ? 'No province' : city)})</h1></div><div class="actions"><button type="button" class="btn primary" data-act="dbAddHotel">${ICON.plus}Add new hotel</button></div></div>
+   <div class="fu-form dbf"><label for="db_loc">Location :</label><div><select id="db_loc"><option value="">All</option>${locs.map(l => `<option ${S.loc === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+    <label for="db_name">Hotel name :</label><div><input type="text" id="db_name" value="${esc(S.name)}"></div></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="dbSearch">${ICON.search}Search</button></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dbh"><thead><tr><th>No.</th><th>Position</th><th><a href="#" class="dbsort" data-act="dbSort">Hotel name <span>${S.sort === 'asc' ? '▾' : '▴'}</span></a></th><th>Location</th><th>Score</th><th>Reviews</th><th>Price</th><th>BE</th><th>CM</th><th>PMS</th><th>PVO</th><th>No.of room</th><th>Contact person Sales</th><th>Contact person Accounting</th><th>Address</th><th>Latest updates</th><th>Follow up</th></tr></thead><tbody id="dbhbody"></tbody></table></div>
+   <p class="dbmore" id="dbmore"></p>`;
+  paintDbCity();
+}
+function paintDbCity() {
+  const S = UI.dbc, q = norm(S.name);
+  let list = K('hotel').filter(h => hCountry(h) === S.country && hCity(h) === S.city && (!S.loc || h.area === S.loc) && (!q || norm(h.name).includes(q))).sort((a, b) => a.name.localeCompare(b.name) * (S.sort === 'asc' ? 1 : -1));
+  const acts = K('act'), shown = list.slice(0, S.limit);
+  const contactOf = (h, acc) => { const cs = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact, position: h.contactTitle}]).filter(c => c && c.name); const isAcc = c => /account|financ/i.test(c.position || ''); const c = acc ? cs.find(isAcc) : cs.find(x => !isAcc(x)); return c ? c.name : ''; };
+  const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
+  const tb = $('#dbhbody'); if (!tb) return;
+  tb.innerHTML = shown.length ? shown.map((h, i) => {
+    const mine = acts.filter(a => a.hotelId === h.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')), last = mine[0], [sc, rv] = sr(h), ours = ['pms', 'cm', 'be', 'pvo'].some(k => /maha/i.test(h[k] || ''));
+    return `<tr class="${ours ? 'dbours' : ''}"><td>${i + 1}</td><td>${esc(h.position || '')}</td><td class="l"><a href="#hotels" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td class="l">${esc(h.area || '')}</td><td>${esc(sc)}</td><td>${esc(rv)}</td><td>${esc(h.price || '')}</td><td>${esc(h.be || '')}</td><td>${esc(h.cm || '')}</td><td>${esc(h.pms || '')}</td><td>${esc(h.pvo || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(contactOf(h, false))}</td><td>${esc(contactOf(h, true))}</td><td class="l adr">${esc(h.address || '')}</td><td class="nw">${esc((h.updated || '').slice(0, 10))}</td>
+     <td class="nw">${mine.length ? `<a href="#hotels" class="fu-mg" data-act="fuRecord" data-hid="${h.id}">View(${mine.length})</a><br><span class="dblast">Last : ${esc(isoToDmy(last.date).replace(/\//g, '-'))}${last.contactName || last.owner ? ' (' + esc(last.contactName || last.owner) + ')' : ''}</span>` : `<a href="#hotels" class="fu-mg" data-act="fuRecord" data-hid="${h.id}">View(0)</a>`}</td></tr>`;
+  }).join('') : '<tr><td colspan="17" class="empty">No hotels found.</td></tr>';
+  const mo = $('#dbmore'); if (mo) mo.innerHTML = list.length > shown.length ? `<button type="button" class="btn" data-act="dbMore">Show more (${list.length - shown.length} left)</button>` : (list.length ? `<span class="muted small">${list.length} hotel${list.length === 1 ? '' : 's'}</span>` : '');
+}
+
+/* ---- Property information (full info of a hotel: edit it, add contacts) ---- */
+const HI_EXTRA = ['status', 'managed', 'type', 'stars', 'otas', 'gha', 'model', 'source', 'agent', 'tags', 'line'];
+function hotelSheet(h, pre) {
+  const isNew = !h; h = h || Object.assign({status: 'New lead', managed: 'No', country: 'Thailand'}, pre || {});
+  const contacts = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact || '', position: h.contactTitle || '', email: h.email || '', phone: ''}]).slice(); while (contacts.length < 2) contacts.push({});
+  const known = k => [...new Set(K('hotel').map(x => x[k]).filter(Boolean).concat(['Maha'], h[k] ? [h[k]] : []))].sort();
+  const inp = (k, label, req, cls) => `<label class="f ${cls || ''}"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><input data-hf="${k}" value="${esc(h[k] ?? '')}"></label>`;
+  const sel = (k, label) => `<label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${known(k).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
+  const cg = (c, i) => `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name" value="${esc(c.name || '')}"></label><label class="f"><span>Contact Position</span><input data-c="position" value="${esc(c.position || '')}"></label><label class="f"><span>Contact Email</span><input data-c="email" value="${esc(c.email || '')}"></label><label class="f"><span>Contact Phone</span><input data-c="phone" value="${esc(c.phone || '')}"></label></div>`;
+  const extra = HOTEL_FIELDS.filter(f => HI_EXTRA.includes(f.k));
+  openSheet(`${fuHead(isNew ? 'Property information' : 'Property information for ' + h.name)}
+   <div class="hi">${inp('name', 'Hotel Name', 1, 'wide')}${inp('area', 'Location', 1, 'wide')}
+    <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div>${inp('website', 'Website', 0, 'wide')}
+    <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(h.address || '')}</textarea></label>
+    <div class="hi-r2">${inp('city', 'Address City')}${inp('country', 'Country')}</div>
+    <div class="hi-r2">${sel('pms', 'PMS')}${sel('cm', 'CM')}</div><div class="hi-r2">${sel('be', 'BE')}${sel('pvo', 'Virtual Offline Payment')}</div>
+    <div id="hiContacts">${contacts.map(cg).join('')}</div><div class="hi-add"><button type="button" class="btn info sm" data-act="hiAddContact">Add more contact</button></div>
+    <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(h.notes || '')}</textarea></label>
+    <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
+    <details class="hi-more"><summary>More details</summary><div class="grid two">${extra.map(f => field(f, h[f.k])).join('')}</div></details></div>
+   <div class="sheet-foot">${!isNew ? '<button class="btn danger left" id="hi_del">Delete</button>' : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="hi_save">Save</button></div>`, root => {
+    const del = $('#hi_del', root); if (del) del.onclick = () => { const n = K('act').filter(a => a.hotelId === h.id).length; if (confirm(`Delete ${h.name} and its ${n} follow ups? Quotations are kept.`)) { K('act').filter(a => a.hotelId === h.id).forEach(a => remove(a.id)); remove(h.id); closeSheet(); toast('Hotel deleted'); if (location.hash.startsWith('#hotel/')) location.hash = 'hotels'; else rerender(); } };
+    $('#hi_save', root).onclick = async () => {
+      const v = {}; $$('[data-hf]', root).forEach(e => v[e.dataset.hf] = (e.value || '').trim());
+      if (!v.name) { toast('Hotel Name is required'); return; } if (!v.area) { toast('Location is required'); return; }
+      if (isNew) { const dup = K('hotel').find(x => norm(x.name) === norm(v.name) && norm(x.city) === norm(v.city)); if (dup && !confirm(`"${dup.name}" is already in the database. Add another anyway?`)) return; }
+      const cs = $$('[data-cg]', root).map(g => ({name: $('[data-c=name]', g).value.trim(), position: $('[data-c=position]', g).value.trim(), email: $('[data-c=email]', g).value.trim(), phone: $('[data-c=phone]', g).value.trim()})).filter(c => c.name || c.position || c.email || c.phone);
+      const ex = readForm(root, extra), c0 = cs[0] || {};
+      const rec = {...h, ...v, ...ex, contacts: cs, contact: c0.name || '', contactTitle: c0.position || '', email: c0.email || '', closed: ($('[name=hi_st]:checked', root) || {}).value === 'close', id: h.id || uid(), kind: 'hotel'};
+      await save(rec); closeSheet(); toast(isNew ? 'Hotel added' : 'Saved'); if (location.hash.startsWith('#hotels/')) rerender(); else if (isNew && !location.hash.startsWith('#hotels')) location.hash = 'hotel/' + rec.id; else rerender();
+    };
+  });
+}
+Object.assign(ACTIONS, {
+  dbTab: el => { UI.dbTab = el.dataset.t; vDbList(''); },
+  dbSearch: () => { const S = UI.dbc; S.loc = $('#db_loc').value; S.name = $('#db_name').value.trim(); S.limit = 100; paintDbCity(); },
+  dbSort: () => { UI.dbc.sort = UI.dbc.sort === 'asc' ? 'desc' : 'asc'; vDbCity(UI.dbc.country, UI.dbc.city); },
+  dbMore: () => { UI.dbc.limit += 200; paintDbCity(); },
+  dbAddHotel: () => hotelSheet(null, {city: UI.dbc.city === '(No province)' ? '' : UI.dbc.city, country: UI.dbc.country === 'Other' ? '' : UI.dbc.country}),
+  hotelInfo: el => hotelSheet(byId(el.dataset.id)),
+  hiAddContact: () => { const box = $('#hiContacts'); const i = box.children.length; box.insertAdjacentHTML('beforeend', `<div class="hi-cg" data-cg><label class="f"><span>Contact Person #${i + 1}</span><input data-c="name"></label><label class="f"><span>Contact Position</span><input data-c="position"></label><label class="f"><span>Contact Email</span><input data-c="email"></label><label class="f"><span>Contact Phone</span><input data-c="phone"></label></div>`); },
 });
 
 /* ----- Meetings ----- */
@@ -2614,7 +2767,7 @@ Object.assign(ICON, {
   hourglass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>',
 });
-const PAGE_ICON = {dashboard:'dashboard', today:'today', hotels:'hotels', hotel:'hotels', agents:'users', dblog:'log', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
+const PAGE_ICON = {dashboard:'dashboard', today:'today', hotels:'db', hotel:'hotels', agents:'users', dblog:'log', followup:'phone', meetings:'cal', activations:'list', kpi:'kpi', enews:'mail', quotes:'quotes', quote:'quotes', msa:'quotes', playbook:'playbook', collect:'collect', more:'more', coll:'more', search:'search'};
 const mi = (n, cls) => (ICON[n] || ICON.more).replace('<svg ', '<svg class="mi' + (cls ? ' ' + cls : '') + '" aria-hidden="true" ');
 const msbSlim = () => { try { return localStorage.getItem('maha.msb') === 'slim'; } catch { return false; } };
 function crumb(cur) {
@@ -2689,7 +2842,7 @@ function shellInit() {
   if (msbSlim()) sh.classList.add('slim');
   const paintTog = () => { $('#msbTog').innerHTML = ICON[sh.classList.contains('slim') ? 'right' : 'left']; }; paintTog();
   $('#msbTog').onclick = () => { const s = sh.classList.toggle('slim'); try { localStorage.setItem('maha.msb', s ? 'slim' : 'wide'); } catch {} paintTog(); };
-  $('#msbOpen').innerHTML = ICON.menu; $('#msbOpen').onclick = () => sh.classList.toggle('msbopen');
+  $('#msbOpen').innerHTML = ICON.menu; $('#msbOpen').onclick = () => { if (innerWidth <= 700) { sh.classList.remove('slim'); paintTog(); } sh.classList.toggle('msbopen'); };
   $('#msbBack').onclick = () => sh.classList.remove('msbopen');
   const se = $('#msearch'); se.addEventListener('keydown', e => { if (e.key === 'Enter' && se.value.trim()) { location.hash = 'search/' + encodeURIComponent(se.value.trim()); se.value = ''; se.blur(); } });
   $('#railnav').addEventListener('click', e => {
