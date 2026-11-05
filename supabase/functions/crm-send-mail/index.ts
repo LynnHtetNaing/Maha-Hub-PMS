@@ -57,7 +57,8 @@ const handle = async (req: Request): Promise<Response> => {
   if (req.method !== "POST") return json(req, { error: "method_not_allowed" }, 405);
 
   const SB = Deno.env.get("SUPABASE_URL"), ANON = Deno.env.get("SUPABASE_ANON_KEY"), SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const BREVO = Deno.env.get("BREVO_API_KEY");
+  // a key pasted with a space, a line break or quotes around it still works
+  const BREVO = (Deno.env.get("BREVO_API_KEY") || "").trim().replace(/^["']|["']$/g, "");
   if (!SB || !ANON || !SERVICE || !BREVO || !Deno.env.get("MAIL_LINK_SECRET")) return json(req, { error: "not_configured" }, 503);
 
   /* who is asking: an active CRM member or the provider */
