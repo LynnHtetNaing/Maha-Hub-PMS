@@ -1,7 +1,7 @@
 -- Maha Hub: the Tax Invoice number is given by the database, gapless, and restarts every month.
 --
---   TIV-TH2026/11/001      TIV = Tax Invoice, TH = country of the hotel, 2026 = year, 11 = month, 001 = running number of the month (one line for all countries,
---   like the quotation number: the next invoice is TIV-VN2026/11/002 even if it is another country). December starts again at 001. The number is given in the same transaction that saves the invoice:
+--   TIV-TH2026/11/001      TIV = Tax Invoice, TH = country of the hotel, 2026 = year, 11 = month, 001 = running number of that country and month.
+--   Each country counts on its own (TIV-VN2026/11/001 is the first Vietnam invoice of the month). The next Thai invoice is 002 ... and December starts again at 001. The number is given in the same transaction that saves the invoice:
 --   if the save fails nothing is used, so there is never a missing number. For the same reason a tax invoice can never be deleted
 --   (mark it Void instead) and its number and date can never be changed.
 --
@@ -15,7 +15,7 @@
 begin;
 
 create table if not exists public.maha_billing_counters (
-  scope text primary key check (length(scope) between 6 and 40),     -- e.g. TIV2026/11
+  scope text primary key check (length(scope) between 6 and 40),     -- e.g. TIV-TH2026/11
   last_no integer not null default 0 check (last_no >= 0),
   updated_at timestamptz not null default now()
 );
@@ -47,11 +47,11 @@ declare
 begin
   if v_cc is null then raise exception 'unknown country for the tax invoice number: set the hotel country first' using errcode = '22023'; end if;
   if p_date is null then raise exception 'invoice date needed' using errcode = '22023'; end if;
-  v_scope := 'TIV' || to_char(p_date, 'YYYY') || '/' || to_char(p_date, 'MM');   -- the counter is the month, not the country
+  v_scope := 'TIV-' || v_cc || to_char(p_date, 'YYYY') || '/' || to_char(p_date, 'MM');   -- one counter for each country and month
   insert into public.maha_billing_counters as c (scope, last_no) values (v_scope, 1)
   on conflict (scope) do update set last_no = c.last_no + 1, updated_at = now()
   returning c.last_no into v_n;
-  return 'TIV-' || v_cc || to_char(p_date, 'YYYY') || '/' || to_char(p_date, 'MM') || '/' || lpad(v_n::text, 3, '0');
+  return v_scope || '/' || lpad(v_n::text, 3, '0');
 end $$;
 revoke all on function public.maha_next_tax_invoice_no(text, date) from public, anon, authenticated;
 revoke all on function public.maha_country_code(text) from public, anon, authenticated;
