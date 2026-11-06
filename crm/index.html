@@ -626,6 +626,10 @@ input,select,textarea{box-sizing:border-box}
 .fu-rem-off{display:block;width:100%;border:0;border-top:1px solid #efe7d8;background:#faf5ec;color:#176B50;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;text-align:left}.fu-rem-off:hover{background:#f3ead8}
 .up-done{background:#e4f4ea;border:1px solid #9fd3b1;border-radius:12px;padding:12px 16px;margin:12px 0;font-size:14.5px}.up-done a{font-weight:700}
 .up-adv{margin-top:26px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px}.up-adv>summary{cursor:pointer;font-size:14.5px}.up-adv[open]>summary{margin-bottom:10px}
+.cpl-row{cursor:pointer}.cpl-row:hover td{background:var(--canopy)}.cpl-chip{display:inline-block;background:#e4f4ea;color:#155c3d;border-radius:99px;padding:1px 9px;margin:1px 3px 1px 0;font-size:12px;font-weight:600;white-space:nowrap}
+.cp-fees{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.cp-fees label span{display:block;font-size:12px;color:var(--ink-2);margin-bottom:2px}.cp-more{margin-top:10px}.cp-more>summary{cursor:pointer;font-weight:600;margin-bottom:8px}
+.can-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 16px}.can-tab{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}.can-tab.on{background:var(--forest);border-color:var(--forest);color:#fff}
+.can-grid{display:flex;flex-wrap:wrap;gap:4px}.can-prof{display:grid;gap:4px}.can-form{max-width:860px}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -777,10 +781,9 @@ const PB_DEFAULT = [
 - Staff Credit: the credit % of each staff member (set by the CEO). It shows in Setup activation and is kept on each activation and each signed contract
 - Credit Report: every activation set to Live and every signed contract with its credit (the staff's Credit % x the first month fee). Filter by staff, department and dates; the Total line and the total for each staff show the production of each person
 - Referral Rewards: the reward a referral hotel earns when a signing comes through it
-- System Providers: the CEO adds, edits and deletes them. The companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
-- Competitor Analysis (own menu title): the hotel list filtered by software and provider
+- Competitor (own menu title): Competitor profile is the list of every competitor = every system provider (name, address, phone, email, services incl. Revenue Management, hotels using it, the cities and countries from the Hotel list, minimum fee per month by hotel size). The services decide which competitor shows in the PMS, CM, BE, Virtual Offline Payment, POS and Revenue Management drop-downs of a hotel's More details. A click on a line opens the same form as Add new competitor. Every sales staff member adds and edits; only the CEO deletes
+- Competitor Analysis: one page per competitor with Overview (hotels using it, cities and countries, property types such as Hotel - 120 and Hostel - 30, hotel sizes), Strengths & weaknesses, How they play, How we win and the Hotels using them. Every sales staff member writes and edits these
 - Follow up reminders: on the Follow up page a small box at the bottom right lists every Processing or Follow up whose Reminder date is today or passed (your own; the CEO sees all). 'Do not show again the reminders' hides it until you sign in again
-- Competitor profiles (inside Competitor Analysis): one page per competitor with its strengths, weaknesses and how to win; only the CEO can edit
 - Report (own menu title): Quotation, Revenue, Pipeline, Lead Source, Activation Speed and Referral Rewards. Each has filters, Search, Reset and Export to Excel. The Revenue and Referral Rewards reports are for the CEO only
 - Everyone can view these pages; only the CEO can add or change them`},
 
@@ -2330,8 +2333,8 @@ const NAVG = [
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
-  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Credit Report', '#pricing/credits', 'kpi'], ['System Providers', '#pricing/providers', 'db'], ['Referral Rewards', '#pricing/referral', 'users']]},
-  {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
+  {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Credit Report', '#pricing/credits', 'kpi'], ['Referral Rewards', '#pricing/referral', 'users']]},
+  {g:'Competitor Analysis', i:'kpi', items:[['Competitor profile', '#competitors/profiles', 'users'], ['Competitor Analysis', '#competitors', 'list']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
@@ -2816,7 +2819,7 @@ function hotelForm(h, isNew) {
   const curP = h.partnerId || (K('partner').find(x => norm(x.name) === norm(h.agent)) || {}).id || '';
   const partnerSelect = `<label class="f hi-c"><span>Partner / White Label</span><select data-hf="partnerId"><option value="">None</option>${K('partner').filter(x => !x.closed || x.id === curP).sort((a, b) => a.name.localeCompare(b.name)).map(x => `<option value="${x.id}" ${x.id === curP ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>`;
   return `<div class="hi">${inp('name', 'Hotel Name', 1, 'wide')}<div class="f wide"><span>Location</span><div class="cb"><input type="text" data-hf="area" autocomplete="off" placeholder="${isNew ? 'Type to find, then choose' : 'Choose or type the area'}" value="${esc(h.area || '')}"><div class="cbl" hidden></div></div></div>
-    <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div>${inp('website', 'Website', 0, 'wide')}
+    <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div><div class="hi-r2">${inp('website', 'Website')}<label class="f"><span>Property type</span><select data-hf="type"><option value="">Choose one</option>${UP_TYPES.map(o => `<option ${h.type === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label></div>
     <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(h.address || '')}</textarea></label>
     <div class="hi-r2">${inp('city', 'Address City', 1)}<label class="f"><span>Country <i class="req">*</i></span><select data-hf="country"><option value="">Choose one</option>${COUNTRY_LIST.map(c => `<option value="${esc(c)}" ${canonCountry(h.country) === c ? 'selected' : ''}>${esc(c)} (${COUNTRY_CODE[c.toLowerCase()]})</option>`).join('')}</select></label></div>
     ${sysRows(h)}
@@ -2824,7 +2827,7 @@ function hotelForm(h, isNew) {
     <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(h.notes || '')}</textarea></label>
     <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
     <details class="hi-more"><summary>More details</summary>
-     <div class="hi-row">${dd('status', 'Status', STAGES.map(s => s[0]), '9.5em')}${dd('type', 'Property type', ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'], '11em', '—')}</div>
+     <div class="hi-row">${dd('status', 'Status', STAGES.map(s => s[0]), '9.5em')}</div>
      <div class="hi-row"><label class="f hi-c"><span>Online Travel Agency(OTA)</span><div class="cb" style="width:15em"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
       <label class="f hi-c"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}" style="width:7.5em"></select></label></div>
      <div class="hi-row">${tx('line', 'LINE ID', '13em')}${dd('managed', 'Managed by Maha Hub', ['No', 'Yes'], '7em')}</div>
@@ -3441,12 +3444,14 @@ async function impCheck() {
     const want = (name, kinds) => { if (!name || name === 'Maha' || have.has(impK(name))) return; const o = newProv.get(impK(name)) || {name, types: []}; kinds.forEach(k => { if (!o.types.includes(k)) o.types.push(k); }); newProv.set(impK(name), o); };
     read.C.forEach(r => want(r.name, impKinds(r.product)));
     m.hotels.forEach(h => { ['pms', 'cm', 'be'].forEach(k => want(h[k], [k])); });
-    const c1 = new Map(read.C1.map(r => [impK(r.name), r])), profs = [];
+    const c1 = new Map(read.C1.map(r => [impK(r.name), r])), spId = n => 'sp_' + n.toLowerCase().replace(/[^a-z0-9]+/g, '-'), profs = [], adds = new Map([...newProv.values()].map(o => [impK(o.name), {id: spId(o.name), kind: 'sysprov', name: o.name, types: o.types}]));
     for (const r of read.C) {
-      const id = 'cp_' + impSlug(r.name); if (byId(id) || profs.some(p => p.id === id)) continue; const x = c1.get(impK(r.name)) || {};
-      profs.push({id, kind: 'compprof', name: r.name, product: r.product, footprint: r.footprint, site: r.site, customer: r.customer, th: r.th, vn: r.vn, threat: r.threat, strengths: r.strengths, weaknesses: r.weaknesses, counter: r.counter, difficulty: r.difficulty, action: r.action, source: r.source, link: x.link || '', sample: x.sample || '', sampleSite: x.sampleSite || '', notes: x.notes || ''});
+      const x = c1.get(impK(r.name)) || {}, info = {product: r.product, footprint: r.footprint, site: r.site, customer: r.customer, th: r.th, vn: r.vn, threat: r.threat, strengths: r.strengths, weaknesses: r.weaknesses, counter: r.counter, difficulty: r.difficulty, action: r.action, source: r.source, link: x.link || '', sample: x.sample || '', sampleSite: x.sampleSite || '', notes: x.notes || ''};
+      const ex = sp.find(p => impK(p.name) === impK(r.name)), add = adds.get(impK(r.name));
+      if (add) { Object.assign(add, Object.fromEntries(Object.entries(info).filter(([, v]) => v))); continue; }
+      if (ex) { const patch = {}; for (const [k, v] of Object.entries(info)) if (v && !impS(ex[k])) patch[k] = v; if (Object.keys(patch).length) profs.push({...ex, ...patch}); }
     }
-    u.res = {read, merged: m, plan, newProv: [...newProv.values()], profs, total: all.length};
+    u.res = {read, merged: m, plan, newProv: [...adds.values()], profs, total: all.length};
   } catch (e) { u.res = {error: 'The files could not be read. Use the Excel files (.xlsx, .xlsm).'}; }
   box.innerHTML = impInfoHTML();
 }
@@ -3463,63 +3468,36 @@ function impInfoHTML() {
     <tr><td class="l"><b>Hotels already in the database to update</b> (empty fields only${fl ? ': ' + esc(fl) : ''})</td><td><b>${n(p.updates.length)}</b></td></tr>
     <tr><td class="l">Hotels already complete (no change)</td><td>${n(p.same.length)}</td></tr>
     ${p.noPlace.length ? `<tr><td class="l"><b>Not added: no City or Country</b> <a href="#upload" data-act="impNoPlace">Download list</a></td><td><b>${n(p.noPlace.length)}</b></td></tr>` : ''}
-    <tr><td class="l">New System Providers</td><td>${n(r.newProv.length)}</td></tr>
-    <tr><td class="l">Competitor profiles to add</td><td>${n(r.profs.length)}</td></tr></tbody></table></div>
+    <tr><td class="l">New competitors (added to Competitor profile)</td><td>${n(r.newProv.length)}</td></tr>
+    <tr><td class="l">Competitors already there that get their information filled</td><td>${n(r.profs.length)}</td></tr></tbody></table></div>
    ${p.adds.length || p.updates.length || r.profs.length || r.newProv.length ? `<div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="impSave">${ICON.save}Update database</button><span class="muted small" id="impProg"></span></div>` : '<p class="muted">Nothing new to add.</p>'}`;
 }
 async function impSave() {
   const u = UI.imp || {}, r = u.res; if (!r || r.error || u.saving) return; u.saving = true; const prog = $('#impProg'), say = t => { if (prog) prog.textContent = t; };
   try {
     const who = Auth.who() || '';
-    for (const x of r.newProv) await save({id: 'sp_' + impSlug(x.name), kind: 'sysprov', name: x.name, types: x.types});
-    if (r.profs.length) await saveMany(r.profs);
+    if (r.newProv.length || r.profs.length) await saveMany([...r.newProv, ...r.profs]);
     const adds = r.plan.adds.map(h => ({...h, owner: who})), ups = r.plan.updates.map(x => ({...x.h, ...x.patch}));
     for (let i = 0; i < adds.length; i += 250) { say('Adding hotels ' + Math.min(i + 250, adds.length) + ' of ' + adds.length + '…'); await saveMany(adds.slice(i, i + 250)); }
     for (let i = 0; i < ups.length; i += 250) { say('Updating hotels ' + Math.min(i + 250, ups.length) + ' of ' + ups.length + '…'); await saveMany(ups.slice(i, i + 250)); }
-    toast(adds.length + ' hotels added, ' + ups.length + ' updated'); const msg = `<div class="up-sum"><b>${adds.length}</b> hotels added, <b>${ups.length}</b> hotels updated, ${r.newProv.length} System Providers and ${r.profs.length} competitor profiles added.</div>`;
+    toast(adds.length + ' hotels added, ' + ups.length + ' updated'); const msg = `<div class="up-sum"><b>${adds.length}</b> hotels added, <b>${ups.length}</b> hotels updated, ${r.newProv.length} competitors added and ${r.profs.length} competitors updated with their information.</div>`;
     UI.imp = {}; vUpload(); $('#impInfo').innerHTML = msg;
   } catch (e) { u.saving = false; toast('The update stopped: ' + (e && e.message ? e.message : 'please check the connection and press Update again')); }
 }
 /* ---------- Competitor profiles (inside Competitor Analysis) ---------- */
 const CP_FIELDS = [['product', 'Product type'], ['footprint', 'How to recognise it (booking link / footprint)'], ['site', 'Official website'], ['customer', 'Typical customer'], ['th', 'Thailand priority'], ['vn', 'Vietnam priority'], ['threat', 'Threat level'], ['difficulty', 'Migration difficulty'], ['strengths', 'Strengths'], ['weaknesses', 'Weaknesses'], ['counter', 'How OneHotel wins (counter-position)'], ['action', 'Sales action'], ['link', 'Booking link seen on hotels'], ['sample', 'Sample hotel using it'], ['sampleSite', 'Sample hotel website'], ['notes', 'Notes'], ['source', 'Source']];
 const cpCount = name => K('hotel').filter(h => SYS_TYPES.some(([k]) => norm(h[k]) === norm(name))).length;
-function vCompProfiles() {
-  const f = UI.cpp = UI.cpp || {q: ''};
-  view().innerHTML = `<a class="back" href="#competitors">‹ Competitor Analysis</a><div class="top"><div><h1>Competitor profiles</h1></div><div class="actions"><label class="dbs"><input type="search" id="cpp_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Product type</th><th>Threat</th><th>Thailand</th><th>Vietnam</th><th>Hotels using now</th><th>Action</th></tr></thead><tbody id="cppbody"></tbody></table></div>`;
-  paintCompProfiles(); const q = $('#cpp_q'); q.addEventListener('input', () => { f.q = q.value; paintCompProfiles(); });
-}
-function paintCompProfiles() {
-  const tb = $('#cppbody'); if (!tb) return; const n = norm((UI.cpp || {}).q || '');
-  const rows = K('compprof').filter(p => !n || norm(p.name + ' ' + (p.product || '')).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
-  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><a href="#competitors/profiles" class="dbname" data-act="cpView" data-id="${p.id}">${esc(p.name)}</a></td><td class="l">${esc(p.product || '')}</td><td>${esc(p.threat || '')}</td><td>${esc(p.th || '')}</td><td>${esc(p.vn || '')}</td><td><a href="#competitors" data-act="cpUsing" data-n="${esc(p.name)}">${cpCount(p.name)}</a></td><td class="nw"><button type="button" class="btn info sm" data-act="cpView" data-id="${p.id}">View</button></td></tr>`).join('')
-    : '<tr><td colspan="8" class="empty">No competitor profile yet.</td></tr>';
-}
-function cpViewSheet(id) {
-  const p = byId(id); if (!p) return; const adm = Auth.isProvider();
-  openSheet(`${fuHead(p.name)}<div class="fu-pop" style="margin-top:14px">${CP_FIELDS.filter(([k]) => p[k]).map(([k, l]) => `<div class="mq-b"><label class="mq-l">${esc(l)}</label><div style="white-space:pre-wrap;overflow-wrap:anywhere">${/^https?:\/\//i.test(p[k]) && (k === 'site' || k === 'source' || k === 'sampleSite') ? `<a href="${esc(p[k])}" target="_blank" rel="noopener">${esc(p[k])}</a>` : esc(p[k])}</div></div>`).join('')}<div class="mq-b"><label class="mq-l">Hotels using now</label><div>${cpCount(p.name)}</div></div></div>
-   <div class="sheet-foot"><button class="btn" data-act="close">Close</button>${adm ? `<button class="btn primary" data-act="cpEdit" data-id="${p.id}">Edit</button>` : ''}</div>`);
-}
-function cpEditSheet(id) {
-  const p = byId(id); if (!p || !Auth.isProvider()) { toast('Only the CEO can edit a competitor profile'); return; }
-  openSheet(`${fuHead('Edit ' + p.name)}<div class="fu-pop" style="margin-top:14px">${CP_FIELDS.map(([k, l]) => `<div class="mq-b"><label class="mq-l">${esc(l)}</label><textarea data-cpf="${k}" rows="${['strengths', 'weaknesses', 'counter', 'action', 'footprint'].includes(k) ? 3 : 1}" style="width:100%">${esc(p[k] || '')}</textarea></div>`).join('')}</div>
-   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="cp_save">Save</button></div>`, root => {
-    $('#cp_save', root).onclick = async () => { const rec = {...p}; root.querySelectorAll('[data-cpf]').forEach(el => { rec[el.dataset.cpf] = el.value.trim(); }); await save(rec); closeSheet(); toast('Saved'); vCompProfiles(); };
-  });
-}
 Object.assign(ACTIONS, {
   impBrowse: () => { const f = document.createElement('input'); f.type = 'file'; f.multiple = true; f.accept = '.xlsx,.xls,.xlsm'; f.onchange = () => { const u = UI.imp = UI.imp || {}; u.files = [...f.files]; u.res = null; $('#impName').textContent = u.files.map(x => x.name).join(', '); $('#impInfo').innerHTML = ''; }; f.click(); },
   impCheck: () => { impCheck(); },
   impClear: () => { UI.imp = {}; const n = $('#impName'), i = $('#impInfo'); if (n) n.textContent = ''; if (i) i.innerHTML = ''; toast('Cleared'); },
   impSave: () => { impSave(); },
   impNoPlace: () => { const u = UI.imp || {}, r = u.res; if (!r || !r.plan) return; const rows = [['Hotel name', 'City', 'Country', 'Address', 'Phone', 'Email', 'Website']].concat(r.plan.noPlace.map(g => [g.name, g.city || '', g.country || '', g.address || '', g.phone || '', g.email || '', g.website || ''])); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'No City or Country'); download('Hotels without City or Country.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); },
-  cpView: el => cpViewSheet(el.dataset.id),
-  cpEdit: el => { closeSheet(); setTimeout(() => cpEditSheet(el.dataset.id), 0); },
-  cpUsing: el => { UI.cmp = {sys: '', prov: el.dataset.n, q: '', go: true}; location.hash = 'competitors'; },
+  cpUsing: el => { UI.cmpTab = 'hotels'; UI.canSys = ''; location.hash = 'competitors/' + el.dataset.id; },
 });
 function impPanelHTML() {
   if (!Auth.isProvider()) return ''; const u = UI.imp = UI.imp || {};
-  return `<details class="up-adv" ${(u.files || []).length ? 'open' : ''}><summary><b>Company data</b> update · competitor profiles and providers</summary>
+  return `<details class="up-adv" ${(u.files || []).length ? 'open' : ''}><summary><b>Company data</b> update · hotels and competitor information</summary>
    <div class="up-top"><div class="up-file"><label>Excel files</label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Check</button><button type="button" class="btn amber" data-act="impClear">${ICON.reset}Clear</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div></div><div id="impInfo">${impInfoHTML()}</div></details>`;
 }
 
@@ -3527,7 +3505,7 @@ function impPanelHTML() {
    System Providers (Pricing & Commercial): the companies that supply a hotel's software (a competitor, or Maha), with the software each one supplies. Only the provider adds names.
    A hotel's More details has one row for each software (PMS, CM, BE, Virtual Offline Payment, POS): the provider chosen from this list, and beside it the amount and the commercial term the hotel pays.
    Competitor Analysis: the hotel list filtered by provider. To add a software later, add one line to SYS_TYPES. */
-const SYS_TYPES = [['pms', 'PMS'], ['cm', 'CM'], ['be', 'BE'], ['pvo', 'Virtual Offline Payment'], ['pos', 'POS']];
+const SYS_TYPES = [['pms', 'PMS'], ['cm', 'CM'], ['be', 'BE'], ['pvo', 'Virtual Offline Payment'], ['pos', 'POS'], ['rms', 'Revenue Management']];
 const SYS_TERMS = ['per day', '% per booking', 'Monthly', '3 months', '6 months', 'Annually', '2 years', '3 years', '4 years', '5 years'];
 /* the providers to choose for one software: the ones added for it, Maha, and the value the hotel already has */
 const provOptions = (k, current) => [...new Set(K('sysprov').filter(p => (p.types || []).includes(k)).map(p => p.name).concat(['Maha'], current ? [current] : []))].sort((a, b) => a.localeCompare(b));
@@ -3537,68 +3515,165 @@ function sysRows(h) {
     <div class="f"><span>Amount · Commercial term</span><div class="hi-ct"><input data-hf="${k}Amt" value="${esc(h[k + 'Amt'] ?? '')}" placeholder="Amount" inputmode="decimal" autocomplete="off"><select data-hf="${k}Term"><option value="">Term</option>${SYS_TERMS.map(v => `<option ${h[k + 'Term'] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div></div></div>`).join('');
 }
 /* the providers the CEO listed from the old drop-down (kinds ticked where they are known; empty = to be checked). They are added once, the first time the CEO opens System Providers; the CEO can edit or delete each one. */
-const SYSPROV_SEED = [["eZee (Yanolja Cloud)",["pms","cm","be","pos"]],["D-EDGE",["cm","be"]],["Cloudbeds",["pms","cm","be"]],["Exely / TravelLine",["pms","cm","be"]],["SiteMinder",["cm","be"]],["Little Hotelier",["pms","cm","be"]],["Hotel Link Solutions",["cm","be"]],["Hoteliers Guru",["pms","cm","be","pvo"]],["Innsoft Connect-Inn",["cm","be"]],["Readyplanet",["be"]],["Amadeus / TravelClick",["be","cm"]],["Reserve Online",["be"]],["Web Connection",["be","cm"]],["Simple Booking",["be"]],["Bravo",["pms","pos"]],["CiHMS",["pms","cm"]],["EzCloud",["pms","cm"]],["Guestdiary",["pms","be","cm"]],["Hotech (Otello Gem)",["pms"]],["hoteliga",["pms","cm","be"]],["Hoteltime",["pms","pos"]],["IQware",["pms"]],["Mycloud",["pms","pos","cm","be"]],["RedForts",["pms","cm","be"]],["Reseliva",["be","cm"]],["Softinn",["pms","cm","be"]],["WinHMS",["pms","pos","be"]],["HMP (HMP Master)",["pms","be"]],["Hotel-Rez",["be"]],["Roomscope",["pms"]],["Simplotel",["be"]],["Centrum Cloud",["pms","pos","be"]],["Comanche",["pms","pos"]],["EASYFO",["pms","pos","be"]],["Epitome",["pms"]],["OASIS",["pms"]],["Smile",["pms"]],["Wincloud",["pms","pos"]],["365Villas",["pms","cm","be"]],["AHAROOMS",["cm","be"]],["AIOSELL",["cm","be"]],["Axisrooms",["cm","be"]],["Beds24",["pms","cm","be"]],["Blue Jay Pms",["pms"]],["Blue Jay Pos Viet Nam",["pos"]],["Booking Factory",["be"]],["Bookwize",["be"]],["Channex",["cm"]],["channelmanager.com.au",["cm"]],["Checkfront",["be"]],["CultBooking",["cm","be"]],["eviivo",["pms","cm","be"]],["Fidelio",["pms"]],["Freetobook",["pms","cm","be"]],["Frontdesk Anywhere",["pms"]],["FrontDesk Master",["pms"]],["Guestline",["pms","cm","be"]],["Guesty",["pms","cm"]],["Hostaway",["pms","cm"]],["Hotelogix",["pms","cm","be"]],["Hotelrunner",["pms","cm","be"]],["Infor Starlight",["pms"]],["Lodgify",["pms","cm","be"]],["MaxiBooking",["pms","cm","be"]],["Mews",["pms"]],["Mirai",["be","cm"]],["Octorate",["pms","cm","be"]],["Opera",["pms"]],["Paraty Tech",["be","cm"]],["Profitroom",["be","cm"]],["RateGain",["cm"]],["RateTiger",["cm"]],["Resavenue",["pms","cm","be"]],["reservation-system.net",["be"]],["roiback",["be"]],["RoomRaccoon",["pms","cm","be"]],["Sabeeapp",["pms","cm","be"]],["Seekda",["be","cm"]],["SHR / Windsurfer (Shiji Group)",["pms","be"]],["Sirvoy",["pms","cm","be"]],["Springer-Miller Systems",["pms"]],["Staah",["pms","cm","be"]],["Synxis (Sabre)",["be","cm"]],["Travelanium",["cm","be"]],["Vertical Booking",["be","cm"]],["WebHotelier",["pms","cm","be"]],["WuBook",["pms","cm","be"]],["zoombookdirect",["be"]],["Bedzzle",["pms","cm","be"]],["Allotz",["cm"]],["BookNPay",["be","cm"]],["Blue House Travel / Booking2Hotels",["be"]],["Bookcore",["be"]],["DiHotel",["pms"]],["Directwithhotels",["be"]],["Phuket Solution",["pms"]],["Pelican Solutions",["pms","be"]],["Smart Hotel Software",["pms"]],["Zuzu / ZUZU Hospitality",["cm","be","pvo"]],["Wink (Wink.travel)",["be"]],["Roomie",["pvo"]],["Wixhotels",["be"]],["radiant1",[]],["Newway",[]],["Hotelchamp",[]],["The Hotels Network",[]],["Triptease",[]],["MakeWebEasy",[]],["Ace Marketing Solutions",[]],["All Hands Marketing",[]],["The Percentage",[]],["H.I.S",[]],["lenotre",[]],["Grabrooms",[]],["ADS",[]],["AsiaTech",[]],["Backhotel Lite",[]],["Backhotelengine",[]],["Bookcall",[]],["bookings247",[]],["CALYPSO",[]],["DJUBQ",[]],["FROMAS",[]],["Frontdeskey",[]],["Getbestbooking",[]],["GHS Booking Engine",[]],["Gihotech",[]],["HotelX",[]],["Hotelbizsolution",[]],["Intelio",[]],["LEO",[]],["Myxcaliber",[]],["PMS Boxes",[]],["reveto",[]],["Roomy",[]],["Sky Software",[]],["SmartFinder",[]],["Sophia Software Solutions",[]],["OHOTEL",[]],["OYO",[]],["Onehotel.asia",[]]];
+const SYSPROV_SEED = [["eZee (Yanolja Cloud)",["pms","cm","be","pos"]],["D-EDGE",["cm","be"]],["Cloudbeds",["pms","cm","be"]],["Exely / TravelLine",["pms","cm","be"]],["SiteMinder",["cm","be"]],["Little Hotelier",["pms","cm","be"]],["Hotel Link Solutions",["cm","be"]],["Hoteliers Guru",["pms","cm","be","pvo"]],["Innsoft Connect-Inn",["cm","be"]],["Readyplanet",["be"]],["Amadeus / TravelClick",["be","cm"]],["Reserve Online",["be"]],["Web Connection",["be","cm"]],["Simple Booking",["be"]],["Bravo",["pms","pos"]],["CiHMS",["pms","cm"]],["EzCloud",["pms","cm"]],["Guestdiary",["pms","be","cm"]],["Hotech (Otello Gem)",["pms"]],["hoteliga",["pms","cm","be"]],["Hoteltime",["pms","pos"]],["IQware",["pms"]],["Mycloud",["pms","pos","cm","be"]],["RedForts",["pms","cm","be"]],["Reseliva",["be","cm"]],["Softinn",["pms","cm","be"]],["WinHMS",["pms","pos","be"]],["HMP (HMP Master)",["pms","be"]],["Hotel-Rez",["be"]],["Roomscope",["pms"]],["Simplotel",["be"]],["Centrum Cloud",["pms","pos","be"]],["Comanche",["pms","pos"]],["EASYFO",["pms","pos","be"]],["Epitome",["pms"]],["OASIS",["pms"]],["Smile",["pms"]],["Wincloud",["pms","pos"]],["365Villas",["pms","cm","be"]],["AHAROOMS",["cm","be"]],["AIOSELL",["cm","be"]],["Axisrooms",["cm","be"]],["Beds24",["pms","cm","be"]],["Blue Jay Pms",["pms"]],["Blue Jay Pos Viet Nam",["pos"]],["Booking Factory",["be"]],["Bookwize",["be"]],["Channex",["cm"]],["channelmanager.com.au",["cm"]],["Checkfront",["be"]],["CultBooking",["cm","be"]],["eviivo",["pms","cm","be"]],["Fidelio",["pms"]],["Freetobook",["pms","cm","be"]],["Frontdesk Anywhere",["pms"]],["FrontDesk Master",["pms"]],["Guestline",["pms","cm","be"]],["Guesty",["pms","cm"]],["Hostaway",["pms","cm"]],["Hotelogix",["pms","cm","be"]],["Hotelrunner",["pms","cm","be"]],["Infor Starlight",["pms"]],["Lodgify",["pms","cm","be"]],["MaxiBooking",["pms","cm","be"]],["Mews",["pms"]],["Mirai",["be","cm"]],["Octorate",["pms","cm","be"]],["Opera",["pms"]],["Paraty Tech",["be","cm"]],["Profitroom",["be","cm"]],["RateGain",["cm","rms"]],["RateTiger",["cm"]],["Resavenue",["pms","cm","be"]],["reservation-system.net",["be"]],["roiback",["be"]],["RoomRaccoon",["pms","cm","be"]],["Sabeeapp",["pms","cm","be"]],["Seekda",["be","cm"]],["SHR / Windsurfer (Shiji Group)",["pms","be"]],["Sirvoy",["pms","cm","be"]],["Springer-Miller Systems",["pms"]],["Staah",["pms","cm","be"]],["Synxis (Sabre)",["be","cm"]],["Travelanium",["cm","be"]],["Vertical Booking",["be","cm"]],["WebHotelier",["pms","cm","be"]],["WuBook",["pms","cm","be"]],["zoombookdirect",["be"]],["Bedzzle",["pms","cm","be"]],["Allotz",["cm"]],["BookNPay",["be","cm"]],["Blue House Travel / Booking2Hotels",["be"]],["Bookcore",["be"]],["DiHotel",["pms"]],["Directwithhotels",["be"]],["Phuket Solution",["pms"]],["Pelican Solutions",["pms","be"]],["Smart Hotel Software",["pms"]],["Zuzu / ZUZU Hospitality",["cm","be","pvo"]],["Wink (Wink.travel)",["be"]],["Roomie",["pvo"]],["Wixhotels",["be"]],["radiant1",[]],["Newway",[]],["Hotelchamp",[]],["The Hotels Network",[]],["Triptease",[]],["MakeWebEasy",[]],["Ace Marketing Solutions",[]],["All Hands Marketing",[]],["The Percentage",[]],["H.I.S",[]],["lenotre",[]],["Grabrooms",[]],["ADS",[]],["AsiaTech",[]],["Backhotel Lite",[]],["Backhotelengine",[]],["Bookcall",[]],["bookings247",[]],["CALYPSO",[]],["DJUBQ",[]],["FROMAS",[]],["Frontdeskey",[]],["Getbestbooking",[]],["GHS Booking Engine",[]],["Gihotech",[]],["HotelX",[]],["Hotelbizsolution",[]],["Intelio",[]],["LEO",[]],["Myxcaliber",[]],["PMS Boxes",[]],["reveto",[]],["Roomy",[]],["Sky Software",[]],["SmartFinder",[]],["Sophia Software Solutions",[]],["OHOTEL",[]],["OYO",[]],["Onehotel.asia",[]],["RMS Cloud",["pms","be"]],["Bookingjini",["cm","be"]],["GuestCentric",["be"]],["Hotres / ZUtravel",["be"]],["Shiji Enterprise Platform / Daylight PMS",["pms"]],["Protel / Planet",["pms"]],["Cendyn",["be"]],["DerbySoft",[]],["RoomCloud",["cm","be"]],["Amenitiz",["pms","cm","be"]],["Bookassist",["be"]],["Net Affinity",["be"]],["Blastness",["be"]],["BookLogic",["cm","be"]],["VinHMS",["pms"]],["SCO Hotel PMS",["pms","cm","be"]],["IDeaS",["rms"]],["Duetto",["rms"]],["Atomize",["rms"]],["PriceLabs",["rms"]],["Revinate",[]],["Sojern",[]],["Secret Retreats",["pms","be"]],["Hotecx",["pms","cm","be"]]];
 async function sysprovSeed() {
   if (!Auth.isProvider() || UI.pvSeeding || byId('sysprov_seed_v1') || K('sysprov').length) return; UI.pvSeeding = true;
   for (const [name, types] of SYSPROV_SEED) await save({id: 'sp_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), kind: 'sysprov', name, types});
   await save({id: 'sysprov_seed_v1', kind: 'sysprovseed', at: new Date().toISOString()}); UI.pvSeeding = false;
 }
-function vProviders() {
-  if (Auth.isProvider() && !byId('sysprov_seed_v1') && !K('sysprov').length && !UI.pvSeeding) sysprovSeed().then(() => { if (location.hash === '#pricing/providers') vProviders(); });
-  const adm = Auth.isProvider(), f = UI.prv = UI.prv || {q: ''};
-  view().innerHTML = `<div class="top"><div><h1>System Providers</h1></div><div class="actions">${adm ? `<button type="button" class="btn primary" data-act="prvAdd">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pv_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
-   <div class="fu-sub"><b>System Providers</b> information</div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Provider name</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Added</th>${adm ? '<th>Action</th>' : ''}</tr></thead><tbody id="pvbody"></tbody></table></div>`;
-  paintProviders(); const q = $('#pv_q'); q.addEventListener('input', () => { f.q = q.value; paintProviders(); });
+async function sysprovLoad() {
+  if (!Auth.isProvider()) { toast('Only the CEO can load the provider list'); return; }
+  const have = new Set(K('sysprov').map(p => impK(p.name))); let added = 0, there = 0, removed = 0; const batch = [];
+  for (const [name, types] of SYSPROV_SEED) {
+    const id = 'sp_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    if (have.has(impK(name))) { there++; continue; }
+    if (R.some(r => r.id === id)) { removed++; continue; }   /* deleted by you earlier: not brought back */
+    batch.push({id, kind: 'sysprov', name, types}); have.add(impK(name)); added++;
+  }
+  if (batch.length) await saveMany(batch);
+  toast(added + ' competitors added' + (there ? ', ' + there + ' were already in the list' : '') + (removed ? ', ' + removed + ' you deleted are left out' : '')); vCompList();
 }
-function paintProviders() {
-  const tb = $('#pvbody'); if (!tb) return; const n = norm((UI.prv || {}).q || ''), adm = Auth.isProvider();
-  const rows = K('sysprov').filter(p => !n || norm(p.name).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
-  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td>${SYS_TYPES.map(s => `<td>${(p.types || []).includes(s[0]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td>`).join('')}<td class="nw">${esc(meetDmy((p.created || '').slice(0, 10)))}</td>${adm ? `<td class="nw"><button type="button" class="btn info sm" data-act="prvEdit" data-id="${p.id}">${ICON.edit}Edit</button> <button type="button" class="btn redb sm" data-act="prvDel" data-id="${p.id}">${ICON.trash}Delete</button></td>` : ''}</tr>`).join('')
-    : `<tr><td colspan="${SYS_TYPES.length + 3 + (adm ? 1 : 0)}" class="empty">${n ? 'Nothing matches your search.' : adm ? 'No provider yet. Press Add new to add the first one.' : 'No provider has been added yet.'}</td></tr>`;
+/* ---------- Competitor profile and Competitor Analysis ----------
+   A competitor is a company that supplies hotel software = a system provider (one record, kind 'sysprov').
+   Competitor profile (menu, above): WHO they are. Name, address, phone, email, website, the services they supply (PMS, CM, BE, Virtual Offline Payment, POS, Revenue Management),
+   the minimum selling fee per month for each hotel size, and what comes from the Hotel list by itself (hotels using them, the cities and countries, the property types). Nobody types the automatic facts.
+   Competitor Analysis (menu, below): HOW WE BEAT THEM. Pick a competitor: Overview (the automatic numbers), Strengths & weaknesses, How they play, How we win, and the Hotels using them.
+   Every sales staff member can add and edit; only the CEO deletes. The services decide which competitor shows in a hotel's PMS / CM / BE / ... drop-downs. */
+const COMP_BANDS = [['b1', '1 - 25'], ['b2', '26 - 50'], ['b3', '51 - 100'], ['b4', '101 - 150'], ['b5', '150+']];
+const COMP_CUR = ['THB', 'USD', 'VND'];
+const compFeeNum = v => parseFloat(String(v == null ? '' : v).replace(/,/g, ''));
+function compFeeText(p) {
+  const f = p.fees || {}, v = COMP_BANDS.map(([k]) => compFeeNum(f[k])).filter(x => !isNaN(x) && x >= 0); if (!v.length) return '';
+  const lo = Math.min(...v), hi = Math.max(...v); return (p.feeCur || 'THB') + ' ' + fmt(lo) + (hi !== lo ? ' – ' + fmt(hi) : '');
 }
-function prvSheet(id) {
-  if (!Auth.isProvider()) { toast('Only the CEO can add or change a provider'); return; }
-  const cur = id ? byId(id) : null;
-  openSheet(`${fuHead(cur ? 'Edit provider' : 'Add new provider')}<div class="fu-pop" style="margin-top:14px"><div class="mq-b"><label class="mq-l">Provider name <i class="req">*</i></label><input id="pv_name" autocomplete="off" style="width:100%" value="${esc(cur ? cur.name : '')}"></div>
-   <div class="mq-b"><label class="mq-l">Software it supplies${cur ? '' : ' <i class="req">*</i>'}</label><div class="pv-ticks">${SYS_TYPES.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-pt="${k}" ${cur && (cur.types || []).includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></div></div>
-   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="pv_save">Save</button></div>`, root => {
-    $('#pv_save', root).onclick = async () => {
-      const name = $('#pv_name', root).value.trim().replace(/\s+/g, ' '), types = $$('[data-pt]', root).filter(c => c.checked).map(c => c.dataset.pt);
-      if (!name) { toast('Provider name is required'); return; } if (!cur && !types.length) { toast('Tick at least one software'); return; }
-      if (K('sysprov').some(p => p.id !== (cur || {}).id && norm(p.name) === norm(name))) { toast('This provider is already in the list'); return; }
-      await save({...(cur || {}), id: cur ? cur.id : uid(), kind: 'sysprov', name, types}); closeSheet(); toast('Saved'); vProviders();
+/* the hotels that use a competitor, counted from the Hotel list (a hotel that uses it for two services counts once) */
+function compIndex() { const m = new Map(); K('hotel').forEach(h => SYS_TYPES.forEach(([k]) => { const v = norm(h[k]); if (!v) return; let s = m.get(v); if (!s) m.set(v, s = new Set()); s.add(h); })); return m; }
+const compHotels = (name, idx) => [...((idx || compIndex()).get(norm(name)) || [])];
+/* where they are used: the cities, with the country code. The biggest first: "Bangkok, Phuket (TH) / Hanoi (VN) +3 more" */
+function compMarket(hs, max) {
+  const c = new Map(); hs.forEach(h => { const code = countryCode(h) || '', city = String(h.city || '').trim() || '(no city)', k = code + '|' + city; c.set(k, (c.get(k) || 0) + 1); });
+  const all = [...c.entries()].map(([k, n]) => { const i = k.indexOf('|'); return {code: k.slice(0, i), city: k.slice(i + 1), n}; }).sort((a, b) => b.n - a.n || a.city.localeCompare(b.city));
+  const top = max ? all.slice(0, max) : all, groups = []; top.forEach(x => { let g = groups.find(o => o.code === x.code); if (!g) { g = {code: x.code, cities: []}; groups.push(g); } g.cities.push(x.city); });
+  return {all, text: groups.map(g => g.cities.join(', ') + ' (' + (g.code || 'no country') + ')').join(' / ') + (max && all.length > max ? ' +' + (all.length - max) + ' more' : '')};
+}
+const compTypes = hs => { const c = {}; hs.forEach(h => { const t = h.type || 'Not set'; c[t] = (c[t] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1]); };
+function compSizes(hs) {
+  const c = COMP_BANDS.map(([, l]) => [l, 0]); let none = 0;
+  hs.forEach(h => { const n = parseInt(h.rooms, 10); if (!(n > 0)) { none++; return; } c[n <= 25 ? 0 : n <= 50 ? 1 : n <= 100 ? 2 : n <= 150 ? 3 : 4][1]++; });
+  if (none) c.push(['Rooms not set', none]); return c;
+}
+const compChips = (p, cls) => (p.types || []).map(k => `<span class="cpl-chip">${esc((SYS_TYPES.find(s => s[0] === k) || [0, k])[1])}</span>`).join('');
+const compStamp = p => p.updatedBy || p.updatedAt ? 'Last updated' + (p.updatedBy ? ' by ' + esc(p.updatedBy) : '') + (p.updatedAt ? ' on ' + esc(meetDmy(p.updatedAt.slice(0, 10))) : '') : '';
+/* Revenue Management became a service later: the competitors that sell it get it ticked once */
+async function compRmsFix() {
+  if (!Auth.isProvider() || byId('sysprov_rms_v1')) return;
+  const names = ['ideas', 'duetto', 'atomize', 'pricelabs', 'rategain'], fix = K('sysprov').filter(p => names.includes(impK(p.name)) && !(p.types || []).includes('rms')).map(p => ({...p, types: (p.types || []).concat('rms')}));
+  if (fix.length) await saveMany(fix); await save({id: 'sysprov_rms_v1', kind: 'sysprovseed', at: new Date().toISOString()});
+}
+
+/* ---- Competitor profile: the list ---- */
+function vCompList() {
+  if (Auth.isProvider() && !byId('sysprov_seed_v1') && !K('sysprov').length && !UI.pvSeeding) sysprovSeed().then(() => { if (location.hash === '#competitors/profiles') vCompList(); });
+  if (Auth.isProvider() && !byId('sysprov_rms_v1') && K('sysprov').length) compRmsFix().then(() => { if (location.hash === '#competitors/profiles') paintCompList(); });
+  const adm = Auth.isProvider(), f = UI.cpl = UI.cpl || {q: ''};
+  view().innerHTML = `<div class="top"><div><h1>Competitor profile</h1></div><div class="actions">${adm ? `<button type="button" class="btn dark" data-act="prvLoad">Load provider list</button>` : ''}<button type="button" class="btn primary" data-act="prvAdd">${ICON.plus}Add new competitor</button><label class="dbs"><input type="search" id="cpl_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb cpl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Address</th><th>Phone</th><th>Email</th><th>Services</th><th>Hotels using</th><th>Market (from the Hotel list)</th><th>Minimum fee / month</th></tr></thead><tbody id="cplbody"></tbody></table></div>`;
+  paintCompList(); const q = $('#cpl_q'); q.addEventListener('input', () => { f.q = q.value; paintCompList(); });
+}
+function paintCompList() {
+  const tb = $('#cplbody'); if (!tb) return; const n = norm((UI.cpl || {}).q || ''), idx = compIndex();
+  const rows = K('sysprov').filter(p => !n || norm([p.name, p.address, p.phone, p.email].join(' ')).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
+  tb.innerHTML = rows.length ? rows.map((p, i) => { const hs = compHotels(p.name, idx);
+    return `<tr class="cpl-row" data-act="compOpen" data-id="${p.id}" title="Open"><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td><td class="l">${esc(p.address || '')}</td><td class="l nw">${esc(p.phone || '')}</td><td class="l">${esc(p.email || '')}</td>
+      <td class="l">${compChips(p)}</td><td><a href="#competitors" data-act="cpUsing" data-id="${p.id}">${hs.length}</a></td><td class="l">${esc(compMarket(hs, 5).text)}</td><td class="l nw">${esc(compFeeText(p))}</td></tr>`; }).join('')
+    : `<tr><td colspan="9" class="empty">${n ? 'Nothing matches your search.' : 'No competitor yet. Press Add new competitor.'}</td></tr>`;
+}
+/* the one form: Add new competitor and the pop-up of a line are the same. Every sales staff member can add and edit; only the CEO deletes. */
+function compSheet(id) {
+  const cur = id ? byId(id) : null, adm = Auth.isProvider(); if (id && !cur) return;
+  const p = cur || {}, f = p.fees || {}, hs = cur ? compHotels(cur.name) : [], mk = compMarket(hs, 0);
+  openSheet(`${fuHead(cur ? 'Competitor · ' + cur.name : 'Add new competitor')}<div class="fu-pop cp-form" style="margin-top:14px">
+   <div class="mq-b"><label class="mq-l">Competitor name <i class="req">*</i></label><input id="cp_name" autocomplete="off" style="width:100%" value="${esc(p.name || '')}"></div>
+   <div class="mq-b"><label class="mq-l">Address</label><textarea id="cp_addr" rows="2" style="width:100%">${esc(p.address || '')}</textarea></div>
+   <div class="grid two"><div class="mq-b"><label class="mq-l">Phone</label><input id="cp_phone" style="width:100%" value="${esc(p.phone || '')}"></div><div class="mq-b"><label class="mq-l">Email</label><input id="cp_email" style="width:100%" value="${esc(p.email || '')}"></div></div>
+   <div class="mq-b"><label class="mq-l">Website</label><input id="cp_site" style="width:100%" value="${esc(p.site || '')}"></div>
+   <div class="mq-b"><label class="mq-l">Services it supplies ${cur ? '' : '<i class="req">*</i>'}</label><div class="pv-ticks">${SYS_TYPES.map(([k, l]) => `<label class="fu-chk"><input type="checkbox" data-pt="${k}" ${(p.types || []).includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></div>
+   <div class="mq-b"><label class="mq-l">Minimum selling fee per month, by hotel size (rooms)</label><div class="cp-fees">${COMP_BANDS.map(([k, l]) => `<label><span>${l}</span><input data-fee="${k}" inputmode="decimal" autocomplete="off" value="${esc(f[k] == null ? '' : f[k])}"></label>`).join('')}<label><span>Currency</span><select id="cp_cur">${COMP_CUR.map(c => `<option ${(p.feeCur || 'THB') === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label></div></div>
+   ${cur ? `<div class="mq-b"><label class="mq-l">From the Hotel list (automatic, nobody edits it)</label><div>Hotels using it now: <b>${hs.length}</b></div><div class="muted small" style="margin-top:4px">${esc(mk.all.map(x => x.city + ' (' + (x.code || 'no country') + ') ' + x.n).join(' · ') || 'No hotel uses it yet.')}</div><div class="muted small" style="margin-top:4px">${esc(compTypes(hs).map(([t, n]) => t + ' - ' + n).join(' · '))}</div></div><div class="muted small">${compStamp(cur)}</div>` : ''}</div>
+   <div class="sheet-foot">${adm && cur ? `<button class="btn danger left" data-act="prvDel" data-id="${cur.id}">Delete</button>` : ''}${cur ? `<button class="btn" data-act="canOpen" data-id="${cur.id}">Open analysis</button>` : ''}<button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="cp_save">Save</button></div>`, root => {
+    $('#cp_save', root).onclick = async () => {
+      const name = $('#cp_name', root).value.trim().replace(/\s+/g, ' '), types = $$('[data-pt]', root).filter(c => c.checked).map(c => c.dataset.pt);
+      if (!name) { toast('Competitor name is required'); return; } if (!cur && !types.length) { toast('Tick at least one service'); return; }
+      if (K('sysprov').some(x => x.id !== (cur || {}).id && impK(x.name) === impK(name))) { toast('This competitor is already in the list'); return; }
+      const fees = {}; $$('[data-fee]', root).forEach(e => { const v = e.value.trim(); if (v) fees[e.dataset.fee] = v; });
+      const base = 'sp_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const rec = {...(cur || {}), id: cur ? cur.id : (byId(base) ? base + '-' + uid().slice(0, 4) : base), kind: 'sysprov', name, types,
+        address: $('#cp_addr', root).value.trim(), phone: $('#cp_phone', root).value.trim(), email: $('#cp_email', root).value.trim(), site: $('#cp_site', root).value.trim(),
+        fees, feeCur: $('#cp_cur', root).value, updatedBy: Auth.who() || '', updatedAt: new Date().toISOString()};
+      delete rec.segments;
+      await save(rec);
+      if (cur && cur.name !== name) { const hh = K('hotel').filter(h => SYS_TYPES.some(([k]) => norm(h[k]) === norm(cur.name))); hh.forEach(h => SYS_TYPES.forEach(([k]) => { if (norm(h[k]) === norm(cur.name)) h[k] = name; })); if (hh.length) await saveMany(hh); }
+      closeSheet(); toast(cur ? 'Saved' : 'Competitor added'); if (location.hash.startsWith('#competitors/profiles')) vCompList(); else rerender();
     };
   });
 }
-function vCompetitors(id) {
-  if (id === 'profiles') return vCompProfiles();
-  const f = UI.cmp = UI.cmp || {sys: '', prov: '', q: '', go: false};
-  const provs = [...new Set(K('sysprov').map(p => p.name).concat(['Maha']))].sort((a, b) => a.localeCompare(b));
-  view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions"><a class="btn" href="#competitors/profiles">Competitor profiles</a><label class="dbs"><input type="search" id="cp_q" placeholder="Search hotel.." value="${esc(f.q || '')}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
-   <div class="fu-sub"><b>Competitor</b> (Provider) information</div>
-   <div class="fu-form"><label for="cp_sys">Software :</label><div><select id="cp_sys"><option value="">All software</option>${SYS_TYPES.map(s => `<option value="${s[0]}" ${f.sys === s[0] ? 'selected' : ''}>${esc(s[1])}</option>`).join('')}</select></div>
-    <label for="cp_prov">Provider :</label><div><select id="cp_prov"><option value="">All providers</option>${provs.map(p => `<option ${f.prov === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div></div>
-   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="cpSearch">${ICON.search}Search</button><button type="button" class="btn amber" data-act="cpReset">${ICON.reset}Reset</button></div>
-   <div class="fu-sub" id="cp_n" style="margin-top:18px"></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No.of room</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Contact person</th><th>Latest updates</th></tr></thead><tbody id="cpbody"></tbody></table></div>`;
-  paintCompetitors(); const q = $('#cp_q'); q.addEventListener('input', () => { f.q = q.value; paintCompetitors(); });
+
+/* ---- Competitor Analysis: the list, then one competitor ---- */
+const CAN_TABS = [['overview', 'Overview'], ['sw', 'Strengths & weaknesses'], ['play', 'How they play'], ['win', 'How we win'], ['hotels', 'Hotels using them']];
+const CAN_FIELDS = {
+  sw: [['strengths', 'Strengths', 5], ['weaknesses', 'Weaknesses', 5], ['loved', 'What hotels like about them', 4], ['disliked', 'What hotels complain about', 4]],
+  play: [['customer', 'Typical customer', 2], ['play', 'How they sell and price (offers, contract length, tricks)', 5], ['footprint', 'How to recognise them (booking link / footprint)', 2], ['link', 'Booking link seen on hotels', 1], ['sample', 'A sample hotel using them', 1], ['difficulty', 'How hard it is to move a hotel away from them', 2], ['threat', 'Threat level', 1], ['th', 'Thailand priority', 1], ['vn', 'Vietnam priority', 1], ['product', 'What they say they are (their product)', 2], ['source', 'Source', 1], ['notes', 'Notes', 3]],
+  win: [['counter', 'How OneHotel wins (our position)', 5], ['talk', 'What to say to the hotel', 5], ['questions', 'Questions to ask the hotel', 4], ['objections', 'Their objections and our answers', 5], ['action', 'Sales action', 3]],
+};
+function vCompAnalysis() {
+  const f = UI.can = UI.can || {q: ''}, idx = compIndex();
+  view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions"><label class="dbs"><input type="search" id="can_q" placeholder="Search competitor.." value="${esc(f.q || '')}" aria-label="Search competitor"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb cpl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Services</th><th>Hotels using</th><th>Market (from the Hotel list)</th><th>Property types</th><th>Analysis written</th></tr></thead><tbody id="canbody"></tbody></table></div>`;
+  const paint = () => {
+    const n = norm(f.q || ''), rows = K('sysprov').filter(p => !n || norm(p.name).includes(n)).map(p => ({p, hs: compHotels(p.name, idx)})).sort((a, b) => b.hs.length - a.hs.length || a.p.name.localeCompare(b.p.name));
+    $('#canbody').innerHTML = rows.length ? rows.map(({p, hs}, i) => `<tr class="cpl-row" data-act="canOpen" data-id="${p.id}" title="Open the analysis"><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td><td class="l">${compChips(p)}</td><td>${hs.length}</td><td class="l">${esc(compMarket(hs, 5).text)}</td><td class="l">${esc(compTypes(hs).slice(0, 4).map(([t, c]) => t + ' - ' + c).join(' · '))}</td><td>${['strengths', 'weaknesses', 'counter'].some(k => p[k]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td></tr>`).join('')
+      : '<tr><td colspan="7" class="empty">No competitor found. Add one in Competitor profile.</td></tr>';
+  };
+  paint(); $('#can_q').addEventListener('input', e => { f.q = e.target.value; paint(); });
 }
-function paintCompetitors() {
-  const f = UI.cmp || {}, tb = $('#cpbody'), nb = $('#cp_n'); if (!tb) return; const n = norm(f.q || '');
-  if (!f.go) { tb.innerHTML = `<tr><td colspan="${SYS_TYPES.length + 7}" class="empty">Choose the software and the provider, then press Search. The hotels that use that provider show here.</td></tr>`; if (nb) nb.textContent = ''; return; }
-  const keys = f.sys ? [f.sys] : SYS_TYPES.map(s => s[0]);
-  const rows = K('hotel').filter(h => keys.some(k => f.prov ? norm(h[k]) === norm(f.prov) : !!h[k])).filter(h => !n || norm(h.name).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
-  if (nb) nb.innerHTML = `<b>${rows.length}</b> hotel${rows.length === 1 ? '' : 's'}${f.prov ? ' using <b>' + esc(f.prov) + '</b>' : ''}${f.sys ? ' for <b>' + esc((SYS_TYPES.find(s => s[0] === f.sys) || [0, ''])[1]) + '</b>' : ''}`;
-  tb.innerHTML = rows.length ? rows.map((h, i) => `<tr><td>${i + 1}</td><td class="l"><a href="#competitors" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td class="l">${esc(h.area || '')}</td><td class="l">${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td>${SYS_TYPES.map(([k]) => `<td class="l${f.prov && norm(h[k]) === norm(f.prov) ? ' cp-hit' : ''}">${esc(provCell(h, k))}</td>`).join('')}<td class="l">${esc(h.contact || '')}</td><td class="nw">${esc(meetDmy((h.updated || '').slice(0, 10)))}</td></tr>`).join('')
-    : `<tr><td colspan="${SYS_TYPES.length + 7}" class="empty">No hotel found for this provider. Change the software or the provider, then press Search.</td></tr>`;
+function vCompDetail(id) {
+  const p = byId(id); if (!p || p.kind !== 'sysprov') { view().innerHTML = '<div class="top"><div><h1>Competitor Analysis</h1></div></div><div class="empty">Competitor not found.</div>'; return; }
+  const tab = CAN_TABS.some(t => t[0] === UI.cmpTab) ? UI.cmpTab : 'overview', hs = compHotels(p.name), mk = compMarket(hs, 0);
+  let body = '';
+  if (tab === 'overview') {
+    const total = K('hotel').length || 1, svc = SYS_TYPES.map(([k, l]) => [l, hs.filter(h => norm(h[k]) === norm(p.name)).length]).filter(x => x[1]);
+    body = `<div class="rp-tiles"><div class="rp-t"><div class="v">${hs.length}</div><div class="l">Hotels using them</div></div><div class="rp-t"><div class="v">${(hs.length / total * 100).toFixed(1)}%</div><div class="l">of all hotels in the CRM</div></div>${svc.map(([l, n]) => `<div class="rp-t"><div class="v">${n}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>
+     <h3 class="rp-h">Where they are used (from the Hotel list)</h3><p>${esc(compMarket(hs, 8).text || 'No hotel uses them yet.')}</p>${mk.all.length ? `<div class="can-grid">${mk.all.map(x => `<span class="cpl-chip">${esc(x.city)} (${esc(x.code || 'no country')}) · ${x.n}</span>`).join('')}</div>` : ''}
+     <h3 class="rp-h">Property types</h3><div class="can-grid">${compTypes(hs).map(([t, n]) => `<span class="cpl-chip">${esc(t)} - ${n}</span>`).join('') || '<span class="muted">-</span>'}</div>
+     <h3 class="rp-h">Hotel sizes (rooms)</h3><div class="can-grid">${compSizes(hs).map(([t, n]) => `<span class="cpl-chip">${esc(t)} · ${n}</span>`).join('')}</div>
+     <h3 class="rp-h">Profile</h3><div class="can-prof"><div><b>Address:</b> ${esc(p.address || '-')}</div><div><b>Phone:</b> ${esc(p.phone || '-')}</div><div><b>Email:</b> ${esc(p.email || '-')}</div><div><b>Website:</b> ${/^https?:\/\//i.test(p.site || '') ? `<a href="${esc(p.site)}" target="_blank" rel="noopener">${esc(p.site)}</a>` : esc(p.site || '-')}</div><div><b>Minimum fee per month:</b> ${esc(compFeeText(p) || '-')}</div></div>
+     <div style="margin-top:12px"><button type="button" class="btn" data-act="compOpen" data-id="${p.id}">Edit profile</button></div>`;
+  } else if (tab === 'hotels') {
+    const sys = UI.canSys || '', rows = hs.filter(h => !sys || norm(h[sys]) === norm(p.name)).sort((a, b) => a.name.localeCompare(b.name)), CAP = 300;
+    body = `<div class="fu-form" style="margin-bottom:10px"><label for="can_sys">Software :</label><div><select id="can_sys"><option value="">All software</option>${SYS_TYPES.map(s => `<option value="${s[0]}" ${sys === s[0] ? 'selected' : ''}>${esc(s[1])}</option>`).join('')}</select></div></div>
+     <div class="fu-sub"><b>${rows.length}</b> hotel${rows.length === 1 ? '' : 's'} using <b>${esc(p.name)}</b></div>
+     <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No.of room</th>${SYS_TYPES.map(s => `<th>${esc(s[1])}</th>`).join('')}<th>Contact person</th><th>Latest updates</th></tr></thead><tbody>${rows.length ? rows.slice(0, CAP).map((h, i) => `<tr><td>${i + 1}</td><td class="l"><a href="#competitors/${p.id}" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td class="l">${esc(h.area || '')}</td><td class="l">${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td>${SYS_TYPES.map(([k]) => `<td class="l${norm(h[k]) === norm(p.name) ? ' cp-hit' : ''}">${esc(provCell(h, k))}</td>`).join('')}<td class="l">${esc(h.contact || '')}</td><td class="nw">${esc(meetDmy((h.updated || '').slice(0, 10)))}</td></tr>`).join('') : `<tr><td colspan="${SYS_TYPES.length + 7}" class="empty">No hotel uses this competitor yet. Choose it in a hotel's More details.</td></tr>`}</tbody></table></div>${rows.length > CAP ? `<p class="muted small" style="text-align:center">First ${CAP} of ${rows.length}.</p>` : ''}`;
+  } else {
+    body = `<div class="can-form">${CAN_FIELDS[tab].map(([k, l, r]) => `<div class="mq-b"><label class="mq-l">${esc(l)}</label><textarea data-cf="${k}" rows="${r}" style="width:100%">${esc(p[k] || '')}</textarea></div>`).join('')}</div>
+     <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="canSave" data-id="${p.id}">${ICON.save}Save</button><span class="muted small">${compStamp(p)}</span></div>`;
+  }
+  view().innerHTML = `<div class="top"><div><h1>${esc(p.name)}</h1><p>Competitor Analysis</p></div><div class="actions">${compChips(p)}</div></div>
+   <div class="can-tabs">${CAN_TABS.map(([k, l]) => `<button type="button" class="can-tab${k === tab ? ' on' : ''}" data-act="canTab" data-t="${k}" data-id="${p.id}">${esc(l)}</button>`).join('')}</div>${body}`;
+  view().onchange = e => { if (e.target.id === 'can_sys') { UI.canSys = e.target.value; vCompDetail(id); } };
+}
+function vCompetitors(id) {
+  if (id === 'profiles') return vCompList();
+  if (id) return vCompDetail(id);
+  return vCompAnalysis();
 }
 Object.assign(ACTIONS, {
-  prvAdd: () => prvSheet(),
-  prvEdit: el => prvSheet(el.dataset.id),
-  prvDel: async el => { const p = byId(el.dataset.id); if (!p || !Auth.isProvider()) return; if (!await confirmDelete('Do you want delete provider ' + p.name + '? A hotel that already has it keeps the name. It moves to Delete records.')) return; await softDelete(p); toast('Provider deleted'); vProviders(); },
-  cpSearch: () => { const f = UI.cmp = UI.cmp || {}; f.sys = $('#cp_sys').value; f.prov = $('#cp_prov').value; f.go = true; paintCompetitors(); },
-  cpReset: () => { UI.cmp = {sys: '', prov: '', q: '', go: false}; vCompetitors(); },
+  prvAdd: () => compSheet(),
+  prvLoad: () => { sysprovLoad(); },
+  compOpen: el => compSheet(el.dataset.id),
+  prvDel: async el => { const p = byId(el.dataset.id); if (!p || !Auth.isProvider()) return; if (!await confirmDelete('Do you want delete competitor ' + p.name + '? A hotel that already has it keeps the name. It moves to Delete records.')) return; await softDelete(p); closeSheet(); toast('Competitor deleted'); vCompList(); },
+  canOpen: el => { closeSheet(); UI.cmpTab = 'overview'; location.hash = 'competitors/' + el.dataset.id; },
+  canTab: el => { UI.cmpTab = el.dataset.t; if (el.dataset.t !== 'hotels') UI.canSys = ''; vCompDetail(el.dataset.id); },
+  canSave: async el => { const p = byId(el.dataset.id); if (!p) return; const rec = {...p, updatedBy: Auth.who() || '', updatedAt: new Date().toISOString()}; $$('[data-cf]', view()).forEach(e => { rec[e.dataset.cf] = e.value.trim(); }); await save(rec); toast('Saved'); vCompDetail(p.id); },
 });
 
 /* ---------- Pricing & Commercial: Commercial Module (services and fees), Staff Credit and Referral Rewards ----------
@@ -3613,7 +3688,7 @@ const PR = {
 };
 const prReward = p => p.type === 'Discount %' ? p.value + '% discount' : p.type === 'Discount THB' ? p.value + ' THB discount' : p.type === 'Free months' ? p.value + ' free month(s)' : (p.value || 'Promotion');
 function vPricing(id) {
-  if (id === 'providers') return vProviders();
+  if (id === 'providers') { location.replace('#competitors/profiles'); return; }   /* System Providers is now the Competitor profile list */
   if (id === 'credits') return vCredits();
   const key = id === 'referral' ? 'referral' : id === 'staff' ? 'staff' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
   view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm && key === 'commercial' && !K('comodule').length ? `<button type="button" class="btn" data-act="prSeed">Load the price list</button>` : ''}${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
