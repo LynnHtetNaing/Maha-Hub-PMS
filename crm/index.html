@@ -773,6 +773,7 @@ const PB_DEFAULT = [
 - Referral Rewards: the reward a referral hotel earns when a signing comes through it
 - System Providers: the CEO adds, edits and deletes them. The companies that supply a hotel's software (a competitor or Maha) and the software each supplies. They fill the PMS, CM, BE, Virtual Offline Payment and POS drop-downs in a hotel's More details, where the amount and the commercial term the hotel pays are also written
 - Competitor Analysis (own menu title): the hotel list filtered by software and provider
+- Competitor profiles (inside Competitor Analysis): one page per competitor with its strengths, weaknesses and how to win; only the CEO can edit
 - Report (own menu title): Quotation, Revenue, Pipeline, Lead Source, Activation Speed and Referral Rewards. Each has filters, Search, Reset and Export to Excel. The Revenue and Referral Rewards reports are for the CEO only
 - Everyone can view these pages; only the CEO can add or change them`},
 
@@ -2847,7 +2848,7 @@ function vUpload() {
    <div id="upInfo">${upInfoHTML()}</div>
    <div class="up-sel"><div class="up-f"><label for="up_type">Property type <i class="req">*</i></label><select id="up_type">${UP_TYPES.map(o => `<option ${(u.type || 'Hotel') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
     <div class="up-f"><label for="up_country">Country <i class="req">*</i></label><select id="up_country">${UP_COUNTRIES.map(o => `<option ${(u.country || 'Thailand') === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div></div>
-   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.reset}Reset</button></div>`;
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.reset}Reset</button></div>${impPanelHTML()}`;
 }
 function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
 function upRead(rows, country) {
@@ -3204,6 +3205,258 @@ Object.assign(ACTIONS, {
   rpExport: el => rpExport(el.dataset.k),
 });
 
+/* ---------- Company data update (CEO): the competitor, new hotel and contact files -> hotels (no duplicates), their software, competitor profiles ----------
+   The CEO chooses the Excel files; nothing is stored on the web site. A hotel is matched by its name (and country / city); an existing hotel only gets the empty fields filled. */
+/* imp:start */
+const IMP_CITY = {'ho chi minh': 'Ho Chi Minh City', 'ho chi minh city': 'Ho Chi Minh City', 'hcmc': 'Ho Chi Minh City', 'saigon': 'Ho Chi Minh City', 'ko pha ngan': 'Koh Phangan', 'koh pha ngan': 'Koh Phangan', 'koh phangan': 'Koh Phangan', 'ko phangan': 'Koh Phangan', 'ko samui': 'Koh Samui', 'koh samui': 'Koh Samui', 'koh phi phi': 'Koh Phi Phi', 'ko phi phi': 'Koh Phi Phi', 'danang': 'Da Nang', 'da nang': 'Da Nang', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin', 'chon buri': 'Chonburi', 'chonburi': 'Chonburi', 'bangkok metropolis': 'Bangkok', 'krung thep': 'Bangkok'};
+const IMP_CC = {'Bangkok': 'Thailand', 'Phuket': 'Thailand', 'Koh Samui': 'Thailand', 'Krabi': 'Thailand', 'Pattaya': 'Thailand', 'Koh Phangan': 'Thailand', 'Koh Phi Phi': 'Thailand', 'Chiang Mai': 'Thailand', 'Nonthaburi': 'Thailand', 'Hua Hin': 'Thailand', 'Chonburi': 'Thailand', 'Bueng Kan': 'Thailand', 'Ho Chi Minh City': 'Vietnam', 'Hoi An': 'Vietnam', 'Da Nang': 'Vietnam', 'Hanoi': 'Vietnam', 'Nha Trang': 'Vietnam', 'Nairobi': 'Other'};
+const IMP_THAI_CITIES = ['Bangkok', 'Phuket', 'Koh Samui', 'Hua Hin', 'Pattaya', 'Chiang Mai', 'Krabi', 'Nonthaburi', 'Koh Phangan', 'Chonburi'];
+const IMP_ALIAS = {'siteminder thebookingbutton': 'SiteMinder', 'exely': 'Exely / TravelLine', 'travelline': 'Exely / TravelLine', 'hotelinksolution': 'Hotel Link Solutions', 'hotel link': 'Hotel Link Solutions', 'booking2hotels': 'Blue House Travel / Booking2Hotels', 'ezee ipms247 yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee': 'eZee (Yanolja Cloud)', 'amadeus travelclick web solutions': 'Amadeus / TravelClick', 'amadeus ihotelier travelclick': 'Amadeus / TravelClick', 'synxis': 'Synxis (Sabre)', 'sabre synxis': 'Synxis (Sabre)', 'readyplanet traveltech instant bookings': 'Readyplanet', 'easybooking webconnection': 'Web Connection', 'webconnection channelroom': 'Web Connection', 'littlehotelier by siteminder': 'Little Hotelier', 'little hotelier by siteminder': 'Little Hotelier', 'the booking factory': 'Booking Factory', 'blue jay systems': 'Blue Jay Pms', 'ezcloud oneinventory': 'EzCloud', 'djubo': 'DJUBQ', 'wubook zak': 'WuBook', 'comanche gogoji': 'Comanche', 'oracle opera cloud': 'Opera', 'infor hms': 'Infor Starlight', 'boutique hotel direct bookings secret retreats': 'Secret Retreats', 'shr windsurfer crs shiji': 'SHR / Windsurfer (Shiji Group)', 'hotelogix': 'Hotelogix'};
+const impS = v => v === undefined || v === null ? '' : String(v).trim();
+const impV = v => { const s = impS(v); return /^(tbc|n\/?a|none|-|unknown)$/i.test(s) ? '' : s; };
+const impK = s => norm(s).replace(/ /g, '');
+const impCity = c => { const s = impV(c); return s ? (IMP_CITY[norm(s)] || s) : ''; };
+function impCanon(raw, names) {
+  let s = impV(raw); if (!s) return '';
+  s = s.replace(/\s*\((website platform|be platform)\)\s*$/i, '').trim();
+  if (/^(rev ?pilot|rev ?boost|onehotel|one hotel)$/i.test(s)) return 'Maha';
+  const a = IMP_ALIAS[norm(s)]; if (a) return a;
+  const k = impK(s), hit = names.find(n => impK(n) === k); return hit || s;
+}
+function impKinds(text) {
+  const t = String(text || ''), out = [];
+  if (/\bPMS\b|property management|hotel management|hotel system/i.test(t)) out.push('pms');
+  if (/\bCM\b|channel manager/i.test(t)) out.push('cm');
+  if (/\bBE\b|booking engine|\bbooking\b/i.test(t)) out.push('be');
+  if (/\bPOS\b/i.test(t)) out.push('pos');
+  return out;
+}
+const IMP_GENERIC = new Set(['hotel', 'hostel', 'resort', 'the', 'and', 'by', 'at', 'spa', 'boutique', 'residence', 'suites', 'suite', 'guesthouse', 'guest', 'house', 'inn', 'lodge', 'villa', 'villas', 'apartment', 'apartments', 'phuket', 'bangkok', 'samui', 'koh', 'pattaya', 'krabi', 'thailand', 'vietnam', 'hanoi', 'saigon', 'hoi', 'an', 'da', 'nang']);
+const impStrip = name => norm(name).split(' ').filter(w => w && !IMP_GENERIC.has(w)).join(' ');
+function impEmail(v) {
+  const toks = impS(v).split(/[\s,;/|]+/).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)); return {email: toks[0] || '', more: toks.slice(1)};
+}
+function impType(name, ctype) {
+  const n = String(name).toLowerCase();
+  if (/vacation rental/i.test(ctype || '') || /\bvillas?\b|\bhouse\b/.test(n) && !/hotel|resort/.test(n)) return 'Villa';
+  if (/hostel|backpacker|dorm/.test(n)) return 'Hostel';
+  if (/resort/.test(n)) return 'Resort';
+  if (/apartment|residence|serviced/.test(n)) return 'Serviced apartment';
+  if (/boutique/.test(n)) return 'Boutique';
+  return 'Hotel';
+}
+function impCol(hdr, ...names) { for (const n of names) { const i = hdr.findIndex(h => norm(h) === norm(n)); if (i >= 0) return i; } return -1; }
+function impTable(rows, firstHeader) { const i = rows.findIndex(r => norm(r[0]) === norm(firstHeader) || r.some(c => norm(c) === norm(firstHeader))); return i < 0 ? null : {hdr: rows[i].map(impS), body: rows.slice(i + 1)}; }
+/* the four kinds of file are found by what is inside, not by the file name */
+function impReadA(rows, names) {   // competitor database: one row per hotel with the provider found on its web site
+  const t = impTable(rows, 'Provider (as detected)'); if (!t) return null; const c = n => impCol(t.hdr, n), out = []; let flagged = 0;
+  const [iP, iT, iN, iR, iD, iC, iE, iPh, iW, iA, iCm, iPm, iF] = ['Provider group', 'Competitor type', 'Hotel name', 'Rooms', 'Destination', 'Country', 'Email', 'Phone', 'Website', 'Address', 'CM Supplier', 'PMS Supplier', 'Flag'].map(c);
+  for (const r of t.body) {
+    const name = impS(r[iN]); if (!name) continue; if (/duplicate/i.test(impS(r[iF]))) { flagged++; continue; }
+    const city = impCity(r[iD]), type = impS(r[iT]), prov = impCanon(r[iP], names), em = impEmail(r[iE]);
+    out.push({src: 'A', name, rooms: impV(r[iR]), city, country: impV(r[iC]) || IMP_CC[city] || '', email: em.email, moreEmail: em.more, phone: impV(r[iPh]), website: impV(r[iW]), address: impV(r[iA]),
+      pms: impCanon(r[iPm], names), cm: impCanon(r[iCm], names), be: /^(booking engine|agency)$/i.test(type) ? prov : '', webplat: /^(website platform|overlay)$/i.test(type) ? prov : '', ctype: type});
+  }
+  return {rows: out, flagged};
+}
+function impReadB(rows, names) {   // new hotel (prospect) list
+  const t = impTable(rows, 'Hotel Name'); if (!t || impCol(t.hdr, 'City / Location') < 0) return null; const c = n => impCol(t.hdr, n), out = [];
+  const [iN, iCity, iSt, iRm, iPms, iCm, iBe, iGha, iW, iCt, iRole, iPE, iSrc, iDate] = ['Hotel Name', 'City / Location', 'Stars', 'No. of Rooms', 'Current PMS', 'Current CM', 'Booking Engine', 'GHA Present', 'Website', 'Contact Person', 'Contact Role', 'Phone / Email', 'Notes / Source', 'Date Added'].map(c);
+  for (const r of t.body) {
+    const name = impS(r[iN]); if (!name) continue; const city = impCity(r[iCity]), pe = impV(r[iPE]), em = impEmail(pe);
+    out.push({src: 'B', name, city, country: IMP_CC[city] || '', stars: /^[1-5]$/.test(impV(r[iSt])) ? impV(r[iSt]) : '', rooms: /^\d+$/.test(impV(r[iRm])) ? impV(r[iRm]) : '', pms: impCanon(r[iPms], names), cm: impCanon(r[iCm], names), be: /^(yes|no)$/i.test(impV(r[iBe])) ? '' : impCanon(r[iBe], names),
+      gha: /^(yes|no)$/i.test(impV(r[iGha])) ? impV(r[iGha])[0].toUpperCase() + impV(r[iGha]).slice(1).toLowerCase() : '', website: impV(r[iW]), contact: impV(r[iCt]), contactTitle: impV(r[iRole]), email: em.email, phone: em.email ? '' : pe, source: impV(r[iSrc]), added: impV(r[iDate])});
+  }
+  return {rows: out};
+}
+function impReadD(rows, sheet, names) {   // property contact list (call sheet)
+  const t = impTable(rows, 'Property Name'); if (!t) return null; const c = n => impCol(t.hdr, n), out = [];
+  const [iN, iRm, iA, iC, iPh, iE, iCaller, iConv] = ['Property Name', 'Rooms', 'Address', 'Name (Position)', 'Phone Number', 'Email', 'Caller', 'Conversation'].map(c);
+  const sheetCity = {'koh samui': 'Koh Samui', 'phuket': 'Phuket', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin'}[norm(sheet)] || '';
+  for (const r of t.body) {
+    const name = impS(r[iN]); if (!name) continue; const addr = impV(r[iA]);
+    let city = sheetCity; if (!city) { const f = IMP_THAI_CITIES.find(x => new RegExp('\\b' + x + '\\b', 'i').test(addr)) || (/Ko Samui|Surat Thani/i.test(addr) ? 'Koh Samui' : ''); city = f; }
+    const cp = impS(r[iC]), m = cp.match(/^(.*?)\s*\(([^)]*)\)\s*$/), em = impEmail(r[iE]);
+    out.push({src: 'D', name, rooms: /^[1-9]\d*$/.test(impV(r[iRm])) ? impV(r[iRm]) : '', address: addr, city, country: 'Thailand', phone: impV(r[iPh]), email: em.email, moreEmail: em.more,
+      contact: m ? m[1].trim() : cp, contactTitle: m ? m[2].trim() : '', caller: impV(r[iCaller]), conversation: impV(r[iConv])});
+  }
+  return {rows: out};
+}
+function impReadC(rows, names) {   // competitor intelligence: one profile per competitor
+  const t = impTable(rows, 'Product Type'); if (!t || impCol(t.hdr, 'Competitor') < 0) return null; const c = n => impCol(t.hdr, n), out = [];
+  const L = ['Competitor', 'Product Type', 'Main Footprint / Fingerprint', 'Official Website', 'Typical Customer', 'Thailand Priority', 'Vietnam Priority', 'Threat Level', 'Strengths', 'Weaknesses', 'OneHotel Counter-Position', 'Migration Difficulty', 'Sales Action', 'Source URL'].map(c);
+  const [iN, iPt, iFp, iWeb, iCu, iTh, iVn, iTl, iSt, iWk, iCo, iMd, iSa, iSu] = L;
+  for (const r of t.body) { const raw = impS(r[iN]); if (!raw) continue; out.push({rawName: raw, name: impCanon(raw, names), product: impS(r[iPt]), footprint: impS(r[iFp]), site: impS(r[iWeb]), customer: impS(r[iCu]), th: impS(r[iTh]), vn: impS(r[iVn]), threat: impS(r[iTl]), strengths: impS(r[iSt]), weaknesses: impS(r[iWk]), counter: impS(r[iCo]), difficulty: impS(r[iMd]), action: impS(r[iSa]), source: impS(r[iSu])}); }
+  return {rows: out};
+}
+function impReadC1(rows, names) {   // the first sheet: the booking link that shows the competitor, and a sample hotel
+  const i = rows.findIndex(r => /name of competitor/i.test(impS(r[1]))); if (i < 0) return null; const out = [];
+  for (const r of rows.slice(i + 1)) { const raw = impS(r[1]); if (!raw || /^hotel is using/i.test(impS(r[3]))) continue; out.push({name: impCanon(raw, names), link: impS(r[2]), sample: impS(r[3]), sampleSite: impS(r[4]), notes: impS(r[6])}); }
+  return {rows: out};
+}
+/* one list of hotels: the same hotel in several files (or twice in one file) becomes one */
+function impMerge(recs) {
+  const groups = [], byName = new Map(), byStrip = new Map(); let merged = 0;
+  const cityOk = (a, b) => !a || !b || a === b, ctryOk = (a, b) => !a || !b || a === b;
+  const add = (map, k, g) => { if (!k) return; if (!map.has(k)) map.set(k, []); map.get(k).push(g); };
+  for (const r of recs) {
+    const nk = norm(r.name), sk = impStrip(r.name); let g = null;
+    for (const x of byName.get(nk) || []) if (ctryOk(x.country, r.country) && cityOk(x.city, r.city)) { g = x; break; }
+    if (!g && sk && r.city) for (const x of byStrip.get(sk + '|' + r.city) || []) if (ctryOk(x.country, r.country)) { g = x; break; }
+    if (g) { merged++; g.parts.push(r); if (!g.city && r.city) g.city = r.city; if (!g.country && r.country) g.country = r.country; add(byName, nk, g); if (sk && g.city) add(byStrip, sk + '|' + g.city, g); continue; }
+    g = {name: r.name, city: r.city || '', country: r.country || '', parts: [r]}; groups.push(g); add(byName, nk, g); if (sk && g.city) add(byStrip, sk + '|' + g.city, g);
+  }
+  const pick = (g, f, order) => { for (const s of order) for (const p of g.parts) if (p.src === s && impS(p[f])) return impS(p[f]); return ''; };
+  const hotels = groups.map(g => {
+    const h = {name: g.name, city: g.city, country: g.country};
+    h.address = pick(g, 'address', ['D', 'A']); h.phone = pick(g, 'phone', ['A', 'D', 'B']); h.email = pick(g, 'email', ['A', 'D', 'B']); h.website = pick(g, 'website', ['A', 'B']);
+    h.rooms = pick(g, 'rooms', ['A', 'D', 'B']); h.stars = pick(g, 'stars', ['B']); h.gha = pick(g, 'gha', ['B']);
+    h.pms = pick(g, 'pms', ['A', 'B']); h.cm = pick(g, 'cm', ['A', 'B']); h.be = pick(g, 'be', ['A', 'B']); h.webplat = pick(g, 'webplat', ['A']);
+    const d = g.parts.find(p => p.src === 'D' && (p.contact || p.contactTitle)), b = g.parts.find(p => p.src === 'B' && (p.contact || p.contactTitle));
+    const cp = d || b; h.contact = cp ? cp.contact : ''; h.contactTitle = cp ? cp.contactTitle : '';
+    const notes = [];
+    for (const p of g.parts) {
+      if (p.src === 'D' && (p.caller || p.conversation)) notes.push(['Call list', p.caller ? 'called by ' + p.caller : '', p.conversation].filter(Boolean).join(': '));
+      if (p.src === 'B' && p.source) notes.push(p.source + (p.added ? ' (added ' + p.added + ')' : ''));
+      for (const m of p.moreEmail || []) if (m !== h.email) notes.push('Other email: ' + m);
+    }
+    if (h.webplat) notes.push('Website platform / overlay: ' + h.webplat);
+    h.notes = [...new Set(notes)].join('\n'); h.srcs = [...new Set(g.parts.map(p => p.src))].join('');
+    h.ctype = (g.parts.find(p => p.ctype) || {}).ctype || '';
+    h.leadSource = g.parts.some(p => p.src === 'B') ? 'Peach prospect list' : g.parts.some(p => p.src === 'A') ? 'Competitor database' : 'Call list';
+    return h;
+  });
+  return {hotels, merged};
+}
+const IMP_FILL = ['address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'city', 'country', 'pms', 'cm', 'be'];
+/* compare the list with the hotels already in the database: new hotels are added, an existing hotel only gets its empty fields filled */
+function impPlan(hotels, existing, uidf) {
+  const idx = new Map(), sidx = new Map(), push = (m, k, h) => { if (!k) return; if (!m.has(k)) m.set(k, []); m.get(k).push(h); };
+  for (const h of existing) { push(idx, norm(h.name), h); push(sidx, impStrip(h.name) + '|' + norm(impCity(h.city)), h); }
+  const cityOk = (a, b) => { a = norm(impCity(a)); b = norm(impCity(b)); return !a || !b || a === b || a.includes(b) || b.includes(a); };
+  const adds = [], updates = [], same = []; const filled = {};
+  for (const g of hotels) {
+    const cand = (idx.get(norm(g.name)) || []).filter(h => (!g.country || (h.country || 'Thailand') === g.country) && cityOk(h.city, g.city));
+    let h = cand[0]; if (!h && g.city) h = (sidx.get(impStrip(g.name) + '|' + norm(g.city)) || []).find(x => !g.country || (x.country || 'Thailand') === g.country);
+    if (h) {
+      const patch = {}; for (const f of IMP_FILL) if (g[f] && !impS(h[f])) { patch[f] = g[f]; filled[f] = (filled[f] || 0) + 1; }
+      if (!(h.contacts || []).length && !impS(h.contact) && (g.contact || g.contactTitle)) { patch.contact = g.contact; patch.contactTitle = g.contactTitle; patch.contacts = [{name: g.contact, position: g.contactTitle, email: patch.email || h.email || g.email || '', phone: patch.phone || h.phone || g.phone || ''}]; filled.contact = (filled.contact || 0) + 1; }
+      if (g.notes && !impS(h.notes)) { patch.notes = g.notes; filled.notes = (filled.notes || 0) + 1; }
+      if (Object.keys(patch).length) updates.push({h, patch, g}); else same.push(h);
+      continue;
+    }
+    const c0 = g.contact || g.contactTitle || g.email || g.phone ? [{name: g.contact, position: g.contactTitle, email: g.email, phone: g.phone}] : [];
+    const rec = {id: uidf(), kind: 'hotel', name: g.name, status: 'New lead', managed: 'No', source: g.leadSource, type: impType(g.name, g.ctype), country: g.country || 'Thailand', contacts: c0};
+    for (const f of ['city', 'address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'pms', 'cm', 'be', 'notes', 'contact', 'contactTitle']) if (g[f]) rec[f] = g[f];
+    adds.push(rec);
+  }
+  return {adds, updates, same, filled};
+}
+/* imp:end */
+const impSlug = s => norm(s).replace(/ /g, '-').slice(0, 40);
+async function impCheck() {
+  const u = UI.imp = UI.imp || {}; if (!(u.files || []).length) { toast('Choose the Excel files first (Browse)'); return; }
+  const box = $('#impInfo'); box.innerHTML = '<p class="muted">Reading the files…</p>';
+  try {
+    const sp = K('sysprov'), names = [...new Set(sp.map(p => p.name).concat(SYSPROV_SEED.map(s => s[0])))];
+    const read = {A: [], B: [], D: [], C: [], C1: [], flagged: 0, files: []};
+    for (const f of u.files) {
+      const wb = XLSX.read(await f.arrayBuffer(), {type: 'array'}); const found = [];
+      for (const n of wb.SheetNames) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, defval: ''}); if (!rows.length) continue;
+        const a = impReadA(rows, names); if (a) { read.A = read.A.concat(a.rows); read.flagged += a.flagged; found.push('competitor hotels'); continue; }
+        const b = impReadB(rows, names); if (b) { read.B = read.B.concat(b.rows); found.push('new hotel list'); continue; }
+        const d = impReadD(rows, n, names); if (d) { read.D = read.D.concat(d.rows); if (!found.includes('contact list')) found.push('contact list'); continue; }
+        const c = impReadC(rows, names); if (c) { read.C = read.C.concat(c.rows); found.push('competitor profiles'); continue; }
+        const c1 = impReadC1(rows, names); if (c1) { read.C1 = read.C1.concat(c1.rows); }
+      }
+      read.files.push({name: f.name, found});
+    }
+    const all = [...read.A, ...read.D, ...read.B], m = impMerge(all);
+    const plan = impPlan(m.hotels, K('hotel'), uid);
+    const have = new Set(sp.map(p => impK(p.name))), newProv = new Map();
+    const want = (name, kinds) => { if (!name || name === 'Maha' || have.has(impK(name))) return; const o = newProv.get(impK(name)) || {name, types: []}; kinds.forEach(k => { if (!o.types.includes(k)) o.types.push(k); }); newProv.set(impK(name), o); };
+    read.C.forEach(r => want(r.name, impKinds(r.product)));
+    m.hotels.forEach(h => { ['pms', 'cm', 'be'].forEach(k => want(h[k], [k])); });
+    const c1 = new Map(read.C1.map(r => [impK(r.name), r])), profs = [];
+    for (const r of read.C) {
+      const id = 'cp_' + impSlug(r.name); if (byId(id) || profs.some(p => p.id === id)) continue; const x = c1.get(impK(r.name)) || {};
+      profs.push({id, kind: 'compprof', name: r.name, product: r.product, footprint: r.footprint, site: r.site, customer: r.customer, th: r.th, vn: r.vn, threat: r.threat, strengths: r.strengths, weaknesses: r.weaknesses, counter: r.counter, difficulty: r.difficulty, action: r.action, source: r.source, link: x.link || '', sample: x.sample || '', sampleSite: x.sampleSite || '', notes: x.notes || ''});
+    }
+    u.res = {read, merged: m, plan, newProv: [...newProv.values()], profs, total: all.length};
+  } catch (e) { u.res = {error: 'The files could not be read. Use the Excel files (.xlsx, .xlsm).'}; }
+  box.innerHTML = impInfoHTML();
+}
+function impInfoHTML() {
+  const u = UI.imp || {}; if (!u.res) return ''; if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
+  const r = u.res, p = r.plan, f = p.filled, rd = r.read, n = x => (x || 0).toLocaleString();
+  const fl = [['address', 'addresses'], ['phone', 'phones'], ['email', 'emails'], ['website', 'websites'], ['rooms', 'room counts'], ['pms', 'PMS'], ['cm', 'channel managers'], ['be', 'booking engines'], ['contact', 'contacts']].filter(([k]) => f[k]).map(([k, l]) => n(f[k]) + ' ' + l).join(', ');
+  return `<div class="up-sum">${rd.files.map(x => `<b>${esc(x.name)}</b> — ${esc(x.found.join(', ') || 'no data found')}`).join('<br>')}</div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><tbody>
+    <tr><td class="l">Hotels read from the files</td><td>${n(r.total)}</td></tr>
+    <tr><td class="l">Same hotel found twice (merged into one)${rd.flagged ? ` · ${n(rd.flagged)} rows marked duplicate in the competitor file are left out` : ""}</td><td>${n(r.merged.merged)}</td></tr>
+    <tr><td class="l">Hotels after removing duplicates</td><td>${n(r.merged.hotels.length)}</td></tr>
+    <tr><td class="l"><b>New hotels to add</b></td><td><b>${n(p.adds.length)}</b></td></tr>
+    <tr><td class="l"><b>Hotels already in the database to update</b> (empty fields only${fl ? ': ' + esc(fl) : ''})</td><td><b>${n(p.updates.length)}</b></td></tr>
+    <tr><td class="l">Hotels already complete (no change)</td><td>${n(p.same.length)}</td></tr>
+    <tr><td class="l">New System Providers</td><td>${n(r.newProv.length)}</td></tr>
+    <tr><td class="l">Competitor profiles to add</td><td>${n(r.profs.length)}</td></tr></tbody></table></div>
+   ${p.adds.length || p.updates.length || r.profs.length || r.newProv.length ? `<div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="impSave">${ICON.save}Update database</button><span class="muted small" id="impProg"></span></div>` : '<p class="muted">Nothing new to add.</p>'}`;
+}
+async function impSave() {
+  const u = UI.imp || {}, r = u.res; if (!r || r.error || u.saving) return; u.saving = true; const prog = $('#impProg'), say = t => { if (prog) prog.textContent = t; };
+  try {
+    const who = Auth.who() || '';
+    for (const x of r.newProv) await save({id: 'sp_' + impSlug(x.name), kind: 'sysprov', name: x.name, types: x.types});
+    if (r.profs.length) await saveMany(r.profs);
+    const adds = r.plan.adds.map(h => ({...h, owner: who})), ups = r.plan.updates.map(x => ({...x.h, ...x.patch}));
+    for (let i = 0; i < adds.length; i += 250) { say('Adding hotels ' + Math.min(i + 250, adds.length) + ' of ' + adds.length + '…'); await saveMany(adds.slice(i, i + 250)); }
+    for (let i = 0; i < ups.length; i += 250) { say('Updating hotels ' + Math.min(i + 250, ups.length) + ' of ' + ups.length + '…'); await saveMany(ups.slice(i, i + 250)); }
+    toast(adds.length + ' hotels added, ' + ups.length + ' updated'); const msg = `<div class="up-sum"><b>${adds.length}</b> hotels added, <b>${ups.length}</b> hotels updated, ${r.newProv.length} System Providers and ${r.profs.length} competitor profiles added.</div>`;
+    UI.imp = {}; vUpload(); $('#impInfo').innerHTML = msg;
+  } catch (e) { u.saving = false; toast('The update stopped: ' + (e && e.message ? e.message : 'please check the connection and press Update again')); }
+}
+/* ---------- Competitor profiles (inside Competitor Analysis) ---------- */
+const CP_FIELDS = [['product', 'Product type'], ['footprint', 'How to recognise it (booking link / footprint)'], ['site', 'Official website'], ['customer', 'Typical customer'], ['th', 'Thailand priority'], ['vn', 'Vietnam priority'], ['threat', 'Threat level'], ['difficulty', 'Migration difficulty'], ['strengths', 'Strengths'], ['weaknesses', 'Weaknesses'], ['counter', 'How OneHotel wins (counter-position)'], ['action', 'Sales action'], ['link', 'Booking link seen on hotels'], ['sample', 'Sample hotel using it'], ['sampleSite', 'Sample hotel website'], ['notes', 'Notes'], ['source', 'Source']];
+const cpCount = name => K('hotel').filter(h => SYS_TYPES.some(([k]) => norm(h[k]) === norm(name))).length;
+function vCompProfiles() {
+  const f = UI.cpp = UI.cpp || {q: ''};
+  view().innerHTML = `<a class="back" href="#competitors">‹ Competitor Analysis</a><div class="top"><div><h1>Competitor profiles</h1></div><div class="actions"><label class="dbs"><input type="search" id="cpp_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Product type</th><th>Threat</th><th>Thailand</th><th>Vietnam</th><th>Hotels using now</th><th>Action</th></tr></thead><tbody id="cppbody"></tbody></table></div>`;
+  paintCompProfiles(); const q = $('#cpp_q'); q.addEventListener('input', () => { f.q = q.value; paintCompProfiles(); });
+}
+function paintCompProfiles() {
+  const tb = $('#cppbody'); if (!tb) return; const n = norm((UI.cpp || {}).q || '');
+  const rows = K('compprof').filter(p => !n || norm(p.name + ' ' + (p.product || '')).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
+  tb.innerHTML = rows.length ? rows.map((p, i) => `<tr><td>${i + 1}</td><td class="l"><a href="#competitors/profiles" class="dbname" data-act="cpView" data-id="${p.id}">${esc(p.name)}</a></td><td class="l">${esc(p.product || '')}</td><td>${esc(p.threat || '')}</td><td>${esc(p.th || '')}</td><td>${esc(p.vn || '')}</td><td><a href="#competitors" data-act="cpUsing" data-n="${esc(p.name)}">${cpCount(p.name)}</a></td><td class="nw"><button type="button" class="btn info sm" data-act="cpView" data-id="${p.id}">View</button></td></tr>`).join('')
+    : '<tr><td colspan="8" class="empty">No competitor profile yet.</td></tr>';
+}
+function cpViewSheet(id) {
+  const p = byId(id); if (!p) return; const adm = Auth.isProvider();
+  openSheet(`${fuHead(p.name)}<div class="fu-pop" style="margin-top:14px">${CP_FIELDS.filter(([k]) => p[k]).map(([k, l]) => `<div class="mq-b"><label class="mq-l">${esc(l)}</label><div style="white-space:pre-wrap;overflow-wrap:anywhere">${/^https?:\/\//i.test(p[k]) && (k === 'site' || k === 'source' || k === 'sampleSite') ? `<a href="${esc(p[k])}" target="_blank" rel="noopener">${esc(p[k])}</a>` : esc(p[k])}</div></div>`).join('')}<div class="mq-b"><label class="mq-l">Hotels using now</label><div>${cpCount(p.name)}</div></div></div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Close</button>${adm ? `<button class="btn primary" data-act="cpEdit" data-id="${p.id}">Edit</button>` : ''}</div>`);
+}
+function cpEditSheet(id) {
+  const p = byId(id); if (!p || !Auth.isProvider()) { toast('Only the CEO can edit a competitor profile'); return; }
+  openSheet(`${fuHead('Edit ' + p.name)}<div class="fu-pop" style="margin-top:14px">${CP_FIELDS.map(([k, l]) => `<div class="mq-b"><label class="mq-l">${esc(l)}</label><textarea data-cpf="${k}" rows="${['strengths', 'weaknesses', 'counter', 'action', 'footprint'].includes(k) ? 3 : 1}" style="width:100%">${esc(p[k] || '')}</textarea></div>`).join('')}</div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="cp_save">Save</button></div>`, root => {
+    $('#cp_save', root).onclick = async () => { const rec = {...p}; root.querySelectorAll('[data-cpf]').forEach(el => { rec[el.dataset.cpf] = el.value.trim(); }); await save(rec); closeSheet(); toast('Saved'); vCompProfiles(); };
+  });
+}
+Object.assign(ACTIONS, {
+  impBrowse: () => { const f = document.createElement('input'); f.type = 'file'; f.multiple = true; f.accept = '.xlsx,.xls,.xlsm'; f.onchange = () => { const u = UI.imp = UI.imp || {}; u.files = [...f.files]; u.res = null; $('#impName').textContent = u.files.map(x => x.name).join(', '); $('#impInfo').innerHTML = ''; }; f.click(); },
+  impCheck: () => { impCheck(); },
+  impSave: () => { impSave(); },
+  cpView: el => cpViewSheet(el.dataset.id),
+  cpEdit: el => { closeSheet(); setTimeout(() => cpEditSheet(el.dataset.id), 0); },
+  cpUsing: el => { UI.cmp = {sys: '', prov: el.dataset.n, q: '', go: true}; location.hash = 'competitors'; },
+});
+function impPanelHTML() {
+  if (!Auth.isProvider()) return ''; const u = UI.imp = UI.imp || {};
+  return `<div class="fu-sub" style="margin-top:26px"><b>Company data</b> update</div>
+   <div class="up-top"><div class="up-file"><label>Excel files</label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Check</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div></div><div id="impInfo">${impInfoHTML()}</div>`;
+}
+
 /* ---------- System Providers and Competitor Analysis ----------
    System Providers (Pricing & Commercial): the companies that supply a hotel's software (a competitor, or Maha), with the software each one supplies. Only the provider adds names.
    A hotel's More details has one row for each software (PMS, CM, BE, Virtual Offline Payment, POS): the provider chosen from this list, and beside it the amount and the commercial term the hotel pays.
@@ -3252,10 +3505,11 @@ function prvSheet(id) {
     };
   });
 }
-function vCompetitors() {
+function vCompetitors(id) {
+  if (id === 'profiles') return vCompProfiles();
   const f = UI.cmp = UI.cmp || {sys: '', prov: '', q: '', go: false};
   const provs = [...new Set(K('sysprov').map(p => p.name).concat(['Maha']))].sort((a, b) => a.localeCompare(b));
-  view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions"><label class="dbs"><input type="search" id="cp_q" placeholder="Search hotel.." value="${esc(f.q || '')}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
+  view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions"><a class="btn" href="#competitors/profiles">Competitor profiles</a><label class="dbs"><input type="search" id="cp_q" placeholder="Search hotel.." value="${esc(f.q || '')}" aria-label="Search hotel"><span class="dbsi">${ICON.search}</span></label></div></div>
    <div class="fu-sub"><b>Competitor</b> (Provider) information</div>
    <div class="fu-form"><label for="cp_sys">Software :</label><div><select id="cp_sys"><option value="">All software</option>${SYS_TYPES.map(s => `<option value="${s[0]}" ${f.sys === s[0] ? 'selected' : ''}>${esc(s[1])}</option>`).join('')}</select></div>
     <label for="cp_prov">Provider :</label><div><select id="cp_prov"><option value="">All providers</option>${provs.map(p => `<option ${f.prov === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div></div>
