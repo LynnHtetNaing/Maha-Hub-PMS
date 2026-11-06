@@ -2896,8 +2896,8 @@ Object.assign(ACTIONS, {
    A hotel that is already in the database (same name, city and country) is skipped, so nothing is overwritten or doubled. */
 const UP_TYPES = ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'];
 const UP_COUNTRIES = COUNTRY_LIST;
-const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['CM', 'cm'], ['BE', 'be'], ['Virtual Offline Payment', 'pvo'], ['Remarks', 'notes']];
-const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], cm:['cm', 'channel manager'], be:['be', 'booking engine'], pvo:['virtual offline payment', 'pvo'], notes:['remarks', 'remark', 'notes', 'note']};
+const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['CM', 'cm'], ['BE', 'be'], ['Virtual Offline Payment', 'pvo'], ['Remarks', 'notes'], ['Country', 'country'], ['Property type', 'type'], ['Lead source', 'source']];
+const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], cm:['cm', 'channel manager'], be:['be', 'booking engine'], pvo:['virtual offline payment', 'pvo'], notes:['remarks', 'remark', 'notes', 'note'], country:['country'], type:['property type', 'type'], source:['lead source', 'source']};
 function upMap(headers) { return headers.map(h => { const n = norm(h); for (const [k, al] of Object.entries(UP_ALIAS)) if (al.map(norm).includes(n)) return k; return null; }); }
 Object.assign(ICON, {xls:'<svg viewBox="0 0 40 44" width="34" height="38"><rect x="8" y="4" width="26" height="34" rx="2" fill="#fff" stroke="#9aa0a6" stroke-width="1.6"/><path d="M14 14h14M14 20h14M14 26h14M14 32h14M20 10v26" stroke="#c5ccd3" stroke-width="1.4"/><rect x="2" y="16" width="16" height="16" rx="2" fill="#1f8a4c"/><path d="M6.5 20.5l7 7M13.5 20.5l-7 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>', save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg>'});
 function vUpload() {
@@ -2913,20 +2913,22 @@ function vUpload() {
 function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
 function upRead(rows, country) {
   const map = upMap(rows[0].map(String)); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
-  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0, noCity = 0;
+  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0, noCity = 0, badCountry = 0;
   for (const r of rows.slice(1)) {
     const v = {}; map.forEach((k, i) => { const x = r[i] === undefined || r[i] === null ? '' : String(r[i]).trim(); if (k && x) v[k] = x; });
     if (!v.name) { empty++; continue; }
     if (!v.city) { noCity++; continue; }   /* the City is required: the quotation and tax invoice follow the place of the hotel */
-    const key = upKey(v, country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
+    if (v.country && !canonCountry(v.country)) { badCountry++; continue; }   /* a Country column must use a country of the list */
+    v.country = canonCountry(v.country) || country;
+    const key = upKey(v, v.country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
   }
-  return {list, skipped, empty, noCity, total: rows.length - 1};
+  return {list, skipped, empty, noCity, badCountry, total: rows.length - 1};
 }
 function upInfoHTML() {
   const u = UI.up || {}; if (!u.res) return '';
   if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
   const r = u.res;
-  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}.</div>
+  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}${r.badCountry ? ', <b>' + r.badCountry + ' with a Country that is not in the list (not added)</b>' : ''}.</div>
    ${r.list.length ? `<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No. of room</th><th>Contact person</th></tr></thead><tbody>${r.list.slice(0, 8).map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.area || '')}</td><td>${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(h.contact || '')}</td></tr>`).join('')}</tbody></table></div>${r.list.length > 8 ? `<p class="muted small">…and ${r.list.length - 8} more.</p>` : ''}` : ''}`;
 }
 async function upParse() {
@@ -2943,7 +2945,7 @@ Object.assign(ACTIONS, {
   upParse: () => { upParse(); },
   upReset: () => { UI.up = {}; vUpload(); },
   upExample: () => {
-    const rows = [UP_COLS.map(c => c[0]), ['Example Hotel Bangkok', 'Sukhumvit', 'Bangkok', '+66-2-000-0000', 32, 'www.example.com', '1 Example Road, Bangkok 10110', 'K. Somchai', 'Owner', 'somchai@example.com', '+66-81-000-0000', '', '', '', '', 'Asked us to call back'], ['Second Example Hostel', 'Silom', 'Bangkok', '', 18, '', '', '', '', '', '', '', '', '', '', '']];
+    const rows = [UP_COLS.map(c => c[0]), ['Example Hotel Bangkok', 'Sukhumvit', 'Bangkok', '+66-2-000-0000', 32, 'www.example.com', '1 Example Road, Bangkok 10110', 'K. Somchai', 'Owner', 'somchai@example.com', '+66-81-000-0000', '', '', '', '', 'Asked us to call back', 'Thailand', 'Hotel', 'Sales call'], ['Second Example Hostel', 'Silom', 'Bangkok', '', 18, '', '', '', '', '', '', '', '', '', '', '', 'Thailand', 'Hostel', '']];
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Database');
     download('CRM database example.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   },
@@ -2951,7 +2953,7 @@ Object.assign(ACTIONS, {
     const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return; }
     if (!u.res || u.type !== $('#up_type').value || u.country !== $('#up_country').value) { if (!await upParse()) return; }
     const list = u.res.list; if (!list.length) { toast('Nothing new to add'); return; }
-    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: u.type, country: u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
+    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: v.type || u.type, country: v.country || u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
     await saveMany(batch); toast(`${batch.length} hotels added`);
     const n = batch.length, c = u.country; UI.up = {}; vUpload(); $('#upInfo').innerHTML = `<div class="up-sum"><b>${n}</b> hotels were added to ${esc(c)}. They show in the Database Hotel List and in Database log create.</div>`;
   },
@@ -3270,8 +3272,9 @@ Object.assign(ACTIONS, {
    The CEO chooses the Excel files; nothing is stored on the web site. A hotel is matched by its name (and country / city); an existing hotel only gets the empty fields filled. */
 /* imp:start */
 const IMP_CITY = {'ho chi minh': 'Ho Chi Minh City', 'ho chi minh city': 'Ho Chi Minh City', 'hcmc': 'Ho Chi Minh City', 'saigon': 'Ho Chi Minh City', 'ko pha ngan': 'Koh Phangan', 'koh pha ngan': 'Koh Phangan', 'koh phangan': 'Koh Phangan', 'ko phangan': 'Koh Phangan', 'ko samui': 'Koh Samui', 'koh samui': 'Koh Samui', 'koh phi phi': 'Koh Phi Phi', 'ko phi phi': 'Koh Phi Phi', 'danang': 'Da Nang', 'da nang': 'Da Nang', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin', 'chon buri': 'Chonburi', 'chonburi': 'Chonburi', 'bangkok metropolis': 'Bangkok', 'krung thep': 'Bangkok'};
-const IMP_CC = {'Bangkok': 'Thailand', 'Phuket': 'Thailand', 'Koh Samui': 'Thailand', 'Krabi': 'Thailand', 'Pattaya': 'Thailand', 'Koh Phangan': 'Thailand', 'Koh Phi Phi': 'Thailand', 'Chiang Mai': 'Thailand', 'Nonthaburi': 'Thailand', 'Hua Hin': 'Thailand', 'Chonburi': 'Thailand', 'Bueng Kan': 'Thailand', 'Ho Chi Minh City': 'Vietnam', 'Hoi An': 'Vietnam', 'Da Nang': 'Vietnam', 'Hanoi': 'Vietnam', 'Nha Trang': 'Vietnam', 'Nairobi': 'Kenya'};
-const IMP_THAI_CITIES = ['Bangkok', 'Phuket', 'Koh Samui', 'Hua Hin', 'Pattaya', 'Chiang Mai', 'Krabi', 'Nonthaburi', 'Koh Phangan', 'Chonburi'];
+const IMP_CC = {'Bangkok': 'Thailand', 'Phuket': 'Thailand', 'Koh Samui': 'Thailand', 'Krabi': 'Thailand', 'Pattaya': 'Thailand', 'Koh Phangan': 'Thailand', 'Koh Phi Phi': 'Thailand', 'Chiang Mai': 'Thailand', 'Nonthaburi': 'Thailand', 'Hua Hin': 'Thailand', 'Chonburi': 'Thailand', 'Bueng Kan': 'Thailand', 'Chiang Rai': 'Thailand', 'Kanchanaburi': 'Thailand', 'Ayutthaya': 'Thailand', 'Rayong': 'Thailand', 'Trat': 'Thailand', 'Surat Thani': 'Thailand', 'Ratchaburi': 'Thailand', 'Nakhon Ratchasima': 'Thailand', 'Khon Kaen': 'Thailand', 'Udon Thani': 'Thailand', 'Phang Nga': 'Thailand', 'Lopburi': 'Thailand', 'Hue': 'Vietnam', 'Phu Quoc': 'Vietnam', 'Da Lat': 'Vietnam', 'Sapa': 'Vietnam', 'Ninh Binh': 'Vietnam', 'Ho Chi Minh City': 'Vietnam', 'Hoi An': 'Vietnam', 'Da Nang': 'Vietnam', 'Hanoi': 'Vietnam', 'Nha Trang': 'Vietnam', 'Nairobi': 'Kenya'};
+const IMP_THAI_CITIES = ['Bangkok', 'Phuket', 'Koh Samui', 'Hua Hin', 'Pattaya', 'Chiang Mai', 'Chiang Rai', 'Kanchanaburi', 'Krabi', 'Nonthaburi', 'Koh Phangan', 'Chonburi', 'Ayutthaya', 'Rayong', 'Surat Thani'];
+const IMP_PLACES = Object.keys(IMP_CC).concat(['Chiang Rai']);
 const IMP_ALIAS = {'siteminder thebookingbutton': 'SiteMinder', 'exely': 'Exely / TravelLine', 'travelline': 'Exely / TravelLine', 'hotelinksolution': 'Hotel Link Solutions', 'hotel link': 'Hotel Link Solutions', 'booking2hotels': 'Blue House Travel / Booking2Hotels', 'ezee ipms247 yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee': 'eZee (Yanolja Cloud)', 'amadeus travelclick web solutions': 'Amadeus / TravelClick', 'amadeus ihotelier travelclick': 'Amadeus / TravelClick', 'synxis': 'Synxis (Sabre)', 'sabre synxis': 'Synxis (Sabre)', 'readyplanet traveltech instant bookings': 'Readyplanet', 'easybooking webconnection': 'Web Connection', 'webconnection channelroom': 'Web Connection', 'littlehotelier by siteminder': 'Little Hotelier', 'little hotelier by siteminder': 'Little Hotelier', 'the booking factory': 'Booking Factory', 'blue jay systems': 'Blue Jay Pms', 'ezcloud oneinventory': 'EzCloud', 'djubo': 'DJUBQ', 'wubook zak': 'WuBook', 'comanche gogoji': 'Comanche', 'oracle opera cloud': 'Opera', 'infor hms': 'Infor Starlight', 'boutique hotel direct bookings secret retreats': 'Secret Retreats', 'shr windsurfer crs shiji': 'SHR / Windsurfer (Shiji Group)', 'hotelogix': 'Hotelogix'};
 const impS = v => v === undefined || v === null ? '' : String(v).trim();
 const impV = v => { const s = impS(v); return /^(tbc|n\/?a|none|-|unknown)$/i.test(s) ? '' : s; };
@@ -3336,9 +3339,16 @@ function impReadD(rows, sheet, names) {   // property contact list (call sheet)
   const sheetCity = {'koh samui': 'Koh Samui', 'phuket': 'Phuket', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin'}[norm(sheet)] || '';
   for (const r of t.body) {
     const name = impS(r[iN]); if (!name) continue; const addr = impV(r[iA]);
-    let city = sheetCity; if (!city) { const f = IMP_THAI_CITIES.find(x => new RegExp('\\b' + x + '\\b', 'i').test(addr)) || (/Ko Samui/i.test(addr) ? 'Koh Samui' : ''); const z = !f && addr.match(/,\s*([A-Za-z][A-Za-z .'-]{2,30}?)\s+\d{5}\s*(?:,|$)/); city = f || (z ? impCity(z[1].replace(/\s*Province$/i, '').trim()) : ''); }
+    let city = sheetCity;
+    if (!city) {   /* the place is read from the address: "X Province", the part before the post code, or a known place in the address or in the hotel name */
+      const f = IMP_PLACES.find(x => new RegExp('\\b' + x + '\\b', 'i').test(addr)) || (/Ko Samui|Koh Sa-?mui|Ko Sa-?mui/i.test(addr) ? 'Koh Samui' : '');
+      const pv = addr.match(/,\s*([A-Za-z][A-Za-z .'-]{2,30}?)\s+Province\s*(?:,|$)/i), pz = addr.match(/([A-Za-z][A-Za-z .'-]{2,30}?),\s*\d{5,6}\s*(?:,|$)/), z = addr.match(/,\s*([A-Za-z][A-Za-z .'-]{2,30}?)\s+\d{5}\s*(?:,|$)/);
+      city = f || (/Khwaeng|Khet |Krung Thep|Ratchathewi|Phaya Thai|Phra Nakhon|Khlong Toei|Watthana|Bang Rak|Thon Buri|Bang Phlat|Pathum Wan|Sathon|Din Daeng|Huai Khwang|Chatuchak|Bang Khen|Phra Khanong|Samphanthawong|Dusit/i.test(addr) ? 'Bangkok' : '') || (pv ? impCity(pv[1].trim()) : pz ? impCity(pz[1].trim()) : z ? impCity(z[1].replace(/\s*Province$/i, '').trim()) : '') || (IMP_PLACES.find(x => impK(name).includes(impK(x))) || '');
+    }
+    if (/^(thailand|vietnam)$/i.test(city)) city = '';   /* a country name is not a city */
+    const ctry = /viet ?nam/i.test(addr) ? 'Vietnam' : /thailand/i.test(addr) ? 'Thailand' : (IMP_CC[city] || '');   /* never guessed */
     const cp = impS(r[iC]), m = cp.match(/^(.*?)\s*\(([^)]*)\)\s*$/), em = impEmail(r[iE]);
-    out.push({src: 'D', name, rooms: /^[1-9]\d*$/.test(impV(r[iRm])) ? impV(r[iRm]) : '', address: addr, city, country: 'Thailand', phone: impV(r[iPh]), email: em.email, moreEmail: em.more,
+    out.push({src: 'D', name, rooms: /^[1-9]\d*$/.test(impV(r[iRm])) ? impV(r[iRm]) : '', address: addr, city, country: ctry, phone: impV(r[iPh]), email: em.email, moreEmail: em.more,
       contact: m ? m[1].trim() : cp, contactTitle: m ? m[2].trim() : '', caller: impV(r[iCaller]), conversation: impV(r[iConv])});
   }
   return {rows: out};
