@@ -629,6 +629,7 @@ input,select,textarea{box-sizing:border-box}
 .cpl-row{cursor:pointer}.cpl-row:hover td{background:var(--canopy)}.cpl-chip{display:inline-block;background:#e4f4ea;color:#155c3d;border-radius:99px;padding:1px 9px;margin:1px 3px 1px 0;font-size:12px;font-weight:600;white-space:nowrap}
 .cp-fees{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.cp-fees label span{display:block;font-size:12px;color:var(--ink-2);margin-bottom:2px}.cp-more{margin-top:10px}.cp-more>summary{cursor:pointer;font-weight:600;margin-bottom:8px}
 .can-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 16px}.can-tab{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}.can-tab.on{background:var(--forest);border-color:var(--forest);color:#fff}
+.can-clip{min-width:170px;max-width:260px;font-size:13px}
 .can-grid{display:flex;flex-wrap:wrap;gap:4px}.can-prof{display:grid;gap:4px}.can-form{max-width:860px}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
@@ -781,8 +782,8 @@ const PB_DEFAULT = [
 - Staff Credit: the credit % of each staff member (set by the CEO). It shows in Setup activation and is kept on each activation and each signed contract
 - Credit Report: every activation set to Live and every signed contract with its credit (the staff's Credit % x the first month fee). Filter by staff, department and dates; the Total line and the total for each staff show the production of each person
 - Referral Rewards: the reward a referral hotel earns when a signing comes through it
-- Competitor (own menu title): Competitor profile is the list of every competitor = every system provider (name, address, phone, email, services incl. Revenue Management, hotels using it, the cities and countries from the Hotel list, minimum fee per month by hotel size). The services decide which competitor shows in the PMS, CM, BE, Virtual Offline Payment, POS and Revenue Management drop-downs of a hotel's More details. A click on a line opens the same form as Add new competitor. Every sales staff member adds and edits; only the CEO deletes
-- Competitor Analysis: one page per competitor with Overview (hotels using it, cities and countries, property types such as Hotel - 120 and Hostel - 30, hotel sizes), Strengths & weaknesses, How they play, How we win and the Hotels using them. Every sales staff member writes and edits these
+- Competitor Analysis (own menu title, one page): the list of every competitor = every system provider (name, address, phone, email, services incl. Revenue Management, hotels using it, the cities and countries from the Hotel list, minimum fee per month by hotel size). The services decide which competitor shows in the PMS, CM, BE, Virtual Offline Payment, POS and Revenue Management drop-downs of a hotel's More details. A click on a line opens the same form as Add new competitor. Every sales staff member adds and edits; only the CEO deletes
+- A click on a competitor opens it with Profile (hotels using it, cities and countries, property types such as Hotel - 120 and Hostel - 30, hotel sizes), Strengths & weaknesses, How they play, How we win and the Hotels using them. Every sales staff member writes and edits these
 - Follow up reminders: on the Follow up page a small box at the bottom right lists every Processing or Follow up whose Reminder date is today or passed (your own; the CEO sees all). 'Do not show again the reminders' hides it until you sign in again
 - Report (own menu title): Quotation, Revenue, Pipeline, Lead Source, Activation Speed and Referral Rewards. Each has filters, Search, Reset and Export to Excel. The Revenue and Referral Rewards reports are for the CEO only
 - Everyone can view these pages; only the CEO can add or change them`},
@@ -2334,7 +2335,7 @@ const NAVG = [
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
   {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Credit Report', '#pricing/credits', 'kpi'], ['Referral Rewards', '#pricing/referral', 'users']]},
-  {g:'Competitor Analysis', i:'kpi', items:[['Competitor profile', '#competitors/profiles', 'users'], ['Competitor Analysis', '#competitors', 'list']]},
+  {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
@@ -3531,7 +3532,7 @@ async function sysprovLoad() {
     batch.push({id, kind: 'sysprov', name, types}); have.add(impK(name)); added++;
   }
   if (batch.length) await saveMany(batch);
-  toast(added + ' competitors added' + (there ? ', ' + there + ' were already in the list' : '') + (removed ? ', ' + removed + ' you deleted are left out' : '')); vCompList();
+  toast(added + ' competitors added' + (there ? ', ' + there + ' were already in the list' : '') + (removed ? ', ' + removed + ' you deleted are left out' : '')); if (location.hash === '#competitors') vCompAnalysis();
 }
 /* ---------- Competitor profile and Competitor Analysis ----------
    A competitor is a company that supplies hotel software = a system provider (one record, kind 'sysprov').
@@ -3571,23 +3572,6 @@ async function compRmsFix() {
   if (fix.length) await saveMany(fix); await save({id: 'sysprov_rms_v1', kind: 'sysprovseed', at: new Date().toISOString()});
 }
 
-/* ---- Competitor profile: the list ---- */
-function vCompList() {
-  if (Auth.isProvider() && !byId('sysprov_seed_v1') && !K('sysprov').length && !UI.pvSeeding) sysprovSeed().then(() => { if (location.hash === '#competitors/profiles') vCompList(); });
-  if (Auth.isProvider() && !byId('sysprov_rms_v1') && K('sysprov').length) compRmsFix().then(() => { if (location.hash === '#competitors/profiles') paintCompList(); });
-  const adm = Auth.isProvider(), f = UI.cpl = UI.cpl || {q: ''};
-  view().innerHTML = `<div class="top"><div><h1>Competitor profile</h1></div><div class="actions">${adm ? `<button type="button" class="btn dark" data-act="prvLoad">Load provider list</button>` : ''}<button type="button" class="btn primary" data-act="prvAdd">${ICON.plus}Add new competitor</button><label class="dbs"><input type="search" id="cpl_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb cpl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Address</th><th>Phone</th><th>Email</th><th>Services</th><th>Hotels using</th><th>Market (from the Hotel list)</th><th>Minimum fee / month</th></tr></thead><tbody id="cplbody"></tbody></table></div>`;
-  paintCompList(); const q = $('#cpl_q'); q.addEventListener('input', () => { f.q = q.value; paintCompList(); });
-}
-function paintCompList() {
-  const tb = $('#cplbody'); if (!tb) return; const n = norm((UI.cpl || {}).q || ''), idx = compIndex();
-  const rows = K('sysprov').filter(p => !n || norm([p.name, p.address, p.phone, p.email].join(' ')).includes(n)).sort((a, b) => a.name.localeCompare(b.name));
-  tb.innerHTML = rows.length ? rows.map((p, i) => { const hs = compHotels(p.name, idx);
-    return `<tr class="cpl-row" data-act="compOpen" data-id="${p.id}" title="Open"><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td><td class="l">${esc(p.address || '')}</td><td class="l nw">${esc(p.phone || '')}</td><td class="l">${esc(p.email || '')}</td>
-      <td class="l">${compChips(p)}</td><td><a href="#competitors" data-act="cpUsing" data-id="${p.id}">${hs.length}</a></td><td class="l">${esc(compMarket(hs, 5).text)}</td><td class="l nw">${esc(compFeeText(p))}</td></tr>`; }).join('')
-    : `<tr><td colspan="9" class="empty">${n ? 'Nothing matches your search.' : 'No competitor yet. Press Add new competitor.'}</td></tr>`;
-}
 /* the one form: Add new competitor and the pop-up of a line are the same. Every sales staff member can add and edit; only the CEO deletes. */
 function compSheet(id) {
   const cur = id ? byId(id) : null, adm = Auth.isProvider(); if (id && !cur) return;
@@ -3613,26 +3597,29 @@ function compSheet(id) {
       delete rec.segments;
       await save(rec);
       if (cur && cur.name !== name) { const hh = K('hotel').filter(h => SYS_TYPES.some(([k]) => norm(h[k]) === norm(cur.name))); hh.forEach(h => SYS_TYPES.forEach(([k]) => { if (norm(h[k]) === norm(cur.name)) h[k] = name; })); if (hh.length) await saveMany(hh); }
-      closeSheet(); toast(cur ? 'Saved' : 'Competitor added'); if (location.hash.startsWith('#competitors/profiles')) vCompList(); else rerender();
+      closeSheet(); toast(cur ? 'Saved' : 'Competitor added'); if (location.hash === '#competitors') vCompAnalysis(); else rerender();
     };
   });
 }
 
 /* ---- Competitor Analysis: the list, then one competitor ---- */
-const CAN_TABS = [['overview', 'Overview'], ['sw', 'Strengths & weaknesses'], ['play', 'How they play'], ['win', 'How we win'], ['hotels', 'Hotels using them']];
+const CAN_TABS = [['overview', 'Profile'], ['sw', 'Strengths & weaknesses'], ['play', 'How they play'], ['win', 'How we win'], ['hotels', 'Hotels using them']];
 const CAN_FIELDS = {
   sw: [['strengths', 'Strengths', 5], ['weaknesses', 'Weaknesses', 5], ['loved', 'What hotels like about them', 4], ['disliked', 'What hotels complain about', 4]],
   play: [['customer', 'Typical customer', 2], ['play', 'How they sell and price (offers, contract length, tricks)', 5], ['footprint', 'How to recognise them (booking link / footprint)', 2], ['link', 'Booking link seen on hotels', 1], ['sample', 'A sample hotel using them', 1], ['difficulty', 'How hard it is to move a hotel away from them', 2], ['threat', 'Threat level', 1], ['th', 'Thailand priority', 1], ['vn', 'Vietnam priority', 1], ['product', 'What they say they are (their product)', 2], ['source', 'Source', 1], ['notes', 'Notes', 3]],
   win: [['counter', 'How OneHotel wins (our position)', 5], ['talk', 'What to say to the hotel', 5], ['questions', 'Questions to ask the hotel', 4], ['objections', 'Their objections and our answers', 5], ['action', 'Sales action', 3]],
 };
 function vCompAnalysis() {
-  const f = UI.can = UI.can || {q: ''}, idx = compIndex();
-  view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions"><label class="dbs"><input type="search" id="can_q" placeholder="Search competitor.." value="${esc(f.q || '')}" aria-label="Search competitor"><span class="dbsi">${ICON.search}</span></label></div></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb cpl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Services</th><th>Hotels using</th><th>Market (from the Hotel list)</th><th>Property types</th><th>Analysis written</th></tr></thead><tbody id="canbody"></tbody></table></div>`;
+  if (Auth.isProvider() && !byId('sysprov_seed_v1') && !K('sysprov').length && !UI.pvSeeding) sysprovSeed().then(() => { if (location.hash === '#competitors') vCompAnalysis(); });
+  if (Auth.isProvider() && !byId('sysprov_rms_v1') && K('sysprov').length) compRmsFix().then(() => { if (location.hash === '#competitors') vCompAnalysis(); });
+  const f = UI.can = UI.can || {q: ''}, idx = compIndex(), adm = Auth.isProvider();
+  view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions">${adm ? '<button type="button" class="btn dark" data-act="prvLoad">Load provider list</button>' : ''}<button type="button" class="btn primary" data-act="prvAdd">${ICON.plus}Add new competitor</button><label class="dbs"><input type="search" id="can_q" placeholder="Search competitor.." value="${esc(f.q || '')}" aria-label="Search competitor"><span class="dbsi">${ICON.search}</span></label></div></div>
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb cpl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Services</th><th>Hotels using</th><th>Market (from the Hotel list)</th><th>Property types</th><th>Minimum fee / month</th><th>Threat</th><th>Strength</th><th>Weakness</th></tr></thead><tbody id="canbody"></tbody></table></div>`;
   const paint = () => {
-    const n = norm(f.q || ''), rows = K('sysprov').filter(p => !n || norm(p.name).includes(n)).map(p => ({p, hs: compHotels(p.name, idx)})).sort((a, b) => b.hs.length - a.hs.length || a.p.name.localeCompare(b.p.name));
-    $('#canbody').innerHTML = rows.length ? rows.map(({p, hs}, i) => `<tr class="cpl-row" data-act="canOpen" data-id="${p.id}" title="Open the analysis"><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td><td class="l">${compChips(p)}</td><td>${hs.length}</td><td class="l">${esc(compMarket(hs, 5).text)}</td><td class="l">${esc(compTypes(hs).slice(0, 4).map(([t, c]) => t + ' - ' + c).join(' · '))}</td><td>${['strengths', 'weaknesses', 'counter'].some(k => p[k]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td></tr>`).join('')
-      : '<tr><td colspan="7" class="empty">No competitor found. Add one in Competitor profile.</td></tr>';
+    const n = norm(f.q || ''), rows = K('sysprov').filter(p => !n || norm([p.name, p.address, p.phone, p.email].join(' ')).includes(n)).map(p => ({p, hs: compHotels(p.name, idx)})).sort((a, b) => b.hs.length - a.hs.length || a.p.name.localeCompare(b.p.name));
+    const clip = (s, m) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > m ? s.slice(0, m - 1) + '…' : s; };
+    $('#canbody').innerHTML = rows.length ? rows.map(({p, hs}, i) => `<tr class="cpl-row" data-act="canOpen" data-id="${p.id}" title="Open"><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td><td class="l">${compChips(p)}</td><td>${hs.length}</td><td class="l">${esc(compMarket(hs, 3).text)}</td><td class="l">${esc(compTypes(hs).slice(0, 3).map(([t, c]) => t + ' - ' + c).join(' · '))}</td><td class="l nw">${esc(compFeeText(p))}</td><td>${esc(p.threat || '')}</td><td class="l can-clip">${esc(clip(p.strengths, 80))}</td><td class="l can-clip">${esc(clip(p.weaknesses, 80))}</td></tr>`).join('')
+      : '<tr><td colspan="10" class="empty">No competitor found. Press Add new competitor.</td></tr>';
   };
   paint(); $('#can_q').addEventListener('input', e => { f.q = e.target.value; paint(); });
 }
@@ -3662,7 +3649,7 @@ function vCompDetail(id) {
   view().onchange = e => { if (e.target.id === 'can_sys') { UI.canSys = e.target.value; vCompDetail(id); } };
 }
 function vCompetitors(id) {
-  if (id === 'profiles') return vCompList();
+  if (id === 'profiles') { location.replace('#competitors'); return; }   /* the profile list is part of Competitor Analysis now */
   if (id) return vCompDetail(id);
   return vCompAnalysis();
 }
@@ -3670,7 +3657,7 @@ Object.assign(ACTIONS, {
   prvAdd: () => compSheet(),
   prvLoad: () => { sysprovLoad(); },
   compOpen: el => compSheet(el.dataset.id),
-  prvDel: async el => { const p = byId(el.dataset.id); if (!p || !Auth.isProvider()) return; if (!await confirmDelete('Do you want delete competitor ' + p.name + '? A hotel that already has it keeps the name. It moves to Delete records.')) return; await softDelete(p); closeSheet(); toast('Competitor deleted'); vCompList(); },
+  prvDel: async el => { const p = byId(el.dataset.id); if (!p || !Auth.isProvider()) return; if (!await confirmDelete('Do you want delete competitor ' + p.name + '? A hotel that already has it keeps the name. It moves to Delete records.')) return; await softDelete(p); closeSheet(); toast('Competitor deleted'); if (location.hash === '#competitors') vCompAnalysis(); else location.hash = 'competitors'; },
   canOpen: el => { closeSheet(); UI.cmpTab = 'overview'; location.hash = 'competitors/' + el.dataset.id; },
   canTab: el => { UI.cmpTab = el.dataset.t; if (el.dataset.t !== 'hotels') UI.canSys = ''; vCompDetail(el.dataset.id); },
   canSave: async el => { const p = byId(el.dataset.id); if (!p) return; const rec = {...p, updatedBy: Auth.who() || '', updatedAt: new Date().toISOString()}; $$('[data-cf]', view()).forEach(e => { rec[e.dataset.cf] = e.value.trim(); }); await save(rec); toast('Saved'); vCompDetail(p.id); },
@@ -3688,7 +3675,7 @@ const PR = {
 };
 const prReward = p => p.type === 'Discount %' ? p.value + '% discount' : p.type === 'Discount THB' ? p.value + ' THB discount' : p.type === 'Free months' ? p.value + ' free month(s)' : (p.value || 'Promotion');
 function vPricing(id) {
-  if (id === 'providers') { location.replace('#competitors/profiles'); return; }   /* System Providers is now the Competitor profile list */
+  if (id === 'providers') { location.replace('#competitors'); return; }   /* System Providers is now Competitor Analysis */
   if (id === 'credits') return vCredits();
   const key = id === 'referral' ? 'referral' : id === 'staff' ? 'staff' : 'commercial', c = PR[key], f = UI.pr = UI.pr || {q: ''}, adm = Auth.isProvider();
   view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div><div class="actions">${adm && key === 'commercial' && !K('comodule').length ? `<button type="button" class="btn" data-act="prSeed">Load the price list</button>` : ''}${adm ? `<button type="button" class="btn primary" data-act="prEdit" data-k="${key}">${ICON.plus}Add new</button>` : ''}<label class="dbs"><input type="search" id="pr_q" placeholder="Search.." value="${esc(f.q || '')}" aria-label="Search"><span class="dbsi">${ICON.search}</span></label></div></div>
