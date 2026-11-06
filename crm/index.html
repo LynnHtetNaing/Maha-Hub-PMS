@@ -1145,11 +1145,26 @@ function claudePrompt(q) {
 /* the quotation number is MH-(country)(year)/(month)/(number): the number runs 001, 002 ... in the month of the quotation date, for every country together,
    and starts again from 001 in the next month. Deleted quotations keep their number (it is never used twice), so the numbers have no gap and no repeat. */
 const COUNTRY_CODE = {thailand: 'TH', vietnam: 'VN', cambodia: 'KH', myanmar: 'MM', lao: 'LA', laos: 'LA', malaysia: 'MY', indonesia: 'ID', philippines: 'PH', singapore: 'SG', india: 'IN', japan: 'JP', china: 'CN', 'south korea': 'KR', korea: 'KR', 'hong kong': 'HK', taiwan: 'TW', 'sri lanka': 'LK', nepal: 'NP', bangladesh: 'BD', maldives: 'MV', australia: 'AU', 'new zealand': 'NZ', 'united arab emirates': 'AE', uae: 'AE', 'united kingdom': 'GB', uk: 'GB', 'united states': 'US', usa: 'US'};
-const countryCode = h => { const c = String((h && h.country) || 'Thailand').trim().toLowerCase(); return COUNTRY_CODE[c] || (/^thai/.test(c) ? 'TH' : /^viet/.test(c) ? 'VN' : c.replace(/[^a-z]/g, '').slice(0, 2).toUpperCase() || 'TH'); };
+Object.assign(COUNTRY_CODE, {kenya: 'KE', france: 'FR', germany: 'DE', italy: 'IT', spain: 'ES', russia: 'RU', turkey: 'TR', 'saudi arabia': 'SA', qatar: 'QA', egypt: 'EG', 'south africa': 'ZA', canada: 'CA', mauritius: 'MU', portugal: 'PT', switzerland: 'CH', netherlands: 'NL', brunei: 'BN'});
+/* the countries a hotel can have: the name that is saved, and its code in the quotation and tax invoice numbers (MH-TH2026/11/001, TIV-TH2026/11/001) */
+const COUNTRY_LIST = ['Thailand', 'Vietnam', 'Cambodia', 'Myanmar', 'Lao', 'Malaysia', 'Indonesia', 'Philippines', 'Singapore', 'Brunei', 'India', 'Japan', 'China', 'South Korea', 'Hong Kong', 'Taiwan', 'Sri Lanka', 'Nepal', 'Bangladesh', 'Maldives', 'Australia', 'New Zealand', 'United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Turkey', 'Egypt', 'Kenya', 'South Africa', 'Mauritius', 'United Kingdom', 'France', 'Germany', 'Italy', 'Spain', 'Portugal', 'Switzerland', 'Netherlands', 'Russia', 'United States', 'Canada'];
+const COUNTRY_ALIAS = {laos: 'Lao', 'viet nam': 'Vietnam', burma: 'Myanmar', korea: 'South Korea', uae: 'United Arab Emirates', uk: 'United Kingdom', usa: 'United States', 'hong kong sar': 'Hong Kong'};
+const canonCountry = c => { const s = String(c || '').trim().toLowerCase(); if (!s) return ''; if (/^thai/.test(s)) return 'Thailand'; if (/^viet/.test(s)) return 'Vietnam'; return COUNTRY_LIST.find(x => x.toLowerCase() === s) || COUNTRY_ALIAS[s] || ''; };
+const countryCode = h => { const c = canonCountry(h && h.country); return c ? COUNTRY_CODE[c.toLowerCase()] : ''; };   /* no country = no code: a hotel without a country cannot get a quotation number */
+const hotelHasPlace = h => !!(h && String(h.city || '').trim() && canonCountry(h.country));
+/* a hotel with a missing City or Country cannot be quoted: ask for them first (the Property information opens) */
+function needPlace(h) { if (hotelHasPlace(h)) return false; toast('Fill the City and the Country of ' + ((h && h.name) || 'this hotel') + ' first: the quotation number follows its country'); if (h && h.id) setTimeout(() => hotelSheet(h), 250); return true; }
+/* the country of a hotel changed: its Draft quotations take the new country code (same running number). A quotation already Sent / Signed keeps the number it went out with. */
+async function renumberDraftQuotes(h) {
+  const code = countryCode(h); if (!code) return {changed: 0, kept: 0};
+  const mine = K('quote').filter(q => q.hotelId === h.id && /^MH-[A-Z]{2}\d{4}\/\d{2}\/\d{3,}$/.test(q.no || '') && (q.no || '').slice(3, 5) !== code);
+  const drafts = mine.filter(q => q.status === 'Draft'); for (const q of drafts) await save({...q, no: 'MH-' + code + q.no.slice(5)});
+  return {changed: drafts.length, kept: mine.length - drafts.length};
+}
 function suggestQuoteNo(h, date) {
   const d = date || today(), yy = d.slice(0, 4), mm = d.slice(5, 7), re = new RegExp(yy + '/' + mm + '/(\\d{3})$');
   const nums = R.filter(r => r.kind === 'quote').map(r => { const m = re.exec(r.no || ''); return m ? parseInt(m[1], 10) : 0; });
-  return 'MH-' + countryCode(h) + yy + '/' + mm + '/' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
+  return 'MH-' + (countryCode(h) || 'XX') + yy + '/' + mm + '/' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
 
 }
 
@@ -1633,7 +1648,7 @@ async function salesImportRun(rows, mp, smap, me, skipOld) {
     const name = txt(r, 'name'); if (!name) { res.noname++; continue; }
     if (me && mp.by >= 0 && !norm(txt(r, 'by')).includes(norm(me))) { res.filtered++; continue; }
     let h = hotels.get(norm(name));
-    if (!h) { h = {id: uid(), kind:'hotel', name, status:'New lead', managed:'No', source:'Sales system'}; hotels.set(norm(name), h); res.added++; touched.set(h.id, h); }
+    if (!h) { res.noplace = (res.noplace || 0) + 1; continue; }   /* a hotel that is not in the database is added with its City and Country first */
     else if (!touched.has(h.id)) { res.updated++; touched.set(h.id, h); }
     // fill hotel details — only overwrite when the export has a value
     for (const k of ['contact', 'contactTitle', 'phone', 'email', 'line', 'address', 'area', 'rooms']) { const v = txt(r, k); if (v) h[k] = k === 'rooms' ? (parseInt(v) || v) : v; }
@@ -1833,7 +1848,7 @@ function actSheet(a, hid, type) {
     $('#asave', root).onclick = async () => {
       const name = $('#a_hotel', root).value.trim(); if (!name) { toast('Pick a hotel'); return; }
       let h = K('hotel').find(x => norm(x.name) === norm(name));
-      if (!h) { h = {id: uid(), kind:'hotel', name, status:'Called', managed:'No'}; await save(h); }
+      if (!h) { toast('This hotel is not in the database. Add it first (Database > Add new Hotel) with its City and Country'); return; }
       const v = readForm(root, [{k:'date'}, {k:'type'}, {k:'meetStatus'}, {k:'reason'}, {k:'summary'}, {k:'outcome'}, {k:'nextDate'}, {k:'nextAction'}, {k:'setStatus'}]);
       const {setStatus, ...rest} = v;
       const rec = {...a, ...rest, id: a.id || uid(), kind:'act', hotelId: h.id, done: rest.nextDate ? (a.nextDate === rest.nextDate ? !!a.done : false) : true};
@@ -2209,13 +2224,13 @@ const ACTIONS = {
   saveQuote: async () => {
     const q = vQuote.current; vQuote.sync(); if (!q.hotelName) { toast('Add the hotel name'); return; }
     if (['Sent', 'Accepted'].includes(q.status) && !['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before it is Sent'); return; }
-    if (!q.hotelId) { const h = {id: uid(), kind:'hotel', name: q.hotelName, rooms: q.rooms, contact: q.contact, status:'Quoted', managed:'No'}; await save(h); q.hotelId = h.id; }
-    else { const h = byId(q.hotelId); if (['New lead', 'Called', 'Follow up', 'Meeting set', undefined, ''].includes(h.status) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
+    if (!q.hotelId) { toast('This hotel is not in the database. Add it first (Database > Add new Hotel) with its City and Country'); return; }
+    else { if (q.isNew && needPlace(byId(q.hotelId))) return; const h = byId(q.hotelId); if (['New lead', 'Called', 'Follow up', 'Meeting set', undefined, ''].includes(h.status) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
     const wasNew = q.isNew; if (wasNew) q.no = suggestQuoteNo(byId(q.hotelId), q.date); delete q.isNew; await save(q); if (q.status === 'Accepted') await dealFromQuote(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
   },
   saveMsa: async () => {
     vMsa.sync(); const m = vMsa.current; if (!m.company && !m.hotelName) { toast('Add the hotel or company name'); return; }
-    if (!m.hotelId && m.hotelName) { const h = {id: uid(), kind:'hotel', name: m.hotelName, address: m.address, status:'Negotiating', managed:'No'}; await save(h); m.hotelId = h.id; }
+    if (!m.hotelId && m.hotelName) { toast('This hotel is not in the database. Add it first (Database > Add new Hotel) with its City and Country'); return; }
     if (m.hotelId && m.status === 'Signed') { const h = byId(m.hotelId); if (h && !['Signed', 'Live'].includes(h.status)) { h.status = 'Signed'; await save(h); } }
     const wasNew = m.isNew; delete m.isNew; await save(m); toast('MSA saved'); if (wasNew) location.hash = 'msa/' + m.id; else rerender();
   },
@@ -2269,15 +2284,15 @@ const ACTIONS = {
     const byNC = new Map(), byN = new Map();
     K('hotel').forEach(h => { byNC.set(norm(h.name) + '|' + norm(h.city), h); if (!byN.has(norm(h.name))) byN.set(norm(h.name), []); byN.get(norm(h.name)).push(h); });
     const find = v => byNC.get(norm(v.name) + '|' + norm(v.city)) || ((byN.get(norm(v.name)) || []).find(h => !h.city || !v.city) || null);
-    let added = 0, updated = 0; const batch = [], inBatch = new Set();
+    let added = 0, updated = 0, noplace = 0; const batch = [], inBatch = new Set();
     for (const r of rows.slice(1)) {
       const v = {}; map.forEach((k, i) => { if (k && r[i] && r[i].trim()) v[k] = r[i].trim(); }); if (!v.name) continue;
       if (v.status && !STAGES.some(s => s[0] === v.status)) { v.notes = [v.notes, 'Imported status: ' + v.status].filter(Boolean).join('\n'); delete v.status; }
       const ex = find(v);
       if (ex) { if (v.notes && ex.notes && !ex.notes.includes(v.notes)) v.notes = ex.notes + '\n' + v.notes; if (ex.source && v.source) delete v.source; Object.assign(ex, v); ex.updated = new Date().toISOString(); if (!inBatch.has(ex.id)) { batch.push(ex); inBatch.add(ex.id); updated++; } }
-      else { const h = {id: uid(), kind:'hotel', status:'New lead', managed:'No', source:'CSV import', ...v}; byNC.set(norm(h.name) + '|' + norm(h.city), h); if (!byN.has(norm(h.name))) byN.set(norm(h.name), []); byN.get(norm(h.name)).push(h); batch.push(h); inBatch.add(h.id); added++; }
+      else { if (!v.city || !canonCountry(v.country)) { noplace++; continue; } v.country = canonCountry(v.country); const h = {id: uid(), kind:'hotel', status:'New lead', managed:'No', source:'CSV import', ...v}; byNC.set(norm(h.name) + '|' + norm(h.city), h); if (!byN.has(norm(h.name))) byN.set(norm(h.name), []); byN.get(norm(h.name)).push(h); batch.push(h); inBatch.add(h.id); added++; }
     }
-    await saveMany(batch); toast(`${added} added, ${updated} updated`); rerender();
+    await saveMany(batch); toast(`${added} added, ${updated} updated${noplace ? ', ' + noplace + ' not added (a new hotel needs its City and Country)' : ''}`); rerender();
     const skipped = rows[0].filter((h, i) => !map[i]); if (skipped.length) setTimeout(() => alert('Imported. These columns had no matching field and were skipped:\n' + skipped.join(', ')), 300);
   }),
   signOut: async () => { if (!confirm('Sign out of CRM on this device?')) return; await logUser('Signed out'); Auth.signOut(); location.reload(); },
@@ -2551,7 +2566,7 @@ function quotesSheet(hid) {
   $('#sheet-body').dataset.hid = hid;
 }
 function uploadQuoteSheet(hid, q) {
-  const h = byId(hid), isNew = !q; q = q || {no: suggestQuoteNo(h, today()), date: today()};
+  const h = byId(hid), isNew = !q; if (isNew && needPlace(h)) return; q = q || {no: suggestQuoteNo(h, today()), date: today()};
   openSheet(`<div class="sheet-head"><h2>${isNew ? 'Upload quotation' : 'Edit quotation'} — ${esc(h.name)}</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>
    <div class="grid two">${field({k:'no', label:'Quotation number'}, q.no)}${field({k:'date', label:'Date', type:'date'}, q.date)}
    <label class="f wide"><span>PDF file${isNew ? '' : ' (leave empty to keep the file)'}</span><input type="file" id="qu_file" accept="application/pdf,.pdf"></label></div>
@@ -2775,7 +2790,7 @@ function hotelForm(h, isNew) {
   return `<div class="hi">${inp('name', 'Hotel Name', 1, 'wide')}<div class="f wide"><span>Location</span><div class="cb"><input type="text" data-hf="area" autocomplete="off" placeholder="${isNew ? 'Type to find, then choose' : 'Choose or type the area'}" value="${esc(h.area || '')}"><div class="cbl" hidden></div></div></div>
     <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div>${inp('website', 'Website', 0, 'wide')}
     <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(h.address || '')}</textarea></label>
-    <div class="hi-r2">${inp('city', 'Address City')}${inp('country', 'Country')}</div>
+    <div class="hi-r2">${inp('city', 'Address City', 1)}<label class="f"><span>Country <i class="req">*</i></span><select data-hf="country"><option value="">Choose one</option>${COUNTRY_LIST.map(c => `<option value="${esc(c)}" ${canonCountry(h.country) === c ? 'selected' : ''}>${esc(c)} (${COUNTRY_CODE[c.toLowerCase()]})</option>`).join('')}</select></label></div>
     ${sysRows(h)}
     <div id="hiContacts">${contacts.map(cg).join('')}</div><div class="hi-add"><button type="button" class="btn info sm" data-act="hiAddContact">Add more contact</button></div>
     <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(h.notes || '')}</textarea></label>
@@ -2794,11 +2809,15 @@ function hotelFormBind(root, h, isNew, done) {
   $('#hi_save', root).onclick = async () => {
     const v = {}; $$('[data-hf]', root).forEach(e => v[e.dataset.hf] = (e.value || '').trim());
     if (!v.name) { toast('Hotel Name is required'); return; }
+    if (!v.city) { toast('Address City is required: the quotation and tax invoice follow the place of the hotel'); const e = $('[data-hf=city]', root); if (e) e.focus(); return; }
+    v.country = canonCountry(v.country); if (!v.country) { toast('Country is required: the quotation and tax invoice number follow its country code'); const e = $('[data-hf=country]', root); if (e) e.focus(); return; }
     if (isNew) { const dup = K('hotel').find(x => norm(x.name) === norm(v.name) && norm(x.city) === norm(v.city)); if (dup && !confirm(`"${dup.name}" is already in the database. Add another anyway?`)) return; }
     const cs = $$('[data-cg]', root).map(g => ({name: $('[data-c=name]', g).value.trim(), position: $('[data-c=position]', g).value.trim(), email: $('[data-c=email]', g).value.trim(), phone: $('[data-c=phone]', g).value.trim()})).filter(c => c.name || c.position || c.email || c.phone);
     const c0 = cs[0] || {};
     const rec = {...h, ...v, contacts: cs, contact: c0.name || '', contactTitle: c0.position || '', email: c0.email || '', closed: ($('[name=hi_st]:checked', root) || {}).value === 'close', id: h.id || uid(), kind: 'hotel'};
-    await save(rec); done(rec);
+    await save(rec);
+    let note = ''; if (!isNew && countryCode(h) !== countryCode(rec)) { const r = await renumberDraftQuotes(rec); if (r.changed || r.kept) note = (r.changed ? r.changed + ' draft quotation number' + (r.changed === 1 ? '' : 's') + ' changed to ' + countryCode(rec) : '') + (r.changed && r.kept ? '; ' : '') + (r.kept ? r.kept + ' sent quotation' + (r.kept === 1 ? ' keeps' : 's keep') + ' the number already issued' : ''); }
+    done(rec); if (note) setTimeout(() => toast(note), 900);
   };
 }
 function hotelSheet(h, pre) {
@@ -2835,7 +2854,7 @@ Object.assign(ACTIONS, {
    Choose an Excel (or CSV) file, press Upload to read it and see what it holds, choose the property type and the country, then Save to add the hotels.
    A hotel that is already in the database (same name, city and country) is skipped, so nothing is overwritten or doubled. */
 const UP_TYPES = ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'];
-const UP_COUNTRIES = ['Thailand', 'Vietnam', 'Cambodia', 'Myanmar', 'Lao', 'Malaysia', 'Indonesia', 'Philippines', 'Singapore', 'Other'];
+const UP_COUNTRIES = COUNTRY_LIST;
 const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['CM', 'cm'], ['BE', 'be'], ['Virtual Offline Payment', 'pvo'], ['Remarks', 'notes']];
 const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], cm:['cm', 'channel manager'], be:['be', 'booking engine'], pvo:['virtual offline payment', 'pvo'], notes:['remarks', 'remark', 'notes', 'note']};
 function upMap(headers) { return headers.map(h => { const n = norm(h); for (const [k, al] of Object.entries(UP_ALIAS)) if (al.map(norm).includes(n)) return k; return null; }); }
@@ -2853,19 +2872,20 @@ function vUpload() {
 function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
 function upRead(rows, country) {
   const map = upMap(rows[0].map(String)); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
-  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0;
+  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0, noCity = 0;
   for (const r of rows.slice(1)) {
     const v = {}; map.forEach((k, i) => { const x = r[i] === undefined || r[i] === null ? '' : String(r[i]).trim(); if (k && x) v[k] = x; });
     if (!v.name) { empty++; continue; }
+    if (!v.city) { noCity++; continue; }   /* the City is required: the quotation and tax invoice follow the place of the hotel */
     const key = upKey(v, country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
   }
-  return {list, skipped, empty, total: rows.length - 1};
+  return {list, skipped, empty, noCity, total: rows.length - 1};
 }
 function upInfoHTML() {
   const u = UI.up || {}; if (!u.res) return '';
   if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
   const r = u.res;
-  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}.</div>
+  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}.</div>
    ${r.list.length ? `<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No. of room</th><th>Contact person</th></tr></thead><tbody>${r.list.slice(0, 8).map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.area || '')}</td><td>${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(h.contact || '')}</td></tr>`).join('')}</tbody></table></div>${r.list.length > 8 ? `<p class="muted small">…and ${r.list.length - 8} more.</p>` : ''}` : ''}`;
 }
 async function upParse() {
@@ -3209,7 +3229,7 @@ Object.assign(ACTIONS, {
    The CEO chooses the Excel files; nothing is stored on the web site. A hotel is matched by its name (and country / city); an existing hotel only gets the empty fields filled. */
 /* imp:start */
 const IMP_CITY = {'ho chi minh': 'Ho Chi Minh City', 'ho chi minh city': 'Ho Chi Minh City', 'hcmc': 'Ho Chi Minh City', 'saigon': 'Ho Chi Minh City', 'ko pha ngan': 'Koh Phangan', 'koh pha ngan': 'Koh Phangan', 'koh phangan': 'Koh Phangan', 'ko phangan': 'Koh Phangan', 'ko samui': 'Koh Samui', 'koh samui': 'Koh Samui', 'koh phi phi': 'Koh Phi Phi', 'ko phi phi': 'Koh Phi Phi', 'danang': 'Da Nang', 'da nang': 'Da Nang', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin', 'chon buri': 'Chonburi', 'chonburi': 'Chonburi', 'bangkok metropolis': 'Bangkok', 'krung thep': 'Bangkok'};
-const IMP_CC = {'Bangkok': 'Thailand', 'Phuket': 'Thailand', 'Koh Samui': 'Thailand', 'Krabi': 'Thailand', 'Pattaya': 'Thailand', 'Koh Phangan': 'Thailand', 'Koh Phi Phi': 'Thailand', 'Chiang Mai': 'Thailand', 'Nonthaburi': 'Thailand', 'Hua Hin': 'Thailand', 'Chonburi': 'Thailand', 'Bueng Kan': 'Thailand', 'Ho Chi Minh City': 'Vietnam', 'Hoi An': 'Vietnam', 'Da Nang': 'Vietnam', 'Hanoi': 'Vietnam', 'Nha Trang': 'Vietnam', 'Nairobi': 'Other'};
+const IMP_CC = {'Bangkok': 'Thailand', 'Phuket': 'Thailand', 'Koh Samui': 'Thailand', 'Krabi': 'Thailand', 'Pattaya': 'Thailand', 'Koh Phangan': 'Thailand', 'Koh Phi Phi': 'Thailand', 'Chiang Mai': 'Thailand', 'Nonthaburi': 'Thailand', 'Hua Hin': 'Thailand', 'Chonburi': 'Thailand', 'Bueng Kan': 'Thailand', 'Ho Chi Minh City': 'Vietnam', 'Hoi An': 'Vietnam', 'Da Nang': 'Vietnam', 'Hanoi': 'Vietnam', 'Nha Trang': 'Vietnam', 'Nairobi': 'Kenya'};
 const IMP_THAI_CITIES = ['Bangkok', 'Phuket', 'Koh Samui', 'Hua Hin', 'Pattaya', 'Chiang Mai', 'Krabi', 'Nonthaburi', 'Koh Phangan', 'Chonburi'];
 const IMP_ALIAS = {'siteminder thebookingbutton': 'SiteMinder', 'exely': 'Exely / TravelLine', 'travelline': 'Exely / TravelLine', 'hotelinksolution': 'Hotel Link Solutions', 'hotel link': 'Hotel Link Solutions', 'booking2hotels': 'Blue House Travel / Booking2Hotels', 'ezee ipms247 yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee': 'eZee (Yanolja Cloud)', 'amadeus travelclick web solutions': 'Amadeus / TravelClick', 'amadeus ihotelier travelclick': 'Amadeus / TravelClick', 'synxis': 'Synxis (Sabre)', 'sabre synxis': 'Synxis (Sabre)', 'readyplanet traveltech instant bookings': 'Readyplanet', 'easybooking webconnection': 'Web Connection', 'webconnection channelroom': 'Web Connection', 'littlehotelier by siteminder': 'Little Hotelier', 'little hotelier by siteminder': 'Little Hotelier', 'the booking factory': 'Booking Factory', 'blue jay systems': 'Blue Jay Pms', 'ezcloud oneinventory': 'EzCloud', 'djubo': 'DJUBQ', 'wubook zak': 'WuBook', 'comanche gogoji': 'Comanche', 'oracle opera cloud': 'Opera', 'infor hms': 'Infor Starlight', 'boutique hotel direct bookings secret retreats': 'Secret Retreats', 'shr windsurfer crs shiji': 'SHR / Windsurfer (Shiji Group)', 'hotelogix': 'Hotelogix'};
 const impS = v => v === undefined || v === null ? '' : String(v).trim();
@@ -3275,7 +3295,7 @@ function impReadD(rows, sheet, names) {   // property contact list (call sheet)
   const sheetCity = {'koh samui': 'Koh Samui', 'phuket': 'Phuket', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin'}[norm(sheet)] || '';
   for (const r of t.body) {
     const name = impS(r[iN]); if (!name) continue; const addr = impV(r[iA]);
-    let city = sheetCity; if (!city) { const f = IMP_THAI_CITIES.find(x => new RegExp('\\b' + x + '\\b', 'i').test(addr)) || (/Ko Samui|Surat Thani/i.test(addr) ? 'Koh Samui' : ''); city = f; }
+    let city = sheetCity; if (!city) { const f = IMP_THAI_CITIES.find(x => new RegExp('\\b' + x + '\\b', 'i').test(addr)) || (/Ko Samui/i.test(addr) ? 'Koh Samui' : ''); const z = !f && addr.match(/,\s*([A-Za-z][A-Za-z .'-]{2,30}?)\s+\d{5}\s*(?:,|$)/); city = f || (z ? impCity(z[1].replace(/\s*Province$/i, '').trim()) : ''); }
     const cp = impS(r[iC]), m = cp.match(/^(.*?)\s*\(([^)]*)\)\s*$/), em = impEmail(r[iE]);
     out.push({src: 'D', name, rooms: /^[1-9]\d*$/.test(impV(r[iRm])) ? impV(r[iRm]) : '', address: addr, city, country: 'Thailand', phone: impV(r[iPh]), email: em.email, moreEmail: em.more,
       contact: m ? m[1].trim() : cp, contactTitle: m ? m[2].trim() : '', caller: impV(r[iCaller]), conversation: impV(r[iConv])});
@@ -3330,11 +3350,12 @@ function impMerge(recs) {
 }
 const IMP_FILL = ['address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'city', 'country', 'pms', 'cm', 'be'];
 /* compare the list with the hotels already in the database: new hotels are added, an existing hotel only gets its empty fields filled */
-function impPlan(hotels, existing, uidf) {
+function impPlan(hotels, existing, uidf, canon) {
+  canon = canon || (x => x);
   const idx = new Map(), sidx = new Map(), push = (m, k, h) => { if (!k) return; if (!m.has(k)) m.set(k, []); m.get(k).push(h); };
   for (const h of existing) { push(idx, norm(h.name), h); push(sidx, impStrip(h.name) + '|' + norm(impCity(h.city)), h); }
   const cityOk = (a, b) => { a = norm(impCity(a)); b = norm(impCity(b)); return !a || !b || a === b || a.includes(b) || b.includes(a); };
-  const adds = [], updates = [], same = []; const filled = {};
+  const adds = [], updates = [], same = [], noPlace = []; const filled = {};
   for (const g of hotels) {
     const cand = (idx.get(norm(g.name)) || []).filter(h => (!g.country || (h.country || 'Thailand') === g.country) && cityOk(h.city, g.city));
     let h = cand[0]; if (!h && g.city) h = (sidx.get(impStrip(g.name) + '|' + norm(g.city)) || []).find(x => !g.country || (x.country || 'Thailand') === g.country);
@@ -3345,12 +3366,13 @@ function impPlan(hotels, existing, uidf) {
       if (Object.keys(patch).length) updates.push({h, patch, g}); else same.push(h);
       continue;
     }
+    if (!g.city || !canon(g.country)) { noPlace.push(g); continue; }   /* a new hotel needs its City and Country */
     const c0 = g.contact || g.contactTitle || g.email || g.phone ? [{name: g.contact, position: g.contactTitle, email: g.email, phone: g.phone}] : [];
-    const rec = {id: uidf(), kind: 'hotel', name: g.name, status: 'New lead', managed: 'No', source: g.leadSource, type: impType(g.name, g.ctype), country: g.country || 'Thailand', contacts: c0};
+    const rec = {id: uidf(), kind: 'hotel', name: g.name, status: 'New lead', managed: 'No', source: g.leadSource, type: impType(g.name, g.ctype), country: canon(g.country), contacts: c0};
     for (const f of ['city', 'address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'pms', 'cm', 'be', 'notes', 'contact', 'contactTitle']) if (g[f]) rec[f] = g[f];
     adds.push(rec);
   }
-  return {adds, updates, same, filled};
+  return {adds, updates, same, filled, noPlace};
 }
 /* imp:end */
 const impSlug = s => norm(s).replace(/ /g, '-').slice(0, 40);
@@ -3373,7 +3395,7 @@ async function impCheck() {
       read.files.push({name: f.name, found});
     }
     const all = [...read.A, ...read.D, ...read.B], m = impMerge(all);
-    const plan = impPlan(m.hotels, K('hotel'), uid);
+    const plan = impPlan(m.hotels, K('hotel'), uid, canonCountry);
     const have = new Set(sp.map(p => impK(p.name))), newProv = new Map();
     const want = (name, kinds) => { if (!name || name === 'Maha' || have.has(impK(name))) return; const o = newProv.get(impK(name)) || {name, types: []}; kinds.forEach(k => { if (!o.types.includes(k)) o.types.push(k); }); newProv.set(impK(name), o); };
     read.C.forEach(r => want(r.name, impKinds(r.product)));
@@ -3399,6 +3421,7 @@ function impInfoHTML() {
     <tr><td class="l"><b>New hotels to add</b></td><td><b>${n(p.adds.length)}</b></td></tr>
     <tr><td class="l"><b>Hotels already in the database to update</b> (empty fields only${fl ? ': ' + esc(fl) : ''})</td><td><b>${n(p.updates.length)}</b></td></tr>
     <tr><td class="l">Hotels already complete (no change)</td><td>${n(p.same.length)}</td></tr>
+    ${p.noPlace.length ? `<tr><td class="l"><b>Not added: no City or Country</b> <a href="#upload" data-act="impNoPlace">Download list</a></td><td><b>${n(p.noPlace.length)}</b></td></tr>` : ''}
     <tr><td class="l">New System Providers</td><td>${n(r.newProv.length)}</td></tr>
     <tr><td class="l">Competitor profiles to add</td><td>${n(r.profs.length)}</td></tr></tbody></table></div>
    ${p.adds.length || p.updates.length || r.profs.length || r.newProv.length ? `<div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="impSave">${ICON.save}Update database</button><span class="muted small" id="impProg"></span></div>` : '<p class="muted">Nothing new to add.</p>'}`;
@@ -3447,6 +3470,7 @@ Object.assign(ACTIONS, {
   impBrowse: () => { const f = document.createElement('input'); f.type = 'file'; f.multiple = true; f.accept = '.xlsx,.xls,.xlsm'; f.onchange = () => { const u = UI.imp = UI.imp || {}; u.files = [...f.files]; u.res = null; $('#impName').textContent = u.files.map(x => x.name).join(', '); $('#impInfo').innerHTML = ''; }; f.click(); },
   impCheck: () => { impCheck(); },
   impSave: () => { impSave(); },
+  impNoPlace: () => { const u = UI.imp || {}, r = u.res; if (!r || !r.plan) return; const rows = [['Hotel name', 'City', 'Country', 'Address', 'Phone', 'Email', 'Website']].concat(r.plan.noPlace.map(g => [g.name, g.city || '', g.country || '', g.address || '', g.phone || '', g.email || '', g.website || ''])); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'No City or Country'); download('Hotels without City or Country.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); },
   cpView: el => cpViewSheet(el.dataset.id),
   cpEdit: el => { closeSheet(); setTimeout(() => cpEditSheet(el.dataset.id), 0); },
   cpUsing: el => { UI.cmp = {sys: '', prov: el.dataset.n, q: '', go: true}; location.hash = 'competitors'; },
@@ -3705,7 +3729,7 @@ function qpLinesX(q) { return (q.items || []).filter(i => i.on).map(i => `${i.na
 function qpLines(q) { return (q.items || []).filter(i => i.on).map(i => { const dd = qpDisc(i.price, i.disc); return `${i.name} - ${i.price === '' ? '' : i.price + ' '}${i.unit}${i.pay ? ' / payment ' + i.pay : ''}${dd.amt > 0 ? ' · discount ' + qpDiscText(i, dd) + (dd.pct || dd.waived ? '' : ' ' + curOf(q)) : ''}`; }); }
 const termHTML = (t, n) => `<div class="term"><span class="num">${n}</span><div class="en"><b>${esc(t.te)} —</b> ${esc(t.xe).replace(/\n/g, '<br>')}</div>\n    <div class="th">${esc(t.tt)} — ${esc(t.xt).replace(/\n/g, '<br>')}</div></div>`;
 function quoteFormSheet(hid, q) {
-  const h = byId(hid); if (!h) return; const isNew = !q; q = q || {no: suggestQuoteNo(h, today()), date: today(), status: 'Draft', items: [], terms: null};
+  const h = byId(hid); if (!h) return; if (!q && needPlace(h)) return; const isNew = !q; q = q || {no: suggestQuoteNo(h, today()), date: today(), status: 'Draft', items: [], terms: null};
   const items = qpCatalog(q).map(c => { const x = (q.items || []).find(i => i.id === c.id) || {}, keep = x.on && x.price !== undefined; return {id: c.id, name: c.name, on: !!x.on, price: keep ? x.price : c.price, unit: keep && x.unit ? x.unit : c.unit, fixed: !(c.price === '' || c.price === undefined || !qpNum(c.price) || c.id === 'other'), disc: x.disc !== undefined && x.disc !== '' ? x.disc : '', discNote: x.discNote || '', pay: x.pay || '', info: x.info || ''}; });
   const cur0 = curOf(q);
   const master = qpMasterTerms(), terms = q.terms && q.terms.length ? q.terms.slice() : master.slice();
