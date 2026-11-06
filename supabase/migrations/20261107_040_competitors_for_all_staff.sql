@@ -25,7 +25,7 @@ begin
     raise exception 'provider-only' using errcode = '42501';
   end if;
   -- a competitor: everyone in the team adds and edits; only the provider deletes (or brings back) one
-  if new.kind = 'sysprov' and new.deleted is distinct from case when v_exists then v_old_deleted else false end then
+  if new.kind = 'sysprov' and new.deleted is distinct from coalesce(v_old_deleted, false) then
     raise exception 'provider-only' using errcode = '42501';
   end if;
   if new.kind = 'quote'
