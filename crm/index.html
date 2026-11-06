@@ -1156,14 +1156,28 @@ const COUNTRY_ALIAS = {laos: 'Lao', 'viet nam': 'Vietnam', burma: 'Myanmar', kor
 const canonCountry = c => { const s = String(c || '').trim().toLowerCase(); if (!s) return ''; if (/^thai/.test(s)) return 'Thailand'; if (/^viet/.test(s)) return 'Vietnam'; return COUNTRY_LIST.find(x => x.toLowerCase() === s) || COUNTRY_ALIAS[s] || ''; };
 const countryCode = h => { const c = canonCountry(h && h.country); return c ? COUNTRY_CODE[c.toLowerCase()] : ''; };   /* no country = no code: a hotel without a country cannot get a quotation number */
 const hotelHasPlace = h => !!(h && String(h.city || '').trim() && canonCountry(h.country));
+/* The number of a NEW quotation comes from the database when it is saved: two people saving at the same second are served one after the other, no number is given twice or skipped.
+   The same quotation asking again (a retry) gets the same number. A test copy with no cloud keeps counting on the device. Returns '' when the database cannot be reached. */
+const QNO_URL = 'https://wragaoglvksbbgmfjyzp.supabase.co/rest/v1/rpc/maha_claim_quote_no';
+async function claimQuoteNo(h, date, quoteId) {
+  if (!Auth.required) return suggestQuoteNo(h, date);
+  const code = countryCode(h); if (!code || !quoteId) return '';
+  try {
+    const tk = await Auth.token(); if (!tk) return '';
+    const r = await fetch(QNO_URL, {method: 'POST', headers: {'Content-Type': 'application/json', apikey: 'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD', Authorization: 'Bearer ' + tk}, body: JSON.stringify({p_quote_id: String(quoteId), p_code: code, p_date: date || today()})});
+    if (!r.ok) return ''; const d = await r.json(); return typeof d === 'string' && /^MH-[A-Z]{2}\d{4}\/\d{2}\/\d{3,}$/.test(d) ? d : '';
+  } catch { return ''; }
+}
+const NO_QNO = 'The quotation number could not be taken from the database. Check the internet connection and press Save again (no number was used).';
 /* a hotel with a missing City or Country cannot be quoted: ask for them first (the Property information opens) */
 function needPlace(h) { if (hotelHasPlace(h)) return false; toast('Fill the City and the Country of ' + ((h && h.name) || 'this hotel') + ' first: the quotation number follows its country'); if (h && h.id) setTimeout(() => hotelSheet(h), 250); return true; }
 /* the country of a hotel changed: its Draft quotations take the new country code (same running number). A quotation already Sent / Signed keeps the number it went out with. */
 async function renumberDraftQuotes(h) {
-  const code = countryCode(h); if (!code) return {changed: 0, kept: 0};
+  const code = countryCode(h); if (!code) return {changed: 0, kept: 0, failed: 0};
   const mine = K('quote').filter(q => q.hotelId === h.id && /^MH-[A-Z]{2}\d{4}\/\d{2}\/\d{3,}$/.test(q.no || '') && (q.no || '').slice(3, 5) !== code);
-  const drafts = mine.filter(q => q.status === 'Draft'); for (const q of drafts) { const m = /(\d{4})\/(\d{2})\//.exec(q.no); await save({...q, no: nextQuoteNo(code, m[1], m[2], q.id)}); }
-  return {changed: drafts.length, kept: mine.length - drafts.length};
+  const drafts = mine.filter(q => q.status === 'Draft'); let changed = 0, failed = 0;
+  for (const q of drafts) { const m = /(\d{4})\/(\d{2})\//.exec(q.no), no = await claimQuoteNo(h, m[1] + '-' + m[2] + '-01', q.id); if (no) { await save({...q, no}); changed++; } else failed++; }
+  return {changed, kept: mine.length - drafts.length, failed};
 }
 /* the number counts on each country and month: the smallest number not used yet, so a number left free (a Draft that moved to another country) is used again and there is no gap */
 function nextQuoteNo(code, yy, mm, exceptId) {
@@ -2231,7 +2245,7 @@ const ACTIONS = {
     if (['Sent', 'Accepted'].includes(q.status) && !['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before it is Sent'); return; }
     if (!q.hotelId) { toast('This hotel is not in the database. Add it first (Database > Add new Hotel) with its City and Country'); return; }
     else { if (q.isNew && needPlace(byId(q.hotelId))) return; const h = byId(q.hotelId); if (['New lead', 'Called', 'Follow up', 'Meeting set', undefined, ''].includes(h.status) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
-    const wasNew = q.isNew; if (wasNew) q.no = suggestQuoteNo(byId(q.hotelId), q.date); delete q.isNew; await save(q); if (q.status === 'Accepted') await dealFromQuote(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
+    const wasNew = q.isNew; if (wasNew) { const no = await claimQuoteNo(byId(q.hotelId), q.date, q.id); if (!no) { toast(NO_QNO); return; } q.no = no; } delete q.isNew; await save(q); if (q.status === 'Accepted') await dealFromQuote(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
   },
   saveMsa: async () => {
     vMsa.sync(); const m = vMsa.current; if (!m.company && !m.hotelName) { toast('Add the hotel or company name'); return; }
@@ -2589,13 +2603,14 @@ function quotesSheet(hid) {
   $('#sheet-body').dataset.hid = hid;
 }
 function uploadQuoteSheet(hid, q) {
-  const h = byId(hid), isNew = !q; if (isNew && needPlace(h)) return; q = q || {no: suggestQuoteNo(h, today()), date: today()};
+  const h = byId(hid), isNew = !q; if (isNew && needPlace(h)) return; q = q || {id: uid(), no: suggestQuoteNo(h, today()), date: today()}; const suggested = q.no;
   openSheet(`<div class="sheet-head"><h2>${isNew ? 'Upload quotation' : 'Edit quotation'} — ${esc(h.name)}</h2><button class="iconbtn" data-act="close" aria-label="Close">${ICON.close}</button></div>
    <div class="grid two">${field({k:'no', label:'Quotation number'}, q.no)}${field({k:'date', label:'Date', type:'date'}, q.date)}
    <label class="f wide"><span>PDF file${isNew ? '' : ' (leave empty to keep the file)'}</span><input type="file" id="qu_file" accept="application/pdf,.pdf"></label></div>
    <div class="sheet-foot"><button class="btn" data-act="qBack" data-hid="${hid}">Cancel</button><button class="btn primary" id="qu_save">Save</button></div>`, root => {
     $('#qu_save', root).onclick = async () => {
       const v = readForm(root, [{k:'no'}, {k:'date'}]); if (!v.no) { toast('Add the quotation number'); return; }
+      if (isNew && v.no === suggested) { const no = await claimQuoteNo(h, v.date || today(), q.id); if (!no) { toast(NO_QNO); return; } v.no = no; }   /* the suggested number is taken from the database; a number typed by hand is kept as typed */
       const file = $('#qu_file', root).files[0]; if (isNew && !file) { toast('Choose the PDF file'); return; }
       if (file && file.size > 3 * 1024 * 1024) { toast('The file is bigger than 3 MB'); return; }
       let upload = q.upload; if (file) upload = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res({name: file.name, type: file.type || 'application/pdf', data: r.result}); r.onerror = rej; r.readAsDataURL(file); });
@@ -2840,7 +2855,7 @@ function hotelFormBind(root, h, isNew, done) {
     const c0 = cs[0] || {};
     const rec = {...h, ...v, contacts: cs, contact: c0.name || '', contactTitle: c0.position || '', email: c0.email || '', closed: ($('[name=hi_st]:checked', root) || {}).value === 'close', id: h.id || uid(), kind: 'hotel'};
     await save(rec);
-    let note = ''; if (!isNew && countryCode(h) !== countryCode(rec)) { const r = await renumberDraftQuotes(rec); if (r.changed || r.kept) note = (r.changed ? r.changed + ' draft quotation number' + (r.changed === 1 ? '' : 's') + ' changed to ' + countryCode(rec) : '') + (r.changed && r.kept ? '; ' : '') + (r.kept ? r.kept + ' sent quotation' + (r.kept === 1 ? ' keeps' : 's keep') + ' the number already issued' : ''); }
+    let note = ''; if (!isNew && countryCode(h) !== countryCode(rec)) { const r = await renumberDraftQuotes(rec); if (r.changed || r.kept || r.failed) note = [r.changed ? r.changed + ' draft quotation number' + (r.changed === 1 ? '' : 's') + ' changed to ' + countryCode(rec) : '', r.kept ? r.kept + ' sent quotation' + (r.kept === 1 ? ' keeps' : 's keep') + ' the number already issued' : '', r.failed ? r.failed + ' draft number' + (r.failed === 1 ? '' : 's') + ' not changed: no connection to the database, save the hotel again' : ''].filter(Boolean).join('; '); }
     done(rec); if (note) setTimeout(() => toast(note), 900);
   };
 }
@@ -3753,7 +3768,7 @@ function qpLinesX(q) { return (q.items || []).filter(i => i.on).map(i => `${i.na
 function qpLines(q) { return (q.items || []).filter(i => i.on).map(i => { const dd = qpDisc(i.price, i.disc); return `${i.name} - ${i.price === '' ? '' : i.price + ' '}${i.unit}${i.pay ? ' / payment ' + i.pay : ''}${dd.amt > 0 ? ' · discount ' + qpDiscText(i, dd) + (dd.pct || dd.waived ? '' : ' ' + curOf(q)) : ''}`; }); }
 const termHTML = (t, n) => `<div class="term"><span class="num">${n}</span><div class="en"><b>${esc(t.te)} —</b> ${esc(t.xe).replace(/\n/g, '<br>')}</div>\n    <div class="th">${esc(t.tt)} — ${esc(t.xt).replace(/\n/g, '<br>')}</div></div>`;
 function quoteFormSheet(hid, q) {
-  const h = byId(hid); if (!h) return; if (!q && needPlace(h)) return; const isNew = !q; q = q || {no: suggestQuoteNo(h, today()), date: today(), status: 'Draft', items: [], terms: null};
+  const h = byId(hid); if (!h) return; if (!q && needPlace(h)) return; const isNew = !q; q = q || {id: uid(), no: suggestQuoteNo(h, today()), date: today(), status: 'Draft', items: [], terms: null};
   const items = qpCatalog(q).map(c => { const x = (q.items || []).find(i => i.id === c.id) || {}, keep = x.on && x.price !== undefined; return {id: c.id, name: c.name, on: !!x.on, price: keep ? x.price : c.price, unit: keep && x.unit ? x.unit : c.unit, fixed: !(c.price === '' || c.price === undefined || !qpNum(c.price) || c.id === 'other'), disc: x.disc !== undefined && x.disc !== '' ? x.disc : '', discNote: x.discNote || '', pay: x.pay || '', info: x.info || ''}; });
   const cur0 = curOf(q);
   const master = qpMasterTerms(), terms = q.terms && q.terms.length ? q.terms.slice() : master.slice();
@@ -3790,12 +3805,13 @@ function quoteFormSheet(hid, q) {
       const bad = on.find(i => i.price === '' || isNaN(parseFloat(i.price))); if (bad) { toast('Write the price of ' + bad.name); return; }
       const hasBE = on.some(i => QP_BE.includes(i.id)), hasPay = on.some(i => QP_PAYS.includes(i.id));
       const tms = $$('[data-tm]', root).map(el => ({te: $('[data-t=te]', el).value.trim(), xe: $('[data-t=xe]', el).value.trim(), tt: thai ? $('[data-t=tt]', el).value.trim() : (el.dataset.tt || ''), xt: thai ? $('[data-t=xt]', el).value.trim() : (el.dataset.xt || ''), cond: el.dataset.cond || ''})).filter(x => (x.te || x.xe || x.tt || x.xt) && !(x.cond === 'be' && !hasBE) && !(x.cond === 'pay' && !hasPay));
-      const rec = {...q, id: q.id || uid(), kind: 'quote', no: isNew ? suggestQuoteNo(h, date) : q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, currency: g('currency') || 'THB', specialEn: ($('[data-q=specialEn]', root) || {value: ''}).value.trim(), specialTh: ($('[data-q=specialTh]', root) || {value: ''}).value.trim(), status: q.status || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
+      const rec = {...q, id: q.id || uid(), kind: 'quote', no: q.no, date, hotelId: hid, hotelName: h.name, rooms: h.rooms || '', contact: h.contact || '', forSale, currency: g('currency') || 'THB', specialEn: ($('[data-q=specialEn]', root) || {value: ''}).value.trim(), specialTh: ($('[data-q=specialTh]', root) || {value: ''}).value.trim(), status: q.status || 'Draft', leadSource: g('leadSource'), items: its, terms: tms, lines: {}, custom: []};
       /* below the list price (a discount) needs the manager's approval before it is sent */
       const sig = discSig(rec), need = belowList(rec).length > 0;
       if (need) { if (!(rec.approval && rec.approvedSig === sig)) { rec.approval = 'requested'; rec.approvedSig = sig; rec.requestedBy = Auth.who() || 'Sales'; rec.requestedAt = new Date().toISOString(); rec.approvedBy = ''; rec.approvedAt = ''; } if (['Sent', 'Accepted'].includes(rec.status) && rec.approval !== 'approved') { toast('A discount needs the manager\'s approval before it is Sent or Signed'); return; } } else { rec.approval = ''; }
+      if (isNew) { const no = await claimQuoteNo(h, date, rec.id); if (!no) { toast(NO_QNO); return; } rec.no = no; }   /* the database gives the number, after every check has passed */
       await save(rec); if (rec.status === 'Accepted') await dealFromQuote(rec);
-      toast(isNew ? 'Quotation created' : 'Saved'); quotesSheet(hid); if (location.hash.startsWith('#quotes') && TK.quote) paintSm();
+      toast(isNew ? 'Quotation ' + rec.no + ' created' : 'Saved'); quotesSheet(hid); if (location.hash.startsWith('#quotes') && TK.quote) paintSm();
     };
   });
 }
