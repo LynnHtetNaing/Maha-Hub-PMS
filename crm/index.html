@@ -1747,6 +1747,7 @@ function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'report', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (['dblog', 'userlog', 'deleted'].includes(r) && !Auth.isProvider()) { location.replace('#dashboard'); return; }   /* Admin pages: the CEO only, also by address */
   if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
   drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
   ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, report:vReport, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
@@ -2342,13 +2343,14 @@ Object.assign(ICON, {
 });
 const NAVG = [
   ['dashboard', 'Dashboard'],
-  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
+  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
   {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Credit Report', '#pricing/credits', 'kpi'], ['System Providers', '#pricing/providers', 'db'], ['Referral Rewards', '#pricing/referral', 'users']]},
   {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
+  {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
   {g:'Report', i:'kpi', items:[['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
   ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
@@ -2359,6 +2361,7 @@ function drawRail(cur) {
   const h = (location.hash || '#dashboard').replace(/\/$/, '');
   $('#railnav').innerHTML = NAVG.map(n => {
     if (!n.g) return `<div class="mg"><a class="mgb${cur === n[0] ? ' on' : ''}" href="#${n[0]}" title="${esc(n[1])}">${mi(n[0])}<span>${esc(n[1])}</span></a></div>`;
+    if (n.g === 'Admin' && !Auth.isProvider()) return '';   /* the Admin title is for the CEO only */
     if (n.items.some(x => x[1] === h)) NAVOPEN[n.g] = true;
     return `<div class="mg${NAVOPEN[n.g] ? ' open' : ''}" data-gt="${esc(n.g)}"><button type="button" class="mgb" data-g="${esc(n.g)}" title="${esc(n.g)}">${mi(n.i)}<span>${esc(n.g)}</span>${mi('chev', 'car')}</button>
      <div class="mgi">${n.items.filter(it => !['#userlog', '#report/revenue', '#report/rewards'].includes(it[1]) || Auth.isProvider()).map(([l, x, k]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${mi(k || 'chev')}<span>${esc(l)}</span></button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${mi(k || 'chev')}<span>${esc(l)}</span></a>`).join('')}</div></div>`;
