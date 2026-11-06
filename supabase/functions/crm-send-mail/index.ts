@@ -1,6 +1,7 @@
 // Supabase Edge Function: crm-send-mail
 // Sends email for the company CRM (crm.maha-hub.com) through Brevo, from crm@maha-hub.com:
-//   POST { action: "send" | "newsletter" | "test", to: ["a@b.com"], subject, message, docs?: [{ title, quoteNo?, html }], replyTo? }
+//   POST { action: "send" | "newsletter" | "test", to: ["a@b.com"], subject, message, html?, attachment?: { name, content (base64, up to about 3 MB) }, docs?: [{ title, quoteNo?, html }], replyTo? }
+//   html (newsletter / test only) is the decorated text from the CRM editor; it is cleaned (clean.mjs) and `message` stays as the plain-text version.
 //     send        a quotation / MSA to a hotel (up to 10 addresses). Each document becomes a link  https://crm.maha-hub.com/d/<token>  (90 days).
 //     newsletter  the Enewletter (up to 100 addresses a call). Hotels that unsubscribed are skipped, every mail has an unsubscribe link.
 //     test        one test mail to the address the team member types.
@@ -11,6 +12,7 @@
 // Never log addresses, subjects, message text or keys.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { cleanHtml, cleanAttachment } from "./clean.mjs";
 
 const ALLOWED_ORIGINS = [...new Set([
   "https://crm.maha-hub.com", "https://maha-hub.com", "https://console.maha-hub.com",
@@ -75,6 +77,9 @@ const handle = async (req: Request): Promise<Response> => {
   let b: any; try { b = await req.json(); } catch { return json(req, { error: "bad_request" }, 400); }
   const action = b.action, subject = String(b.subject || "").trim().slice(0, 200), message = String(b.message || "").slice(0, 20000);
   if (!["send", "newsletter", "test"].includes(action) || !subject || !message.trim()) return json(req, { error: "bad_request" }, 400);
+  const richHtml = action !== "send" && typeof b.html === "string" && b.html.trim() ? cleanHtml(b.html.slice(0, 200000)) : "";
+  const att = action !== "send" && b.attachment ? cleanAttachment(b.attachment) : null;
+  if (action !== "send" && b.attachment && !att) return json(req, { error: "bad_attachment" }, 400);
   let to: string[] = [...new Set((Array.isArray(b.to) ? b.to : []).map((x: unknown) => String(x || "").trim().toLowerCase()))].filter(validEmail) as string[];
   const max = action === "newsletter" ? 100 : action === "send" ? 10 : 1;
   if (!to.length || to.length > max) return json(req, { error: "bad_recipients", max }, 400);
@@ -101,7 +106,9 @@ const handle = async (req: Request): Promise<Response> => {
 
   const FROM = { name: Deno.env.get("MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("MAIL_FROM") || "crm@maha-hub.com" };
   const replyTo = validEmail(b.replyTo) ? b.replyTo : (Deno.env.get("MAIL_REPLY_TO") || FROM.email);
-  const bodyHtml = (extra: string) => `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222">${esc(message).replace(/\n/g, "<br>")}${links.length ? `<p style="margin-top:20px">${links.map((l) => `<a href="${l.url}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 16px;background:#0A3020;color:#fff;border-radius:6px;text-decoration:none">${esc(l.title)}</a>`).join("")}</p>` : ""}<hr style="border:0;border-top:1px solid #ddd;margin:24px 0 10px"><div style="font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`;
+  const bodyHtml = (extra: string) => richHtml
+    ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:620px;margin:0 auto;border:1px solid #e3ddd0;border-radius:12px;overflow:hidden"><div style="background:#0A3020;color:#fff;padding:14px 20px;font-weight:bold;font-size:16px">${esc(FROM.name)}</div><div style="padding:20px">${richHtml}</div><div style="background:#faf5ec;padding:12px 20px;font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`
+    : `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222">${esc(message).replace(/\n/g, "<br>")}${links.length ? `<p style="margin-top:20px">${links.map((l) => `<a href="${l.url}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 16px;background:#0A3020;color:#fff;border-radius:6px;text-decoration:none">${esc(l.title)}</a>`).join("")}</p>` : ""}<hr style="border:0;border-top:1px solid #ddd;margin:24px 0 10px"><div style="font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`;
 
   let sent = 0, failed = 0; const errors: string[] = [], log: Record<string, unknown>[] = [];
   for (const email of to) {
@@ -113,7 +120,7 @@ const handle = async (req: Request): Promise<Response> => {
     const textBody = message + (links.length ? "\n\n" + links.map((l) => `${l.title}: ${l.url}`).join("\n") : "") + "\n\n" + FOOT;
     const res = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST", headers: { "api-key": BREVO, "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ sender: FROM, to: [{ email }], replyTo: { email: replyTo }, subject, htmlContent: bodyHtml(extra), textContent: textBody, ...(headers ? { headers } : {}), tags: [`crm-${action}`] }),
+      body: JSON.stringify({ sender: FROM, to: [{ email }], replyTo: { email: replyTo }, subject, htmlContent: bodyHtml(extra), textContent: textBody, ...(att ? { attachment: [att] } : {}), ...(headers ? { headers } : {}), tags: [`crm-${action}`] }),
     });
     const out = await res.json().catch(() => ({}));
     if (res.ok) sent++; else { failed++; if (errors.length < 3) errors.push(String(out?.message || res.status).slice(0, 120)); }
