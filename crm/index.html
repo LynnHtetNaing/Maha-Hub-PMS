@@ -1747,7 +1747,7 @@ const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'
 
 const NAVS = {cur: '', stack: [], back: false};
 function route() {
-  { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
+  { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.reset && Date.now() - NAVS.reset < 1500) { NAVS.stack = []; NAVS.reset = 0; } else if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'report', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   if (['dblog', 'userlog', 'deleted'].includes(r) && !Auth.isProvider()) { location.replace('#dashboard'); return; }   /* Admin pages: the CEO only, also by address */
@@ -4513,7 +4513,7 @@ function shellInit() {
       if (sh.classList.contains('slim')) { sh.classList.remove('slim'); try { localStorage.setItem('maha.msb', 'wide'); } catch {} paintTog(); }
       const on = !g.parentElement.classList.contains('open'); g.parentElement.classList.toggle('open', on); NAVOPEN[g.dataset.g] = on; navSave(); return;
     }
-    if (e.target.closest('a,[data-act]')) sh.classList.remove('msbopen');
+    if (e.target.closest('a,[data-act]')) { sh.classList.remove('msbopen'); const ln = e.target.closest('a'); if (!ln || ln.getAttribute('href') !== (location.hash || '#dashboard')) NAVS.reset = Date.now(); }   /* a title of the menu: a new start, no Back (clicking the page you are already on changes nothing) */
   });
   window.addEventListener('hashchange', () => sh.classList.remove('msbopen'));
 }
