@@ -625,6 +625,7 @@ input,select,textarea{box-sizing:border-box}
 .fu-rem-h{background:#fcf1bf;padding:11px 16px;font-weight:700;font-size:14.5px}.fu-rem-b{padding:12px 16px 4px;max-height:42vh;overflow:auto}.fu-rem-i{margin:0 0 16px;line-height:1.5;overflow-wrap:anywhere}.fu-rem-d{color:#7a7468;font-size:12px}
 .fu-rem-off{display:block;width:100%;border:0;border-top:1px solid #efe7d8;background:#faf5ec;color:#176B50;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;text-align:left}.fu-rem-off:hover{background:#f3ead8}
 .up-done{background:#e4f4ea;border:1px solid #9fd3b1;border-radius:12px;padding:12px 16px;margin:12px 0;font-size:14.5px}.up-done a{font-weight:700}
+.up-adv{margin-top:26px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px}.up-adv>summary{cursor:pointer;font-size:14.5px}.up-adv[open]>summary{margin-bottom:10px}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
 .mq-b textarea{width:100%}.mq-up{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -3509,6 +3510,7 @@ function cpEditSheet(id) {
 Object.assign(ACTIONS, {
   impBrowse: () => { const f = document.createElement('input'); f.type = 'file'; f.multiple = true; f.accept = '.xlsx,.xls,.xlsm'; f.onchange = () => { const u = UI.imp = UI.imp || {}; u.files = [...f.files]; u.res = null; $('#impName').textContent = u.files.map(x => x.name).join(', '); $('#impInfo').innerHTML = ''; }; f.click(); },
   impCheck: () => { impCheck(); },
+  impClear: () => { UI.imp = {}; const n = $('#impName'), i = $('#impInfo'); if (n) n.textContent = ''; if (i) i.innerHTML = ''; toast('Cleared'); },
   impSave: () => { impSave(); },
   impNoPlace: () => { const u = UI.imp || {}, r = u.res; if (!r || !r.plan) return; const rows = [['Hotel name', 'City', 'Country', 'Address', 'Phone', 'Email', 'Website']].concat(r.plan.noPlace.map(g => [g.name, g.city || '', g.country || '', g.address || '', g.phone || '', g.email || '', g.website || ''])); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'No City or Country'); download('Hotels without City or Country.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); },
   cpView: el => cpViewSheet(el.dataset.id),
@@ -3517,8 +3519,8 @@ Object.assign(ACTIONS, {
 });
 function impPanelHTML() {
   if (!Auth.isProvider()) return ''; const u = UI.imp = UI.imp || {};
-  return `<div class="fu-sub" style="margin-top:26px"><b>Company data</b> update</div>
-   <div class="up-top"><div class="up-file"><label>Excel files</label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Check</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div></div><div id="impInfo">${impInfoHTML()}</div>`;
+  return `<details class="up-adv" ${(u.files || []).length ? 'open' : ''}><summary><b>Company data</b> update · competitor profiles and providers</summary>
+   <div class="up-top"><div class="up-file"><label>Excel files</label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Check</button><button type="button" class="btn amber" data-act="impClear">${ICON.reset}Clear</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div></div><div id="impInfo">${impInfoHTML()}</div></details>`;
 }
 
 /* ---------- System Providers and Competitor Analysis ----------
