@@ -1,7 +1,7 @@
 -- Maha Hub: the Tax Invoice number is given by the database, gapless, and restarts every month.
 --
 --   TIV-TH2026/11/001      TIV = Tax Invoice, TH = country of the hotel, 2026 = year, 11 = month, 001 = running number of that country and month.
---   The next invoice is 002 ... and December starts again at 001. The number is given in the same transaction that saves the invoice:
+--   Each country counts on its own (TIV-VN2026/11/001 is the first Vietnam invoice of the month). The next Thai invoice is 002 ... and December starts again at 001. The number is given in the same transaction that saves the invoice:
 --   if the save fails nothing is used, so there is never a missing number. For the same reason a tax invoice can never be deleted
 --   (mark it Void instead) and its number and date can never be changed.
 --
@@ -47,7 +47,7 @@ declare
 begin
   if v_cc is null then raise exception 'unknown country for the tax invoice number: set the hotel country first' using errcode = '22023'; end if;
   if p_date is null then raise exception 'invoice date needed' using errcode = '22023'; end if;
-  v_scope := 'TIV-' || v_cc || to_char(p_date, 'YYYY') || '/' || to_char(p_date, 'MM');
+  v_scope := 'TIV-' || v_cc || to_char(p_date, 'YYYY') || '/' || to_char(p_date, 'MM');   -- one counter for each country and month
   insert into public.maha_billing_counters as c (scope, last_no) values (v_scope, 1)
   on conflict (scope) do update set last_no = c.last_no + 1, updated_at = now()
   returning c.last_no into v_n;
