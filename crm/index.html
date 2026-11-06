@@ -294,8 +294,9 @@ h2 .count{letter-spacing:0}
  .rail .brand{padding-bottom:62px}.top h1{padding-right:16px}}
 @media (max-width:899px){.prof{top:calc(env(safe-area-inset-top,0px) + 14px);right:14px}.profmenu{top:calc(env(safe-area-inset-top,0px) + 54px)}}
 /* ---------- Light only: a white page, the content in warm boxes with a soft shade under them ---------- */
-:root{--canopy:#ffffff;--paper:#fcf8f1;--line:#e7dfd0;--box-shadow:0 1px 2px rgba(120,86,30,.10),0 10px 22px -8px rgba(120,86,30,.20);color-scheme:light}
-html,body{background:#ffffff}
+/* soft sage page, white boxes */
+:root{--canopy:#eaf1ec;--paper:#ffffff;--line:#d9e4dc;--box-shadow:0 1px 2px rgba(20,60,45,.06),0 8px 20px -10px rgba(20,60,45,.16);color-scheme:light}
+html,body{background:var(--canopy)}
 .list,.panel,.pipe,.kpi,.card,.tablewrap,.banner,.profmenu,.sheet-card{box-shadow:var(--box-shadow)}
 .list,.panel,.pipe,.kpi,.card,.tablewrap{border-color:var(--line)}
 input:not([type=checkbox]):not([type=radio]),select,textarea{background:#ffffff}
@@ -1747,6 +1748,7 @@ function route() {
   { const hh = location.hash || '#dashboard'; if (NAVS.cur !== hh) { if (NAVS.cur && !NAVS.back) NAVS.stack.push(NAVS.cur); NAVS.back = false; NAVS.cur = hh; } }
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'report', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
+  if (['dblog', 'userlog', 'deleted'].includes(r) && !Auth.isProvider()) { location.replace('#dashboard'); return; }   /* Admin pages: the CEO only, also by address */
   if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
   drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
   ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, report:vReport, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
@@ -1795,7 +1797,7 @@ function vHotels() {
   list.sort(sorters[UI.hotelSort]);
   const shown = list.slice(0, UI.hotelLimit);
   view().innerHTML = `<div class="top"><div><h1>Hotels</h1><p>${all.length} in your database</p></div>
-    <div class="actions"><button class="btn primary" data-act="newHotel">${ICON.plus}Add hotel</button><button class="btn" data-act="salesImport">Import follow-ups</button><button class="btn" data-act="importCSV">Import hotel list</button><button class="btn" data-act="exportCSV">Export CSV</button></div></div>
+    <div class="actions"><button class="btn primary" data-act="newHotel">${ICON.plus}Add hotel</button><button class="btn" data-act="salesImport">Import follow-ups</button><button class="btn" data-act="exportCSV">Export CSV</button></div></div>
    <div class="toolbar"><div class="searchbar">${ICON.search}<input type="search" id="hq" placeholder="Name, area, contact, phone, PMS…" value="${esc(UI.hotelQ)}" aria-label="Search hotels"></div>
     <select id="hsort" aria-label="Sort"><option value="updated">Recently updated</option><option value="follow">Next follow-up</option><option value="name">Name A–Z</option><option value="rooms">Most rooms</option></select>
     <select id="hcity" aria-label="Province"><option value="">All provinces</option>${[...new Set(all.map(x => x.city).filter(Boolean))].sort().map(c => `<option ${UI.hotelCity === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
@@ -2176,8 +2178,8 @@ function vMore() {
   view().innerHTML = `<div class="top"><div><h1>More</h1></div></div>
    <div class="mo-grid">
     <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.upload || ''}</span><div><h3>Hotel data</h3><p>${n} hotel${n === 1 ? '' : 's'} in the database</p></div></div>
-     <p class="mo-t">Bring a hotel list in from Excel, or take the hotel list out. Save the Excel file as CSV UTF-8 first. A hotel with the same name is updated; a new name is added.</p>
-     <div class="mo-b"><button type="button" class="btn dark" data-act="importCSV">Import hotels CSV</button><button type="button" class="btn" data-act="exportCSV">Export hotels CSV</button></div></section>
+     <p class="mo-t">Take the hotel list out as a CSV file. To bring hotels in, use Database &gt; Upload database.</p>
+     <div class="mo-b"><button type="button" class="btn dark" data-act="exportCSV">Export hotels CSV</button></div></section>
     <section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.phone || ''}</span><div><h3>Install the CRM</h3><p>Opens full screen like an app</p></div></div>
      <ul class="mo-l"><li><b>Windows / Mac</b><span>Chrome or Edge: the install icon at the right of the address bar</span></li><li><b>Android</b><span>Chrome: menu ⋮ → Install app</span></li><li><b>iPhone</b><span>Safari: Share → Add to Home Screen</span></li></ul></section>
    </div>${oq ? `<div class="mo-grid" style="margin-top:18px"><section class="mo-card"><div class="mo-h"><span class="mo-i">${ICON.trash || ''}</span><div><h3>Old quotations</h3><p>${oq} made before the new quotation form</p></div></div><p class="mo-t">Only you see this. Clear them once, so the Quotation lists and the KPI start with the new quotations only. A backup file downloads first.</p><div class="mo-b"><button type="button" class="btn redb" data-act="clearOld">Clear old quotations</button></div></section></div>` : ''}`;
@@ -2297,25 +2299,6 @@ const ACTIONS = {
     download(`CRM Hotels - ${today()}.csv`, toCSV(rows), 'text/csv;charset=utf-8'); toast(`${hotels.length} hotels exported`);
   },
   salesImport: () => salesImportStart(),
-  importCSV: () => pickFile('.csv,.tsv,.txt', async text => {
-    toast('Reading file…'); await new Promise(r => setTimeout(r, 30));
-    const rows = parseCSV(text); if (rows.length < 2) { toast('That file has no rows'); return; }
-    const map = mapHeaders(rows[0]); if (!map.includes('name')) { alert('Could not find a hotel name column. Name one column "Hotel name" and try again.\n\nColumns found: ' + rows[0].join(', ')); return; }
-    // match by name + city, so same-name hotels in different provinces stay separate
-    const byNC = new Map(), byN = new Map();
-    K('hotel').forEach(h => { byNC.set(norm(h.name) + '|' + norm(h.city), h); if (!byN.has(norm(h.name))) byN.set(norm(h.name), []); byN.get(norm(h.name)).push(h); });
-    const find = v => byNC.get(norm(v.name) + '|' + norm(v.city)) || ((byN.get(norm(v.name)) || []).find(h => !h.city || !v.city) || null);
-    let added = 0, updated = 0, noplace = 0; const batch = [], inBatch = new Set();
-    for (const r of rows.slice(1)) {
-      const v = {}; map.forEach((k, i) => { if (k && r[i] && r[i].trim()) v[k] = r[i].trim(); }); if (!v.name) continue;
-      if (v.status && !STAGES.some(s => s[0] === v.status)) { v.notes = [v.notes, 'Imported status: ' + v.status].filter(Boolean).join('\n'); delete v.status; }
-      const ex = find(v);
-      if (ex) { if (v.notes && ex.notes && !ex.notes.includes(v.notes)) v.notes = ex.notes + '\n' + v.notes; if (ex.source && v.source) delete v.source; Object.assign(ex, v); ex.updated = new Date().toISOString(); if (!inBatch.has(ex.id)) { batch.push(ex); inBatch.add(ex.id); updated++; } }
-      else { if (!v.city || !canonCountry(v.country)) { noplace++; continue; } v.country = canonCountry(v.country); const h = {id: uid(), kind:'hotel', status:'New lead', managed:'No', source:'CSV import', ...v}; byNC.set(norm(h.name) + '|' + norm(h.city), h); if (!byN.has(norm(h.name))) byN.set(norm(h.name), []); byN.get(norm(h.name)).push(h); batch.push(h); inBatch.add(h.id); added++; }
-    }
-    await saveMany(batch); toast(`${added} added, ${updated} updated${noplace ? ', ' + noplace + ' not added (a new hotel needs its City and Country)' : ''}`); rerender();
-    const skipped = rows[0].filter((h, i) => !map[i]); if (skipped.length) setTimeout(() => alert('Imported. These columns had no matching field and were skipped:\n' + skipped.join(', ')), 300);
-  }),
   signOut: async () => { if (!confirm('Sign out of CRM on this device?')) return; await logUser('Signed out'); Auth.signOut(); location.reload(); },
   install: async () => { const p = window.__inst; if (p) { p.prompt(); try { await p.userChoice; } catch {} window.__inst = null; } else if (/iphone|ipad|ipod/i.test(navigator.userAgent)) alert('Tap the Share button, then "Add to Home Screen".'); },
   backup: async () => {
@@ -2342,13 +2325,14 @@ Object.assign(ICON, {
 });
 const NAVG = [
   ['dashboard', 'Dashboard'],
-  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
+  {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
   {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Credit Report', '#pricing/credits', 'kpi'], ['System Providers', '#pricing/providers', 'db'], ['Referral Rewards', '#pricing/referral', 'users']]},
   {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
+  {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
   {g:'Report', i:'kpi', items:[['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
   ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
@@ -2359,6 +2343,7 @@ function drawRail(cur) {
   const h = (location.hash || '#dashboard').replace(/\/$/, '');
   $('#railnav').innerHTML = NAVG.map(n => {
     if (!n.g) return `<div class="mg"><a class="mgb${cur === n[0] ? ' on' : ''}" href="#${n[0]}" title="${esc(n[1])}">${mi(n[0])}<span>${esc(n[1])}</span></a></div>`;
+    if (n.g === 'Admin' && !Auth.isProvider()) return '';   /* the Admin title is for the CEO only */
     if (n.items.some(x => x[1] === h)) NAVOPEN[n.g] = true;
     return `<div class="mg${NAVOPEN[n.g] ? ' open' : ''}" data-gt="${esc(n.g)}"><button type="button" class="mgb" data-g="${esc(n.g)}" title="${esc(n.g)}">${mi(n.i)}<span>${esc(n.g)}</span>${mi('chev', 'car')}</button>
      <div class="mgi">${n.items.filter(it => !['#userlog', '#report/revenue', '#report/rewards'].includes(it[1]) || Auth.isProvider()).map(([l, x, k]) => x.startsWith('act:') ? `<button type="button" class="mit" data-act="${x.slice(4)}">${mi(k || 'chev')}<span>${esc(l)}</span></button>` : `<a class="mit${x === h ? ' on' : ''}" href="${x}">${mi(k || 'chev')}<span>${esc(l)}</span></a>`).join('')}</div></div>`;
@@ -2896,8 +2881,8 @@ Object.assign(ACTIONS, {
    A hotel that is already in the database (same name, city and country) is skipped, so nothing is overwritten or doubled. */
 const UP_TYPES = ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'];
 const UP_COUNTRIES = COUNTRY_LIST;
-const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['CM', 'cm'], ['BE', 'be'], ['Virtual Offline Payment', 'pvo'], ['Remarks', 'notes']];
-const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], cm:['cm', 'channel manager'], be:['be', 'booking engine'], pvo:['virtual offline payment', 'pvo'], notes:['remarks', 'remark', 'notes', 'note']};
+const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['CM', 'cm'], ['BE', 'be'], ['Virtual Offline Payment', 'pvo'], ['Remarks', 'notes'], ['Country', 'country'], ['Property type', 'type'], ['Lead source', 'source']];
+const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], cm:['cm', 'channel manager'], be:['be', 'booking engine'], pvo:['virtual offline payment', 'pvo'], notes:['remarks', 'remark', 'notes', 'note'], country:['country'], type:['property type', 'type'], source:['lead source', 'source']};
 function upMap(headers) { return headers.map(h => { const n = norm(h); for (const [k, al] of Object.entries(UP_ALIAS)) if (al.map(norm).includes(n)) return k; return null; }); }
 Object.assign(ICON, {xls:'<svg viewBox="0 0 40 44" width="34" height="38"><rect x="8" y="4" width="26" height="34" rx="2" fill="#fff" stroke="#9aa0a6" stroke-width="1.6"/><path d="M14 14h14M14 20h14M14 26h14M14 32h14M20 10v26" stroke="#c5ccd3" stroke-width="1.4"/><rect x="2" y="16" width="16" height="16" rx="2" fill="#1f8a4c"/><path d="M6.5 20.5l7 7M13.5 20.5l-7 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>', save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg>'});
 function vUpload() {
@@ -2913,20 +2898,22 @@ function vUpload() {
 function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
 function upRead(rows, country) {
   const map = upMap(rows[0].map(String)); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
-  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0, noCity = 0;
+  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = []; let skipped = 0, empty = 0, noCity = 0, badCountry = 0;
   for (const r of rows.slice(1)) {
     const v = {}; map.forEach((k, i) => { const x = r[i] === undefined || r[i] === null ? '' : String(r[i]).trim(); if (k && x) v[k] = x; });
     if (!v.name) { empty++; continue; }
     if (!v.city) { noCity++; continue; }   /* the City is required: the quotation and tax invoice follow the place of the hotel */
-    const key = upKey(v, country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
+    if (v.country && !canonCountry(v.country)) { badCountry++; continue; }   /* a Country column must use a country of the list */
+    v.country = canonCountry(v.country) || country;
+    const key = upKey(v, v.country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
   }
-  return {list, skipped, empty, noCity, total: rows.length - 1};
+  return {list, skipped, empty, noCity, badCountry, total: rows.length - 1};
 }
 function upInfoHTML() {
   const u = UI.up || {}; if (!u.res) return '';
   if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
   const r = u.res;
-  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}.</div>
+  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}${r.badCountry ? ', <b>' + r.badCountry + ' with a Country that is not in the list (not added)</b>' : ''}.</div>
    ${r.list.length ? `<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No. of room</th><th>Contact person</th></tr></thead><tbody>${r.list.slice(0, 8).map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.area || '')}</td><td>${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(h.contact || '')}</td></tr>`).join('')}</tbody></table></div>${r.list.length > 8 ? `<p class="muted small">…and ${r.list.length - 8} more.</p>` : ''}` : ''}`;
 }
 async function upParse() {
@@ -2943,7 +2930,7 @@ Object.assign(ACTIONS, {
   upParse: () => { upParse(); },
   upReset: () => { UI.up = {}; vUpload(); },
   upExample: () => {
-    const rows = [UP_COLS.map(c => c[0]), ['Example Hotel Bangkok', 'Sukhumvit', 'Bangkok', '+66-2-000-0000', 32, 'www.example.com', '1 Example Road, Bangkok 10110', 'K. Somchai', 'Owner', 'somchai@example.com', '+66-81-000-0000', '', '', '', '', 'Asked us to call back'], ['Second Example Hostel', 'Silom', 'Bangkok', '', 18, '', '', '', '', '', '', '', '', '', '', '']];
+    const rows = [UP_COLS.map(c => c[0]), ['Example Hotel Bangkok', 'Sukhumvit', 'Bangkok', '+66-2-000-0000', 32, 'www.example.com', '1 Example Road, Bangkok 10110', 'K. Somchai', 'Owner', 'somchai@example.com', '+66-81-000-0000', '', '', '', '', 'Asked us to call back', 'Thailand', 'Hotel', 'Sales call'], ['Second Example Hostel', 'Silom', 'Bangkok', '', 18, '', '', '', '', '', '', '', '', '', '', '', 'Thailand', 'Hostel', '']];
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Database');
     download('CRM database example.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   },
@@ -2951,7 +2938,7 @@ Object.assign(ACTIONS, {
     const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return; }
     if (!u.res || u.type !== $('#up_type').value || u.country !== $('#up_country').value) { if (!await upParse()) return; }
     const list = u.res.list; if (!list.length) { toast('Nothing new to add'); return; }
-    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: u.type, country: u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
+    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: v.type || u.type, country: v.country || u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
     await saveMany(batch); toast(`${batch.length} hotels added`);
     const n = batch.length, c = u.country; UI.up = {}; vUpload(); $('#upInfo').innerHTML = `<div class="up-sum"><b>${n}</b> hotels were added to ${esc(c)}. They show in the Database Hotel List and in Database log create.</div>`;
   },
@@ -3270,8 +3257,9 @@ Object.assign(ACTIONS, {
    The CEO chooses the Excel files; nothing is stored on the web site. A hotel is matched by its name (and country / city); an existing hotel only gets the empty fields filled. */
 /* imp:start */
 const IMP_CITY = {'ho chi minh': 'Ho Chi Minh City', 'ho chi minh city': 'Ho Chi Minh City', 'hcmc': 'Ho Chi Minh City', 'saigon': 'Ho Chi Minh City', 'ko pha ngan': 'Koh Phangan', 'koh pha ngan': 'Koh Phangan', 'koh phangan': 'Koh Phangan', 'ko phangan': 'Koh Phangan', 'ko samui': 'Koh Samui', 'koh samui': 'Koh Samui', 'koh phi phi': 'Koh Phi Phi', 'ko phi phi': 'Koh Phi Phi', 'danang': 'Da Nang', 'da nang': 'Da Nang', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin', 'chon buri': 'Chonburi', 'chonburi': 'Chonburi', 'bangkok metropolis': 'Bangkok', 'krung thep': 'Bangkok'};
-const IMP_CC = {'Bangkok': 'Thailand', 'Phuket': 'Thailand', 'Koh Samui': 'Thailand', 'Krabi': 'Thailand', 'Pattaya': 'Thailand', 'Koh Phangan': 'Thailand', 'Koh Phi Phi': 'Thailand', 'Chiang Mai': 'Thailand', 'Nonthaburi': 'Thailand', 'Hua Hin': 'Thailand', 'Chonburi': 'Thailand', 'Bueng Kan': 'Thailand', 'Ho Chi Minh City': 'Vietnam', 'Hoi An': 'Vietnam', 'Da Nang': 'Vietnam', 'Hanoi': 'Vietnam', 'Nha Trang': 'Vietnam', 'Nairobi': 'Kenya'};
-const IMP_THAI_CITIES = ['Bangkok', 'Phuket', 'Koh Samui', 'Hua Hin', 'Pattaya', 'Chiang Mai', 'Krabi', 'Nonthaburi', 'Koh Phangan', 'Chonburi'];
+const IMP_CC = {'Bangkok': 'Thailand', 'Phuket': 'Thailand', 'Koh Samui': 'Thailand', 'Krabi': 'Thailand', 'Pattaya': 'Thailand', 'Koh Phangan': 'Thailand', 'Koh Phi Phi': 'Thailand', 'Chiang Mai': 'Thailand', 'Nonthaburi': 'Thailand', 'Hua Hin': 'Thailand', 'Chonburi': 'Thailand', 'Bueng Kan': 'Thailand', 'Chiang Rai': 'Thailand', 'Kanchanaburi': 'Thailand', 'Ayutthaya': 'Thailand', 'Rayong': 'Thailand', 'Trat': 'Thailand', 'Surat Thani': 'Thailand', 'Ratchaburi': 'Thailand', 'Nakhon Ratchasima': 'Thailand', 'Khon Kaen': 'Thailand', 'Udon Thani': 'Thailand', 'Phang Nga': 'Thailand', 'Lopburi': 'Thailand', 'Hue': 'Vietnam', 'Phu Quoc': 'Vietnam', 'Da Lat': 'Vietnam', 'Sapa': 'Vietnam', 'Ninh Binh': 'Vietnam', 'Ho Chi Minh City': 'Vietnam', 'Hoi An': 'Vietnam', 'Da Nang': 'Vietnam', 'Hanoi': 'Vietnam', 'Nha Trang': 'Vietnam', 'Nairobi': 'Kenya'};
+const IMP_THAI_CITIES = ['Bangkok', 'Phuket', 'Koh Samui', 'Hua Hin', 'Pattaya', 'Chiang Mai', 'Chiang Rai', 'Kanchanaburi', 'Krabi', 'Nonthaburi', 'Koh Phangan', 'Chonburi', 'Ayutthaya', 'Rayong', 'Surat Thani'];
+const IMP_PLACES = Object.keys(IMP_CC).concat(['Chiang Rai']);
 const IMP_ALIAS = {'siteminder thebookingbutton': 'SiteMinder', 'exely': 'Exely / TravelLine', 'travelline': 'Exely / TravelLine', 'hotelinksolution': 'Hotel Link Solutions', 'hotel link': 'Hotel Link Solutions', 'booking2hotels': 'Blue House Travel / Booking2Hotels', 'ezee ipms247 yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee yanolja cloud': 'eZee (Yanolja Cloud)', 'ezee': 'eZee (Yanolja Cloud)', 'amadeus travelclick web solutions': 'Amadeus / TravelClick', 'amadeus ihotelier travelclick': 'Amadeus / TravelClick', 'synxis': 'Synxis (Sabre)', 'sabre synxis': 'Synxis (Sabre)', 'readyplanet traveltech instant bookings': 'Readyplanet', 'easybooking webconnection': 'Web Connection', 'webconnection channelroom': 'Web Connection', 'littlehotelier by siteminder': 'Little Hotelier', 'little hotelier by siteminder': 'Little Hotelier', 'the booking factory': 'Booking Factory', 'blue jay systems': 'Blue Jay Pms', 'ezcloud oneinventory': 'EzCloud', 'djubo': 'DJUBQ', 'wubook zak': 'WuBook', 'comanche gogoji': 'Comanche', 'oracle opera cloud': 'Opera', 'infor hms': 'Infor Starlight', 'boutique hotel direct bookings secret retreats': 'Secret Retreats', 'shr windsurfer crs shiji': 'SHR / Windsurfer (Shiji Group)', 'hotelogix': 'Hotelogix'};
 const impS = v => v === undefined || v === null ? '' : String(v).trim();
 const impV = v => { const s = impS(v); return /^(tbc|n\/?a|none|-|unknown)$/i.test(s) ? '' : s; };
@@ -3336,9 +3324,16 @@ function impReadD(rows, sheet, names) {   // property contact list (call sheet)
   const sheetCity = {'koh samui': 'Koh Samui', 'phuket': 'Phuket', 'huahin': 'Hua Hin', 'hua hin': 'Hua Hin'}[norm(sheet)] || '';
   for (const r of t.body) {
     const name = impS(r[iN]); if (!name) continue; const addr = impV(r[iA]);
-    let city = sheetCity; if (!city) { const f = IMP_THAI_CITIES.find(x => new RegExp('\\b' + x + '\\b', 'i').test(addr)) || (/Ko Samui/i.test(addr) ? 'Koh Samui' : ''); const z = !f && addr.match(/,\s*([A-Za-z][A-Za-z .'-]{2,30}?)\s+\d{5}\s*(?:,|$)/); city = f || (z ? impCity(z[1].replace(/\s*Province$/i, '').trim()) : ''); }
+    let city = sheetCity;
+    if (!city) {   /* the place is read from the address: "X Province", the part before the post code, or a known place in the address or in the hotel name */
+      const f = IMP_PLACES.find(x => new RegExp('\\b' + x + '\\b', 'i').test(addr)) || (/Ko Samui|Koh Sa-?mui|Ko Sa-?mui/i.test(addr) ? 'Koh Samui' : '');
+      const pv = addr.match(/,\s*([A-Za-z][A-Za-z .'-]{2,30}?)\s+Province\s*(?:,|$)/i), pz = addr.match(/([A-Za-z][A-Za-z .'-]{2,30}?),\s*\d{5,6}\s*(?:,|$)/), z = addr.match(/,\s*([A-Za-z][A-Za-z .'-]{2,30}?)\s+\d{5}\s*(?:,|$)/);
+      city = f || (/Khwaeng|Khet |Krung Thep|Ratchathewi|Phaya Thai|Phra Nakhon|Khlong Toei|Watthana|Bang Rak|Thon Buri|Bang Phlat|Pathum Wan|Sathon|Din Daeng|Huai Khwang|Chatuchak|Bang Khen|Phra Khanong|Samphanthawong|Dusit/i.test(addr) ? 'Bangkok' : '') || (pv ? impCity(pv[1].trim()) : pz ? impCity(pz[1].trim()) : z ? impCity(z[1].replace(/\s*Province$/i, '').trim()) : '') || (IMP_PLACES.find(x => impK(name).includes(impK(x))) || '');
+    }
+    if (/^(thailand|vietnam)$/i.test(city)) city = '';   /* a country name is not a city */
+    const ctry = /viet ?nam/i.test(addr) ? 'Vietnam' : /thailand/i.test(addr) ? 'Thailand' : (IMP_CC[city] || '');   /* never guessed */
     const cp = impS(r[iC]), m = cp.match(/^(.*?)\s*\(([^)]*)\)\s*$/), em = impEmail(r[iE]);
-    out.push({src: 'D', name, rooms: /^[1-9]\d*$/.test(impV(r[iRm])) ? impV(r[iRm]) : '', address: addr, city, country: 'Thailand', phone: impV(r[iPh]), email: em.email, moreEmail: em.more,
+    out.push({src: 'D', name, rooms: /^[1-9]\d*$/.test(impV(r[iRm])) ? impV(r[iRm]) : '', address: addr, city, country: ctry, phone: impV(r[iPh]), email: em.email, moreEmail: em.more,
       contact: m ? m[1].trim() : cp, contactTitle: m ? m[2].trim() : '', caller: impV(r[iCaller]), conversation: impV(r[iConv])});
   }
   return {rows: out};
