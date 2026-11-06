@@ -629,6 +629,7 @@ input,select,textarea{box-sizing:border-box}
 .cpl-row{cursor:pointer}.cpl-row:hover td{background:var(--canopy)}.cpl-chip{display:inline-block;background:#e4f4ea;color:#155c3d;border-radius:99px;padding:1px 9px;margin:1px 3px 1px 0;font-size:12px;font-weight:600;white-space:nowrap}
 .cp-fees{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.cp-fees label span{display:block;font-size:12px;color:var(--ink-2);margin-bottom:2px}.cp-more{margin-top:10px}.cp-more>summary{cursor:pointer;font-weight:600;margin-bottom:8px}
 .can-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 16px}.can-tab{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}.can-tab.on{background:var(--forest);border-color:var(--forest);color:#fff}
+.can-clip{min-width:170px;max-width:260px;font-size:13px}
 .can-grid{display:flex;flex-wrap:wrap;gap:4px}.can-prof{display:grid;gap:4px}.can-form{max-width:860px}
 .mq-b{margin-bottom:14px}.mq-l{display:block;font-weight:700;font-size:13.5px;margin-bottom:6px}.mq-l .req,.mq-g .req,.mq-ref .req{color:#d93025;font-style:normal}
 .mq-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 28px;margin-bottom:14px}.mq-g>div>input,.mq-g>div>select{width:100%}
@@ -3628,11 +3629,13 @@ const CAN_FIELDS = {
 function vCompAnalysis() {
   const f = UI.can = UI.can || {q: ''}, idx = compIndex();
   view().innerHTML = `<div class="top"><div><h1>Competitor Analysis</h1></div><div class="actions"><label class="dbs"><input type="search" id="can_q" placeholder="Search competitor.." value="${esc(f.q || '')}" aria-label="Search competitor"><span class="dbsi">${ICON.search}</span></label></div></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb cpl-tb"><thead><tr><th>No.</th><th>Competitor</th><th>Services</th><th>Hotels using</th><th>Market (from the Hotel list)</th><th>Property types</th><th>Analysis written</th></tr></thead><tbody id="canbody"></tbody></table></div>`;
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb cpl-tb"><thead><tr><th>Rank</th><th>Competitor</th><th>Hotels using</th><th>Share of CRM hotels</th><th>Strongest cities</th><th>Main property type</th><th>Typical hotel size</th><th>Threat</th><th>Strength</th><th>Weakness</th><th>How we win</th></tr></thead><tbody id="canbody"></tbody></table></div>`;
   const paint = () => {
     const n = norm(f.q || ''), rows = K('sysprov').filter(p => !n || norm(p.name).includes(n)).map(p => ({p, hs: compHotels(p.name, idx)})).sort((a, b) => b.hs.length - a.hs.length || a.p.name.localeCompare(b.p.name));
-    $('#canbody').innerHTML = rows.length ? rows.map(({p, hs}, i) => `<tr class="cpl-row" data-act="canOpen" data-id="${p.id}" title="Open the analysis"><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td><td class="l">${compChips(p)}</td><td>${hs.length}</td><td class="l">${esc(compMarket(hs, 5).text)}</td><td class="l">${esc(compTypes(hs).slice(0, 4).map(([t, c]) => t + ' - ' + c).join(' · '))}</td><td>${['strengths', 'weaknesses', 'counter'].some(k => p[k]) ? '<span class="pv-ok">&#10003;</span>' : ''}</td></tr>`).join('')
-      : '<tr><td colspan="7" class="empty">No competitor found. Add one in Competitor profile.</td></tr>';
+    const all = K('hotel').length || 1, clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+    $('#canbody').innerHTML = rows.length ? rows.map(({p, hs}, i) => { const ty = compTypes(hs).filter(x => x[0] !== 'Not set')[0], sz = compSizes(hs).filter(x => x[0] !== 'Rooms not set').sort((a, b) => b[1] - a[1])[0];
+      return `<tr class="cpl-row" data-act="canOpen" data-id="${p.id}" title="Open the analysis"><td>${i + 1}</td><td class="l"><b>${esc(p.name)}</b></td><td>${hs.length}</td><td>${hs.length ? (hs.length / all * 100).toFixed(1) + '%' : ''}</td><td class="l">${esc(compMarket(hs, 3).text)}</td><td class="l">${esc(ty ? ty[0] + ' - ' + ty[1] : '')}</td><td class="l">${esc(sz && sz[1] ? sz[0] + ' rooms' : '')}</td><td>${esc(p.threat || '')}</td><td class="l can-clip">${esc(clip(p.strengths, 90))}</td><td class="l can-clip">${esc(clip(p.weaknesses, 90))}</td><td class="l can-clip">${esc(clip(p.counter, 90))}</td></tr>`; }).join('')
+      : '<tr><td colspan="11" class="empty">No competitor found. Add one in Competitor profile.</td></tr>';
   };
   paint(); $('#can_q').addEventListener('input', e => { f.q = e.target.value; paint(); });
 }
