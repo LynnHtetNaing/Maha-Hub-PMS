@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="757591f0b9">
+<meta name="maha-build" content="bea49b9e0a">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -28,6 +28,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="/brand/maha/icon-512.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"maha-hub / solutions - PMS","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"Hospitality technology ecosystem for hotels — PMS, Connect, Booking and Reach.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"brand":{"@type":"Brand","name":"Maha Hub"},"provider":{"@type":"Organization","name":"Maha Hub Group of Companies Limited"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
+<script src="/brand/maha/maha-loader.js"></script>
 <style>html{-webkit-tap-highlight-color:transparent}
 :root{
   /*
@@ -12054,7 +12055,9 @@ html[data-skin="modern"] .areasw button{background:none!important;box-shadow:non
 @media (max-width:700px){.selpg .sp-body{padding:18px 16px;border-radius:20px}}
 `;
 function ensureFlowCss(){if(document.getElementById('flowCss'))return;const s=document.createElement('style');s.id='flowCss';s.textContent=FLOW_CSS;document.head.appendChild(s)}
-function loadingShow(msg){ensureFlowCss();let o=document.getElementById('mhLoad');if(!o){o=document.createElement('div');o.id='mhLoad';document.body.appendChild(o)}
+const loadDark=()=>{try{return selPrefs().mode==='dark'}catch(e){return false}},loadName=()=>{try{return DB&&DB.session&&DB.session.provider?'Maha Provider':'Maha PMS'}catch(e){return 'Maha PMS'}};
+/* the loading screen is the shared Maha loader (brand/maha/maha-loader.js): first opening of the session, then the quick one; the old screen below stays as the fallback if that file is missing */
+function loadingShow(msg){if(window.MahaLoader){MahaLoader.show({name:loadName(),dark:loadDark(),msg:msg||''});return}ensureFlowCss();let o=document.getElementById('mhLoad');if(!o){o=document.createElement('div');o.id='mhLoad';document.body.appendChild(o)}
   o.classList.remove('out');o.innerHTML=`<div class="mh-boot" role="status" aria-live="polite"><canvas class="mh-grid" aria-hidden="true"></canvas><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">${esc(msg||'Preparing your hotel')}<span>_</span></div></div></div>`;try{loadingGrid(o)}catch(e){}return o}
 /* Loading screen grid: the same fine lines as before (44px squares, 3.5%). A ring of light spreads from the centre and lights only the lines of each square, at most 20% strength: gold near the centre, green further out. With reduced motion only the fixed lines are drawn. */
 let _ldgTok=0;
@@ -12068,8 +12071,8 @@ function loadingGrid(o){const cv=o.querySelector('.mh-grid');if(!cv)return;const
     requestAnimationFrame(frame)};
   addEventListener('resize',()=>{if(tok===_ldgTok&&cv.isConnected)size()});requestAnimationFrame(frame)}
 
-function loadingHide(){const o=document.getElementById('mhLoad');if(!o)return;o.classList.add('out');setTimeout(()=>{if(o.classList.contains('out'))o.remove()},450)}
-async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r;try{r=await fn()}finally{await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));loadingHide()}return r}
+function loadingHide(){if(window.MahaLoader&&MahaLoader.isShowing())return MahaLoader.hide();const o=document.getElementById('mhLoad');if(!o)return;o.classList.add('out');setTimeout(()=>{if(o.classList.contains('out'))o.remove()},450)}
+async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r;try{r=await fn()}finally{await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));await loadingHide()}return r}
 /* ---- who sees what ---- */
 function hasBackend(){try{return !!(DB&&DB.session&&!DB.session.provider&&H&&can('setup'))}catch(e){return false}}
 function curArea(){const se=DB&&DB.session;return se&&se.area==='back'&&hasBackend()?'back':'front'}

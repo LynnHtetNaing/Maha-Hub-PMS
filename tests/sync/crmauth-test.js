@@ -73,7 +73,7 @@ const svc = (state = {}) => (url, o) => {
   p = page('maha-hub.pages.dev', svc());
   T('a test copy on another address asks for nothing and keeps to this device', p.Auth.required === false && p.Auth.status() === 'ok' && (await p.Auth.token()) === null && p.Auth.session() === null);
   /* the page */
-  T('the page waits for the sign-in before it reads its data', /await Auth\.require\(\);\s*try \{ db = await openDB\(\);/.test(src));
+  T('the page waits for the sign-in before it reads its data', /await Auth\.require\(\);\s*(?:if \(window\.MahaLoader\) MahaLoader\.show\([^\n]*\n\s*)?try \{ db = await openDB\(\);/.test(src));
   T('no notes or buttons in the menu; a profile badge with Sign out and Install app instead; More has no device block', !/Version 5 /.test(src.split('<body>')[1].slice(0, 4000)) && !src.includes('id="instBtn"') && src.includes('id="prof"') && src.includes('const Profile = (() =>') && !src.includes('<h2>This device</h2>'));
   T('no entry ticket and no hand-over any more', !/mahahub\.entry/.test(src) && !/#mh=/.test(src));
   T('installable: manifest, standalone, offline service worker, install button', fs.readFileSync(path.resolve(__dirname, '..', '..', 'crm', 'manifest.webmanifest'), 'utf8').includes('"display": "standalone"') && src.includes('beforeinstallprompt') && src.includes("serviceWorker.register('sw.js')"));
