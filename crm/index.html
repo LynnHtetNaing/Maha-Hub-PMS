@@ -13,6 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Maha CRM">
+<script src="/brand/maha/maha-loader.js"></script>
 <title>Maha CRM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4872,6 +4873,7 @@ const Cloud = (() => {
 /* ================= BOOT ================= */
 (async function boot() {
   await Auth.require();
+  if (window.MahaLoader) MahaLoader.show({name: 'Maha CRM', dark: false});   /* the Maha loading screen while the CRM opens */
   try { db = await openDB(); R = await getAll(); }
   catch { db = null; R = []; setTimeout(() => toast('Private browsing: data will not be kept after closing'), 600); }
   const inCloud = await Cloud.first();
@@ -4880,6 +4882,7 @@ const Cloud = (() => {
   await migrateAgents();
   applyTheme(); shellInit(); route(); Cloud.start();
   Profile.start();
+  if (window.MahaLoader) MahaLoader.hide();
   logUser('Opened CRM'); Auth.canApprove().then(() => { try { drawRail((location.hash.slice(1) || 'dashboard').split('/')[0]); } catch {} });
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) Profile.canInstall = true;

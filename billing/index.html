@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex">
 <title>Maha Hub Billing</title>
 <link rel="icon" href="/favicon.ico">
+<script src="/brand/maha/maha-loader.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--a1:#059669;--a2:#0D9488;--a3:#2563EB;--bg:#ECF6F1;--card:#fff;--line:#D3E6DC;--ink:#0D2A24;--mut:#52705F;--side:#0B3D2E;--sidei:#E8F3EC;--act:#D49A38;--actink:#1c1405;--red:#B3261E;--ok:#0E7A4F;--warn:#A8650A;--link:#176B50}
@@ -97,6 +98,7 @@ function chrome(){const tm=$('#tm'),so=$('#so');if(tm){tm.textContent=document.d
 async function api(path,opt){const t=ST.t;const r=await fetch(CFG.url+path,Object.assign({headers:{apikey:CFG.key,Authorization:'Bearer '+(t?t.access_token:CFG.key),Accept:'application/json','Content-Type':'application/json'}},opt||{}));let d=null;try{d=await r.json()}catch(e){}return {ok:r.ok,status:r.status,d}}
 const keep=d=>({access_token:d.access_token,expires_at:Date.now()+Math.max(60,+d.expires_in||3600)*1000});
 function signin(msg){
+  if(window.MahaLoader)MahaLoader.hide();
   $('#root').innerHTML=`<div id="auth"><div class="au-box"><div class="au-brand"><img src="/brand/maha/gate-gold.png" alt=""><b>BILLING</b></div><div class="au-full">Maha Hub Billing</div><h1>Sign in</h1><p class="au-sub">Use the same username and password as your Maha system.</p>
   <label class="f"><span>Username</span><input id="u" autocomplete="username" autocapitalize="none" spellcheck="false"></label><label class="f"><span>Password</span><input id="p" type="password" autocomplete="current-password"></label>
   <div class="au-err" id="e" role="alert">${esc(msg||'')}</div><button class="au-go" id="go" type="button">Sign in</button></div></div>`;
@@ -119,7 +121,7 @@ function code(u,d,again){
   $('#go').onclick=go;$('#c').onkeydown=e=>{if(e.key==='Enter')go()};$('#c').focus()}
 async function done(t){wr(t);ST.t=t;await load()}
 async function load(){
-  $('#root').innerHTML='<div class="signin"><div class="card">Loading...</div></div>';
+  if(window.MahaLoader)MahaLoader.show({name:'Maha Billing',dark:document.documentElement.dataset.mode==='dark'});else $('#root').innerHTML='<div class="signin"><div class="card">Loading...</div></div>';
   const [p,a]=await Promise.all([api('/rest/v1/maha_properties?select=id,property_code,name&property_code=not.is.null&order=property_code'),api('/rest/v1/rpc/maha_is_platform_admin',{method:'POST',body:'{}'})]);
   if(p.status===401){wr(null);return signin('Your sign-in has ended. Sign in again.')}
   ST.admin=a.ok&&a.d===true;ST.props=Array.isArray(p.d)?p.d:[];
@@ -159,6 +161,7 @@ const TAB={
 };
 const NAV=[['home','Home'],['quotes','Quotes'],['subscriptions','Subscriptions'],['invoices','Tax Invoices'],['payments','Payments Made'],['statements','Statements']];
 function draw(){
+  if(window.MahaLoader)MahaLoader.hide();
   const h=ST.props.find(x=>x.id===ST.pid);
   if(!h){$('#root').innerHTML='<div class="signin"><div class="card"><h1>No hotel found</h1><p>This account is not linked to a hotel yet. Please contact your provider.</p></div></div>';return}
   const ini=(h.name||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
