@@ -1753,7 +1753,7 @@ const NAV = [['dashboard','Dashboard'],['hotels','Hotels'],['quotes','Quotes'],[
 function drawNav(cur) {
   drawRail(cur);
 }
-const SECTION_OF = {report:'dashboard', competitors:'hotels', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'dashboard', meetings:'quotes', activations:'more', kpi:'today', enews:'more', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
+const SECTION_OF = {report:'dashboard', competitors:'competitors', pricing:'more', setupmeeting:'quotes', dashboard:'dashboard', dblog:'hotels', partners:'hotels', followup:'dashboard', meetings:'quotes', activations:'more', kpi:'today', enews:'enews', today:'today', hotels:'hotels', hotel:'hotels', quotes:'quotes', quote:'quotes', msa:'quotes', collect:'collect', playbook:'playbook', more:'more', coll:'more', search:'today'};
 const UI = {hotelCity:'', hotelQ:'', hotelStage:'', hotelManaged:'', hotelSort:'updated', hotelLimit:150, cardCat:'', cardQ:'', collQ:'', quoteQ:''};
 
 const NAVS = {cur: '', stack: [], back: false};
@@ -1762,6 +1762,7 @@ function route() {
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'report', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   if (['dblog', 'userlog', 'deleted'].includes(r) && !Auth.isProvider()) { location.replace('#dashboard'); return; }   /* Admin pages: the CEO only, also by address */
+  if (r === 'dashboard' || r === 'collect' || r === 'more') { location.replace('#hotels'); return; }   /* no Dashboard (the Reports cover it), no Collect (it belongs to Accounting / Finance later), no More: the home page is the Hotel list; the pages are kept in the file, only hidden */
   if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
   drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
   ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, report:vReport, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
@@ -1810,7 +1811,7 @@ function vHotels() {
   list.sort(sorters[UI.hotelSort]);
   const shown = list.slice(0, UI.hotelLimit);
   view().innerHTML = `<div class="top"><div><h1>Hotels</h1><p>${all.length} in your database</p></div>
-    <div class="actions"><button class="btn primary" data-act="newHotel">${ICON.plus}Add hotel</button><button class="btn" data-act="salesImport">Import follow-ups</button><button class="btn" data-act="exportCSV">Export CSV</button></div></div>
+    <div class="actions"><button class="btn primary" data-act="newHotel">${ICON.plus}Add hotel</button><button class="btn" data-act="salesImport">Import follow-ups</button>${Auth.isProvider() ? '<button class="btn" data-act="exportCSV">Export CSV</button>' : ''}</div></div>
    <div class="toolbar"><div class="searchbar">${ICON.search}<input type="search" id="hq" placeholder="Name, area, contact, phone, PMS…" value="${esc(UI.hotelQ)}" aria-label="Search hotels"></div>
     <select id="hsort" aria-label="Sort"><option value="updated">Recently updated</option><option value="follow">Next follow-up</option><option value="name">Name A–Z</option><option value="rooms">Most rooms</option></select>
     <select id="hcity" aria-label="Province"><option value="">All provinces</option>${[...new Set(all.map(x => x.city).filter(Boolean))].sort().map(c => `<option ${UI.hotelCity === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
@@ -2306,6 +2307,7 @@ const ACTIONS = {
   exportColl: el => { const c = byId(el.dataset.id); const items = K('item').filter(i => i.collId === c.id);
     download(`${c.name.replace(/[^\w\- ]/g, '')} - ${today()}.csv`, toCSV([c.fields, ...items.map(i => c.fields.map(f => (i.values || {})[f] || ''))]), 'text/csv;charset=utf-8'); },
   exportCSV: () => {
+    if (!Auth.isProvider()) return;   /* only the CEO downloads the database */
     const keys = HOTEL_FIELDS.map(f => f.k); const hotels = K('hotel').sort((a, b) => a.name.localeCompare(b.name));
     const rows = [[...HOTEL_FIELDS.map(f => f.label), 'Last activity', 'Last activity date', 'Next follow-up']];
     hotels.forEach(h => { const a = actsFor(h.id)[0]; rows.push([...keys.map(k => h[k] || ''), a ? `${a.type}: ${a.reason || a.summary || ''}` : '', a ? a.date : '', nextFollow(h.id)]); });
@@ -2337,25 +2339,23 @@ Object.assign(ICON, {
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>',
 });
 const NAVG = [
-  ['dashboard', 'Dashboard'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
   {g:'Pricing & Commercial', i:'gear', items:[['Commercial Module', '#pricing/commercial', 'quotes'], ['Staff Credit', '#pricing/staff', 'userplus'], ['Credit Report', '#pricing/credits', 'kpi'], ['Referral Rewards', '#pricing/referral', 'users']]},
-  {g:'Competitor Analysis', i:'kpi', items:[['Competitor Analysis', '#competitors', 'list']]},
+  ['competitors', 'Competitor Analysis', 'kpi'],
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
-  {g:'Report', i:'kpi', items:[['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
-  {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
-  ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
+  {g:'Report', i:'kpi', items:[['Hotel Report', '#report/hotels', 'db'], ['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
+  ['enews', 'Enewletter', 'mail'], ['playbook', 'Playbook'],
 ];
 const NAVOPEN = (() => { try { return JSON.parse(localStorage.getItem('maha.crm.nav') || '{}') || {}; } catch { return {}; } })();
 const navSave = () => { try { localStorage.setItem('maha.crm.nav', JSON.stringify(NAVOPEN)); } catch {} };
 function drawRail(cur) {
   const h = (location.hash || '#dashboard').replace(/\/$/, '');
   $('#railnav').innerHTML = NAVG.map(n => {
-    if (!n.g) return `<div class="mg"><a class="mgb${cur === n[0] ? ' on' : ''}" href="#${n[0]}" title="${esc(n[1])}">${mi(n[0])}<span>${esc(n[1])}</span></a></div>`;
+    if (!n.g) return `<div class="mg"><a class="mgb${cur === n[0] ? ' on' : ''}" href="#${n[0]}" title="${esc(n[1])}">${mi(n[2] || n[0])}<span>${esc(n[1])}</span></a></div>`;
     if (n.g === 'Admin' && !Auth.isProvider()) return '';   /* the Admin title is for the CEO only */
     if (n.items.some(x => x[1] === h)) NAVOPEN[n.g] = true;
     return `<div class="mg${NAVOPEN[n.g] ? ' open' : ''}" data-gt="${esc(n.g)}"><button type="button" class="mgb" data-g="${esc(n.g)}" title="${esc(n.g)}">${mi(n.i)}<span>${esc(n.g)}</span>${mi('chev', 'car')}</button>
@@ -3167,7 +3167,22 @@ function quoteMoney(q) {
   const c = qCompute(q); return {month: (c.month || 0) + (c.year || 0) / 12, once: c.once || 0, comm: c.items.some(i => i.cad === 'comm')};
 }
 const quoteGroup = q => q.status === 'Accepted' ? 'Signed' : q.status === 'Rejected' ? 'Rejected' : 'Pending';
+/* Hotel Report: every staff member can look at the hotels by Country, Competitor, Hotel size and OTA rating; only the CEO can download it */
+const ota10 = h => { const n = parseFloat(h.otaScore); if (isNaN(n)) return null; const s = otaScale(h.otaName); return s === '5' ? n * 2 : s === '%' ? n / 10 : n; };
+const contactLines = h => (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact, position: h.contactTitle}]).filter(c => c && c.name).map(c => c.name + (c.position ? ' (' + c.position + ')' : '')).join('; ');
+const HR_SIZES = [['', 'All'], ['1-20', '1 - 20 rooms'], ['21-50', '21 - 50 rooms'], ['51-100', '51 - 100 rooms'], ['101-200', '101 - 200 rooms'], ['201-99999', 'Over 200 rooms']];
+const HR_RATES = [['', 'All'], ['9', '9.0 and above (out of 10)'], ['8', '8.0 and above'], ['7', '7.0 and above'], ['6', '6.0 and above']];
+const HR_CAP = 300;
 const RP = {
+  hotels: {title: 'Hotel Report', info: 'Hotel', def: () => ({country: '', comp: '', size: '', rate: ''}),
+    filters: () => [['country', 'Country', [['', 'All'], ...[...new Set(K('hotel').map(hCountry))].sort().map(c => [c, c])]], ['comp', 'Competitor', [['', 'All'], ...[...new Set(K('hotel').flatMap(h => SYS_TYPES.map(([k]) => String(h[k] || '').trim())).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(c => [c, c])]], ['size', 'Hotel size', HR_SIZES], ['rate', 'OTA rating', HR_RATES]],
+    build(f, full) {
+      const [lo, hi] = (f.size || '').split('-').map(Number), min = parseFloat(f.rate);
+      const list = K('hotel').filter(h => (!f.country || hCountry(h) === f.country) && (!f.comp || SYS_TYPES.some(([k]) => norm(h[k]) === norm(f.comp))) && (!f.size || ((parseInt(h.rooms) || 0) >= lo && (parseInt(h.rooms) || 0) <= hi)) && (!f.rate || (ota10(h) !== null && ota10(h) >= min))).sort((a, b) => a.name.localeCompare(b.name));
+      const rows = (full ? list : list.slice(0, HR_CAP)).map((h, i) => [i + 1, h.name, h.area || '', hCity(h) === '(No province)' ? '' : hCity(h), hCountry(h), h.rooms || '', otaLine(h), h.pms || '', h.cm || '', h.be || '', contactLines(h)]);
+      return {tiles: [['Hotels found', list.length]], note: !full && list.length > HR_CAP ? 'The first ' + HR_CAP + ' of ' + list.length + ' hotels are shown. Choose a Country, Competitor, size or rating to narrow it.' : '',
+        tables: [{name: 'Hotels', head: ['No.', 'Hotel name', 'Location', 'City', 'Country', 'No.of room', 'Online Travel Agency(OTA)', 'PMS', 'CM', 'BE', 'Contact person'], al: 'llllcclcccl', rows}]};
+    }},
   quote: {title: 'Quotation Report', info: 'Quotation', def: () => ({from: today().slice(0, 8) + '01', to: today(), who: '', status: ''}),
     filters: f => [['from', 'Start Date', 'date'], ['to', 'End Date', 'date'], ['who', 'Staff', ['', ...rpStaff()], 'All staff'], ['status', 'Status', [['', 'All'], ['Signed', 'Signed'], ['Rejected', 'Rejected'], ['Pending', 'Pending']]]],
     build(f) {
@@ -3246,7 +3261,7 @@ function vReport(key) {
   view().innerHTML = `<div class="top"><div><h1>${c.title}</h1></div></div>
    <div class="fu-sub"><b>${c.info}</b> information</div>
    <div class="fu-form">${c.filters(f).map(fld).join('')}</div>
-   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="rpSearch" data-k="${key}">${ICON.search}Search</button><button type="button" class="btn amber" data-act="rpReset" data-k="${key}">${ICON.reset}Reset</button><button type="button" class="btn gold" data-act="rpExport" data-k="${key}">Export to Excel</button></div>
+   <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="rpSearch" data-k="${key}">${ICON.search}Search</button><button type="button" class="btn amber" data-act="rpReset" data-k="${key}">${ICON.reset}Reset</button>${Auth.isProvider() ? `<button type="button" class="btn gold" data-act="rpExport" data-k="${key}">Export to Excel</button>` : ''}</div>
    <div id="rpbody"></div>`;
   paintReport(key);
 }
@@ -3255,10 +3270,11 @@ function paintReport(key) {
   const tbl = t => `${t.title ? `<h3 class="rp-h">${esc(t.title)}</h3>` : ''}<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>
     ${t.rows.length ? t.rows.map(row => `<tr>${row.map((v, i) => `<td class="${t.al[i] === 'l' ? 'l' : t.al[i] === 'r' ? 'r' : ''}${t.red === i && /^(Waiting|Not started)$/.test(String(v)) ? ' red' : ''}${t.ok === i && v === 'Earned' ? ' hit' : ''}">${esc(String(v ?? ''))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.head.length}" class="empty">Nothing found for these filters. Change them, then press Search.</td></tr>`}
     ${t.rows.length ? (t.foot || []).map(fr => `<tr class="kp-tot"><td colspan="${t.footSpan || 1}" style="text-align:right"><b>${esc(String(fr[0]))}</b></td>${fr.slice(1).map(v => `<td><b>${esc(String(v ?? ''))}</b></td>`).join('')}</tr>`).join('') : ''}</tbody></table></div>`;
-  box.innerHTML = (r.tiles ? `<div class="rp-tiles">${r.tiles.map(([l, v]) => `<div class="rp-t"><div class="v">${esc(String(v))}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>` : '') + r.tables.map(tbl).join('');
+  box.innerHTML = (r.tiles ? `<div class="rp-tiles">${r.tiles.map(([l, v]) => `<div class="rp-t"><div class="v">${esc(String(v))}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>` : '') + r.tables.map(tbl).join('') + (r.note ? `<p class="muted small" style="text-align:center">${esc(r.note)}</p>` : '');
 }
 function rpExport(key) {
-  const c = RP[key], r = c.build(UI.rp[key]);
+  if (!Auth.isProvider()) return;   /* only the CEO downloads */
+  const c = RP[key], r = c.build(UI.rp[key], true);
   const sheets = r.tables.map(t => ({name: (t.name || 'Report').slice(0, 31), aoa: [t.head, ...t.rows, ...(t.rows.length ? (t.foot || []).map(fr => [fr[0], ...Array(Math.max(0, (t.footSpan || 1) - 1)).fill(''), ...fr.slice(1)]) : [])]}));
   const name = c.title + ' - ' + today();
   try { const wb = XLSX.utils.book_new(); sheets.forEach(s => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s.aoa), s.name)); download(name + '.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); }
