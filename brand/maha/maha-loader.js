@@ -4,6 +4,7 @@
    First opening of a browser session (nothing shown yet in this tab): the lines of the logo and of the name are drawn in together from the base, both sides, up to the top (about 2.6 s).
    Every other loading: the logo pops up, slides to the left and the name is typed fast (about 1.2 s). The rolling dots start only after the logo and the name are shown.
    Light: sky, dark green logo and name. Dark: night, gold logo, ivory name. The sun (moon) stays above the logo and never moves; only the logo and the name move.
+   MahaLoader.pageOpen() is called when a page is opened: a cloud request that starts in the next 1.5 s and lasts more than half a second shows the small dots (MahaLoader.config({dark:fn}) sets Light or Dark).
    With reduced motion the finished picture is shown at once. If the picture cannot load, the name and the dots still show. */
 (function () {
   'use strict';
@@ -29,13 +30,16 @@
     + '#mahaLoader .ml-word{position:relative;height:64px;min-width:10px}'
     + '#mahaLoader .ml-word canvas{position:absolute;left:0;top:0;height:100%}'
     + '#mahaLoader .ml-word span{position:relative;display:block;font-weight:800;font-size:46px;line-height:64px;letter-spacing:.02em;white-space:nowrap}'
-    + '#mahaLoader .ml-ring{position:relative;width:70px;height:70px;opacity:0;transition:opacity .4s}'
-    + '#mahaLoader .ml-ring.ml-on{opacity:1}'
-    + '#mahaLoader .ml-ring i{position:absolute;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;transform:scale(.3);opacity:.35;animation:mlRoll 1.2s ease-in-out infinite}'
+    + '.ml-ring{position:relative;width:70px;height:70px;opacity:0;transition:opacity .4s}'
+    + '.ml-ring.ml-on{opacity:1}'
+    + '.ml-ring i{position:absolute;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;transform:scale(.3);opacity:.35;animation:mlRoll 1.2s ease-in-out infinite}'
     + '@keyframes mlRoll{0%,100%{transform:scale(.3);opacity:.3}35%{transform:scale(1.25);opacity:1}70%{transform:scale(.45);opacity:.5}}'
     + '#mahaLoader .ml-msg{margin-top:-14px;min-height:18px;font-size:13.5px;font-weight:600;letter-spacing:.02em;opacity:0;transition:opacity .4s;text-align:center}'
     + '#mahaLoader .ml-msg.ml-on{opacity:.85}'
-    + '@media (prefers-reduced-motion:reduce){#mahaLoader .ml-ring i{animation:none;opacity:.8;transform:scale(.8)}}';
+    + '#mahaMini{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147482000;display:flex;flex-direction:column;align-items:center;gap:0;padding:14px 22px 12px;border-radius:16px;background:rgba(255,255,255,.93);color:#3d5a50;box-shadow:0 10px 30px rgba(8,40,30,.22);pointer-events:none;transition:opacity .25s;font-family:Inter,"Noto Sans",system-ui,sans-serif;font-size:13px;font-weight:600}'
+    + '#mahaMini.ml-dark{background:rgba(14,42,33,.93);color:#cfe3d9}'
+    + '#mahaMini .ml-ring{transform:scale(.8);margin:-8px 0}'
+    + '@media (prefers-reduced-motion:reduce){.ml-ring i{animation:none;opacity:.8;transform:scale(.8)}}';
   var img = null, imgP = null, cache = {}, cur = null;
 
   function css() { if (document.getElementById('mahaLoaderCss')) return; var s = document.createElement('style'); s.id = 'mahaLoaderCss'; s.textContent = CSS; (document.head || document.documentElement).appendChild(s); }
@@ -146,6 +150,33 @@
     },
     isShowing: function () { return !!cur && !cur.hiding; }
   };
+  /* The small dots: a page that waits for the cloud (a request that starts in the 1.5 s after a page is opened) shows a small ring in the middle of the content, only if the wait lasts more than half a second.
+     No logo and no full screen; the menu stays usable. It goes away when the last request is done. The full loading screen above it hides it. */
+  var MINI = {n: 0, open: 0, timer: 0, off: 0, el: null, dark: function () { return document.documentElement.getAttribute('data-mode') === 'dark'; }};
+  function miniHide() { clearTimeout(MINI.off); if (MINI.el) { var e = MINI.el; MINI.el = null; e.style.opacity = 0; setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 260); } }
+  function miniShow() {
+    if (MINI.el || (cur && !cur.hiding) || !document.body) return;
+    css(); var dark = false; try { dark = !!MINI.dark(); } catch (e) {}
+    var el = document.createElement('div'); el.id = 'mahaMini'; el.className = dark ? 'ml-dark' : ''; el.setAttribute('role', 'status'); el.setAttribute('aria-label', 'Loading');
+    var ring = document.createElement('div'); ring.className = 'ml-ring ml-on';
+    for (var i = 0; i < 12; i++) { var d = document.createElement('i'), a = i / 12 * Math.PI * 2 - Math.PI / 2; d.style.left = (35 + Math.cos(a) * 29) + 'px'; d.style.top = (35 + Math.sin(a) * 29) + 'px'; d.style.animationDelay = (i * 0.1) + 's'; d.style.background = PRESET[dark ? 'dark' : 'light'].ring; ring.appendChild(d); }
+    var cap = document.createElement('div'); cap.textContent = 'Loading...'; el.appendChild(ring); el.appendChild(cap); document.body.appendChild(el); MINI.el = el; MINI.off = setTimeout(miniHide, 20000);
+  }
+  function watchFetch() {
+    if (window.__mlFetch || !window.fetch) return; window.__mlFetch = true; var of = window.fetch;
+    window.fetch = function (input, init) {
+      var url = '', method = 'GET'; try { url = typeof input === 'string' ? input : (input && input.url) || ''; method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase(); } catch (e) {}
+      var track = Date.now() < MINI.open && url.indexOf('.supabase.co/') > -1 && url.indexOf('/realtime') < 0 && (method === 'GET' || url.indexOf('/rpc/') > -1);
+      if (!track) return of.apply(this, arguments);
+      MINI.n++; if (MINI.n === 1) { clearTimeout(MINI.timer); MINI.timer = setTimeout(miniShow, 500); }
+      var done = function () { MINI.n = Math.max(0, MINI.n - 1); if (MINI.n === 0) { clearTimeout(MINI.timer); setTimeout(function () { if (MINI.n === 0) miniHide(); }, 150); } };
+      var p = of.apply(this, arguments); p.then(done, done); return p;
+    };
+  }
+  api.pageOpen = function () { MINI.open = Date.now() + 1500; };
+  api.config = function (o) { if (o && typeof o.dark === 'function') MINI.dark = o.dark; };
+  api.miniShowing = function () { return !!MINI.el; };
+  watchFetch();
   window.MahaLoader = api;
   try { loadImg().catch(function () {}); } catch (e) {}   /* the logo is fetched early */
 })();
