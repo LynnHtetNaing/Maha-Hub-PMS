@@ -1,8 +1,8 @@
 /* Maha loading screen: one file for the PMS, the Provider console, the CRM and Billing.
    MahaLoader.show({name:'Maha PMS', dark:false, msg:'Signing you in'})  -> the screen; returns a promise that resolves when the animation has finished
    MahaLoader.hide()                                                    -> waits for the animation to finish, then fades out; returns a promise
-   First opening of a browser session (nothing shown yet in this tab): the lines of the logo and of the name are drawn in together from the base, both sides, up to the top (about 2.6 s).
-   Every other loading: the logo pops up, slides to the left and the name is typed fast (about 1.2 s). The rolling dots start only after the logo and the name are shown.
+   One look for every loading screen: the logo pops up, slides to the left and the name is typed fast. The rolling dots start only after the logo and the name are shown.
+   Every full loading screen stays the same time on the screen (MIN_MS), whatever the page. (The build-up from the base, both sides, up to the top is kept in this file for later: FIRST_BUILD = true brings it back for the first opening of a browser tab.)
    Light: sky, dark green logo and name. Dark: night, gold logo, ivory name. The sun (moon) stays above the logo and never moves; only the logo and the name move.
    MahaLoader.pageOpen() is called when a page is opened: a cloud request that starts in the next 1.5 s and lasts more than half a second shows the small dots (MahaLoader.config({dark:fn}) sets Light or Dark).
    With reduced motion the finished picture is shown at once. If the picture cannot load, the name and the dots still show. */
@@ -10,7 +10,7 @@
   'use strict';
   if (window.MahaLoader) return;
   var LOGO = '/brand/maha/gate-gold.png', SCENE = {light: '/brand/maha/scene-light-nosun.svg', dark: '/brand/maha/scene-dark-nosun.svg'};
-  var LW = 400, LH = 382, FS = 92, SPARK = '#f1c75a', GAP = 26, BUILD = 2600, TYPE_MS = 55, TYPE_START = 700, SEEN = 'maha.loader.seen';
+  var LW = 400, LH = 382, FS = 92, SPARK = '#f1c75a', GAP = 26, BUILD = 2600, TYPE_MS = 55, TYPE_START = 700, SEEN = 'maha.loader.seen', FIRST_BUILD = false, MIN_MS = 1600;
   var PRESET = {
     light: {g: ['#2E8B67', '#1B6B50', '#0B3D2E'], txt: '#0B3D2E', ring: '#0B3D2E', cap: '#3d5a50'},
     dark: {g: ['#E3BC5E', '#C8A24A', '#9A7428'], txt: '#F1E5C9', ring: '#E3BC5E', cap: '#9fc4b4'}
@@ -87,6 +87,7 @@
   function build(o) {
     var mode = o.dark ? 'dark' : 'light', P = PRESET[mode], name = String(o.name || 'Maha'), first = true;
     try { first = !sessionStorage.getItem(SEEN); sessionStorage.setItem(SEEN, '1'); } catch (e) {}
+    first = FIRST_BUILD && first;
     css();
     var el = document.createElement('div'); el.id = 'mahaLoader'; el.className = mode === 'dark' ? 'ml-dark' : ''; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-label', 'Loading');
     el.innerHTML = '<div class="ml-scene"></div><div class="ml-core"><div class="ml-lockbox"><div class="ml-sun"></div><div class="ml-lockup"><div class="ml-logo"><canvas width="' + LW + '" height="' + LH + '"></canvas><img alt=""></div><div class="ml-word"><canvas></canvas><span></span></div></div></div><div class="ml-ring"></div><div class="ml-msg"></div></div>';
@@ -96,7 +97,7 @@
     scene.style.backgroundImage = 'url(' + SCENE[mode] + ')';
     span.style.color = P.txt; msg.style.color = P.cap; span.textContent = name;
     for (var i = 0; i < 12; i++) { var d = document.createElement('i'), a = i / 12 * Math.PI * 2 - Math.PI / 2; d.style.left = (35 + Math.cos(a) * 29) + 'px'; d.style.top = (35 + Math.sin(a) * 29) + 'px'; d.style.animationDelay = (i * 0.1) + 's'; d.style.background = P.ring; ring.appendChild(d); }
-    var st = {el: el, raf: 0, timers: [], hiding: false, resolveReady: null, name: name};
+    var st = {el: el, raf: 0, timers: [], hiding: false, resolveReady: null, name: name, t0: Date.now()};
     st.ready = new Promise(function (r) { st.resolveReady = r; });
     st.setMsg = function (m) { msg.textContent = m || ''; };
     st.setMsg(o.msg);
@@ -145,7 +146,7 @@
       var st = cur; if (!st) return Promise.resolve();
       if (st.hiding) return st.gone || Promise.resolve();
       st.hiding = true;
-      st.gone = st.ready.then(function () { return new Promise(function (res) { st.el.classList.add('ml-out'); setTimeout(function () { kill(st); if (cur === st) cur = null; res(); }, 380); }); });
+      st.gone = st.ready.then(function () { return new Promise(function (r) { setTimeout(r, Math.max(0, MIN_MS - (Date.now() - st.t0))); }); }).then(function () { return new Promise(function (res) { st.el.classList.add('ml-out'); setTimeout(function () { kill(st); if (cur === st) cur = null; res(); }, 380); }); });
       return st.gone;
     },
     isShowing: function () { return !!cur && !cur.hiding; }
