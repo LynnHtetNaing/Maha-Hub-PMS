@@ -934,12 +934,33 @@ function openDB() {
 const store = mode => db.transaction('rec', mode).objectStore('rec');
 function getAll() { return new Promise((res, rej) => { const q = store('readonly').getAll(); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
 const OWNED = ['act', 'quote', 'msa', 'activation', 'hotel'];
+/* the User log: what staff do (add, change, delete, restore), not which screen they opened */
+const AUD_KIND = {hotel: 'Hotel', quote: 'Quotation', msa: 'MSA', act: 'Follow up', activation: 'Activation', sysprov: 'Competitor', partner: 'Partner', comodule: 'Commercial item', staffcr: 'Staff credit', refplan: 'Referral plan', refcredit: 'Referral credit', enews: 'Enewletter', mail: 'Email', pbcard: 'Playbook card'};
+const AUD_SKIP = new Set(['updated', 'created', 'updatedAt', 'updatedBy', 'deleted', '_s', '_su', 'owner']);
+const AUD_SNAP = new Map();
+const audSnap = r => { try { if (AUD_KIND[r.kind]) AUD_SNAP.set(r.id, JSON.stringify(r)); } catch {} };
+function audit(r, old) {
+  try {
+    let label = AUD_KIND[r.kind]; if (!label) return;
+    if (r.kind === 'act' && isMeet(r)) label = 'Meeting';
+    let act = 'Added', ch = [];
+    if (old !== undefined) {
+      const o = JSON.parse(old);
+      if (r.deleted && !o.deleted) act = 'Deleted'; else if (!r.deleted && o.deleted) act = 'Restored';
+      else { act = 'Updated'; ch = [...new Set([...Object.keys(r), ...Object.keys(o)])].filter(k => !AUD_SKIP.has(k) && JSON.stringify(r[k]) !== JSON.stringify(o[k])).map(k => k.replace(/([A-Z])/g, ' $1').toLowerCase()); if (!ch.length) return; }
+    }
+    const nm = r.name || r.title || r.subject || r.hotelName || (r.hotelId && (byId(r.hotelId) || {}).name) || (r.no ? 'No. ' + r.no : '');
+    logUser(act + ' ' + label.toLowerCase() + (nm ? ' "' + String(nm).slice(0, 80) + '"' : '') + (ch.length ? ' (' + ch.slice(0, 6).join(', ') + (ch.length > 6 ? ', ...' : '') + ')' : ''), {area: label});
+  } catch {}
+}
 function save(r) {
+  const audOld = AUD_SNAP.get(r.id);
   delete r._s; delete r._su;
   try { if (!r.created && !r.owner && OWNED.includes(r.kind)) r.owner = Auth.who() || ''; } catch {}
   r.updated = new Date().toISOString(); if (!r.created) r.created = r.updated;
   const i = R.findIndex(x => x.id === r.id); if (i >= 0) R[i] = r; else R.push(r);
   Cloud.mark(r.id, r.kind);
+  audit(r, audOld); audSnap(r);
   if (!db) return Promise.resolve(r);
   return new Promise((res, rej) => { const q = store('readwrite').put(r); q.onsuccess = () => res(r); q.onerror = () => rej(q.error); });
 }
@@ -948,6 +969,7 @@ function saveMany(arr) {
   arr.forEach(r => Cloud.mark(r.id, r.kind));
   const idx = new Map(R.map((x, i) => [x.id, i]));
   for (const r of arr) { delete r._s; delete r._su; r.updated = r.updated || now; r.created = r.created || now; const i = idx.get(r.id); if (i !== undefined) R[i] = r; else { idx.set(r.id, R.length); R.push(r); } }
+  arr.forEach(audSnap);
   if (!db) return Promise.resolve();
   return new Promise((res, rej) => { const t = db.transaction('rec', 'readwrite'); const s = t.objectStore('rec'); arr.forEach(r => s.put(r)); t.oncomplete = res; t.onerror = () => rej(t.error); });
 }
@@ -2455,12 +2477,13 @@ function vDeleted() {
    <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td>${T.cells(r).map((c, k) => `<td${k === 0 || k === 1 ? ' class="l"' : ''}>${c}</td>`).join('')}<td>${who(r)}</td><td class="dlt">${when(r)}</td>${btn(r)}</tr>`).join('') : `<tr><td colspan="${T.head.length + 4}" class="empty">Nothing deleted here.</td></tr>`}</tbody></table></div>`;
 }
 /* ---------- the user log: who opened the CRM and when (only the provider sees it) ---------- */
-async function logUser(ev) {
+async function logUser(ev, extra) {
   const user = Auth.who(); if (!Auth.required || !user) return;
   const mine = R.filter(r => r.kind === 'ulog' && r.user === user).sort((a, b) => (b.at || '').localeCompare(a.at || ''))[0];
   if (ev === 'Opened CRM' && mine && Date.now() - new Date(mine.at) < 30 * 60e3) return;
+  if (ev !== 'Opened CRM' && mine && mine.event === ev && Date.now() - new Date(mine.at) < 120e3) return;   /* the same line twice in two minutes: once */
   let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch {}
-  await save({id: uid(), kind: 'ulog', user, event: ev, at: new Date().toISOString(), tz});
+  await save({id: uid(), kind: 'ulog', user, event: ev, at: new Date().toISOString(), tz, ...(extra || {})});
 }
 async function vUserLog() {
   view().innerHTML = '<div class="top"><div><h1>User log</h1></div></div><div class="empty">Loading…</div>';
@@ -2471,8 +2494,8 @@ async function vUserLog() {
    <div class="fu-form"><label for="ul_from">Start Date :</label><div><input type="date" id="ul_from" value="${esc(f.from)}"></div><label for="ul_to">End Date :</label><div><input type="date" id="ul_to" value="${esc(f.to)}"></div>
     <label for="ul_user">User :</label><div><select id="ul_user"><option value="">All</option>${users.map(u => `<option ${f.user === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select></div></div>
    <div class="fu-btns" style="justify-content:flex-start"><button type="button" class="btn dark" data-act="ulSearch">${ICON.search}Search</button></div>
-   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>User</th><th>Event</th><th>Date time (your time)</th><th>Where the user was</th></tr></thead>
-   <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.user)}</td><td>${esc(r.event)}</td><td class="dlt">${esc(dlStamp(r.at))}</td><td>${esc((r.tz || '').replace('_', ' '))}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">No user log in this time.</td></tr>'}</tbody></table></div>`;
+   <div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>User</th><th>Type</th><th>What was done</th><th>Date time (your time)</th><th>Where the user was</th></tr></thead>
+   <tbody>${rows.length ? rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.user)}</td><td>${esc(r.area || 'Sign in')}</td><td class="l">${esc(r.event)}</td><td class="dlt">${esc(dlStamp(r.at))}</td><td>${esc((r.tz || '').replace('_', ' '))}</td></tr>`).join('') : '<tr><td colspan="6" class="empty">No user log in this time.</td></tr>'}</tbody></table></div>`;
 }
 Object.assign(ACTIONS, {
   ulSearch: () => { UI.ul = {from: $('#ul_from').value, to: $('#ul_to').value, user: $('#ul_user').value}; vUserLog(); },
@@ -4897,7 +4920,7 @@ const Cloud = (() => {
 (async function boot() {
   await Auth.require();
   if (window.MahaLoader) MahaLoader.show({name: 'Maha CRM', dark: false});   /* the Maha loading screen while the CRM opens */
-  try { db = await openDB(); R = await getAll(); }
+  try { db = await openDB(); R = await getAll(); R.forEach(audSnap); }
   catch { db = null; R = []; setTimeout(() => toast('Private browsing: data will not be kept after closing'), 600); }
   const inCloud = await Cloud.first();
   if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
