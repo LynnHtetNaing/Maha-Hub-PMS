@@ -18,6 +18,7 @@
   var CSS = '#mahaLoader{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;overflow:hidden;font-family:Inter,"Noto Sans",system-ui,sans-serif;opacity:1;transition:opacity .35s;background:linear-gradient(180deg,#bfe8d8 0%,#d3efe3 50%,#e2f5ed 100%)}'
     + '#mahaLoader.ml-dark{background:linear-gradient(180deg,#08140f 0%,#0e2a21 55%,#15402f 100%)}'
     + '#mahaLoader.ml-out{opacity:0;pointer-events:none}'
+    + '#mahaLoader.ml-wait .ml-lockup{opacity:0}'
     + '#mahaLoader .ml-scene{position:absolute;inset:0;background-position:50% 100%;background-size:100% auto;background-repeat:no-repeat;opacity:.7;pointer-events:none}'
     + '#mahaLoader.ml-dark .ml-scene{opacity:1}'
     + '#mahaLoader .ml-core{position:relative;display:flex;flex-direction:column;align-items:center;gap:34px;padding-top:30px;transform-origin:50% 50%}'
@@ -89,13 +90,13 @@
     try { first = !sessionStorage.getItem(SEEN); sessionStorage.setItem(SEEN, '1'); } catch (e) {}
     first = FIRST_BUILD && first;
     css();
-    var el = document.createElement('div'); el.id = 'mahaLoader'; el.className = mode === 'dark' ? 'ml-dark' : ''; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-label', 'Loading');
+    var el = document.createElement('div'); el.id = 'mahaLoader'; el.className = (mode === 'dark' ? 'ml-dark ' : '') + 'ml-wait';   /* only the sky and the sun until the logo is ready */ el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-label', 'Loading');
     el.innerHTML = '<div class="ml-scene"></div><div class="ml-core"><div class="ml-lockbox"><div class="ml-sun"></div><div class="ml-lockup"><div class="ml-logo"><canvas width="' + LW + '" height="' + LH + '"></canvas><img alt=""></div><div class="ml-word"><canvas></canvas><span></span></div></div></div><div class="ml-ring"></div><div class="ml-msg"></div></div>';
     document.body.appendChild(el);
     var q = function (s) { return el.querySelector(s); };
     var scene = q('.ml-scene'), core = q('.ml-core'), lock = q('.ml-lockup'), logoC = q('.ml-logo canvas'), logoI = q('.ml-logo img'), wordC = q('.ml-word canvas'), word = q('.ml-word'), span = q('.ml-word span'), ring = q('.ml-ring'), msg = q('.ml-msg');
     scene.style.backgroundImage = 'url(' + SCENE[mode] + ')';
-    span.style.color = P.txt; msg.style.color = P.cap; span.textContent = name;
+    span.style.color = P.txt; msg.style.color = P.cap;
     for (var i = 0; i < 12; i++) { var d = document.createElement('i'), a = i / 12 * Math.PI * 2 - Math.PI / 2; d.style.left = (35 + Math.cos(a) * 29) + 'px'; d.style.top = (35 + Math.sin(a) * 29) + 'px'; d.style.animationDelay = (i * 0.1) + 's'; d.style.background = P.ring; ring.appendChild(d); }
     var st = {el: el, raf: 0, timers: [], hiding: false, resolveReady: null, name: name, t0: Date.now()};
     st.ready = new Promise(function (r) { st.resolveReady = r; });
@@ -108,9 +109,9 @@
       if (st.dead) return;
       fit(R.tw); wordC.width = R.tw; wordC.height = R.th; wordC.style.width = (R.tw / 2) + 'px'; word.style.width = (R.tw / 2) + 'px'; logoI.src = R.tint;
       var lc = logoC.getContext('2d'), wc = wordC.getContext('2d');
-      if (reduced()) { logoC.style.display = 'none'; wordC.style.display = 'none'; after(400, finish); return; }
+      if (reduced()) { logoC.style.display = 'none'; wordC.style.display = 'none'; span.textContent = name; el.classList.remove('ml-wait'); after(400, finish); return; }
       if (first) {   /* 1 - first opening: drawn in from the base */
-        span.style.display = 'none'; logoI.style.display = 'none';
+        span.style.display = 'none'; logoI.style.display = 'none'; el.classList.remove('ml-wait');
         var t0 = performance.now(), tw = []; for (var s = 0; s < 30; s++) tw.push({x: Math.random() * LW, y: Math.random() * LH, p: Math.random() * 6});
         var step = function (now) {
           if (st.dead) return; var p = Math.min(1, (now - t0) / BUILD), thr = p * 1.2 - 0.08;
@@ -122,14 +123,14 @@
       } else {   /* 2 - every other loading: the logo pops up, slides to the left, the name is typed fast */
         logoC.style.display = 'none'; wordC.style.display = 'none'; span.textContent = '';
         var off = (R.tw / 2 + GAP) / 2; logoI.style.opacity = 0; logoI.style.transform = 'scale(.55)'; lock.style.transform = 'translateX(' + off + 'px)';
-        void lock.offsetWidth;
+        void lock.offsetWidth; el.classList.remove('ml-wait');   /* now the logo and the name show: the logo is hidden, the name empty, the pop-up starts */
         after(60, function () { logoI.style.transition = 'transform .34s cubic-bezier(.2,1.5,.4,1),opacity .2s'; logoI.style.opacity = 1; logoI.style.transform = 'scale(1)'; });
         after(480, function () { lock.style.transition = 'transform .42s cubic-bezier(.25,.8,.25,1)'; lock.style.transform = 'translateX(0)'; });
         for (var c = 0; c < name.length; c++) (function (n) { after(TYPE_START + n * TYPE_MS, function () { span.textContent = name.slice(0, n + 1); }); })(c);
         after(TYPE_START + name.length * TYPE_MS + 250, finish);
       }
     }).catch(function () {   /* the picture could not load: the name and the dots still show */
-      logoC.style.display = 'none'; logoI.style.display = 'none'; wordC.style.display = 'none'; word.style.width = 'auto'; after(300, finish);
+      logoC.style.display = 'none'; logoI.style.display = 'none'; wordC.style.display = 'none'; word.style.width = 'auto'; span.textContent = name; el.classList.remove('ml-wait'); after(300, finish);
     });
     after(45000, function () { api.hide(); });   /* never stays on the screen for ever */
     return st;
