@@ -1762,6 +1762,7 @@ function route() {
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'report', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   if (['dblog', 'userlog', 'deleted'].includes(r) && !Auth.isProvider()) { location.replace('#dashboard'); return; }   /* Admin pages: the CEO only, also by address */
+  if (r === 'dashboard' || r === 'collect') { location.replace('#hotels'); return; }   /* no Dashboard (the Reports cover it) and no Collect (it belongs to Accounting / Finance later): the home page is the Hotel list; the pages are kept in the file, only hidden */
   if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
   drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
   ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, report:vReport, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
@@ -2337,7 +2338,6 @@ Object.assign(ICON, {
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>',
 });
 const NAVG = [
-  ['dashboard', 'Dashboard'],
   {g:'Database', i:'hotels', items:[['Hotel list', '#hotels', 'hotels'], ['Add new hotel', 'act:newHotel', 'plus'], ['Upload database', '#upload', 'upload'], ['Partner / White Label list', '#partners', 'users'], ['Add new partner', '#partners/new', 'userplus']]},
   {g:'Follow up', i:'today', items:[['Latest follow up', '#followup', 'phone']]},
   {g:'Meeting & quotation', i:'quotes', items:[['Setup meeting', '#setupmeeting', 'cal'], ['Meeting status', '#meetings', 'list'], ['Quotation Generation', '#quotes', 'quotes'], ['Manage Quotation', '#quotes/pending', 'hourglass'], ['For Approval', '#quotes/waiting', 'check']]},
@@ -2348,7 +2348,7 @@ const NAVG = [
   {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
   {g:'Report', i:'kpi', items:[['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
   {g:'Enewletter', i:'mail', items:[['Enewletter', '#enews', 'mail']]},
-  ['playbook', 'Playbook'], ['collect', 'Collect'], ['more', 'More'],
+  ['playbook', 'Playbook'], ['more', 'More'],
 ];
 const NAVOPEN = (() => { try { return JSON.parse(localStorage.getItem('maha.crm.nav') || '{}') || {}; } catch { return {}; } })();
 const navSave = () => { try { localStorage.setItem('maha.crm.nav', JSON.stringify(NAVOPEN)); } catch {} };

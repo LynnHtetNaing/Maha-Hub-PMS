@@ -77,4 +77,6 @@ T('Hotel list of a city: no PVO column (BE, CM and PMS show their provider name)
 T('Hotel list of a city fits the page: headings wrap, the OTA and Address columns are narrow', crm.includes('table class="fu-tb dbh dbcity"') && crm.includes('.dbcity th{white-space:normal') && crm.includes('.dbcity td.ota{max-width:96px') && crm.includes('.dbcity td.adr{min-width:0;max-width:150px'));
 T('One way back only: the Back button at the top right; the small text link above the title (‹ Database Hotel List, ‹ Hotels ...) is cleared on every page', crm.includes("v.querySelectorAll(':scope > a.back').forEach(a => a.remove());"));
 T('Free and clean look on every page: the title is lower from the top, more air between the title and its box (the box inside is not changed)', crm.includes('main{padding-top:44px}') && crm.includes('.top{margin-bottom:28px}'));
+T('No Dashboard and no Collect in the left menu; their addresses open the Hotel list (Collect belongs to Accounting / Finance later)', !crm.includes("['dashboard', 'Dashboard'],
+") && !crm.includes("['collect', 'Collect']") && crm.includes("if (r === 'dashboard' || r === 'collect') { location.replace('#hotels'); return; }"));
 console.log(fails ? 'FAILED ' + fails : 'all ok'); process.exit(fails ? 1 : 0);
