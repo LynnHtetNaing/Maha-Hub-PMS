@@ -1737,6 +1737,7 @@ async function salesImportRun(rows, mp, smap, me, skipOld) {
     delete h._stage; h.updated = new Date().toISOString();
   }
   await saveMany([...touched.values(), ...out]);
+  logUser('Imported follow-ups: ' + out.length + ' added, ' + touched.size + ' hotels touched', {area: 'Upload'});   /* one line, not one per record */
   return res;
 }
 
@@ -2978,6 +2979,7 @@ Object.assign(ACTIONS, {
     toast(`Saving ${batch.length} hotels… please wait`);
     for (let i = 0; i < batch.length; i += 250) { await saveMany(batch.slice(i, i + 250)); toast(`Saving… ${Math.min(i + 250, batch.length)} of ${batch.length}`); }
     const n = batch.length, byC = {}; batch.forEach(h => { byC[h.country] = (byC[h.country] || 0) + 1; }); const parts = Object.entries(byC).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} ${v.toLocaleString('en-GB')}`).join(' · ');
+    logUser('Uploaded ' + n.toLocaleString('en-GB') + ' hotels (Upload database)', {area: 'Upload'});   /* one line, not one per hotel */
     UI.up = {}; vUpload(); toast(`Done: ${n.toLocaleString('en-GB')} hotels added`);
     $('#upInfo').innerHTML = `<div class="up-done"><b>Upload complete.</b> ${n.toLocaleString('en-GB')} hotels were added (${parts}). Open <a href="#hotels">Database &gt; Hotel list</a> to see them.</div>`;
   },
@@ -3527,6 +3529,7 @@ async function impSave() {
     const adds = r.plan.adds.map(h => ({...h, owner: who})), ups = r.plan.updates.map(x => ({...x.h, ...x.patch}));
     for (let i = 0; i < adds.length; i += 250) { say('Adding hotels ' + Math.min(i + 250, adds.length) + ' of ' + adds.length + '…'); await saveMany(adds.slice(i, i + 250)); }
     for (let i = 0; i < ups.length; i += 250) { say('Updating hotels ' + Math.min(i + 250, ups.length) + ' of ' + ups.length + '…'); await saveMany(ups.slice(i, i + 250)); }
+    logUser('Company data update: ' + adds.length + ' hotels added, ' + ups.length + ' updated, ' + r.newProv.length + ' competitors added', {area: 'Upload'});   /* one line */
     toast(adds.length + ' hotels added, ' + ups.length + ' updated'); const msg = `<div class="up-sum"><b>${adds.length}</b> hotels added, <b>${ups.length}</b> hotels updated, ${r.newProv.length} competitors added and ${r.profs.length} competitors updated with their information.</div>`;
     UI.imp = {}; vUpload(); $('#impInfo').innerHTML = msg;
   } catch (e) { u.saving = false; toast('The update stopped: ' + (e && e.message ? e.message : 'please check the connection and press Update again')); }
