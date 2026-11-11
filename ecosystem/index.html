@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="4ceab82383">
+<meta name="maha-build" content="0d992a2ba8">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9653,7 +9653,7 @@ VIEWS['fo.departures2']=(el,id)=>{
 function stayTableHtml(list){
   return `<div class="panel scroll"><table class="grid">
   <tr><th></th><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th>Status</th><th></th></tr>
-  ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr><td class="nowrap">${stIcons(b,'')}</td><td><b>${esc(b.room)}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${stBadge(b)}</td>
+  ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr class="click" data-ores="${b.id}" title="Open the reservation"><td class="nowrap">${stIcons(b,'')}</td><td><b>${esc(b.room)}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${stBadge(b)}</td>
    <td class="nowrap"><button class="btn sm" data-fol="${b.id}">Folio</button></td></tr>`}).join('')||`<tr><td colspan="12" class="empty">No guests in house.</td></tr>`}</table></div>`}
 function stayList(el,title,list,mode,sw){
   el.innerHTML=pageHead(title,`<span class="sub">${list.length} room(s)</span>${sw||''}`)+stayTableHtml(list);
@@ -9686,7 +9686,7 @@ VIEWS['fo.inhouse']=el=>{
   const res=$('#ihRes',el);
   const paint=()=>{const all2=rows(),list=IHV.v==='list'?all2:all2.filter(b=>H.rooms.some(r=>r.no===b.room&&!r.dummy));$('#ihCnt',el).textContent=list.length+' room(s)';
     res.innerHTML=IHV.v==='list'?stayTableHtml(list):(list.length?stayBoxes(list):'<div class="panel pad"><div class="empty">No guest in house matches.</div></div>');
-    if(IHV.v==='list'){bindSide(res,'',()=>render());$$('[data-fol]',res).forEach(x=>x.onclick=()=>go('bill.open',x.dataset.fol))}
+    if(IHV.v==='list'){bindSide(res,'',()=>render());$$('[data-fol]',res).forEach(x=>x.onclick=e=>{e.stopPropagation();go('bill.open',x.dataset.fol)});$$('tr[data-ores]',res).forEach(x=>x.onclick=e=>{if(e.target.closest('button,a'))return;const B=bookingById(x.dataset.ores);if(B)hsResDetail(B)})}
     else $$('[data-ores]',res).forEach(x=>x.onclick=()=>{const B=bookingById(x.dataset.ores);if(B)hsResDetail(B)})};
   paint();
   $('#ihQ',el).oninput=e=>{IHS.q=e.target.value;paint()};
