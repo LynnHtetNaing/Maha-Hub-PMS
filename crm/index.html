@@ -5108,6 +5108,27 @@ const Cloud = (() => {
   return {mark, first, start, sync, uploadAll, paint, get state() { return state; }};
 })();
 
+/* ================= BOOT ================= */
+(async function boot() {
+  await Auth.require();
+  if (window.MahaLoader) MahaLoader.show({name: 'Maha CRM', dark: false});   /* the Maha loading screen while the CRM opens */
+  try { db = await openDB(); R = await getAll(); R.forEach(audSnap); }
+  catch { db = null; R = []; setTimeout(() => toast('Private browsing: data will not be kept after closing'), 600); }
+  const inCloud = await Cloud.first();
+  if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
+  else if (byId('meta') && !inCloud) Cloud.uploadAll();
+  await migrateAgents(); await migrateStatus(); await migrateOneHotel();
+  try { if (!sessionStorage.getItem('maha.crm.landed')) { sessionStorage.setItem('maha.crm.landed', '1'); history.replaceState(null, '', '#dashboard'); } } catch {}   /* every sign in lands on the Dashboard */
+  applyTheme(); shellInit(); route(); Cloud.start();
+  Profile.start();
+  if (window.MahaLoader) MahaLoader.hide();
+  logUser('Opened CRM'); Auth.canApprove().then(() => { try { drawRail((location.hash.slice(1) || 'dashboard').split('/')[0]); } catch {} });
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) Profile.canInstall = true;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__inst = e; Profile.canInstall = true; });
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
 /* ================= MY PROFILE: a photo, the position and the phone of each staff member (one record each, kind 'profile') ================= */
 const profId = u => 'profile_' + norm(u).replace(/ /g, '_');
 const profOf = u => byId(profId(u)) || null;
@@ -5139,27 +5160,7 @@ Object.assign(ACTIONS, {
     });
   },
 });
-/* ================= BOOT ================= */
-(async function boot() {
-  await Auth.require();
-  if (window.MahaLoader) MahaLoader.show({name: 'Maha CRM', dark: false});   /* the Maha loading screen while the CRM opens */
-  try { db = await openDB(); R = await getAll(); R.forEach(audSnap); }
-  catch { db = null; R = []; setTimeout(() => toast('Private browsing: data will not be kept after closing'), 600); }
-  const inCloud = await Cloud.first();
-  if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
-  else if (byId('meta') && !inCloud) Cloud.uploadAll();
-  await migrateAgents(); await migrateStatus(); await migrateOneHotel();
-  try { if (!sessionStorage.getItem('maha.crm.landed')) { sessionStorage.setItem('maha.crm.landed', '1'); history.replaceState(null, '', '#dashboard'); } } catch {}   /* every sign in lands on the Dashboard */
-  applyTheme(); shellInit(); route(); Cloud.start();
-  Profile.start();
-  if (window.MahaLoader) MahaLoader.hide();
-  logUser('Opened CRM'); Auth.canApprove().then(() => { try { drawRail((location.hash.slice(1) || 'dashboard').split('/')[0]); } catch {} });
-  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) Profile.canInstall = true;
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__inst = e; Profile.canInstall = true; });
-  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
-})();
+
 
 </script>
 </body>

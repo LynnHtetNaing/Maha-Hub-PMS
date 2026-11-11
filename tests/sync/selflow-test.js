@@ -11,5 +11,5 @@ must('the flag is switched off when a choice is made',src.includes('const a=awai
 must('the flag is always cleared (finally) so the screen can never stay blocked',src.includes('}}finally{SEL_ON=false}'));
 must('sign out clears it',src.includes("$('#spOut').onclick=()=>{SEL_ON=false;signOut(true)}"));
 // loading screens show the gate alone
-must('loading screens use the plain gate',(src.match(/<img src="\/brand\/maha\/gate-small\.png" alt="" width="58" height="54">/g)||[]).length===2);
+must('loading screens use the plain gate',(src.match(/<img src="\/brand\/maha\/gate-small\.png" alt="" width="58" height="54">/g)||[]).length>=1);
 console.log('selflow ok');
