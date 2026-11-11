@@ -2480,6 +2480,24 @@ Object.assign(ACTIONS, {
   partnerInfo: el => partnerSheet(byId(el.dataset.id)),
 });
 /* an old Agent becomes a Partner / White Label, and a hotel keeps its link by name */
+async function migrateOneHotel() {   /* one time, the CEO's browser: "OneHotel PMS", "OneHotel Channel Manager"... become the provider Onehotel.asia in the hotels; the wrong providers move to Delete records */
+  const m = byId('meta'); if (!m || m.ohv1) return; if (Auth.required && !Auth.isProvider()) return;
+  const now = new Date().toISOString(), hs = [];
+  R.filter(r => r.kind === 'hotel' && !r.deleted).forEach(h => { let ch = false; for (const [k] of SYS_TYPES) if (ohIs(h[k])) { h[k] = OH_NAME; ch = true; } if (ch) { h.updated = now; hs.push(h); } });
+  for (let i = 0; i < hs.length; i += 250) await saveMany(hs.slice(i, i + 250));
+  const wrong = K('sysprov').filter(p => ohIs(p.name)), has = K('sysprov').find(p => p.name === OH_NAME);
+  const kindOf = n => { const s = String(n).toLowerCase(), o = []; if (/pms/.test(s)) o.push('pms'); if (/channel|\bcm\b/.test(s)) o.push('cm'); if (/booking|\bbe\b/.test(s)) o.push('be'); if (/payment|pvo|virtual/.test(s)) o.push('pvo'); if (/pos/.test(s)) o.push('pos'); if (/revenue|rms/.test(s)) o.push('rms'); return o; };
+  if (wrong.length || hs.length) {
+    const types = [...new Set([...(has ? has.types || [] : []), ...wrong.flatMap(p => (p.types || []).concat(kindOf(p.name)))])];
+    const rec = has ? {...has} : {id: 'sp_onehotel-asia', kind: 'sysprov', name: OH_NAME};
+    rec.types = types.length ? types : ['pms', 'cm', 'be'];
+    wrong.forEach(p => { for (const k of Object.keys(p)) if (!['id', 'kind', 'name', 'types', 'created', 'updated', 'deleted', 'owner', 'updatedBy', 'updatedAt'].includes(k) && p[k] && !rec[k]) rec[k] = p[k]; });   /* the profile written under a wrong name is kept */
+    await save(rec);
+    for (const p of wrong) await softDelete(p);
+    logUser('Corrected ' + hs.length + ' hotels and ' + wrong.length + ' providers: OneHotel PMS / Channel Manager ... are now the provider ' + OH_NAME, {area: 'Competitor'});
+  }
+  m.ohv1 = true; await save(m);
+}
 async function migrateStatus() {   /* one time: Lost becomes Cold Reject or Reject, On hold becomes Follow up (New lead is read as New Database, nothing to rewrite) */
   const m = byId('meta'); if (!m || m.stv2) return;
   const withMeet = new Set(K('act').filter(isMeet).map(a => a.hotelId)), withQuote = new Set(K('quote').map(q => q.hotelId)), now = new Date().toISOString(), ch = [];
@@ -2824,7 +2842,7 @@ function paintDbCity() {
   const sr = h => { const m = String(h.google || '').match(/([\d.]+)\s*\/\s*([\d,]+)/); return [otaLine(h) || h.score || (m ? m[1] : ''), h.reviews || (m ? m[2] : '')]; };
   const tb = $('#dbhbody'); if (!tb) return;
   tb.innerHTML = shown.length ? shown.map((h, i) => {
-    const mine = acts.filter(a => a.hotelId === h.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')), last = mine[0], [sc] = sr(h), ours = ['pms', 'cm', 'be', 'pvo'].some(k => /maha/i.test(h[k] || ''));
+    const mine = acts.filter(a => a.hotelId === h.id).sort((a, b) => (b.date || '').localeCompare(a.date || '')), last = mine[0], [sc] = sr(h), ours = ['pms', 'cm', 'be', 'pvo'].some(k => /maha|^one ?hotel/i.test(h[k] || ''));
     return `<tr class="${ours ? 'dbours' : ''}"><td>${i + 1}</td><td class="l"><a href="#hotels" class="dbname" data-act="hotelInfo" data-id="${h.id}">${esc(h.name)}</a></td><td class="l">${esc(h.area || '')}</td><td class="ota">${esc(sc)}</td><td>${esc(h.be || '')}</td><td>${esc(h.cm || '')}</td><td>${esc(h.pms || '')}</td><td>${esc(h.rooms || '')}</td><td class="l">${contactsOf(h)}</td><td class="l adr">${esc(h.address || '')}</td><td class="nw">${esc((h.updated || '').slice(0, 10))}</td>
      <td class="nw">${mine.length ? `<a href="#hotels" class="fu-mg" data-act="fuRecord" data-hid="${h.id}">View(${mine.length})</a><br><span class="dblast">Last : ${esc(isoToDmy(last.date).replace(/\//g, '-'))}${last.contactName || last.owner ? ' (' + esc(last.contactName || last.owner) + ')' : ''}</span>` : `<a href="#hotels" class="fu-mg" data-act="fuRecord" data-hid="${h.id}">View(0)</a>`}</td></tr>`;
   }).join('') : '<tr><td colspan="12" class="empty">No hotels found.</td></tr>';
@@ -3404,7 +3422,8 @@ const impCity = c => { const s = impV(c); return s ? (IMP_CITY[norm(s)] || s) : 
 function impCanon(raw, names) {
   let s = impV(raw); if (!s) return '';
   s = s.replace(/\s*\((website platform|be platform)\)\s*$/i, '').trim();
-  if (/^(rev ?pilot|rev ?boost|onehotel|one hotel)$/i.test(s)) return 'Maha';
+  if (/^(rev ?pilot|rev ?boost)$/i.test(s)) return 'Maha';
+  if (/^one ?hotel(\.asia)?\b/i.test(s)) return OH_NAME;   /* OneHotel PMS, OneHotel Channel Manager, OneHotel.asia ... are one provider; the software is the column */
   const a = IMP_ALIAS[norm(s)]; if (a) return a;
   const k = impK(s), hit = names.find(n => impK(n) === k); return hit || s;
 }
@@ -3650,6 +3669,8 @@ function impPanelHTML() {
    System Providers (Pricing & Commercial): the companies that supply a hotel's software (a competitor, or Maha), with the software each one supplies. Only the provider adds names.
    A hotel's More details has one row for each software (PMS, CM, BE, Virtual Offline Payment, POS): the provider chosen from this list, and beside it the amount and the commercial term the hotel pays.
    Competitor Analysis: the hotel list filtered by provider. To add a software later, add one line to SYS_TYPES. */
+const OH_NAME = 'Onehotel.asia';
+const ohIs = s => /^\s*one ?hotel(\.asia)?\b/i.test(String(s || '')) && String(s).trim() !== OH_NAME;   /* a wrong name of our own provider */
 const SYS_TYPES = [['pms', 'PMS'], ['cm', 'CM'], ['be', 'BE'], ['pvo', 'Virtual Offline Payment'], ['pos', 'POS'], ['rms', 'Revenue Management']];
 const SYS_TERMS = ['per day', '% per booking', 'Monthly', '3 months', '6 months', 'Annually', '2 years', '3 years', '4 years', '5 years'];
 /* the providers to choose for one software: the ones added for it, Maha, and the value the hotel already has */
@@ -5104,7 +5125,7 @@ Object.assign(ACTIONS, {
   const inCloud = await Cloud.first();
   if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
   else if (byId('meta') && !inCloud) Cloud.uploadAll();
-  await migrateAgents(); await migrateStatus();
+  await migrateAgents(); await migrateStatus(); await migrateOneHotel();
   try { if (!sessionStorage.getItem('maha.crm.landed')) { sessionStorage.setItem('maha.crm.landed', '1'); history.replaceState(null, '', '#dashboard'); } } catch {}   /* every sign in lands on the Dashboard */
   applyTheme(); shellInit(); route(); Cloud.start();
   Profile.start();
