@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="641a134ee1">
+<meta name="maha-build" content="c9f7b38480">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9308,7 +9308,7 @@ function hxChartSvg(bd){const B=hxBuckets(bd),vals=B.map(b=>hxVal(HX.type,hxAgg(
 /* Hotel Status: the reservation in a small box (the person stays on the page) */
 let HSTAB='arr';
 /* the Reservation Detail screen as a pop-up page; the Hotel Status page is repainted when it closes (a check-in or check-out done inside shows at once) */
-function hsResDetail(b){const m=modal('Reservation Detail','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=()=>{try{if(['fo.status','fo.inhouse','rm.roomstatus','res.list','fo.grid','inq.guest','profile.guests','cd.close'].includes(VIEW))render()}catch(e){}};reservationScreen($('#rdB',m),resOf(b),b,{compact:false})}
+function hsResDetail(b){const m=modal('Reservation Detail','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=()=>{try{if(['fo.status','fo.inhouse','rm.roomstatus','res.list','fo.grid','inq.guest','profile.guests','cd.close','fo.arrivals','fo.departures'].includes(VIEW))render()}catch(e){}};reservationScreen($('#rdB',m),resOf(b),b,{compact:false})}
 function hsResPopup(b){
   const g=G(b.guestId),r=resOf(b),ch=chanOfBooking(b),n=stayNights(b).length;
   const kv=[['Guest',gName(g)],['Room',b.room||'—'],['Room type · rate',(b.type||'')+' · '+(b.rateCode||'')],['Stay',fd(b.arr)+' – '+fd(b.dep)+' ('+n+' night'+(n===1?'':'s')+')'],['Guests',pax(b)],['Channel',ch?ch.name:'Direct'],['Status',({inhouse:'In house',confirmed:'Reserved',tentative:'Tentative',out:'Checked out',cancelled:'Cancelled',noshow:'No show'}[b.status]||b.status)],['Balance',m2(bal(b))]];
@@ -9603,7 +9603,7 @@ VIEWS['fo.arrivals']=(el,arg)=>{
   $$('[data-open]',el).forEach(t=>t.oncontextmenu=e=>{e.preventDefault();assignArrival(t.dataset.open)});
   $$('[data-dnm]',el).forEach(x=>x.onclick=e=>{e.stopPropagation();const B=bookingById(x.dataset.dnm);if(B)dnmInfo(B,()=>render())});
   $$('[data-room]',el).forEach(b=>{b.onclick=e=>{e.stopPropagation();assignArrival(b.dataset.room)};b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();assignArrival(b.dataset.room)}}});
-  $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);go(B.arr<=H.set.bd&&['confirmed','tentative'].includes(B.status)?'fo.arrivals2':'res.open',B.id)});
+  $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);if(B)hsResDetail(B)});
 };
 let AS={by:'room',q:'',sel:null};
 VIEWS['fo.arrivals2']=(el,id)=>{
@@ -9629,7 +9629,7 @@ VIEWS['fo.departures']=(el,arg)=>{
   const pick=()=>{const spn=readPair(el,'dpF','dpT');if(!spn){toast('Enter From date and To date as dd/mm/yyyy.');return}go('fo.departures',spn)};
   $('#dpGo',el).onclick=pick;bindDatePick(el);
   bindSide(el,'',()=>render());
-  $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);go(B.status==='inhouse'&&B.dep<=H.set.bd?'fo.departures2':'res.open',B.id)});
+  $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);if(B)hsResDetail(B)});
 };
 let DS={by:'room',q:'',sel:null};
 /* Close Day pull-back: set when a Close Day fix button opened the Folio or Departure page, so a bar at the top can bring the person back */
