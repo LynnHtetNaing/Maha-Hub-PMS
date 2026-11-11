@@ -2933,9 +2933,10 @@ function vUpload() {
    <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.reset}Reset</button></div>${impPanelHTML()}`;
 }
 function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
+const UP_FILL = ['area', 'phone', 'rooms', 'website', 'address', 'otaName', 'otaScore', ...['pms', 'cm', 'be', 'pvo', 'pos', 'rms'].flatMap(k => [k, k + 'Amt', k + 'Term'])];
 function upRead(rows, country) {
   const map = upMap(rows[0].map(String)); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
-  const have = new Set(K('hotel').map(h => upKey(h, h.country || 'Thailand'))), seen = new Set(), list = [], provNames = new Map(K('sysprov').map(p => [impK(p.name), p.name])), unknown = new Set(); let skipped = 0, empty = 0, noCity = 0, badCountry = 0, badAmt = 0, badTerm = 0, badOta = 0;
+  const have = new Map(K('hotel').map(h => [upKey(h, h.country || 'Thailand'), h])), seen = new Set(), list = [], updates = [], provNames = new Map(K('sysprov').map(p => [impK(p.name), p.name])), unknown = new Set(); let skipped = 0, empty = 0, noCity = 0, badCountry = 0, badAmt = 0, badTerm = 0, badOta = 0;
   for (const r of rows.slice(1)) {
     const v = {}; map.forEach((k, i) => { const x = r[i] === undefined || r[i] === null ? '' : String(r[i]).trim(); if (k && x) v[k] = x; });
     if (!v.name) { empty++; continue; }
@@ -2948,15 +2949,24 @@ function upRead(rows, country) {
       if (v[k + 'Term']) { const tm = SYS_TERMS.find(x => norm(x) === norm(v[k + 'Term'])); if (tm) v[k + 'Term'] = tm; else { delete v[k + 'Term']; badTerm++; } }
     }
     if (v.otaName) { const o = OTA_LIST.find(x => norm(x[0]) === norm(v.otaName)); if (o) { v.otaName = o[0]; if (v.otaScore) { const n = parseFloat(String(v.otaScore).replace(/,/g, '')), mx = o[1] === '%' ? 100 : +o[1]; if (isNaN(n) || n < 0 || n > mx) { delete v.otaScore; badOta++; } else v.otaScore = String(n); } } else { delete v.otaName; delete v.otaScore; badOta++; } } else delete v.otaScore;
-    const key = upKey(v, v.country); if (have.has(key) || seen.has(key)) { skipped++; continue; } seen.add(key); list.push(v);
+    const key = upKey(v, v.country);
+    if (seen.has(key)) { skipped++; continue; }
+    seen.add(key);
+    if (have.has(key)) {   /* a hotel already in the database: only its EMPTY fields are filled (nothing is replaced) */
+      const h = have.get(key), patch = {};
+      for (const k of UP_FILL) if (v[k] && !String(h[k] ?? '').trim()) patch[k] = v[k];
+      if (Object.keys(patch).length) updates.push({h, patch}); else skipped++;
+      continue;
+    }
+    list.push(v);
   }
-  return {list, skipped, empty, noCity, badCountry, badAmt, badTerm, badOta, unknown: [...unknown], total: rows.length - 1};
+  return {list, updates, skipped, empty, noCity, badCountry, badAmt, badTerm, badOta, unknown: [...unknown], total: rows.length - 1};
 }
 function upInfoHTML() {
   const u = UI.up || {}; if (!u.res) return '';
   if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
   const r = u.res;
-  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, ${r.skipped} already in the database (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.badAmt || r.badTerm || r.badOta ? ', ' + [r.badAmt ? r.badAmt + ' amount(s) not a number' : '', r.badTerm ? r.badTerm + ' term(s) not in the list' : '', r.badOta ? r.badOta + ' OTA / score(s) not valid' : ''].filter(Boolean).join(', ') + ' (left empty)' : ''}${r.unknown && r.unknown.length ? ', <b>' + r.unknown.length + ' provider name(s) not in the competitor list (' + esc(r.unknown.slice(0, 6).join(', ')) + (r.unknown.length > 6 ? ', ...' : '') + '): they are saved as typed but Competitor Analysis counts only the listed names</b>' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}${r.badCountry ? ', <b>' + r.badCountry + ' with a Country that is not in the list (not added)</b>' : ''}.</div>
+  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, <b>${r.updates.length}</b> hotels already in the database get their empty fields filled (nothing is replaced), ${r.skipped} with nothing new (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.badAmt || r.badTerm || r.badOta ? ', ' + [r.badAmt ? r.badAmt + ' amount(s) not a number' : '', r.badTerm ? r.badTerm + ' term(s) not in the list' : '', r.badOta ? r.badOta + ' OTA / score(s) not valid' : ''].filter(Boolean).join(', ') + ' (left empty)' : ''}${r.unknown && r.unknown.length ? ', <b>' + r.unknown.length + ' provider name(s) not in the competitor list (' + esc(r.unknown.slice(0, 6).join(', ')) + (r.unknown.length > 6 ? ', ...' : '') + '): they are saved as typed but Competitor Analysis counts only the listed names</b>' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}${r.badCountry ? ', <b>' + r.badCountry + ' with a Country that is not in the list (not added)</b>' : ''}.</div>
    ${r.list.length ? `<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No. of room</th><th>Contact person</th></tr></thead><tbody>${r.list.slice(0, 8).map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.area || '')}</td><td>${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(h.contact || '')}</td></tr>`).join('')}</tbody></table></div>${r.list.length > 8 ? `<p class="muted small">…and ${r.list.length - 8} more.</p>` : ''}` : ''}`;
 }
 async function upParse() {
@@ -2981,14 +2991,15 @@ Object.assign(ACTIONS, {
   upSave: async () => {
     const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return; }
     if (!u.res || u.type !== $('#up_type').value || u.country !== $('#up_country').value) { if (!await upParse()) return; }
-    const list = u.res.list; if (!list.length) { toast('Nothing new to add'); return; }
+    const list = u.res.list, ups = (u.res.updates || []).map(x => ({...x.h, ...x.patch, updated: new Date().toISOString()})); if (!list.length && !ups.length) { toast('Nothing new to add or fill'); return; }
     const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: v.type || u.type, country: v.country || u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
-    toast(`Saving ${batch.length} hotels… please wait`);
+    toast(`Saving ${batch.length + ups.length} hotels… please wait`);
+    for (let i = 0; i < ups.length; i += 250) await saveMany(ups.slice(i, i + 250));
     for (let i = 0; i < batch.length; i += 250) { await saveMany(batch.slice(i, i + 250)); toast(`Saving… ${Math.min(i + 250, batch.length)} of ${batch.length}`); }
     const n = batch.length, byC = {}; batch.forEach(h => { byC[h.country] = (byC[h.country] || 0) + 1; }); const parts = Object.entries(byC).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} ${v.toLocaleString('en-GB')}`).join(' · ');
-    logUser('Uploaded ' + n.toLocaleString('en-GB') + ' hotels (Upload database)', {area: 'Upload'});   /* one line, not one per hotel */
-    UI.up = {}; vUpload(); toast(`Done: ${n.toLocaleString('en-GB')} hotels added`);
-    $('#upInfo').innerHTML = `<div class="up-done"><b>Upload complete.</b> ${n.toLocaleString('en-GB')} hotels were added (${parts}). Open <a href="#hotels">Database &gt; Hotel list</a> to see them.</div>`;
+    logUser('Uploaded ' + n.toLocaleString('en-GB') + ' hotels' + (ups.length ? ', ' + ups.length.toLocaleString('en-GB') + ' existing hotels filled' : '') + ' (Upload database)', {area: 'Upload'});   /* one line, not one per hotel */
+    UI.up = {}; vUpload(); toast(`Done: ${n.toLocaleString('en-GB')} hotels added` + (ups.length ? `, ${ups.length.toLocaleString('en-GB')} filled` : ''));
+    $('#upInfo').innerHTML = `<div class="up-done"><b>Upload complete.</b> ${n.toLocaleString('en-GB')} hotels were added (${parts})${ups.length ? ' and ' + ups.length.toLocaleString('en-GB') + ' hotels already in the database got their empty fields filled' : ''}. Open <a href="#hotels">Database &gt; Hotel list</a> to see them.</div>`;
   },
 });
 
