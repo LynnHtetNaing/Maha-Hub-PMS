@@ -2978,7 +2978,7 @@ Object.assign(ACTIONS, {
    A hotel that is already in the database (same name, city and country) is skipped, so nothing is overwritten or doubled. */
 const UP_TYPES = ['Hotel', 'Hostel', 'Resort', 'Serviced apartment', 'Boutique', 'Villa', 'Other'];
 const UP_COUNTRIES = COUNTRY_LIST;
-const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['PMS', 'pms'], ['PMS Amount', 'pmsAmt'], ['PMS Term', 'pmsTerm'], ['CM', 'cm'], ['CM Amount', 'cmAmt'], ['CM Term', 'cmTerm'], ['BE', 'be'], ['BE Amount', 'beAmt'], ['BE Term', 'beTerm'], ['Virtual Offline Payment', 'pvo'], ['Virtual Offline Payment Amount', 'pvoAmt'], ['Virtual Offline Payment Term', 'pvoTerm'], ['POS', 'pos'], ['POS Amount', 'posAmt'], ['POS Term', 'posTerm'], ['Revenue Management', 'rms'], ['Revenue Management Amount', 'rmsAmt'], ['Revenue Management Term', 'rmsTerm'], ['OTA', 'otaName'], ['OTA score', 'otaScore'], ['Remarks', 'notes'], ['Country', 'country'], ['Property type', 'type'], ['Lead source', 'source']];
+const UP_COLS = [['Hotel name', 'name'], ['Location', 'area'], ['City', 'city'], ['Phone', 'phone'], ['No. of room', 'rooms'], ['Website', 'website'], ['Address', 'address'], ['Contact person', 'contact'], ['Contact position', 'contactTitle'], ['Contact email', 'email'], ['Contact phone', 'contactPhone'], ['OTA', 'otaName'], ['OTA score', 'otaScore'], ['Remarks', 'notes'], ['Country', 'country'], ['Property type', 'type'], ['Lead source', 'source']];
 const UP_ALIAS = {name:['hotel name', 'name', 'property', 'property name', 'hotel'], area:['location', 'area', 'district'], city:['city', 'province', 'address city'], phone:['phone', 'tel', 'telephone', 'hotel phone'], rooms:['no of room', 'no. of room', 'no of rooms', 'rooms', 'room', 'number of rooms'], website:['website', 'web', 'url'], address:['address'], contact:['contact person', 'contact', 'contact name'], contactTitle:['contact position', 'position', 'title'], email:['contact email', 'email'], contactPhone:['contact phone', 'contact tel'], pms:['pms'], pmsAmt:['pms amount', 'pms price', 'pms fee'], pmsTerm:['pms term', 'pms commercial term'], cm:['cm', 'channel manager'], cmAmt:['cm amount', 'cm price', 'cm fee'], cmTerm:['cm term', 'cm commercial term'], be:['be', 'booking engine'], beAmt:['be amount', 'be price', 'be fee'], beTerm:['be term', 'be commercial term'], pvo:['virtual offline payment', 'pvo'], pvoAmt:['virtual offline payment amount', 'pvo amount', 'pvo price'], pvoTerm:['virtual offline payment term', 'pvo term'], pos:['pos'], posAmt:['pos amount', 'pos price', 'pos fee'], posTerm:['pos term', 'pos commercial term'], rms:['revenue management', 'rms', 'revenue management provider'], rmsAmt:['revenue management amount', 'rms amount', 'rms price'], rmsTerm:['revenue management term', 'rms term'], otaName:['ota', 'ota name', 'online travel agency'], otaScore:['ota score', 'review score', 'ota rating'], notes:['remarks', 'remark', 'notes', 'note'], country:['country'], type:['property type', 'type'], source:['lead source', 'source']};
 function upMap(headers) { return headers.map(h => { const n = norm(h); for (const [k, al] of Object.entries(UP_ALIAS)) if (al.map(norm).includes(n)) return k; return null; }); }
 Object.assign(ICON, {xls:'<svg viewBox="0 0 40 44" width="34" height="38"><rect x="8" y="4" width="26" height="34" rx="2" fill="#fff" stroke="#9aa0a6" stroke-width="1.6"/><path d="M14 14h14M14 20h14M14 26h14M14 32h14M20 10v26" stroke="#c5ccd3" stroke-width="1.4"/><rect x="2" y="16" width="16" height="16" rx="2" fill="#1f8a4c"/><path d="M6.5 20.5l7 7M13.5 20.5l-7 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>', save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg>'});
@@ -2994,9 +2994,10 @@ function vUpload() {
    <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="upSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="upReset">${ICON.reset}Reset</button></div>${impPanelHTML()}`;
 }
 function upKey(h, country) { return norm(h.name) + '|' + norm(h.city) + '|' + norm(country); }
-const UP_FILL = ['area', 'phone', 'rooms', 'website', 'address', 'otaName', 'otaScore', ...['pms', 'cm', 'be', 'pvo', 'pos', 'rms'].flatMap(k => [k, k + 'Amt', k + 'Term'])];
+const UP_FILL = ['area', 'phone', 'rooms', 'website', 'address', 'otaName', 'otaScore'];
+const UP_PROV = /^(pms|cm|be|pvo|pos|rms)(Amt|Term)?$/;   /* the provider columns: found, shown in the note, never saved by Upload database */
 function upRead(rows, country) {
-  const map = upMap(rows[0].map(String)); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
+  const map = upMap(rows[0].map(String)), provHdr = rows[0].map(String).filter((h, i) => map[i] && UP_PROV.test(map[i])); if (!map.includes('name')) return {error: 'No "Hotel name" column was found. Columns found: ' + rows[0].join(', ')};
   const have = new Map(K('hotel').map(h => [upKey(h, h.country || 'Thailand'), h])), seen = new Set(), list = [], updates = [], provNames = new Map(K('sysprov').map(p => [impK(p.name), p.name])), unknown = new Set(); let skipped = 0, empty = 0, noCity = 0, badCountry = 0, badAmt = 0, badTerm = 0, badOta = 0;
   for (const r of rows.slice(1)) {
     const v = {}; map.forEach((k, i) => { const x = r[i] === undefined || r[i] === null ? '' : String(r[i]).trim(); if (k && x) v[k] = x; });
@@ -3004,11 +3005,7 @@ function upRead(rows, country) {
     if (!v.city) { noCity++; continue; }   /* the City is required: the quotation and tax invoice follow the place of the hotel */
     if (v.country && !canonCountry(v.country)) { badCountry++; continue; }   /* a Country column must use a country of the list */
     v.country = canonCountry(v.country) || country;
-    for (const k of ['pms', 'cm', 'be', 'pvo', 'pos', 'rms']) {   /* the same name as in the competitor list, so Competitor Analysis counts the hotel */
-      if (v[k]) { const hit = provNames.get(impK(v[k])); if (hit) v[k] = hit; else unknown.add(v[k]); }
-      if (v[k + 'Amt']) { const n = parseFloat(String(v[k + 'Amt']).replace(/,/g, '')); if (isNaN(n) || n < 0) { delete v[k + 'Amt']; badAmt++; } else v[k + 'Amt'] = String(n); }
-      if (v[k + 'Term']) { const tm = SYS_TERMS.find(x => norm(x) === norm(v[k + 'Term'])); if (tm) v[k + 'Term'] = tm; else { delete v[k + 'Term']; badTerm++; } }
-    }
+    for (const k of Object.keys(v)) if (UP_PROV.test(k)) delete v[k];   /* the providers and what they charge are updated only by Company data upload */
     if (v.otaName) { const o = OTA_LIST.find(x => norm(x[0]) === norm(v.otaName)); if (o) { v.otaName = o[0]; if (v.otaScore) { const n = parseFloat(String(v.otaScore).replace(/,/g, '')), mx = o[1] === '%' ? 100 : +o[1]; if (isNaN(n) || n < 0 || n > mx) { delete v.otaScore; badOta++; } else v.otaScore = String(n); } } else { delete v.otaName; delete v.otaScore; badOta++; } } else delete v.otaScore;
     const key = upKey(v, v.country);
     if (seen.has(key)) { skipped++; continue; }
@@ -3021,13 +3018,13 @@ function upRead(rows, country) {
     }
     list.push(v);
   }
-  return {list, updates, skipped, empty, noCity, badCountry, badAmt, badTerm, badOta, unknown: [...unknown], total: rows.length - 1};
+  return {list, updates, skipped, empty, noCity, badCountry, badAmt, badTerm, badOta, provHdr, total: rows.length - 1};
 }
 function upInfoHTML() {
   const u = UI.up || {}; if (!u.res) return '';
   if (u.res.error) return `<p class="up-err">${esc(u.res.error)}</p>`;
   const r = u.res;
-  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, <b>${r.updates.length}</b> hotels already in the database get their empty fields filled (nothing is replaced), ${r.skipped} with nothing new (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.badAmt || r.badTerm || r.badOta ? ', ' + [r.badAmt ? r.badAmt + ' amount(s) not a number' : '', r.badTerm ? r.badTerm + ' term(s) not in the list' : '', r.badOta ? r.badOta + ' OTA / score(s) not valid' : ''].filter(Boolean).join(', ') + ' (left empty)' : ''}${r.unknown && r.unknown.length ? ', <b>' + r.unknown.length + ' provider name(s) not in the competitor list (' + esc(r.unknown.slice(0, 6).join(', ')) + (r.unknown.length > 6 ? ', ...' : '') + '): they are saved as typed but Competitor Analysis counts only the listed names</b>' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}${r.badCountry ? ', <b>' + r.badCountry + ' with a Country that is not in the list (not added)</b>' : ''}.</div>
+  return `<div class="up-sum"><b>${esc(u.name)}</b> — ${r.total} rows read: <b>${r.list.length}</b> new hotels, <b>${r.updates.length}</b> hotels already in the database get their empty fields filled (nothing is replaced), ${r.skipped} with nothing new (skipped)${r.empty ? ', ' + r.empty + ' without a hotel name' : ''}${r.badAmt || r.badTerm || r.badOta ? ', ' + [r.badAmt ? r.badAmt + ' amount(s) not a number' : '', r.badTerm ? r.badTerm + ' term(s) not in the list' : '', r.badOta ? r.badOta + ' OTA / score(s) not valid' : ''].filter(Boolean).join(', ') + ' (left empty)' : ''}${r.provHdr && r.provHdr.length ? ', <b>the columns ' + esc(r.provHdr.join(', ')) + ' are NOT imported here: the providers and what they charge are updated only by Company data upload below</b>' : ''}${r.noCity ? ', <b>' + r.noCity + ' without a City (not added: fill the City in the file and upload again)</b>' : ''}${r.badCountry ? ', <b>' + r.badCountry + ' with a Country that is not in the list (not added)</b>' : ''}.</div>
    ${r.list.length ? `<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>Location</th><th>City</th><th>No. of room</th><th>Contact person</th></tr></thead><tbody>${r.list.slice(0, 8).map((h, i) => `<tr><td>${i + 1}</td><td class="l">${esc(h.name)}</td><td>${esc(h.area || '')}</td><td>${esc(h.city || '')}</td><td>${esc(h.rooms || '')}</td><td>${esc(h.contact || '')}</td></tr>`).join('')}</tbody></table></div>${r.list.length > 8 ? `<p class="muted small">…and ${r.list.length - 8} more.</p>` : ''}` : ''}`;
 }
 async function upParse() {
@@ -3053,6 +3050,7 @@ Object.assign(ACTIONS, {
     const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return; }
     if (!u.res || u.type !== $('#up_type').value || u.country !== $('#up_country').value) { if (!await upParse()) return; }
     const list = u.res.list, ups = (u.res.updates || []).map(x => ({...x.h, ...x.patch, updated: new Date().toISOString()})); if (!list.length && !ups.length) { toast('Nothing new to add or fill'); return; }
+    if ((u.res.provHdr || []).length && !confirm('Note: this file has provider columns (' + u.res.provHdr.join(', ') + ').\n\nUpload database saves the hotel data only. The providers and what they charge are NOT updated here and these columns are ignored. To update them, use Company data upload below.\n\nUpload the hotel data now?')) return;
     const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: v.type || u.type, country: v.country || u.country, contacts: c, status: '', managed: 'No', owner: who}; });
     toast(`Saving ${batch.length + ups.length} hotels… please wait`);
     for (let i = 0; i < ups.length; i += 250) await saveMany(ups.slice(i, i + 250));
@@ -3291,7 +3289,7 @@ const RP = {
         tables: [{name: 'Status by Month', head: ['Status', ...KPI_MON, 'Total'], al: 'l' + 'c'.repeat(13), rows, cell: (row, i, v) => i > 0 && i < 13 && v > 0 ? `<a href="#report/statusmonth" class="kp-n" data-act="smDrill" data-s="${esc(row[0])}" data-m="${i - 1}">${v}</a>` : ''}]};
     }},
   hotels: {title: 'Hotel Report', info: 'Hotel', def: () => ({country: '', comp: '', size: '', rate: ''}),
-    filters: () => [['country', 'Country', [['', 'All'], ...[...new Set(K('hotel').map(hCountry))].sort().map(c => [c, c])]], ['comp', 'Competitor', [['', 'All'], ...[...new Set(K('hotel').flatMap(h => SYS_TYPES.map(([k]) => String(h[k] || '').trim())).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(c => [c, c])]], ['size', 'Hotel size', HR_SIZES], ['rate', 'OTA rating', HR_RATES]],
+    filters: () => [['country', 'Country', [['', 'All'], ...[...new Set(K('hotel').map(hCountry))].sort().map(c => [c, c])]], ['comp', 'Competitor', [['', 'All'], ...[...new Set(K('hotel').flatMap(h => SYS_TYPES.map(([k]) => String(h[k] || '').trim())).filter(c => c && !isBankKeyIn(c)))].sort((a, b) => a.localeCompare(b)).map(c => [c, c])]], ['size', 'Hotel size', HR_SIZES], ['rate', 'OTA rating', HR_RATES]],
     build(f, full) {
       const [lo, hi] = (f.size || '').split('-').map(Number), min = parseFloat(f.rate);
       const list = K('hotel').filter(h => (!f.country || hCountry(h) === f.country) && (!f.comp || SYS_TYPES.some(([k]) => norm(h[k]) === norm(f.comp))) && (!f.size || ((parseInt(h.rooms) || 0) >= lo && (parseInt(h.rooms) || 0) <= hi)) && (!f.rate || (ota10(h) !== null && ota10(h) >= min))).sort((a, b) => a.name.localeCompare(b.name));
@@ -3422,6 +3420,7 @@ const impCity = c => { const s = impV(c); return s ? (IMP_CITY[norm(s)] || s) : 
 function impCanon(raw, names) {
   let s = impV(raw); if (!s) return '';
   s = s.replace(/\s*\((website platform|be platform)\)\s*$/i, '').trim();
+  if (isBankKeyIn(s)) return BANK_KEYIN.find(b => isBankKeyIn(b) && b.toLowerCase().replace(/[^a-z0-9]/g, '') === s.toLowerCase().replace(/[^a-z0-9]/g, '')) || s;
   if (/^(rev ?pilot|rev ?boost)$/i.test(s)) return 'Maha';
   if (/^one ?hotel(\.asia)?\b/i.test(s)) return OH_NAME;   /* OneHotel PMS, OneHotel Channel Manager, OneHotel.asia ... are one provider; the software is the column */
   const a = IMP_ALIAS[norm(s)]; if (a) return a;
@@ -3522,7 +3521,9 @@ function impMerge(recs) {
     const h = {name: g.name, city: g.city, country: g.country};
     h.address = pick(g, 'address', ['D', 'A']); h.phone = pick(g, 'phone', ['A', 'D', 'B']); h.email = pick(g, 'email', ['A', 'D', 'B']); h.website = pick(g, 'website', ['A', 'B']);
     h.rooms = pick(g, 'rooms', ['A', 'D', 'B']); h.stars = pick(g, 'stars', ['B']); h.gha = pick(g, 'gha', ['B']);
-    h.pms = pick(g, 'pms', ['A', 'B']); h.cm = pick(g, 'cm', ['A', 'B']); h.be = pick(g, 'be', ['A', 'B']); h.webplat = pick(g, 'webplat', ['A']);
+    h.pms = pick(g, 'pms', ['E', 'A', 'B']); h.cm = pick(g, 'cm', ['E', 'A', 'B']); h.be = pick(g, 'be', ['E', 'A', 'B']);
+    for (const k of ['pvo', 'pos', 'rms']) h[k] = pick(g, k, ['E']);
+    for (const k of ['pms', 'cm', 'be', 'pvo', 'pos', 'rms']) { h[k + 'Amt'] = pick(g, k + 'Amt', ['E']); h[k + 'Term'] = pick(g, k + 'Term', ['E']); } h.webplat = pick(g, 'webplat', ['A']);
     const d = g.parts.find(p => p.src === 'D' && (p.contact || p.contactTitle)), b = g.parts.find(p => p.src === 'B' && (p.contact || p.contactTitle));
     const cp = d || b; h.contact = cp ? cp.contact : ''; h.contactTitle = cp ? cp.contactTitle : '';
     const notes = [];
@@ -3539,7 +3540,7 @@ function impMerge(recs) {
   });
   return {hotels, merged};
 }
-const IMP_FILL = ['address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'city', 'country', 'pms', 'cm', 'be'];
+const IMP_FILL = ['address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'city', 'country', 'pms', 'cm', 'be', 'pvo', 'pos', 'rms', 'pmsAmt', 'pmsTerm', 'cmAmt', 'cmTerm', 'beAmt', 'beTerm', 'pvoAmt', 'pvoTerm', 'posAmt', 'posTerm', 'rmsAmt', 'rmsTerm'];
 /* compare the list with the hotels already in the database: new hotels are added, an existing hotel only gets its empty fields filled */
 function impPlan(hotels, existing, uidf, canon) {
   canon = canon || (x => x);
@@ -3560,23 +3561,39 @@ function impPlan(hotels, existing, uidf, canon) {
     if (!g.city || !canon(g.country)) { noPlace.push(g); continue; }   /* a new hotel needs its City and Country */
     const c0 = g.contact || g.contactTitle || g.email || g.phone ? [{name: g.contact, position: g.contactTitle, email: g.email, phone: g.phone}] : [];
     const rec = {id: uidf(), kind: 'hotel', name: g.name, status: '', managed: 'No', source: g.leadSource, type: impType(g.name, g.ctype), country: canon(g.country), contacts: c0};
-    for (const f of ['city', 'address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'pms', 'cm', 'be', 'notes', 'contact', 'contactTitle']) if (g[f]) rec[f] = g[f];
+    for (const f of ['city', 'address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'pms', 'cm', 'be', 'pvo', 'pos', 'rms', 'pmsAmt', 'pmsTerm', 'cmAmt', 'cmTerm', 'beAmt', 'beTerm', 'pvoAmt', 'pvoTerm', 'posAmt', 'posTerm', 'rmsAmt', 'rmsTerm', 'notes', 'contact', 'contactTitle']) if (g[f]) rec[f] = g[f];
     adds.push(rec);
   }
   return {adds, updates, same, filled, noPlace};
 }
 /* imp:end */
+/* a sheet of hotels with their providers and what they pay: Hotel name, City, Country, then for PMS, CM, BE, Virtual Offline Payment, POS, Revenue Management: the provider, "... Amount" and "... Term" */
+const IMP_SYS_LABEL = {pms: 'PMS', cm: 'CM', be: 'BE', pvo: 'Virtual Offline Payment', pos: 'POS', rms: 'Revenue Management'};
+function impReadE(rows, names) {
+  const i = rows.findIndex(r => r.some(c => norm(c) === 'hotel name') && r.some(c => /^(pms|cm|be|virtual offline payment|pos|revenue management) (amount|term)$/.test(norm(c)))); if (i < 0) return null;
+  const hdr = rows[i].map(impS), c = n => impCol(hdr, n), out = [], iN = c('Hotel name'), iCity = c('City'), iCo = c('Country');
+  for (const r of rows.slice(i + 1)) {
+    const name = impS(r[iN]); if (!name) continue; const city = impCity(r[iCity]), o = {src: 'E', name, city, country: impV(r[iCo]) || IMP_CC[city] || ''};
+    for (const [k, label] of Object.entries(IMP_SYS_LABEL)) {
+      const prov = impCanon(r[c(label)], names), am = parseFloat(String(r[c(label + ' Amount')] ?? '').replace(/,/g, '')), tm = SYS_TERMS.find(x => norm(x) === norm(r[c(label + ' Term')]));
+      if (prov) o[k] = prov; if (!isNaN(am) && am >= 0) o[k + 'Amt'] = String(am); if (tm) o[k + 'Term'] = tm;
+    }
+    out.push(o);
+  }
+  return {rows: out};
+}
 const impSlug = s => norm(s).replace(/ /g, '-').slice(0, 40);
 async function impCheck() {
   const u = UI.imp = UI.imp || {}; if (!(u.files || []).length) { toast('Choose the Excel files first (Browse)'); return; }
   const box = $('#impInfo'); box.innerHTML = '<p class="muted">Reading the files…</p>';
   try {
     const sp = K('sysprov'), names = [...new Set(sp.map(p => p.name).concat(SYSPROV_SEED.map(s => s[0])))];
-    const read = {A: [], B: [], D: [], C: [], C1: [], flagged: 0, files: []};
+    const read = {A: [], B: [], D: [], C: [], C1: [], E: [], flagged: 0, files: []};
     for (const f of u.files) {
       const wb = XLSX.read(await f.arrayBuffer(), {type: 'array'}); const found = [];
       for (const n of wb.SheetNames) {
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, defval: ''}); if (!rows.length) continue;
+        const e = impReadE(rows, names); if (e) { read.E = read.E.concat(e.rows); found.push('hotel providers and prices'); continue; }
         const a = impReadA(rows, names); if (a) { read.A = read.A.concat(a.rows); read.flagged += a.flagged; found.push('competitor hotels'); continue; }
         const b = impReadB(rows, names); if (b) { read.B = read.B.concat(b.rows); found.push('new hotel list'); continue; }
         const d = impReadD(rows, n, names); if (d) { read.D = read.D.concat(d.rows); if (!found.includes('contact list')) found.push('contact list'); continue; }
@@ -3585,12 +3602,12 @@ async function impCheck() {
       }
       read.files.push({name: f.name, found});
     }
-    const all = [...read.A, ...read.D, ...read.B], m = impMerge(all);
+    const all = [...read.A, ...read.D, ...read.B, ...read.E], m = impMerge(all);
     const plan = impPlan(m.hotels, K('hotel'), uid, canonCountry);
     const have = new Set(sp.map(p => impK(p.name))), newProv = new Map();
-    const want = (name, kinds) => { if (!name || name === 'Maha' || have.has(impK(name))) return; const o = newProv.get(impK(name)) || {name, types: []}; kinds.forEach(k => { if (!o.types.includes(k)) o.types.push(k); }); newProv.set(impK(name), o); };
+    const want = (name, kinds) => { if (!name || name === 'Maha' || isBankKeyIn(name) || have.has(impK(name))) return; const o = newProv.get(impK(name)) || {name, types: []}; kinds.forEach(k => { if (!o.types.includes(k)) o.types.push(k); }); newProv.set(impK(name), o); };
     read.C.forEach(r => want(r.name, impKinds(r.product)));
-    m.hotels.forEach(h => { ['pms', 'cm', 'be'].forEach(k => want(h[k], [k])); });
+    m.hotels.forEach(h => { ['pms', 'cm', 'be', 'pvo', 'pos', 'rms'].forEach(k => want(h[k], [k])); });
     const c1 = new Map(read.C1.map(r => [impK(r.name), r])), spId = n => 'sp_' + n.toLowerCase().replace(/[^a-z0-9]+/g, '-'), profs = [], adds = new Map([...newProv.values()].map(o => [impK(o.name), {id: spId(o.name), kind: 'sysprov', name: o.name, types: o.types}]));
     for (const r of read.C) {
       const x = c1.get(impK(r.name)) || {}, info = {product: r.product, footprint: r.footprint, site: r.site, customer: r.customer, th: r.th, vn: r.vn, threat: r.threat, strengths: r.strengths, weaknesses: r.weaknesses, counter: r.counter, difficulty: r.difficulty, action: r.action, source: r.source, link: x.link || '', sample: x.sample || '', sampleSite: x.sampleSite || '', notes: x.notes || ''};
@@ -3646,6 +3663,8 @@ Object.assign(ACTIONS, {
         ['Second Example Resort', 'Phuket', 4, 60, 'Cloudbeds', 'Cloudbeds', 'D-EDGE', 'No', 'www.example-resort.com', 'K. Mai', 'Owner', 'mai@example.com', 'Prospect list', '2026-11-01']],
       ['Contact list', ['Property Name', 'Rooms', 'Address', 'Name (Position)', 'Phone Number', 'Email', 'Caller', 'Conversation'],
         ['Third Example Inn', 18, '5 Example Lane, Hua Hin, Prachuap Khiri Khan 77110, Thailand', 'K. May (FOM)', '+66-81-000-0000', 'may@example.com', 'Pim', 'Asked us to call back']],
+      ['Hotel providers and prices', ['Hotel name', 'City', 'Country', 'PMS', 'PMS Amount', 'PMS Term', 'CM', 'CM Amount', 'CM Term', 'BE', 'BE Amount', 'BE Term', 'Virtual Offline Payment', 'Virtual Offline Payment Amount', 'Virtual Offline Payment Term', 'POS', 'POS Amount', 'POS Term', 'Revenue Management', 'Revenue Management Amount', 'Revenue Management Term'],
+        ['Example Hotel Bangkok', 'Bangkok', 'Thailand', 'eZee (Yanolja Cloud)', 1500, 'Monthly', 'SiteMinder', 2, '% per booking', '', '', '', 'Kasikorn Bank (KeyIn)', '', '', '', '', '', '', '', '']],
       ['Competitor profiles', ['Competitor', 'Product Type', 'Main Footprint / Fingerprint', 'Official Website', 'Typical Customer', 'Thailand Priority', 'Vietnam Priority', 'Threat Level', 'Strengths', 'Weaknesses', 'OneHotel Counter-Position', 'Migration Difficulty', 'Sales Action', 'Source URL'],
         ['eZee (Yanolja Cloud)', 'PMS + Channel Manager + Booking Engine', 'ipms247.com booking link', 'www.yanolja.cloud', 'Small and mid-size hotels', 'High', 'Medium', 'High', 'Low price, many integrations', 'Support response time', 'Local support and one team', 'Medium', 'Offer a free migration', 'www.example.com/source']]];
     const wb = XLSX.utils.book_new(); sheets.forEach(([n, head, row]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, row]), n));
@@ -3669,6 +3688,10 @@ function impPanelHTML() {
    System Providers (Pricing & Commercial): the companies that supply a hotel's software (a competitor, or Maha), with the software each one supplies. Only the provider adds names.
    A hotel's More details has one row for each software (PMS, CM, BE, Virtual Offline Payment, POS): the provider chosen from this list, and beside it the amount and the commercial term the hotel pays.
    Competitor Analysis: the hotel list filtered by provider. To add a software later, add one line to SYS_TYPES. */
+/* Thai banks for Virtual Offline Payment (the hotel keys the card in at the bank): a choice in the drop-down, never a provider and never counted as a competitor */
+const THAI_BANKS = ['Bangkok Bank', 'Kasikorn Bank', 'Krungthai Bank', 'Siam Commercial Bank (SCB)', 'Bank of Ayudhya (Krungsri)', 'TMBThanachart Bank (ttb)', 'CIMB Thai Bank', 'United Overseas Bank (UOB) Thailand', 'Kiatnakin Phatra Bank (KKP)', 'TISCO Bank', 'Land and Houses Bank', 'Government Savings Bank (GSB)', 'Government Housing Bank (GHB)', 'Bank for Agriculture and Agricultural Cooperatives (BAAC)', 'ICBC (Thai)', 'Standard Chartered Bank (Thai)', 'Islamic Bank of Thailand'];
+const BANK_KEYIN = THAI_BANKS.map(b => b + ' (KeyIn)');
+const isBankKeyIn = s => { const k = String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); return !!k && BANK_KEYIN.some(b => b.toLowerCase().replace(/[^a-z0-9]/g, '') === k); };
 const OH_NAME = 'Onehotel.asia';
 const ohIs = s => /^\s*one ?hotel(\.asia)?\b/i.test(String(s || '')) && String(s).trim() !== OH_NAME;   /* a wrong name of our own provider */
 const SYS_TYPES = [['pms', 'PMS'], ['cm', 'CM'], ['be', 'BE'], ['pvo', 'Virtual Offline Payment'], ['pos', 'POS'], ['rms', 'Revenue Management']];
@@ -3677,7 +3700,7 @@ const SYS_TERMS = ['per day', '% per booking', 'Monthly', '3 months', '6 months'
 const provOptions = (k, current) => [...new Set(K('sysprov').filter(p => (p.types || []).includes(k)).map(p => p.name).concat(['Maha'], current ? [current] : []))].sort((a, b) => a.localeCompare(b));
 const provCell = (h, k) => { const t = [h[k + 'Amt'], h[k + 'Term']].filter(Boolean).join(' '); return h[k] ? h[k] + (t ? ' · ' + t : '') : ''; };
 function sysRows(h) {
-  return SYS_TYPES.map(([k, label]) => `<div class="hi-sys"><label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${provOptions(k, h[k]).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+  return SYS_TYPES.map(([k, label]) => `<div class="hi-sys"><label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${provOptions(k, h[k]).filter(v => !isBankKeyIn(v)).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}${k === 'pvo' ? `<optgroup label="Thai banks (Key In)">${BANK_KEYIN.map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</optgroup>` : ''}</select></label>
     <div class="f"><span>Amount · Commercial term</span><div class="hi-ct"><input data-hf="${k}Amt" value="${esc(h[k + 'Amt'] ?? '')}" placeholder="Amount" inputmode="decimal" autocomplete="off"><select data-hf="${k}Term"><option value="">Term</option>${SYS_TERMS.map(v => `<option ${h[k + 'Term'] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div></div></div>`).join('');
 }
 /* the providers the CEO listed from the old drop-down (kinds ticked where they are known; empty = to be checked). They are added once, the first time the CEO opens System Providers; the CEO can edit or delete each one. */
