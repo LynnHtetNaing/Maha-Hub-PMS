@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="41d75fa2c6">
+<meta name="maha-build" content="641a134ee1">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9308,7 +9308,7 @@ function hxChartSvg(bd){const B=hxBuckets(bd),vals=B.map(b=>hxVal(HX.type,hxAgg(
 /* Hotel Status: the reservation in a small box (the person stays on the page) */
 let HSTAB='arr';
 /* the Reservation Detail screen as a pop-up page; the Hotel Status page is repainted when it closes (a check-in or check-out done inside shows at once) */
-function hsResDetail(b){const m=modal('Reservation Detail','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=()=>{try{if(['fo.status','fo.inhouse','rm.roomstatus','res.list'].includes(VIEW))render()}catch(e){}};reservationScreen($('#rdB',m),resOf(b),b,{compact:false})}
+function hsResDetail(b){const m=modal('Reservation Detail','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=()=>{try{if(['fo.status','fo.inhouse','rm.roomstatus','res.list','fo.grid','inq.guest','profile.guests','cd.close'].includes(VIEW))render()}catch(e){}};reservationScreen($('#rdB',m),resOf(b),b,{compact:false})}
 function hsResPopup(b){
   const g=G(b.guestId),r=resOf(b),ch=chanOfBooking(b),n=stayNights(b).length;
   const kv=[['Guest',gName(g)],['Room',b.room||'—'],['Room type · rate',(b.type||'')+' · '+(b.rateCode||'')],['Stay',fd(b.arr)+' – '+fd(b.dep)+' ('+n+' night'+(n===1?'':'s')+')'],['Guests',pax(b)],['Channel',ch?ch.name:'Direct'],['Status',({inhouse:'In house',confirmed:'Reserved',tentative:'Tentative',out:'Checked out',cancelled:'Cancelled',noshow:'No show'}[b.status]||b.status)],['Balance',m2(bal(b))]];
@@ -9815,7 +9815,7 @@ VIEWS['fo.grid']=el=>{
     const de=document.documentElement,tall=()=>Math.max(de.scrollHeight,document.body.scrollHeight),over=tall()-innerHeight;if(over>0){const h0=gs.getBoundingClientRect().height,before=tall();gs.style.maxHeight=gs.style.height=Math.max(200,h0-over)+'px';if(tall()>=before)gs.style.maxHeight=gs.style.height=h0+'px'}};   /* shrink only when it really removes the page scroll */   /* whatever is still under the table (page padding) is taken off too, so the page itself has nothing to scroll */
    if(window._rgFit)window.removeEventListener('resize',window._rgFit);window._rgFit=fit;window.addEventListener('resize',fit);fit();requestAnimationFrame(fit)}
   let dragged=false;
-  $$('[data-bk]',el).forEach(b=>b.onclick=()=>{if(dragged){dragged=false;return}go.keepBack=true;resBack='fo.grid';go('res.open',b.dataset.bk)});
+  $$('[data-bk]',el).forEach(b=>b.onclick=()=>{if(dragged){dragged=false;return}const B=bookingById(b.dataset.bk);if(B)hsResDetail(B)});
   $$('[data-cell]',el).forEach(c=>c.onclick=()=>{if(dragged)return;const[no,d]=c.dataset.cell.split('|');rgCellMenu(no,d,d)});
   /* press an empty day and drag sideways along the same room to choose several nights; letting go opens New Reservation with the arrival, the departure (last day + 1) and the room (one click on one day still means one night) */
   {let sel=null;const hi=(no,a,b)=>{$$('.gc.rgsel',el).forEach(x=>x.classList.remove('rgsel'));if(!no)return;const lo=a<b?a:b,up=a<b?b:a;$$('[data-cell]',el).forEach(x=>{const p=x.dataset.cell.split('|');if(p[0]===no&&p[1]>=lo&&p[1]<=up)x.classList.add('rgsel')})};
@@ -9920,7 +9920,7 @@ VIEWS['inq.guest']=el=>{
   el.innerHTML=pageHead('Guest Inquiry',`<label class="ufl">Search by <select id="giBy">${[['name','Name'],['profile','Profile ID'],['nat','Nationality'],['phone','Phone'],['email','Email']].map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label><label class="ufl">Find <input id="giq" class="ufq" placeholder="Guest name"></label><button class="btn gold" id="giGo">${ic('search',16)} Search</button>`,'under')+`<div class="panel scroll" id="gir"></div>`;
   const run=()=>{const by=$('#giBy',el).value,q=$('#giq',el).value.trim().toLowerCase();const field=g=>by==='profile'?(g.profileId||''):by==='nat'?(g.nationality||''):by==='phone'?(g.phone||''):by==='email'?(g.email||''):gName(g);const rows=H.guests.filter(g=>!q||String(field(g)).toLowerCase().includes(q)).map(g=>{const st=allBookings().filter(b=>b.guestId===g.id);const cur=st.find(b=>b.status==='inhouse')||st.find(b=>['confirmed','tentative'].includes(b.status))||st[st.length-1];return {g,st,cur}});
     $('#gir',el).innerHTML=`<table class="grid"><tr><th>Profile ID</th><th>Guest</th><th>Nationality</th><th>VIP</th><th class="n">Visits</th><th>Current / latest</th><th></th></tr>${rows.map(x=>`<tr><td>${x.g.profileId}</td><td>${esc(gName(x.g))}</td><td>${esc(x.g.nationality)}</td><td>${esc(x.g.vip)}</td><td class="n">${visits(x.g.id)}</td><td>${x.cur?`${stBadge(x.cur)} <span class="nwr">${fd(x.cur.arr)}–${fd(x.cur.dep)}</span> ${x.cur.room?'<span class="nwr">RM '+esc(x.cur.room)+'</span>':''}`:''}</td><td class="nowrap"><button class="btn sm ghost" data-gp="${x.g.id}">Profile</button>${x.cur?` <button class="btn sm ghost" data-ores="${x.cur.id}">Reservation</button>`:''}</td></tr>`).join('')}</table>`;
-    $$('[data-gp]',el).forEach(b=>b.onclick=()=>guestProfile(b.dataset.gp,refresh));$$('[data-ores]',el).forEach(b=>b.onclick=()=>go('res.open',b.dataset.ores))};
+    $$('[data-gp]',el).forEach(b=>b.onclick=()=>guestProfile(b.dataset.gp,refresh));$$('[data-ores]',el).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.ores);if(B)hsResDetail(B)})};
   $('#giBy',el).onchange=()=>{$('#giq',el).placeholder=hints[$('#giBy',el).value]||''};
   $('#giGo',el).onclick=run;$('#giq',el).addEventListener('keydown',e=>{if(e.key==='Enter')run()});run();
 };
@@ -11700,11 +11700,11 @@ VIEWS['cd.close']=el=>{
    <div class="panel scroll cdtab">${tabs[cdTab]}</div>
    <div class="cdnote"><div>If there is a Data conflict, fix it first.</div><div>If there is a Room discrepancy, check with housekeeping, then close it (reopen if needed).</div><div>Post room adds tonight's room charge (code 100) to Folio 1. On an RB rate, adult breakfast is deducted from that room charge, shown on Folio 2, and posted once as F&amp;B revenue on dummy room D999.</div><div>When every check is done, Close Day locks ${fd(bd)}, moves the hotel to ${fd(addD(bd,1))} and signs you out. Sign in again with the new shift and run the reports.</div></div>`;
   saveDB();
-  $$('[data-ct]',el).forEach(b=>b.onclick=()=>{cdTab=b.dataset.ct;render()});$$('[data-ores]',el).forEach(b=>b.onclick=()=>go('res.open',b.dataset.ores));
+  $$('[data-ct]',el).forEach(b=>b.onclick=()=>{cdTab=b.dataset.ct;render()});$$('[data-ores]',el).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.ores);if(B)hsResDetail(B)});
   $$('[data-cdci]',el).forEach(b=>b.onclick=async()=>{if(await checkInUI(bookingById(b.dataset.cdci)))render()});
   $$('[data-cdns]',el).forEach(b=>b.onclick=async()=>{if(await markNoShow(bookingById(b.dataset.cdns)))refresh()});
   $$('[data-cdfo]',el).forEach(b=>b.onclick=()=>{CDBACK={id:b.dataset.cdfo};go('bill.open',b.dataset.cdfo)});
-  $$('[data-cdext]',el).forEach(b=>b.onclick=()=>{DS.sel=b.dataset.cdext;CDBACK={id:b.dataset.cdext};go('fo.departures2',b.dataset.cdext)});
+  $$('[data-cdext]',el).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.cdext);if(B)hsResDetail(B)});
   $$('[data-cdrate]',el).forEach(b=>b.onclick=()=>advanceRate(bookingById(b.dataset.cdrate),render));
   $$('[data-cdpost]',el).forEach(b=>b.onclick=()=>$('#cdP',el).click());
   $$('[data-cdsh]',el).forEach(b=>b.onclick=async ()=>{if(!need('closeothers'))return;const o=H.shifts.find(x=>x.id===b.dataset.cdsh),tt=shiftTotals(o);const c=await dlgAsk(`Counted cash for ${o.userName} (expected ${m2(tt.expected)}):`,tt.expected);if(c===null)return;const xc=await curCountOthers(tt,o);if(xc===null)return;
