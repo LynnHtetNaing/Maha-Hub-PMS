@@ -2900,7 +2900,7 @@ function bindOta(root) {
 const hotelDefaults = pre => Object.assign({status: '', managed: 'No', country: 'Thailand'}, pre || {});   /* no status chosen = New Database */
 /* the Property information form: the same boxes in the pop-up (an existing hotel) and on the Add new Hotel page */
 function hotelForm(h, isNew) {
-  const contacts = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact || '', position: h.contactTitle || '', email: h.email || '', phone: ''}]).slice(); while (contacts.length < 2) contacts.push({});
+  const contacts = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact || '', position: h.contactTitle || '', email: h.email || '', phone: ''}]).slice(); while (contacts.length < 1) contacts.push({});
   const known = k => [...new Set(K('hotel').map(x => x[k]).filter(Boolean).concat(['Maha'], h[k] ? [h[k]] : []))].sort();
   const inp = (k, label, req, cls) => `<label class="f ${cls || ''}"><span>${label}${req ? ' <i class="req">*</i>' : ''}</span><input data-hf="${k}" value="${esc(h[k] ?? '')}"></label>`;
   const sel = (k, label) => `<label class="f"><span>${label}</span><select data-hf="${k}"><option value="">Choose one</option>${known(k).map(v => `<option ${h[k] === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
@@ -2914,14 +2914,14 @@ function hotelForm(h, isNew) {
     <div class="hi-r2">${inp('phone', 'Phone')}${inp('rooms', 'No. Of Room')}</div><div class="hi-r2">${inp('website', 'Website')}<label class="f"><span>Property type</span><select data-hf="type"><option value="">Choose one</option>${UP_TYPES.map(o => `<option ${h.type === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label></div>
     <label class="f wide"><span>Address</span><textarea data-hf="address" rows="4">${esc(h.address || '')}</textarea></label>
     <div class="hi-r2">${inp('city', 'Address City', 1)}<label class="f"><span>Country <i class="req">*</i></span><select data-hf="country"><option value="">Choose one</option>${COUNTRY_LIST.map(c => `<option value="${esc(c)}" ${canonCountry(h.country) === c ? 'selected' : ''}>${esc(c)} (${COUNTRY_CODE[c.toLowerCase()]})</option>`).join('')}</select></label></div>
+    <div class="hi-r2"><label class="f"><span>Online Travel Agency(OTA)</span><div class="cb"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
+      <label class="f"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}"></select></label></div>
     ${sysRows(h)}
     <div id="hiContacts">${contacts.map(cg).join('')}</div><div class="hi-add"><button type="button" class="btn info sm" data-act="hiAddContact">Add more contact</button></div>
+    <div class="hi-r2"><label class="f"><span>Status</span><select data-hf="status"><option value="">New Database</option>${STAGES.slice(1).map(s => `<option ${hSt(h) === s[0] ? 'selected' : ''}>${esc(s[0])}</option>`).join('')}</select></label></div>
     <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(h.notes || '')}</textarea></label>
-    <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
+    <div class="f wide"><span>Open / Close</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
     <details class="hi-more"><summary>More details</summary>
-     <div class="hi-row">${dd('status', 'Status', STAGES.slice(1).map(s => s[0]), '9.5em', 'New Database')}</div>
-     <div class="hi-row"><label class="f hi-c"><span>Online Travel Agency(OTA)</span><div class="cb" style="width:15em"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
-      <label class="f hi-c"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}" style="width:7.5em"></select></label></div>
      <div class="hi-row">${tx('line', 'LINE ID', '13em')}${dd('managed', 'Managed by Maha Hub', ['No', 'Yes'], '7em')}</div>
      <div class="hi-row c3">${fz('Commercial model', h.dealModel, '15.5em')}${fz('Pricing', h.dealPrice, '10em')}${fz('Term', h.dealTerm, '7.5em')}</div>
      <div class="hi-row">${fz('Lead source', h.source, '12.5em')}${partnerSelect}</div>
