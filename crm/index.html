@@ -645,6 +645,25 @@ input,select,textarea{box-sizing:border-box}
 /* free and clean look: the title sits lower from the top of the browser and there is more air between the title and its box (every page); the inside of the box is not changed */
 main{padding-top:44px}
 .top{margin-bottom:28px}
+/* the landing screen (not a menu title): a live bar chart of this month by person, then today's follow ups and meetings */
+.db-hello{margin-bottom:26px}.db-hello h2{margin:0;font:600 24px/1.2 var(--font)!important;text-transform:none!important;letter-spacing:0!important;color:var(--ink)!important}.db-hello p{margin:4px 0 0;color:var(--ink-2)}
+.db-box{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 26px;box-shadow:0 1px 2px rgba(11,61,46,.04),0 8px 24px rgba(11,61,46,.04)}
+.db-chh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}.db-chh h3{margin:0;font-size:17px;font-weight:700}.db-chh small{color:var(--ink-2)}
+.db-seg{display:inline-flex;background:#f1f5f2;border-radius:10px;padding:3px}.db-seg button{font:inherit;border:0;background:none;padding:6px 14px;border-radius:8px;cursor:pointer;color:var(--ink-2)}.db-seg button[aria-pressed=true]{background:#fff;color:#0B3D2E;box-shadow:0 1px 3px rgba(0,0,0,.1);font-weight:600}
+.db-live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#176B50;font-weight:600;margin-left:10px}.db-live i{width:8px;height:8px;border-radius:50%;background:#2fbf71;animation:dbpulse 1.6s infinite}
+@keyframes dbpulse{0%{box-shadow:0 0 0 0 rgba(47,191,113,.5)}70%{box-shadow:0 0 0 8px rgba(47,191,113,0)}100%{box-shadow:0 0 0 0 rgba(47,191,113,0)}}
+.db-plot{position:relative;margin:18px 40px 0 112px;cursor:pointer}
+.db-gl{position:absolute;left:0;right:0;top:0;bottom:30px;pointer-events:none}.db-gl i{position:absolute;top:0;bottom:0;border-left:1px solid #eaefec}.db-gl i.m{border-left-color:#dfe6e2}
+.db-rw{position:relative;height:74px;display:flex;align-items:center}.db-nm{position:absolute;left:-112px;width:80px;text-align:right;font-size:13px;font-weight:600}
+.db-bar{height:34px;border-radius:12px;background:linear-gradient(90deg,#9ad0a6,#4aac74);width:0;position:relative;box-shadow:0 4px 10px rgba(47,154,99,.2)}.db-rw.me .db-bar{background:linear-gradient(90deg,#4aac74,#0f5a41)}
+.db-av{position:absolute;right:-22px;top:-8px;width:50px;height:50px;border-radius:50%;background:#e8f0ea center/cover;border:4px solid #2f9a63;display:grid;place-items:center;font-weight:700;font-size:14px;color:#0B3D2E;box-shadow:0 4px 10px rgba(0,0,0,.12)}.db-rw.me .db-av{border-color:#0f5a41}
+.db-val{position:absolute;top:50%;transform:translateY(-50%);margin-left:38px;font-weight:700;font-size:15px;white-space:nowrap}
+.db-axis{display:flex;justify-content:space-between;color:var(--ink-2);font-size:12px;border-top:1px solid var(--line);padding-top:8px;margin-top:-2px}
+.db-two{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.db-box h4{margin:0 0 10px;font-size:14.5px;font-weight:600;display:flex;justify-content:space-between}.db-box h4 a{font-size:12.5px;font-weight:500;color:#176B50;text-decoration:none}
+.db-row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.db-row:first-of-type{border-top:0}.db-row small{display:block;color:var(--ink-2)}
+.db-tag{font-size:11.5px;padding:2px 10px;border-radius:999px;white-space:nowrap;align-self:center}.db-t-red{background:#fbe6e3;color:#c0453a}.db-t-amb{background:#fbf0d9;color:#9a6a0a}.db-t-grn{background:#e0f2e8;color:#176B50}
+.db-none{color:var(--ink-2);padding:6px 0}
 </style>
 </head>
 <body>
@@ -1786,7 +1805,7 @@ function route() {
   const [r, ...rest] = (location.hash.slice(1) || 'dashboard').split('/'); const id = decodeURIComponent(rest.join('/'));
   if (r && !['today', 'hotels', 'hotel', 'quotes', 'quote', 'msa', 'collect', 'playbook', 'more', 'coll', 'search', 'dashboard', 'pricing', 'competitors', 'report', 'setupmeeting', 'upload', 'deleted', 'userlog', 'dblog', 'partners', 'followup', 'meetings', 'activations', 'kpi', 'enews'].includes(r)) { location.replace('/errors/unplugged.html?from=app'); return; }   /* an address that is not a page of Maha Sales: the Maha 404 */
   if (['dblog', 'userlog', 'deleted'].includes(r) && !Auth.isProvider()) { location.replace('#dashboard'); return; }   /* Admin pages: the CEO only, also by address */
-  if (r === 'dashboard' || r === 'collect' || r === 'more') { location.replace('#hotels'); return; }   /* no Dashboard (the Reports cover it), no Collect (it belongs to Accounting / Finance later), no More: the home page is the Hotel list; the pages are kept in the file, only hidden */
+  if (r === 'collect' || r === 'more') { location.replace('#dashboard'); return; }   /* no Collect (it belongs to Accounting / Finance later), no More: the home page is the Hotel list; the pages are kept in the file, only hidden */
   if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
   drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
   ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, report:vReport, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
@@ -2338,7 +2357,7 @@ const ACTIONS = {
     download(`CRM Hotels - ${today()}.csv`, toCSV(rows), 'text/csv;charset=utf-8'); toast(`${hotels.length} hotels exported`);
   },
   salesImport: () => salesImportStart(),
-  signOut: async () => { if (!confirm('Sign out of CRM on this device?')) return; await logUser('Signed out'); Auth.signOut(); location.reload(); },
+  signOut: async () => { if (!confirm('Sign out of CRM on this device?')) return; await logUser('Signed out'); try { sessionStorage.removeItem('maha.crm.landed'); } catch {} Auth.signOut(); location.reload(); },
   install: async () => { const p = window.__inst; if (p) { p.prompt(); try { await p.userChoice; } catch {} window.__inst = null; } else if (/iphone|ipad|ipod/i.test(navigator.userAgent)) alert('Tap the Share button, then "Add to Home Screen".'); },
   backup: async () => {
     const m = meta(); m.lastBackup = new Date().toISOString(); await save(m);
@@ -4501,7 +4520,7 @@ function personTable(d) {
   return `<h2>Per person</h2><div class="panel" style="padding:8px 14px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr><th style="text-align:left;padding:6px 8px">Person</th>${cols.map(c => `<th style="text-align:right;padding:6px 8px">${c[1]}</th>`).join('')}</tr></thead><tbody>
    ${names.sort((a, b) => d.own[b].signed - d.own[a].signed || d.own[b].generated - d.own[a].generated).map(n => `<tr style="border-top:1px solid var(--line,#dfe6e2)"><td style="padding:7px 8px;font-weight:600">${esc(n || 'Not recorded')}</td>${cols.map(([k]) => `<td style="padding:7px 8px;text-align:right"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><span style="display:inline-block;height:6px;border-radius:3px;width:${Math.round(d.own[n][k] / max[k] * 48)}px;background:var(--accent,#176B50);opacity:.55"></span><b>${k === 'mrr' ? '฿' + d.own[n][k].toLocaleString('en-GB') : d.own[n][k]}</b></div></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
-function vDashboard() {
+function vDashboardOld() {
   const n = UI.dashN || 12, d = dashData(n), sum = a => a.reduce((x, y) => x + y, 0), thb = v => '฿' + Math.round(v).toLocaleString('en-GB');
   const gen = sum(d.generated), rej = sum(d.rejected), sig = sum(d.signed), rate = gen ? Math.round(sig / gen * 100) : 0;
   const hasComm = d.comm.some(v => v != null);
@@ -4520,6 +4539,51 @@ function vDashboard() {
    <div class="panel" style="padding:14px">${lineChart(d.ms, [{n:'Monthly fees signed (THB / month)', c:'#176B50', v:d.mrr}, {n:'Set-up fees (THB, once)', c:'#D49A38', v:d.once}].concat(hasComm ? [{n:'Commission collected (THB)', c:'#7A5C9E', v:d.comm.map(v => v || 0)}] : []))}
     <p class="muted small" style="margin:10px 0 0">Fixed fees come from the signed hotel's quotation: ${thb(sum(d.mrr))} a month signed, ${thb(sum(d.once))} of set-up fees. ${hasComm ? '' : "Commission revenue (a % of the hotel's income) will appear here by itself once the Stripe records and the Accounting system are connected."}</p></div>${personTable(d)}`;
 }
+/* ---- the landing screen ---- */
+const DASH_T = {appointment: 20, signed: 5}, DASH_AX = {appointment: 25, signed: 10};   /* the monthly target of each person, and how far the scale goes (it grows if someone goes beyond it) */
+function dashCounts(which) {
+  const c = KPI[which], ym = today().slice(0, 7), recs = kpiRecs(c).filter(a => c.date(a).slice(0, 7) === ym);
+  return kpiPeople('Sales').map(p => [p, recs.filter(a => kpiKey(c.who(a)) === kpiKey(p)).length]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+function vDashboard() {
+  const me = Auth.required ? Auth.who() : '', h = new Date().getHours(), td = today(), mine = a => !Auth.required || Auth.isProvider() || kpiKey(a.owner) === kpiKey(me);
+  const posOf = a => { const hh = byId(a.hotelId) || {}, c = (hh.contacts || []).find(x => kpiKey(x.name) === kpiKey(a.contactName)); return a.contactName ? a.contactName + (c && c.position ? ' (' + c.position + ')' : '') : ''; };
+  const fus = fuActs().filter(a => !a.done && a.nextDate && a.nextDate <= td && mine(a) && !(byId(a.hotelId) || {}).deleted).sort((a, b) => a.nextDate.localeCompare(b.nextDate)).slice(0, 8);
+  const mts = meetActs().filter(a => a.date === td && mine(a) && !(byId(a.hotelId) || {}).deleted).sort((a, b) => (a.time || '').localeCompare(b.time || '')).slice(0, 8);
+  const late = d => Math.round((new Date(td) - new Date(d)) / 864e5);
+  const fuRow = a => { const n = late(a.nextDate); return `<div class="db-row"><div>${esc(hotelName(a.hotelId))}<small>${esc([posOf(a), a.reason || a.summary || ''].filter(Boolean).join(' · '))}</small></div><span class="db-tag ${n > 0 ? 'db-t-red' : 'db-t-amb'}">${n > 0 ? 'Overdue ' + n + ' day' + (n === 1 ? '' : 's') : 'Today'}</span></div>`; };
+  const mtRow = a => { const s = meetSt(a); return `<div class="db-row"><div>${esc((a.time ? a.time + ' · ' : '') + hotelName(a.hotelId))}<small>${esc([a.meetType || '', a.owner ? 'by ' + a.owner : ''].filter(Boolean).join(' · '))}</small></div><span class="db-tag ${s === 'Completed' ? 'db-t-grn' : 'db-t-amb'}">${esc(s)}</span></div>`; };
+  view().innerHTML = `<div class="db-hello"><h2>${esc((h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + (me ? ', ' + me.split(' ')[0] : ''))}</h2><p>${esc(new Date().toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}))}</p></div>
+   <div class="db-box"><div class="db-chh"><div><h3><span id="dbT"></span><span class="db-live"><i></i>Live</span></h3><small id="dbS"></small></div><div class="db-seg" id="dbSeg"></div></div><div class="db-plot" id="dbPlot" title="Click to run it again"></div></div>
+   <div class="db-two">
+    <div class="db-box"><h4>Follow ups for today <a href="#followup">All follow ups ›</a></h4>${fus.length ? fus.map(fuRow).join('') : '<div class="db-none">Nothing for today.</div>'}</div>
+    <div class="db-box"><h4>Meetings today <a href="#meetings">Meeting status ›</a></h4>${mts.length ? mts.map(mtRow).join('') : '<div class="db-none">No meeting today.</div>'}</div>
+   </div>`;
+  dbBuild();
+}
+let dbTick = 0;
+function dbBuild() {
+  const w = UI.dbW = UI.dbW || 'appointment', c = KPI[w], rows = dashCounts(w), t = DASH_T[w], max = Math.max(DASH_AX[w], ...rows.map(r => r[1])), me = Auth.required ? Auth.who() : '';
+  $('#dbT').textContent = w === 'signed' ? 'Signed contracts' : 'Appointment'; $('#dbS').textContent = 'Target : ' + t + ' / Month · ' + new Date().toLocaleDateString('en-GB', {month: 'long', year: 'numeric'});
+  $('#dbSeg').innerHTML = [['appointment', 'Appointment'], ['signed', 'Signed contracts']].map(([k, l]) => `<button type="button" data-act="dbTab" data-w="${k}" aria-pressed="${k === w}">${l}</button>`).join('');
+  let g = ''; for (let i = 0; i <= max; i++) g += `<i class="${i % 5 === 0 ? 'm' : ''}" style="left:${i / max * 100}%"></i>`;
+  const step = max > 10 ? 5 : 1, ticks = []; for (let i = 0; i <= max; i += step) ticks.push(i);
+  $('#dbPlot').innerHTML = rows.length ? `<div class="db-gl">${g}</div>` + rows.map(([n, v]) => { const ph = profPhoto(n); return `<div class="db-rw${kpiKey(n) === kpiKey(me) ? ' me' : ''}"><div class="db-nm">${esc(n)}</div><div class="db-bar" data-v="${v}"><div class="db-av"${ph ? ` style="background-image:url('${ph}')"` : ''}>${ph ? '' : esc(shortName(n))}</div><span class="db-val">0</span></div></div>`; }).join('') + `<div class="db-axis">${ticks.map(x => '<span>' + x + '</span>').join('')}</div>` : '<div class="db-none">No sales person yet. Add them in Pricing &amp; Commercial &gt; Staff Credit (Department Sales).</div>';
+  $('#dbPlot').dataset.max = max; dbRun();
+}
+function dbRun(list) {
+  const plot = $('#dbPlot'); if (!plot) return; const max = +plot.dataset.max || 1, id = ++dbTick;
+  (list || [...plot.querySelectorAll('.db-rw')]).forEach(r => {
+    const b = $('.db-bar', r), v = +b.dataset.v, val = $('.db-val', r); b.style.transition = 'none'; b.style.width = '0%'; val.textContent = '0'; void b.offsetWidth;
+    b.style.transition = 'width 1.4s cubic-bezier(.22,.8,.25,1)'; b.style.width = (v / max * 100) + '%';
+    const t0 = performance.now(); (function f(now) { const p = Math.min(1, (now - t0) / 1400); val.textContent = p < 1 ? Math.round(v * (1 - Math.pow(1 - p, 3))) : v; if (p < 1) requestAnimationFrame(f); })(t0);
+  });
+}
+Object.assign(ACTIONS, {
+  dbTab: el => { UI.dbW = el.dataset.w; dbBuild(); },
+});
+document.addEventListener('click', e => { const p = e.target.closest('#dbPlot'); if (p) dbRun(); });
+document.addEventListener('mouseover', e => { const r = e.target.closest('#dbPlot .db-rw'); if (r && r !== dbRun.last) { dbRun.last = r; dbRun([r]); } else if (!r) dbRun.last = null; });
 Object.assign(ACTIONS, {dashn: el => { UI.dashN = +el.dataset.n; vDashboard(); }});
 
 /* ================= SHELL (the same as Maha PMS) =================
@@ -4943,7 +5007,7 @@ const Cloud = (() => {
 const profId = u => 'profile_' + norm(u).replace(/ /g, '_');
 const profOf = u => byId(profId(u)) || null;
 const profPhoto = u => (profOf(u) || {}).photo || '';
-const shortName = n => String(n || '').trim().split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'Me';
+const shortName = n => { const w = String(n || '').trim().split(/[\s._-]+/).filter(Boolean); return (w.length > 1 ? w.slice(0, 2).map(x => x[0]).join('') : (w[0] || '').slice(0, 2)).toUpperCase() || 'Me'; };   /* two words: first letters; one word: first two letters */
 function paintBadge() {
   const ini = document.getElementById('profIni'), av = ini && ini.parentElement; if (!av) return;
   const who = Auth.required ? Auth.who() : '', ph = profPhoto(who);
@@ -4980,6 +5044,7 @@ Object.assign(ACTIONS, {
   if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
   else if (byId('meta') && !inCloud) Cloud.uploadAll();
   await migrateAgents();
+  try { if (!sessionStorage.getItem('maha.crm.landed')) { sessionStorage.setItem('maha.crm.landed', '1'); history.replaceState(null, '', '#dashboard'); } } catch {}   /* every sign in lands on the Dashboard */
   applyTheme(); shellInit(); route(); Cloud.start();
   Profile.start();
   if (window.MahaLoader) MahaLoader.hide();
