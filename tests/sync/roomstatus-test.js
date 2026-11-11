@@ -21,11 +21,12 @@ T('a house account with no real room goes to Other', html.indexOf('>D1<') > html
 T('In House boxes have one look (no housekeeping colour): the box class is rbt ih', html.includes('class="rbt ih"') && !html.includes('class="rbt hk"'));
 
 /* ---- the code of the pages ---- */
-T('In House: Room boxes or List, the choice is kept, the List is the old table', src.includes("data-ihv=\"rooms\"") && src.includes("localStorage.setItem('maha.ih.view'") && src.includes("if(IHV.v==='list')stayList(el,'In House',list,'ih',sw)"));
+T('In House: search box with what to search by at its left, Floor, Room type, Sort by, Room View / List View; the choices stay until changed; the List is the old table', src.includes('id="ihBy"') && src.includes('id="ihQ"') && src.includes('id="ihFl"') && src.includes('id="ihTy"') && src.includes('id="ihSo"') && src.includes('>Room View</button><button type="button" data-ihv="list"') && src.includes('const IHS={by:') && src.includes("localStorage.setItem('maha.ih.view'") && src.includes('stayTableHtml(list)'));
 T('a box opens the Reservation Detail pop-up', src.includes('hsResDetail(B)') && src.includes("data-ores=\"${b.id}\""));
 T('the pop-up repaints In House and Room Status when it closes', src.includes("['fo.status','fo.inhouse','rm.roomstatus'].includes(VIEW)"));
 T('Room Status uses the Housekeeping colours (HKCOL) and the same room state, faces smile / frown / moon / ban', src.includes("style=\"background:${HKCOL[s.key]}\"") && src.includes('all=H.rooms.filter(r=>!r.dummy).map(rm=>({rm,s:roomState(rm)}))') && src.includes("s.key==='sleep'?'moon'"));
 T('Room Status: a room with a guest opens the Reservation Detail, another room or a right-click / long press opens the housekeeping room window', src.includes('b.onclick=()=>{if(B)hsResDetail(B);else roomPopup(no)}') && src.includes('b.oncontextmenu=e=>{e.preventDefault();roomPopup(no)}'));
 T('Room Status is in the menu under Housekeeping Status, with its own function and permission (on or off for each person)', src.includes("['Housekeeping Status','rm.hkstatus','','fn.rm.hkstatus'],['Room Status','rm.roomstatus','roomstatus','fn.rm.roomstatus']") && src.includes("['roomstatus','Open Room Status (every room with its guest)']") && src.includes("'hk','roomstatus','notif','profile'") && src.includes("if(!can('roomstatus'))"));
 T('people who work at the front desk keep the page: a one time step gives the permission to Manager, Front desk, HOD and people who can check in or edit a reservation', src.includes('h._rsMig'));
+T('an owner, a protected user or a manager always sees Room Status', src.includes("(p==='roomstatus'&&!!(u.owner||u.protected||u.role==='Manager'))"));
 process.exit(fails ? 1 : 0);
