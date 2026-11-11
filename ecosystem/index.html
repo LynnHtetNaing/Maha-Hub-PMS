@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="0d992a2ba8">
+<meta name="maha-build" content="41d75fa2c6">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9308,7 +9308,7 @@ function hxChartSvg(bd){const B=hxBuckets(bd),vals=B.map(b=>hxVal(HX.type,hxAgg(
 /* Hotel Status: the reservation in a small box (the person stays on the page) */
 let HSTAB='arr';
 /* the Reservation Detail screen as a pop-up page; the Hotel Status page is repainted when it closes (a check-in or check-out done inside shows at once) */
-function hsResDetail(b){const m=modal('Reservation Detail','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=()=>{try{if(['fo.status','fo.inhouse','rm.roomstatus'].includes(VIEW))render()}catch(e){}};reservationScreen($('#rdB',m),resOf(b),b,{compact:false})}
+function hsResDetail(b){const m=modal('Reservation Detail','<div id="rdB"></div>',{w:1240,cls:'rdmodal'});m._wrap._onclose=()=>{try{if(['fo.status','fo.inhouse','rm.roomstatus','res.list'].includes(VIEW))render()}catch(e){}};reservationScreen($('#rdB',m),resOf(b),b,{compact:false})}
 function hsResPopup(b){
   const g=G(b.guestId),r=resOf(b),ch=chanOfBooking(b),n=stayNights(b).length;
   const kv=[['Guest',gName(g)],['Room',b.room||'—'],['Room type · rate',(b.type||'')+' · '+(b.rateCode||'')],['Stay',fd(b.arr)+' – '+fd(b.dep)+' ('+n+' night'+(n===1?'':'s')+')'],['Guests',pax(b)],['Channel',ch?ch.name:'Direct'],['Status',({inhouse:'In house',confirmed:'Reserved',tentative:'Tentative',out:'Checked out',cancelled:'Cancelled',noshow:'No show'}[b.status]||b.status)],['Balance',m2(bal(b))]];
@@ -9957,7 +9957,7 @@ VIEWS['res.list']=el=>{
     rows.sort((a,b)=>b.b.arr.localeCompare(a.b.arr));
     $('#rlr',el).innerHTML=`<table class="grid"><tr><th>RSVN#</th><th>RSVN date</th><th>Guest</th><th>Room</th><th>Type</th><th>Arrival</th><th>Departure</th><th class="n">Nts</th><th>Company / Travel agent</th><th>Rate</th><th class="n">Total</th><th>Status</th></tr>
      ${rows.slice(0,300).map(x=>`<tr class="click" data-ores="${x.b.id}"><td>${x.r.no}</td><td>${fd(x.r.date)}</td><td>${esc(gName(x.g))}${x.b.copyOf?' (Copy)':''}</td><td>${esc(x.b.room||'—')}</td><td>${x.b.type}</td><td>${fd(x.b.arr)}</td><td>${fd(x.b.dep)}</td><td class="n">${nights(x.b)}</td><td>${esc(coTag(CO(x.r.companyId)))}</td><td>${x.b.rateCode}</td><td class="n">${m2(stayTotal(x.b))}</td><td>${stBadge(x.b)}</td></tr>`).join('')||'<tr><td colspan="12" class="empty">No reservation matches these filters.</td></tr>'}</table>`;
-    $$('[data-ores]',el).forEach(t=>t.onclick=()=>go('res.open',t.dataset.ores))};
+    $$('[data-ores]',el).forEach(t=>t.onclick=()=>{const B=bookingById(t.dataset.ores);if(B)hsResDetail(B)})};
   $('#rlq',el).addEventListener('input',run);['rls','rlf','rlt'].forEach(id=>$('#'+id,el).addEventListener('change',run));bindDatePick(el);$$('[data-go]',el).forEach(b=>b.onclick=()=>go(b.dataset.go));run();
 };
 VIEWS['res.open']=(el,id)=>{const B=bookingById(id);if(!B){el.innerHTML='<div class="empty">Reservation not found.</div>';return}const r=resOf(B);
