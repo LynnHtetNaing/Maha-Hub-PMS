@@ -3242,7 +3242,7 @@ Object.assign(ACTIONS, {
 const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
 const monthLabel = ym => new Date(ym + '-01T00:00:00').toLocaleDateString('en-GB', {month: 'short', year: 'numeric'});
 const RP_PROVIDER = ['revenue', 'rewards'];
-const rpStaff = () => [...new Set(K('staffcr').map(r => String(r.name || '').trim()).filter(Boolean).concat(K('quote').map(q => q.forSale || q.owner || ''), K('activation').map(a => a.techBy || a.owner || ''), meetActs().map(a => a.owner || '')).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+const rpStaff = () => [...new Set(K('staffcr').map(r => String(r.name || '').trim()).filter(Boolean).concat(K('quote').map(q => q.forSale || q.owner || ''), K('activation').map(a => a.techBy || a.owner || ''), meetActs().map(a => a.owner || '')).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(n => [n, n + (staffOff(n) ? ' (inactive)' : '')]);
 const rpSame = (a, b) => kpiKey(a) === kpiKey(b);
 const rpNum = (n, d = 0) => { const x = Math.round((+n || 0) * Math.pow(10, d)) / Math.pow(10, d); return x ? fmt(x) : '0'; };
 /* the money of a quotation: monthly fees (a yearly fee / 12 counts as monthly), one-time fees, and whether it has a commission */
@@ -3981,7 +3981,7 @@ function quoteFormSheet(hid, q) {
   const cur0 = curOf(q);
   const master = qpMasterTerms(), terms = q.terms && q.terms.length ? q.terms.slice() : master.slice();
   master.forEach((m, i) => { if (m.cond && !terms.some(x => x.cond === m.cond)) terms.splice(Math.min(i, terms.length), 0, m); });   /* the two conditional terms stay in the boxes: they are printed only when they apply */
-  const sales = [...new Set(K('act').map(a => a.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], q.forSale ? [q.forSale] : []))].sort();
+  const sales = [...new Set(K('act').map(a => a.owner).filter(Boolean).concat(Auth.who() ? [Auth.who()] : [], q.forSale ? [q.forSale] : []))].filter(s => !staffOff(s) || s === q.forSale).sort();   /* a person turned off is not offered; the one already on this quotation stays */
   const leads = [...new Set(['Cold call', 'Referral', 'Partner / White Label', 'Website', 'Social media', 'OneHotel', 'Walk-in', 'Other'].concat(K('hotel').map(x => x.source).filter(Boolean), q.leadSource ? [q.leadSource] : []))];
   const row = (label, req, inner) => `<div class="fu-pr"><label>${label}${req ? ' <i class="req">*</i>' : ''}</label><div>${inner}</div></div>`;
   /* each service: the service on the left, its amount on the right; the discount note on the left with the discount amount on the right (taken off the amount above); the payment method under it */
@@ -4331,6 +4331,8 @@ const KPI = {
 const kpiRecs = c => c.items().filter(r => /^\d{4}-\d\d/.test(c.date(r) || ''));
 const kpiKey = s => String(s || '').trim().toLowerCase() || '(no name)';
 /* the people of a KPI page: the staff marked with that department in Pricing & Commercial > Staff Credit (Sales for appointments and signed contracts, Technician for activations); a new one appears by itself */
+/* a person who is turned off in the Provider console (Staff Credit Inactive, and no active entry of the same name) */
+const staffOff = n => { const r = K('staffcr').filter(x => kpiKey(x.name) === kpiKey(n)); return r.length > 0 && r.every(x => x.status === 'Inactive'); };
 function kpiPeople(dept) {
   const seen = new Map();
   K('staffcr').filter(r => r.status !== 'Inactive' && r.dept === dept).forEach(r => { const n = String(r.name || '').trim(); if (n && !seen.has(kpiKey(n))) seen.set(kpiKey(n), n); });
@@ -4347,11 +4349,12 @@ function vKpiPage(which) {
 }
 function paintKpi(which) {
   const box = $('#kpbody'); if (!box) return; const c = KPI[which], y = (UI.kpiY || {})[which], rows = kpiRecs(c).filter(a => c.date(a).slice(0, 4) === y);
-  const people = kpiPeople(c.dept);
+  const people = kpiPeople(c.dept), have = new Set(people.map(kpiKey));
+  rows.forEach(a => { const n = String(c.who(a) || '').trim(); if (n && !have.has(kpiKey(n)) && staffOff(n)) { have.add(kpiKey(n)); people.push(n); } });   /* turned off, but done something in this year */
   const mine = p => rows.filter(a => kpiKey(c.who(a)) === kpiKey(p));
   const num = (n, p, k, m, bold) => n ? `<td><a href="#kpi/${which}" class="kp-n" data-act="kpiOpen" data-w="${which}" data-who="${esc(p)}" data-row="${esc(k)}" data-m="${m}">${bold ? `<b>${n}</b>` : n}</a></td>` : `<td>${bold ? '<b>0</b>' : '0'}</td>`;
   box.innerHTML = people.map(p => { const my = mine(p), inM = m => my.filter(a => +c.date(a).slice(5, 7) === m + 1);
-    return `<h3 class="kp-p">${esc(p)}</h3><div class="tablewrap fu-tw kp-w"><table class="fu-tb dl-tb kp-t"><thead><tr><th></th>${KPI_MON.map(m => `<th>${m}</th>`).join('')}</tr></thead><tbody>
+    return `<h3 class="kp-p">${esc(p)}${staffOff(p) ? ' <small class="muted">(inactive)</small>' : ''}</h3><div class="tablewrap fu-tw kp-w"><table class="fu-tb dl-tb kp-t"><thead><tr><th></th>${KPI_MON.map(m => `<th>${m}</th>`).join('')}</tr></thead><tbody>
      ${c.rows.map(([k, l]) => `<tr><td class="kp-l">${esc(l)}</td>${KPI_MON.map((_, m) => num(inM(m).filter(a => c.inRow(a, k)).length, p, k, m)).join('')}</tr>`).join('')}
      ${c.single ? '' : `<tr class="kp-tot"><td class="kp-l"><b>Total</b></td>${KPI_MON.map((_, m) => num(inM(m).length, p, '*', m, true)).join('')}</tr>`}</tbody></table></div>`; }).join('') || `<div class="empty">No ${c.dept === 'Technician' ? 'technician' : 'sales person'} yet. Add them in Pricing & Commercial > Staff Credit (Department ${c.dept}).</div>`;
 }
