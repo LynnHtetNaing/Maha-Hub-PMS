@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="c9f7b38480">
+<meta name="maha-build" content="b20e3a68a2">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1024,6 +1024,13 @@ html[data-mode=dark] .dft.wide .hkt.ihT .tn,html[data-mode=dark] .dft.wide .hkt.
 html[data-mode=dark] .dft.wide .hkt.ihT .tt{background:color-mix(in srgb,var(--ink) 14%,transparent);color:var(--ink)}
 html[data-mode=dark] .dft.wide .hkt.ihT:hover{border-color:var(--m-acc,#34d3b8)}
 .dft.wide .hkt .tfc{position:absolute;right:10px;bottom:11px;display:flex;gap:4px;align-items:center;color:#ffd84a}.dft.wide .hkt .tfc svg{width:15px;height:15px}
+.dft.wide .hkt .tcr{position:absolute;top:5px;right:7px;display:flex;flex-direction:column;align-items:flex-end;gap:3px}.dft.wide .hkt .tcr .tmk{position:static;top:auto;right:auto}
+.dft.wide .hkt .trow{display:flex;align-items:center;gap:7px}
+.tdirty{color:#ff4d42!important;font-weight:800;text-shadow:0 0 2px #000,0 0 4px #000}
+.dft.wide .hkt .tfc.isdirty{color:#ff4d42}.dft.wide .hkt .tfc.isdirty svg{filter:drop-shadow(0 0 2px #000)}
+.hkt .tlo .dirtyem{color:#ff4d42!important;filter:drop-shadow(0 0 2px #000)}
+.tdirtyc{color:#d7263d;font-weight:800}html[data-mode=dark] .tdirtyc{color:#ff7a6e}
+.hli.li-frown span{color:#d7263d;font-weight:700}html[data-mode=dark] .hli.li-frown span{color:#ff7a6e}
 .dft.wide .hkt .tvip{background:#d49a38;color:#1e1606;border-radius:3px;padding:0 4px;font-size:9.5px;font-weight:800;letter-spacing:.03em;align-self:center}
 .dfh{cursor:default}.ihbar+#ihRes .hkdashb,.rsf+.rsl+.hkdashb{margin-top:2px}
 /* the VIP switch of a guest */
@@ -9663,11 +9670,11 @@ function stayList(el,title,list,mode,sw){
 /* In House: the same guests as before, shown as Room boxes (floor by floor, one look because every room is occupied) or as the List; the choice is kept for the next time */
 const IHV={v:(()=>{try{return localStorage.getItem('maha.ih.view')==='list'?'list':'rooms'}catch(e){return 'rooms'}})()};
 const byRoomNo=(a,b)=>String(a.room||'').localeCompare(String(b.room||''),undefined,{numeric:true});
-const paxTxt=b=>(b.adults||0)+' Ad'+(b.children?' '+b.children+' Ch':'');   /* adults, and children when there are any */
+const paxTxt=b=>'\u{1F9D3}'+(b.adults||0)+(b.children?' \u{1F476}'+b.children:'');   /* an elder and the number of adults, a baby and the number of children (only when there are children) */
 const stayDates=b=>fd(b.checkinDate||b.arr)+' - '+fd(b.dep);
 function stayBoxes(list){
   const by=f=>list.filter(b=>{const rm=H.rooms.find(r=>r.no===b.room);return rm&&!rm.dummy&&String(rm.floor)===String(f)}).sort(byRoomNo);   /* only real rooms: a dummy room (house account) is never shown as a box */
-  const blk=(name,bs)=>bs.length?`<div class="fbk"><div class="fbh">${esc(name)} <span>${bs.length} in house · ${bs.filter(b=>stayMark(b).k==='DO').length} due out</span></div><div class="dft wide">${bs.map(b=>{const m=stayMark(b),g=G(b.guestId);return `<button type="button" class="hkt ihT" data-ores="${b.id}" style="background:${HKCOL.oc}" title="Room ${esc(b.room)} – open the reservation">${m.k==='DO'?'<b class="tmk dep" title="Due out today">@</b>':m.k==='CI'?'<b class="tmk arr" title="Checked in today">@</b>':''}<span class="tn">${esc(b.room)}</span><span class="tt">${esc(b.type)} · ${paxTxt(b)}</span><span class="tg">${esc(gName(g))}</span><span class="td">${stayDates(b)}</span>${g.vip?'<span class="tfc"><b class="tvip" title="VIP">VIP</b></span>':''}</button>`}).join('')}</div></div>`:'';
+  const blk=(name,bs)=>bs.length?`<div class="fbk"><div class="fbh">${esc(name)} <span>${bs.length} in house · ${bs.filter(b=>stayMark(b).k==='DO').length} due out</span></div><div class="dft wide">${bs.map(b=>{const m=stayMark(b),g=G(b.guestId);return `<button type="button" class="hkt ihT" data-ores="${b.id}" style="background:${HKCOL.oc}" title="Room ${esc(b.room)} – open the reservation"><span class="tcr">${m.k==='DO'?'<b class="tmk dep" title="Due out today">@</b>':m.k==='CI'?'<b class="tmk arr" title="Checked in today">@</b>':''}${g.vip?'<b class="tvip" title="VIP">VIP</b>':''}</span><span class="tn">${esc(b.room)}</span><span class="tt">${esc(b.type)} · ${paxTxt(b)}</span><span class="tg">${esc(gName(g))}</span><span class="td">${stayDates(b)}</span></button>`}).join('')}</div></div>`:'';
   return `<div class="rsl"><span><b class="tmk dep">@</b> Due out today</span><span><b class="tmk arr">@</b> Checked in today</span></div><div class="hkdashb">${floorsList().map(f=>blk(floorName(f),by(f))).join('')}</div>`}
 const IHS={by:'room',q:'',floor:'',type:'',sort:'room'};   /* the search and the filters stay as they are until somebody changes them */
 const IH_SORT=[['room','Room'],['name','Guest name'],['arr','Arrival'],['dep','Departure']];
@@ -9701,9 +9708,9 @@ VIEWS['rm.roomstatus']=el=>{
   const fl=floorsList(),all=H.rooms.filter(r=>!r.dummy).map(rm=>({rm,s:roomState(rm)})),list=all.filter(x=>(!RSF.fl||String(x.rm.floor)===RSF.fl)&&(!RSF.s||x.s.key===RSF.s)),cnt=k=>all.filter(x=>x.s.key===k).length;
   const face=s=>s.key==='oo'||s.key==='oi'||s.key==='skip'?'ban':s.key==='sleep'?'moon':s.clean?'smile':'frown';
   const tile=x=>{const s=x.s,rm=x.rm,h=HKS.find(k=>k[0]===s.key),g=s.occ?G(s.occ.guestId):s.arr?G(s.arr.guestId):null,B=s.occ||s.arr;
-    return `<button type="button" class="hkt" data-rm="${esc(rm.no)}" style="background:${HKCOL[s.key]}" title="Room ${esc(rm.no)} – ${esc(h[1])} ${esc(h[2])}">${s.dep?'<b class="tmk dep" title="Expect departure today">@</b>':s.arr?'<b class="tmk arr" title="Expect arrival today">@</b>':''}<span class="tn">${esc(rm.no)}</span><span class="tt">${esc(rm.type)}</span><span class="tg">${g?esc(gName(g)):esc(h[1])}</span><span class="td">${B?stayDates(B):esc(h[2]||h[1])}</span><span class="tfc">${g&&g.vip?'<b class="tvip" title="VIP">VIP</b>':''}${ic(face(s),15)}</span></button>`};
+    return `<button type="button" class="hkt" data-rm="${esc(rm.no)}" style="background:${HKCOL[s.key]}" title="Room ${esc(rm.no)} – ${esc(h[1])} ${esc(h[2])}"><span class="tcr">${s.dep?'<b class="tmk dep" title="Expect departure today">@</b>':s.arr?'<b class="tmk arr" title="Expect arrival today">@</b>':''}${g&&g.vip?'<b class="tvip" title="VIP">VIP</b>':''}</span><span class="tn">${esc(rm.no)}</span><span class="trow"><span class="tt">${esc(rm.type)}${B?' · '+paxTxt(B):''}</span>${s.key==='od'?'<b class="tdirty">Dirty</b>':''}</span><span class="tg">${g?esc(gName(g)):esc(h[1])}</span><span class="td${s.key==='vd'?' tdirty':''}">${B?stayDates(B):esc(h[2]||h[1])}</span><span class="tfc${s.key==='vd'||s.key==='od'?' isdirty':''}">${ic(face(s),15)}</span></button>`};
   const blocks=fl.map(f=>{const rs=list.filter(x=>String(x.rm.floor)===String(f)).sort((a,b)=>hkRoomOrder(a.rm,b.rm));return rs.length?`<div class="fbk"><div class="fbh">${esc(floorName(f))} <span>${rs.length} rooms · ${rs.filter(x=>x.s.occ).length} occupied · ${rs.filter(x=>!x.s.clean&&!x.s.ooo).length} dirty</span></div><div class="dft wide">${rs.map(tile).join('')}</div></div>`:''}).join('');
-  el.innerHTML=pageHead('Room Status',`<span class="sub">${list.length} room(s)</span>`)+`<div class="rsf"><div><label>Floor</label><select id="rsFl"><option value="">All floors</option>${fl.map(f=>opt(f,floorName(f),RSF.fl)).join('')}</select></div><div class="rschips">${HKS.filter(k=>cnt(k[0])).map(k=>`<button type="button" class="rsc" data-k="${k[0]}" aria-pressed="${RSF.s===k[0]}"><i style="background:${k[3]}"></i>${esc(k[1])} ${esc(k[2])} <b>${cnt(k[0])}</b></button>`).join('')}</div></div>
+  el.innerHTML=pageHead('Room Status',`<span class="sub">${list.length} room(s)</span>`)+`<div class="rsf"><div><label>Floor</label><select id="rsFl"><option value="">All floors</option>${fl.map(f=>opt(f,floorName(f),RSF.fl)).join('')}</select></div><div class="rschips">${HKS.filter(k=>cnt(k[0])).map(k=>`<button type="button" class="rsc" data-k="${k[0]}" aria-pressed="${RSF.s===k[0]}"><i style="background:${k[3]}"></i>${esc(k[1])} ${k[2]==='Dirty'?'<b class="tdirtyc">Dirty</b>':esc(k[2])} <b>${cnt(k[0])}</b></button>`).join('')}</div></div>
    <div class="rsl"><span><b class="tmk dep">@</b> Expect departure today</span><span><b class="tmk arr">@</b> Expect arrival today</span><span>${ic('smile',15)} Clean</span><span>${ic('frown',15)} Dirty</span><span>${ic('moon',15)} Sleep</span><span>${ic('ban',15)} Skip / Out of order</span><span>Right-click a room (press and hold on a tablet) to change its housekeeping status.</span></div>
    <div class="hkdashb">${blocks||'<div class="panel pad"><div class="empty">No room matches.</div></div>'}</div>`;
   $('#rsFl',el).onchange=e=>{RSF.fl=e.target.value;render()};
@@ -12843,7 +12850,7 @@ VIEWS['rm.hkstatus']=el=>{
    <section class="hkr" id="hkR"></section></div>`;
   const R=$('#hkR',el);
   const at=x=>{const s=x.s,rm=x.rm;const ic2=[];if(s.dep)ic2.push(`<b class="at dep" title="Expect departure today">@</b>`);if(s.arr)ic2.push(`<b class="at arr" title="Expect arrival today">@</b>`);if(s.walkin)ic2.push(`<b class="at win" title="Walk-in guest">@</b>`);
-    const low=[`<span class="em" title="${s.clean?'Clean':'Dirty'}">${ic(s.clean?'smile':'frown',13)}</span>`];if(s.insp)low.push(`<span title="Inspected">${ic('wifi',13)}</span>`);if(s.dtype)low.push(`<span title="Discrepancy ${s.dtype}">${ic(s.dtype==='Sleep'?'moon':'ban',13)}</span>`);
+    const low=[`<span class="em${s.clean?'':' dirtyem'}" title="${s.clean?'Clean':'Dirty'}">${ic(s.clean?'smile':'frown',13)}</span>`];if(s.insp)low.push(`<span title="Inspected">${ic('wifi',13)}</span>`);if(s.dtype)low.push(`<span title="Discrepancy ${s.dtype}">${ic(s.dtype==='Sleep'?'moon':'ban',13)}</span>`);
     if(rm.dnd)low.push(`<span title="Do not disturb">${ic(rm.dnd==='tel'?'phoneoff':'dnd',13)}</span>`);if(rm.cleanAt)low.push(`<span title="Clean at ${esc(rm.cleanAt)}">${ic('log',13)}</span>`);if(rm.softBlock)low.push(`<span title="Soft block">${ic('key',13)}</span>`);
     if(s.msgs)low.push(`<span title="${s.msgs} comment(s)">${ic('chat',13)}</span>`);if(s.dnm)low.push(`<span title="Do not move">${ic('warn',13)}</span>`);if(rm.connect)low.push(`<span title="Connecting with ${esc(rm.connect)}">${ic('link2',13)}</span>`);if(rm.handicap)low.push(`<span title="Handicap room">${ic('access',13)}</span>`);
     return {top:ic2.join(''),low:low.join('')}};
