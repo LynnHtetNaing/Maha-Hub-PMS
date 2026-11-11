@@ -33,10 +33,10 @@
 //   resend_admin_invite username
 //   remove_admin     username                    - erases the admin (never the Master)
 //   Company Sales team (Master admin only; the team is not a hotel and has no hotel):
-//   crm_add_member   username, email, name       - creates a sales team member and emails a set-password link
-//   crm_set_active   username, active (boolean)  - on/off; off also bans the sign-in
+//   crm_add_member   username, email, name, dept ("Sales"|"Technician"), pct (0-100) - creates a sales team member, emails a set-password link and adds the person to Staff Credit (the CRM counts the KPI and the credit from it)
+//   crm_set_active   username, active (boolean)  - on/off; off also bans the sign-in and marks the Staff Credit of the person Inactive
 //   crm_reset_password username                  - emails a set-password link
-//   crm_list         (nothing)                   - the team
+//   crm_list         (nothing)                   - the team, with the department and credit % of each person
 //
 // Account creation order (so a failure never leaves partial data or a stray email):
 //   1. create the auth user (confirmed, no email yet; fails if the email exists, so a pre-existing
@@ -661,6 +661,23 @@ const handle = async (req: Request): Promise<Response> => {
   }
 
   // ---------------------------------------------------------------- company Sales team
+  // Staff Credit (the CRM counts the KPI, the credit and the dashboard from it) is kept in step with the team: one record per person, found by name.
+  const staffKey = (s: unknown) => String(s ?? "").trim().toLowerCase();
+  const staffRecords = async () => {
+    const { data } = await admin.from("maha_sales_records").select("id,data,deleted").eq("kind", "staffcr");
+    return (data ?? []) as { id: string; data: Record<string, unknown>; deleted: boolean }[];
+  };
+  const syncStaffCredit = async (name: string, patch: Record<string, unknown>) => {
+    const now = new Date().toISOString(), all = await staffRecords(), hit = all.find((r) => !r.deleted && staffKey(r.data?.name) === staffKey(name));
+    if (hit) {
+      const { error } = await admin.from("maha_sales_records").update({ data: { ...hit.data, ...patch, updated: now } }).eq("id", hit.id);
+      return !error;
+    }
+    if (patch.status === "Inactive") return true;   // nothing to switch off
+    const id = "staffcr_" + staffKey(name).replace(/[^a-z0-9]+/g, "_").slice(0, 60);
+    const { error } = await admin.from("maha_sales_records").upsert({ id, kind: "staffcr", deleted: false, data: { id, kind: "staffcr", name, status: "Active", created: now, updated: now, ...patch } });
+    return !error;
+  };
   if (action === "crm_add_member" || action === "crm_set_active" || action === "crm_reset_password" || action === "crm_list") {
     if (action === "crm_list") {
       const { data: rows, error } = await admin.from("maha_crm_members").select("user_id,name,active,created_at").order("created_at");
@@ -670,11 +687,13 @@ const handle = async (req: Request): Promise<Response> => {
         ? await admin.from("maha_login_identities").select("user_id,username,recovery_email").in("user_id", ids)
         : { data: [] as { user_id: string; username: string; recovery_email: string }[] };
       const byId = new Map((idents ?? []).map((i) => [i.user_id, i]));
+      const credit = await staffRecords();
       return respond({
         ok: true,
         members: (rows ?? []).map((r) => ({
           username: byId.get(r.user_id as string)?.username ?? "", email: byId.get(r.user_id as string)?.recovery_email ?? "",
           name: r.name, active: r.active, added: r.created_at,
+          dept: (credit.find((c) => !c.deleted && staffKey(c.data?.name) === staffKey(r.name))?.data?.dept as string) ?? "", pct: (credit.find((c) => !c.deleted && staffKey(c.data?.name) === staffKey(r.name))?.data?.pct as number | string | undefined) ?? "",
         })),
       });
     }
@@ -682,6 +701,8 @@ const handle = async (req: Request): Promise<Response> => {
     if (action === "crm_add_member") {
       const name = str("name");
       if (!EMAIL.test(email) || email.length > 254 || name.length < 1 || name.length > 80) return respond({ error: "invalid_fields" }, 400);
+      const dept = str("dept") || "Sales", pct = typeof body.pct === "number" ? (body.pct as number) : Number.NaN;
+      if (!(dept === "Sales" || dept === "Technician") || !Number.isFinite(pct) || pct < 0 || pct > 100) return respond({ error: "invalid_fields" }, 400);
       if (await usernameTaken(username)) return respond({ error: "username_taken" }, 409);
       const { user: createdUser, error: createError, alias } = await createAuthUser(email, username);
       if (createError || !createdUser) return respond({ error: "account_create_failed" }, 400);
@@ -692,7 +713,8 @@ const handle = async (req: Request): Promise<Response> => {
         await admin.auth.admin.deleteUser(uid);   // nothing is left half-made
         return respond({ error: (identError ?? memberError)?.code === "23505" ? "username_taken" : "provisioning_failed" }, (identError ?? memberError)?.code === "23505" ? 409 : 400);
       }
-      return respond({ ok: true, username, invitation_sent: await sendSetPasswordEmail(email, "crm", uid), invitation_error: mailError || undefined }, 201);
+      const credited = await syncStaffCredit(name, { dept, pct, status: "Active" });
+      return respond({ ok: true, username, staff_credit: credited, invitation_sent: await sendSetPasswordEmail(email, "crm", uid), invitation_error: mailError || undefined }, 201);
     }
     const { data: ident } = await admin.from("maha_login_identities").select("user_id,recovery_email")
       .eq("username_normalized", username.toLowerCase()).maybeSingle();
@@ -707,6 +729,7 @@ const handle = async (req: Request): Promise<Response> => {
     const active = body.active as boolean;
     const { error: upError } = await admin.from("maha_crm_members").update({ active }).eq("user_id", uid);
     if (upError) return respond({ error: "provisioning_failed" }, 400);
+    { const { data: m } = await admin.from("maha_crm_members").select("name").eq("user_id", uid).maybeSingle(); if (m?.name) await syncStaffCredit(String(m.name), { status: active ? "Active" : "Inactive" }); }
     const { error: banError } = await admin.auth.admin.updateUserById(uid, { ban_duration: active ? "none" : "876000h" });
     if (banError) return respond({ error: "ban_update_failed", database_updated: true }, 502);
     return respond({ ok: true, active });
