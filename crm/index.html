@@ -331,6 +331,7 @@ input:not([type=checkbox]):not([type=radio]),select,textarea{background:#ffffff}
 .msb-me[hidden]{display:none}
 .msb-me:hover{border-color:var(--m-acc)}
 .msb-me .tbav{position:relative;width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;color:#fff;font:800 13px/1 Inter,system-ui,sans-serif;background:linear-gradient(135deg,var(--a1),var(--a2))}
+.pf{display:flex;align-items:center;gap:18px;margin:6px 0 20px}.pf-av{width:88px;height:88px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--a1),var(--a2)) center/cover;display:grid;place-items:center;color:#fff;font:800 28px/1 Inter,system-ui,sans-serif}.pf-b{display:flex;gap:8px;flex-wrap:wrap}
 .msb-me .tbav i{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--m-side);background:#9aa8a0}
 .msb-me .tbav i[data-s="ok"]{background:#2fbf71}.msb-me .tbav i[data-s="busy"],.msb-me .tbav i[data-s="err"]{background:#e8a33a}.msb-me .tbav i[data-s="signin"]{background:#d64541}
 .msb-mt{min-width:0;line-height:1.25}
@@ -1789,7 +1790,7 @@ function route() {
   if (r === 'today') { location.replace('#dashboard'); return; }   /* there is no Today page: the Dashboard is the home page */
   drawNav(SECTION_OF[r] || 'dashboard'); view().oninput = null; view().onchange = null;
   ({hotels:vDbList, hotel:vHotel, quotes:vQuotesRoute, quote:vQuote, msa:vMsa, collect:vCollect, playbook:vPlaybook, more:vMore, coll:vColl, search:vSearch, dashboard:vDashboard, deleted:vDeleted, userlog:vUserLog, upload:vUpload, setupmeeting:vSetupMeeting, pricing:vPricing, competitors:vCompetitors, report:vReport, dblog:vDblog, partners:vPartners, followup:vFollowup, meetings:vMeetings, activations:vActivations, kpi:vKpi, enews:vEnews}[r] || vDashboard)(id);
-  crumb(SECTION_OF[r] || 'dashboard');
+  crumb(SECTION_OF[r] || 'dashboard'); try { paintBadge(); } catch {}   /* the photo shows once the records are loaded */
 }
 async function decide(result) {
   const q = vQuote.current; vQuote.sync(); const st = approvalState(q);
@@ -4829,6 +4830,7 @@ const Profile = (() => {
     const m = $p('profMenu'); if (!m) return;
     const cs = $p('cloudst'), name = Auth.required ? Auth.who() : '';
     m.innerHTML = '<div class="pm-h"><b>' + esc(name || 'This device') + '</b>' + (cs && cs.textContent ? '<span>' + esc(cs.textContent) + '</span>' : '') + '</div>'
+      + '<button type="button" role="menuitem" data-act="profEdit">My profile</button>'
       + (Profile.canInstall ? '<button type="button" role="menuitem" data-act="install">Install app</button>' : '')
       + (Auth.required ? '<button type="button" role="menuitem" data-act="signOut">Sign out</button>' : '');
     m.hidden = false; open = true;
@@ -4838,7 +4840,7 @@ const Profile = (() => {
     const b = $p('prof'); if (!b) return;
     $p('profIni').textContent = initials(Auth.required ? Auth.who() : 'Me');
     $p('profName').textContent = (Auth.required ? Auth.who() : '') || 'This device';
-    b.hidden = false;
+    b.hidden = false; paintBadge();
     b.onclick = () => (open ? close() : show());
     $p('profMenu').addEventListener('click', e => { if (e.target.closest('[data-act]')) close(); });
   }
@@ -4937,6 +4939,37 @@ const Cloud = (() => {
   return {mark, first, start, sync, uploadAll, paint, get state() { return state; }};
 })();
 
+/* ================= MY PROFILE: a photo, the position and the phone of each staff member (one record each, kind 'profile') ================= */
+const profId = u => 'profile_' + norm(u).replace(/ /g, '_');
+const profOf = u => byId(profId(u)) || null;
+const profPhoto = u => (profOf(u) || {}).photo || '';
+const shortName = n => String(n || '').trim().split(/[\s._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'Me';
+function paintBadge() {
+  const ini = document.getElementById('profIni'), av = ini && ini.parentElement; if (!av) return;
+  const who = Auth.required ? Auth.who() : '', ph = profPhoto(who);
+  av.style.backgroundImage = ph ? 'url("' + ph + '")' : ''; av.style.backgroundSize = 'cover'; av.style.backgroundPosition = 'center';
+  ini.textContent = ph ? '' : shortName(who || 'Me');
+}
+function photoFromFile(file) {   /* a square 160 px picture, small enough to keep in the record */
+  return new Promise((res, rej) => { const img = new Image(), u = URL.createObjectURL(file); img.onload = () => { const s = 160, c = document.createElement('canvas'); c.width = c.height = s; const m = Math.min(img.width, img.height); c.getContext('2d').drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, s, s); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', 0.85)); }; img.onerror = () => { URL.revokeObjectURL(u); rej(new Error('picture')); }; img.src = u; });
+}
+Object.assign(ACTIONS, {
+  profEdit: () => {
+    const who = Auth.required ? Auth.who() : 'Me', p = profOf(who) || {}; let photo = p.photo || '';
+    openSheet(`${sheetHead('My profile')}
+      <div class="pf"><div class="pf-av" id="pf_av"></div><div class="pf-b"><button type="button" class="btn" id="pf_pick">Add photo</button><button type="button" class="btn" id="pf_del">Remove photo</button></div></div>
+      <div class="fu-form" style="grid-template-columns:130px minmax(0,1fr)"><label>Name :</label><div><input value="${esc(who)}" disabled></div>
+       <label for="pf_pos">Position :</label><div><input id="pf_pos" value="${esc(p.position || '')}" placeholder="Sales manager"></div>
+       <label for="pf_ph">Phone :</label><div><input id="pf_ph" value="${esc(p.phone || '')}" placeholder="+66"></div></div>
+      <div class="fu-btns" style="justify-content:flex-start;margin-top:18px"><button type="button" class="btn dark" id="pf_save">${ICON.check}Save</button></div>`, root => {
+      const av = $('#pf_av', root), paint = () => { av.style.backgroundImage = photo ? 'url("' + photo + '")' : ''; av.textContent = photo ? '' : shortName(who); $('#pf_pick', root).textContent = photo ? 'Change photo' : 'Add photo'; $('#pf_del', root).style.display = photo ? '' : 'none'; };
+      paint();
+      $('#pf_pick', root).onclick = () => pickFile('image/*', null, async f => { try { photo = await photoFromFile(f); paint(); } catch { toast('This picture could not be read'); } });
+      $('#pf_del', root).onclick = () => { photo = ''; paint(); };
+      $('#pf_save', root).onclick = async () => { await save({...p, id: profId(who), kind: 'profile', user: who, photo, position: $('#pf_pos', root).value.trim(), phone: $('#pf_ph', root).value.trim()}); closeSheet(); paintBadge(); toast('Profile saved'); };
+    });
+  },
+});
 /* ================= BOOT ================= */
 (async function boot() {
   await Auth.require();
