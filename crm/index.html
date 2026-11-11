@@ -630,7 +630,7 @@ input,select,textarea{box-sizing:border-box}
 .fu-rem-h{background:#fcf1bf;padding:11px 16px;font-weight:700;font-size:14.5px}.fu-rem-b{padding:12px 16px 4px;max-height:42vh;overflow:auto}.fu-rem-i{margin:0 0 16px;line-height:1.5;overflow-wrap:anywhere}.fu-rem-d{color:#7a7468;font-size:12px}
 .fu-rem-off{display:block;width:100%;border:0;border-top:1px solid #efe7d8;background:#faf5ec;color:#176B50;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer;text-align:left}.fu-rem-off:hover{background:#f3ead8}
 .up-done{background:#e4f4ea;border:1px solid #9fd3b1;border-radius:12px;padding:12px 16px;margin:12px 0;font-size:14.5px}.up-done a{font-weight:700}
-.up-adv{margin-top:26px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 16px}.up-adv>summary{cursor:pointer;font-size:14.5px}.up-adv[open]>summary{margin-bottom:10px}
+.up-co{margin-top:34px;padding-top:26px;border-top:1px solid var(--line)}
 .cpl-row{cursor:pointer}.cpl-row:hover td{background:var(--canopy)}.cpl-chip{display:inline-block;background:#e4f4ea;color:#155c3d;border-radius:99px;padding:1px 9px;margin:1px 3px 1px 0;font-size:12px;font-weight:600;white-space:nowrap}
 .cp-fees{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.cp-fees label span{display:block;font-size:12px;color:var(--ink-2);margin-bottom:2px}.cp-more{margin-top:10px}.cp-more>summary{cursor:pointer;font-weight:600;margin-bottom:8px}
 .can-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 16px}.can-tab{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}.can-tab.on{background:var(--forest);border-color:var(--forest);color:#fff}
@@ -3618,15 +3618,31 @@ const cpCount = name => K('hotel').filter(h => SYS_TYPES.some(([k]) => norm(h[k]
 Object.assign(ACTIONS, {
   impBrowse: () => { const f = document.createElement('input'); f.type = 'file'; f.multiple = true; f.accept = '.xlsx,.xls,.xlsm'; f.onchange = () => { const u = UI.imp = UI.imp || {}; u.files = [...f.files]; u.res = null; $('#impName').textContent = u.files.map(x => x.name).join(', '); $('#impInfo').innerHTML = ''; }; f.click(); },
   impCheck: () => { impCheck(); },
-  impClear: () => { UI.imp = {}; const n = $('#impName'), i = $('#impInfo'); if (n) n.textContent = ''; if (i) i.innerHTML = ''; toast('Cleared'); },
+  impExample: () => {   /* one workbook, a sheet for each kind of file the update reads (found by the headings, not by the sheet name) */
+    const sheets = [
+      ['Competitor database', ['Provider (as detected)', 'Provider group', 'Competitor type', 'Hotel name', 'Rooms', 'Destination', 'Country', 'Email', 'Phone', 'Website', 'Address', 'CM Supplier', 'PMS Supplier', 'Flag'],
+        ['eZee', 'eZee (Yanolja Cloud)', 'Booking Engine', 'Example Hotel Bangkok', 32, 'Bangkok', 'Thailand', 'info@example.com', '+66-2-000-0000', 'www.example.com', '1 Example Road, Bangkok 10110', 'SiteMinder', 'eZee (Yanolja Cloud)', '']],
+      ['New hotels', ['Hotel Name', 'City / Location', 'Stars', 'No. of Rooms', 'Current PMS', 'Current CM', 'Booking Engine', 'GHA Present', 'Website', 'Contact Person', 'Contact Role', 'Phone / Email', 'Notes / Source', 'Date Added'],
+        ['Second Example Resort', 'Phuket', 4, 60, 'Cloudbeds', 'Cloudbeds', 'D-EDGE', 'No', 'www.example-resort.com', 'K. Mai', 'Owner', 'mai@example.com', 'Prospect list', '2026-11-01']],
+      ['Contact list', ['Property Name', 'Rooms', 'Address', 'Name (Position)', 'Phone Number', 'Email', 'Caller', 'Conversation'],
+        ['Third Example Inn', 18, '5 Example Lane, Hua Hin, Prachuap Khiri Khan 77110, Thailand', 'K. May (FOM)', '+66-81-000-0000', 'may@example.com', 'Pim', 'Asked us to call back']],
+      ['Competitor profiles', ['Competitor', 'Product Type', 'Main Footprint / Fingerprint', 'Official Website', 'Typical Customer', 'Thailand Priority', 'Vietnam Priority', 'Threat Level', 'Strengths', 'Weaknesses', 'OneHotel Counter-Position', 'Migration Difficulty', 'Sales Action', 'Source URL'],
+        ['eZee (Yanolja Cloud)', 'PMS + Channel Manager + Booking Engine', 'ipms247.com booking link', 'www.yanolja.cloud', 'Small and mid-size hotels', 'High', 'Medium', 'High', 'Low price, many integrations', 'Support response time', 'Local support and one team', 'Medium', 'Offer a free migration', 'www.example.com/source']]];
+    const wb = XLSX.utils.book_new(); sheets.forEach(([n, head, row]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, row]), n));
+    download('CRM company data example.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  },
+  impClear: () => { UI.imp = {}; const n = $('#impName'), i = $('#impInfo'); if (n) n.textContent = ''; if (i) i.innerHTML = ''; toast('Reset'); },
   impSave: () => { impSave(); },
   impNoPlace: () => { const u = UI.imp || {}, r = u.res; if (!r || !r.plan) return; const rows = [['Hotel name', 'City', 'Country', 'Address', 'Phone', 'Email', 'Website']].concat(r.plan.noPlace.map(g => [g.name, g.city || '', g.country || '', g.address || '', g.phone || '', g.email || '', g.website || ''])); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'No City or Country'); download('Hotels without City or Country.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); },
   cpUsing: el => { UI.cmpTab = 'hotels'; UI.canSys = ''; location.hash = 'competitors/' + el.dataset.id; },
 });
 function impPanelHTML() {
   if (!Auth.isProvider()) return ''; const u = UI.imp = UI.imp || {};
-  return `<details class="up-adv" ${(u.files || []).length ? 'open' : ''}><summary><b>Company data</b> update · hotels and competitor information</summary>
-   <div class="up-top"><div class="up-file"><label>Excel files</label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Check</button><button type="button" class="btn amber" data-act="impClear">${ICON.reset}Clear</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div></div><div id="impInfo">${impInfoHTML()}</div></details>`;
+  return `<div class="up-co"><div class="fu-sub"><b>Company data</b> update · hotels and competitor information</div>
+   <div class="up-top"><div class="up-file"><label>Import excel files <i class="req">*</i></label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Upload</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div>
+    <a href="#upload" class="up-ex" data-act="impExample">${ICON.xls}<span>Download example excel file</span></a></div>
+   <div id="impInfo">${impInfoHTML()}</div>
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn amber" data-act="impClear">${ICON.reset}Reset</button></div></div>`;
 }
 
 /* ---------- System Providers and Competitor Analysis ----------
@@ -4900,7 +4916,8 @@ const Auth = (() => {
       err.textContent = r.message || ''; el.querySelector('#auP').value = '';
     };
   }
-  function hide() { shown = false; const el = root(); if (el) { el.hidden = true; el.innerHTML = ''; } document.body.classList.remove('au-on'); changed(); }
+  function hide() { const was = shown; shown = false; if (was) { try { if ((location.hash || '#dashboard') !== '#dashboard') location.hash = '#dashboard'; } catch {} }   /* a sign in, a sign in again or an unlock after the quiet period always lands on the Dashboard */
+    const el = root(); if (el) { el.hidden = true; el.innerHTML = ''; } document.body.classList.remove('au-on'); changed(); }
   function present() { const s = status(); if (s === 'ok') { if (shown) hide(); return; } shown = true; s === 'locked' ? showLock() : showLogin(); }
   /* resolves when somebody is signed in (at once on a test copy) */
   function require_() {
