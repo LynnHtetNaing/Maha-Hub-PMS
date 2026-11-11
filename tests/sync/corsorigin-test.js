@@ -5,7 +5,7 @@ for(const n of ['username-auth','tenant-cloud','platform-admin-provision']){
   const s=fs.readFileSync('supabase/functions/'+n+'/index.ts','utf8');
   const a=s.indexOf('const ALLOWED_ORIGINS'),b=s.indexOf('const handle = async');
   if(a<0||b<0){T(n+': wrapper present',false);continue}
-  const js=s.slice(a,b).replace(/: Request/g,'').replace(/: Response/g,'');
+  const js=s.slice(a,b).replace(/: Request/g,'').replace(/: Response/g,'').replace(/, page: string/g,', page').replace(/\): string \| undefined/g,')');
   const run=(envVal,origin)=>{const Deno={env:{get:k=>k==='MAHA_ALLOWED_ORIGIN'?envVal:undefined}};
     const f=new Function('Deno','Headers','Response',js+';return withOrigin;')(Deno,Headers,Response);
     const res=f({headers:{get:()=>origin}},new Response('x',{status:200}));return res.headers.get('Access-Control-Allow-Origin')};
