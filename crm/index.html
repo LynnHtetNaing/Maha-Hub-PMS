@@ -979,6 +979,14 @@ function audit(r, old) {
     logUser(act + ' ' + label.toLowerCase() + (nm ? ' "' + String(nm).slice(0, 80) + '"' : '') + (ch.length ? ' (' + ch.slice(0, 6).join(', ') + (ch.length > 6 ? ', ...' : '') + ')' : ''), {area: label});
   } catch {}
 }
+/* the history of the Status of the hotels: one line for every change (a new hotel counts by its created date, a bulk upload and the cloud sync write no line) */
+function stlogHook(r, old) {
+  try {
+    if (r.kind !== 'hotel' || r.deleted || old === undefined) return;
+    const from = stNorm(JSON.parse(old).status), to = stNorm(r.status); if (from === to) return;
+    save({id: uid(), kind: 'stlog', hotelId: r.id, from, to, at: new Date().toISOString(), by: Auth.who() || '', city: r.city || '', country: hCountry(r)});
+  } catch {}
+}
 function save(r) {
   const audOld = AUD_SNAP.get(r.id);
   delete r._s; delete r._su;
@@ -986,7 +994,7 @@ function save(r) {
   r.updated = new Date().toISOString(); if (!r.created) r.created = r.updated;
   const i = R.findIndex(x => x.id === r.id); if (i >= 0) R[i] = r; else R.push(r);
   Cloud.mark(r.id, r.kind);
-  audit(r, audOld); audSnap(r);
+  audit(r, audOld); stlogHook(r, audOld); audSnap(r);
   if (!db) return Promise.resolve(r);
   return new Promise((res, rej) => { const q = store('readwrite').put(r); q.onsuccess = () => res(r); q.onerror = () => rej(q.error); });
 }
@@ -2396,7 +2404,7 @@ const NAVG = [
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
-  {g:'Report', i:'kpi', items:[['Hotel Report', '#report/hotels', 'db'], ['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
+  {g:'Report', i:'kpi', items:[['Hotel Report', '#report/hotels', 'db'], ['Status by Month', '#report/statusmonth', 'list'], ['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
   ['competitors', 'Competitor Analysis', 'kpi'], ['enews', 'Enewletter', 'mail'], ['playbook', 'Playbook'],
 ];
 const NAVOPEN = (() => { try { return JSON.parse(localStorage.getItem('maha.crm.nav') || '{}') || {}; } catch { return {}; } })();
@@ -3249,7 +3257,20 @@ const contactLines = h => (h.contacts && h.contacts.length ? h.contacts : [{name
 const HR_SIZES = [['', 'All'], ['1-20', '1 - 20 rooms'], ['21-50', '21 - 50 rooms'], ['51-100', '51 - 100 rooms'], ['101-200', '101 - 200 rooms'], ['201-99999', 'Over 200 rooms']];
 const HR_RATES = [['', 'All'], ['9', '9.0 and above (out of 10)'], ['8', '8.0 and above'], ['7', '7.0 and above'], ['6', '6.0 and above']];
 const HR_CAP = 300;
+/* Status by Month: how many hotels moved into each status in each month of a year (New Database = hotels added in that month) */
+const smEvents = f => K('stlog').filter(e => (e.at || '').slice(0, 4) === f.year && (!f.who || rpSame(e.by, f.who)) && (!f.city || rpSame(e.city, f.city)) && (!f.country || e.country === f.country));
+const smNew = f => K('hotel').filter(h => String(h.created || '').slice(0, 4) === f.year && (!f.who || rpSame(h.owner, f.who)) && (!f.city || rpSame(h.city, f.city)) && (!f.country || hCountry(h) === f.country));
+const smMonth = (s, f) => { const out = Array(12).fill(0), pick = s === NEWDB ? smNew(f).map(h => h.created) : smEvents(f).filter(e => e.to === s).map(e => e.at); pick.forEach(d => { out[+String(d).slice(5, 7) - 1]++; }); return out; };
 const RP = {
+  statusmonth: {title: 'Status by Month', info: 'Status', def: () => ({year: today().slice(0, 4), who: '', city: '', country: ''}),
+    filters: f => [['year', 'Year', [...new Set([today().slice(0, 4), ...K('stlog').map(e => (e.at || '').slice(0, 4)), ...K('hotel').map(h => String(h.created || '').slice(0, 4))].filter(y => /^\d{4}$/.test(y)))].sort().reverse()], ['who', 'Staff', ['', ...[...new Set(K('stlog').map(e => e.by).concat(K('hotel').map(h => h.owner)).filter(Boolean))].sort()], 'All staff'], ['country', 'Country', ['', ...[...new Set(K('hotel').map(hCountry))].sort()], 'All countries'], ['city', 'City', ['', ...[...new Set(K('hotel').map(h => h.city).filter(Boolean))].sort()], 'All cities']],
+    build(f) {
+      const rows = STAGES.map(([s]) => { const m = smMonth(s, f); return [s, ...m, m.reduce((a, b) => a + b, 0)]; });
+      const tot = n => (rows.find(r => r[0] === n) || [0, 0])[13];
+      return {tiles: [['New Database', tot(NEWDB)], ['Signed', tot('Signed')], ['Cold Reject', tot('Cold Reject')], ['Reject', tot('Reject')]],
+        note: 'It counts the changes made from the day this report was added. New Database counts the hotels added in that month. Press a number to see the hotels.',
+        tables: [{name: 'Status by Month', head: ['Status', ...KPI_MON, 'Total'], al: 'l' + 'c'.repeat(13), rows, cell: (row, i, v) => i > 0 && i < 13 && v > 0 ? `<a href="#report/statusmonth" class="kp-n" data-act="smDrill" data-s="${esc(row[0])}" data-m="${i - 1}">${v}</a>` : ''}]};
+    }},
   hotels: {title: 'Hotel Report', info: 'Hotel', def: () => ({country: '', comp: '', size: '', rate: ''}),
     filters: () => [['country', 'Country', [['', 'All'], ...[...new Set(K('hotel').map(hCountry))].sort().map(c => [c, c])]], ['comp', 'Competitor', [['', 'All'], ...[...new Set(K('hotel').flatMap(h => SYS_TYPES.map(([k]) => String(h[k] || '').trim())).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(c => [c, c])]], ['size', 'Hotel size', HR_SIZES], ['rate', 'OTA rating', HR_RATES]],
     build(f, full) {
@@ -3344,7 +3365,7 @@ function vReport(key) {
 function paintReport(key) {
   const c = RP[key], f = UI.rp[key], box = $('#rpbody'); if (!box) return; const r = c.build(f);
   const tbl = t => `${t.title ? `<h3 class="rp-h">${esc(t.title)}</h3>` : ''}<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>
-    ${t.rows.length ? t.rows.map(row => `<tr>${row.map((v, i) => `<td class="${t.al[i] === 'l' ? 'l' : t.al[i] === 'r' ? 'r' : ''}${t.red === i && /^(Waiting|Not started)$/.test(String(v)) ? ' red' : ''}${t.ok === i && v === 'Earned' ? ' hit' : ''}">${esc(String(v ?? ''))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.head.length}" class="empty">Nothing found for these filters. Change them, then press Search.</td></tr>`}
+    ${t.rows.length ? t.rows.map(row => `<tr>${row.map((v, i) => `<td class="${t.al[i] === 'l' ? 'l' : t.al[i] === 'r' ? 'r' : ''}${t.red === i && /^(Waiting|Not started)$/.test(String(v)) ? ' red' : ''}${t.ok === i && v === 'Earned' ? ' hit' : ''}">${t.cell && t.cell(row, i, v) || esc(String(v ?? ''))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.head.length}" class="empty">Nothing found for these filters. Change them, then press Search.</td></tr>`}
     ${t.rows.length ? (t.foot || []).map(fr => `<tr class="kp-tot"><td colspan="${t.footSpan || 1}" style="text-align:right"><b>${esc(String(fr[0]))}</b></td>${fr.slice(1).map(v => `<td><b>${esc(String(v ?? ''))}</b></td>`).join('')}</tr>`).join('') : ''}</tbody></table></div>`;
   box.innerHTML = (r.tiles ? `<div class="rp-tiles">${r.tiles.map(([l, v]) => `<div class="rp-t"><div class="v">${esc(String(v))}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>` : '') + r.tables.map(tbl).join('') + (r.note ? `<p class="muted small" style="text-align:center">${esc(r.note)}</p>` : '');
 }
@@ -3357,6 +3378,11 @@ function rpExport(key) {
   catch { download(name + '.csv', toCSV(sheets[0].aoa), 'text/csv'); }
 }
 Object.assign(ACTIONS, {
+  smDrill: el => {
+    const f = UI.rp.statusmonth, s = el.dataset.s, m = +el.dataset.m, ym = f.year + '-' + String(m + 1).padStart(2, '0');
+    const rows = (s === NEWDB ? smNew(f).filter(h => String(h.created).slice(0, 7) === ym).map(h => ({name: h.name, city: h.city || '', from: '', to: NEWDB, at: h.created, by: h.owner || ''})) : smEvents(f).filter(e => e.to === s && e.at.slice(0, 7) === ym).map(e => ({name: hotelName(e.hotelId), city: e.city || '', from: e.from, to: e.to, at: e.at, by: e.by}))).sort((a, b) => a.at.localeCompare(b.at));
+    openSheet(`${sheetHead(s + ' · ' + KPI_MON[m] + ' ' + f.year)}<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>City</th><th>From</th><th>To</th><th>Date</th><th>By</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td><td class="l">${esc(r.name)}</td><td>${esc(r.city)}</td><td>${esc(r.from)}</td><td>${esc(r.to)}</td><td class="nw">${esc(meetDmy(r.at.slice(0, 10)))}</td><td>${esc(r.by)}</td></tr>`).join('')}</tbody></table></div>`);
+  },
   rpSearch: el => { const k = el.dataset.k, f = UI.rp[k]; Object.keys(f).forEach(x => { const e = $('#rp_' + x); if (e) f[x] = e.value; }); paintReport(k); },
   rpReset: el => { UI.rp[el.dataset.k] = null; vReport(el.dataset.k); },
   rpExport: el => rpExport(el.dataset.k),
