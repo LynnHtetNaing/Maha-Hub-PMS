@@ -3618,6 +3618,19 @@ const cpCount = name => K('hotel').filter(h => SYS_TYPES.some(([k]) => norm(h[k]
 Object.assign(ACTIONS, {
   impBrowse: () => { const f = document.createElement('input'); f.type = 'file'; f.multiple = true; f.accept = '.xlsx,.xls,.xlsm'; f.onchange = () => { const u = UI.imp = UI.imp || {}; u.files = [...f.files]; u.res = null; $('#impName').textContent = u.files.map(x => x.name).join(', '); $('#impInfo').innerHTML = ''; }; f.click(); },
   impCheck: () => { impCheck(); },
+  impExample: () => {   /* one workbook, a sheet for each kind of file the update reads (found by the headings, not by the sheet name) */
+    const sheets = [
+      ['Competitor database', ['Provider (as detected)', 'Provider group', 'Competitor type', 'Hotel name', 'Rooms', 'Destination', 'Country', 'Email', 'Phone', 'Website', 'Address', 'CM Supplier', 'PMS Supplier', 'Flag'],
+        ['eZee', 'eZee (Yanolja Cloud)', 'Booking Engine', 'Example Hotel Bangkok', 32, 'Bangkok', 'Thailand', 'info@example.com', '+66-2-000-0000', 'www.example.com', '1 Example Road, Bangkok 10110', 'SiteMinder', 'eZee (Yanolja Cloud)', '']],
+      ['New hotels', ['Hotel Name', 'City / Location', 'Stars', 'No. of Rooms', 'Current PMS', 'Current CM', 'Booking Engine', 'GHA Present', 'Website', 'Contact Person', 'Contact Role', 'Phone / Email', 'Notes / Source', 'Date Added'],
+        ['Second Example Resort', 'Phuket', 4, 60, 'Cloudbeds', 'Cloudbeds', 'D-EDGE', 'No', 'www.example-resort.com', 'K. Mai', 'Owner', 'mai@example.com', 'Prospect list', '2026-11-01']],
+      ['Contact list', ['Property Name', 'Rooms', 'Address', 'Name (Position)', 'Phone Number', 'Email', 'Caller', 'Conversation'],
+        ['Third Example Inn', 18, '5 Example Lane, Hua Hin, Prachuap Khiri Khan 77110, Thailand', 'K. May (FOM)', '+66-81-000-0000', 'may@example.com', 'Pim', 'Asked us to call back']],
+      ['Competitor profiles', ['Competitor', 'Product Type', 'Main Footprint / Fingerprint', 'Official Website', 'Typical Customer', 'Thailand Priority', 'Vietnam Priority', 'Threat Level', 'Strengths', 'Weaknesses', 'OneHotel Counter-Position', 'Migration Difficulty', 'Sales Action', 'Source URL'],
+        ['eZee (Yanolja Cloud)', 'PMS + Channel Manager + Booking Engine', 'ipms247.com booking link', 'www.yanolja.cloud', 'Small and mid-size hotels', 'High', 'Medium', 'High', 'Low price, many integrations', 'Support response time', 'Local support and one team', 'Medium', 'Offer a free migration', 'www.example.com/source']]];
+    const wb = XLSX.utils.book_new(); sheets.forEach(([n, head, row]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, row]), n));
+    download('CRM company data example.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  },
   impClear: () => { UI.imp = {}; const n = $('#impName'), i = $('#impInfo'); if (n) n.textContent = ''; if (i) i.innerHTML = ''; toast('Reset'); },
   impSave: () => { impSave(); },
   impNoPlace: () => { const u = UI.imp || {}, r = u.res; if (!r || !r.plan) return; const rows = [['Hotel name', 'City', 'Country', 'Address', 'Phone', 'Email', 'Website']].concat(r.plan.noPlace.map(g => [g.name, g.city || '', g.country || '', g.address || '', g.phone || '', g.email || '', g.website || ''])); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'No City or Country'); download('Hotels without City or Country.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); },
@@ -3626,7 +3639,8 @@ Object.assign(ACTIONS, {
 function impPanelHTML() {
   if (!Auth.isProvider()) return ''; const u = UI.imp = UI.imp || {};
   return `<div class="up-co"><div class="fu-sub"><b>Company data</b> update · hotels and competitor information</div>
-   <div class="up-top"><div class="up-file"><label>Import excel files <i class="req">*</i></label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Upload</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div></div>
+   <div class="up-top"><div class="up-file"><label>Import excel files <i class="req">*</i></label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Upload</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div>
+    <a href="#upload" class="up-ex" data-act="impExample">${ICON.xls}<span>Download example excel file</span></a></div>
    <div id="impInfo">${impInfoHTML()}</div>
    <div class="fu-btns hi-pgbtn"><button type="button" class="btn amber" data-act="impClear">${ICON.reset}Reset</button></div></div>`;
 }
