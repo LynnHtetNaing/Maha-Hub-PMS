@@ -2966,7 +2966,8 @@ function upMap(headers) { return headers.map(h => { const n = norm(h); for (cons
 Object.assign(ICON, {xls:'<svg viewBox="0 0 40 44" width="34" height="38"><rect x="8" y="4" width="26" height="34" rx="2" fill="#fff" stroke="#9aa0a6" stroke-width="1.6"/><path d="M14 14h14M14 20h14M14 26h14M14 32h14M20 10v26" stroke="#c5ccd3" stroke-width="1.4"/><rect x="2" y="16" width="16" height="16" rx="2" fill="#1f8a4c"/><path d="M6.5 20.5l7 7M13.5 20.5l-7 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>', save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg>'});
 function vUpload() {
   const u = UI.up = UI.up || {};
-  view().innerHTML = `<div class="top"><div><h1>Database upload</h1></div></div>
+  view().innerHTML = `<div class="top"><div><h1>Upload database</h1></div></div>
+   <div class="fu-sub"><b>Hotel list</b> upload · add new hotels and fill the empty fields of the hotels already in the database</div>
    <div class="up-top"><div class="up-file"><label>Import excel file <i class="req">*</i></label><a href="#upload" class="up-browse" data-act="upBrowse">Browse</a><button type="button" class="btn up-go" data-act="upParse">Upload</button><span class="up-name" id="upName">${esc(u.name || '')}</span></div>
     <a href="#upload" class="up-ex" data-act="upExample">${ICON.xls}<span>Download example excel file</span></a></div>
    <div id="upInfo">${upInfoHTML()}</div>
@@ -3597,10 +3598,10 @@ function impInfoHTML() {
     ${p.noPlace.length ? `<tr><td class="l"><b>Not added: no City or Country</b> <a href="#upload" data-act="impNoPlace">Download list</a></td><td><b>${n(p.noPlace.length)}</b></td></tr>` : ''}
     <tr><td class="l">New competitors (added to Competitor profile)</td><td>${n(r.newProv.length)}</td></tr>
     <tr><td class="l">Competitors already there that get their information filled</td><td>${n(r.profs.length)}</td></tr></tbody></table></div>
-   ${p.adds.length || p.updates.length || r.profs.length || r.newProv.length ? `<div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="impSave">${ICON.save}Update database</button><span class="muted small" id="impProg"></span></div>` : '<p class="muted">Nothing new to add.</p>'}`;
+   ${p.adds.length || p.updates.length || r.profs.length || r.newProv.length ? '' : '<p class="muted">Nothing new to add.</p>'}`;
 }
 async function impSave() {
-  const u = UI.imp || {}, r = u.res; if (!r || r.error || u.saving) return; u.saving = true; const prog = $('#impProg'), say = t => { if (prog) prog.textContent = t; };
+  const u = UI.imp || {}, r = u.res; if (!r) { toast('Choose the files and press Upload first'); return; } if (r.error || u.saving) return; u.saving = true; const prog = $('#impProg'), say = t => { if (prog) prog.textContent = t; };
   try {
     const who = Auth.who() || '';
     if (r.newProv.length || r.profs.length) await saveMany([...r.newProv, ...r.profs]);
@@ -3638,11 +3639,11 @@ Object.assign(ACTIONS, {
 });
 function impPanelHTML() {
   if (!Auth.isProvider()) return ''; const u = UI.imp = UI.imp || {};
-  return `<div class="up-co"><div class="fu-sub"><b>Company data</b> update · hotels and competitor information</div>
+  return `<div class="up-co"><div class="fu-sub"><b>Company data</b> upload · hotels and competitor information</div>
    <div class="up-top"><div class="up-file"><label>Import excel files <i class="req">*</i></label><a href="#upload" class="up-browse" data-act="impBrowse">Browse</a><button type="button" class="btn up-go" data-act="impCheck">Upload</button><span class="up-name" id="impName">${esc((u.files || []).map(x => x.name).join(', '))}</span></div>
     <a href="#upload" class="up-ex" data-act="impExample">${ICON.xls}<span>Download example excel file</span></a></div>
    <div id="impInfo">${impInfoHTML()}</div>
-   <div class="fu-btns hi-pgbtn"><button type="button" class="btn amber" data-act="impClear">${ICON.reset}Reset</button></div></div>`;
+   <div class="fu-btns hi-pgbtn"><button type="button" class="btn dark" data-act="impSave">${ICON.save}Save</button><button type="button" class="btn amber" data-act="impClear">${ICON.reset}Reset</button><span class="muted small" id="impProg"></span></div></div>`;
 }
 
 /* ---------- System Providers and Competitor Analysis ----------
