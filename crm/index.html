@@ -902,11 +902,17 @@ const ICON = {
 };
 
 const STAGES = [
- ['New lead','#8A9A8C'],['Called','#5F8B6A'],['Follow up','#D49A38'],['Meeting set','#3F7A52'],
- ['Quoted','#2E6B8A'],['Negotiating','#7A5C9E'],['Signed','#0A3020'],['Live','#1F8A4C'],['On hold','#A0763A'],['Lost','#B4432F'],
+ ['New Database','#8A9A8C'],['Called','#5F8B6A'],['Follow up','#D49A38'],['Meeting set','#3F7A52'],
+ ['Quoted','#2E6B8A'],['Negotiating','#7A5C9E'],['Signed','#0A3020'],['Live','#1F8A4C'],['Cold Reject','#9AA1A6'],['Reject','#B4432F'],
 ];
-const stageColor = s => (STAGES.find(x => x[0] === s) || ['', '#8A9A8C'])[1];
-const CLOSED = ['Lost'];
+/* New Database = a property with no status chosen (it is not in the drop-down: leaving it empty counts as New Database). Cold Reject = said no at the first stage (no meeting, no quotation yet); Reject = said no after the follow up.
+   The old names are still understood: New lead = New Database, On hold = Follow up (a call back is a follow up), Lost = Reject. */
+const NEWDB = 'New Database';
+const stNorm = s => { s = String(s || '').trim(); if (!s || s === 'New lead') return NEWDB; if (s === 'On hold') return 'Follow up'; if (s === 'Lost') return 'Reject'; return s; };
+const hSt = h => stNorm(h && h.status);
+const stageColor = s => (STAGES.find(x => x[0] === stNorm(s)) || ['', '#8A9A8C'])[1];
+const CLOSED = ['Cold Reject', 'Reject'];
+const rejectKind = h => (K('act').some(a => a.hotelId === h.id && isMeet(a)) || K('quote').some(q => q.hotelId === h.id)) ? 'Reject' : 'Cold Reject';   /* no meeting and no quotation before = Cold Reject */
 
 const HOTEL_FIELDS = [
  {k:'name', label:'Hotel name', req:1, wide:1},
@@ -973,6 +979,14 @@ function audit(r, old) {
     logUser(act + ' ' + label.toLowerCase() + (nm ? ' "' + String(nm).slice(0, 80) + '"' : '') + (ch.length ? ' (' + ch.slice(0, 6).join(', ') + (ch.length > 6 ? ', ...' : '') + ')' : ''), {area: label});
   } catch {}
 }
+/* the history of the Status of the hotels: one line for every change (a new hotel counts by its created date, a bulk upload and the cloud sync write no line) */
+function stlogHook(r, old) {
+  try {
+    if (r.kind !== 'hotel' || r.deleted || old === undefined) return;
+    const from = stNorm(JSON.parse(old).status), to = stNorm(r.status); if (from === to) return;
+    save({id: uid(), kind: 'stlog', hotelId: r.id, from, to, at: new Date().toISOString(), by: Auth.who() || '', city: r.city || '', country: hCountry(r)});
+  } catch {}
+}
 function save(r) {
   const audOld = AUD_SNAP.get(r.id);
   delete r._s; delete r._su;
@@ -980,7 +994,7 @@ function save(r) {
   r.updated = new Date().toISOString(); if (!r.created) r.created = r.updated;
   const i = R.findIndex(x => x.id === r.id); if (i >= 0) R[i] = r; else R.push(r);
   Cloud.mark(r.id, r.kind);
-  audit(r, audOld); audSnap(r);
+  audit(r, audOld); stlogHook(r, audOld); audSnap(r);
   if (!db) return Promise.resolve(r);
   return new Promise((res, rej) => { const q = store('readwrite').put(r); q.onsuccess = () => res(r); q.onerror = () => rej(q.error); });
 }
@@ -1010,7 +1024,7 @@ async function seed() {
   const recs = [];
   SEED_MANAGED.forEach(([name, cluster, tier, note]) => {
     const extra = SEED_EXTRA[name] || {};
-    recs.push({id: uid(), kind:'hotel', name, area: cluster, status: tier === 'Hold' ? 'On hold' : 'Live', managed:'Yes',
+    recs.push({id: uid(), kind:'hotel', name, area: cluster, status: tier === 'Hold' ? 'Follow up' : 'Live', managed:'Yes',
       tags: tier === 'Hold' ? 'on hold' : 'tier ' + tier, address: /^(Address|Location|Likely|Largest)/.test(note) ? '' : note,
       notes: [/^(Address|Location|Likely|Largest)/.test(note) ? note : '', extra.notes || ''].filter(Boolean).join(' '),
       ...Object.fromEntries(Object.entries(extra).filter(([k]) => k !== 'notes'))});
@@ -1568,15 +1582,15 @@ const SI_STATUS_GUESS = s => {
   const n = norm(s);
   if (!n) return '';
   if (/sign|won|close.*won|contract/.test(n)) return 'Signed';
-  if (/reject|lost|decline|not interest|cancel/.test(n)) return 'Lost';
+  if (/reject|lost|decline|not interest|cancel/.test(n)) return 'Reject';
   if (/meet/.test(n)) return 'Meeting set';
   if (/follow/.test(n)) return 'Follow up';
   if (/quot|propos/.test(n)) return 'Quoted';
   if (/negot/.test(n)) return 'Negotiating';
   if (/process|called|contact/.test(n)) return 'Called';
   if (/live/.test(n)) return 'Live';
-  if (/hold/.test(n)) return 'On hold';
-  if (/new|lead/.test(n)) return 'New lead';
+  if (/hold/.test(n)) return 'Follow up';
+  if (/new|lead/.test(n)) return NEWDB;
   return '';
 };
 
@@ -1740,7 +1754,7 @@ async function salesImportRun(rows, mp, smap, me, skipOld) {
       else {
         keys.add(key);
         const t = txt(r, 'type'); const type = ACT_TYPES.find(x => norm(t).includes(norm(x))) || (/meet/i.test(status) ? 'Meeting' : 'Call');
-        const closed = ['Signed', 'Lost', 'Live'].includes(stage);
+        const closed = ['Signed', 'Reject', 'Cold Reject', 'Live'].includes(stage);
         const done = !remind || closed || (skipOld && remind < cutoff);
         if (!done) res.open++;
         out.push({id: uid(), kind:'act', hotelId: h.id, srcKey: key, source:'Sales system', date: date || remind || today(), type,
@@ -1753,7 +1767,7 @@ async function salesImportRun(rows, mp, smap, me, skipOld) {
     if (stage && (!latest.has(h.id) || when >= latest.get(h.id))) latest.set(h.id, when), h._stage = stage;
   }
   for (const h of touched.values()) {
-    if (h._stage && !(h.managed === 'Yes' && ['Live', 'On hold'].includes(h.status))) h.status = h._stage;
+    if (h._stage && !(h.managed === 'Yes' && ['Live'].includes(h.status))) h.status = h._stage;
     delete h._stage; h.updated = new Date().toISOString();
   }
   await saveMany([...touched.values(), ...out]);
@@ -1827,7 +1841,7 @@ function hotelRow(h) {
   const sub = [h.area || h.city, h.rooms ? h.rooms + ' rooms' : '', h.contact].filter(Boolean).join(' · ');
   return `<a class="row" href="#hotel/${h.id}"><span class="stripe" style="background:${stageColor(h.status)}"></span>
    <div class="main"><div class="t">${esc(h.name)}${h.managed === 'Yes' ? ' <span class="muted small">· managed</span>' : ''}</div><div class="s">${esc(sub) || '&nbsp;'}</div></div>
-   <div class="end"><span class="status" style="color:${stageColor(h.status)}">${esc(h.status || 'New lead')}</span>${nf ? `<div class="${overdue ? 'due' : ''}">${overdue ? 'Due ' : 'Next '}${fdate(nf)}</div>` : ''}</div></a>`;
+   <div class="end"><span class="status" style="color:${stageColor(h.status)}">${esc(hSt(h))}</span>${nf ? `<div class="${overdue ? 'due' : ''}">${overdue ? 'Due ' : 'Next '}${fdate(nf)}</div>` : ''}</div></a>`;
 }
 
 function vSearch(q) {
@@ -1847,7 +1861,7 @@ function vSearch(q) {
 
 function vHotels() {
   const all = K('hotel');
-  let list = all.filter(h => (!UI.hotelCity || h.city === UI.hotelCity) && (!UI.hotelStage || (h.status || 'New lead') === UI.hotelStage) && (!UI.hotelManaged || (h.managed || 'No') === UI.hotelManaged));
+  let list = all.filter(h => (!UI.hotelCity || h.city === UI.hotelCity) && (!UI.hotelStage || hSt(h) === UI.hotelStage) && (!UI.hotelManaged || (h.managed || 'No') === UI.hotelManaged));
   if (UI.hotelQ) { const n = norm(UI.hotelQ); list = list.filter(h => { if (h._s === undefined || h._su !== h.updated) { h._s = norm([h.name, h.area, h.city, h.address, h.contact, h.phone, h.email, h.tags, h.pms, h.be, h.cm, h.notes].join(' ')); h._su = h.updated; } return h._s.includes(n); }); }
   const sorters = {updated:(a, b) => (b.updated || '').localeCompare(a.updated || ''), name:(a, b) => a.name.localeCompare(b.name),
     follow:(a, b) => (nextFollow(a.id) || '9999').localeCompare(nextFollow(b.id) || '9999'), rooms:(a, b) => (+b.rooms || 0) - (+a.rooms || 0)};
@@ -1860,7 +1874,7 @@ function vHotels() {
     <select id="hcity" aria-label="Province"><option value="">All provinces</option>${[...new Set(all.map(x => x.city).filter(Boolean))].sort().map(c => `<option ${UI.hotelCity === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
     <select id="hman" aria-label="Managed filter"><option value="">All hotels</option><option value="Yes">Managed only</option><option value="No">Prospects only</option></select></div>
    <div class="chips"><button class="chip" data-act="stage" data-stage="" aria-pressed="${!UI.hotelStage}">All<b>${all.length}</b></button>
-    ${STAGES.map(([s]) => { const n = all.filter(h => (h.status || 'New lead') === s).length; return n ? `<button class="chip" data-act="stage" data-stage="${esc(s)}" aria-pressed="${UI.hotelStage === s}">${esc(s)}<b>${n}</b></button>` : ''; }).join('')}</div>
+    ${STAGES.map(([s]) => { const n = all.filter(h => hSt(h) === s).length; return n ? `<button class="chip" data-act="stage" data-stage="${esc(s)}" aria-pressed="${UI.hotelStage === s}">${esc(s)}<b>${n}</b></button>` : ''; }).join('')}</div>
    ${shown.length ? `<div class="list">${shown.map(hotelRow).join('')}</div>` : `<div class="list"><div class="empty">${all.length ? 'No hotels match this filter.' : 'Your database is empty.'}<br><button class="btn primary" data-act="newHotel">Add hotel</button></div></div>`}
    ${list.length > shown.length ? `<p style="text-align:center"><button class="btn" data-act="more">Show more (${list.length - shown.length} left)</button></p>` : ''}`;
   $('#hsort').value = UI.hotelSort; $('#hman').value = UI.hotelManaged;
@@ -1880,7 +1894,7 @@ function vHotel(id) {
     if (f.k === 'website') v = `<a href="${esc(/^https?:/.test(h.website) ? h.website : 'https://' + h.website)}" target="_blank" rel="noopener">${v}</a>`;
     return `<div class="fact"><dt>${esc(f.label)}</dt><dd>${v}</dd></div>`; }).join('');
   view().innerHTML = `<a class="back" href="#hotels">‹ Hotels</a>
-   <div class="top"><div><h1>${esc(h.name)}</h1><p><span class="status" style="color:${stageColor(h.status)}">${esc(h.status || 'New lead')}</span> ${h.managed === 'Yes' ? '<span class="muted">· Maha Hub managed</span>' : ''}</p></div>
+   <div class="top"><div><h1>${esc(h.name)}</h1><p><span class="status" style="color:${stageColor(h.status)}">${esc(hSt(h))}</span> ${h.managed === 'Yes' ? '<span class="muted">· Maha Hub managed</span>' : ''}</p></div>
     <div class="actions"><button class="btn primary" data-act="log" data-hid="${id}">${ICON.plus}Log activity</button>
      <button class="btn" data-go="#quote/new?hotel=${id}">New quote</button><button class="btn" data-go="#msa/new?hotel=${id}">New MSA</button><button class="btn" data-act="editHotel" data-id="${id}">Edit</button></div></div>
    <div class="split"><div>
@@ -1934,8 +1948,8 @@ function actSheet(a, hid, type) {
       const rec = {...a, ...rest, id: a.id || uid(), kind:'act', hotelId: h.id, done: rest.nextDate ? (a.nextDate === rest.nextDate ? !!a.done : false) : true};
       await save(rec);
       let ns = setStatus !== '(keep current)' ? setStatus : null;
-      if (!ns && rest.nextDate && ['New lead', 'Called'].includes(h.status || 'New lead')) ns = 'Follow up';
-      if (!ns && (h.status || 'New lead') === 'New lead') ns = 'Called';
+      if (!ns && rest.nextDate && [NEWDB, 'Called'].includes(hSt(h))) ns = 'Follow up';
+      if (!ns && hSt(h) === NEWDB) ns = 'Called';
       if (ns) { h.status = ns; await save(h); } else await save(h);
       closeSheet(); toast('Activity saved'); rerender();
     };
@@ -2297,7 +2311,8 @@ const ACTIONS = {
     if (approvalState(q) === 'none') { toast('Not needed: the price is at the official list'); return; }
     q.approval = 'requested'; q.approvedSig = discSig(q); q.requestedBy = Auth.who() || 'Sales'; q.requestedAt = new Date().toISOString(); q.approvedBy = ''; q.approvedAt = '';
     if (q.isNew) { toast('Save the quote first, then ask for approval'); q.approval = ''; return; }
-    await save(q); toast('Sent for approval'); rerender();
+    await save(q); { const hq = byId(q.hotelId); if (hq && [NEWDB, 'Called', 'Follow up', 'Meeting set', 'Quoted'].includes(hSt(hq))) { hq.status = 'Negotiating'; await save(hq); } }   /* a price that needs approval = Negotiating */
+    toast('Sent for approval'); rerender();
   },
   approveQuote: async () => { await decide('approved'); },
   declineQuote: async () => { await decide('declined'); },
@@ -2305,7 +2320,7 @@ const ACTIONS = {
     const q = vQuote.current; vQuote.sync(); if (!q.hotelName) { toast('Add the hotel name'); return; }
     if (['Sent', 'Accepted'].includes(q.status) && !['none', 'approved'].includes(approvalState(q))) { toast('This price is below the official list: it needs approval before it is Sent'); return; }
     if (!q.hotelId) { toast('This hotel is not in the database. Add it first (Database > Add new Hotel) with its City and Country'); return; }
-    else { if (q.isNew && needPlace(byId(q.hotelId))) return; const h = byId(q.hotelId); if (['New lead', 'Called', 'Follow up', 'Meeting set', undefined, ''].includes(h.status) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
+    else { if (q.isNew && needPlace(byId(q.hotelId))) return; const h = byId(q.hotelId); if ([NEWDB, 'Called', 'Follow up', 'Meeting set'].includes(hSt(h)) && q.status !== 'Draft') { h.status = 'Quoted'; await save(h); } if (!h.rooms && q.rooms) { h.rooms = q.rooms; await save(h); } }
     const wasNew = q.isNew; if (wasNew) { const no = await claimQuoteNo(byId(q.hotelId), q.date, q.id); if (!no) { toast(NO_QNO); return; } q.no = no; } delete q.isNew; await save(q); if (q.status === 'Accepted') await dealFromQuote(q); toast('Quote saved'); if (wasNew) location.hash = 'quote/' + q.id; else rerender();
   },
   saveMsa: async () => {
@@ -2389,7 +2404,7 @@ const NAVG = [
   {g:'Activation', i:'more', items:[['Setup activation', '#activations/new', 'plus'], ['List of activation', '#activations', 'list']]},
   {g:'KPI', i:'kpi', items:[['Number of appointment', '#kpi/appointment', 'cal'], ['Number of signed contract', '#kpi/signed', 'quotes'], ['Number of activation', '#kpi/activation', 'kpi']]},
   {g:'Admin', i:'gear', items:[['Database log create', '#dblog', 'gear'], ['User log', '#userlog', 'log'], ['Delete records', '#deleted', 'trash']]},
-  {g:'Report', i:'kpi', items:[['Hotel Report', '#report/hotels', 'db'], ['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
+  {g:'Report', i:'kpi', items:[['Hotel Report', '#report/hotels', 'db'], ['Status by Month', '#report/statusmonth', 'list'], ['Quotation Report', '#report/quote', 'quotes'], ['Revenue Report', '#report/revenue', 'kpi'], ['Pipeline Report', '#report/pipeline', 'list'], ['Lead Source Report', '#report/leads', 'users'], ['Activation Speed Report', '#report/speed', 'cal'], ['Referral Rewards Report', '#report/rewards', 'check']]},
   ['competitors', 'Competitor Analysis', 'kpi'], ['enews', 'Enewletter', 'mail'], ['playbook', 'Playbook'],
 ];
 const NAVOPEN = (() => { try { return JSON.parse(localStorage.getItem('maha.crm.nav') || '{}') || {}; } catch { return {}; } })();
@@ -2465,6 +2480,13 @@ Object.assign(ACTIONS, {
   partnerInfo: el => partnerSheet(byId(el.dataset.id)),
 });
 /* an old Agent becomes a Partner / White Label, and a hotel keeps its link by name */
+async function migrateStatus() {   /* one time: Lost becomes Cold Reject or Reject, On hold becomes Follow up (New lead is read as New Database, nothing to rewrite) */
+  const m = byId('meta'); if (!m || m.stv2) return;
+  const withMeet = new Set(K('act').filter(isMeet).map(a => a.hotelId)), withQuote = new Set(K('quote').map(q => q.hotelId)), now = new Date().toISOString(), ch = [];
+  R.filter(r => r.kind === 'hotel').forEach(h => { let n = h.status; if (n === 'On hold') n = 'Follow up'; else if (n === 'Lost') n = (withMeet.has(h.id) || withQuote.has(h.id)) ? 'Reject' : 'Cold Reject'; if (n !== h.status) { h.status = n; h.updated = now; ch.push(h); } });
+  for (let i = 0; i < ch.length; i += 250) await saveMany(ch.slice(i, i + 250));
+  m.stv2 = true; await save(m);
+}
 async function migrateAgents() {
   const old = R.filter(r => r.kind === 'agent'); if (!old.length && !R.some(r => r.kind === 'hotel' && r.agent && !r.partnerId)) return;
   for (const a of old) { a.kind = 'partner'; a.name = a.name || a.company || ''; if (a.company && a.company !== a.name) a.notes = [a.notes, 'Company: ' + a.company].filter(Boolean).join('\n'); delete a.company; await save(a); }
@@ -2540,13 +2562,13 @@ Object.assign(ACTIONS, {dlSearch: () => { UI.dl = {from: $('#dl_from').value, to
 /* ----- Follow up: the page as in OneHotel Sales (Latest Follow ups): filters, Search / Reset, Export Excel, the coloured table,
    Manage(n) = the quotations of the hotel in a pop-up, View = the follow-up information in a pop-up. Everything else in the table is plain text. ----- */
 const FU_PROD = [['pms', 'PMS', ['pms']], ['cm', 'CM', ['cm']], ['be', 'BE', ['be', 'becom']], ['vop', 'Virtual Offline Payment', ['inv']], ['rb', REV_NAME, ['rm']]];
-const FU_STATUS = [['processing', 'Processing', ['New lead', 'Called', 'Quoted', 'Negotiating']], ['meeting', 'Meeting', ['Meeting set']], ['follow', 'Follow up', ['Follow up']], ['reject', 'Reject', ['Lost', 'On hold']], ['sign', 'Sign', ['Signed', 'Live']], ['old', 'Old data', []]];
-const FU_TO_STAGE = {processing:'Called', meeting:'Meeting set', follow:'Follow up', reject:'Lost', sign:'Signed'};
+const FU_STATUS = [['follow', 'Follow up', [NEWDB, 'Called', 'Follow up']], ['meeting', 'Meeting', ['Meeting set']], ['processing', 'Negotiation', ['Quoted', 'Negotiating']], ['reject', 'Reject', ['Cold Reject', 'Reject']], ['sign', 'Sign', ['Signed', 'Live']], ['old', 'Old data', []]];
+const FU_TO_STAGE = {processing:'Negotiating', meeting:'Meeting set', follow:'Follow up', reject:'Reject', sign:'Signed'};   /* Reject becomes Cold Reject when there was no meeting or quotation before (rejectKind) */
 Object.assign(ICON, {
   edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>',
   pdf:'<svg viewBox="0 0 48 56" width="40" height="46"><path d="M6 2h26l10 10v40a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#fff" stroke="#9aa0a6" stroke-width="2"/><path d="M32 2v10h10" fill="#e9ecef" stroke="#9aa0a6" stroke-width="2"/><rect x="2" y="26" width="30" height="15" rx="2" fill="#d93025"/><text x="17" y="37.5" text-anchor="middle" font-family="Arial" font-weight="700" font-size="10.5" fill="#fff">PDF</text></svg>',
 });
-const fuKey = (a, h) => { if (a.fuStatus) return a.fuStatus; const s = FU_STATUS.find(x => x[0] !== 'old' && x[2].includes((h && h.status) || 'New lead')); return s ? s[0] : ''; };
+const fuKey = (a, h) => { if (a.fuStatus) return a.fuStatus; const s = FU_STATUS.find(x => x[0] !== 'old' && x[2].includes(hSt(h))); return s ? s[0] : ''; };
 const fuLabel = k => (FU_STATUS.find(x => x[0] === k) || ['', ''])[1];
 const fuLatestQ = hid => K('quote').filter(q => q.hotelId === hid).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
 const fuProds = (a, q) => { if (Array.isArray(a.products)) return a.products; const L = (q && q.lines) || {}; return FU_PROD.filter(p => p[2].some(id => L[id] && L[id].on)).map(p => p[0]); };
@@ -2691,7 +2713,7 @@ async function fuSave(root, a, h, isNew) {
     owner: isNew ? (Auth.who() || a.owner || '') : g('owner'), products: g('product') ? [g('product')] : [], fuStatus: st};
   rec.done = rec.nextDate ? (a.nextDate === rec.nextDate ? !!a.done : false) : true;
   await save(rec);
-  if (st && FU_TO_STAGE[st]) { const to = FU_TO_STAGE[st]; if (h.status !== to && !(st === 'processing' && !['New lead', ''].includes(h.status || ''))) { h.status = to; await save(h); } }
+  if (st && FU_TO_STAGE[st]) { const cur = hSt(h); let to = FU_TO_STAGE[st]; if (st === 'reject') to = CLOSED.includes(cur) ? cur : rejectKind(h); else if (st === 'processing' && ['Negotiating', 'Signed', 'Live'].includes(cur)) to = cur; else if (st === 'sign' && ['Signed', 'Live'].includes(cur)) to = cur; if (h.status !== to) { h.status = to; await save(h); } }
   return true;
 }
 function followSheet(id, edit, back) {
@@ -2712,7 +2734,7 @@ function followRecordSheet(hid) {
    ${mine.length ? mine.map(a => `<div class="fu-pop fu-rec"><div class="fu-ph"><b>Follow up issue #${fuNo(a)}</b><button type="button" class="btn gray" data-act="fuEdit" data-id="${a.id}" data-hid="${hid}">Edit follow up</button></div>${fuForm(a, h, true, 'fp_' + a.id, true)}</div>`).join('') : '<p class="fu-none">No follow up yet.</p>'}`);
 }
 function followNewSheet(hid) {
-  const h = byId(hid); if (!h) return; const a = {date: today(), hotelId: hid, type: 'Call', fuStatus: 'processing'};
+  const h = byId(hid); if (!h) return; const a = {date: today(), hotelId: hid, type: 'Call'};   /* the status shown first is the one of the hotel */
   openSheet(`${fuHead('Follow up information for ' + h.name)}<div class="fu-pop">${fuForm(a, h, false, 'fp_st', false)}</div>
    <div class="sheet-foot"><button class="btn" data-act="${UI.fuL ? 'mrFollow' : 'fuRecord'}" data-hid="${hid}">Cancel</button><button class="btn primary" id="fp_save">Save</button></div>`, root => {
     $('#fp_save', root).onclick = async () => { if (!await fuSave(root, {}, h, true)) return; toast('Follow up added'); if (UI.fuL) followLatestSheet(hid); else followRecordSheet(hid); if (location.hash.startsWith('#hotels')) rerender(); };
@@ -2857,7 +2879,7 @@ function bindOta(root) {
   fill(inp.value, sc.dataset.keep || '');
 }
 /* ---- Property information (full info of a hotel: edit it, add contacts) ---- */
-const hotelDefaults = pre => Object.assign({status: 'New lead', managed: 'No', country: 'Thailand'}, pre || {});
+const hotelDefaults = pre => Object.assign({status: '', managed: 'No', country: 'Thailand'}, pre || {});   /* no status chosen = New Database */
 /* the Property information form: the same boxes in the pop-up (an existing hotel) and on the Add new Hotel page */
 function hotelForm(h, isNew) {
   const contacts = (h.contacts && h.contacts.length ? h.contacts : [{name: h.contact || '', position: h.contactTitle || '', email: h.email || '', phone: ''}]).slice(); while (contacts.length < 2) contacts.push({});
@@ -2879,7 +2901,7 @@ function hotelForm(h, isNew) {
     <label class="f wide"><span>Remarks</span><textarea data-hf="notes" rows="4">${esc(h.notes || '')}</textarea></label>
     <div class="f wide"><span>Status</span><div class="fu-opts hi-st"><label class="fu-rad"><input type="radio" name="hi_st" value="open" ${h.closed ? '' : 'checked'}> Open</label><label class="fu-rad"><input type="radio" name="hi_st" value="close" ${h.closed ? 'checked' : ''}> Close</label></div></div>
     <details class="hi-more"><summary>More details</summary>
-     <div class="hi-row">${dd('status', 'Status', STAGES.map(s => s[0]), '9.5em')}</div>
+     <div class="hi-row">${dd('status', 'Status', STAGES.slice(1).map(s => s[0]), '9.5em', 'New Database')}</div>
      <div class="hi-row"><label class="f hi-c"><span>Online Travel Agency(OTA)</span><div class="cb" style="width:15em"><input type="text" data-hf="otaName" autocomplete="off" placeholder="Type to find" value="${esc(h.otaName || '')}"><div class="cbl ota" hidden></div></div></label>
       <label class="f hi-c"><span>Review score</span><select data-hf="otaScore" data-keep="${esc(h.otaScore || '')}" style="width:7.5em"></select></label></div>
      <div class="hi-row">${tx('line', 'LINE ID', '13em')}${dd('managed', 'Managed by Maha Hub', ['No', 'Yes'], '7em')}</div>
@@ -3012,7 +3034,7 @@ Object.assign(ACTIONS, {
     const u = UI.up = UI.up || {}; if (!u.file) { toast('Choose the Excel file first (Browse)'); return; }
     if (!u.res || u.type !== $('#up_type').value || u.country !== $('#up_country').value) { if (!await upParse()) return; }
     const list = u.res.list, ups = (u.res.updates || []).map(x => ({...x.h, ...x.patch, updated: new Date().toISOString()})); if (!list.length && !ups.length) { toast('Nothing new to add or fill'); return; }
-    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: v.type || u.type, country: v.country || u.country, contacts: c, status: 'New lead', managed: 'No', owner: who}; });
+    const who = Auth.who() || '', batch = list.map(v => { const c = v.contact || v.contactTitle || v.email || v.contactPhone ? [{name: v.contact || '', position: v.contactTitle || '', email: v.email || '', phone: v.contactPhone || ''}] : []; const {contactPhone, ...rest} = v; return {...rest, id: uid(), kind: 'hotel', type: v.type || u.type, country: v.country || u.country, contacts: c, status: '', managed: 'No', owner: who}; });
     toast(`Saving ${batch.length + ups.length} hotels… please wait`);
     for (let i = 0; i < ups.length; i += 250) await saveMany(ups.slice(i, i + 250));
     for (let i = 0; i < batch.length; i += 250) { await saveMany(batch.slice(i, i + 250)); toast(`Saving… ${Math.min(i + 250, batch.length)} of ${batch.length}`); }
@@ -3235,7 +3257,20 @@ const contactLines = h => (h.contacts && h.contacts.length ? h.contacts : [{name
 const HR_SIZES = [['', 'All'], ['1-20', '1 - 20 rooms'], ['21-50', '21 - 50 rooms'], ['51-100', '51 - 100 rooms'], ['101-200', '101 - 200 rooms'], ['201-99999', 'Over 200 rooms']];
 const HR_RATES = [['', 'All'], ['9', '9.0 and above (out of 10)'], ['8', '8.0 and above'], ['7', '7.0 and above'], ['6', '6.0 and above']];
 const HR_CAP = 300;
+/* Status by Month: how many hotels moved into each status in each month of a year (New Database = hotels added in that month) */
+const smEvents = f => K('stlog').filter(e => (e.at || '').slice(0, 4) === f.year && (!f.who || rpSame(e.by, f.who)) && (!f.city || rpSame(e.city, f.city)) && (!f.country || e.country === f.country));
+const smNew = f => K('hotel').filter(h => String(h.created || '').slice(0, 4) === f.year && (!f.who || rpSame(h.owner, f.who)) && (!f.city || rpSame(h.city, f.city)) && (!f.country || hCountry(h) === f.country));
+const smMonth = (s, f) => { const out = Array(12).fill(0), pick = s === NEWDB ? smNew(f).map(h => h.created) : smEvents(f).filter(e => e.to === s).map(e => e.at); pick.forEach(d => { out[+String(d).slice(5, 7) - 1]++; }); return out; };
 const RP = {
+  statusmonth: {title: 'Status by Month', info: 'Status', def: () => ({year: today().slice(0, 4), who: '', city: '', country: ''}),
+    filters: f => [['year', 'Year', [...new Set([today().slice(0, 4), ...K('stlog').map(e => (e.at || '').slice(0, 4)), ...K('hotel').map(h => String(h.created || '').slice(0, 4))].filter(y => /^\d{4}$/.test(y)))].sort().reverse()], ['who', 'Staff', ['', ...[...new Set(K('stlog').map(e => e.by).concat(K('hotel').map(h => h.owner)).filter(Boolean))].sort()], 'All staff'], ['country', 'Country', ['', ...[...new Set(K('hotel').map(hCountry))].sort()], 'All countries'], ['city', 'City', ['', ...[...new Set(K('hotel').map(h => h.city).filter(Boolean))].sort()], 'All cities']],
+    build(f) {
+      const rows = STAGES.map(([s]) => { const m = smMonth(s, f); return [s, ...m, m.reduce((a, b) => a + b, 0)]; });
+      const tot = n => (rows.find(r => r[0] === n) || [0, 0])[13];
+      return {tiles: [['New Database', tot(NEWDB)], ['Signed', tot('Signed')], ['Cold Reject', tot('Cold Reject')], ['Reject', tot('Reject')]],
+        note: 'It counts the changes made from the day this report was added. New Database counts the hotels added in that month. Press a number to see the hotels.',
+        tables: [{name: 'Status by Month', head: ['Status', ...KPI_MON, 'Total'], al: 'l' + 'c'.repeat(13), rows, cell: (row, i, v) => i > 0 && i < 13 && v > 0 ? `<a href="#report/statusmonth" class="kp-n" data-act="smDrill" data-s="${esc(row[0])}" data-m="${i - 1}">${v}</a>` : ''}]};
+    }},
   hotels: {title: 'Hotel Report', info: 'Hotel', def: () => ({country: '', comp: '', size: '', rate: ''}),
     filters: () => [['country', 'Country', [['', 'All'], ...[...new Set(K('hotel').map(hCountry))].sort().map(c => [c, c])]], ['comp', 'Competitor', [['', 'All'], ...[...new Set(K('hotel').flatMap(h => SYS_TYPES.map(([k]) => String(h[k] || '').trim())).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(c => [c, c])]], ['size', 'Hotel size', HR_SIZES], ['rate', 'OTA rating', HR_RATES]],
     build(f, full) {
@@ -3271,7 +3306,7 @@ const RP = {
   pipeline: {title: 'Pipeline Report', info: 'Pipeline', def: () => ({who: '', city: ''}),
     filters: () => [['who', 'Staff', ['', ...[...new Set(K('hotel').map(h => h.owner).filter(Boolean))].sort()], 'All staff'], ['city', 'City', ['', ...[...new Set(K('hotel').map(h => h.city).filter(Boolean))].sort()], 'All cities']],
     build(f) {
-      const hs = K('hotel').filter(h => (!f.who || rpSame(h.owner, f.who)) && (!f.city || rpSame(h.city, f.city))), st = STAGES.map(s => s[0]), cols = h => st.map(s => hs.filter(x => h(x) && (x.status || 'New lead') === s).length);
+      const hs = K('hotel').filter(h => (!f.who || rpSame(h.owner, f.who)) && (!f.city || rpSame(h.city, f.city))), st = STAGES.map(s => s[0]), cols = h => st.map(s => hs.filter(x => h(x) && hSt(x) === s).length);
       const grp = (key, none) => [...new Set(hs.map(h => (key(h) || none)))].sort((a, b) => a.localeCompare(b));
       const sRows = grp(h => h.owner, '(No name)').map(w => { const c = cols(h => (h.owner || '(No name)') === w); return [w, ...c, c.reduce((a, b) => a + b, 0)]; });
       const cRows = grp(h => h.city, '(No city)').map(w => { const c = cols(h => (h.city || '(No city)') === w); return [w, ...c, c.reduce((a, b) => a + b, 0)]; });
@@ -3330,7 +3365,7 @@ function vReport(key) {
 function paintReport(key) {
   const c = RP[key], f = UI.rp[key], box = $('#rpbody'); if (!box) return; const r = c.build(f);
   const tbl = t => `${t.title ? `<h3 class="rp-h">${esc(t.title)}</h3>` : ''}<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>
-    ${t.rows.length ? t.rows.map(row => `<tr>${row.map((v, i) => `<td class="${t.al[i] === 'l' ? 'l' : t.al[i] === 'r' ? 'r' : ''}${t.red === i && /^(Waiting|Not started)$/.test(String(v)) ? ' red' : ''}${t.ok === i && v === 'Earned' ? ' hit' : ''}">${esc(String(v ?? ''))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.head.length}" class="empty">Nothing found for these filters. Change them, then press Search.</td></tr>`}
+    ${t.rows.length ? t.rows.map(row => `<tr>${row.map((v, i) => `<td class="${t.al[i] === 'l' ? 'l' : t.al[i] === 'r' ? 'r' : ''}${t.red === i && /^(Waiting|Not started)$/.test(String(v)) ? ' red' : ''}${t.ok === i && v === 'Earned' ? ' hit' : ''}">${t.cell && t.cell(row, i, v) || esc(String(v ?? ''))}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.head.length}" class="empty">Nothing found for these filters. Change them, then press Search.</td></tr>`}
     ${t.rows.length ? (t.foot || []).map(fr => `<tr class="kp-tot"><td colspan="${t.footSpan || 1}" style="text-align:right"><b>${esc(String(fr[0]))}</b></td>${fr.slice(1).map(v => `<td><b>${esc(String(v ?? ''))}</b></td>`).join('')}</tr>`).join('') : ''}</tbody></table></div>`;
   box.innerHTML = (r.tiles ? `<div class="rp-tiles">${r.tiles.map(([l, v]) => `<div class="rp-t"><div class="v">${esc(String(v))}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>` : '') + r.tables.map(tbl).join('') + (r.note ? `<p class="muted small" style="text-align:center">${esc(r.note)}</p>` : '');
 }
@@ -3343,6 +3378,11 @@ function rpExport(key) {
   catch { download(name + '.csv', toCSV(sheets[0].aoa), 'text/csv'); }
 }
 Object.assign(ACTIONS, {
+  smDrill: el => {
+    const f = UI.rp.statusmonth, s = el.dataset.s, m = +el.dataset.m, ym = f.year + '-' + String(m + 1).padStart(2, '0');
+    const rows = (s === NEWDB ? smNew(f).filter(h => String(h.created).slice(0, 7) === ym).map(h => ({name: h.name, city: h.city || '', from: '', to: NEWDB, at: h.created, by: h.owner || ''})) : smEvents(f).filter(e => e.to === s && e.at.slice(0, 7) === ym).map(e => ({name: hotelName(e.hotelId), city: e.city || '', from: e.from, to: e.to, at: e.at, by: e.by}))).sort((a, b) => a.at.localeCompare(b.at));
+    openSheet(`${sheetHead(s + ' · ' + KPI_MON[m] + ' ' + f.year)}<div class="tablewrap fu-tw"><table class="fu-tb dl-tb"><thead><tr><th>No.</th><th>Hotel name</th><th>City</th><th>From</th><th>To</th><th>Date</th><th>By</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td><td class="l">${esc(r.name)}</td><td>${esc(r.city)}</td><td>${esc(r.from)}</td><td>${esc(r.to)}</td><td class="nw">${esc(meetDmy(r.at.slice(0, 10)))}</td><td>${esc(r.by)}</td></tr>`).join('')}</tbody></table></div>`);
+  },
   rpSearch: el => { const k = el.dataset.k, f = UI.rp[k]; Object.keys(f).forEach(x => { const e = $('#rp_' + x); if (e) f[x] = e.value; }); paintReport(k); },
   rpReset: el => { UI.rp[el.dataset.k] = null; vReport(el.dataset.k); },
   rpExport: el => rpExport(el.dataset.k),
@@ -3499,7 +3539,7 @@ function impPlan(hotels, existing, uidf, canon) {
     }
     if (!g.city || !canon(g.country)) { noPlace.push(g); continue; }   /* a new hotel needs its City and Country */
     const c0 = g.contact || g.contactTitle || g.email || g.phone ? [{name: g.contact, position: g.contactTitle, email: g.email, phone: g.phone}] : [];
-    const rec = {id: uidf(), kind: 'hotel', name: g.name, status: 'New lead', managed: 'No', source: g.leadSource, type: impType(g.name, g.ctype), country: canon(g.country), contacts: c0};
+    const rec = {id: uidf(), kind: 'hotel', name: g.name, status: '', managed: 'No', source: g.leadSource, type: impType(g.name, g.ctype), country: canon(g.country), contacts: c0};
     for (const f of ['city', 'address', 'phone', 'email', 'website', 'rooms', 'stars', 'gha', 'pms', 'cm', 'be', 'notes', 'contact', 'contactTitle']) if (g[f]) rec[f] = g[f];
     adds.push(rec);
   }
@@ -4045,7 +4085,7 @@ async function meetingSave(root, a, h, isNew) {
   const date = g('date'), time = g('hh') + ':' + g('mm');
   const rec = {...a, id: a.id || uid(), kind: 'act', hotelId: h.id, type: 'Meeting', date, time, contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), meetType: g('meetType'), meetLead: rr.meetLead, refHotelId: rr.refHotelId, owner: g('owner') || a.owner || Auth.who() || '', meetStatus: isNew ? 'On Process' : (g('meetStatus') || a.meetStatus), meeting: true, done: true};
   await save(rec);
-  if (['New lead', 'Called', 'Follow up', ''].includes(h.status || '')) { h.status = 'Meeting set'; await save(h); }
+  if ([NEWDB, 'Called', 'Follow up'].includes(hSt(h))) { h.status = 'Meeting set'; await save(h); }
   return true;
 }
 function meetingFormSheet(hid, a) {
@@ -4235,7 +4275,7 @@ function vActSetup(a) {
     $$('[data-sys]', root).forEach(e => cur.sys[e.dataset.sys] = e.value);
     return {...a, id: a.id || uid(), kind: 'activation', hotelId: cur.hotelId, quoteId: cur.quoteId, date: val('date'), techBy: val('techBy'), credit: val('credit') === '' ? '' : parseFloat(val('credit')), qSend: val('qSend'), qBack: val('qBack'), intro: ($('[name=ac_intro]:checked', root) || {}).value || 'No', sys: {...cur.sys}, status: a.status || 'In progress', owner: a.owner || val('techBy')};
   };
-  $('#ac_save', root).onclick = async () => { const rec = await collect(); if (!rec) return; delete rec.isNew; await save(rec); const h = byId(rec.hotelId); if (h && ['New lead', 'Called', 'Follow up', 'Meeting set', 'Quoted', 'Negotiating', undefined, ''].includes(h.status)) { h.status = 'Signed'; await save(h); } toast('Saved'); location.hash = 'activations'; };
+  $('#ac_save', root).onclick = async () => { const rec = await collect(); if (!rec) return; delete rec.isNew; await save(rec); const h = byId(rec.hotelId); if (h && [NEWDB, 'Called', 'Follow up', 'Meeting set', 'Quoted', 'Negotiating'].includes(hSt(h))) { h.status = 'Signed'; await save(h); } toast('Saved'); location.hash = 'activations'; };
   $('#ac_reset', root).onclick = () => { vActSetup(isNew ? null : byId(a.id)); };
   $('#ac_live', root).onclick = async () => {
     const rec = await collect(); if (!rec) return;
@@ -4389,7 +4429,7 @@ function enewsSendSheet() {
 /* ----- Enewletter: write one message, pick who gets it, send it from the CRM (or from your own email program) ----- */
 function enewsAudience() {
   const e = UI.enews;
-  return K('hotel').filter(h => h.email && (!e.stage || (h.status || 'New lead') === e.stage) && (!e.city || h.city === e.city));
+  return K('hotel').filter(h => h.email && (!e.stage || hSt(h) === e.stage) && (!e.city || h.city === e.city));
 }
 const EN_MAX = 3 * 1024 * 1024;
 const enewsHtmlOf = s => s.html || esc(s.body || '').replace(/\n/g, '<br>');
@@ -5043,7 +5083,7 @@ Object.assign(ACTIONS, {
   const inCloud = await Cloud.first();
   if (!byId('meta') && !inCloud) { await seed(); Cloud.uploadAll(); }
   else if (byId('meta') && !inCloud) Cloud.uploadAll();
-  await migrateAgents();
+  await migrateAgents(); await migrateStatus();
   try { if (!sessionStorage.getItem('maha.crm.landed')) { sessionStorage.setItem('maha.crm.landed', '1'); history.replaceState(null, '', '#dashboard'); } } catch {}   /* every sign in lands on the Dashboard */
   applyTheme(); shellInit(); route(); Cloud.start();
   Profile.start();
