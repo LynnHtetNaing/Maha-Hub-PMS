@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="cafd496772">
+<meta name="maha-build" content="82d7a8b01f">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -3460,10 +3460,14 @@ const MahaAuth={
      the emailed sign-in code (trusted devices). */
   deviceId(){
     const ok=v=>/^[A-Za-z0-9_-]{16,64}$/.test(v||'');
-    try{const v=localStorage.getItem('maha.deviceId');if(ok(v))return v}catch(e){}
-    let v=this._dev;
+    /* one id for every Maha address of this browser (a cookie on .maha-hub.com): the Authenticator and the emailed code are then asked once for the browser, not once for each address */
+    let c='';try{const m=String(typeof document!=='undefined'?document.cookie:'').match(/(?:^|; )maha_dev=([A-Za-z0-9_-]{16,64})(?=;|$)/);if(m)c=m[1]}catch(e){}
+    let v='';try{v=localStorage.getItem('maha.deviceId')||''}catch(e){}
+    if(ok(c)){if(c!==v){try{localStorage.setItem('maha.deviceId',c)}catch(e){}}this._dev=c;return c}
+    if(!ok(v))v=this._dev;
     if(!ok(v)){const a=new Uint8Array(24);crypto.getRandomValues(a);v=btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');this._dev=v}
     try{localStorage.setItem('maha.deviceId',v)}catch(e){}
+    try{if(typeof location!=='undefined'&&/(^|\.)maha-hub\.com$/.test(location.hostname))document.cookie='maha_dev='+v+'; Domain=.maha-hub.com; Path=/; Max-Age=31536000; Secure; SameSite=Lax'}catch(e){}
     return v;
   },
   /* A limited admin (a device that passed the Authenticator in the last 14 days, signed in with the password only) can look but not change a hotel. */

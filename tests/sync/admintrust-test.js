@@ -38,7 +38,24 @@ T('PMS: an admin may sign in on a system address (no refusal any more)', !pms.in
 /* ---- CRM, Billing and the shared Authenticator step ---- */
 T('shared step: QR first on the first time, then the 6-digit code; five tries; the device is trusted afterwards', shared.includes("factor_type: 'totp'") && shared.includes("ask(pending ? 'enrol' : 'verify'") && shared.includes('n >= 5') && shared.includes("action: 'trust_device'"));
 T('CRM and Billing load the shared step and run it when the answer says needs_mfa', crm.includes('maha-admin-mfa.js') && crm.includes("d.admin_mode === 'needs_mfa'") && bill.includes('maha-admin-mfa.js') && bill.includes("d.admin_mode==='needs_mfa'"));
-T('Billing keeps one device id (so the device can be remembered)', bill.includes("localStorage.setItem('maha.deviceId',n)"));
+T('one device id for every Maha address of the browser (a cookie on .maha-hub.com), so the Authenticator is asked once for the browser and not once for each address: PMS, CRM and Billing all read and write it',
+  [pms, crm, bill].every(s => s.includes("maha_dev=") && s.includes('Domain=.maha-hub.com') && s.includes('SameSite=Lax')) && bill.includes("localStorage.setItem('maha.deviceId'"));
+T('the trust step cuts the word Bearer off the token (a missing backslash once made the device never trusted)', ua.includes('.replace(/^Bearer\\s+/i, "")') && !/Bearers\+/.test(ua));
+/* the PMS id really is shared: a cookie of another address wins, a new id is written to the cookie */
+{
+  const a = pms.indexOf('  deviceId(){'), b = pms.indexOf('  codeMsg(e){', a);
+  const code = pms.slice(a, b).replace(/,\s*$/, '');
+  const mk = (cookie, ls) => { const st = { cookie, ls: Object.assign({}, ls), host: 'crm.maha-hub.com' };
+    const O = new Function('document', 'location', 'localStorage', 'crypto', 'btoa', 'return {' + code + '};')(
+      { get cookie() { return st.cookie; }, set cookie(v) { st.cookie = (st.cookie ? st.cookie + '; ' : '') + String(v).split(';')[0]; } }, { hostname: st.host },
+      { getItem: k => (k in st.ls ? st.ls[k] : null), setItem: (k, v) => { st.ls[k] = String(v); } }, { getRandomValues: x => { for (let n = 0; n < x.length; n++) x[n] = n * 7 + 3; return x; } }, s => Buffer.from(s, 'binary').toString('base64'));
+    return { O, st }; };
+  const A = mk('maha_dev=ABCDEFGHIJKLMNOPQRSTUVWX1234', { 'maha.deviceId': 'localldlocalldlocalldlocalld12' });
+  T('a cookie from another Maha address wins over the id kept in this address', A.O.deviceId() === 'ABCDEFGHIJKLMNOPQRSTUVWX1234' && A.st.ls['maha.deviceId'] === 'ABCDEFGHIJKLMNOPQRSTUVWX1234');
+  const B = mk('', { 'maha.deviceId': 'localldlocalldlocalldlocalld12' });
+  const idB = B.O.deviceId();
+  T('without a cookie the id of this address is kept and written to the cookie for the other addresses', idB === 'localldlocalldlocalldlocalld12' && /maha_dev=localldlocalldlocalldlocalld12/.test(B.st.cookie) && B.O.deviceId() === idB);
+}
 T('a person signed out while the page is loading (ended subscription) never gets a blank page: renderShell stops when there is no session', pms.includes('function renderShell(){' + String.fromCharCode(10) + '  if(SEL_ON)return;' + String.fromCharCode(10) + '  if(!DB||!DB.session)return;'));
 T('an ended subscription: signed in, only the Subscription ended page, no automatic sign-out, and it opens by itself once extended', pms.includes('if(subStopped(h)){SUB_BLOCK=true;subBlockScreen(h);return}') && pms.includes('if(hh&&!subStopped(hh)){clearInterval(wait);SUB_BLOCK=false;location.reload()}'));
 T('the session check (every few seconds) keeps the session while the Subscription ended page shows, so "Your session ended" no longer appears', pms.includes('accessWhy(u)||(subStopped(h)&&!SUB_BLOCK))return false;') && pms.includes('var SUB_BLOCK=false;'));
