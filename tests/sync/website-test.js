@@ -12,7 +12,8 @@ const known = new Set(['/', '/favicon.ico', '/solutions', '/solutions-PMS', '/ec
 const exists = href => { const p = href.split('#')[0].split('?')[0]; if (!p || known.has(p)) return true; if (/^\/(assets|brand|icons)\//.test(p)) return fs.existsSync(path.join(root, p)); return fs.existsSync(path.join(root, p.replace(/^\//, '') + '.html')); };
 const broken = [];
 for (const p of pages) for (const m of html(p).matchAll(/(?:href|src)="(\/[^"]*)"/g)) if (!exists(m[1])) broken.push(p + ': ' + m[1]);
-T('photos and PMS screens exist and are used', ['hero-home','hero-home-sm','hero-solutions','hero-solutions-sm','pms-laptop','pms-tablet'].every(n => fs.existsSync(path.join(root, 'assets', n + '.webp'))) && /hero-home\.webp/.test(html('index')) && /hero-solutions\.webp/.test(html('maha-hub-solutions')) && /pms-laptop\.webp/.test(html('products')));
+T('real system screens exist and are used', ['pms-dashboard','pms-status','pms-grid','pms-housekeeping'].every(n => fs.existsSync(path.join(root, 'assets', 'site', n + '.webp'))) && /assets\/site\/pms-status\.webp/.test(html('index')) && /assets\/site\/pms-grid\.webp/.test(html('products')));
+T('Book a Demo and Talk with the Team open the booking window from every page header', pages.filter(p => !['reset-password','404'].includes(p)).every(p => /data-book="demo"/.test(html(p))) && /crm\.maha-hub\.com\/book\//.test(fs.readFileSync(path.join(root, 'assets', 'group.js'), 'utf8')) && /frame-src https:\/\/crm\.maha-hub\.com/.test(fs.readFileSync(path.join(root, '_headers'), 'utf8')));
 T('every inside link and picture leads somewhere', broken.length === 0, broken.slice(0, 5).join(' ; '));
 const anchors = [];
 for (const p of pages) { const t = html(p); const ids = new Set([...t.matchAll(/id="([^"]+)"/g)].map(m => m[1])); for (const m of t.matchAll(/href="#([^"]+)"/g)) if (!ids.has(m[1])) anchors.push(p + '#' + m[1]); }
@@ -36,7 +37,7 @@ T('the old website files are gone', !fs.existsSync(path.join(root, 'our-solution
 /* the contact form script */
 const js = fs.readFileSync(path.join(root, 'assets', 'group.js'), 'utf8');
 T('the contact form checks name, business, email, country and message before it opens the email app', /\['name', 'business', 'email', 'country', 'message'\]/.test(js) && /mailto:/.test(js) && /hello@maha-hub\.com/.test(js));
-T('the site script is small', js.length < 9000, js.length + ' bytes');
+T('the site script is small', js.length < 14000, js.length + ' bytes');
 const css = fs.readFileSync(path.join(root, 'assets', 'group.css'), 'utf8');
-T('the colours come from the logo (green, gold, ivory)', /--green:#113732/.test(css) && /--gold:#C9A55A/.test(css) && /--ivory:#F1E5C9/.test(css));
+T('the colours match the Maha software (forest green, gold, mint)', /--forest:#0A3020/.test(css) && /--gold:#D49A38/.test(css) && /--mint:#cfeee2/.test(css));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);
