@@ -29,7 +29,9 @@ async function pms() {
   await b.eval(set('#lgUser', 'manager')); await b.eval(set('#lgPass', 'manager123')); await b.eval(set('#lgCash', '0'));
   await b.eval(`document.querySelector('#lgGo').click()`); await b.sleep(4500);
   await b.eval(`(()=>{const x=[...document.querySelectorAll('button')].find(e=>/Frontend/.test(e.textContent));if(x)x.click()})()`); await b.sleep(3500);   /* the area box: Frontend */
-  const views = [['fo.status', 'pms-status'], ['fo.grid', 'pms-grid'], ['fo.inhouse', 'pms-inhouse'], ['rm.hkstatus', 'pms-housekeeping'], ['rm.roomstatus', 'pms-roomstatus'], ['fo.arrivals', 'pms-arrivals'], ['res.list', 'pms-reservations'], ['inq.forecast', 'pms-forecast'], ['fo.dash', 'pms-manager']];
+  /* the Modern look, with sample names only (no real hotel or guest name) */
+  console.log(await b.eval(`(()=>{H.set.skin='modern';H.name=H.set.name='Sample Hotel';H.legal='Sample Hotel Co., Ltd.';H.addr='Sample address';(H.guests||[]).forEach((g,i)=>{g.last='Sample '+String.fromCharCode(65+(i%26));g.first='Guest';g.middle='';});try{saveDB&&saveDB()}catch(e){};applySkin();renderShell();return 'skin '+document.documentElement.getAttribute('data-skin')})()`)); await b.sleep(1500);
+  const views = [['fo.dash', 'pms-dashboard'], ['fo.status', 'pms-status'], ['fo.grid', 'pms-grid'], ['fo.inhouse', 'pms-inhouse'], ['rm.hkstatus', 'pms-housekeeping'], ['rm.roomstatus', 'pms-roomstatus'], ['fo.arrivals', 'pms-arrivals'], ['res.list', 'pms-reservations']];
   for (const [v, name] of views) {
     try {
       await b.eval(`go(${JSON.stringify(v)})`); await b.sleep(2200);
@@ -40,17 +42,17 @@ async function pms() {
 }
 /* CRM: invented records (no real hotel, person or customer), made through the page's own save() */
 const SEED = `(async () => {
-  const people = ['Nok', 'Aung', 'Mia', 'Ploy'], ym = new Date().toISOString().slice(0, 7), day = n => ym + '-' + String(Math.min(28, Math.max(1, n))).padStart(2, '0');
+  const people = ['Sales A', 'Sales B', 'Sales C', 'Sales D'], ym = new Date().toISOString().slice(0, 7), day = n => ym + '-' + String(Math.min(28, Math.max(1, n))).padStart(2, '0');
   const rnd = (a, s) => a[(s * 7 + 3) % a.length];
   people.forEach((n, i) => save({id: 'sc' + i, kind: 'staffcr', name: n, dept: 'Sales', pct: 25, status: 'Active'}));
-  const names = ['Lotus Bay Resort', 'Sala Garden Hotel', 'Riverside Heritage', 'Bagan Sunrise Lodge', 'Mekong View Hotel', 'Orchid Palace', 'Coral Reef Villas', 'The Teak House', 'Jasmine City Hotel', 'Pagoda Boutique', 'Palm Harbour Inn', 'Golden Lake Resort', 'Emerald Court', 'Monsoon Suites', 'Silk Road Hotel', 'Ivory Beach Resort'];
+  const names = Array.from({length: 16}, (_, i) => 'Sample Hotel ' + String(i + 1).padStart(2, '0'));
   const cities = ['Phuket', 'Bangkok', 'Chiang Mai', 'Bagan', 'Vientiane', 'Hua Hin', 'Krabi', 'Yangon'], countries = ['Thailand', 'Thailand', 'Thailand', 'Myanmar', 'Laos', 'Thailand', 'Thailand', 'Myanmar'];
   const st = ['Signed', 'Live', 'Meeting set', 'Quoted', 'Negotiating', 'Follow up', 'Called', 'New Database', 'Signed', 'Meeting set', 'Quoted', 'Live', 'Follow up', 'Called', 'Negotiating', 'Signed'];
   for (let i = 0; i < names.length; i++) {
     const hid = 'h' + i, o = people[i % 4];
-    await save({id: hid, kind: 'hotel', name: names[i], status: st[i], city: cities[i % 8], country: countries[i % 8], owner: o, managed: 'No', rooms: 40 + i * 9, email: 'info@' + names[i].toLowerCase().replace(/[^a-z]/g, '') + '.example', contact: ['Anan', 'Lin', 'Somchai', 'Mya'][i % 4], source: 'Website booking', created: day(i + 1) + 'T09:00:00Z'});
-    for (let k = 0; k < 3; k++) await save({id: 'mc' + i + '_' + k, kind: 'act', hotelId: hid, type: 'Meeting', meeting: true, meetType: 'Online', meetStatus: 'Completed', date: day(1 + ((i * 3 + k * 5) % 12)), time: '11:00', contactName: 'Anan', owner: people[(i + k) % 4 === 3 && i % 3 ? 0 : (i + k) % 3], done: true});
-    if (i % 2 === 0) await save({id: 'm' + i, kind: 'act', hotelId: hid, type: 'Meeting', meeting: true, meetType: i % 4 ? 'Online' : 'Onsite', meetStatus: i < 10 ? 'Completed' : 'On Process', date: day(i + 2), time: '10:00', contactName: 'Anan', owner: o, done: true});
+    await save({id: hid, kind: 'hotel', name: names[i], status: st[i], city: cities[i % 8], country: countries[i % 8], owner: o, managed: 'No', rooms: 40 + i * 9, email: 'info@' + names[i].toLowerCase().replace(/[^a-z]/g, '') + '.example', contact: 'Sample Contact', source: 'Website booking', created: day(i + 1) + 'T09:00:00Z'});
+    for (let k = 0; k < 3; k++) await save({id: 'mc' + i + '_' + k, kind: 'act', hotelId: hid, type: 'Meeting', meeting: true, meetType: 'Online', meetStatus: 'Completed', date: day(1 + ((i * 3 + k * 5) % 12)), time: '11:00', contactName: 'Sample Contact', owner: people[(i + k) % 4 === 3 && i % 3 ? 0 : (i + k) % 3], done: true});
+    if (i % 2 === 0) await save({id: 'm' + i, kind: 'act', hotelId: hid, type: 'Meeting', meeting: true, meetType: i % 4 ? 'Online' : 'Onsite', meetStatus: i < 10 ? 'Completed' : 'On Process', date: day(i + 2), time: '10:00', contactName: 'Sample Contact', owner: o, done: true});
     if (['Quoted', 'Negotiating', 'Signed', 'Live'].includes(st[i])) await save({id: 'q' + i, kind: 'quote', hotelId: hid, hotelName: names[i], no: 'QT-2026-' + String(100 + i), date: day(i + 3), status: st[i] === 'Quoted' || st[i] === 'Negotiating' ? 'Sent' : 'Accepted', owner: o, items: []});
     if (['Signed', 'Live'].includes(st[i])) await save({id: 'ms' + i, kind: 'msa', hotelId: hid, status: 'Signed', date: day(i + 4), owner: o});
   }

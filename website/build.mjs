@@ -144,7 +144,7 @@ const footer = () => `</main>
 `;
 
 /* the real screens of our systems (demo data), taken with tools/site-shots.mjs */
-const SHOT = { 'pms-status': 'Maha PMS: room status', 'pms-grid': 'Maha PMS: room grid', 'pms-inhouse': 'Maha PMS: in-house guests', 'pms-housekeeping': 'Maha PMS: housekeeping', 'pms-roomstatus': 'Maha PMS: rooms', 'pms-arrivals': 'Maha PMS: arrivals',
+const SHOT = { 'pms-dashboard': 'Maha PMS: manager dashboard', 'pms-status': 'Maha PMS: room status', 'pms-grid': 'Maha PMS: room grid', 'pms-inhouse': 'Maha PMS: in-house guests', 'pms-housekeeping': 'Maha PMS: housekeeping', 'pms-roomstatus': 'Maha PMS: rooms', 'pms-arrivals': 'Maha PMS: arrivals',
   'crm-dashboard': 'Maha Sales: dashboard', 'crm-meetings': 'Maha Sales: meetings', 'crm-enewletter': 'Maha Sales: Enewletter', 'booking-demo': 'Maha Booking: pick a time' };
 /* a laptop whose screen changes by itself; names = files in /assets/site */
 const cyc = (names, cls = '') => `<div class="cyc ${cls}">${names.map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="2160" height="1350"${i ? ' loading="lazy"' : ' fetchpriority="high"'}>`).join('')}<span class="cap"></span></div>`;
@@ -194,7 +194,7 @@ add('index.html', 'home', {
       <div class="trust"><span>Made for hotel teams</span><span>One sign-in</span><span>Honest about what is ready</span></div>
     </div>
     <div class="dev">
-      <div class="laptop"><div class="dots"><i></i><i></i><i></i></div>${cyc(['pms-status', 'pms-grid', 'crm-dashboard', 'pms-housekeeping', 'booking-demo'])}</div>
+      <div class="laptop"><div class="dots"><i></i><i></i><i></i></div>${cyc(['pms-dashboard', 'pms-status', 'pms-grid', 'crm-dashboard', 'pms-housekeeping', 'booking-demo'])}</div>
       <div class="float a"><i>&#10003;</i>One hotel record for every team</div><div class="float b"><i>&#9733;</i>Direct bookings, no retyping</div>
     </div>
   </div>
@@ -232,14 +232,15 @@ add('index.html', 'home', {
     <div class="sec-head center reveal"><p class="eyebrow">See it working</p><h2>Our real screens, not pictures of ideas.</h2><p class="lead">These are screens from our own systems, shown with demo data. Choose a screen to look closer.</p></div>
     <div class="show reveal">
       <div class="tabs" role="tablist">
-        <button class="tab on" type="button" role="tab"><b>Front desk</b><span>Arrivals, departures and room status</span><i></i></button>
+        <button class="tab on" type="button" role="tab"><b>Manager dashboard</b><span>The day at a glance: arrivals, due out, revenue</span><i></i></button>
+        <button class="tab" type="button" role="tab"><b>Hotel status</b><span>Arrivals, departures and room status</span><i></i></button>
         <button class="tab" type="button" role="tab"><b>Room grid</b><span>Two weeks of bookings at a glance</span><i></i></button>
         <button class="tab" type="button" role="tab"><b>Housekeeping</b><span>Every room on its floor: clean, dirty, inspected</span><i></i></button>
         <button class="tab" type="button" role="tab"><b>Sales dashboard</b><span>Hotel leads and progress</span><i></i></button>
         <button class="tab" type="button" role="tab"><b>Meetings</b><span>Calls and visits, planned and done</span><i></i></button>
         <button class="tab" type="button" role="tab"><b>Direct booking</b><span>Guests pick a time or a room, in their own time zone</span><i></i></button>
       </div>
-      <div class="stage"><div class="cyc">${['pms-status', 'pms-grid', 'pms-housekeeping', 'crm-dashboard', 'crm-meetings', 'booking-demo'].map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="2160" height="1350"${i ? ' loading="lazy"' : ''}>`).join('')}<span class="cap"></span></div></div>
+      <div class="stage"><div class="cyc">${['pms-dashboard', 'pms-status', 'pms-grid', 'pms-housekeeping', 'crm-dashboard', 'crm-meetings', 'booking-demo'].map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="2160" height="1350"${i ? ' loading="lazy"' : ''}>`).join('')}<span class="cap"></span></div></div>
     </div>
   </div>
 </section>
@@ -346,7 +347,7 @@ add('maha-hub-solutions.html', 'solutions', {
   title: 'Maha Solutions | Connected software for hotels',
   desc: 'Maha Solutions: Maha PMS, Maha Connect, Maha Booking, Maha Reach and Maha Sales, connected software for hotels and accommodation businesses.',
   canon: '/maha-hub-solutions',
-}, `${pageHero({ crumb: 'Maha Solutions', eyebrow: 'Technology', h1: 'Maha Solutions', shot: ['pms-status','pms-grid','crm-dashboard','booking-demo'], actions: true, lead: 'Connected software for hotels and accommodation businesses. Every product works from the same hotel data, so teams stop typing the same thing twice.', img: '/assets/hero-solutions.webp', pos: '50% 72%', cls: 'ph-light' })}
+}, `${pageHero({ crumb: 'Maha Solutions', eyebrow: 'Technology', h1: 'Maha Solutions', shot: ['pms-dashboard','pms-grid','crm-dashboard','booking-demo'], actions: true, lead: 'Connected software for hotels and accommodation businesses. Every product works from the same hotel data, so teams stop typing the same thing twice.', img: '/assets/hero-solutions.webp', pos: '50% 72%', cls: 'ph-light' })}
 <section class="section">
   <div class="wrap">
     <div class="sec-head center reveal"><p class="eyebrow">One booking, followed through the hotel</p><h2>Data moves from one product to the next.</h2><p class="lead">This is how a single guest booking travels through Maha Solutions.</p></div>
@@ -393,7 +394,7 @@ add('maha-hub-solutions.html', 'solutions', {
 ${ctaBand('Find the right setup for your property.', 'Tell us about your hotel and we will recommend where to start.', '<a class="btn btn-line" href="/solutions">Sign in</a>')}`);
 
 /* ===================================================== PRODUCTS ===================================================== */
-const PSHOT = { pms: ['pms-status','pms-grid','pms-inhouse','pms-housekeeping','pms-roomstatus','pms-arrivals'], booking: ['booking-demo'], sales: ['crm-dashboard','crm-meetings','crm-enewletter'] };
+const PSHOT = { pms: ['pms-dashboard','pms-status','pms-grid','pms-inhouse','pms-housekeeping','pms-roomstatus','pms-arrivals'], booking: ['booking-demo'], sales: ['crm-dashboard','crm-meetings','crm-enewletter'] };
 const deviceFrame = id => PSHOT[id] ? laptop(PSHOT[id]) : '';
 const prodBlock = (p, i) => `<article class="split ${i % 2 ? 'rev' : ''}" id="${p.id}" style="padding:44px 0;border-top:1px solid var(--line)">
   <div class="reveal"><span class="tag ${p.live ? 'on' : 'soon'}">${p.live ? 'Available now' : 'Coming soon'}</span>
