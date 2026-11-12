@@ -31,12 +31,12 @@ async function pms() {
   await b.eval(`(()=>{const x=[...document.querySelectorAll('button')].find(e=>/Frontend/.test(e.textContent));if(x)x.click()})()`); await b.sleep(3500);   /* the area box: Frontend */
   /* the Modern look, with sample names only (no real hotel or guest name) */
   console.log(await b.eval(`(()=>{H.set.skin='modern';H.name=H.set.name='Sample Hotel';H.legal='Sample Hotel Co., Ltd.';H.addr='Sample address';(H.guests||[]).forEach((g,i)=>{g.last='Sample '+String.fromCharCode(65+(i%26));g.first='Guest';g.middle='';});try{saveDB&&saveDB()}catch(e){};applySkin();renderShell();return 'skin '+document.documentElement.getAttribute('data-skin')})()`)); await b.sleep(1500);
-  const views = [['fo.dash', 'pms-dashboard'], ['fo.status', 'pms-status'], ['fo.grid', 'pms-grid'], ['fo.inhouse', 'pms-inhouse'], ['rm.hkstatus', 'pms-housekeeping'], ['rm.roomstatus', 'pms-roomstatus'], ['fo.arrivals', 'pms-arrivals'], ['res.list', 'pms-reservations']];
+  const views = [['fo.dash', 'pms-dashboard'], ['fo.status', 'pms-status'], ['fo.grid', 'pms-grid'], ['rm.hkstatus', 'pms-housekeeping']];   /* only a few; each shows its page with its title, without the menu and the top bar */
   for (const [v, name] of views) {
     try {
       await b.eval(`go(${JSON.stringify(v)})`); await b.sleep(2200);
       await b.eval(`document.querySelectorAll('.toast').forEach(t=>t.remove())`);
-      await b.shot(path.join(out, name + '.webp')); console.log('shot', name);
+      await b.shot(path.join(out, name + '.webp'), { clip: { x: 268, y: 57, width: 1170, height: 780, scale: 1.5 } }); console.log('shot', name);
     } catch (e) { console.log('skip', name, e.message); }
   }
 }

@@ -33,7 +33,7 @@ export async function launch(port = 9333) {
     eval: async (code) => { const r = await send('Runtime.evaluate', { expression: code, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception && r.exceptionDetails.exception.description || 'eval failed'); return r.result.value; },
     sleep,
     shot: async (file, o = {}) => {
-      const r = await send('Page.captureScreenshot', { format: o.format || 'webp', quality: o.quality || 88, ...(o.clip ? { clip: { ...o.clip, scale: 1 } } : {}), captureBeyondViewport: false });
+      const r = await send('Page.captureScreenshot', { format: o.format || 'webp', quality: o.quality || 88, ...(o.clip ? { clip: { scale: 1, ...o.clip } } : {}), captureBeyondViewport: false });
       fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, Buffer.from(r.data, 'base64')); return file;
     },
     close: () => { try { ws.close(); } catch { } try { proc.kill(); } catch { } },

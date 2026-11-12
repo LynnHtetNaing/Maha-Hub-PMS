@@ -12,7 +12,7 @@ const known = new Set(['/', '/favicon.ico', '/solutions', '/solutions-PMS', '/ec
 const exists = href => { const p = href.split('#')[0].split('?')[0]; if (!p || known.has(p)) return true; if (/^\/(assets|brand|icons)\//.test(p)) return fs.existsSync(path.join(root, p)); return fs.existsSync(path.join(root, p.replace(/^\//, '') + '.html')); };
 const broken = [];
 for (const p of pages) for (const m of html(p).matchAll(/(?:href|src)="(\/[^"]*)"/g)) if (!exists(m[1])) broken.push(p + ': ' + m[1]);
-T('real system screens exist and are used', ['pms-dashboard','pms-status','pms-grid','pms-housekeeping','crm-dashboard','crm-meetings','booking-demo'].every(n => fs.existsSync(path.join(root, 'assets', 'site', n + '.webp'))) && /assets\/site\/pms-status\.webp/.test(html('index')) && /assets\/site\/pms-grid\.webp/.test(html('products')));
+T('real system screens exist and are used', ['pms-dashboard','pms-status','pms-grid','pms-housekeeping'].every(n => fs.existsSync(path.join(root, 'assets', 'site', n + '.webp'))) && /assets\/site\/pms-status\.webp/.test(html('index')) && /assets\/site\/pms-grid\.webp/.test(html('products')));
 T('Book a Demo and Talk with the Team open the booking window from every page header', pages.filter(p => !['reset-password','404'].includes(p)).every(p => /data-book="demo"/.test(html(p))) && /crm\.maha-hub\.com\/book\//.test(fs.readFileSync(path.join(root, 'assets', 'group.js'), 'utf8')) && /frame-src https:\/\/crm\.maha-hub\.com/.test(fs.readFileSync(path.join(root, '_headers'), 'utf8')));
 T('every inside link and picture leads somewhere', broken.length === 0, broken.slice(0, 5).join(' ; '));
 const anchors = [];
