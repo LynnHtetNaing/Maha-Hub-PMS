@@ -10,48 +10,57 @@ let fails = 0; const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n);
 
 /* ---- the catalog, run for real ---- */
 const i = crm.indexOf("const ENT_BTN"), j = crm.indexOf("const ENT_THUMB");
-const overrides = [];
+const recs = [];
 const code = crm.slice(i, j);
-const api = new Function('K', 'Auth', 'fdate', 'esc', code + '\nreturn {ENEWS_TPL, entGet, entVals, entRender, entSubject, entMissing};')(
-  k => k === 'enews_tpl' ? overrides : [], { who: () => 'Lynn' }, d => d ? 'D(' + d + ')' : '', s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-const { ENEWS_TPL, entGet, entVals, entRender, entSubject, entMissing } = api;
+const api = new Function('K', 'Auth', 'fdate', 'esc', 'document', code + '\nreturn {ENEWS_TPL, entGet, entList, entVals, entRender, entSubject, entMissing, entOptions, entFields};')(
+  k => k === 'enews_tpl' ? recs : [], { who: () => 'Lynn' }, d => d ? 'D(' + d + ')' : '', s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'), {});
+const { ENEWS_TPL, entGet, entList, entVals, entRender, entSubject, entMissing, entOptions, entFields } = api;
 T('ten templates', ENEWS_TPL.length === 10 && ['news', 'offer', 'update', 'invite', 'thanks', 'follow', 'season', 'notice', 'results', 'letter'].every(id => ENEWS_TPL.some(t => t.id === id)));
 
-/* the mail function's cleaning code keeps what the templates use */
+/* every [type here] in the text is a box; the same wording is one box; date and time words give a calendar and a clock */
+const fl = entFields('<p>[Your name] and [your name] <a href="https://x.com/[no]">x</a> [Event date] [Event time] [Your news] [Hotel name]</p>', 'Hi [Holiday]');
+T('boxes come from the [brackets]: same wording is one box, a bracket inside a tag is left alone, date/time/long text get their own kind', fl.map(f => f.k + ':' + f.type).join('|') === 'your name:text|event date:date|event time:time|your news:area|hotel name:text|holiday:text');
+
 const sendSrc = send.replace(/\r\n/g, '\n');
 const clean = sendSrc.split('// --- clean:start')[1].split('// --- clean:end')[0].replace(/^[^\n]*\n/, '');
 const { cleanHtml } = new Function(clean.replace(/: (any|string)(?=[,)\s=])/g, '') + '\nreturn { cleanHtml };')();
 
-let allOk = true, leftOver = [], linkBad = [], styleLost = [];
-for (const t of ENEWS_TPL) {
+let leftOver = [], linkBad = [], styleLost = [], noBox = [];
+for (const t of ENEWS_TPL.map(x => entGet(x.id))) {
   const v = entVals(t, null);
-  (t.fields || []).forEach(f => { if (f.type === 'date') v[f.k] = '2026-12-01'; else if (!v[f.k]) v[f.k] = 'X' + f.k; });
-  const html = entRender(t, v), left = (html.match(/\{\{[a-zA-Z0-9]+\}\}/g) || []).filter(x => x !== '{{hotel}}');
+  (t.fields || []).forEach(f => { v[f.k] = f.type === 'date' ? '2026-12-01' : f.type === 'time' ? '10:00' : (v[f.k] || 'X' + f.k.replace(/\W/g, '')); });
+  if (!t.fields.length) noBox.push(t.id);
+  const html = entRender(t, v), left = (html.match(/\[[^\]<>]{2,80}\]/g) || []).concat((html.match(/\{\{[a-zA-Z0-9]+\}\}/g) || []).filter(x => x !== '{{hotel}}'));
   if (left.length) leftOver.push(t.id + ':' + left.join(','));
-  const opts = t.options ? t.options(v) : [];
+  const opts = entOptions(t, v);
+  if (t.kind && !opts.length) linkBad.push(t.id + ':nooptions');
   opts.forEach(o => { if (!html.includes('https://replace.me/' + o.k)) linkBad.push(t.id + ':' + o.k); });
   const c = cleanHtml(html);
-  if (!/(background-color|color):/.test(c) && /style=/.test(html) === false) allOk = allOk && true;
   if (/background-color:#0A3020/.test(html) && !/background-color:#0A3020/.test(c)) styleLost.push(t.id);
   if (opts.length && !opts.every(o => c.includes('https://replace.me/' + o.k))) linkBad.push(t.id + ':cleaned');
   if (entRender(t, v, true).includes('replace.me')) linkBad.push(t.id + ':preview');
 }
-T('every box of every template is filled and only {{hotel}} is left for each hotel: ' + leftOver.join(' '), leftOver.length === 0);
+T('every template has boxes: ' + noBox.join(' '), noBox.length === 0);
+T('filled in, no [bracket] or {{place}} is left except {{hotel}}: ' + leftOver.join(' '), leftOver.length === 0);
 T('every answer button has its link, before and after cleaning, and the preview has none: ' + linkBad.join(' '), linkBad.length === 0);
 T('the colours and boxes of the templates survive the cleaning of the mail function: ' + styleLost.join(' '), styleLost.length === 0);
 
-const inv = entGet('invite'), iv = { title: 'Demo day', date: '2026-12-05', time: '10:00', place: 'Online', length: '30 min', sender: 'Lynn' };
-const io = inv.options(iv);
-T('Event invitation: Yes and No answers; Yes carries the title, date, time and place', inv.kind === 'event' && io.length === 2 && io[0].k === 'yes' && io[0].data.date === '2026-12-05' && io[0].data.time === '10:00' && io[0].data.place === 'Online' && io[1].k === 'no');
-const fol = entGet('follow'), fo = fol.options({ date1: '2026-12-02', time1: '10:00', date2: '2026-12-03', time2: '14:00', date3: '', time3: '' });
-T('Gentle reminder: one choice for each time filled in, and "call me later"', fol.kind === 'remind' && fo.length === 3 && fo[0].k === 's1' && fo[1].data.time === '14:00' && fo[2].k === 'later');
+const inv = entGet('invite'), iv = { 'event name': 'Demo day', 'event date': '2026-12-05', 'event time': '10:00', 'place or online link': 'Online', 'length, for example 30 minutes': '30 min', 'your name': 'Lynn' };
+const io = entOptions(inv, iv);
+T('Event invitation: Yes and No answers; Yes carries the title, date, time and place', inv.kind === 'event' && io.length === 2 && io[0].k === 'yes' && io[0].data.title === 'Demo day' && io[0].data.date === '2026-12-05' && io[0].data.time === '10:00' && io[0].data.place === 'Online' && io[1].k === 'no');
+const fol = entGet('follow'), fv = {}; fol.fields.forEach(f => { fv[f.k] = ''; });
+Object.assign(fv, { 'call date 1': '2026-12-02', 'call time 1': '10:00', 'call date 2': '2026-12-03', 'call time 2': '14:00' });
+const fo = entOptions(fol, fv);
+T('Gentle reminder: one choice for each time filled in, and "call me later"', fol.kind === 'remind' && fo.length === 3 && fo[0].k === 's1' && fo[0].data.time === '10:00' && fo[1].data.time === '14:00' && fo[2].k === 'later');
 T('the subject follows the boxes and keeps {{hotel}} for each hotel', entSubject(inv, iv) === 'You are invited: Demo day' && entGet('offer').subject.includes('{{hotel}}'));
-T('a template that needs its boxes says which one is empty', entMissing(inv, { title: '', date: '2026-12-05', time: '' }).join() === 'Event name,Time');
-overrides.push({ key: 'letter', subject: 'My subject', html: '<p>Hi {{hotel}} {{message}}</p>' });
-T("the CEO's own wording replaces the starting text, the boxes stay", entGet('letter').html === '<p>Hi {{hotel}} {{message}}</p>' && entGet('letter').subject === 'My subject' && entGet('letter').edited === true && entGet('letter').fields.length === 2);
+T('a template tells which boxes are empty; an (optional) box may stay empty', entMissing(inv, { 'event name': '', 'event date': '2026-12-05' }).includes('Event name') && entMissing({ fields: [{ k: 'x (optional)', label: 'X (optional)' }] }, {}).length === 0);
+recs.push({ key: 'letter', name: 'Letter', small: '', subject: 'My subject [Topic]', html: '<p>Hi {{hotel}} [Topic]</p>', tkind: '', btn: '' });
+T("the CEO's own wording and design replace the starting text; the boxes follow the new text", entGet('letter').html === '<p>Hi {{hotel}} [Topic]</p>' && entGet('letter').edited === true && entGet('letter').fields.map(f => f.k).join() === 'topic');
+recs.push({ key: 'c_new1', name: 'Mine', small: 'x', subject: 'Hello', html: '<p>[Your name]</p>', tkind: 'interest', btn: 'Count me in' });
+T('the CEO can add a template of their own, with its answer button', entList().length === 11 && entGet('c_new1').custom === true && entOptions(entGet('c_new1'), {})[0].label === 'Count me in');
 
 /* ---- the page ---- */
-T('the page: Plain keeps the free editor; the CEO alone sees "Edit template text"; a person fills boxes, not the text', crm.includes('card(\'plain\', \'Plain\'') && crm.includes("(Auth.isProvider() && e.tpl !== 'plain' ? '' : ' hidden')") && crm.includes("if (!Auth.isProvider()) { toast('Only the CEO edits a template'); return; }") && crm.includes("$('#en_plain').hidden = !!tt;"));
+T('the page: Plain keeps the free editor; the CEO alone sees Edit template and New template (text, design code, answer buttons); a person fills boxes, not the text', crm.includes("card('plain', 'Plain'") && crm.includes("(Auth.isProvider() ? '' : ' hidden')") && crm.includes("toast('Only the CEO edits a template')") && crm.includes("toast('Only the CEO makes a template')") && crm.includes('Design (code)') && crm.includes("$('#en_plain').hidden = !!tt;") && crm.includes('function entSafe(html)'));
 T('the page: each batch carries the hotel names and ids and the template with its answer choices; the boxes must be filled first', crm.includes('...enewsPayload(e), ...enRcpt(part)') && crm.includes('p.tpl = {id: tt.id, name: tt.name') && crm.includes("toast('Fill in: ' + miss.join(', '))"));
 T('the page: a saved draft keeps its template and boxes; Replies are listed under Saved (hotel, the choice, the note, the date)', crm.includes("tpl: e.tpl || 'plain', vals: e.vals || {}") && crm.includes("K('reply').sort") && crm.includes('No replies yet.'));
 
