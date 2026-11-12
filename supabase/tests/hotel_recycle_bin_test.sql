@@ -46,7 +46,7 @@ $$;
 
 -- Before: staff of A can use A.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a02', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal2"}', false);
 set role authenticated;
 do $$
 begin
@@ -93,7 +93,7 @@ $$;
 -- While in the bin: staff see nothing and cannot sync or write; hotel B is not affected.
 select set_config('rb.pid', (select id::text from public.maha_properties where property_code = 'RBA01'), false);
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a02', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare failed boolean := false; pid uuid := current_setting('rb.pid')::uuid;
@@ -110,7 +110,7 @@ $$;
 reset role;
 -- The provider (a code step is not enrolled, so the owner gate is open) no longer reaches it either, and the bin lists it.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a01', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a01","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a01","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare l jsonb;
@@ -136,7 +136,7 @@ reset role;
 
 -- A browser cannot bring a deleted hotel back either (the row is invisible to it, so nothing changes).
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a01', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a01","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a01","aal":"aal2"}', false);
 set role authenticated;
 do $$
 begin
@@ -178,7 +178,7 @@ begin
 end
 $$;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a02', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal2"}', false);
 set role authenticated;
 do $$
 begin

@@ -125,7 +125,7 @@ $$;
 
 -- The real access check: staff1 can see exactly the hotels ticked for them, and loses one at once.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000b02', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000b02","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000b02","aal":"aal2"}', false);
 set role authenticated;
 do $$
 begin
@@ -168,7 +168,7 @@ $$;
 
 -- The provider sees the chains, their hotels and who may open what; nobody else may ask.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000b01', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000b01","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000b01","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare o jsonb;
@@ -183,7 +183,7 @@ end
 $$;
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000b02', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000b02","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000b02","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare failed boolean := false;

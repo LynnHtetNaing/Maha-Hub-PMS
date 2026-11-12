@@ -35,7 +35,7 @@ $$;
 
 create function public.t_as(u uuid) returns void language sql as $$
   select set_config('request.jwt.claim.sub', u::text, false),
-         set_config('request.jwt.claims', '{"sub":"' || u::text || '","aal":"aal1"}', false)
+         set_config('request.jwt.claims', '{"sub":"' || u::text || '","aal":"aal2"}', false)
 $$;
 -- one invoice number of one hotel, as the page asks for it (floor 1 = the page has no invoices yet)
 create function public.t_issue(code text, ym text) returns jsonb language sql security definer set search_path = '' as $$

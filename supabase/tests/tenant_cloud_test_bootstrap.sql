@@ -32,7 +32,7 @@ returns jsonb
 language sql
 stable
 as $$
-  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{"aal":"aal2"}')::jsonb
 $$;
 
 create table if not exists auth.mfa_factors (
