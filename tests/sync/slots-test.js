@@ -31,8 +31,11 @@ const mod = new Function('Deno', 'GAP_MIN', 'MEET_MIN', 'CALL_MIN', 'listEvents'
   const m2 = (await mod.freeSlots(admin, target, 1, 'meeting'))[target] || [];
   T('a CRM meeting at 13:00: 11:30 is free (90 minutes before), 12:00 to 14:00 are not, 14:30 is free; a rejected meeting (15:00) frees its time', m2.includes('11:30') && !m2.includes('12:00') && !m2.includes('13:30') && !m2.includes('14:00') && m2.includes('14:30') && m2.includes('15:00'));
   T('isFree checks one time again (so two hotels never get the same time)', (await mod.isFree(admin, target, '14:30', 'meeting')) === true && (await mod.isFree(admin, target, '13:30', 'meeting')) === false && (await mod.isFree(admin, target, '03:00', 'call')) === false);
-  const all = await mod.freeSlots(admin, day(1), 42, 'call');
-  T('weekends are not offered, and nothing after 21 days ahead or sooner than 24 hours', Object.keys(all).every(d => wd(d) >= 1 && wd(d) <= 5 && d <= day(21) && d > day(0)) && (sunday ? !(await mod.freeSlots(admin, sunday, 1, 'call'))[sunday] : true));
+  const all = await mod.freeSlots(admin, day(0), 90, 'call');
+  const ks = Object.keys(all).sort();
+  T('it starts from today (the first free time is 2 hours from now) and is open 60 days ahead, every day Monday to Sunday', ks.length > 0 && ks[0] >= day(0) && ks[0] <= day(1) && ks.every(d => d <= day(60)) && ks[ks.length - 1] >= day(58) && ks.some(d => wd(d) === 0) && ks.some(d => wd(d) === 6));
+  const night = (await mod.freeSlots(admin, target, 1, 'meeting'))[target] || [], nightCall = (await mod.freeSlots(admin, target, 1, 'call'))[target] || [];
+  T('open again at night: 09:00-17:00 and 21:00-24:00; a meeting starts at 21:00 to 23:00, a call up to 23:30; nothing from 17:00 to 20:30', night.includes('21:00') && night.includes('23:00') && !night.includes('23:30') && nightCall.includes('23:30') && !nightCall.includes('24:00') && !night.some(x => x >= '17:00' && x < '21:00') && !nightCall.some(x => x >= '17:00' && x < '21:00'));
   events = []; crm = [];
   const talk = (await mod.freeSlots(admin, target, 1, 'call', { len: 10, step: 15 }))[target] || [];
   T('Talk with the Team: a 10 minute call every 15 minutes, 09:00 to 16:45', talk[0] === '09:00' && talk[1] === '09:15' && talk.includes('16:45') && !talk.includes('17:00') && talk.every(t => /:(00|15|30|45)$/.test(t)));

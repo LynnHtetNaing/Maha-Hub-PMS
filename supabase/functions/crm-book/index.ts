@@ -128,7 +128,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (q("av") === "1") {
       if (had) return json(req, { ok: true, days: {}, done: true });
       const from = DATE.test(q("from")) ? q("from") : todayBkk();
-      const days = await freeSlots(admin, from, Math.min(Math.max(Number(q("days")) || 28, 1), 42), cfg.what, { len: cfg.len, step: cfg.step });
+      const days = await freeSlots(admin, from, Math.min(Math.max(Number(q("days")) || 62, 1), 90), cfg.what, { len: cfg.len, step: cfg.step });
       return json(req, { ok: true, days, today: todayBkk(), ahead: AHEAD, len: cfg.len });
     }
     return json(req, { ok: true, type: { key, title: cfg.title, len: cfg.len, phone: cfg.phone }, prefill: { email: pay ? str(pay.e, 254) : "", hotel: pay ? str(pay.n, 120) : "" }, done: !!had });
