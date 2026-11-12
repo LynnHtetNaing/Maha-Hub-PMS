@@ -78,3 +78,9 @@ Deploy after a change of the function: `supabase functions deploy crm-reply --no
 - A customer who is not in the CRM yet becomes a new hotel record with the status **New Database**. A customer may hold at most two coming bookings.
 - Put these two addresses behind your website buttons (Book a Demo, Talk with the Team).
 - Deploy: `supabase functions deploy crm-book --no-verify-jwt` (and `crm-reply`), then merge (the Worker serves the pages). The confirmation email uses the same `BREVO_API_KEY` as the Enewletter.
+
+## Google Meet link and time zones (booking pages)
+
+- A demo or meeting booking sends the customer a confirmation email with a **Join with Google Meet** button. Make the link once: https://meet.google.com/landing > **New meeting** > **Create a meeting for later** > copy the link, then add the Supabase secret `MEET_LINK` with it. Every demo uses that room (demos are at least 90 minutes apart, so it is never used twice at once). Without `MEET_LINK` the function asks Google for a Meet link for each event; Google does not always allow this for a personal calendar, so the email may then have no Meet link.
+- The page shows the times in the customer's own time zone (the zone line can be switched). The CRM always keeps the Bangkok time; the customer's zone is written in the description of the meeting.
+- The page uses the background photo and the font (Inter, with Noto Sans for Thai and Myanmar) of the sign in page.

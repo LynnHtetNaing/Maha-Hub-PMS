@@ -2,12 +2,13 @@
 // The booking page a customer opens (crm.maha-hub.com/book/talk, /book/demo, or the "Choose a time" button of an Enewletter /r/<token>):
 // a live calendar of free times, then a short form, then a confirmation.
 //   Types:  talk     "Talk with the Team"  10 minutes, a short call. No confirmation email to the customer; it is only recorded in the CRM.
-//           demo     "Book a Demo"         60 minutes. A confirmation email goes to the customer (and the guests), with the calendar file.
+//           demo     "Book a Demo"         60 minutes. A confirmation email goes to the customer (and the guests), with the Google Meet link and the calendar file.
 //           meeting  "Meeting with Maha Hub" 60 minutes, from the Enewletter button. Confirmation email like the demo.
 //   GET  ?type=<talk|demo>  or  ?t=<token>            -> { ok, type: { key, title, len, phone }, prefill: { email, hotel }, done }
 //   GET  ... &av=1&from=YYYY-MM-DD&days=N             -> { ok, days: { "2026-12-05": ["09:00", ...] }, today, ahead, len }   the free times, worked out live
 //   POST { type | t, slot: { date, time }, first, last, email, hotel, phone?, note?, guests?: [email], website? }
-//        -> { ok, title, date, time, len, mailed } or 409 slot_taken (the time is checked again, so two customers never get the same time)
+//        (tz = the time zone the customer chose, for example "Asia/Tokyo": the CRM always keeps the Bangkok time, the email shows the customer's own time)
+//        -> { ok, title, date, time, len, mailed, meet } or 409 slot_taken (the time is checked again, so two customers never get the same time)
 // What a booking makes: a Meeting (demo, meeting) or a Follow up call (talk) in the CRM for that customer (a new hotel record "New Database" when the
 // customer is not known yet), and a Busy event in the Google Calendar. From an Enewletter the answer is also kept under Enewletter > Replies.
 // Free times: _shared/slots.ts (opening hours; a meeting starts at least 1 hour 30 minutes after the start of another). Look: the page of the Worker.
@@ -15,7 +16,7 @@
 // Deploy with JWT verification off (--no-verify-jwt). Never log names, addresses, phones or notes.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { startOf, upsertEvent } from "../_shared/gcal.ts";
+import { startOf, upsertEvent, upsertEventMeet } from "../_shared/gcal.ts";
 import { AHEAD, freeSlots, isFree } from "../_shared/slots.ts";
 
 const ORIGINS = [...new Set(["https://crm.maha-hub.com", ...(Deno.env.get("MAHA_ALLOWED_ORIGIN") || "").split(",").map((x) => x.trim()).filter(Boolean)])];
@@ -61,34 +62,41 @@ const open = async (token: string): Promise<Payload | null> => {
 };
 
 const utc = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-const when = (date: string, time: string, len: number) => {
-  const s = startOf(date, time), e = s + len * 60000;
-  const day = new Date(s).toLocaleDateString("en-GB", { timeZone: "Asia/Bangkok", weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const hm = (ms: number) => new Date(ms).toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false });
-  return { s, e, text: `${day}, ${hm(s)} - ${hm(e)} (Indochina Time, ICT)` };
+/* a time zone name the browser sent: only a real one is used (else Bangkok) */
+const goodTz = (tz: string): string => { try { new Intl.DateTimeFormat("en-GB", { timeZone: tz }); return /^[A-Za-z0-9_+\-/]{3,40}$/.test(tz) ? tz : "Asia/Bangkok"; } catch { return "Asia/Bangkok"; } };
+const fmt = (ms: number, tz: string) => {
+  const day = new Date(ms).toLocaleDateString("en-GB", { timeZone: tz, weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const hm = new Date(ms).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false });
+  return { day, hm };
+};
+const when = (date: string, time: string, len: number, tz = "Asia/Bangkok") => {
+  const s = startOf(date, time), e = s + len * 60000, a1 = fmt(s, tz), a2 = fmt(e, tz), bk = fmt(s, "Asia/Bangkok"), bke = fmt(e, "Asia/Bangkok");
+  const zone = tz === "Asia/Bangkok" ? "Indochina Time, ICT" : tz.replace(/_/g, " ");
+  return { s, e, text: `${a1.day}, ${a1.hm} - ${a2.hm} (${zone})`, bangkok: tz === "Asia/Bangkok" ? "" : `${bk.day}, ${bk.hm} - ${bke.hm} (Bangkok time)`, short: a1.day };
 };
 
-/* the confirmation email (a demo or a meeting): the time, a button for Google Calendar and the calendar file */
-const sendConfirmation = async (to: string[], name: string, title: string, date: string, time: string, len: number, uid: string): Promise<boolean> => {
+/* the confirmation email (a demo or a meeting): the time in the customer's own time zone, the Google Meet link, a Google Calendar button and the calendar file */
+const sendConfirmation = async (to: string[], name: string, title: string, date: string, time: string, len: number, uid: string, tz: string, meet: string): Promise<boolean> => {
   const KEY = (Deno.env.get("BREVO_API_KEY") || "").trim().replace(/^["']|["']$/g, "");
   if (!KEY || !to.length) return false;
-  const w = when(date, time, len), FROM = { name: Deno.env.get("MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("MAIL_FROM") || "crm@maha-hub.com" };
-  const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title + " - Maha Hub")}&dates=${utc(w.s)}/${utc(w.e)}&details=${encodeURIComponent("Booked with Maha Hub.")}&ctz=Asia%2FBangkok`;
+  const w = when(date, time, len, tz), FROM = { name: Deno.env.get("MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("MAIL_FROM") || "crm@maha-hub.com" };
+  const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title + " - Maha Hub")}&dates=${utc(w.s)}/${utc(w.e)}&details=${encodeURIComponent("Booked with Maha Hub." + (meet ? " Google Meet: " + meet : ""))}&ctz=Asia%2FBangkok${meet ? "&location=" + encodeURIComponent(meet) : ""}`;
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Maha Hub//Booking//EN", "METHOD:PUBLISH", "BEGIN:VEVENT", `UID:${uid}@maha-hub.com`, `DTSTAMP:${utc(Date.now())}`, `DTSTART:${utc(w.s)}`, `DTEND:${utc(w.e)}`,
-    `SUMMARY:${title} - Maha Hub`, "DESCRIPTION:Booked with Maha Hub.", "STATUS:CONFIRMED", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1a272f;max-width:560px;margin:0 auto;border:1px solid #c5d0d8;border-radius:14px;overflow:hidden">`
+    `SUMMARY:${title} - Maha Hub`, `DESCRIPTION:Booked with Maha Hub.${meet ? " Google Meet: " + meet : ""}`, ...(meet ? [`LOCATION:${meet}`] : []), "STATUS:CONFIRMED", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const html = `<div style="font-family:Inter,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#1a272f;max-width:560px;margin:0 auto;border:1px solid #c5d0d8;border-radius:14px;overflow:hidden">`
     + `<div style="background:#0A3020;color:#fff;padding:16px 22px;font-weight:bold;font-size:17px">${esc(FROM.name)}</div><div style="padding:22px">`
     + `<h2 style="margin:0 0 8px;color:#0A3020">Your ${esc(title.toLowerCase())} is confirmed</h2><p>Dear ${esc(name)},</p><p>Thank you for booking with Maha Hub. We look forward to meeting you.</p>`
-    + `<div style="background:#FBF3E0;border-radius:10px;padding:14px 16px;margin:14px 0"><b>${esc(title)}</b><br>${esc(w.text)}<br>${len} minutes</div>`
+    + `<div style="background:#FBF3E0;border-radius:10px;padding:14px 16px;margin:14px 0"><b>${esc(title)}</b><br>${esc(w.text)}${w.bangkok ? "<br><span style=\"color:#556470\">" + esc(w.bangkok) + "</span>" : ""}<br>${len} minutes</div>`
+    + (meet ? `<p><a href="${esc(meet)}" style="display:inline-block;background:#0A3020;color:#fff;padding:12px 22px;border-radius:9px;text-decoration:none;font-weight:bold">Join with Google Meet</a><br><span style="color:#556470;font-size:13px">${esc(meet)}</span></p>` : "")
     + `<p><a href="${gcal}" style="display:inline-block;background:#D49A38;color:#1a272f;padding:11px 20px;border-radius:9px;text-decoration:none;font-weight:bold">Add to Google Calendar</a></p>`
     + `<p style="color:#556470">The calendar file is attached, for Apple, Outlook and other calendars. Need to change the time? Reply to this email.</p></div>`
     + `<div style="background:#f6f8f9;padding:12px 22px;font-size:12px;color:#556470">Maha Hub Group of Companies Limited &middot; Bangkok, Thailand</div></div>`;
-  const text = `Your ${title.toLowerCase()} is confirmed.\n\n${title}\n${w.text}\n${len} minutes\n\nAdd to Google Calendar: ${gcal}\n\nNeed to change the time? Reply to this email.\n\nMaha Hub`;
+  const text = `Your ${title.toLowerCase()} is confirmed.\n\n${title}\n${w.text}${w.bangkok ? "\n" + w.bangkok : ""}\n${len} minutes\n${meet ? "\nJoin with Google Meet: " + meet + "\n" : ""}\nAdd to Google Calendar: ${gcal}\n\nNeed to change the time? Reply to this email.\n\nMaha Hub`;
   let ok = false;
   for (const email of to) {
     const res = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST", headers: { "api-key": KEY, "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ sender: FROM, to: [{ email }], replyTo: { email: FROM.email }, subject: `Confirmed: ${title} on ${when(date, time, len).text.split(",").slice(0, 2).join(",")}`, htmlContent: html, textContent: text, attachment: [{ name: "maha-hub-booking.ics", content: btoa(ics) }], tags: ["crm-booking"] }),
+      body: JSON.stringify({ sender: FROM, to: [{ email }], replyTo: { email: FROM.email }, subject: `Confirmed: ${title} on ${w.short}`, htmlContent: html, textContent: text, attachment: [{ name: "maha-hub-booking.ics", content: btoa(ics) }], tags: ["crm-booking"] }),
     }).catch(() => null);
     if (res && res.ok) ok = true;
   }
@@ -134,7 +142,7 @@ const handle = async (req: Request): Promise<Response> => {
   const guests = (Array.isArray(body.guests) ? body.guests : []).map((x) => str(x, 254).toLowerCase()).filter((x) => EMAIL.test(x) && x !== email).slice(0, 3);
   if (!DATE.test(date) || !TIME.test(time) || !first || !last || !EMAIL.test(email) || !hotel || (cfg.phone && !phone)) return json(req, { error: "check_the_form" }, 400);
   if (str(body.website, 50)) return json(req, { ok: true, title: cfg.title, date, time, len: cfg.len, mailed: false });   // a robot filled the hidden box: look done, record nothing
-  const name = first + " " + last;
+  const name = first + " " + last, tz = goodTz(str(body.tz, 40));
 
   if (pay && pay.h === "test") return json(req, { ok: true, title: cfg.title, date, time, len: cfg.len, mailed: false });   // a link of a test mail: nothing is recorded
 
@@ -162,7 +170,9 @@ const handle = async (req: Request): Promise<Response> => {
     }
   }
   const mid = "bk_" + crypto.randomUUID().replace(/-/g, "").slice(0, 20);
-  const summary = str(cfg.title + " booked on the booking page" + (note ? ". " + note : "") + (guests.length ? ". Guests: " + guests.join(", ") : ""), 500);
+  /* the CRM keeps the Bangkok time; the customer's own time is written in the description */
+  const own = tz === "Asia/Bangkok" ? "" : " Customer time zone " + tz + ": " + fmt(startOf(date, time), tz).day + " " + fmt(startOf(date, time), tz).hm + ".";
+  const summary = str(cfg.title + " booked on the booking page (Bangkok time)." + own + (note ? " " + note : "") + (guests.length ? " Guests: " + guests.join(", ") + "." : ""), 500);
   if (cfg.what === "meeting") {
     rows.push({ id: mid, kind: "act", deleted: false, data: {
       id: mid, kind: "act", hotelId, type: "Meeting", date, time, summary, contactName: name, contactEmail: email, contactPhone: phone, meeting: true, meetType: "Online",
@@ -182,10 +192,13 @@ const handle = async (req: Request): Promise<Response> => {
 
   /* Busy in the Google Calendar, and the confirmation email (a demo or a meeting) */
   const s = startOf(date, time);
-  try { await upsertEvent(mid, { title: cfg.title + ": " + hotelName + " (" + name + ")", description: [email, phone, note].filter(Boolean).join("\n"), startMs: s, endMs: s + cfg.len * 60000 }); } catch { /* the CRM record is saved */ }
+  let meet = "";
+  const ev = { title: cfg.title + ": " + hotelName + " (" + name + ")", description: [email, phone, note].filter(Boolean).join("\n"), startMs: s, endMs: s + cfg.len * 60000 };
+  try { if (cfg.mail) meet = (await upsertEventMeet(mid, ev)).meet; else await upsertEvent(mid, ev); } catch { /* the CRM record is saved */ }
+  if (meet) await admin.from("maha_sales_records").update({ data: { ...(rows.find((r) => r.id === mid)!.data), meetLink: meet, summary: str(summary + " Google Meet: " + meet, 500), updated: new Date().toISOString() } }).eq("id", mid);
   let mailed = false;
-  if (cfg.mail) { try { mailed = await sendConfirmation([email, ...guests], first, cfg.title, date, time, cfg.len, mid); } catch { mailed = false; } }
-  return json(req, { ok: true, title: cfg.title, date, time, len: cfg.len, mailed });
+  if (cfg.mail) { try { mailed = await sendConfirmation([email, ...guests], first, cfg.title, date, time, cfg.len, mid, tz, meet); } catch { mailed = false; } }
+  return json(req, { ok: true, title: cfg.title, date, time, len: cfg.len, mailed, meet });
 };
 
 Deno.serve(async (req) => {
