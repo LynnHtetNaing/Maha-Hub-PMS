@@ -109,6 +109,7 @@ function replyPage(env) {
   var T = location.pathname.split('/').pop(), U = __URL__, B = document.getElementById('b');
   function say(h) { B.innerHTML = h; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function taken() { say('<h2>This time is no longer free</h2><p>Please reply to our email and we will find another time.</p>'); }
   function fail(el) { el.disabled = false; document.getElementById('e').textContent = 'It could not be saved. Please try again.'; }
   fetch(U + '?t=' + encodeURIComponent(T)).then(function (r) { return r.json(); }).then(function (d) {
     if (!d || !d.ok) { say('<h2>This link is not valid</h2><p>Please ask Maha Hub to send it again.</p>'); return; }
@@ -118,7 +119,7 @@ function replyPage(env) {
       var g = this; g.disabled = true;
       fetch(U, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t: T, note: document.getElementById('n').value }) })
         .then(function (r) { return r.json(); })
-        .then(function (x) { if (x && x.ok) say('<h2>Thank you</h2><p>We received your answer. We will be in touch.</p>'); else fail(g); })
+        .then(function (x) { if (x && x.error === 'slot_taken') taken(); else if (x && x.ok) say('<h2>Thank you</h2><p>We received your answer. We will be in touch.</p>'); else fail(g); })
         .catch(function () { fail(g); });
     };
   }).catch(function () { say('<h2>Please try again</h2><p>The page could not load.</p>'); });

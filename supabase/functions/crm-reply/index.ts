@@ -3,6 +3,7 @@
 // the Gentle reminder: a time to be called). The link is  https://crm.maha-hub.com/r/<token>  (the Worker shows the page, this function does the work).
 //   GET  ?t=<token>                 -> { ok, label, title, hotel, done }   what the page shows before the hotel confirms
 //   POST { t, note? }               -> { ok }   records the answer once (a second click does nothing new):
+//        - the time must be free: at least 1 hour 30 minutes from every other meeting (CRM Meetings and the Google Calendar); a taken time answers 409 slot_taken
 //        - a "reply" record (kind reply) the CRM lists under Enewletter > Replies
 //        - Event invitation + "Yes": a Meeting in the CRM (Meetings), with the date and time of the invitation
 //        - Gentle reminder + a time: a Follow up in the CRM for that day
@@ -12,6 +13,7 @@
 // Never log tokens, addresses or notes.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { CALL_MIN, GAP_MIN, MEET_MIN, clashes, startOf, upsertEvent } from "../_shared/gcal.ts";
 
 const ORIGINS = [...new Set(["https://crm.maha-hub.com", ...(Deno.env.get("MAHA_ALLOWED_ORIGIN") || "").split(",").map((x) => x.trim()).filter(Boolean)])];
 const cors = (req: Request): Record<string, string> => {
@@ -75,6 +77,21 @@ const handle = async (req: Request): Promise<Response> => {
   if (p.h === "test") return json(req, { ok: true, done: false });   // a link of a test mail: nothing is recorded
 
   const now = new Date().toISOString(), day = now.slice(0, 10);
+  /* a meeting needs 1 hour 30 minutes from every other meeting; a call only must not fall on one */
+  const wantsMeeting = p.k === "event" && p.o === "yes", wantsCall = p.k === "remind" && /^sd$/.test(p.o);
+  if ((wantsMeeting || wantsCall) && /^d{4}-d{2}-d{2}$/.test(String(p.d?.date || "")) && /^d{2}:d{2}$/.test(String(p.d?.time || ""))) {
+    const len = wantsMeeting ? MEET_MIN : CALL_MIN, gap = wantsMeeting ? GAP_MIN : 0, s = startOf(p.d!.date, p.d!.time), e = s + len * 60000;
+    const { data: same } = await admin.from("maha_sales_records").select("id,data").eq("kind", "act").eq("deleted", false).filter("data->>date", "eq", p.d!.date);
+    const busyHere = (same || []).some((r: { id: string; data: Record<string, unknown> }) => {
+      const a = r.data || {};
+      if (!(a.meeting === true || a.type === "Meeting") || !/^d{2}:d{2}$/.test(String(a.time || "")) || ["Reject", "No Show", "Cancelled"].includes(String(a.meetStatus || ""))) return false;
+      const s2 = startOf(String(a.date), String(a.time));
+      return s < s2 + MEET_MIN * 60000 + gap * 60000 && s2 < e + gap * 60000;
+    });
+    let busyGoogle = false;
+    try { busyGoogle = (await clashes(s, e, gap)).length > 0; } catch { /* Google not reachable: the CRM check above still counts */ }
+    if (busyHere || busyGoogle) return json(req, { error: "slot_taken" }, 409);
+  }
   const rows: { id: string; kind: string; deleted: boolean; data: Record<string, unknown> }[] = [];
   rows.push({ id, kind: "reply", deleted: false, data: {
     id, kind: "reply", hotelId: str(p.h, 80), hotelName: str(p.n, 120), email: str(p.e, 254), tpl: str(p.t, 60), subject: str(p.s, 200),
@@ -98,6 +115,12 @@ const handle = async (req: Request): Promise<Response> => {
   }
   const { error } = await admin.from("maha_sales_records").upsert(rows, { onConflict: "id", ignoreDuplicates: true });
   if (error) return json(req, { error: "save_failed" }, 500);
+  /* the time becomes Busy in the Google Calendar */
+  if ((wantsMeeting || wantsCall) && /^d{4}-d{2}-d{2}$/.test(String(d.date || "")) && /^d{2}:d{2}$/.test(String(d.time || ""))) {
+    const s = startOf(d.date, d.time), len = wantsMeeting ? MEET_MIN : CALL_MIN;
+    try { if (rows[1]) await upsertEvent(rows[1].id, { title: (wantsMeeting ? "Meeting: " : "Call: ") + str(p.n, 80), description: str(d.title || p.s, 200) + (note ? "
+" + note : ""), startMs: s, endMs: s + len * 60000 }); } catch { /* the CRM record is saved; the calendar can be added by the CRM later */ }
+  }
   return json(req, { ok: true, done: false });
 };
 

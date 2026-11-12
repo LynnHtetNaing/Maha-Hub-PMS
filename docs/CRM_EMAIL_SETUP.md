@@ -39,4 +39,26 @@ Only steps 1–6 are yours to do in Brevo, Cloudflare and Supabase; steps 7–9 
   - an event "Yes" makes a **Meeting**, a reminder time makes a **Follow up** for that day;
   - every answer is listed under **Enewletter > Replies** (hotel, choice, message).
 - To switch it on: `supabase functions deploy crm-reply --no-verify-jwt` and `supabase functions deploy crm-send-mail --no-verify-jwt`, then deploy the Worker (`npx wrangler deploy`, or the usual Cloudflare deploy) so `/r/*` works. No new database file and no new secret (it uses `MAIL_LINK_SECRET`).
-- Only answers given with the buttons are listed. What a hotel writes back in a normal reply goes to the `crm@maha-hub.com` mailbox as before.
+- Written replies are listed too (see "Replies by email" below).
+
+- Templates: every `[type here]` in the text is a box the person fills; the wording stays fixed. The CEO edits the text and the design (the "Design (code)" button) and makes new templates.
+
+## Google Calendar (meetings Busy, 1 hour 30 minutes between meetings)
+
+Every CRM meeting becomes a **Busy** event in one Google Calendar; a meeting that is deleted, rejected or did not come frees the time again. The CRM asks first when a meeting is closer than 1 hour 30 minutes to another one, and a hotel that picks a taken time in an email is told it is taken. Meetings are 60 minutes, calls 30 minutes (`CAL_MEET_MIN`, `CAL_GAP_MIN` can change this).
+It uses a Google **service account**: nobody signs in with Google and no password is stored.
+
+1. Google Cloud Console > create a project > **APIs & Services > Library > Google Calendar API > Enable**.
+2. **IAM & Admin > Service Accounts > Create** (name `maha-crm`) > **Keys > Add key > JSON**: a file downloads. Keep it private. **Do not paste it in chat or in a file of the project.**
+3. In Google Calendar (the calendar you want to use) > **Settings and sharing > Share with specific people > Add** the service account address (`...@...iam.gserviceaccount.com`) with **Make changes to events**.
+4. Supabase > Edge Functions > Secrets (or `supabase secrets set`): `GOOGLE_SA_JSON` = the whole text of the JSON file, `GOOGLE_CALENDAR_ID` = the calendar address (for example your Gmail address; for another calendar: Settings and sharing > Integrate calendar > Calendar ID).
+5. Deploy: `supabase functions deploy crm-calendar --no-verify-jwt`, `supabase functions deploy crm-reply --no-verify-jwt`, `supabase functions deploy crm-send-mail --no-verify-jwt`.
+Without steps 1-4 the CRM still checks its own meetings for the 1 hour 30 minutes; only the Google part waits.
+
+## Replies by email
+
+A hotel that writes back to `crm@maha-hub.com` appears under **Enewletter > Replies** (who, which hotel, what they wrote). Automatic replies and bounces are skipped, the quoted old mail is cut. The mail still reaches your mailbox.
+
+1. Supabase secret `INBOUND_SECRET` = any long random text (30+ characters). Deploy: `supabase functions deploy crm-inbound --no-verify-jwt`.
+2. In `workers/crm-inbound/wrangler.toml` set `FORWARD_TO` to the mailbox that receives the replies now (it must be a verified destination in Cloudflare Email Routing). Then `cd workers/crm-inbound`, `npx wrangler secret put INBOUND_SECRET` (type the same text), `npx wrangler deploy`.
+3. Cloudflare > Email > Email Routing > Routing rules: change the rule of `crm@maha-hub.com` from "Send to an email" to **Send to a Worker > crm-inbound**.

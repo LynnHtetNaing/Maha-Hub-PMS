@@ -999,6 +999,7 @@ function save(r) {
   const i = R.findIndex(x => x.id === r.id); if (i >= 0) R[i] = r; else R.push(r);
   Cloud.mark(r.id, r.kind);
   audit(r, audOld); stlogHook(r, audOld); audSnap(r);
+  try { calSync(r); } catch {}
   if (!db) return Promise.resolve(r);
   return new Promise((res, rej) => { const q = store('readwrite').put(r); q.onsuccess = () => res(r); q.onerror = () => rej(q.error); });
 }
@@ -4148,6 +4149,7 @@ async function meetingSave(root, a, h, isNew) {
   if (need) { toast(need[1] + ' is required'); return false; }
   const rr = refRead(root, h.id); if (rr.meetLead === 'Customer Referral' && !rr.refHotelId) { toast('Choose the referral hotel from the list'); return false; }
   const date = g('date'), time = g('hh') + ':' + g('mm');
+  if (!await calGuard(date, time, a.id)) return false;
   const rec = {...a, id: a.id || uid(), kind: 'act', hotelId: h.id, type: 'Meeting', date, time, contactName: g('contactName'), contactPos: g('contactPos'), contactEmail: g('contactEmail'), contactPhone: g('contactPhone'), summary: g('summary'), meetType: g('meetType'), meetLead: rr.meetLead, refHotelId: rr.refHotelId, owner: g('owner') || a.owner || Auth.who() || '', meetStatus: isNew ? 'On Process' : (g('meetStatus') || a.meetStatus), meeting: true, done: true};
   await save(rec);
   if ([NEWDB, 'Called', 'Follow up'].includes(hSt(h))) { h.status = 'Meeting set'; await save(h); }
@@ -4242,6 +4244,7 @@ Object.assign(ACTIONS, {
     const rr = refRead(document, a.hotelId); if (!rr.meetLead) { toast('Lead Type is required'); return; } if (rr.meetLead === 'Customer Referral' && !rr.refHotelId) { toast('Choose the referral hotel from the list'); return; }
     if (!st) { toast('Choose the meeting status'); return; } if (!v('feedback')) { toast('Meeting Feedback is required'); return; }
     Object.assign(a, {date: v('date'), time: v('hh') + ':' + v('mm'), contactName: v('contactName'), contactPos: v('contactPos'), contactEmail: v('contactEmail'), contactPhone: v('contactPhone'), summary: v('summary'), owner: v('owner'), meetType: v('meetType'), meetLead: rr.meetLead, refHotelId: rr.refHotelId, meetStatus: st, feedback: v('feedback'), meeting: true});
+    if (!await calGuard(a.date, a.time, a.id)) return;
     await save(a); toast('Saved'); location.hash = 'meetings';
   },
 });
@@ -4425,6 +4428,47 @@ function vKpi(which) {
    The CRM asks the crm-send-mail function (Brevo, sender crm@maha-hub.com) to send. A quotation / MSA goes as a link that opens the document (crm.maha-hub.com/d/...).
    Until the service is set up (or when it fails) the old way stays: the message opens in the person's own email program. */
 const MAIL_URL = 'https://wragaoglvksbbgmfjyzp.supabase.co/functions/v1/crm-send-mail', MAIL_KEY = 'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
+/* ----- Google Calendar: a CRM meeting is a Busy event; at least 1 hour 30 minutes between meetings (the crm-calendar function; without it the CRM still checks its own meetings) ----- */
+const CAL_URL = MAIL_URL.replace('crm-send-mail', 'crm-calendar'), CAL_GAP = 90, CAL_LEN = 60, CAL_CALL = 30;
+async function calApi(body) {
+  if (!Auth.required) return {configured: false};
+  try {
+    const tk = await Auth.token(); if (!tk) return {configured: false};
+    const r = await fetch(CAL_URL, {method: 'POST', headers: {'Content-Type': 'application/json', apikey: MAIL_KEY, Authorization: 'Bearer ' + tk}, body: JSON.stringify(body)});
+    const d = await r.json().catch(() => ({})); return r.ok ? d : {configured: false, error: d.error || 'http_' + r.status};
+  } catch { return {configured: false, error: 'network'}; }
+}
+const calFree = a => !['Reject', 'No Show'].includes(meetSt(a));
+const calMs = (date, time) => Date.parse(date + 'T' + time + ':00+07:00');
+/* the CRM meetings of that day that come closer than the gap (the one being changed is left out) */
+function calLocal(date, time, ignoreId, len, gap) {
+  if (!date || !time) return [];
+  const s = calMs(date, time), e = s + (len || CAL_LEN) * 60000, g = (gap == null ? CAL_GAP : gap) * 60000;
+  return meetActs().filter(a => a.id !== ignoreId && a.date === date && a.time && calFree(a) && (() => { const s2 = calMs(a.date, a.time); return s < s2 + CAL_LEN * 60000 + g && s2 < e + g; })())
+    .map(a => ({title: hotelName(a.hotelId) || 'Meeting', start: a.date + ' ' + a.time}));
+}
+async function calClashes(date, time, ignoreId, len, gap) {
+  const local = calLocal(date, time, ignoreId, len, gap), g = await calApi({action: 'check', date, time, ignoreId, len, gap});
+  return local.concat(((g && g.clashes) || []).filter(x => !local.some(l => l.start === x.start)));
+}
+/* before a meeting is saved: closer than 1 hour 30 minutes to another meeting asks first */
+async function calGuard(date, time, ignoreId) {
+  if (!date || !time || time === '00:00') return true;
+  const all = await calClashes(date, time, ignoreId);
+  if (!all.length) return true;
+  return confirm('This meeting is closer than 1 hour 30 minutes to another meeting:\n\n' + all.slice(0, 4).map(x => x.title + ' (' + x.start + ')').join('\n') + '\n\nAdd it anyway?');
+}
+/* a meeting saved, changed, rejected or deleted in the CRM is kept in the Google Calendar as Busy / free */
+const calT = {};
+function calSync(r) {
+  if (!r || r.kind !== 'act' || !isMeet(r)) return;
+  clearTimeout(calT[r.id]);
+  calT[r.id] = setTimeout(async () => {
+    const busy = !r.deleted && r.date && r.time && calFree(r);
+    const res = busy ? await calApi({action: 'upsert', id: r.id, title: 'Meeting: ' + (hotelName(r.hotelId) || '') + (r.meetType ? ' (' + r.meetType + ')' : ''), description: [r.contactName, r.contactPhone, r.summary].filter(Boolean).join('\n'), date: r.date, time: r.time, len: CAL_LEN}) : await calApi({action: 'remove', id: r.id});
+    if (res && res.configured && res.ok === false) toast('The Google Calendar was not updated. Save the meeting again.');
+  }, 800);
+}
 async function mailApi(body) {
   if (!Auth.required) return {error: 'not_configured'};
   try {
@@ -4482,6 +4526,11 @@ function enewsSendSheet() {
       const r = await mailApi({action: 'test', to: [a], ...enewsPayload(e), subject: '[Test] ' + e.subject}); toast(r.error ? mailErr(r.error) : r.sent ? 'Test email sent' : 'The test was not sent' + (r.errors && r.errors[0] ? ': ' + r.errors[0] : ''));
     };
     $('#en_go', root).onclick = async () => {
+      const tt0 = e.tpl && e.tpl !== 'plain' ? entGet(e.tpl) : null;
+      if (tt0 && ['event', 'remind'].includes(tt0.kind)) {
+        const bad = []; for (const o of entOptions(tt0, e.vals)) if (o.data && o.data.date && o.data.time) { const ev = tt0.kind === 'event', cl = await calClashes(o.data.date, o.data.time, '', ev ? CAL_LEN : CAL_CALL, ev ? CAL_GAP : 0); if (cl.length) bad.push(fdate(o.data.date) + ' ' + o.data.time + ' (' + cl[0].title + ' ' + cl[0].start + ')'); }
+        if (bad.length && !confirm('These times are not free:\n\n' + bad.join('\n') + '\n\nSend anyway? A hotel that picks a time that is taken is told so.')) return;
+      }
       const go = $('#en_go', root); go.disabled = true; let sent = 0, skipped = 0, failed = 0;
       for (let i = 0; i < to.length; i += 50) {
         prog.textContent = 'Sending ' + Math.min(i + 50, to.length) + ' of ' + to.length + '…';
@@ -4669,7 +4718,7 @@ function vEnews() {
     '<div class="panel" style="padding:14px"><div class="muted small" style="margin-bottom:8px">How the hotel sees it</div><div class="en-mail"><div class="en-mh">Maha Hub</div><div class="en-mb" id="en_pv"></div><div class="en-mf" id="en_pa"></div></div></div></div>' +
    '<h2>Saved <span class="count">' + saved.length + '</span></h2>' +
    (saved.length ? '<div class="list">' + saved.map(s => '<a class="row" href="#enews" data-act="enewsLoad" data-id="' + s.id + '"><div class="main"><div class="t">' + esc(s.subject || '(no subject)') + '</div><div class="s">' + esc([s.stage, s.city].filter(Boolean).join(' · ') || 'All hotels') + '</div></div><div class="end">' + fdate((s.updated || '').slice(0, 10)) + '</div></a>').join('') + '</div>' : '<div class="list"><div class="empty">No saved drafts.</div></div>') +
-   (() => { const reps = K('reply').sort((a, b) => (b.at || '').localeCompare(a.at || '')); return '<h2>Replies <span class="count">' + reps.length + '</span></h2>' + (reps.length ? '<div class="list">' + reps.map(r => '<a class="row" href="#hotel/' + esc(r.hotelId) + '"><div class="main"><div class="t">' + esc(r.hotelName || hotelName(r.hotelId)) + ' \u00b7 ' + esc(r.label || r.choice) + '</div><div class="s">' + esc([r.tpl, r.subject].filter(Boolean).join(' \u00b7 ') + (r.note ? ' \u00b7 \u201c' + r.note + '\u201d' : '')) + '</div></div><div class="end">' + fdate((r.at || '').slice(0, 10)) + '</div></a>').join('') + '</div>' : '<div class="list"><div class="empty">No replies yet.</div></div>'); })();
+   (() => { const reps = K('reply').sort((a, b) => (b.at || '').localeCompare(a.at || '')); return '<h2>Replies <span class="count">' + reps.length + '</span></h2>' + (reps.length ? '<div class="list">' + reps.map(r => '<a class="row" href="#enews" data-act="replyView" data-id="' + esc(r.id) + '"><div class="main"><div class="t">' + esc(r.hotelName || (r.hotelId ? hotelName(r.hotelId) : '') || r.email || '') + ' · ' + esc(r.label || r.choice) + '</div><div class="s">' + esc([r.tpl, r.subject].filter(Boolean).join(' · ') + (r.note ? ' · “' + (r.note.length > 140 ? r.note.slice(0, 140) + '…' : r.note).replace(/\s+/g, ' ') + '”' : '')) + '</div></div><div class="end">' + fdate((r.at || '').slice(0, 10)) + '</div></a>').join('') + '</div>' : '<div class="list"><div class="empty">No replies yet.</div></div>'); })();
   const ed = $('#en_ed'); let rng = null;
   const sync = () => { e.stage = $('#en_stage').value; e.city = $('#en_city').value; const tt = e.tpl !== 'plain' ? entGet(e.tpl) : null; if (tt) { const auto = entSubject(tt, e.vals); if (!$('#en_subject').value || $('#en_subject').value === e.auto) $('#en_subject').value = auto; e.auto = auto; } e.subject = $('#en_subject').value; if (tt) { e.html = entRender(tt, e.vals); e.body = entToText(e.html); } else { e.html = ed.innerHTML; e.body = ed.innerText; }
     $('#en_n').textContent = enewsAudience().length + ' hotels with an email address will receive it.'; $('#en_pv').innerHTML = tt ? entRender(tt, e.vals, true) : e.html; $('#en_pa').textContent = e.att ? 'Attachment: ' + e.att.name : ''; };
@@ -4722,6 +4771,15 @@ Object.assign(ACTIONS, {
   editActivation: el => { location.hash = 'activations/' + el.dataset.id; },
   enewsOpen: () => { const to = enewsAudience().map(h => h.email); if (!to.length) { toast('No hotel with an email address in this list'); return; } const e = UI.enews; location.href = 'mailto:?bcc=' + encodeURIComponent(to.join(',')) + '&subject=' + encodeURIComponent(e.subject) + '&body=' + encodeURIComponent(e.body); },
   enewsSend: () => enewsSendSheet(),
+  replyView: el => {
+    const r = byId(el.dataset.id); if (!r) return; const h = r.hotelId ? byId(r.hotelId) : null;
+    openSheet(`${fuHead('Reply')}<div class="fu-pop" style="margin-top:14px">
+     <div class="mq-b"><label class="mq-l">From</label><div>${esc(r.hotelName || (h && h.name) || r.email || '')}${r.email && (r.hotelName || h) ? ' &lt;' + esc(r.email) + '&gt;' : ''}</div></div>
+     <div class="mq-b"><label class="mq-l">${r.source === 'email' ? 'Subject' : 'Answer'}</label><div>${esc(r.source === 'email' ? r.subject || '' : (r.label || r.choice) + (r.tpl ? ' · ' + r.tpl : ''))}</div></div>
+     <div class="mq-b"><label class="mq-l">When</label><div>${esc(fdate((r.at || '').slice(0, 10)))} ${esc(new Date(r.at).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'}))}</div></div>
+     ${r.note ? '<div class="mq-b"><label class="mq-l">Message</label><div style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(r.note) + '</div></div>' : ''}</div>
+     <div class="sheet-foot"><button class="btn" data-act="close">Close</button>${h ? '<a class="btn primary" href="#hotel/' + esc(h.id) + '" data-act="close">Open hotel</a>' : ''}</div>`);
+  },
   enewsTplNew: () => { if (!Auth.isProvider()) { toast('Only the CEO makes a template'); return; } entEditSheet(''); },
   enewsTplEdit: () => { if (!Auth.isProvider()) { toast('Only the CEO edits a template'); return; } const e = UI.enews; if (e && e.tpl && e.tpl !== 'plain') entEditSheet(e.tpl); },
   clearOld: () => clearOldSheet(),
