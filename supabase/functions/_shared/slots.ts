@@ -3,7 +3,7 @@
 //   - a MEETING must not overlap an event and must START at least GAP_MIN (90) minutes after the start of another one (9:00 taken: 10:30 or later);
 //   - a CALL (30 minutes) only must not overlap an event.
 // Opening hours (Bangkok time) can be changed with Supabase secrets, no code: CAL_HOURS ("09:00-17:00,21:00-24:00": two windows, a morning to evening one and a night one for
-// customers in other time zones; any number of windows, comma separated), CAL_DAYS ("1,2,3,4,5" = Monday to Friday, 0 = Sunday),
+// customers in other time zones; any number of windows, comma separated), CAL_DAYS ("0,1,2,3,4,5,6" = every day, Monday to Sunday; 0 = Sunday, 1 = Monday),
 // CAL_STEP (30 minutes between start times), CAL_AHEAD (60 days ahead, from today), CAL_NOTICE_H (2 hours notice: the first free time is 2 hours from now).
 // Never log customers, titles or times.
 
@@ -15,7 +15,7 @@ const num = (k: string, d: number) => { const v = Number(Deno.env.get(k)); retur
 const windows = (s: string) => s.split(",").map((x) => /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(x.trim())).filter((m) => !!m)
   .map((m) => ({ from: Number(m![1]) * 60 + Number(m![2]), to: Number(m![3]) * 60 + Number(m![4]) })).filter((w) => w.to > w.from && w.to <= 1440);
 export const OPEN = (() => { const l = windows(Deno.env.get("CAL_HOURS") || "09:00-17:00,21:00-24:00"); return l.length ? l : [{ from: 540, to: 1020 }, { from: 1260, to: 1440 }]; })();
-export const DAYS = new Set((Deno.env.get("CAL_DAYS") || "1,2,3,4,5").split(",").map((x) => Number(x.trim())).filter((x) => x >= 0 && x <= 6));
+export const DAYS = new Set((Deno.env.get("CAL_DAYS") || "0,1,2,3,4,5,6").split(",").map((x) => Number(x.trim())).filter((x) => x >= 0 && x <= 6));
 export const STEP = num("CAL_STEP", 30);
 export const AHEAD = num("CAL_AHEAD", 60);
 export const NOTICE_H = num("CAL_NOTICE_H", 2);
