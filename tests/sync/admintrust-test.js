@@ -39,4 +39,5 @@ T('PMS: an admin may sign in on a system address (no refusal any more)', !pms.in
 T('shared step: QR first on the first time, then the 6-digit code; five tries; the device is trusted afterwards', shared.includes("factor_type: 'totp'") && shared.includes("ask(pending ? 'enrol' : 'verify'") && shared.includes('n >= 5') && shared.includes("action: 'trust_device'"));
 T('CRM and Billing load the shared step and run it when the answer says needs_mfa', crm.includes('maha-admin-mfa.js') && crm.includes("d.admin_mode === 'needs_mfa'") && bill.includes('maha-admin-mfa.js') && bill.includes("d.admin_mode==='needs_mfa'"));
 T('Billing keeps one device id (so the device can be remembered)', bill.includes("localStorage.setItem('maha.deviceId',n)"));
+T('a person signed out while the page is loading (ended subscription) never gets a blank page: renderShell stops when there is no session', pms.includes('function renderShell(){' + String.fromCharCode(10) + '  if(SEL_ON)return;' + String.fromCharCode(10) + '  if(!DB||!DB.session)return;'));
 process.exit(fails ? 1 : 0);
