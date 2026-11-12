@@ -305,7 +305,6 @@ add('about.html', 'about', {
       <p class="lead">${COMPANY} is the parent of Maha Solutions and Maha Academy.</p>
       <p><b>Maha Solutions</b> is our technology brand. It offers connected software for hotels and accommodation businesses, starting with Maha PMS and growing into a family of products that share the same hotel data.</p>
       <p><b>Maha Academy</b> is our education brand. It is being built to offer practical hospitality education, from front-line skills to hotel management.</p>
-      <p>The pagoda in our mark stands for the heritage of the region we come from. The star above it stands for what we are building towards.</p>
     </div>
     <div class="grid" style="gap:18px">
       <div class="card reveal"><div class="ico">${I.hub}</div><h3>Maha Solutions</h3><p>Connected software for hotels. <a href="/maha-hub-solutions">Learn more</a></p></div>
