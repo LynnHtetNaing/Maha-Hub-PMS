@@ -43,6 +43,15 @@ import('../../workers/maha-hub-pms/src/index.js').then(async m => {
   let parses = true; try { new Function(h.split('<script>')[1].split('</scr')[0]); } catch (e) { parses = false; }
   T('the demo page loads with its script and a safe policy (only this site and the Supabase functions)', r.status === 200 && parses && h.includes('Book a Demo') && /connect-src https:\/\/x\.supabase\.co/.test(r.headers.get('content-security-policy')) && h.includes('"type":"demo"'));
   const o = await m.default.fetch(new Request('https://pms.maha-hub.com/book/demo'), env);
+  /* the page script really runs: a bundler adds __name() around named functions, the page must define it; the first screen (the loading screen) is drawn */
+  const js = h.split('<script>')[1].split('</scr')[0];
+  const root = { innerHTML: '' };
+  let ran = '', fetched = [];
+  try {
+    new Function('document', 'location', 'fetch', 'setTimeout', 'setInterval', js)({ getElementById: () => root, hidden: false, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] }, { pathname: '/book/demo' }, u => { fetched.push(String(u)); return new Promise(() => {}); }, () => 0, () => 0);
+    ran = root.innerHTML; await new Promise(r => setImmediate(r));
+  } catch (e) { ran = 'ERROR ' + e.message; }
+  T('the page script defines __name (a bundler adds it) and draws the loading screen first, then asks crm-book', js.startsWith('var __name=function(f){return f};') && ran.includes('Opening the calendar') && fetched.some(u => u.includes('/functions/v1/crm-book?type=demo')));
   T('the booking page is only on the CRM address', (await o.text()) === 'asset');
   T('the CRM Gentle reminder and Meeting request open this page (a call of 10 minutes / a meeting of 60 minutes)', crm.includes("t.kind === 'book' || t.kind === 'bookm'"));
   process.exit(fails ? 1 : 0);
