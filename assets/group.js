@@ -48,13 +48,9 @@
     items.forEach(function (el) { io.observe(el); });
   } else items.forEach(function (el) { el.classList.add('in'); });
 
-  /* header shadow and the scroll line */
-  var head = $('.site-head'), bar = document.createElement('div'); bar.className = 'progress'; document.body.appendChild(bar);
-  var onScroll = function () {
-    var y = window.scrollY || 0, h = document.documentElement.scrollHeight - window.innerHeight;
-    if (head) head.classList.toggle('stuck', y > 8);
-    bar.style.transform = 'scaleX(' + (h > 0 ? Math.min(1, y / h) : 0) + ')';
-  };
+  /* header shadow once the page is scrolled */
+  var head = $('.site-head');
+  var onScroll = function () { if (head) head.classList.toggle('stuck', (window.scrollY || 0) > 8); };
   window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
   /* screens that change by themselves (.cyc holds the pictures; tabs can drive them) */

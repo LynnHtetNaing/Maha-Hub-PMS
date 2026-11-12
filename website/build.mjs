@@ -10,6 +10,7 @@ const SITE = 'https://maha-hub.com';
 const COMPANY = 'Maha Hub Group of Companies Limited';
 const ADDRESS = '222/B Min Ye Kyaw Swar 3rd Street, Yangon 11091, Myanmar (Burma)';   /* registered address (parent company) */
 const PHONE = '+95 9 450 015 567', PHONE_TEL = '+959450015567';
+const OFFICE = 'Bangkok, Thailand (Operation Office)', OFFICE_PHONE = '+66-641081434', OFFICE_TEL = '+66641081434';
 const EMAIL = 'hello@maha-hub.com';
 const SUPPORT = 'support@maha-hub.com';
 const content = n => fs.readFileSync(path.join(ROOT, 'website', 'content', n), 'utf8');
@@ -128,6 +129,7 @@ const footer = () => `</main>
       <a class="logo" href="/"><img src="/brand/maha/gate-gold.png" alt="" width="44" height="44" loading="lazy"><span><b>MAHA HUB</b><small>GROUP OF COMPANIES</small></span></a>
       <p>${COMPANY}. Technology and education for modern hospitality.</p>
       <p>${ADDRESS}<br>Tel <a href="tel:${PHONE_TEL}">${PHONE}</a></p>
+      <p><b>Office</b><br>${OFFICE}<br>Tel <a href="tel:${OFFICE_TEL}">${OFFICE_PHONE}</a></p>
     </div>
     <div><h4>Our brands</h4><ul><li><a href="/maha-hub-solutions">Maha Solutions</a></li><li><a href="/products">Products</a></li><li><a href="/pricing">Pricing</a></li><li><a href="/maha-hub-academy">Maha Academy</a></li></ul></div>
     <div><h4>Company</h4><ul><li><a href="/about">About the Group</a></li><li><a href="/security">Security</a></li><li><a href="/contact">Contact</a></li><li><a href="/solutions">Customer sign in</a></li></ul></div>
@@ -330,6 +332,7 @@ add('about.html', 'about', {
       <tr><th>Brands</th><td>Maha Solutions &middot; Maha Academy</td></tr>
       <tr><th>Registered address</th><td>${ADDRESS}</td></tr>
       <tr><th>Telephone</th><td><a href="tel:${PHONE_TEL}">${PHONE}</a></td></tr>
+      <tr><th>Office</th><td>${OFFICE}<br>Tel <a href="tel:${OFFICE_TEL}">${OFFICE_PHONE}</a></td></tr>
       <tr><th>General enquiries</th><td><a href="mailto:${EMAIL}">${EMAIL}</a></td></tr>
       <tr><th>Customer support</th><td><a href="mailto:${SUPPORT}">${SUPPORT}</a></td></tr>
       <tr><th>Website</th><td>maha-hub.com</td></tr>
@@ -515,6 +518,7 @@ add('contact.html', 'contact', {
       <li>${I.key}<div><b>Existing customers</b>Sign in at <a href="/solutions">maha-hub.com/solutions</a> and use Contact Support, or email us.</div></li>
       <li>${I.globe}<div><b>Registered office</b>${ADDRESS}</div></li>
       <li>${I.life}<div><b>Telephone</b><a href="tel:${PHONE_TEL}">${PHONE}</a></div></li>
+      <li>${I.globe}<div><b>Office</b>${OFFICE}<br>Tel <a href="tel:${OFFICE_TEL}">${OFFICE_PHONE}</a></div></li>
       <li>${I.globe}<div><b>Website</b>maha-hub.com</div></li>
     </ul>
     <p class="note" style="margin-top:26px">Billing questions: see the <a href="/refund">Refund and Cancellation Policy</a>, or email us with your business name.</p>
