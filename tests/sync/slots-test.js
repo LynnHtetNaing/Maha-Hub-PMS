@@ -1,0 +1,37 @@
+/* The live calendar a customer sees: the free times are worked out from the Google Calendar and the CRM Meetings.
+     node tests/sync/slots-test.js */
+const fs = require('fs'), path = require('path');
+const root = path.join(__dirname, '..', '..', 'supabase', 'functions', '_shared');
+let strip = null; try { strip = require('node:module').stripTypeScriptTypes; } catch (e) { /* older Node */ }
+if (!strip) { console.log('SKIP this Node cannot strip types'); process.exit(0); }
+let fails = 0; const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n); if (!ok) fails++; };
+
+const src = strip(fs.readFileSync(path.join(root, 'slots.ts'), 'utf8'), { mode: 'strip' }).replace(/^import .*$/gm, '').replace(/^export /gm, '');
+const startOf = (d, t) => new Date(d + 'T' + t + ':00+07:00').getTime();
+const day = (n) => new Date(Date.now() + 7 * 3600000 + n * 86400000).toISOString().slice(0, 10);
+const wd = d => new Date(d + 'T12:00:00+07:00').getUTCDay();
+let target = ''; for (let n = 5; n < 15; n++) if (wd(day(n)) === 3) { target = day(n); break; }   /* a Wednesday 5 to 14 days ahead */
+let sunday = ''; for (let n = 5; n < 15; n++) if (wd(day(n)) === 0) { sunday = day(n); break; }
+
+let events = [], crm = [];
+const admin = { from: () => { const q = { select: () => q, eq: () => q, gte: () => q, lte: () => q, then: (r) => r({ data: crm.map(a => ({ data: a })) }) }; return q; } };
+const mod = new Function('Deno', 'GAP_MIN', 'MEET_MIN', 'CALL_MIN', 'listEvents', 'startOf', 'createClient', src + '\nreturn { freeSlots, isFree };')(
+  { env: { get: () => undefined } }, 90, 60, 30, async () => events.slice(), startOf, null);
+
+(async () => {
+  events = [{ s: startOf(target, '09:00'), e: startOf(target, '10:00') }];
+  const meet = (await mod.freeSlots(admin, target, 1, 'meeting'))[target] || [], call = (await mod.freeSlots(admin, target, 1, 'call'))[target] || [];
+  T('a meeting at 9:00 is taken: 09:30 and 10:00 are not offered, the first free meeting time is 10:30', !meet.includes('09:00') && !meet.includes('09:30') && !meet.includes('10:00') && meet[0] === '10:30');
+  T('before it: 07:30 would be fine but the day starts at 09:00 (opening hours)', !meet.includes('07:30') && !call.includes('08:30'));
+  T('a call (30 minutes) only must not overlap: 10:00 is free, 09:30 is not', call.includes('10:00') && !call.includes('09:30') && !call.includes('09:00'));
+  T('the last meeting time ends at closing time (17:00): 16:00 is the last start, 16:30 is not offered', meet.includes('16:00') && !meet.includes('16:30') && call.includes('16:30') && !call.includes('17:00'));
+  T('the grid is every 30 minutes', meet.every(t => /:(00|30)$/.test(t)));
+  crm = [{ meeting: true, date: target, time: '13:00', meetStatus: 'On Process' }, { meeting: true, date: target, time: '15:00', meetStatus: 'Reject' }];
+  events = [];
+  const m2 = (await mod.freeSlots(admin, target, 1, 'meeting'))[target] || [];
+  T('a CRM meeting at 13:00: 11:30 is free (90 minutes before), 12:00 to 14:00 are not, 14:30 is free; a rejected meeting (15:00) frees its time', m2.includes('11:30') && !m2.includes('12:00') && !m2.includes('13:30') && !m2.includes('14:00') && m2.includes('14:30') && m2.includes('15:00'));
+  T('isFree checks one time again (so two hotels never get the same time)', (await mod.isFree(admin, target, '14:30', 'meeting')) === true && (await mod.isFree(admin, target, '13:30', 'meeting')) === false && (await mod.isFree(admin, target, '03:00', 'call')) === false);
+  const all = await mod.freeSlots(admin, day(1), 42, 'call');
+  T('weekends are not offered, and nothing after 21 days ahead or sooner than 24 hours', Object.keys(all).every(d => wd(d) >= 1 && wd(d) <= 5 && d <= day(21) && d > day(0)) && (sunday ? !(await mod.freeSlots(admin, sunday, 1, 'call'))[sunday] : true));
+  process.exit(fails ? 1 : 0);
+})();
