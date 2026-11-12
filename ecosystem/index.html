@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="53b4403f3b">
+<meta name="maha-build" content="ad515d0fa2">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9507,10 +9507,14 @@ function sideSearch(host,cfg){const st=cfg.st,f=SIDE_FILTERS.find(x=>x[0]===st.b
 
 /* ---------- Arrivals: full list; clicking a reservation opens the check-in view (11.2–11.5) ---------- */
 let arrSort='arr';
-const ARR_SORT=[['arr','Arrival'],['dep','Departure'],['room','Room'],['guest','Guest name'],['rsvn','RSVN#'],['type','Room type'],['co','Company'],['vip','VIP']];
-function sortArrivals(list){
-  const key={arr:b=>b.arr,dep:b=>b.dep,room:b=>b.room||'\uffff',guest:b=>gName(G(b.guestId)).toLowerCase(),rsvn:b=>String(resOf(b).no).padStart(8,'0'),type:b=>b.type||'',co:b=>coTag(CO(resOf(b).companyId)).toLowerCase(),vip:b=>(G(b.guestId).vip||'\uffff').toLowerCase()}[arrSort]||(b=>b.arr);
-  return list.slice().sort((a,b)=>String(key(a)).localeCompare(String(key(b)),undefined,{numeric:true})||String(a.room||'').localeCompare(String(b.room||''),undefined,{numeric:true})||a.arr.localeCompare(b.arr))}
+const ARR_SORT=[['arr','Arrival'],['room','Room'],['guest','Guest name'],['rsvn','RSVN#'],['type','Room type'],['co','Company'],['vip','VIP']];
+const DEP_SORT=[['dep','Departure'],['room','Room'],['guest','Guest name'],['rsvn','RSVN#'],['type','Room type'],['co','Company'],['vip','VIP']];
+let depSort='dep';
+function sortArrivals(list){return sortByKey(list,arrSort,'arr')}
+function sortDepartures(list){return sortByKey(list,depSort,'dep')}
+function sortByKey(list,sel,def){
+  const key={arr:b=>b.arr,dep:b=>b.dep,room:b=>b.room||'\uffff',guest:b=>gName(G(b.guestId)).toLowerCase(),rsvn:b=>String(resOf(b).no).padStart(8,'0'),type:b=>b.type||'',co:b=>coTag(CO(resOf(b).companyId)).toLowerCase(),vip:b=>(G(b.guestId).vip||'\uffff').toLowerCase()}[sel]||(def==='dep'?(b=>b.dep):(b=>b.arr));
+  return list.slice().sort((a,b)=>String(key(a)).localeCompare(String(key(b)),undefined,{numeric:true})||String(a.room||'').localeCompare(String(b.room||''),undefined,{numeric:true})||(def==='dep'?a.dep.localeCompare(b.dep):a.arr.localeCompare(b.arr)))}
 /* The Room box (Arrivals page, Room button or right-click): room type, floor, room, status and Do not move on one line.
    Do not move needs a reason; while it is on the room and the room type cannot change (turn it off first).
    Another vacant room that is dirty gets a notice; another room type needs a reason and may carry a Room Upgrade Charge. */
@@ -9594,6 +9598,7 @@ function assignArrival(id){
   fill();paint();
 }
 VIEWS['fo.arrivals']=(el,arg)=>{
+  if(!ARR_SORT.some(x=>x[0]===arrSort))arrSort='arr';
   const sp=dateSpan(arg);const list=sortArrivals(arrivalsIn(sp.from,sp.to).filter(b=>['confirmed','tentative'].includes(b.status)));
   el.innerHTML=pageHead('Arrivals',`<label class="ufl">From date ${ufDate('arF',sp.from)}</label><label class="ufl">To date ${ufDate('arT',sp.to)}</label><label class="ufl">Sort by <select id="arS">${ARR_SORT.map(([k,l])=>`<option value="${k}" ${arrSort===k?'selected':''}>${l}</option>`).join('')}</select></label><button type="button" class="btn gold" id="arGo">${ic('search',16)} Search</button>`,'under')+
   `<div class="panel"><table class="grid arrfit">
@@ -9625,13 +9630,14 @@ VIEWS['fo.arrivals2']=(el,id)=>{
 
 /* ---------- Departures: same pattern ---------- */
 VIEWS['fo.departures']=(el,arg)=>{
-  const sp=dateSpan(arg);const list=departuresIn(sp.from,sp.to).filter(b=>b.status==='inhouse'&&b.dep<=H.set.bd).sort((a,b)=>a.dep.localeCompare(b.dep)||(a.room||'').localeCompare(b.room||''));
-  el.innerHTML=pageHead('Departures',`<label class="ufl">From date ${ufDate('dpF',sp.from)}</label><label class="ufl">To date ${ufDate('dpT',sp.to)}</label><button type="button" class="btn gold" id="dpGo">${ic('search',16)} Search</button>`,'under')+
+  if(!DEP_SORT.some(x=>x[0]===depSort))depSort='dep';
+  const sp=dateSpan(arg);const list=sortDepartures(departuresIn(sp.from,sp.to).filter(b=>b.status==='inhouse'&&b.dep<=H.set.bd));
+  el.innerHTML=pageHead('Departures',`<label class="ufl">From date ${ufDate('dpF',sp.from)}</label><label class="ufl">To date ${ufDate('dpT',sp.to)}</label><label class="ufl">Sort by <select id="dpS">${DEP_SORT.map(([k,l])=>`<option value="${k}" ${depSort===k?'selected':''}>${l}</option>`).join('')}</select></label><button type="button" class="btn gold" id="dpGo">${ic('search',16)} Search</button>`,'under')+
   `<p class="sub">This page shows only guests who are due out and still in house. Checked-out guests are in Billing / Folio Inquiry and Reservation List / Change. Click a reservation to open it.</p><div class="panel scroll"><table class="grid">
   <tr><th></th><th>RSVN#</th><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th>Status</th></tr>
   ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr class="click" data-open="${b.id}"><td class="nowrap">${stIcons(b,'')}</td><td>${r.no}</td><td><b>${esc(b.room||'—')}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${stBadge(b)}</td></tr>`}).join('')||`<tr><td colspan="12" class="empty">${sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\'s departures are checked out.<br><span class="sub">Checked-out guests are now in <b>Billing / Folio Inquiry</b> and <b>Reservation List / Change</b>.</span>':'No departures in this period.'}</td></tr>`}</table></div>`;
   const pick=()=>{const spn=readPair(el,'dpF','dpT');if(!spn){toast('Enter From date and To date as dd/mm/yyyy.');return}go.stay=true;go('fo.departures',spn)};
-  $('#dpGo',el).onclick=pick;bindDatePick(el);
+  $('#dpGo',el).onclick=()=>{depSort=$('#dpS',el).value;pick()};bindDatePick(el);
   bindSide(el,'',()=>render());
   $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);if(B)hsResDetail(B)});
 };
@@ -15439,7 +15445,7 @@ const RESTART_MS=60*60*1000;
 const restartDue=(anchor,now,limit)=>{const l=limit==null?RESTART_MS:limit;return !!(l>0&&anchor>0&&now-anchor>=l)};
 /* ---- end Restart rule ---- */
 function endLiveSession(){
-  clearEntryTickets();DB.session=null;H=null;clearLiveSession();
+  clearEntryTickets();DB.session=null;H=null;clearLiveSession();routeClear();
   const lock=document.getElementById('idleLock');if(lock)lock.remove();
   saveDB();showLogin('Your session ended. Sign in again.');
 }
@@ -15448,7 +15454,7 @@ function restartToMain(){
   if(DB.session.provider){DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out (1 hour without activity)'});try{ALOG.add('','Sign in / out','Signed out (1 hour without activity)')}catch(e){}}else log('Signed out (1 hour without activity)');
   const lock=document.getElementById('idleLock');if(lock)lock.remove();
   if(MahaAuth.on())MahaAuth.signOut();
-  clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);
+  clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);routeClear();
   showLogin('You were signed out after 1 hour without activity. Choose your system and sign in again. Your shift stays open.')}
 function screenRuleCheck(){
   if(!DB||!DB.session)return;
