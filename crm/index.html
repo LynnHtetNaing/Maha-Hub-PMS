@@ -574,6 +574,14 @@ input,select,textarea{box-sizing:border-box}
 .smnest{border:1px solid #d5d5d5;border-radius:12px;overflow:auto;background:#fff}
 .smnest .fu-tb{width:100%}.smnest .fu-tb td,.smnest .fu-tb th{background:#fff!important}.smnest .fu-tb tbody tr:nth-child(even) td{background:#f6f9fc!important}
 .mt-hm{display:inline-flex;gap:10px}.mt-hm select{width:84px!important}
+label.f span.dpk,label.f span.mt-hm{display:flex;font-size:inherit;font-weight:400;color:inherit;margin-bottom:0}label.f span.mt-hm{display:inline-flex}
+.mt-hm .dpk{max-width:200px}.mt-hm>select[data-tp-off]{display:none!important}
+.tpk .dpb svg{width:17px;height:17px}
+.tcal{position:fixed;z-index:5000;width:318px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px rgba(60,40,10,.30);padding:12px}
+.tcal .tch{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.tcal .tch b{font-size:22px;letter-spacing:.04em;color:var(--forest-2)}.tcal .tch button{border:0;background:transparent;color:var(--ink-2);font:600 12.5px var(--font);cursor:pointer}
+.tcal h5{margin:8px 0 6px;font:700 11.5px var(--font);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
+.tcal .tcg{display:grid;gap:5px}.tcal .tcg.h{grid-template-columns:repeat(6,1fr)}.tcal .tcg.m{grid-template-columns:repeat(6,1fr)}
+.tcal .tcg button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 0;font:600 13.5px var(--font);color:var(--ink);cursor:pointer}.tcal .tcg button:hover{border-color:var(--forest-2);background:#f1f7f3}.tcal .tcg button.e{background:var(--forest);border-color:var(--forest);color:#fff}
 /* ---------- Meeting Status Report, Meeting edit, the delete warning ---------- */
 .mr-head{display:flex;justify-content:space-between;align-items:flex-end;margin:18px 0 8px}.mr-head .fu-sub{margin:0}.mr-head .up-ex{font-weight:600;color:var(--ink);align-items:center;font-size:13px}
 .mr-act{display:flex;flex-direction:column;gap:6px;align-items:center}.mr-act .btn{min-width:78px}
@@ -5069,8 +5077,47 @@ function enhanceLists(root) {
     inp.addEventListener('keydown', e => { if (e.key === 'Escape') list.hidden = true; });
   });
 }
+const ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+function timePicker(btn, getHm, done) {
+  const old = document.getElementById('timeCal'); if (old) { old.remove(); return; }
+  const c = document.createElement('div'); c.className = 'tcal'; c.id = 'timeCal'; document.body.appendChild(c);
+  const r = btn.getBoundingClientRect();
+  c.style.left = Math.max(8, Math.min(r.right - 318, innerWidth - 326)) + 'px'; c.style.top = (r.bottom + 330 > innerHeight && r.top > 340 ? r.top - 336 : r.bottom + 6) + 'px';
+  let [h, m] = getHm();
+  const close = () => { c.remove(); document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', key, true); };
+  const away = e => { if (!c.contains(e.target) && !btn.contains(e.target)) close(); }, key = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', key, true);
+  const hs = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0')), ms = Array.from({length: 12}, (_, i) => String(i * 5).padStart(2, '0'));
+  const paint = () => {
+    c.innerHTML = '<div class="tch"><b>' + (h || '--') + ':' + (m || '--') + '</b><button type="button" id="tcX">Clear</button></div><h5>Hour</h5><div class="tcg h">' + hs.map(x => '<button type="button" data-h="' + x + '" class="' + (x === h ? 'e' : '') + '">' + x + '</button>').join('') + '</div><h5>Minute</h5><div class="tcg m">' + ms.map(x => '<button type="button" data-m="' + x + '" class="' + (x === m ? 'e' : '') + '">' + x + '</button>').join('') + '</div>';
+    c.querySelector('#tcX').onclick = () => { close(); done('', ''); };
+    c.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { h = b.dataset.h; if (!m) m = '00'; done(h, m); paint(); });
+    c.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { m = b.dataset.m; if (!h) h = '09'; done(h, m); close(); });
+  };
+  paint();
+}
+/* every hour + minute pair of selects (the Meeting forms and the Enewletter boxes) becomes one time box with a clock button; the selects stay hidden under it and keep the value */
+function enhanceTimes(root) {
+  (root || document).querySelectorAll('.mt-hm:not([data-tp])').forEach(w => {
+    const hs = w.querySelector('select[data-mf=hh],select[data-th]'), ms = w.querySelector('select[data-mf=mm],select[data-tm]'); if (!hs || !ms) return;
+    w.dataset.tp = '1'; hs.dataset.tpOff = '1'; ms.dataset.tpOff = '1';
+    const wrap = document.createElement('span'); wrap.className = 'dpk tpk';
+    const txt = document.createElement('input'); txt.type = 'text'; txt.className = 'dpt'; txt.placeholder = 'hh:mm'; txt.inputMode = 'numeric'; txt.autocomplete = 'off'; txt.disabled = hs.disabled;
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'dpb'; btn.title = 'Choose time'; btn.setAttribute('aria-label', 'Choose time'); btn.innerHTML = ICON_CLOCK; btn.disabled = hs.disabled;
+    wrap.append(txt, btn); w.insertBefore(wrap, w.firstChild);
+    const show = () => { txt.value = hs.value || ms.value ? (hs.value || '00') + ':' + (ms.value || '00') : ''; };
+    const put = (h, m) => {
+      [[hs, h], [ms, m]].forEach(([s, v]) => { if (v && ![...s.options].some(o => o.value === v || o.text === v)) { const o = document.createElement('option'); o.textContent = v; s.appendChild(o); } s.value = v; s.dispatchEvent(new Event('change', {bubbles: true})); });
+      show();
+    };
+    show();
+    txt.addEventListener('change', e => { e.stopPropagation(); const v = txt.value.trim(); if (!v) { put('', ''); return; } const p = v.match(/^(\d{1,2})[:.]?(\d{2})$/) || v.match(/^(\d{1,2})$/); const H = p ? +p[1] : -1, M = p && p[2] != null ? +p[2] : 0; if (H < 0 || H > 23 || M > 59) { show(); toast('Type the time as hh:mm'); return; } put(String(H).padStart(2, '0'), String(M).padStart(2, '0')); });
+    txt.addEventListener('input', e => e.stopPropagation());
+    btn.onclick = () => timePicker(btn, () => [hs.value, ms.value], put);
+  });
+}
 function enhanceDates(root) {
-  enhanceLists(root);
+  enhanceLists(root); enhanceTimes(root);
   (root || document).querySelectorAll('input[type=date]:not([data-dp])').forEach(inp => {
     inp.dataset.dp = '1';
     const wrap = document.createElement('span'); wrap.className = 'dpk';
