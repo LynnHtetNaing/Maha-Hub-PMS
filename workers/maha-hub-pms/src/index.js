@@ -1,4 +1,4 @@
-import { REPLY_CSS, clientScript } from './reply-page.js';
+import { REPLY_CSS, REPLY_FONTS, clientScript } from './reply-page.js';
 /** Maha Hub Worker - serves the static Hub through the Assets binding.
  *
  *  Every system has its own address, and nothing is redirected:
@@ -104,13 +104,13 @@ async function sharedDoc(env, token) {
 
 /* a hotel's answer to an Enewletter: crm.maha-hub.com/r/<token>. The page asks the hotel to confirm (so a mail scanner that opens the link does not answer for the hotel);
    the Supabase function crm-reply checks the signed token and records the answer. The page holds no secret. */
-function replyPage(env) {
+function replyPage(env, mode, type) {
   const base = String(env.SUPABASE_URL || '').replace(/\/+$/, '');
-  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Maha Hub</title><style>' + REPLY_CSS + '</style></head>'
-    + '<body><div class="c"><div class="h"><img src="/brand/maha/gate-gold.png" alt="">Maha Hub</div><div class="b" id="b"><p>Loading...</p></div></div><script>(' + clientScript.toString() + ')(' + JSON.stringify({ url: base + '/functions/v1/crm-reply' }) + ');</scr' + 'ipt></body></html>';
+  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="' + REPLY_FONTS + '"><title>' + (type === 'demo' ? 'Book a Demo' : type === 'talk' ? 'Talk with the Team' : 'Maha Hub') + ' - Maha Hub</title><style>' + REPLY_CSS + '</style></head>'
+    + '<body><div id="root"></div><script>(' + clientScript.toString() + ')(' + JSON.stringify({ fn: base + '/functions/v1', mode, type }) + ');</scr' + 'ipt></body></html>';
   return new Response(html, { headers: {
     'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-referrer',
-    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self'; connect-src " + (base || "'none'") + "; base-uri 'none'; form-action 'none'",
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; img-src 'self'; connect-src " + (base || "'none'") + "; base-uri 'none'; form-action 'none'",
   } });
 }
 
@@ -131,7 +131,9 @@ export default {
     { const m = /^\/d\/([A-Za-z0-9_-]{24,64})$/.exec(bare); if (m && host === String(env.CRM_HOST || '').toLowerCase()) return sharedDoc(env, m[1]); }
 
     /* a hotel's answer to an Enewletter */
-    { const m = /^\/r\/[A-Za-z0-9_.-]{40,900}$/.exec(bare); if (m && host === String(env.CRM_HOST || '').toLowerCase()) return replyPage(env); }
+    { const m = /^\/r\/[A-Za-z0-9_.-]{40,900}$/.exec(bare); if (m && host === String(env.CRM_HOST || '').toLowerCase()) return replyPage(env, 'reply', ''); }
+    /* the booking pages: crm.maha-hub.com/book/talk (a 10 minute call) and /book/demo (60 minutes) */
+    { const m = /^\/book\/(talk|demo)$/.exec(bare.toLowerCase()); if (m && host === String(env.CRM_HOST || '').toLowerCase()) return replyPage(env, 'book', m[1]); }
 
     /* a system's own address: "/" opens the system, no redirect; the files it needs load as usual */
     const own = hostDoc(host, env);

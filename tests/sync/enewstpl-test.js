@@ -64,9 +64,17 @@ T('the page: a saved draft keeps its template and boxes; Replies are listed unde
 
 T('the CEO sheet has the note that explains the [ ] words: date, time, large box, optional, {{hotel}}, {{buttons}}', crm.includes('id="et_note"') && crm.includes('<b>[... date ...]</b> a calendar') && crm.includes('<b>[... time ...]</b> a clock') && crm.includes('(optional)') && crm.includes('{{hotel}}</b> is the name of each hotel'));
 
+T('the Enewletter boxes use our calendar: a date box is the PMS day picker (dd/mm/yyyy and the month grid) and a time box is the hour and minute boxes of the Meeting form, not the browser ones', crm.includes('enhanceDates(box);') && crm.includes('data-tk=') && crm.includes('class="mt-hm"') && !crm.includes("fl.type === 'time' ? 'time'"));
+
 /* ---- the mail function ---- */
 T('mail function: {{hotel}} becomes each hotel\'s name; each choice gets its own signed link (60 days); a test mail gets links that record nothing', send.includes('swap(s, "{{hotel}}", esc(name))') && send.includes('"https://replace.me/" + k') && send.includes('60 * 86400000') && send.includes('action === "test" ? "test"') && send.includes('names[email]'));
-T('mail function: the extra styles are limited to safe ones', send.includes('"border", "border-left", "border-top", "margin", "margin-top", "margin-bottom", "width"') && !/"(position|float|background-image|url)"/.test(send));
+T('mail function: the extra styles the designer can make are kept and limited to safe ones (no position, float, url)', ['"border-bottom"', '"margin-left"', '"padding-top"', '"vertical-align"', '"letter-spacing"', '"text-transform"', '"width"'].every(x => send.includes(x)) && !/"(position|float|background-image|url)"/.test(send));
+const gjs = fs.existsSync(path.join(root, 'crm/vendor/grapes.min.js')) && fs.existsSync(path.join(root, 'crm/vendor/GRAPESJS-LICENSE.txt'));
+T('the template designer (GrapesJS, open source) is kept in the project (crm/vendor, with its licence) and loaded only when it opens; it offers only styles the mail keeps', gjs && crm.includes("js: '/crm/vendor/grapes.min.js'") && crm.includes('function gjsLoad()') && crm.includes("properties: ['font-size', 'font-weight'") && crm.includes("'background-color', 'padding', 'margin', 'border-radius', 'border', 'width', 'max-width', 'display', 'vertical-align'"));
+T('the designer: blocks (heading, text, picture, button, hero, offer box, two columns, line), the [Type here] / {{hotel}} / {{buttons}} places, undo and redo, Laptop and Phone view, code view, and the styles are written into the mail text (rules first, the designer own change last)',
+  ['Heading', 'Picture', 'Offer box', 'Two columns'].every(x => crm.includes("'" + x + "'")) && crm.includes('data-x="[Type here]"') && crm.includes('id="et_u"') && crm.includes('id="et_dp">Phone') && crm.includes('id="et_cd"') && crm.includes('function gjsOut(ed)') && crm.includes('ruled.forEach((txt, el)') && crm.includes("removeAttribute('class')"));
+T('pictures: added by address or uploaded to the public bucket crm-images (png, jpeg, gif, webp, 3 MB); the bucket and who may add to it are in the migration',
+  crm.includes('async function enImgUpload(file)') && crm.includes('/storage/v1/object/crm-images/') && /crm-images', 'crm-images', true, 3145728/.test(rd('supabase/migrations/20261113_042_crm_images.sql')) && rd('supabase/migrations/20261113_042_crm_images.sql').includes('maha_is_crm_member()'));
 
 /* ---- crm-reply ---- */
 T('reply function: the signed token is checked; a second click records nothing new; a test link records nothing', reply.includes('sig !== (await hmac(body))') && reply.includes('if (had) return json(req, { ok: true, done: true })') && reply.includes('p.h === "test"'));

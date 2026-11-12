@@ -1,11 +1,9 @@
 // Supabase Edge Function: crm-reply
 // A hotel answers an Enewletter from the email: a button (the Event invitation: "Yes, I will come" / "Sorry, I cannot come"; "I am interested"),
-// or a LIVE CALENDAR (the Gentle reminder and the Meeting request: the hotel sees the free times and chooses one).
+// or a "Choose a time" button (the Gentle reminder and the Meeting request): that one opens the booking page, which the function crm-book serves.
 // The link is  https://crm.maha-hub.com/r/<token>  (the Worker shows the page, this function does the work).
 //   GET  ?t=<token>                          -> { ok, kind, label, title, hotel, done, what }   what the page shows first
-//   GET  ?t=<token>&av=1&from=YYYY-MM-DD     -> { ok, days: { "2026-12-05": ["09:00", "10:30", ...] }, today, open }   the free times, worked out live
 //   POST { t, note? }                        -> { ok }   records the answer once (a second click does nothing new)
-//   POST { t, slot: { date, time }, note? }  -> { ok } or 409 slot_taken   the chosen time is checked again, so two hotels never get the same time
 // What an answer makes: a "reply" record (listed under Enewletter > Replies); "Yes" of an event or a chosen meeting time = a Meeting in the CRM;
 // a chosen call time = a Follow up for that day; the time becomes Busy in the Google Calendar (_shared/gcal.ts).
 // The token is signed (MAIL_LINK_SECRET) and holds everything needed, so nobody can change the hotel, the time options or the choice. It lasts 60 days.
@@ -14,7 +12,6 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { CALL_MIN, GAP_MIN, MEET_MIN, clashes, startOf, upsertEvent } from "../_shared/gcal.ts";
-import { AHEAD, DAYS, OPEN, STEP, freeSlots, hhmm, isFree } from "../_shared/slots.ts";
 
 const ORIGINS = [...new Set(["https://crm.maha-hub.com", ...(Deno.env.get("MAHA_ALLOWED_ORIGIN") || "").split(",").map((x) => x.trim()).filter(Boolean)])];
 const cors = (req: Request): Record<string, string> => {
@@ -76,16 +73,10 @@ const handle = async (req: Request): Promise<Response> => {
   const { data: had } = await admin.from("maha_sales_records").select("id").eq("id", id).maybeSingle();
 
   if (req.method === "GET") {
-    if (url.searchParams.get("av") === "1") {
-      if (!book || had) return json(req, { ok: true, days: {}, done: !!had });
-      const from = DATE.test(url.searchParams.get("from") || "") ? url.searchParams.get("from")! : new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
-      const days = await freeSlots(admin, from, Math.min(Math.max(Number(url.searchParams.get("days")) || 21, 1), 42), what);
-      return json(req, { ok: true, days, today: new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10), ahead: AHEAD, open: { from: hhmm(OPEN.from), to: hhmm(OPEN.to), step: STEP, days: [...DAYS] }, len: what === "meeting" ? MEET_MIN : CALL_MIN });
-    }
     return json(req, { ok: true, kind: book ? "book" : "answer", what, label: str(p.l, 120), title: str(p.d?.title || p.s, 160), hotel: str(p.n, 120), done: !!had });
   }
   if (had) return json(req, { ok: true, done: true });   // a second click: nothing new
-  if (book && !slot) return json(req, { error: "choose_a_time" }, 400);
+  if (book) return json(req, { error: "use_booking" }, 400);   // "Choose a time" is answered on the booking page (crm-book)
   if (p.h === "test") return json(req, { ok: true, done: false });   // a link of a test mail: nothing is recorded
 
   const now = new Date().toISOString(), day = now.slice(0, 10);
@@ -95,9 +86,7 @@ const handle = async (req: Request): Promise<Response> => {
   const timed = (wantsMeeting || wantsCall) && DATE.test(String(d.date || "")) && TIME.test(String(d.time || ""));
   if (timed) {
     const len = wantsMeeting ? MEET_MIN : CALL_MIN, gap = wantsMeeting ? GAP_MIN : 0, s = startOf(d.date, d.time), e = s + len * 60000;
-    if (book) {
-      if (!(await isFree(admin, d.date, d.time, what))) return json(req, { error: "slot_taken" }, 409);
-    } else {
+    {
       /* a meeting starts at least 1 hour 30 minutes after the start of another; a call only must not fall on one */
       const { data: same } = await admin.from("maha_sales_records").select("id,data").eq("kind", "act").eq("deleted", false).filter("data->>date", "eq", d.date);
       const busyHere = (same || []).some((r: { id: string; data: Record<string, unknown> }) => {

@@ -46,8 +46,8 @@ const clear = (busy: Busy[], s: number, e: number, gapMin: number) =>
   !busy.some((b) => (s < b.e && b.s < e) || (gapMin > 0 && b.meeting && Math.abs(s - b.s) < gapMin * 60000));
 
 /* the free start times of each day from fromDate for `days` days (only days that have at least one) */
-export const freeSlots = async (admin: ReturnType<typeof createClient>, fromDate: string, days: number, what: "call" | "meeting"): Promise<Record<string, string[]>> => {
-  const len = what === "meeting" ? MEET_MIN : CALL_MIN, gap = what === "meeting" ? GAP_MIN : 0;
+export const freeSlots = async (admin: ReturnType<typeof createClient>, fromDate: string, days: number, what: "call" | "meeting", o: { len?: number; step?: number } = {}): Promise<Record<string, string[]>> => {
+  const len = o.len || (what === "meeting" ? MEET_MIN : CALL_MIN), gap = what === "meeting" ? GAP_MIN : 0, step = o.step || STEP;
   const today = dayOf(Date.now()), last = addDays(today, AHEAD);
   let from = fromDate < today ? today : fromDate;
   if (from > last) return {};
@@ -56,7 +56,7 @@ export const freeSlots = async (admin: ReturnType<typeof createClient>, fromDate
   for (let d = from; d <= to; d = addDays(d, 1)) {
     if (!DAYS.has(weekday(d))) continue;
     const list: string[] = [];
-    for (let m = OPEN.from; m + len <= OPEN.to; m += STEP) {
+    for (let m = OPEN.from; m + len <= OPEN.to; m += step) {
       const s = startOf(d, hhmm(m)), e = s + len * 60000;
       if (s >= earliest && clear(busy, s, e, gap)) list.push(hhmm(m));
     }
@@ -66,7 +66,7 @@ export const freeSlots = async (admin: ReturnType<typeof createClient>, fromDate
 };
 
 /* is this one time still free (checked again when the customer confirms, so two customers never get the same time) */
-export const isFree = async (admin: ReturnType<typeof createClient>, date: string, time: string, what: "call" | "meeting"): Promise<boolean> => {
-  const day = (await freeSlots(admin, date, 1, what))[date];
+export const isFree = async (admin: ReturnType<typeof createClient>, date: string, time: string, what: "call" | "meeting", o: { len?: number; step?: number } = {}): Promise<boolean> => {
+  const day = (await freeSlots(admin, date, 1, what, o))[date];
   return !!day && day.includes(time);
 };

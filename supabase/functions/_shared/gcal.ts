@@ -113,6 +113,31 @@ export const upsertEvent = async (crmId: string, o: { title: string; description
   return false;
 };
 
+/* A demo or meeting with a customer: the event also carries a Google Meet link. With the secret MEET_LINK (a Meet room of the CEO made once at meet.google.com, "create a meeting for later")
+   every such event uses that link (demos are at least 90 minutes apart, so the room is never used twice at once). Without it a Meet link is requested for the event itself;
+   if Google does not allow that for this calendar, the event is still made and the link is empty. Returns the link, or "". */
+export const upsertEventMeet = async (crmId: string, o: { title: string; description?: string; startMs: number; endMs: number }): Promise<{ ok: boolean; meet: string }> => {
+  const fixed = (Deno.env.get("MEET_LINK") || "").trim();
+  if (!configured()) return { ok: false, meet: fixed };
+  const id = await eventIdOf(crmId), path = `/calendars/${encodeURIComponent(calId())}/events`;
+  const base = {
+    id, summary: o.title.slice(0, 200), description: ((fixed ? "Google Meet: " + fixed + "\n" : "") + (o.description || "")).slice(0, 2000), transparency: "opaque", status: "confirmed",
+    start: { dateTime: iso(o.startMs), timeZone: "Asia/Bangkok" }, end: { dateTime: iso(o.endMs), timeZone: "Asia/Bangkok" },
+    extendedProperties: { private: { maha_crm: "1" } },
+  } as Record<string, unknown>;
+  if (fixed) {
+    const body = { ...base, location: fixed };
+    let r = await api("PUT", `${path}/${id}`, body);
+    if (r.status === 404) r = await api("POST", path, body);
+    return { ok: r.ok, meet: fixed };
+  }
+  const body = { ...base, conferenceData: { createRequest: { requestId: id, conferenceSolutionKey: { type: "hangoutsMeet" } } } };
+  let r = await api("PUT", `${path}/${id}?conferenceDataVersion=1`, body);
+  if (r.status === 404) r = await api("POST", `${path}?conferenceDataVersion=1`, body);
+  if (r.ok) return { ok: true, meet: String(r.data?.hangoutLink || "") };
+  return { ok: await upsertEvent(crmId, o), meet: "" };
+};
+
 export const removeEvent = async (crmId: string): Promise<boolean> => {
   if (!configured()) return false;
   const r = await api("DELETE", `/calendars/${encodeURIComponent(calId())}/events/${await eventIdOf(crmId)}`);
