@@ -33,5 +33,8 @@ const mod = new Function('Deno', 'GAP_MIN', 'MEET_MIN', 'CALL_MIN', 'listEvents'
   T('isFree checks one time again (so two hotels never get the same time)', (await mod.isFree(admin, target, '14:30', 'meeting')) === true && (await mod.isFree(admin, target, '13:30', 'meeting')) === false && (await mod.isFree(admin, target, '03:00', 'call')) === false);
   const all = await mod.freeSlots(admin, day(1), 42, 'call');
   T('weekends are not offered, and nothing after 21 days ahead or sooner than 24 hours', Object.keys(all).every(d => wd(d) >= 1 && wd(d) <= 5 && d <= day(21) && d > day(0)) && (sunday ? !(await mod.freeSlots(admin, sunday, 1, 'call'))[sunday] : true));
+  events = []; crm = [];
+  const talk = (await mod.freeSlots(admin, target, 1, 'call', { len: 10, step: 15 }))[target] || [];
+  T('Talk with the Team: a 10 minute call every 15 minutes, 09:00 to 16:45', talk[0] === '09:00' && talk[1] === '09:15' && talk.includes('16:45') && !talk.includes('17:00') && talk.every(t => /:(00|15|30|45)$/.test(t)));
   process.exit(fails ? 1 : 0);
 })();

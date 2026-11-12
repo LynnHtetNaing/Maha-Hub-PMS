@@ -68,3 +68,13 @@ A hotel that writes back to `crm@maha-hub.com` appears under **Enewletter > Repl
 The button "Choose a time" opens a Maha-style calendar at `crm.maha-hub.com/r/...`: the hotel sees the free days and times (Bangkok time), picks one and confirms. The free times come live from your Google Calendar and the CRM Meetings, refresh every 30 seconds, and are checked again when the hotel confirms, so two hotels never get the same time. A chosen time becomes a Meeting (or a Follow up for a call) in the CRM and a Busy event in Google Calendar.
 Default opening hours: Monday to Friday, 09:00 to 17:00, a start time every 30 minutes, up to 21 days ahead, at least 24 hours notice, a meeting 60 minutes, a call 30 minutes, and a meeting starts at least 1 hour 30 minutes after the start of another. Change them without code with Supabase secrets: `CAL_HOURS` (for example `10:00-18:00`), `CAL_DAYS` (`1,2,3,4,5,6` = Monday to Saturday), `CAL_STEP`, `CAL_AHEAD`, `CAL_NOTICE_H`, `CAL_MEET_MIN`, `CAL_GAP_MIN`.
 Deploy after a change of the function: `supabase functions deploy crm-reply --no-verify-jwt`.
+
+## Booking pages (Talk with the Team, Book a Demo)
+
+- `crm.maha-hub.com/book/talk` - **Talk with the Team**: a 10 minute call (a start every 15 minutes). No email goes to the customer; the call is recorded in the CRM as a Follow up and the time is Busy in Google Calendar.
+- `crm.maha-hub.com/book/demo` - **Book a Demo**: 60 minutes. The customer gets a confirmation email (with an Add to Google Calendar button and a calendar file); the demo is a Meeting in the CRM and Busy in Google Calendar.
+- The Enewletter "Choose a time" buttons open the same page (Gentle reminder = the 10 minute call; Meeting request = 60 minutes, with the confirmation email).
+- Three steps with a loading screen between them: 1 the day (Week or Month view) and the time, 2 the details (first name, last name, email, hotel name, phone, a note, extra guests for a demo), 3 the confirmation.
+- A customer who is not in the CRM yet becomes a new hotel record with the status **New Database**. A customer may hold at most two coming bookings.
+- Put these two addresses behind your website buttons (Book a Demo, Talk with the Team).
+- Deploy: `supabase functions deploy crm-book --no-verify-jwt` (and `crm-reply`), then merge (the Worker serves the pages). The confirmation email uses the same `BREVO_API_KEY` as the Enewletter.
