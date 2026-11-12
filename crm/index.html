@@ -4428,7 +4428,7 @@ function vKpi(which) {
    The CRM asks the crm-send-mail function (Brevo, sender crm@maha-hub.com) to send. A quotation / MSA goes as a link that opens the document (crm.maha-hub.com/d/...).
    Until the service is set up (or when it fails) the old way stays: the message opens in the person's own email program. */
 const MAIL_URL = 'https://wragaoglvksbbgmfjyzp.supabase.co/functions/v1/crm-send-mail', MAIL_KEY = 'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
-/* ----- Google Calendar: a CRM meeting is a Busy event; at least 1 hour 30 minutes between meetings (the crm-calendar function; without it the CRM still checks its own meetings) ----- */
+/* ----- Google Calendar: a CRM meeting is a Busy event; the next meeting starts at least 1 hour 30 minutes after the start of the one before (the crm-calendar function; without it the CRM still checks its own meetings) ----- */
 const CAL_URL = MAIL_URL.replace('crm-send-mail', 'crm-calendar'), CAL_GAP = 90, CAL_LEN = 60, CAL_CALL = 30;
 async function calApi(body) {
   if (!Auth.required) return {configured: false};
@@ -4440,11 +4440,11 @@ async function calApi(body) {
 }
 const calFree = a => !['Reject', 'No Show'].includes(meetSt(a));
 const calMs = (date, time) => Date.parse(date + 'T' + time + ':00+07:00');
-/* the CRM meetings of that day that come closer than the gap (the one being changed is left out) */
+/* the CRM meetings of that day that start closer than 1 hour 30 minutes (a meeting at 9:00: the next one 10:30 or later), or that overlap (the one being changed is left out) */
 function calLocal(date, time, ignoreId, len, gap) {
   if (!date || !time) return [];
-  const s = calMs(date, time), e = s + (len || CAL_LEN) * 60000, g = (gap == null ? CAL_GAP : gap) * 60000;
-  return meetActs().filter(a => a.id !== ignoreId && a.date === date && a.time && calFree(a) && (() => { const s2 = calMs(a.date, a.time); return s < s2 + CAL_LEN * 60000 + g && s2 < e + g; })())
+  const s = calMs(date, time), e = s + (len || CAL_LEN) * 60000, sp = (gap == null ? CAL_GAP : gap) * 60000;
+  return meetActs().filter(a => a.id !== ignoreId && a.date === date && a.time && calFree(a) && (() => { const s2 = calMs(a.date, a.time), e2 = s2 + CAL_LEN * 60000; return (s < e2 && s2 < e) || (sp > 0 && Math.abs(s - s2) < sp); })())
     .map(a => ({title: hotelName(a.hotelId) || 'Meeting', start: a.date + ' ' + a.time}));
 }
 async function calClashes(date, time, ignoreId, len, gap) {

@@ -5,7 +5,7 @@
 //     check   { date, time, len?, gap?, ignoreId? } -> { configured, clashes: [{ title, start, end }] }   the Google events too close to that time
 //     upsert  { id, title, description?, date, time, len? } -> { ok, configured }   the meeting becomes a Busy event (same id each time: a change moves it)
 //     remove  { id }                               -> { ok }   the meeting was deleted, rejected or did not come: the time is free again
-// A time is "too close" when it is closer than CAL_GAP_MIN (90) minutes to another event: at least 1 hour 30 minutes between meetings.
+// A time is "too close" when it is closer than CAL_GAP_MIN (90) minutes to another event: a meeting starts at least 1 hour 30 minutes after the start of the one before (9:00: the next at 10:30 or later).
 // Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_SA_JSON, GOOGLE_CALENDAR_ID (see _shared/gcal.ts). Deploy with --no-verify-jwt.
 // Never log titles, times or keys.
 

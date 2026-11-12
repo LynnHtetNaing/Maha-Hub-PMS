@@ -140,7 +140,8 @@ const handle = async (req: Request): Promise<Response> => {
   }
 
   /* Enewletter template: a greeting for each hotel and an answer link for each choice */
-  const names: Record<string, string> = b.names && typeof b.names === "object" ? b.names : {}, ids: Record<string, string> = b.ids && typeof b.ids === "object" ? b.ids : {};
+  const names: Record<string, string> = b.names && typeof b.names === "object" ? b.names : {};
+  const ids: Record<string, string> = b.ids && typeof b.ids === "object" ? b.ids : {};
   const tpl = b.tpl && typeof b.tpl === "object" ? b.tpl : null;
   const opts: { k: string; label: string; data: Record<string, string> }[] = tpl && Array.isArray(tpl.options) ? tpl.options.slice(0, 6).filter((o: any) => o && /^[a-z0-9]{1,8}$/.test(String(o.k))).map((o: any) => ({ k: String(o.k), label: String(o.label || "").slice(0, 120), data: Object.fromEntries(Object.entries(o.data || {}).slice(0, 8).map(([a, v]) => [String(a).slice(0, 12), String(v).slice(0, 160)])) })) : [];
   const REPLY_BASE = Deno.env.get("MAIL_REPLY_BASE") || "https://crm.maha-hub.com/r/";
@@ -167,7 +168,7 @@ const handle = async (req: Request): Promise<Response> => {
 
   const FROM = { name: Deno.env.get("MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("MAIL_FROM") || "crm@maha-hub.com" };
   const replyTo = validEmail(b.replyTo) ? b.replyTo : (Deno.env.get("MAIL_REPLY_TO") || FROM.email);
-  const bodyHtml = (extra: string, rich: string = richHtml) => rich
+  const bodyHtml = (extra: string, rich = richHtml) => rich
     ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:620px;margin:0 auto;border:1px solid #e3ddd0;border-radius:12px;overflow:hidden"><div style="background:#0A3020;color:#fff;padding:14px 20px;font-weight:bold;font-size:16px">${esc(FROM.name)}</div><div style="padding:20px">${rich}</div><div style="background:#faf5ec;padding:12px 20px;font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`
     : `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222">${esc(message).replace(/\n/g, "<br>")}${links.length ? `<p style="margin-top:20px">${links.map((l) => `<a href="${l.url}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 16px;background:#0A3020;color:#fff;border-radius:6px;text-decoration:none">${esc(l.title)}</a>`).join("")}</p>` : ""}<hr style="border:0;border-top:1px solid #ddd;margin:24px 0 10px"><div style="font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`;
 
@@ -182,10 +183,7 @@ const handle = async (req: Request): Promise<Response> => {
     const rich = personal(richHtml, nm, linkOf);
     const msg = personal(message, nm, linkOf).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"");
     const subj = personal(subject, nm, {}).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").slice(0, 200);
-    const optText = opts.length ? "
-
-" + opts.filter((o) => linkOf[o.k]).map((o) => `${o.label}: ${linkOf[o.k]}`).join("
-") : "";
+    const optText = opts.length ? "\n\n" + opts.filter((o) => linkOf[o.k]).map((o) => `${o.label}: ${linkOf[o.k]}`).join("\n") : "";
     const textBody = msg + optText + (links.length ? "\n\n" + links.map((l) => `${l.title}: ${l.url}`).join("\n") : "") + "\n\n" + FOOT;
     const res = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST", headers: { "api-key": BREVO, "content-type": "application/json", accept: "application/json" },

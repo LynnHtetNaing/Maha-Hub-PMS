@@ -43,9 +43,9 @@ Only steps 1–6 are yours to do in Brevo, Cloudflare and Supabase; steps 7–9 
 
 - Templates: every `[type here]` in the text is a box the person fills; the wording stays fixed. The CEO edits the text and the design (the "Design (code)" button) and makes new templates.
 
-## Google Calendar (meetings Busy, 1 hour 30 minutes between meetings)
+## Google Calendar (meetings Busy; a meeting at 9:00 means the next one at 10:30 or later)
 
-Every CRM meeting becomes a **Busy** event in one Google Calendar; a meeting that is deleted, rejected or did not come frees the time again. The CRM asks first when a meeting is closer than 1 hour 30 minutes to another one, and a hotel that picks a taken time in an email is told it is taken. Meetings are 60 minutes, calls 30 minutes (`CAL_MEET_MIN`, `CAL_GAP_MIN` can change this).
+Every CRM meeting becomes a **Busy** event in one Google Calendar; a meeting that is deleted, rejected or did not come frees the time again. The CRM asks first when a meeting starts less than 1 hour 30 minutes after the start of another one, and a hotel that picks a taken time in an email is told it is taken. Meetings are 60 minutes, calls 30 minutes (`CAL_MEET_MIN`, `CAL_GAP_MIN` can change this).
 It uses a Google **service account**: nobody signs in with Google and no password is stored.
 
 1. Google Cloud Console > create a project > **APIs & Services > Library > Google Calendar API > Enable**.

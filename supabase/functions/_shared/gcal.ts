@@ -3,7 +3,7 @@
 // and no personal password or token is stored. Everything stays in two Supabase secrets:
 //   GOOGLE_SA_JSON      the service account key file (the whole JSON text)
 //   GOOGLE_CALENDAR_ID  the calendar to use (for example the CEO's Gmail address, or the id of a calendar made for meetings)
-// Optional: CAL_GAP_MIN (default 90: at least 1 hour 30 minutes between the end of one meeting and the start of the next), CAL_MEET_MIN (default 60: length of a meeting).
+// Optional: CAL_GAP_MIN (default 90: a meeting starts at least 1 hour 30 minutes after the START of the one before: a meeting at 9:00 means the next one at 10:30 or later), CAL_MEET_MIN (default 60: length of a meeting).
 // Times are Bangkok time (+07:00). Never log keys, titles or addresses.
 
 export const GAP_MIN = Number(Deno.env.get("CAL_GAP_MIN") || 90);
@@ -66,7 +66,7 @@ const bkk = (ms: number) => new Date(ms + 7 * 3600000).toISOString().replace("T"
 
 export type Clash = { title: string; start: string; end: string };
 
-/* meetings of the calendar that come too close to [start, end] (closer than gapMin minutes, or overlapping); the event with ignoreId is the one being changed */
+/* events of the calendar that overlap [start, end] or START closer than gapMin minutes to the start (the 1 hour 30 minutes rule; gapMin 0 = overlap only); the event with ignoreId is the one being changed */
 export const clashes = async (startMs: number, endMs: number, gapMin: number, ignoreId = ""): Promise<Clash[]> => {
   if (!configured()) return [];
   const q = new URLSearchParams({ timeMin: iso(startMs - gapMin * 60000), timeMax: iso(endMs + gapMin * 60000), singleEvents: "true", maxResults: "50", orderBy: "startTime" });
@@ -78,7 +78,7 @@ export const clashes = async (startMs: number, endMs: number, gapMin: number, ig
     const s = e.start?.dateTime ? Date.parse(e.start.dateTime) : e.start?.date ? Date.parse(e.start.date + "T00:00:00+07:00") : NaN;
     const en = e.end?.dateTime ? Date.parse(e.end.dateTime) : e.end?.date ? Date.parse(e.end.date + "T00:00:00+07:00") : NaN;
     if (isNaN(s) || isNaN(en)) continue;
-    if (s < endMs + gapMin * 60000 && en > startMs - gapMin * 60000) out.push({ title: String(e.summary || "Busy").slice(0, 80), start: bkk(s), end: bkk(en) });
+    if ((s < endMs && en > startMs) || (gapMin > 0 && Math.abs(s - startMs) < gapMin * 60000)) out.push({ title: String(e.summary || "Busy").slice(0, 80), start: bkk(s), end: bkk(en) });
   }
   return out;
 };
