@@ -5,6 +5,9 @@
 //     send        a quotation / MSA to a hotel (up to 10 addresses). Each document becomes a link  https://crm.maha-hub.com/d/<token>  (90 days).
 //     newsletter  the Enewletter (up to 100 addresses a call). Hotels that unsubscribed are skipped, every mail has an unsubscribe link.
 //     test        one test mail to the address the team member types.
+//   Enewletter templates (newsletter / test): names {email: hotel name} and ids {email: hotel id} give each hotel its own greeting ({{hotel}} in the text) and,
+//   with tpl { id, name, kind: "event"|"remind"|"", options: [{ k, label, data }] }, each hotel its own signed answer links (https://replace.me/<k> in the text becomes
+//   https://crm.maha-hub.com/r/<token>, see crm-reply). A test mail gets links that record nothing.
 //   GET  ?u=<email, base64url>&s=<signature>   the unsubscribe link: the hotel is added to maha_mail_optout.
 // Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY, MAIL_LINK_SECRET (any long random text).
 // Optional: MAIL_FROM (crm@maha-hub.com), MAIL_FROM_NAME (Maha Hub), MAIL_REPLY_TO, MAIL_DOC_BASE (https://crm.maha-hub.com/d/), MAHA_ALLOWED_ORIGIN.
@@ -16,7 +19,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // --- clean:start (makes the Enewletter text safe: only what the CRM editor can make is kept)
 const TAGS = new Set(["p", "br", "b", "strong", "i", "em", "u", "h1", "h2", "h3", "ul", "ol", "li", "a", "img", "div", "span", "hr", "blockquote"]);
-const STYLE_OK = new Set(["color", "background-color", "text-align", "font-size", "font-weight", "font-style", "text-decoration", "display", "padding", "border-radius", "max-width", "line-height"]);
+const STYLE_OK = new Set(["color", "background-color", "text-align", "font-size", "font-weight", "font-style", "text-decoration", "display", "padding", "border-radius", "max-width", "line-height", "border", "border-left", "border-top", "margin", "margin-top", "margin-bottom", "width"]);
 const cleanStyle = (s: any) => String(s || "").split(";").map((x: string) => {
   const i = x.indexOf(":"); if (i < 0) return "";
   const k = x.slice(0, i).trim().toLowerCase(), v = x.slice(i + 1).trim();
@@ -116,7 +119,7 @@ const handle = async (req: Request): Promise<Response> => {
   let b: any; try { b = await req.json(); } catch { return json(req, { error: "bad_request" }, 400); }
   const action = b.action, subject = String(b.subject || "").trim().slice(0, 200), message = String(b.message || "").slice(0, 20000);
   if (!["send", "newsletter", "test"].includes(action) || !subject || !message.trim()) return json(req, { error: "bad_request" }, 400);
-  const richHtml = action !== "send" && typeof b.html === "string" && b.html.trim() ? cleanHtml(b.html.slice(0, 200000)) : "";
+  let richHtml = action !== "send" && typeof b.html === "string" && b.html.trim() ? cleanHtml(b.html.slice(0, 200000)) : "";
   const att = action !== "send" && b.attachment ? cleanAttachment(b.attachment) : null;
   if (action !== "send" && b.attachment && !att) return json(req, { error: "bad_attachment" }, 400);
   let to: string[] = [...new Set((Array.isArray(b.to) ? b.to : []).map((x: unknown) => String(x || "").trim().toLowerCase()))].filter(validEmail) as string[];
@@ -136,6 +139,25 @@ const handle = async (req: Request): Promise<Response> => {
     }
   }
 
+  /* Enewletter template: a greeting for each hotel and an answer link for each choice */
+  const names: Record<string, string> = b.names && typeof b.names === "object" ? b.names : {}, ids: Record<string, string> = b.ids && typeof b.ids === "object" ? b.ids : {};
+  const tpl = b.tpl && typeof b.tpl === "object" ? b.tpl : null;
+  const opts: { k: string; label: string; data: Record<string, string> }[] = tpl && Array.isArray(tpl.options) ? tpl.options.slice(0, 6).filter((o: any) => o && /^[a-z0-9]{1,8}$/.test(String(o.k))).map((o: any) => ({ k: String(o.k), label: String(o.label || "").slice(0, 120), data: Object.fromEntries(Object.entries(o.data || {}).slice(0, 8).map(([a, v]) => [String(a).slice(0, 12), String(v).slice(0, 160)])) })) : [];
+  const REPLY_BASE = Deno.env.get("MAIL_REPLY_BASE") || "https://crm.maha-hub.com/r/";
+  const swap = (s: string, from: string, to: string) => s.split(from).join(to);
+  const personal = (s: string, name: string, linkOf: Record<string, string>) => { let o = swap(s, "{{hotel}}", esc(name)); for (const k of Object.keys(linkOf)) o = swap(o, "https://replace.me/" + k, linkOf[k]); return o; };
+  const exp = Date.now() + 60 * 86400000;
+  const linksFor = async (email: string): Promise<Record<string, string>> => {
+    const out: Record<string, string> = {};
+    if (!tpl || !opts.length || action === "send") return out;
+    for (const o of opts) {
+      const pay = { h: action === "test" ? "test" : String(ids[email] || "").slice(0, 80), n: String(names[email] || "").slice(0, 120), e: email, t: String(tpl.name || tpl.id || "").slice(0, 60), s: subject, k: String(tpl.kind || ""), o: o.k, l: o.label, d: o.data, w: who.slice(0, 80), x: exp };
+      const body = b64url(new TextEncoder().encode(JSON.stringify(pay)));
+      out[o.k] = REPLY_BASE + body + "." + (await hmac(body));
+    }
+    return out;
+  };
+
   let skipped = 0;
   if (action === "newsletter") {
     const { data } = await admin.from("maha_mail_optout").select("email").in("email", to);
@@ -145,8 +167,8 @@ const handle = async (req: Request): Promise<Response> => {
 
   const FROM = { name: Deno.env.get("MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("MAIL_FROM") || "crm@maha-hub.com" };
   const replyTo = validEmail(b.replyTo) ? b.replyTo : (Deno.env.get("MAIL_REPLY_TO") || FROM.email);
-  const bodyHtml = (extra: string) => richHtml
-    ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:620px;margin:0 auto;border:1px solid #e3ddd0;border-radius:12px;overflow:hidden"><div style="background:#0A3020;color:#fff;padding:14px 20px;font-weight:bold;font-size:16px">${esc(FROM.name)}</div><div style="padding:20px">${richHtml}</div><div style="background:#faf5ec;padding:12px 20px;font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`
+  const bodyHtml = (extra: string, rich: string = richHtml) => rich
+    ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:620px;margin:0 auto;border:1px solid #e3ddd0;border-radius:12px;overflow:hidden"><div style="background:#0A3020;color:#fff;padding:14px 20px;font-weight:bold;font-size:16px">${esc(FROM.name)}</div><div style="padding:20px">${rich}</div><div style="background:#faf5ec;padding:12px 20px;font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`
     : `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222">${esc(message).replace(/\n/g, "<br>")}${links.length ? `<p style="margin-top:20px">${links.map((l) => `<a href="${l.url}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 16px;background:#0A3020;color:#fff;border-radius:6px;text-decoration:none">${esc(l.title)}</a>`).join("")}</p>` : ""}<hr style="border:0;border-top:1px solid #ddd;margin:24px 0 10px"><div style="font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`;
 
   let sent = 0, failed = 0; const errors: string[] = [], log: Record<string, unknown>[] = [];
@@ -156,10 +178,18 @@ const handle = async (req: Request): Promise<Response> => {
       const un = `${SB}/functions/v1/crm-send-mail?u=${b64url(new TextEncoder().encode(email))}&s=${await hmac(email)}`;
       extra = `<br><a href="${un}" style="color:#777">Unsubscribe</a>`; headers = { "List-Unsubscribe": `<${un}>` };
     }
-    const textBody = message + (links.length ? "\n\n" + links.map((l) => `${l.title}: ${l.url}`).join("\n") : "") + "\n\n" + FOOT;
+    const nm = String(names[email] || (action === "test" ? "Hotel name" : "your hotel")), linkOf = await linksFor(email);
+    const rich = personal(richHtml, nm, linkOf);
+    const msg = personal(message, nm, linkOf).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"");
+    const subj = personal(subject, nm, {}).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").slice(0, 200);
+    const optText = opts.length ? "
+
+" + opts.filter((o) => linkOf[o.k]).map((o) => `${o.label}: ${linkOf[o.k]}`).join("
+") : "";
+    const textBody = msg + optText + (links.length ? "\n\n" + links.map((l) => `${l.title}: ${l.url}`).join("\n") : "") + "\n\n" + FOOT;
     const res = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST", headers: { "api-key": BREVO, "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ sender: FROM, to: [{ email }], replyTo: { email: replyTo }, subject, htmlContent: bodyHtml(extra), textContent: textBody, ...(att ? { attachment: [att] } : {}), ...(headers ? { headers } : {}), tags: [`crm-${action}`] }),
+      body: JSON.stringify({ sender: FROM, to: [{ email }], replyTo: { email: replyTo }, subject: subj, htmlContent: bodyHtml(extra, rich), textContent: textBody, ...(att ? { attachment: [att] } : {}), ...(headers ? { headers } : {}), tags: [`crm-${action}`] }),
     });
     const out = await res.json().catch(() => ({}));
     if (res.ok) sent++; else { failed++; if (errors.length < 3) errors.push(String(out?.message || res.status).slice(0, 120)); }

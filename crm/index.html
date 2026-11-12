@@ -623,6 +623,9 @@ input,select,textarea{box-sizing:border-box}
 .pv-ok{color:#1b7a3a;font-weight:700}.pv-ticks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}.cp-hit{background:#fff3d6;font-weight:600}
 .rp-tiles{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.rp-t{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 16px;min-width:130px}.rp-t .v{font-size:22px;font-weight:700}.rp-t .l{font-size:12px;color:var(--ink-2)}.rp-h{font-size:14px;margin:22px 0 8px}
 .fu-tb td.r{text-align:right}.fu-tb td.red{color:#b3261e;font-weight:600}.fu-tb td.hit{color:#1b7a3a;font-weight:700}
+.ent-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}.ent-c{border:2px solid var(--line);border-radius:10px;background:#fff;padding:6px;text-align:left;cursor:pointer}.ent-c:hover{border-color:var(--forest-2)}.ent-c[aria-pressed=true]{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}.ent-c b{display:block;font-size:12.5px;margin-top:5px}.ent-c small{color:var(--ink-2);font-size:11px}
+.ent-th{height:54px;border-radius:5px;border:1px solid #dfe5ea;background:#f6f8f9;position:relative;overflow:hidden}.ent-th i{position:absolute;left:0;right:0;top:0;height:0}.ent-th s{position:absolute;left:6px;right:6px;height:4px;background:#d5dde2;border-radius:2px;text-decoration:none}.ent-th s:nth-of-type(1){top:30px}.ent-th s:nth-of-type(2){top:38px;right:30px}.ent-th s:nth-of-type(3){top:46px;right:16px}
+.ent-th.hero i{height:22px;background:var(--forest)}.ent-th.box i{height:16px;background:#e4ecf0;top:8px;left:6px;right:6px;border-radius:3px}.ent-th.cta s:nth-of-type(3){background:var(--gold);height:8px;right:60px;border-radius:4px}.ent-th.lines s:nth-of-type(1){top:10px}.ent-th.lines s:nth-of-type(2){top:20px;right:20px}.ent-th.lines s:nth-of-type(3){top:30px;right:40px}
 .en-two{display:grid;grid-template-columns:1.15fr 1fr;gap:16px;align-items:start}.en-tb{display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:#fff;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0}.en-b{border:1px solid var(--line);background:#faf5ec;border-radius:8px;padding:5px 10px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px}.en-b input{width:22px;height:20px;padding:0;border:0;background:none}
 .en-ed{background:#fff;border:1px solid var(--line);border-radius:0 0 10px 10px;min-height:220px;padding:14px;outline:none}.en-ed h2,.en-mb h2{margin:0 0 8px;color:#b8741a;text-transform:none;letter-spacing:0;font-size:20px}.en-ed,.en-mb{font-size:15px;line-height:1.6}.en-att{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
 .en-mail{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}.en-mh{background:#0A3020;color:#fff;padding:14px 18px;font-weight:700}.en-mb{padding:18px;min-height:120px;overflow-wrap:anywhere}.en-mb img{max-width:100%}.en-mf{background:#faf5ec;color:#7a7468;font-size:12px;padding:10px 18px}
@@ -4462,6 +4465,7 @@ async function sendQuoteSheet(q, to) {
 }
 function enewsSendSheet() {
   const e = UI.enews;
+  if (e.tpl && e.tpl !== 'plain') { const miss = entMissing(entGet(e.tpl), e.vals); if (miss.length) { toast('Fill in: ' + miss.join(', ')); return; } }
   if (!(e.subject || '').trim() || (!(e.body || '').trim() && !/<img/.test(e.html || ''))) { toast('Write a subject and a message first'); return; }
   const to = [...new Set(enewsAudience().map(h => String(h.email).trim().toLowerCase()).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))];
   if (!to.length) { toast('No hotel with an email address in this list'); return; }
@@ -4481,7 +4485,7 @@ function enewsSendSheet() {
       const go = $('#en_go', root); go.disabled = true; let sent = 0, skipped = 0, failed = 0;
       for (let i = 0; i < to.length; i += 50) {
         prog.textContent = 'Sending ' + Math.min(i + 50, to.length) + ' of ' + to.length + '…';
-        const r = await mailApi({action: 'newsletter', to: to.slice(i, i + 50), ...enewsPayload(e)});
+        const part = to.slice(i, i + 50), r = await mailApi({action: 'newsletter', to: part, ...enewsPayload(e), ...enRcpt(part)});
         if (r.error) { toast(mailErr(r.error)); failed += to.length - i; break; }
         sent += r.sent || 0; skipped += r.skipped || 0; failed += r.failed || 0;
       }
@@ -4497,8 +4501,110 @@ function enewsAudience() {
   return K('hotel').filter(h => h.email && (!e.stage || hSt(h) === e.stage) && (!e.city || h.city === e.city));
 }
 const EN_MAX = 3 * 1024 * 1024;
+/* ----- Enewletter templates: the text is fixed (only the CEO edits it); the person fills the boxes. "Plain" is the free editor. ----- */
+const ENT_BTN = 'display:inline-block;background-color:#D49A38;color:#1a272f;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:6px;margin-right:6px';
+const ENT_HERO = 'background-color:#0A3020;color:#ffffff;padding:22px;border-radius:10px';
+const ENT_BOX = 'background-color:#e4efe9;padding:12px;border-radius:8px;margin-top:8px';
+const ENT_SIGN = '<p>Best regards,<br>{{sender}}<br>Maha Hub</p>';
+const ENT_SENDER = {k: 'sender', label: 'Your name', type: 'text', def: '@who'};
+const ENEWS_TPL = [
+  {id: 'news', name: 'Announcement', small: 'News or a notice', subject: 'News from Maha Hub',
+   fields: [{k: 'headline', label: 'Heading', type: 'text', def: 'Good news from Maha Hub'}, {k: 'message', label: 'Your news', type: 'area', def: ''}, ENT_SENDER],
+   html: '<h2 style="color:#b8741a">{{headline}}</h2><p>Dear {{hotel}},</p><p>{{message}}</p><p>Thank you for working with us.</p>' + ENT_SIGN},
+  {id: 'offer', name: 'Special offer', small: 'Promotion with a button', subject: 'A special offer for {{hotel}}',
+   fields: [{k: 'offer', label: 'The offer (big text)', type: 'text', def: '20% off'}, {k: 'offerSub', label: 'Offer line', type: 'text', def: 'the first three months'}, {k: 'until', label: 'Ends on', type: 'date', def: ''}, ENT_SENDER],
+   options: () => [{k: 'yes', label: 'Yes, I am interested'}], need: ['offer'],
+   html: '<div style="' + ENT_HERO + '"><h2 style="color:#f3d9a0">Special offer</h2>For hotels that join this month</div><p>Dear {{hotel}},</p><div style="background-color:#fbf3e0;padding:16px;border-radius:10px;text-align:center;border:2px dashed #D49A38;margin-top:8px">Your hotel gets<br><span style="font-size:30px;font-weight:bold;color:#b8741a">{{offer}}</span><br>{{offerSub}}</div><p>This offer ends on {{until}}.</p>{{buttons}}' + ENT_SIGN},
+  {id: 'update', name: "What's new", small: 'New features list', subject: 'What is new in Maha Hub',
+   fields: [{k: 'a1', label: 'First feature', type: 'text', def: ''}, {k: 'a2', label: 'About the first', type: 'text', def: ''}, {k: 'b1', label: 'Second feature', type: 'text', def: ''}, {k: 'b2', label: 'About the second', type: 'text', def: ''}, {k: 'c1', label: 'Third feature', type: 'text', def: ''}, {k: 'c2', label: 'About the third', type: 'text', def: ''}, ENT_SENDER],
+   options: () => [{k: 'see', label: 'I want to see it'}], need: ['a1'],
+   html: '<div style="' + ENT_HERO + '"><h2 style="color:#f3d9a0">What is new</h2>Things that make your day easier</div><p>Dear {{hotel}},</p><div style="' + ENT_BOX + '"><b>{{a1}}</b><br>{{a2}}</div><div style="' + ENT_BOX + '"><b>{{b1}}</b><br>{{b2}}</div><div style="' + ENT_BOX + '"><b>{{c1}}</b><br>{{c2}}</div><p>{{buttons}}</p>' + ENT_SIGN},
+  {id: 'invite', name: 'Event invitation', small: 'Meeting, demo or webinar', subject: 'You are invited: {{title}}', kind: 'event',
+   fields: [{k: 'title', label: 'Event name', type: 'text', def: ''}, {k: 'date', label: 'Date', type: 'date', def: ''}, {k: 'time', label: 'Time', type: 'time', def: '10:00'}, {k: 'place', label: 'Place or online link', type: 'text', def: ''}, {k: 'length', label: 'Length', type: 'text', def: '30 minutes'}, ENT_SENDER],
+   options: v => [{k: 'yes', label: 'Yes, I will come', data: {title: v.title || '', date: v.date || '', time: v.time || '', place: v.place || ''}}, {k: 'no', label: 'Sorry, I cannot come', data: {title: v.title || ''}}], need: ['title', 'date', 'time'],
+   html: '<div style="' + ENT_HERO + '"><h2 style="color:#f3d9a0">You are invited</h2>{{title}}</div><p>Dear {{hotel}},</p><p>We would be happy to see you.</p><div style="' + ENT_BOX + '"><b>Date</b><br>{{dateText}} at {{time}}</div><div style="' + ENT_BOX + '"><b>Place</b><br>{{place}}</div><div style="' + ENT_BOX + '"><b>Length</b><br>{{length}}</div><p>{{buttons}}</p>' + ENT_SIGN},
+  {id: 'thanks', name: 'Thank you', small: 'After a meeting or a visit', subject: 'Thank you, {{hotel}}',
+   fields: [{k: 'when', label: 'Date we met', type: 'date', def: ''}, {k: 'steps', label: 'Next steps (one per line)', type: 'area', def: ''}, ENT_SENDER],
+   html: '<h2 style="color:#b8741a">Thank you</h2><p>Dear {{hotel}},</p><p>Thank you for your time on {{when}}. It was a pleasure to meet you.</p><p>As we agreed, the next steps are:<br>{{steps}}</p><p>Please reply to this email if you have any question.</p><p>Warm regards,<br>{{sender}}<br>Maha Hub</p>'},
+  {id: 'follow', name: 'Gentle reminder', small: 'Follow up, they choose a time', subject: 'A quick follow up for {{hotel}}', kind: 'remind',
+   fields: [{k: 'message', label: 'Your line', type: 'area', def: 'I wrote to you before and wanted to check that my message reached you.'}, {k: 'date1', label: 'Time 1: date', type: 'date', def: ''}, {k: 'time1', label: 'Time 1: time', type: 'time', def: '10:00'}, {k: 'date2', label: 'Time 2: date', type: 'date', def: ''}, {k: 'time2', label: 'Time 2: time', type: 'time', def: '14:00'}, {k: 'date3', label: 'Time 3: date', type: 'date', def: ''}, {k: 'time3', label: 'Time 3: time', type: 'time', def: '10:00'}, ENT_SENDER],
+   options: v => [1, 2, 3].filter(i => v['date' + i]).map(i => ({k: 's' + i, label: 'Call me on ' + fdate(v['date' + i]) + (v['time' + i] ? ', ' + v['time' + i] : ''), data: {date: v['date' + i], time: v['time' + i] || ''}})).concat([{k: 'later', label: 'Not now, call me later'}]), need: ['date1'],
+   html: '<p>Dear {{hotel}},</p><p>{{message}}</p><p>If now is not a good time, no problem. Choose a time for our call:</p><p>{{buttons}}</p><p>Kind regards,<br>{{sender}}<br>Maha Hub</p>'},
+  {id: 'season', name: 'Season greeting', small: 'New Year, Songkran, holidays', subject: 'Happy {{holiday}} from Maha Hub',
+   fields: [{k: 'holiday', label: 'Holiday', type: 'text', def: ''}, {k: 'from', label: 'Office closed from', type: 'date', def: ''}, {k: 'to', label: 'Office closed to', type: 'date', def: ''}, {k: 'back', label: 'Open again on', type: 'date', def: ''}, ENT_SENDER], need: ['holiday'],
+   html: '<div style="background-color:#8f2f20;color:#ffffff;padding:22px;border-radius:10px"><h2 style="color:#ffe3a8">Happy {{holiday}}</h2>Wishing you a full house</div><p>Dear {{hotel}},</p><p>Thank you for being with us. We wish you and your team a happy and busy season.</p><p>Our office is closed from {{from}} to {{to}} and open again on {{back}}.</p><p>Warm wishes,<br>{{sender}}<br>Maha Hub</p>'},
+  {id: 'notice', name: 'Service notice', small: 'Maintenance or price change', subject: 'Important notice from Maha Hub',
+   fields: [{k: 'title', label: 'What is it', type: 'text', def: 'Planned maintenance'}, {k: 'when', label: 'When', type: 'text', def: ''}, {k: 'what', label: 'What will change', type: 'area', def: ''}, ENT_SENDER], need: ['when'],
+   html: '<h2 style="color:#b8741a">Service notice</h2><p>Dear {{hotel}},</p><div style="background-color:#fbf3e0;padding:14px;border-radius:6px;border-left:5px solid #D49A38"><b>{{title}}</b><br>{{when}}</div><p>{{what}}</p><p>Thank you for your understanding.</p>' + ENT_SIGN},
+  {id: 'results', name: 'Success story', small: 'A hotel result with numbers', subject: 'How {{story}} grew with Maha Hub',
+   fields: [{k: 'story', label: 'Hotel name', type: 'text', def: ''}, {k: 'v1', label: 'Number 1', type: 'text', def: ''}, {k: 'l1', label: 'About number 1', type: 'text', def: ''}, {k: 'v2', label: 'Number 2', type: 'text', def: ''}, {k: 'l2', label: 'About number 2', type: 'text', def: ''}, {k: 'v3', label: 'Number 3', type: 'text', def: ''}, {k: 'l3', label: 'About number 3', type: 'text', def: ''}, {k: 'text', label: 'The story', type: 'area', def: ''}, ENT_SENDER],
+   options: () => [{k: 'talk', label: 'I want to talk to you'}], need: ['story'],
+   html: '<div style="' + ENT_HERO + '"><h2 style="color:#f3d9a0">Success story</h2>{{story}}</div><p>Dear {{hotel}},</p><div style="' + ENT_BOX + ';text-align:center"><span style="font-size:22px;font-weight:bold;color:#184D3A">{{v1}}</span><br>{{l1}}</div><div style="' + ENT_BOX + ';text-align:center"><span style="font-size:22px;font-weight:bold;color:#184D3A">{{v2}}</span><br>{{l2}}</div><div style="' + ENT_BOX + ';text-align:center"><span style="font-size:22px;font-weight:bold;color:#184D3A">{{v3}}</span><br>{{l3}}</div><p>{{text}}</p><p>{{buttons}}</p>' + ENT_SIGN},
+  {id: 'letter', name: 'Simple letter', small: 'Plain and personal', subject: 'A note from Maha Hub',
+   fields: [{k: 'message', label: 'Your letter', type: 'area', def: ''}, ENT_SENDER],
+   html: '<p>Dear {{hotel}},</p><p>{{message}}</p><p>Please reply to this email if you would like to talk.</p><p>Warm regards,<br>{{sender}}<br>Maha Hub</p>'},
+];
+/* the CEO's own wording of a template (kept as a record) replaces the starting text; the boxes stay the same */
+const entOver = id => K('enews_tpl').find(x => x.key === id && !x.deleted);
+const entGet = id => { const t = ENEWS_TPL.find(x => x.id === id); if (!t) return null; const o = entOver(id); return o ? {...t, subject: o.subject || t.subject, html: o.html || t.html, edited: true} : t; };
+const entVals = (t, cur) => { const v = {}; (t.fields || []).forEach(f => { v[f.k] = cur && cur[f.k] != null ? cur[f.k] : (f.def === '@who' ? (Auth.who() || '') : f.def || ''); }); return v; };
+const entText = (f, v) => f.type === 'date' ? fdate(v) : f.type === 'area' ? esc(v).replace(/\n/g, '<br>') : esc(v);
+/* the text of a template with the boxes filled in; {{hotel}} stays for each hotel (the mail function fills it), the buttons are answer links the function signs for each hotel */
+function entRender(t, v, preview) {
+  let h = t.html;
+  const opts = t.options ? t.options(v) : [];
+  const btns = opts.map(o => '<a href="' + (preview ? '#' : 'https://replace.me/' + o.k) + '" style="' + ENT_BTN + '">' + esc(o.label) + '</a>').join('');
+  h = h.split('{{buttons}}').join(btns);
+  if (t.id === 'invite') h = h.split('{{dateText}}').join(v.date ? esc(new Date(v.date + 'T00:00:00').toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'})) : '');
+  (t.fields || []).forEach(f => { h = h.split('{{' + f.k + '}}').join(entText(f, v[f.k] || '')); });
+  return preview ? h.split('{{hotel}}').join('Hotel name') : h;
+}
+const entSubject = (t, v) => { let s = t.subject; (t.fields || []).forEach(f => { s = s.split('{{' + f.k + '}}').join(f.type === 'date' ? fdate(v[f.k] || '') : (v[f.k] || '')); }); return s; };
+const entMissing = (t, v) => (t.need || []).filter(k => !String(v[k] || '').trim()).map(k => (t.fields.find(f => f.k === k) || {}).label || k);
+const ENT_THUMB = {news: 'box', offer: 'hero', update: 'hero', invite: 'hero', thanks: 'lines', follow: 'cta', season: 'hero', notice: 'box', results: 'hero', letter: 'lines', plain: 'lines'};
+function entGallery(cur) {
+  const card = (id, name, small) => '<button type="button" class="ent-c" data-tpl="' + id + '" aria-pressed="' + (cur === id) + '"><div class="ent-th ' + (ENT_THUMB[id] || 'lines') + '"><i></i><s></s><s></s><s></s></div><b>' + esc(name) + '</b><small>' + esc(small) + '</small></button>';
+  return '<div class="f wide"><span>Template</span><div class="ent-gal" id="en_gal">' + ENEWS_TPL.map(t => card(t.id, t.name, t.small)).join('') + card('plain', 'Plain', 'Write it yourself') + '</div></div>';
+}
+const entToText = html => String(html || '').replace(/<(br|\/p|\/div|\/h[1-3]|\/li)\b[^>]*>/gi, '\n').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\n{3,}/g, '\n\n').trim();
+/* names and ids of the hotels of one batch: each hotel gets its own greeting and its own answer links */
+function enRcpt(list) {
+  const names = {}, ids = {};
+  enewsAudience().forEach(h => { const m = String(h.email).trim().toLowerCase(); if (list.includes(m) && !ids[m]) { ids[m] = h.id; names[m] = h.name || ''; } });
+  return {names, ids};
+}
+/* the CEO changes the wording of a template (the boxes stay the same) */
+function entEditSheet(id) {
+  const t = entGet(id); if (!t) return;
+  const chips = ['hotel'].concat(t.fields.map(f => f.k)).concat(t.options ? ['buttons'] : []);
+  const tb = [['bold', '<b>B</b>', 'Bold'], ['italic', '<i>I</i>', 'Italic'], ['underline', '<u>U</u>', 'Underline'], ['ul', 'List', 'Bullet list']];
+  openSheet(`${fuHead('Edit template: ' + t.name)}<div class="fu-pop" style="margin-top:14px">
+   <div class="mq-b"><label class="mq-l">Subject</label><input id="et_s" style="width:100%" value="${esc(t.subject)}"></div>
+   <div class="mq-b"><label class="mq-l">Text</label><div class="en-tb" id="et_tb">${tb.map(([k, l, ti]) => '<button type="button" class="en-b" data-k="' + k + '" title="' + ti + '">' + l + '</button>').join('')}<label class="en-b" title="Text colour">Colour <input type="color" id="et_col" value="#b8741a"></label></div><div id="et_ed" class="en-ed" contenteditable="true">${t.html}</div></div>
+   <div class="mq-b"><label class="mq-l">Places that are filled in (click one to put it in the text)</label><div>${chips.map(c => '<button type="button" class="btn sm" data-chip="' + c + '">{{' + c + '}}</button>').join(' ')}</div></div></div>
+   <div class="sheet-foot"><button class="btn" data-act="close">Cancel</button>${t.edited ? '<button class="btn" id="et_reset">Back to the original</button>' : ''}<button class="btn primary ok2" id="et_save">Save</button></div>`, root => {
+    const ed = $('#et_ed', root); let rng = null;
+    const saveR = () => { const s = getSelection(); if (s.rangeCount && ed.contains(s.anchorNode)) rng = s.getRangeAt(0).cloneRange(); };
+    const restoreR = () => { ed.focus(); if (rng) { const s = getSelection(); s.removeAllRanges(); s.addRange(rng); } };
+    ['keyup', 'mouseup', 'blur'].forEach(x => ed.addEventListener(x, saveR));
+    $('#et_tb', root).addEventListener('mousedown', ev => { if (!ev.target.closest('#et_col')) ev.preventDefault(); });
+    $('#et_tb', root).addEventListener('click', ev => { const b = ev.target.closest('.en-b[data-k]'); if (!b) return; restoreR(); document.execCommand('styleWithCSS', false, true); document.execCommand(b.dataset.k === 'ul' ? 'insertUnorderedList' : b.dataset.k); saveR(); });
+    $('#et_col', root).addEventListener('input', ev => { restoreR(); document.execCommand('styleWithCSS', false, true); document.execCommand('foreColor', false, ev.target.value); saveR(); });
+    root.querySelectorAll('[data-chip]').forEach(b => { b.onmousedown = ev => ev.preventDefault(); b.onclick = () => { restoreR(); document.execCommand('insertText', false, '{{' + b.dataset.chip + '}}'); saveR(); }; });
+    $('#et_save', root).onclick = async () => {
+      const html = ed.innerHTML.trim(), subject = $('#et_s', root).value.trim();
+      if (!subject || !entToText(html)) { toast('Write the subject and the text'); return; }
+      if (html.length > 50000) { toast('The text is too long'); return; }
+      const cur = entOver(id);
+      await save({...(cur || {}), id: cur ? cur.id : 'etpl_' + id, kind: 'enews_tpl', key: id, subject, html, updated: new Date().toISOString()});
+      closeSheet(); toast('Template saved'); vEnews();
+    };
+    const rs = $('#et_reset', root);
+    if (rs) rs.onclick = async () => { const cur = entOver(id); if (cur) await softDelete(cur); closeSheet(); toast('Back to the original text'); vEnews(); };
+  });
+}
 const enewsHtmlOf = s => s.html || esc(s.body || '').replace(/\n/g, '<br>');
-function enewsPayload(e) { const p = {subject: e.subject, message: (e.body || '').trim() || '(see the email)', html: e.html || ''}; if (e.att) p.attachment = {name: e.att.name, content: e.att.content}; return p; }
+function enewsPayload(e) { const p = {subject: e.subject, message: (e.body || '').trim() || '(see the email)', html: e.html || ''}; if (e.att) p.attachment = {name: e.att.name, content: e.att.content}; const tt = e.tpl && e.tpl !== 'plain' ? entGet(e.tpl) : null; if (tt) p.tpl = {id: tt.id, name: tt.name, kind: tt.kind || '', options: (tt.options ? tt.options(e.vals) : []).map(o => ({k: o.k, label: o.label, data: o.data || {}}))}; return p; }
 const enMb = n => (n / 1048576).toFixed(1) + ' MB';
 function enAsk(title, fields, cb) {
   openSheet(fuHead(title) + '<div class="fu-pop" style="margin-top:14px">' + fields.map(([id, l, ph]) => '<div class="mq-b"><label class="mq-l">' + esc(l) + '</label><input id="' + id + '" placeholder="' + esc(ph || '') + '" style="width:100%" autocomplete="off"></div>').join('') + '</div><div class="sheet-foot"><button class="btn" data-act="close">Cancel</button><button class="btn primary ok2" id="en_ok">OK</button></div>', root => {
@@ -4508,24 +4614,25 @@ function enAsk(title, fields, cb) {
 }
 const enUrl = u => /^(https?:\/\/|mailto:)[^\s"'<>]+$/i.test(u);
 function vEnews() {
-  UI.enews = UI.enews || {subject: '', body: '', html: '', stage: '', city: '', att: null}; const e = UI.enews;
+  UI.enews = UI.enews || {subject: '', body: '', html: '', stage: '', city: '', att: null, tpl: 'plain', vals: {}}; const e = UI.enews; if (!e.tpl) e.tpl = 'plain'; if (!e.vals) e.vals = {};
   const cities = [...new Set(K('hotel').map(h => h.city).filter(Boolean))].sort(), saved = K('enews').sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
   const tools = [['bold', '<b>B</b>', 'Bold'], ['italic', '<i>I</i>', 'Italic'], ['underline', '<u>U</u>', 'Underline'], ['h', 'Heading', 'Heading'], ['ul', 'List', 'Bullet list'], ['link', 'Link', 'Link'], ['img', 'Image', 'Image'], ['btn', 'Button', 'Button'], ['hr', 'Line', 'Line'], ['clr', 'Clear', 'Clear the style']];
   view().innerHTML = '<div class="top"><div><h1>Enewletter</h1><p>One message to many hotels</p></div></div>' +
-   '<div class="en-two"><div class="panel" style="padding:14px"><div class="grid two">' +
+   '<div class="en-two"><div class="panel" style="padding:14px"><div class="grid two">' + entGallery(e.tpl) + '<div class="f wide" id="en_cbox"' + (Auth.isProvider() && e.tpl !== 'plain' ? '' : ' hidden') + '><button type="button" class="btn sm" data-act="enewsTplEdit">Edit template text</button></div><div class="grid two wide" id="en_flds" style="grid-column:1/-1"></div>' +
     '<label class="f"><span>Send to hotels at stage</span><select id="en_stage"><option value="">All stages</option>' + STAGES.map(s => '<option ' + (e.stage === s[0] ? 'selected' : '') + '>' + esc(s[0]) + '</option>').join('') + '</select></label>' +
     '<label class="f"><span>Province</span><select id="en_city"><option value="">All provinces</option>' + cities.map(c => '<option ' + (e.city === c ? 'selected' : '') + '>' + esc(c) + '</option>').join('') + '</select></label>' +
     '<label class="f wide"><span>Subject</span><input id="en_subject" value="' + esc(e.subject) + '"></label>' +
-    '<div class="f wide"><span>Message</span><div class="en-tb" id="en_tb">' + tools.map(([k, l, t]) => '<button type="button" class="en-b" data-k="' + k + '" title="' + t + '">' + l + '</button>').join('') + '<label class="en-b" title="Text colour">Colour <input type="color" id="en_col" value="#b8741a"></label></div><div id="en_ed" class="en-ed" contenteditable="true">' + enewsHtmlOf(e) + '</div></div>' +
+    '<div class="f wide" id="en_plain"><span>Message</span><div class="en-tb" id="en_tb">' + tools.map(([k, l, t]) => '<button type="button" class="en-b" data-k="' + k + '" title="' + t + '">' + l + '</button>').join('') + '<label class="en-b" title="Text colour">Colour <input type="color" id="en_col" value="#b8741a"></label></div><div id="en_ed" class="en-ed" contenteditable="true">' + (e.tpl === 'plain' ? enewsHtmlOf(e) : '') + '</div></div>' +
     '<div class="f wide"><span>Attachment (one file: PDF, image, Word, Excel or PowerPoint, up to 3 MB)</span><div id="en_att"></div></div></div>' +
     '<p class="muted small" id="en_n"></p>' +
     '<div class="actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="enewsSend">Send from the CRM</button><button class="btn" data-act="enewsOpen">Open in my email program</button><button class="btn" data-act="enewsCopy">Copy email addresses</button><button class="btn" data-act="enewsSave">Save draft</button></div></div>' +
     '<div class="panel" style="padding:14px"><div class="muted small" style="margin-bottom:8px">How the hotel sees it</div><div class="en-mail"><div class="en-mh">Maha Hub</div><div class="en-mb" id="en_pv"></div><div class="en-mf" id="en_pa"></div></div></div></div>' +
    '<h2>Saved <span class="count">' + saved.length + '</span></h2>' +
-   (saved.length ? '<div class="list">' + saved.map(s => '<a class="row" href="#enews" data-act="enewsLoad" data-id="' + s.id + '"><div class="main"><div class="t">' + esc(s.subject || '(no subject)') + '</div><div class="s">' + esc([s.stage, s.city].filter(Boolean).join(' · ') || 'All hotels') + '</div></div><div class="end">' + fdate((s.updated || '').slice(0, 10)) + '</div></a>').join('') + '</div>' : '<div class="list"><div class="empty">No saved drafts.</div></div>');
+   (saved.length ? '<div class="list">' + saved.map(s => '<a class="row" href="#enews" data-act="enewsLoad" data-id="' + s.id + '"><div class="main"><div class="t">' + esc(s.subject || '(no subject)') + '</div><div class="s">' + esc([s.stage, s.city].filter(Boolean).join(' · ') || 'All hotels') + '</div></div><div class="end">' + fdate((s.updated || '').slice(0, 10)) + '</div></a>').join('') + '</div>' : '<div class="list"><div class="empty">No saved drafts.</div></div>') +
+   (() => { const reps = K('reply').sort((a, b) => (b.at || '').localeCompare(a.at || '')); return '<h2>Replies <span class="count">' + reps.length + '</span></h2>' + (reps.length ? '<div class="list">' + reps.map(r => '<a class="row" href="#hotel/' + esc(r.hotelId) + '"><div class="main"><div class="t">' + esc(r.hotelName || hotelName(r.hotelId)) + ' \u00b7 ' + esc(r.label || r.choice) + '</div><div class="s">' + esc([r.tpl, r.subject].filter(Boolean).join(' \u00b7 ') + (r.note ? ' \u00b7 \u201c' + r.note + '\u201d' : '')) + '</div></div><div class="end">' + fdate((r.at || '').slice(0, 10)) + '</div></a>').join('') + '</div>' : '<div class="list"><div class="empty">No replies yet.</div></div>'); })();
   const ed = $('#en_ed'); let rng = null;
-  const sync = () => { e.stage = $('#en_stage').value; e.city = $('#en_city').value; e.subject = $('#en_subject').value; e.html = ed.innerHTML; e.body = ed.innerText;
-    $('#en_n').textContent = enewsAudience().length + ' hotels with an email address will receive it.'; $('#en_pv').innerHTML = e.html; $('#en_pa').textContent = e.att ? 'Attachment: ' + e.att.name : ''; };
+  const sync = () => { e.stage = $('#en_stage').value; e.city = $('#en_city').value; const tt = e.tpl !== 'plain' ? entGet(e.tpl) : null; if (tt) { const auto = entSubject(tt, e.vals); if (!$('#en_subject').value || $('#en_subject').value === e.auto) $('#en_subject').value = auto; e.auto = auto; } e.subject = $('#en_subject').value; if (tt) { e.html = entRender(tt, e.vals); e.body = entToText(e.html); } else { e.html = ed.innerHTML; e.body = ed.innerText; }
+    $('#en_n').textContent = enewsAudience().length + ' hotels with an email address will receive it.'; $('#en_pv').innerHTML = tt ? entRender(tt, e.vals, true) : e.html; $('#en_pa').textContent = e.att ? 'Attachment: ' + e.att.name : ''; };
   const saveR = () => { const s = getSelection(); if (s.rangeCount && ed.contains(s.anchorNode)) rng = s.getRangeAt(0).cloneRange(); };
   const restoreR = () => { ed.focus(); if (rng) { const s = getSelection(); s.removeAllRanges(); s.addRange(rng); } };
   ['keyup', 'mouseup', 'blur'].forEach(x => ed.addEventListener(x, saveR));
@@ -4545,6 +4652,15 @@ function vEnews() {
     else if (k === 'btn') enAsk('Button', [['en_t', 'Button text', 'Book a call'], ['en_u', 'Web address', 'https://']], ([t, u]) => { if (!t || !enUrl(u)) { toast('Write the button text and a web address that starts with https://'); return; } ins('<a href="' + esc(u) + '" style="display:inline-block;background-color:#0A3020;color:#ffffff;padding:10px 18px;border-radius:8px;text-decoration:none">' + esc(t) + '</a>&nbsp;'); });
   });
   ed.addEventListener('input', sync);
+  const paintFlds = () => {
+    const tt = e.tpl !== 'plain' ? entGet(e.tpl) : null, box = $('#en_flds');
+    $('#en_plain').hidden = !!tt; $('#en_cbox').hidden = !(tt && Auth.isProvider()); box.hidden = !tt; $('#en_gal').querySelectorAll('[data-tpl]').forEach(c => c.setAttribute('aria-pressed', c.dataset.tpl === e.tpl));
+    if (!tt) { box.innerHTML = ''; return; }
+    box.innerHTML = tt.fields.map(fl => '<label class="f' + (fl.type === 'area' ? ' wide' : '') + '"' + (fl.type === 'area' ? ' style="grid-column:1/-1"' : '') + '><span>' + esc(fl.label) + '</span>' + (fl.type === 'area' ? '<textarea data-f="' + fl.k + '" rows="4">' + esc(e.vals[fl.k] || '') + '</textarea>' : '<input data-f="' + fl.k + '" type="' + (fl.type === 'date' ? 'date' : fl.type === 'time' ? 'time' : 'text') + '" value="' + esc(e.vals[fl.k] || '') + '">') + '</label>').join('');
+    box.querySelectorAll('[data-f]').forEach(i => { i.addEventListener('input', () => { e.vals[i.dataset.f] = i.value; sync(); }); i.addEventListener('change', () => { e.vals[i.dataset.f] = i.value; sync(); }); });
+  };
+  $('#en_gal').addEventListener('click', ev => { const c = ev.target.closest('[data-tpl]'); if (!c) return; const id = c.dataset.tpl; if (id !== 'plain' && !entGet(id)) return; e.tpl = id; e.vals = id === 'plain' ? {} : entVals(entGet(id), null); e.auto = ''; if (id !== 'plain') $('#en_subject').value = ''; paintFlds(); sync(); });
+  paintFlds();
   ['#en_stage', '#en_city', '#en_subject'].forEach(s => { $(s).addEventListener('input', sync); $(s).addEventListener('change', sync); });
   const paintAtt = () => {
     const box = $('#en_att');
@@ -4566,10 +4682,11 @@ Object.assign(ACTIONS, {
   editActivation: el => { location.hash = 'activations/' + el.dataset.id; },
   enewsOpen: () => { const to = enewsAudience().map(h => h.email); if (!to.length) { toast('No hotel with an email address in this list'); return; } const e = UI.enews; location.href = 'mailto:?bcc=' + encodeURIComponent(to.join(',')) + '&subject=' + encodeURIComponent(e.subject) + '&body=' + encodeURIComponent(e.body); },
   enewsSend: () => enewsSendSheet(),
+  enewsTplEdit: () => { if (!Auth.isProvider()) { toast('Only the CEO edits a template'); return; } const e = UI.enews; if (e && e.tpl && e.tpl !== 'plain') entEditSheet(e.tpl); },
   clearOld: () => clearOldSheet(),
   enewsCopy: () => copyText(enewsAudience().map(h => h.email).join(', '), 'Email addresses copied'),
-  enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, html: e.html, stage: e.stage, city: e.city}); toast('Draft saved'); rerender(); },
-  enewsLoad: el => { const s = byId(el.dataset.id); UI.enews = {id: s.id, subject: s.subject, body: s.body, html: s.html || '', stage: s.stage || '', city: s.city || '', att: null}; vEnews(); scrollTo(0, 0); },
+  enewsSave: async () => { const e = UI.enews; if (!e.subject) { toast('Write a subject first'); return; } await save({id: e.id || uid(), kind:'enews', subject: e.subject, body: e.body, html: e.html, stage: e.stage, city: e.city, tpl: e.tpl || 'plain', vals: e.vals || {}}); toast('Draft saved'); rerender(); },
+  enewsLoad: el => { const s = byId(el.dataset.id); UI.enews = {id: s.id, subject: s.subject, body: s.body, html: s.html || '', stage: s.stage || '', city: s.city || '', att: null, tpl: s.tpl || 'plain', vals: s.vals || {}, auto: ''}; vEnews(); scrollTo(0, 0); },
 });
 
 /* ================= DASHBOARD (sales) =================

@@ -31,3 +31,12 @@ What it does once it is switched on:
     Then send a quotation to your own address and open the link.
 
 Only steps 1–6 are yours to do in Brevo, Cloudflare and Supabase; steps 7–9 are the usual deploy and happen only after you say yes.
+
+## Enewletter templates and answer buttons
+
+- Ten fixed templates plus **Plain** (the free editor). The CEO changes the wording of a template with **Edit template text**.
+- The **Event invitation** and the **Gentle reminder** (and a few others) have answer buttons. A hotel clicks, confirms on `crm.maha-hub.com/r/<token>`, and:
+  - an event "Yes" makes a **Meeting**, a reminder time makes a **Follow up** for that day;
+  - every answer is listed under **Enewletter > Replies** (hotel, choice, message).
+- To switch it on: `supabase functions deploy crm-reply --no-verify-jwt` and `supabase functions deploy crm-send-mail --no-verify-jwt`, then deploy the Worker (`npx wrangler deploy`, or the usual Cloudflare deploy) so `/r/*` works. No new database file and no new secret (it uses `MAIL_LINK_SECRET`).
+- Only answers given with the buttons are listed. What a hotel writes back in a normal reply goes to the `crm@maha-hub.com` mailbox as before.

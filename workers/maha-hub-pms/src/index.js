@@ -101,6 +101,40 @@ async function sharedDoc(env, token) {
   } catch { return gone(); }
 }
 
+/* a hotel's answer to an Enewletter: crm.maha-hub.com/r/<token>. The page asks the hotel to confirm (so a mail scanner that opens the link does not answer for the hotel);
+   the Supabase function crm-reply checks the signed token and records the answer. The page holds no secret. */
+function replyPage(env) {
+  const base = String(env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const script = String.raw`(function () {
+  var T = location.pathname.split('/').pop(), U = __URL__, B = document.getElementById('b');
+  function say(h) { B.innerHTML = h; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fail(el) { el.disabled = false; document.getElementById('e').textContent = 'It could not be saved. Please try again.'; }
+  fetch(U + '?t=' + encodeURIComponent(T)).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d || !d.ok) { say('<h2>This link is not valid</h2><p>Please ask Maha Hub to send it again.</p>'); return; }
+    if (d.done) { say('<h2>Thank you</h2><p>We already have your answer.</p>'); return; }
+    say('<h2>' + esc(d.label) + '</h2><p>' + esc(d.title || '') + '</p><textarea id="n" maxlength="500" placeholder="A message for us (optional)"></textarea><button id="g">Confirm</button><p class="e" id="e"></p>');
+    document.getElementById('g').onclick = function () {
+      var g = this; g.disabled = true;
+      fetch(U, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t: T, note: document.getElementById('n').value }) })
+        .then(function (r) { return r.json(); })
+        .then(function (x) { if (x && x.ok) say('<h2>Thank you</h2><p>We received your answer. We will be in touch.</p>'); else fail(g); })
+        .catch(function () { fail(g); });
+    };
+  }).catch(function () { say('<h2>Please try again</h2><p>The page could not load.</p>'); });
+})();`.replace('__URL__', JSON.stringify(base + '/functions/v1/crm-reply'));
+  const css = 'body{margin:0;background:#eef1f3;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a272f;display:grid;min-height:100vh;place-items:center;padding:16px}'
+    + '.c{background:#fff;border:1px solid #c5d0d8;border-radius:14px;max-width:440px;width:100%;overflow:hidden}.h{background:#0A3020;color:#fff;padding:14px 20px;font-weight:700}'
+    + '.b{padding:20px}h2{margin:0 0 6px;font-size:20px}p{margin:6px 0;color:#556470}textarea{width:100%;box-sizing:border-box;min-height:70px;border:1px solid #c5d0d8;border-radius:8px;padding:8px;font:inherit;margin:10px 0}'
+    + 'button{background:#D49A38;color:#1a272f;font:700 16px system-ui,sans-serif;border:0;border-radius:8px;padding:11px 20px;cursor:pointer}button[disabled]{opacity:.6}.e{color:#B4432F}';
+  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Maha Hub</title><style>' + css + '</style></head>'
+    + '<body><div class="c"><div class="h">Maha Hub</div><div class="b" id="b"><p>Loading...</p></div></div><script>' + script + '</scr' + 'ipt></body></html>';
+  return new Response(html, { headers: {
+    'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-referrer',
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src " + (base || "'none'") + "; base-uri 'none'; form-action 'none'",
+  } });
+}
+
 export default {
   async fetch(request, env) {
     if (!env.ASSETS) {
@@ -116,6 +150,9 @@ export default {
 
     /* the CRM email link to one document */
     { const m = /^\/d\/([A-Za-z0-9_-]{24,64})$/.exec(bare); if (m && host === String(env.CRM_HOST || '').toLowerCase()) return sharedDoc(env, m[1]); }
+
+    /* a hotel's answer to an Enewletter */
+    { const m = /^\/r\/[A-Za-z0-9_.-]{40,900}$/.exec(bare); if (m && host === String(env.CRM_HOST || '').toLowerCase()) return replyPage(env); }
 
     /* a system's own address: "/" opens the system, no redirect; the files it needs load as usual */
     const own = hostDoc(host, env);
