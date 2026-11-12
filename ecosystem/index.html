@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="d9dfae459a">
+<meta name="maha-build" content="f29e99a547">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -4413,7 +4413,7 @@ function sessionValid(se){
   if(last&&(now-last)>SESSION_MAX_MS)return false;
   if(se.provider)return (DB.providers||[]).some(p=>p.id===se.userId&&p.active!==false);
   const h=DB.hotels&&DB.hotels[se.hotel];if(!h)return false;
-  const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false||accessWhy(u)||subStopped(h))return false;
+  const u=(h.users||[]).find(x=>x.id===se.userId);if(!u||u.active===false||accessWhy(u)||(subStopped(h)&&!SUB_BLOCK))return false;   /* while the Subscription ended page is showing, the session is kept (it ends only by sign out or when extended) */
   if(!noShiftSessionOk(se,u))return false;   /* the provider took the No-shift setting away: sign in again */
   if(se.shiftId&&!(h.shifts||[]).some(s=>s.id===se.shiftId&&s.status==='open'))return false;
   return true;
@@ -7920,7 +7920,7 @@ function subScreen(n,h){return new Promise(res=>{const c=subCardInfo(n,h);
   try{document.querySelector('.selpg').classList.add('sp-expbg')}catch(e){}
   const done=()=>{document.removeEventListener('keydown',key,true);res()},key=e=>{if(e.key==='Escape'){e.preventDefault();done()}};
   document.addEventListener('keydown',key,true);$('#spExpX').onclick=done;$('#spExpGo').onclick=()=>{try{window.open(BILLING_URL+'?hotel='+encodeURIComponent(c.code),'_blank','noopener')}catch(e){}};try{$('#spExpGo').focus()}catch(e){}})}
-let SUB_BLOCK=false;
+var SUB_BLOCK=false;
 function subBlockScreen(h){SUB_BLOCK=true;return new Promise(()=>{const d=h&&h.set&&h.set.subUntil;
   /* the page stays here until the hotel or the admin extends the subscription; then it opens by itself */
   const code=h&&h.code,wait=setInterval(()=>{try{const hh=DB&&DB.hotels&&DB.hotels[code];if(hh&&!subStopped(hh)){clearInterval(wait);SUB_BLOCK=false;location.reload()}}catch(e){}},5000);

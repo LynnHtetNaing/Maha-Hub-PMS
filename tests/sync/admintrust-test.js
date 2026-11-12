@@ -41,4 +41,5 @@ T('CRM and Billing load the shared step and run it when the answer says needs_mf
 T('Billing keeps one device id (so the device can be remembered)', bill.includes("localStorage.setItem('maha.deviceId',n)"));
 T('a person signed out while the page is loading (ended subscription) never gets a blank page: renderShell stops when there is no session', pms.includes('function renderShell(){' + String.fromCharCode(10) + '  if(SEL_ON)return;' + String.fromCharCode(10) + '  if(!DB||!DB.session)return;'));
 T('an ended subscription: signed in, only the Subscription ended page, no automatic sign-out, and it opens by itself once extended', pms.includes('if(subStopped(h)){SUB_BLOCK=true;subBlockScreen(h);return}') && pms.includes('if(hh&&!subStopped(hh)){clearInterval(wait);SUB_BLOCK=false;location.reload()}'));
+T('the session check (every few seconds) keeps the session while the Subscription ended page shows, so "Your session ended" no longer appears', pms.includes('accessWhy(u)||(subStopped(h)&&!SUB_BLOCK))return false;') && pms.includes('var SUB_BLOCK=false;'));
 process.exit(fails ? 1 : 0);
