@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Maha CRM">
 <script src="/brand/maha/maha-loader.js"></script>
+<script src="/brand/maha/maha-admin-mfa.js"></script>
 <title>Maha CRM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4883,6 +4884,13 @@ const Auth = (() => {
     return {error: 'code', message: codeMsg(d && d.error)};
   }
   async function finish(d, username) {
+    /* an admin on a new device (or after 14 days) passes the Authenticator first; a trusted device goes in with the password only (limited: the database decides what it may do) */
+    if (d && d.admin_mode === 'needs_mfa' && window.MahaAdminMfa) {
+      let t = null;
+      try { t = await window.MahaAdminMfa.step({url: URL_, key: KEY, deviceId: deviceId(), access_token: d.access_token}); } catch { return {error: 'unavailable', message: 'The two-step sign-in service did not answer. Try again in a moment.'}; }
+      if (!t) return {error: 'mfa', message: 'Two-step sign-in was not completed.'};
+      d = Object.assign({}, d, t);
+    }
     let name = username, member = null;
     try {   /* the person's own row; the provider is not a member, so the username is shown */
       const r = await fetch(URL_ + '/rest/v1/maha_crm_members?select=name', {headers: {apikey: KEY, Authorization: 'Bearer ' + d.access_token}});

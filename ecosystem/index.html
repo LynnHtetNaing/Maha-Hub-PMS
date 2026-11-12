@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="ad515d0fa2">
+<meta name="maha-build" content="691be49fb1">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -157,6 +157,7 @@ table.grid tr.click{cursor:pointer}@media (hover:hover){table.grid tr.click:hove
 .toolbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#d7e7f3;border:1px solid #b9d0e1;border-radius:5px;padding:4px 6px;margin-bottom:8px}.toolbar.in{margin:0;background:none;border:0;padding:0}
 .tbtn{width:40px;height:38px;display:grid;place-items:center;background:#fff;border:1px solid #b9cfdf;border-radius:4px;cursor:pointer;color:#1f4f73}@media (hover:hover){.tbtn:hover{background:#fff7e3;border-color:var(--gold)}}.tbtn:disabled,.tbtn.blocked{opacity:.35;cursor:not-allowed}.tsep{width:1px;height:28px;background:#a9c1d3;margin:0 4px}.toolbar .btn.sm{height:38px;padding:0 18px;border-radius:5px;font-size:13px;display:inline-flex;align-items:center;gap:6px;letter-spacing:.2px}html:not(.compact) .toolbar .btn.sm{height:44px;padding:0 22px}.pgback{display:inline-flex;align-items:center;gap:8px;padding:0 18px;height:38px}
 .st{font-weight:700;font-size:11px;padding:3px 7px;border-radius:3px;white-space:nowrap;background:#e8eef2}.st-inhouse,.st-ih{background:#d8f3e4;color:#146c3a}.st-i{background:#d6eefc;color:#0b5f8a}.st-confirmed{background:#d7e7f8;color:#1a4f86}.st-tentative{background:#fff1c2;color:#7a5800}.st-out,.st-o{background:#fde0dc;color:#9a2c22}.st-cancelled,.st-noshow{background:#f6e4e4;color:#7a3030}
+#limBadge{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:9000;background:#6b4e00;color:#fff;border:1px solid #e8c766;border-radius:999px;padding:6px 14px;font-size:12.5px;box-shadow:0 2px 10px rgba(0,0,0,.3);pointer-events:none}
 .lockbar{background:#fff4d6;border:1px solid #efd18c;border-radius:4px;padding:7px 10px;margin-bottom:8px;font-size:12.5px}.lockbar.sm{margin:6px 0 0;padding:4px 8px}
 /* reservation screen */
 .rscreen{background:#f4f7f9;border:1px solid var(--line);border-radius:6px;padding:8px}.hrow{display:grid;grid-template-columns:repeat(11,1fr);gap:6px;margin-bottom:8px}.w2{grid-column:span 2}.w3{grid-column:span 3}.w4{grid-column:span 4}
@@ -3465,6 +3466,12 @@ const MahaAuth={
     try{localStorage.setItem('maha.deviceId',v)}catch(e){}
     return v;
   },
+  /* A limited admin (a device that passed the Authenticator in the last 14 days, signed in with the password only) can look but not change a hotel. */
+  isLimited(){try{const x=this.read();return !!(x&&x.lim)}catch(e){return false}},
+  /* The admin passed the Authenticator on this device: the server trusts this device for 14 days (then only the password is needed here). */
+  async trustDevice(tokens){
+    try{await fetch(this.base()+'/functions/v1/username-auth',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+tokens.access_token},body:JSON.stringify({action:'trust_device',device_id:this.deviceId()})})}catch(e){}
+  },
   codeMsg(e){return e==='code_rate_limited'?'A code was sent a moment ago. Wait one minute, then sign in again.':e==='code_expired'?'That code has expired. Sign in again to get a new code.':e==='code_locked'?'Too many wrong codes. Sign in again to get a new code.':'The sign-in code could not be sent. Try again in a moment.'},
   /* Returns {ok:true,tokens} or {ok:false,reason:'invalid'|'unavailable'|'config'|'code'|'cancelled',message}.
      On a new device, and again every 30 days, the server emails a 6-digit code before it hands out a session. */
@@ -3482,7 +3489,7 @@ const MahaAuth={
     if(res.status===429||(res.status===503&&d&&/^code_/.test(d.error||'')))return {ok:false,reason:'code',message:this.codeMsg(d&&d.error)};
     if(res.ok&&d&&d.needs_code&&d.challenge)return this.codeStep(username,password,d);
     if(!res.ok||!d||!d.access_token||!d.user||!d.user.id)return {ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'};
-    return {ok:true,tokens:this.keep(d)};
+    return {ok:true,tokens:this.keep(d),adminMode:d.admin_mode||''};
   },
   /* The password was right; now the person types the code from the email (5 tries, then they start again). */
   async codeStep(username,password,d){
@@ -3498,7 +3505,7 @@ const MahaAuth={
           body:JSON.stringify({action:'verify_code',username,challenge:d.challenge,code:a.code,remember:!!a.remember,device_id:this.deviceId()})});
       }catch(e){return {ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}
       let v=null;try{v=await res.json()}catch(e){v=null}
-      if(res.ok&&v&&v.access_token&&v.user&&v.user.id)return {ok:true,tokens:this.keep(v)};
+      if(res.ok&&v&&v.access_token&&v.user&&v.user.id)return {ok:true,tokens:this.keep(v),adminMode:v.admin_mode||''};
       if(res.status===401&&v&&v.error==='code_wrong'){again='That code is not correct. Use the newest code from the email.';continue}
       if(res.status===401||res.status===503)return {ok:false,reason:'code',message:this.codeMsg(v&&v.error)};
       return {ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'};
@@ -3556,23 +3563,32 @@ const MahaAuth={
     const r=await this.signIn(un,pw);if(!r.ok)return r;
     const reject=(reason,message)=>{MahaSync.stop();this.write(null);this.revoke(r.tokens);return {ok:false,reason,message}};
     this.write(r.tokens);
-    const adminP=this.rpc('maha_is_platform_admin',{}).then(v=>v===true,()=>false);   /* asked at the same time as the hotel list */
+    /* '' = not an admin, 'none' = password only (the Authenticator step is needed), 'limited' = a trusted device, 'full' = Authenticator passed. Before the database change it falls back to the old question. */
+    const adminP=this.rpc('maha_admin_mode',{}).then(v=>String(v||''),()=>this.rpc('maha_is_platform_admin',{}).then(v=>v===true?'none':'',()=>''));   /* asked at the same time as the hotel list */
     let props;
     try{props=await this.properties(r.tokens)}catch(e){await adminP;return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
-    const isAdmin=await adminP;
+    const adminMode=await adminP,isAdmin=adminMode!=='';
     if(isAdmin){
-      let t2=null;
-      try{t2=await this.providerMfa(r.tokens)}catch(e){return reject('unavailable','The two-step sign-in service did not answer. Try again in a moment.')}
-      if(!t2)return reject('cancelled','Two-step sign-in was not completed. Nothing was changed.');
-      r.tokens=t2;this.write(t2);
-      try{props=await this.properties(t2)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
+      /* The Provider console never changes: password, then the Authenticator, every time. Another system (PMS, Sales, ...) on a device the admin
+         trusted in the last 14 days takes the password only and opens as a LIMITED admin: it can look, but cannot change a hotel. */
+      const consoleLike=!(typeof onSplitHost==='function'&&onSplitHost())||(typeof hostRole==='function'&&hostRole()==='console');
+      const lim=adminMode==='limited'&&!consoleLike;
+      if(lim){r.tokens.lim=1;this.write(r.tokens)}
+      else{
+        let t2=null;
+        try{t2=await this.providerMfa(r.tokens)}catch(e){return reject('unavailable','The two-step sign-in service did not answer. Try again in a moment.')}
+        if(!t2)return reject('cancelled','Two-step sign-in was not completed. Nothing was changed.');
+        r.tokens=t2;this.write(t2);
+        await this.trustDevice(t2);
+      }
+      try{props=await this.properties(r.tokens)}catch(e){return reject('unavailable','Your hotel access could not be checked. Try again in a moment.')}
       const st=await ProvSync.openAll(props);
       if(st.unavailable)return reject('unavailable','Not every hotel cloud copy could be loaded, so sign-in was stopped. Nothing was changed. Try again in a moment.');
       /* The cloud is the only home of hotel data: a copy of a hotel that is not in the cloud (old demo data) is not kept in this browser. */
       const inCloud=new Set(props.map(p=>p.code)),stale=Object.keys(DB.hotels||{}).filter(c=>!inCloud.has(c));
       if(stale.length){await snapshotBeforeAdopt('the local copies of '+stale.join(', '));stale.forEach(c=>{delete DB.hotels[c]});try{saveDB({nocloud:true})}catch(e){}}
       MahaSync.stop();ProvSync.start();
-      return {ok:true,provider:true,userId:r.tokens.user.id};
+      return {ok:true,provider:true,userId:r.tokens.user.id,limited:lim};
     }
     try{const lh=localStorage.getItem('maha.lastHotel.'+un);if(lh)props.sort((a,b)=>(a.code===lh?0:1)-(b.code===lh?0:1))}catch(e){}
     if(!props.length)return reject('unlinked','Your account is not linked to a hotel yet. Please contact Maha Hub support.');
@@ -3686,7 +3702,7 @@ const MahaAuth={
         headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},body:JSON.stringify({refresh_token:t.refresh_token})});
       if(!res.ok){this.write(null);return null}
       const d=await res.json();if(!d.access_token){this.write(null);return null}
-      const n=this.keep(d);if(n.user.id!==t.user.id){this.write(null);return null}
+      const n=this.keep(d);if(t.lim)n.lim=1;if(n.user.id!==t.user.id){this.write(null);return null}
       this.write(n);return n;
     }catch(e){return t}  /* offline: keep the current token until it expires */
   },
@@ -4065,6 +4081,7 @@ function msNewSync(){return {
     return changes;
   },
   async push(){
+    if((MahaAuth.isLimited&&MahaAuth.isLimited()))return {pushed:0,conflicts:[]};   /* a limited admin only looks: nothing is sent to a hotel */
     const stamp=(typeof DB!=='undefined'&&DB)?DB.savedAt:undefined,now=Date.now();
     /* nothing was saved on this device since the last full check (which is repeated every minute as a safety): there is nothing to send */
     if(typeof stamp==='number'&&this.cleanAt===stamp&&now-this.fullAt<60000)return {pushed:0,conflicts:[]};
@@ -4118,6 +4135,7 @@ function msNewSync(){return {
   stop(){clearTimeout(this.timer);clearInterval(this.poll);this.timer=null;this.poll=null},
   /* ---- number blocks ---- */
   async ensureLeases(force){
+    if((MahaAuth.isLimited&&MahaAuth.isLimited()))return;
     const h=this.hotel();if(!h||!h.set)return;let changed=false;
     for(const c of MS_COUNTERS){
       if(c==='nextInv'&&h.set.gaplessInvoices)continue;   /* gapless hotels take invoice numbers from the server, one at a time */
@@ -4169,6 +4187,7 @@ function msNewSync(){return {
   },
   /* First cloud copy: upload everything on this device. Fails (returns false) if the cloud already has records. */
   async firstCopy(){
+    if((MahaAuth.isLimited&&MahaAuth.isLimited()))return false;
     const h=this.hotel();if(!h)return false;
     const r=await this.push();
     if(r.conflicts.length)return false;
@@ -4200,6 +4219,7 @@ const ProvSync={
       const s=this.make(p.code,p.id);let res;
       try{res=await s.open(p.code,p.id)}catch(e){unavailable=true;this.items.delete(p.code);continue}
       if(res==='resumed')continue;
+      if(res==='empty'&&(MahaAuth.isLimited&&MahaAuth.isLimited())){this.items.delete(p.code);continue}   /* a limited admin never makes a first cloud copy */
       if(res==='empty'){
         const lh=DB.hotels&&DB.hotels[p.code];
         if(lh&&await dlgConfirm('Hotel '+p.code+' has no cloud copy yet.\n\nUse the data stored on THIS device as its first cloud copy? A backup file downloads first.\n\nChoose Cancel to skip this hotel.')){
@@ -4336,7 +4356,7 @@ const PlatSet={
   changed(){try{if(typeof applyCatalog==='function')applyCatalog()}catch(e){}if(MahaSync.onRemote)MahaSync.onRemote(1)},
   /* Provider only: upload what changed on this device. */
   async push(){
-    if(!(DB&&DB.session&&DB.session.provider)||this.busy)return;
+    if(!(DB&&DB.session&&DB.session.provider)||this.busy||(MahaAuth.isLimited&&MahaAuth.isLimited()))return;
     this.busy=true;
     try{
       for(const k of Object.keys(this.KEYS)){
@@ -4477,7 +4497,7 @@ async function tenantCloudPush(){
   if(result&&result.cloud){tcvSet(code,result.cloud.version);return 'pushed'}
   return 'error';
 }
-function scheduleCloudPush(){if(MahaAuth.on()){if(DB&&DB.session&&DB.session.provider){ProvSync.schedule();PlatSet.schedule()}else if(MahaSync.code&&DB&&DB.session)MahaSync.schedule();return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
+function scheduleCloudPush(){if(MahaAuth.on()&&(MahaAuth.isLimited&&MahaAuth.isLimited())){limNote();return}if(MahaAuth.on()){if(DB&&DB.session&&DB.session.provider){ProvSync.schedule();PlatSet.schedule()}else if(MahaSync.code&&DB&&DB.session)MahaSync.schedule();return}const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass)return;clearTimeout(_cloudT);_cloudT=setTimeout(()=>{cloudPush().catch(e=>{const now=Date.now();if(now-_cloudErrAt<60000)return;_cloudErrAt=now;toast('Cloud save did not finish. This browser still has the hotel file.')})},800)}
 async function cloudPull(opt){
   if(MahaAuth.on())return 'off';   /* the old passphrase cloud never overwrites a device that signs in with a username */
   const c=cloudCfg();if(!c||!c.url||!c.anon||!c.pass||!DB)return 'off';
@@ -8596,6 +8616,14 @@ function showImportantAnnouncements(){try{const se=DB&&DB.session;if(!se||se.pro
   const list=annForMe().filter(a=>a.prio==='important'&&!annReadAt(a,u.id));if(!list.length)return;
   const m=modal('Important announcement',list.map(a=>'<div class="anncard imp"><div class="annh"><b>'+esc(a.title)+'</b>'+(a.prov?'<span class="pill b">Administrator</span>':'')+'</div><div class="sub">'+esc(a.by||'')+' · '+fdt(a.at)+'</div><div class="annt">'+esc(a.text)+'</div></div>').join('')+'<div class="btns end"><button class="btn gold" id="anRead">I have read this</button></div>',{w:600});
   $('#anRead',m).onclick=()=>{list.forEach(a=>annMarkRead(a,u.id));ULOG.add('Marked all announcements as read',null,'Other');saveDB();try{paintNotifBadge()}catch(e){}closeModal(m)}}catch(e){}}
+/* a limited admin: a small strip says so, and a change is never saved */
+let _limAt=0;
+function limNote(){const n=Date.now();if(n-_limAt<30000)return;_limAt=n;try{toast('Limited admin: view only. Nothing is saved. Sign in at the Provider console to change anything.')}catch(e){}}
+function limBadge(){
+  let b=document.getElementById('limBadge');
+  if(!MahaAuth.on()||!(MahaAuth.isLimited&&MahaAuth.isLimited())||!DB||!DB.session||!DB.session.provider){if(b)b.remove();return}
+  if(!b){b=document.createElement('div');b.id='limBadge';b.textContent='Limited admin - view only. Sign in at the Provider console to change anything.';document.body.appendChild(b)}
+}
 function renderShell(){
   if(SEL_ON)return;
   if(/solutions-pms/i.test(location.pathname)){document.title=tabTitleFor();try{setTabIcons('hub')}catch(e){}}
@@ -8603,6 +8631,7 @@ function renderShell(){
   applyDensity(densityMode());
   applySkin();
   document.getElementById('app').innerHTML=shellHTML();
+  try{limBadge()}catch(e){}
   if($('#tbProf'))$('#tbProf').onclick=e=>{e.stopPropagation();openAccountMenu($('#tbProf'))};
   if($('#tbProfM'))$('#tbProfM').onclick=e=>{e.stopPropagation();openAccountMenu($('#tbProfM'))};
   const tick=()=>{const c=$('#rtClock');if(c){const n=new Date();c.textContent=fd(iso(n));c.title='System date · '+VERSION}};tick();clearInterval(window._rtc);window._rtc=setInterval(tick,20000);
@@ -8980,7 +9009,7 @@ function doLogin(){
       if(btn)btn.disabled=false;
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
       err.textContent='';try{PlatSet.begin()}catch(e){}   /* the shared codes and logos load in the background; the screen updates when they arrive */
-      if(r.provider){if(onSplitHost()&&hostRole()!=='console'){if(MahaAuth.on())MahaAuth.signOut();err.textContent='The provider signs in at console.maha-hub.com, not on this address.';return}   /* the provider has its own address: no provider sign-in on the PMS or any other system address */
+      if(r.provider){   /* an admin may sign in on a system address too: password only on a device trusted for 14 days (limited, view only), else with the Authenticator */
         const want=lgTargetSys;enterProvider(un,r.userId);if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
@@ -13547,7 +13576,7 @@ VIEWS['prov.team']=async el=>{
      <td><label class="tmsw"><input type="checkbox" data-all="${esc(a.username)}" ${a.all_hotels?'checked':''} ${m||a.status==='off'?'disabled':''}><i></i></label></td>
      <td>${m?'<span class="tmmut">All</span>':`<button type="button" class="btn ghost" data-hot="${esc(a.username)}">${a.all_hotels?'All '+total+' hotels':n+' of '+total+' hotels'}</button>`}</td>
      <td>${a.last_sign_in?esc(alWhen(Date.parse(a.last_sign_in))):'<span class="tmmut">Not yet</span>'}</td>
-     <td>${m?'<span class="tmmut">Cannot be changed</span>':`<div class="tmact">${a.status==='off'?`<button type="button" class="btn ghost" data-on="${esc(a.username)}">Turn on</button>`:`<button type="button" class="btn ghost" data-off="${esc(a.username)}">Turn off</button>`}${a.status==='invited'?`<button type="button" class="btn ghost" data-re="${esc(a.username)}">Resend invite</button>`:''}${a.status==='invited'||a.status==='off'?`<button type="button" class="btn ghost tmdel" data-rm="${esc(a.username)}">Remove</button>`:''}</div>`}</td></tr>`}).join('');
+     <td>${m?'<span class="tmmut">Cannot be changed</span>':`<div class="tmact">${a.status==='off'?`<button type="button" class="btn ghost" data-on="${esc(a.username)}">Turn on</button>`:`<button type="button" class="btn ghost" data-off="${esc(a.username)}">Turn off</button>`}${a.status==='invited'?`<button type="button" class="btn ghost" data-re="${esc(a.username)}">Resend invite</button>`:''}${a.status==='invited'||a.status==='off'?`<button type="button" class="btn ghost tmdel" data-rm="${esc(a.username)}">Remove</button>`:''}<button type="button" class="btn ghost" data-ra="${esc(a.username)}">Reset Authenticator</button></div>`}</td></tr>`}).join('');
   el.innerHTML=pageHead('Admin team')+`<div class="panel tmpanel"><div class="tmph"><span>Admin team</span><button type="button" class="btn" id="tmInv">Invite admin</button></div>
    <div class="tmtw"><table class="tmt"><thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Status</th><th>All hotels</th><th>Hotels</th><th>Last sign-in</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   const again=()=>VIEWS['prov.team'](el),by=u=>(list||[]).find(a=>a.username===u);
@@ -13566,6 +13595,7 @@ VIEWS['prov.team']=async el=>{
   $$('[data-off]',el).forEach(b=>b.onclick=async()=>{const u=b.dataset.off;if(await dlgConfirm('Turn off '+u+'? They are signed out and cannot sign in until you turn them on.',{yes:'Turn off',danger:true}))run({action:'admin_set_active',username:u,active:false},'Turned off '+u,u+' is off.')});
   $$('[data-on]',el).forEach(b=>b.onclick=()=>run({action:'admin_set_active',username:b.dataset.on,active:true},'Turned on '+b.dataset.on,b.dataset.on+' is on.'));
   $$('[data-re]',el).forEach(b=>b.onclick=()=>run({action:'resend_admin_invite',username:b.dataset.re},'Resent the invite to '+b.dataset.re,'Invite sent again.'));
+  $$('[data-ra]',el).forEach(b=>b.onclick=async()=>{const u=b.dataset.ra;if(await dlgConfirm('Reset the Authenticator of '+u+'? Their trusted devices are forgotten. At the next sign-in they get a new QR code to scan.',{yes:'Reset'}))run({action:'admin_reset_mfa',username:u},'Reset the Authenticator of '+u,'Authenticator of '+u+' was reset.')});
   $$('[data-rm]',el).forEach(b=>b.onclick=async()=>{const u=b.dataset.rm;if(await dlgConfirm('Remove '+u+' for good? Their sign-in is erased.',{yes:'Remove',danger:true}))run({action:'remove_admin',username:u},'Removed '+u,u+' was removed.')});
   $('#tmInv',el).onclick=()=>{
     const m=modal('Invite admin',`<label class="f"><span>Username</span><input id="tmU" autocomplete="off" spellcheck="false" autofocus></label><label class="f"><span>Name</span><input id="tmN" autocomplete="off"></label><label class="f"><span>Email</span><input id="tmE" type="email" autocomplete="off"></label>
@@ -13838,7 +13868,7 @@ function renderProviderProfile(el){
     <div class="panel pad"><h3>Account</h3><div class="form2">${fld('Username',`<input value="${esc(p.username)}" disabled>`)}${fld('Role',`<input value="Platform administrator (provider)" disabled>`)}${fld('Email',`<input id="pfEmail" value="Loading..." disabled>`,'span2')}</div>
      <h3 class="mt">Sign-in security</h3><div class="form2">${fld('Sign-in method',`<input value="Username and password, then a 6-digit authenticator code" disabled>`,'span2')}${fld('Two-step verification',`<input id="pfMfa" value="Checking..." disabled>`)}${fld('Last sign-in',`<input id="pfLast" value="Checking..." disabled>`)}</div>
      <p class="sub">The authenticator is registered once and works on every device. To move it to a new phone, remove the old one in the Supabase dashboard (Authentication, Users), then sign in and scan the new QR code once.</p>
-     <div class="btns"><button class="btn ghost" id="pfReset">Email me a password reset link</button></div></div></div>
+     <div class="btns"><button class="btn ghost" id="pfReset">Email me a password reset link</button><button class="btn ghost" id="pfForget">Forget my trusted devices</button></div><p class="sub">A device that passed the Authenticator is trusted for 14 days: the other systems then take the password only (view only). Forget them to ask the Authenticator again on every device.</p></div></div>
    <div class="panel mt"><div class="ph">Recent sign-ins</div><div id="pfSignins">${signins.length?`<table class="grid"><tr><th>When (BKK)</th><th>Event</th></tr>${signins.map(s=>`<tr><td>${fdt(s.at)}</td><td>${esc(s.a)}</td></tr>`).join('')}</table>`:'<div class="sub pad">No sign-ins recorded on this device yet.</div>'}</div></div>
    <div class="panel mt"><div class="ph">Activity log</div><div id="pfAct"><table class="grid"><tr><th>When (BKK)</th><th>Hotel</th><th>Action</th></tr>${act.map(a=>`<tr><td>${fdt(a.at)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' - '+esc(a.reason):''}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No activity recorded on this device yet.</td></tr>'}</table></div>
     <p class="sub pad" id="pfLogNote">This log lists the provider actions made from this browser. It is kept on this device only.</p></div>`;
@@ -13869,6 +13899,8 @@ function renderProviderProfile(el){
       if(n)n.textContent='Kept permanently by the server: provider actions and every sign-in, from every device.';
     }catch(e){/* older server or offline: the local lists above stay */}
   })();
+  const fb=$('#pfForget',el);
+  if(fb)fb.onclick=async()=>{if(!await dlgConfirm('Forget all trusted devices? The Authenticator is asked again on every device, and every limited session ends.',{yes:'Forget'}))return;try{await ProvAdmin.call({action:'forget_my_devices'});try{ALOG.add('','Sign in / out','Forgot trusted devices');ALOG.send()}catch(e){}toast('Trusted devices forgotten.')}catch(e){toast(ProvAdmin.msg(e))}};
   const rb=$('#pfReset',el);
   rb.onclick=()=>{
     rb.disabled=true;

@@ -29,6 +29,14 @@ const json = (body: unknown, status = 200) =>
   });
 
 const TRUST_DAYS = 30;
+const ADMIN_TRUST_DAYS = 14;   // an admin's Authenticator is trusted on a device for 14 days (then password + emailed code + Authenticator again)
+const ADMIN_SESSION_HOURS = 12;
+const jwtPart = (token: string, key: string): string => {
+  try {
+    const p = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof p[key] === "string" ? p[key] : "";
+  } catch { return ""; }
+};
 const sha256Hex = async (text: string): Promise<string> => {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -76,6 +84,21 @@ const handle = async (req: Request): Promise<Response> => {
   };
   try { body = await req.json(); } catch { return json({ error: "invalid_request" }, 400); }
 
+  // An admin passed the Authenticator on this device: the device is trusted for 14 days. The caller proves it with its own aal2 session.
+  if (body.action === "trust_device") {
+    const token = (req.headers.get("Authorization") || "").replace(/^Bearers+/i, "");
+    const dev = typeof body.device_id === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(body.device_id) ? body.device_id : "";
+    if (!token || !dev || jwtPart(token, "aal") !== "aal2") return json({ error: "not_allowed" }, 403);
+    const adm = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: who, error: whoErr } = await adm.auth.getUser(token);
+    if (whoErr || !who?.user) return json({ error: "not_allowed" }, 403);
+    const { data: boss } = await adm.from("maha_platform_admins").select("active").eq("user_id", who.user.id).maybeSingle();
+    if (!boss || (boss as { active?: boolean }).active === false) return json({ error: "not_allowed" }, 403);
+    const { error: te } = await adm.rpc("maha_admin_trust_device", { p_user: who.user.id, p_device_hash: await sha256Hex(dev) });
+    if (te) return json({ error: "unavailable" }, 503);
+    return json({ ok: true, days: ADMIN_TRUST_DAYS });
+  }
+
   const action = body.action === "request_password_reset" ? "request_password_reset"
     : body.action === "verify_code" ? "verify_code" : "sign_in";
   const username = typeof body.username === "string" ? body.username.trim() : "";
@@ -122,16 +145,36 @@ const handle = async (req: Request): Promise<Response> => {
   const authClient = createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const sessionBody = (data: {
+  // Admin: 'limited' = this device is trusted for the Authenticator (the session may read, not change a hotel); 'needs_mfa' = the Authenticator step is required.
+  // Not an admin: no field. The database gate (maha_admin_sessions) is what really limits the session; this only tells the page which screen to show.
+  const sessionBody = async (data: {
     session: { access_token: string; refresh_token: string; expires_in: number; token_type: string };
     user: { id: string; email?: string } | null;
-  }) => json({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token,
-    expires_in: data.session.expires_in,
-    token_type: data.session.token_type,
-    user: { id: data.user?.id, email: data.user?.email },
-  });
+  }) => {
+    let adminMode = "";
+    try {
+      const { data: boss } = await admin.from("maha_platform_admins").select("active").eq("user_id", identity.user_id).maybeSingle();
+      if (boss && (boss as { active?: boolean }).active !== false) {
+        adminMode = "needs_mfa";
+        if (deviceId && jwtPart(data.session.access_token, "aal") !== "aal2") {
+          const { data: ok } = await admin.rpc("maha_admin_device_ok", { p_user: identity.user_id, p_device_hash: await sha256Hex(deviceId), p_days: ADMIN_TRUST_DAYS });
+          const sid = jwtPart(data.session.access_token, "session_id");
+          if (ok === true && sid) {
+            const { error: re } = await admin.rpc("maha_admin_register_session", { p_user: identity.user_id, p_session: sid, p_hours: ADMIN_SESSION_HOURS });
+            if (!re) adminMode = "limited";
+          }
+        }
+      }
+    } catch { /* an error keeps the safe value: the Authenticator step is needed */ }
+    return json({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_in: data.session.expires_in,
+      token_type: data.session.token_type,
+      user: { id: data.user?.id, email: data.user?.email },
+      ...(adminMode ? { admin_mode: adminMode } : {}),
+    });
+  };
   const deviceId = typeof body.device_id === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(body.device_id) ? body.device_id : "";
 
   // ---- step 2: the 6-digit code from the email ----
@@ -162,7 +205,7 @@ const handle = async (req: Request): Promise<Response> => {
     }
     await admin.rpc("maha_login_challenge_done", { p_id: challenge, p_remember: body.remember === true });
     logEvent("sign_in", identity.user_id, true, body.remember === true ? "code, device registered" : "code");
-    return sessionBody({ session: verified.session, user: verified.user });
+    return await sessionBody({ session: verified.session, user: verified.user });
   }
 
   // ---- step 1: the password ----
@@ -222,7 +265,7 @@ const handle = async (req: Request): Promise<Response> => {
     }
   }
   logEvent("sign_in", identity.user_id, true, null);
-  return sessionBody({ session: data.session, user: data.user });
+  return await sessionBody({ session: data.session, user: data.user });
 };
 
 Deno.serve(async (req) => withOrigin(req, await handle(req)));
