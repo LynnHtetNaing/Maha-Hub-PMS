@@ -107,7 +107,7 @@ async function sharedDoc(env, token) {
 function replyPage(env, mode, type) {
   const base = String(env.SUPABASE_URL || '').replace(/\/+$/, '');
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="' + REPLY_FONTS + '"><title>' + (type === 'demo' ? 'Book a Demo' : type === 'talk' ? 'Talk with the Team' : 'Maha Hub') + ' - Maha Hub</title><style>' + REPLY_CSS + '</style></head>'
-    + '<body><div id="root"></div><script>(' + clientScript.toString() + ')(' + JSON.stringify({ fn: base + '/functions/v1', mode, type }) + ');</scr' + 'ipt></body></html>';
+    + '<body><div id="root"></div><script>var __name=function(f){return f};(' + clientScript.toString() + ')(' + JSON.stringify({ fn: base + '/functions/v1', mode, type }) + ');</scr' + 'ipt></body></html>';
   return new Response(html, { headers: {
     'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-referrer',
     'content-security-policy': "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; img-src 'self'; connect-src " + (base || "'none'") + "; base-uri 'none'; form-action 'none'",
