@@ -48,6 +48,21 @@
     items.forEach(function (el) { io.observe(el); });
   } else items.forEach(function (el) { el.classList.add('in'); });
 
+  /* the two brand boxes: a tap (or Enter) makes one the big one; tap it again to let go */
+  $('.brands').forEach(function (g) {
+    var cards = $('.brand-card', g);
+    cards.forEach(function (c) {
+      c.setAttribute('tabindex', '0');
+      var pick = function (e) {
+        if (e.target.closest && e.target.closest('a,button')) return;
+        var was = c.classList.contains('sel');
+        cards.forEach(function (x) { x.classList.remove('sel'); }); g.classList.remove('has-sel');
+        if (!was) { c.classList.add('sel'); g.classList.add('has-sel'); }
+      };
+      c.addEventListener('click', pick); c.addEventListener('keydown', function (e) { if (e.key === 'Enter') pick(e); });
+    });
+  });
+
   /* header shadow once the page is scrolled */
   var head = $('.site-head');
   var onScroll = function () { if (head) head.classList.toggle('stuck', (window.scrollY || 0) > 8); };
@@ -83,7 +98,7 @@
 
   /* the laptop leans a little toward the pointer */
   $$('.dev').forEach(function (d) {
-    var lap = $('.laptop', d); if (!lap || calm) return;
+    var lap = $('.laptop', d); if (!lap || calm || d.classList.contains('still')) return;
     d.addEventListener('mousemove', function (e) {
       var r = d.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
       lap.style.setProperty('--ry', (x * 9).toFixed(2) + 'deg'); lap.style.setProperty('--rx', (-y * 6).toFixed(2) + 'deg');

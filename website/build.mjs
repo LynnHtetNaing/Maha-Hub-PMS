@@ -148,7 +148,7 @@ const footer = () => `</main>
 /* the real screens of our systems (demo data), taken with tools/site-shots.mjs */
 const SHOT = { 'pms-dashboard': 'Maha PMS: manager dashboard', 'pms-status': 'Maha PMS: room status', 'pms-grid': 'Maha PMS: room grid', 'pms-inhouse': 'Maha PMS: in-house guests', 'pms-housekeeping': 'Maha PMS: housekeeping', 'pms-roomstatus': 'Maha PMS: rooms', 'pms-arrivals': 'Maha PMS: arrivals' };
 /* a laptop whose screen changes by itself; names = files in /assets/site */
-const cyc = (names, cls = '') => `<div class="cyc ${cls}">${names.map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="1755" height="1170"${i ? ' loading="lazy"' : ' fetchpriority="high"'}>`).join('')}<span class="cap"></span></div>`;
+const cyc = (names, cls = '', cap = false) => `<div class="cyc ${cls}">${names.map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="1755" height="1170"${i ? ' loading="lazy"' : ' fetchpriority="high"'}>`).join('')}${cap ? '<span class="cap"></span>' : ''}</div>`;
 const laptop = names => `<div class="dev"><div class="laptop"><div class="dots"><i></i><i></i><i></i></div>${cyc(names)}</div></div>`;
 
 const ctaBand = (h = 'See Maha working for your hotel.', p = 'Book a demo, or talk with our team for ten minutes. Pick a time that suits you, in your own time zone.', extra = '', primary = null) => `<section class="cta"><div class="wrap"><div class="cta-in reveal">
@@ -194,12 +194,11 @@ add('index.html', 'home', {
       <div class="hero-cta"><button class="btn btn-green" type="button" data-book="demo">Book a Demo ${I.arr}</button><button class="btn btn-line-dark" type="button" data-book="talk">Talk with the Team</button></div>
       <div class="trust"><span>Made for hotel teams</span><span>One sign-in</span><span>Honest about what is ready</span></div>
     </div>
-    <div class="dev">
-      <div class="laptop"><div class="dots"><i></i><i></i><i></i></div>${cyc(['pms-dashboard', 'pms-status', 'pms-grid', 'pms-housekeeping'])}</div>
+    <div class="dev still">
+      <div class="laptop"><div class="dots"><i></i><i></i><i></i></div>${cyc(['pms-status'], 'still', false)}</div>
       <div class="float a"><i>&#10003;</i>One hotel record for every team</div><div class="float b"><i>&#9733;</i>Direct bookings, no retyping</div>
     </div>
   </div>
-  <div class="hero-strip"><div class="marq"><span>Hospitality</span><span>Technology</span><span>Education</span><span>Connected</span><span>Hospitality</span><span>Technology</span><span>Education</span><span>Connected</span><span>Hospitality</span><span>Technology</span><span>Education</span><span>Connected</span><span>Hospitality</span><span>Technology</span><span>Education</span><span>Connected</span></div></div>
 </section>
 
 <section class="section">
@@ -238,7 +237,7 @@ add('index.html', 'home', {
         <button class="tab" type="button" role="tab"><b>Room grid</b><span>Two weeks of bookings at a glance</span><i></i></button>
         <button class="tab" type="button" role="tab"><b>Housekeeping</b><span>Every room on its floor: clean, dirty, inspected</span><i></i></button>
       </div>
-      <div class="stage"><div class="cyc">${['pms-dashboard', 'pms-status', 'pms-grid', 'pms-housekeeping'].map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="1755" height="1170"${i ? ' loading="lazy"' : ''}>`).join('')}<span class="cap"></span></div></div>
+      <div class="stage"><div class="cyc">${['pms-dashboard', 'pms-status', 'pms-grid', 'pms-housekeeping'].map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="1755" height="1170"${i ? ' loading="lazy"' : ''}>`).join('')}</div></div>
     </div>
   </div>
 </section>
@@ -306,7 +305,6 @@ add('about.html', 'about', {
       <p class="lead">${COMPANY} is the parent of Maha Solutions and Maha Academy.</p>
       <p><b>Maha Solutions</b> is our technology brand. It offers connected software for hotels and accommodation businesses, starting with Maha PMS and growing into a family of products that share the same hotel data.</p>
       <p><b>Maha Academy</b> is our education brand. It is being built to offer practical hospitality education, from front-line skills to hotel management.</p>
-      <p>The pagoda in our mark stands for the heritage of the region we come from. The star above it stands for what we are building towards.</p>
     </div>
     <div class="grid" style="gap:18px">
       <div class="card reveal"><div class="ico">${I.hub}</div><h3>Maha Solutions</h3><p>Connected software for hotels. <a href="/maha-hub-solutions">Learn more</a></p></div>
