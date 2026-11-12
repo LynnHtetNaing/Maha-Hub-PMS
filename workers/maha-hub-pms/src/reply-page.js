@@ -51,6 +51,14 @@ export const REPLY_CSS = [
   '.done{text-align:center;padding:10px 0}.tick{width:76px;height:76px;border-radius:50%;background:var(--ok);color:#fff;font-size:42px;line-height:76px;margin:0 auto 14px}',
   '.sum{background:#fff;border:1px solid #ecd7a8;border-radius:14px;padding:16px 18px;margin:18px auto;max-width:540px;text-align:left}.sum b{display:block;font-size:18px}.sum div{margin-top:4px;color:var(--ink)}.sum .z{color:var(--ink2);font-size:14px}',
   '.btnrow{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:12px}.btnrow a{display:inline-block;border-radius:12px;padding:13px 22px;font-weight:700;text-decoration:none;background:var(--gold);color:var(--ink)}.btnrow a.meet{background:var(--forest);color:#fff}',
+  /* inside the website pop-up (an iframe): the same page, smaller, so the day and the time fit without much scrolling */
+  '.emb body::before,.emb body::after{opacity:.5}.emb .top{padding:12px 64px 0 18px;gap:12px}.emb .top img{width:38px}.emb .top b{font-size:17px}.emb .top span{margin-top:3px;font-size:14px}.emb .top .len{margin-left:auto;padding:4px 12px;font-size:13px}',
+  '.emb .wrap{padding:8px 16px 22px}.emb .card{padding:16px 18px;border-radius:20px;box-shadow:0 18px 30px -16px rgba(8,40,30,.35)}.emb h1{font-size:21px;margin-bottom:2px}.emb .sub{margin-bottom:8px;font-size:14px}',
+  '.emb .tz{margin:0 0 8px}.emb .tz label{font-size:13px}.emb .tz select{padding:6px 10px;font-size:13.5px;min-width:230px;border-radius:10px}.emb .seg{margin-bottom:8px;padding:3px}.emb .seg button{padding:6px 18px;font-size:14px}',
+  '.emb .nav{margin-bottom:6px}.emb .nav b{font-size:15px}.emb .arr{width:34px;height:34px;font-size:18px;border-radius:10px}.emb .dow,.emb .grid{gap:4px}.emb .dow span{padding:4px 0;font-size:11.5px}',
+  '.emb .day{min-height:42px;font-size:14px;border-radius:10px}.emb .day small{font-size:10.5px}.emb .week .day{min-height:56px}',
+  '.emb .tm{margin:12px 0 2px}.emb .tm h2,.emb h2{font-size:17px}.emb .meta{font-size:13px;margin:0 0 8px}.emb .slots{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}.emb .slot{min-height:38px;font-size:14px;border-radius:10px}',
+  '.emb .f{margin:0 0 10px}.emb .f input,.emb .f textarea{padding:9px 12px;font-size:15px}.emb .f textarea{min-height:64px}.emb .pickd{padding:10px 14px;margin:0 0 12px}.emb .go{padding:12px;font-size:16px}.emb .load{min-height:240px}',
   '@media(max-width:640px){.top .len{display:none}.two{grid-template-columns:1fr}.slots{grid-template-columns:1fr 1fr}.seg button{padding:10px 18px}.dow,.grid{gap:4px}.tz select{min-width:0;width:100%}.tz label{width:100%;flex-direction:column;align-items:stretch}}',
 ].join('');
 

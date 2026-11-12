@@ -44,7 +44,7 @@ import('../../workers/maha-hub-pms/src/index.js').then(async m => {
   T('the demo page loads with its script and a safe policy (only this site and the Supabase functions)', r.status === 200 && parses && h.includes('Book a Demo') && /connect-src https:\/\/x\.supabase\.co/.test(r.headers.get('content-security-policy')) && h.includes('"type":"demo"'));
   const o = await m.default.fetch(new Request('https://pms.maha-hub.com/book/demo'), env);
   /* the page script really runs: a bundler adds __name() around named functions, the page must define it; the first screen (the loading screen) is drawn */
-  const js = h.split('<script>')[1].split('</scr')[0];
+  const js = h.split('<script>').pop().split('</scr')[0];
   const root = { innerHTML: '' };
   let ran = '', fetched = [];
   try {
