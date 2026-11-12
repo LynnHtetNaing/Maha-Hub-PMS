@@ -64,6 +64,8 @@ T('the page: a saved draft keeps its template and boxes; Replies are listed unde
 
 T('the CEO sheet has the note that explains the [ ] words: date, time, large box, optional, {{hotel}}, {{buttons}}', crm.includes('id="et_note"') && crm.includes('<b>[... date ...]</b> a calendar') && crm.includes('<b>[... time ...]</b> a clock') && crm.includes('(optional)') && crm.includes('{{hotel}}</b> is the name of each hotel'));
 
+T('the Enewletter boxes use our calendar: a date box is the PMS day picker (dd/mm/yyyy and the month grid) and a time box is the hour and minute boxes of the Meeting form, not the browser ones', crm.includes('enhanceDates(box);') && crm.includes('data-tk=') && crm.includes('class="mt-hm"') && !crm.includes("fl.type === 'time' ? 'time'"));
+
 /* ---- the mail function ---- */
 T('mail function: {{hotel}} becomes each hotel\'s name; each choice gets its own signed link (60 days); a test mail gets links that record nothing', send.includes('swap(s, "{{hotel}}", esc(name))') && send.includes('"https://replace.me/" + k') && send.includes('60 * 86400000') && send.includes('action === "test" ? "test"') && send.includes('names[email]'));
 T('mail function: the extra styles are limited to safe ones', send.includes('"border", "border-left", "border-top", "margin", "margin-top", "margin-bottom", "width"') && !/"(position|float|background-image|url)"/.test(send));
