@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="8a2edde8bb">
+<meta name="maha-build" content="d9dfae459a">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -7922,6 +7922,8 @@ function subScreen(n,h){return new Promise(res=>{const c=subCardInfo(n,h);
   document.addEventListener('keydown',key,true);$('#spExpX').onclick=done;$('#spExpGo').onclick=()=>{try{window.open(BILLING_URL+'?hotel='+encodeURIComponent(c.code),'_blank','noopener')}catch(e){}};try{$('#spExpGo').focus()}catch(e){}})}
 let SUB_BLOCK=false;
 function subBlockScreen(h){SUB_BLOCK=true;return new Promise(()=>{const d=h&&h.set&&h.set.subUntil;
+  /* the page stays here until the hotel or the admin extends the subscription; then it opens by itself */
+  const code=h&&h.code,wait=setInterval(()=>{try{const hh=DB&&DB.hotels&&DB.hotels[code];if(hh&&!subStopped(hh)){clearInterval(wait);SUB_BLOCK=false;location.reload()}}catch(e){}},5000);
   selShell(`<div class="sp-exp late" role="alertdialog" aria-modal="true" aria-label="Subscription ended"><div class="sp-exph"><span>${ic('warn',20)} Subscription ended</span></div>
     <div class="sp-expb"><h2>${d?'Your hotel subscription expired on '+esc(fdOrd(d)):'Your hotel subscription has been stopped'}</h2><p>Access to Maha PMS has stopped. Please renew to continue.</p><div class="sp-expps"><span class="sp-expp">Property Code: <b>${esc(h&&h.code||'')}</b></span></div>
     <button type="button" class="sp-expgo" id="spExpGo">Renew Now &#8599;</button></div></div>`);
@@ -9023,6 +9025,7 @@ function doLogin(){
     if(!want){if(MahaAuth.on())MahaAuth.signOut();err.textContent='Enter your Property ID.';return}
     if(want!==String(hc).toUpperCase()){if(MahaAuth.on())MahaAuth.signOut();fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}err.textContent='Username, password or Property ID is not correct.';return}}
   const enterStaffSystem=(h)=>{
+    if(subStopped(h)){SUB_BLOCK=true;subBlockScreen(h);return}   /* an ended subscription: signed in, but only the Subscription ended page; no automatic sign-out */
     const who=u.username,shift=s.name;
     const list=hotelSystems(h,u);
     let sys=lgTargetSys||'hub';
