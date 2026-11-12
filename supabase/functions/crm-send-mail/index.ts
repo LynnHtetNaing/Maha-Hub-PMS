@@ -19,7 +19,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // --- clean:start (makes the Enewletter text safe: only what the CRM editor can make is kept)
 const TAGS = new Set(["p", "br", "b", "strong", "i", "em", "u", "h1", "h2", "h3", "ul", "ol", "li", "a", "img", "div", "span", "hr", "blockquote"]);
-const STYLE_OK = new Set(["color", "background-color", "text-align", "font-size", "font-weight", "font-style", "text-decoration", "display", "padding", "border-radius", "max-width", "line-height", "border", "border-left", "border-top", "margin", "margin-top", "margin-bottom", "width"]);
+const STYLE_OK = new Set(["color", "background-color", "text-align", "font-size", "font-weight", "font-style", "text-decoration", "display", "padding", "border-radius", "max-width", "line-height", "border", "border-left", "border-top", "border-bottom", "border-right", "margin", "margin-top", "margin-bottom", "margin-left", "margin-right", "padding-top", "padding-bottom", "padding-left", "padding-right", "width", "vertical-align", "letter-spacing", "text-transform"]);
 const cleanStyle = (s: any) => String(s || "").split(";").map((x: string) => {
   const i = x.indexOf(":"); if (i < 0) return "";
   const k = x.slice(0, i).trim().toLowerCase(), v = x.slice(i + 1).trim();

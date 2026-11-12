@@ -84,3 +84,9 @@ Deploy after a change of the function: `supabase functions deploy crm-reply --no
 - A demo or meeting booking sends the customer a confirmation email with a **Join with Google Meet** button. Make the link once: https://meet.google.com/landing > **New meeting** > **Create a meeting for later** > copy the link, then add the Supabase secret `MEET_LINK` with it. Every demo uses that room (demos are at least 90 minutes apart, so it is never used twice at once). Without `MEET_LINK` the function asks Google for a Meet link for each event; Google does not always allow this for a personal calendar, so the email may then have no Meet link.
 - The page shows the times in the customer's own time zone (the zone line can be switched). The CRM always keeps the Bangkok time; the customer's zone is written in the description of the meeting.
 - The page uses the background photo and the font (Inter, with Noto Sans for Thai and Myanmar) of the sign in page.
+
+## The template designer (Enewletter > Edit template / New template, CEO only)
+
+A full-page drag-and-drop designer (GrapesJS, open source, kept in `crm/vendor`, loaded only when it opens). Drag blocks (heading, text, picture, button, hero, offer box, two columns, line) into the mail, click any text to edit it, change colours, sizes and spacing on the right, and check the Laptop and Phone view. It only offers styles the mail keeps, so what you see is what the hotel gets. `[Type here]`, `{{hotel}}` and `{{buttons}}` are buttons on the left. A **Code** button shows and edits the raw design.
+- Pictures: add a picture block, then paste a picture address, or upload a file (png, jpeg, gif, webp, up to 3 MB). Uploaded pictures go to the public bucket `crm-images`: run `supabase/migrations/20261113_042_crm_images.sql` (staging first, then live).
+- Canva: design in Canva, download the picture (PNG or JPG), and upload it as a Picture block. The text of the mail stays real text.
