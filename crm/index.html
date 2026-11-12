@@ -4920,6 +4920,7 @@ const Auth = (() => {
     return el;
   }
   function showLogin(msg) {
+    shown = 'login';
     const el = frame(`<h1>Sign in</h1><form id="auF" autocomplete="on"><label class="f"><span>Username</span><input id="auU" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus></label>
       <label class="f"><span>Password</span><input id="auP" type="password" autocomplete="current-password"></label><div class="au-err" id="auE" role="alert">${h(msg || '')}</div>
       <button class="btn primary au-go" id="auG" type="submit">Sign in</button></form>`);
@@ -4964,9 +4965,10 @@ const Auth = (() => {
       err.textContent = r.message || ''; el.querySelector('#auP').value = '';
     };
   }
-  function hide() { shown = false;   /* only a layer over the page: nothing is reloaded or moved, so the page and what was typed stay exactly as they were */
+  function hide() { const was = shown; shown = false;   /* the 15 minute lock is only a layer over the page: nothing is reloaded or moved, so the page and what was typed stay as they were; a full sign in (1 hour without activity, or a new opening) is a first log in and lands on the Dashboard */
+    if (was === 'login') { try { if ((location.hash || '#dashboard') !== '#dashboard') location.hash = '#dashboard'; } catch {} }
     const el = root(); if (el) { el.hidden = true; el.innerHTML = ''; } document.body.classList.remove('au-on'); changed(); }
-  function present() { const s = status(); if (s === 'ok') { if (shown) hide(); return; } shown = true; s === 'locked' ? showLock() : showLogin(); }
+  function present() { const s = status(); if (s === 'ok') { if (shown) hide(); return; } shown = s === 'locked' ? 'lock' : 'login'; s === 'locked' ? showLock() : showLogin(); }
   /* resolves when somebody is signed in (at once on a test copy) */
   function require_() {
     if (!required || status() === 'ok') return Promise.resolve();   /* already signed in (a reload): go on at once */
@@ -4974,8 +4976,8 @@ const Auth = (() => {
   }
   if (required) {
     ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { if (status() === 'ok') touch(); }, {passive: true, capture: true}));
-    setInterval(() => { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } }, 15000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } } });
+    setInterval(() => { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } else if (shown === 'lock' && s === 'out') present(); }, 15000);   /* locked for more than an hour: the full sign in */
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } else if (shown === 'lock' && s === 'out') present(); } });
   }
   /* only the provider (the company approver) approves a discount: a sales team member does not */
   const isProvider = () => !required || (!!sess && sess.member === false);
