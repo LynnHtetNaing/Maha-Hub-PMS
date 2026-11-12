@@ -27,19 +27,17 @@
     '.mamqr{display:flex;justify-content:center;margin:10px 0}.mamqr img{width:196px;height:196px;background:#fff;border-radius:16px;padding:10px;box-shadow:0 1px 6px rgba(0,0,0,.12)}',
     '.mamkey{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #c5d0d8;border-radius:12px;padding:8px 10px;margin:8px 0 12px}.mamkey code{flex:1;font:600 12.5px/1.4 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;color:#1f2d36}',
     '.mamkey button{border:1px solid #c5d0d8;background:#fff;border-radius:9px;padding:6px 12px;font:600 13px Inter,"Noto Sans",system-ui,sans-serif;color:#184D3A;cursor:pointer}',
-    '.mamd{display:flex;gap:8px;justify-content:center;margin:12px 0 6px}.mamd input{width:48px;height:58px;border:1.5px solid #c5d0d8;border-radius:12px;background:#fff;text-align:center;font:700 24px Inter,"Noto Sans",system-ui,sans-serif;color:#1f2d36;padding:0}',
-    '.mamd input:focus{outline:2px solid #D49A38;border-color:#D49A38}.mamd input.bad{border-color:#B4432F}',
     '.mame{min-height:20px;margin:4px 0 8px;font-size:13.5px;color:#B4432F;text-align:center}',
     '.mamf{display:flex;flex-direction:column;gap:8px}.mamg{border:0;border-radius:14px;background:#0A3020;color:#fff;font:700 16px Inter,"Noto Sans",system-ui,sans-serif;padding:14px;cursor:pointer}.mamg:hover{background:#184D3A}.mamg[disabled]{background:#dfe5e8;color:#9aa6ae;cursor:default}',
     '.mamx{border:0;background:transparent;color:#556470;font:600 14px Inter,"Noto Sans",system-ui,sans-serif;padding:8px;cursor:pointer}.mamx:hover{color:#1f2d36}',
-    '@media(max-width:420px){.mamb{padding:20px 16px 16px;border-radius:20px}.mamd{gap:6px}.mamd input{width:42px;height:52px;font-size:22px}}',
+    '@media(max-width:420px){.mamb{padding:20px 16px 16px;border-radius:20px}}',
   ].join('');
-  var ask = function (kind, info, again) {
+  /* the pop-up: it checks the code itself (verify(code) answers { ok, value } or { ok:false, msg }), so a right code can play the fireworks and a wrong one shakes the boxes */
+  var ask = function (kind, info, verify) {
     return new Promise(function (resolve) {
       var enrol = kind === 'enrol';
       if (!document.getElementById(STYLE_ID)) { var st = document.createElement('style'); st.id = STYLE_ID; st.textContent = css; document.head.appendChild(st); }
       var w = document.createElement('div'); w.className = 'mam'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
-      var digits = ''; for (var i = 0; i < 6; i++) digits += '<input inputmode="numeric" autocomplete="' + (i === 0 ? 'one-time-code' : 'off') + '" maxlength="1" aria-label="Digit ' + (i + 1) + '">';
       w.innerHTML = '<div class="mamb"><div class="mamh"><img src="/brand/maha/gate-gold.png" alt=""><b>MAHA HUB</b></div>'
         + '<h2>' + (enrol ? 'Set up two-step sign-in' : 'Two-step sign-in') + '</h2>'
         + (enrol
@@ -47,24 +45,29 @@
             + '<div class="mamqr"><img alt="QR code" src="' + esc(info.qr) + '"></div>'
             + '<div class="mamkey"><code id="mamKey">' + esc(info.secret) + '</code><button type="button" id="mamCp">Copy</button></div><p style="margin-top:-4px;font-size:12.5px">Cannot scan? Type this key into the app instead.</p>'
           : '<p>Type the 6-digit code from your authenticator app. This browser is then trusted for 14 days.</p>')
-        + '<div class="mamd" id="mamD">' + digits + '</div><div class="mame" id="mamE" role="alert">' + (again ? 'That code was not accepted. Use the newest code from the app.' : '') + '</div>'
+        + '<input id="mamC" value="">'
         + '<div class="mamf"><button type="button" class="mamg" id="mamG" disabled>' + (enrol ? 'Turn on and continue' : 'Continue') + '</button><button type="button" class="mamx" id="mamX">Cancel</button></div></div>';
       document.body.appendChild(w);
-      var done = false, boxes = w.querySelectorAll('#mamD input'), go = w.querySelector('#mamG');
+      var done = false, input = w.querySelector('#mamC'), go = w.querySelector('#mamG'), otp = null, working = false;
       var finish = function (v) { if (done) return; done = true; document.removeEventListener('keydown', onKey, true); try { w.remove(); } catch (e) { } resolve(v); };
-      var read = function () { var s = ''; for (var k = 0; k < boxes.length; k++) s += boxes[k].value; return s; };
-      var check = function () { go.disabled = !/^\d{6}$/.test(read()); };
-      var submit = function () { var v = read(); if (!/^\d{6}$/.test(v)) { w.querySelector('#mamE').textContent = 'Enter the 6 digits.'; return; } finish(v); };
+      var submit = function (code) {
+        code = String(code || input.value || '');
+        if (working || !/^\d{6}$/.test(code)) return;
+        working = true; go.disabled = true; otp && otp.busy(true);
+        Promise.resolve(verify(code)).then(function (r) {
+          working = false; otp && otp.busy(false);
+          if (r && r.ok) { (otp ? otp.win() : Promise.resolve()).then(function () { finish(r.value); }); }
+          else { go.disabled = true; if (otp) otp.error((r && r.msg) || 'That code was not accepted. Use the newest code from the app.'); }
+        });
+      };
       var onKey = function (e) { if (e.key === 'Escape') { e.preventDefault(); finish(null); } };
       document.addEventListener('keydown', onKey, true);
-      boxes.forEach(function (b, idx) {
-        b.addEventListener('input', function () { b.value = b.value.replace(/\D/g, '').slice(-1); if (b.value && idx < 5) boxes[idx + 1].focus(); check(); if (read().length === 6 && !go.disabled) submit(); });
-        b.addEventListener('keydown', function (e) { if (e.key === 'Backspace' && !b.value && idx > 0) { boxes[idx - 1].focus(); boxes[idx - 1].value = ''; check(); } else if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'ArrowLeft' && idx > 0) boxes[idx - 1].focus(); else if (e.key === 'ArrowRight' && idx < 5) boxes[idx + 1].focus(); });
-        b.addEventListener('paste', function (e) { var t = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6); if (!t) return; e.preventDefault(); for (var k = 0; k < 6; k++) boxes[k].value = t[k] || ''; boxes[Math.min(t.length, 5)].focus(); check(); if (t.length === 6) submit(); });
-      });
-      go.onclick = submit; w.querySelector('#mamX').onclick = function () { finish(null); };
+      input.addEventListener('input', function () { go.disabled = !/^\d{6}$/.test(input.value); });
+      if (window.MahaOtp) otp = window.MahaOtp.attach(input, { onComplete: submit });
+      go.onclick = function () { submit(input.value); };
+      w.querySelector('#mamX').onclick = function () { finish(null); };
       var cp = w.querySelector('#mamCp'); if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(info.secret); cp.textContent = 'Copied'; } catch (e) { } };
-      setTimeout(function () { try { boxes[0].focus(); } catch (e) { } }, 30);
+      if (!otp) { input.type = 'text'; input.maxLength = 6; input.inputMode = 'numeric'; input.placeholder = '6-digit code'; input.style.cssText = 'width:100%;font-size:22px;text-align:center;padding:12px;border-radius:12px;border:1px solid #c5d0d8;margin:12px 0'; setTimeout(function () { input.focus(); }, 30); }
     });
   };
   var keep = function (d) { return { access_token: d.access_token, refresh_token: d.refresh_token, expires_in: d.expires_in }; };
@@ -82,20 +85,23 @@
             .then(function (p) { pending = p; factorId = p.id; });
         }
         return chain.then(function () {
-          var attempt = function (n) {
-            if (n >= 5) return null;
-            return ask(pending ? 'enrol' : 'verify', pending && pending.totp ? { qr: pending.totp.qr_code, secret: pending.totp.secret } : null, n > 0).then(function (code) {
-              if (!code) { if (pending) api(cfg, 'DELETE', '/factors/' + factorId, null, tok).catch(function () { }); return null; }
-              return api(cfg, 'POST', '/factors/' + factorId + '/challenge', null, tok)
-                .then(function (ch) { return api(cfg, 'POST', '/factors/' + factorId + '/verify', { challenge_id: ch.id, code: code }, tok); })
-                .then(function (ver) {
-                  var t = keep(ver);
-                  return fetch(cfg.url + '/functions/v1/username-auth', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.key, Authorization: 'Bearer ' + t.access_token }, body: JSON.stringify({ action: 'trust_device', device_id: o.deviceId }) })
-                    .catch(function () { }).then(function () { return t; });
-                }, function (e) { if (e && (e.status === 400 || e.status === 422)) return attempt(n + 1); throw e; });
-            });
+          /* the code is checked inside the pop-up; a right code also makes this browser trusted for 14 days */
+          var verify = function (code) {
+            return api(cfg, 'POST', '/factors/' + factorId + '/challenge', null, tok)
+              .then(function (ch) { return api(cfg, 'POST', '/factors/' + factorId + '/verify', { challenge_id: ch.id, code: code }, tok); })
+              .then(function (ver) {
+                var t = keep(ver);
+                return fetch(cfg.url + '/functions/v1/username-auth', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.key, Authorization: 'Bearer ' + t.access_token }, body: JSON.stringify({ action: 'trust_device', device_id: o.deviceId }) })
+                  .catch(function () { }).then(function () { return { ok: true, value: t }; });
+              }, function (e) {
+                if (e && (e.status === 400 || e.status === 422)) return { ok: false, msg: 'That code was not accepted. Use the newest code from the app.' };
+                return { ok: false, msg: 'The two-step sign-in service did not answer. Try again in a moment.' };
+              });
           };
-          return attempt(0);
+          return ask(pending ? 'enrol' : 'verify', pending && pending.totp ? { qr: pending.totp.qr_code, secret: pending.totp.secret } : null, verify).then(function (t) {
+            if (!t) { if (pending) api(cfg, 'DELETE', '/factors/' + factorId, null, tok).catch(function () { }); return null; }
+            return t;
+          });
         });
       });
     }

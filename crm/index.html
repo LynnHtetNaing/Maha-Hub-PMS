@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Maha CRM">
 <script src="/brand/maha/maha-loader.js"></script>
+<script src="/brand/maha/maha-otp.js"></script>
 <script src="/brand/maha/maha-admin-mfa.js"></script>
 <title>Maha CRM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5236,12 +5237,13 @@ const Auth = (() => {
     return {error: 'code', message: codeMsg(d && d.error)};
   }
   async function finish(d, username) {
+    let celebrated = false;
     /* an admin on a new device (or after 14 days) passes the Authenticator first; a trusted device goes in with the password only (limited: the database decides what it may do) */
     if (d && d.admin_mode === 'needs_mfa' && window.MahaAdminMfa) {
       let t = null;
       try { t = await window.MahaAdminMfa.step({url: URL_, key: KEY, deviceId: deviceId(), access_token: d.access_token}); } catch { return {error: 'unavailable', message: 'The two-step sign-in service did not answer. Try again in a moment.'}; }
       if (!t) return {error: 'mfa', message: 'Two-step sign-in was not completed.'};
-      d = Object.assign({}, d, t);
+      d = Object.assign({}, d, t); celebrated = true;
     }
     let name = username, member = null;
     try {   /* the person's own row; the provider is not a member, so the username is shown */
@@ -5249,7 +5251,7 @@ const Auth = (() => {
       if (r.ok) { const rows = await r.json(); member = !!(rows && rows[0]); if (rows && rows[0] && rows[0].name) name = rows[0].name; }
     } catch {}
     sess = keep(d, username, name); sess.member = member; save(); changed(); try { sessionStorage.removeItem('maha.crm.reminderOff'); } catch {}
-    return {ok: true};
+    return {ok: true, celebrated};
   }
   async function token() {
     if (!required) return null;
@@ -5300,15 +5302,16 @@ const Auth = (() => {
       <form id="auF"><label class="f"><span>Code</span><input id="auC" inputmode="numeric" autocomplete="one-time-code" maxlength="6" autofocus></label>
       <label class="au-chk"><input type="checkbox" id="auR" checked> Remember this device for 30 days</label><div class="au-err" id="auE" role="alert">${h(msg || '')}</div>
       <button class="btn primary au-go" id="auG" type="submit">Continue</button><button class="btn au-link" id="auN" type="button">Send a new code</button><button class="btn au-link" id="auX" type="button">Cancel</button></form>`);
+    const otp = window.MahaOtp ? window.MahaOtp.attach(el.querySelector('#auC'), {onComplete: () => el.querySelector('#auG').click()}) : null;   /* six boxes: a right code plays the fireworks, a wrong one shakes the boxes */
     el.querySelector('#auX').onclick = () => showLogin();
     el.querySelector('#auN').onclick = async () => { el.querySelector('#auE').textContent = 'Sending…'; const r = await signIn(u, p); if (r.needCode) showCode(u, p, r.needCode, 'A new code was sent.'); else if (r.ok) hide(); else el.querySelector('#auE').textContent = r.message || ''; };
     el.querySelector('#auF').onsubmit = async e => {
       e.preventDefault(); const code = el.querySelector('#auC').value.trim(), err = el.querySelector('#auE'), go = el.querySelector('#auG');
       if (!/^\d{6}$/.test(code)) { err.textContent = 'Type the 6 digits.'; return; }
-      go.disabled = true; err.textContent = 'Checking…';
-      const r = await verify(u, info.challenge, code, el.querySelector('#auR').checked); go.disabled = false;
-      if (r.ok) { hide(); return; }
-      if (r.error === 'wrong') { err.textContent = r.message; el.querySelector('#auC').value = ''; el.querySelector('#auC').focus(); return; }
+      go.disabled = true; err.textContent = 'Checking…'; otp && otp.busy(true);
+      const r = await verify(u, info.challenge, code, el.querySelector('#auR').checked); go.disabled = false; otp && otp.busy(false); err.textContent = '';
+      if (r.ok) { if (otp && !r.celebrated) await otp.win(); hide(); return; }
+      if (r.error === 'wrong') { if (otp) otp.error(r.message); else { err.textContent = r.message; el.querySelector('#auC').value = ''; el.querySelector('#auC').focus(); } return; }
       showLogin(r.message);
     };
   }

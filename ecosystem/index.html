@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="98f9e28f52">
+<meta name="maha-build" content="f13fbda164">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -29,6 +29,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"maha-hub / solutions - PMS","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"Hospitality technology ecosystem for hotels — PMS, Connect, Booking and Reach.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"brand":{"@type":"Brand","name":"Maha Hub"},"provider":{"@type":"Organization","name":"Maha Hub Group of Companies Limited"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
 <script src="/brand/maha/maha-loader.js"></script>
+<script src="/brand/maha/maha-otp.js"></script>
 <script src="/brand/maha/maha-admin-mfa.js"></script>
 <style>html{-webkit-tap-highlight-color:transparent}
 :root{
@@ -3499,26 +3500,37 @@ const MahaAuth={
   /* The password was right; now the person types the code from the email (5 tries, then they start again). */
   async codeStep(username,password,d){
     let again='';
-    for(let i=0;i<5;i++){
-      const a=await this.askEmailCode({sentTo:d.sent_to},again);
-      if(!a)return {ok:false,reason:'cancelled',message:'Sign-in was cancelled.'};
-      if(a.resend)return this.signIn(username,password);
+    /* one check of the typed code with the server: {kind:'ok',val} / {kind:'wrong'} / {kind:'fail',val} */
+    const tryCode=async a=>{
       let res;
       try{
         res=await fetch(this.base()+'/functions/v1/username-auth',{method:'POST',
           headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},
           body:JSON.stringify({action:'verify_code',username,challenge:d.challenge,code:a.code,remember:!!a.remember,device_id:this.deviceId()})});
-      }catch(e){return {ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}
+      }catch(e){return {kind:'fail',val:{ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}}
       let v=null;try{v=await res.json()}catch(e){v=null}
-      if(res.ok&&v&&v.access_token&&v.user&&v.user.id)return {ok:true,tokens:this.keep(v),adminMode:v.admin_mode||''};
-      if(res.status===401&&v&&v.error==='code_wrong'){again='That code is not correct. Use the newest code from the email.';continue}
-      if(res.status===401||res.status===503)return {ok:false,reason:'code',message:this.codeMsg(v&&v.error)};
-      return {ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'};
+      if(res.ok&&v&&v.access_token&&v.user&&v.user.id)return {kind:'ok',val:{ok:true,tokens:this.keep(v),adminMode:v.admin_mode||''}};
+      if(res.status===401&&v&&v.error==='code_wrong')return {kind:'wrong'};
+      if(res.status===401||res.status===503)return {kind:'fail',val:{ok:false,reason:'code',message:this.codeMsg(v&&v.error)}};
+      return {kind:'fail',val:{ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'}};
+    };
+    for(let i=0;i<5;i++){
+      let pre=null;
+      const a=await this.askEmailCode({sentTo:d.sent_to},again,async x=>{
+        pre={x,r:await tryCode(x)};
+        if(pre.r.kind==='wrong')return {ok:false,msg:'That code is not correct. Use the newest code from the email.'};
+        return {ok:true,value:x,quiet:pre.r.kind!=='ok'};   /* a failure other than a wrong code closes the box quietly (no fireworks) */
+      });
+      if(!a)return {ok:false,reason:'cancelled',message:'Sign-in was cancelled.'};
+      if(a.resend)return this.signIn(username,password);
+      const r=(pre&&pre.x===a)?pre.r:await tryCode(a);
+      if(r.kind==='ok'||r.kind==='fail')return r.val;
+      again='That code is not correct. Use the newest code from the email.';
     }
     return {ok:false,reason:'code',message:this.codeMsg('code_locked')};
   },
   /* Asks for the emailed 6-digit code. Resolves {code,remember}, {resend:true}, or null when the box is closed. Replaced in tests. */
-  askEmailCode(info,again){
+  askEmailCode(info,again,check){
     return new Promise(resolve=>{
       /* the same pop-up as the CRM device check: the system name, Check your email, the code, Remember this device, Continue / Send a new code / Cancel */
       const prov=typeof stackKind==='function'&&stackKind()==='provider';
@@ -3530,7 +3542,15 @@ const MahaAuth={
         +`<div class="emc-btns"><button class="btn gold" id="emGo">Continue</button><button type="button" class="linkbtn" id="emAgain">Send a new code</button><button type="button" class="linkbtn" id="emNo">Cancel</button></div></div>`;
       const m=modal('Check your email',body,{w:420});
       let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
-      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Type the 6 digits.';return}finish({code:v,remember:!!$('#emRem',m).checked})};
+      const emOtp=window.MahaOtp?window.MahaOtp.attach($('#emCode',m),{onComplete:()=>$('#emGo',m).click()}):null;
+      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Type the 6 digits.';return}
+        const val={code:v,remember:!!$('#emRem',m).checked};
+        if(!check){finish(val);return}
+        const go=$('#emGo',m);go.disabled=true;emOtp&&emOtp.busy(true);
+        Promise.resolve(check(val)).catch(()=>({ok:false,msg:'The sign-in service did not answer. Try again.'})).then(r=>{go.disabled=false;emOtp&&emOtp.busy(false);
+          if(r&&r.ok&&r.quiet){finish(r.value);return}
+          if(r&&r.ok){(emOtp?emOtp.win():Promise.resolve()).then(()=>finish(r.value));return}
+          if(emOtp)emOtp.error((r&&r.msg)||'That code is not correct.');else $('#emErr',m).textContent=(r&&r.msg)||'That code is not correct.'})};
       $('#emCode',m).onkeydown=e=>{if(e.key==='Enter')$('#emGo',m).onclick()};
       $('#emNo',m).onclick=()=>finish(null);
       $('#emAgain',m).onclick=()=>finish({resend:true});
@@ -3652,14 +3672,20 @@ const MahaAuth={
     return d;
   },
   /* Asks for the 6-digit code. Returns the code, or null if the person closes the box. Replaced in tests. */
-  askCode(kind,info,again){
+  askCode(kind,info,again,check){
     return new Promise(resolve=>{
       const enrol=kind==='enrol';
       const body=(enrol?`<p class="sub">Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator or Authy). If you cannot scan it, type the key below into the app instead.</p><div style="text-align:center;margin:10px 0"><img alt="QR code" src="${info.qr}" style="width:200px;height:200px;background:#fff"></div><p class="sub" style="word-break:break-all"><b>Key:</b> ${esc(info.secret)}</p><p class="sub">Then type the 6-digit code the app shows.</p>`:`<p class="sub">Type the 6-digit code from your authenticator app.</p>`)
         +`<div class="form2">${fld('6-digit code',`<input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" autofocus>`)}</div><div class="err" id="mfaErr">${again?'That code was not accepted. Use the newest code from the app.':''}</div><div class="btns"><button class="btn gold" id="mfaGo">${enrol?'Turn on and continue':'Continue'}</button></div>`;
       const m=modal(enrol?'Set up two-step sign-in':'Two-step sign-in',body,{w:480});
       let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
-      $('#mfaGo',m).onclick=()=>{const v=($('#mfaCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#mfaErr',m).textContent='Enter the 6 digits.';return}finish(v)};
+      const mfaOtp=window.MahaOtp?window.MahaOtp.attach($('#mfaCode',m),{onComplete:()=>$('#mfaGo',m).click()}):null;
+      $('#mfaGo',m).onclick=()=>{const v=($('#mfaCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#mfaErr',m).textContent='Enter the 6 digits.';return}
+        if(!check){finish(v);return}
+        const go=$('#mfaGo',m);go.disabled=true;mfaOtp&&mfaOtp.busy(true);
+        Promise.resolve(check(v)).catch(()=>({ok:false,msg:'The two-step sign-in service did not answer. Try again.'})).then(r=>{go.disabled=false;mfaOtp&&mfaOtp.busy(false);
+          if(r&&r.ok){(mfaOtp?mfaOtp.win():Promise.resolve()).then(()=>finish(r.value!==undefined?r.value:v));return}
+          if(mfaOtp)mfaOtp.error((r&&r.msg)||'That code was not accepted. Use the newest code from the app.');else $('#mfaErr',m).textContent=(r&&r.msg)||'That code was not accepted.'})};
       $('#mfaCode',m).onkeydown=e=>{if(e.key==='Enter')$('#mfaGo',m).onclick()};
       m._wrap._onclose=()=>finish(null);
     });
@@ -3682,8 +3708,16 @@ const MahaAuth={
       factorId=pending.id;
     }
     for(let attempt=0;attempt<5;attempt++){
-      const code=await this.askCode(pending?'enrol':'verify',pending&&pending.totp?{qr:pending.totp.qr_code,secret:pending.totp.secret}:null,attempt>0);
+      let got=null;
+      const code=await this.askCode(pending?'enrol':'verify',pending&&pending.totp?{qr:pending.totp.qr_code,secret:pending.totp.secret}:null,attempt>0,async c=>{
+        try{
+          const ch=await this.authApi('POST','/factors/'+factorId+'/challenge',null,tokens);
+          const ver=await this.authApi('POST','/factors/'+factorId+'/verify',{challenge_id:ch.id,code:c},tokens);
+          got=this.keep(ver);return {ok:true,value:got};
+        }catch(e){if(e&&(e.status===400||e.status===422))return {ok:false,msg:'That code was not accepted. Use the newest code from the app.'};throw e}
+      });
       if(!code){if(pending){try{await this.authApi('DELETE','/factors/'+factorId,null,tokens)}catch(e){}}return null}
+      if(got)return got;   /* the code was checked inside the box */
       try{
         const ch=await this.authApi('POST','/factors/'+factorId+'/challenge',null,tokens);
         const ver=await this.authApi('POST','/factors/'+factorId+'/verify',{challenge_id:ch.id,code},tokens);

@@ -7,6 +7,7 @@
 <title>Maha Hub Billing</title>
 <link rel="icon" href="/favicon.ico">
 <script src="/brand/maha/maha-loader.js"></script>
+<script src="/brand/maha/maha-otp.js"></script>
 <script src="/brand/maha/maha-admin-mfa.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -116,12 +117,15 @@ async function adm(d){if(d&&d.admin_mode==='needs_mfa'&&window.MahaAdminMfa){con
 function code(u,d,again){
   $('#root').innerHTML=`<div id="auth"><div class="au-box"><div class="au-brand"><img src="/brand/maha/gate-gold.png" alt=""><b>BILLING</b></div><div class="au-full">Maha Hub Billing</div><h1>Check your email</h1><p class="au-sub">We sent a 6-digit code to <b>${esc(d.sent_to||'your email')}</b>. It is valid for 10 minutes. Look in the junk folder if it does not arrive.</p>
   <label class="f"><span>Code</span><input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label><div class="au-err" id="e" role="alert">${esc(again||'')}</div><button class="au-go" id="go" type="button">Continue</button></div></div>`;
+  let otp=null;
   const go=async()=>{const c=$('#c').value.replace(/\s+/g,'');if(!/^\d{6}$/.test(c)){$('#e').textContent='Enter the 6 digits from the email.';return}
+    if(otp)otp.busy(true);
     const r=await api('/functions/v1/username-auth',{method:'POST',body:JSON.stringify({action:'verify_code',username:u,challenge:d.challenge,code:c,remember:true,device_id:dev()})});
-    if(r.ok&&r.d&&r.d.access_token){const d=await adm(r.d).catch(()=>null);if(!d)return signin('Two-step sign-in was not completed. Sign in again.');return done(keep(d))}
-    if(r.status===401&&r.d&&r.d.error==='code_wrong')return code(u,d,'That code is not correct. Use the newest code from the email.');
+    if(otp)otp.busy(false);
+    if(r.ok&&r.d&&r.d.access_token){const played=r.d.admin_mode==='needs_mfa';const d=await adm(r.d).catch(()=>null);if(!d)return signin('Two-step sign-in was not completed. Sign in again.');if(otp&&!played)await otp.win();return done(keep(d))}
+    if(r.status===401&&r.d&&r.d.error==='code_wrong'){if(otp)return otp.error('That code is not correct. Use the newest code from the email.');return code(u,d,'That code is not correct. Use the newest code from the email.')}
     signin('The code could not be checked. Sign in again.')};
-  $('#go').onclick=go;$('#c').onkeydown=e=>{if(e.key==='Enter')go()};$('#c').focus()}
+  $('#go').onclick=go;$('#c').onkeydown=e=>{if(e.key==='Enter')go()};if(window.MahaOtp)otp=window.MahaOtp.attach($('#c'),{onComplete:go});else $('#c').focus()}
 async function done(t){wr(t);ST.t=t;await load()}
 async function load(){
   if(window.MahaLoader)MahaLoader.show({name:'Maha Billing',dark:document.documentElement.dataset.mode==='dark'});else $('#root').innerHTML='<div class="signin"><div class="card">Loading...</div></div>';
