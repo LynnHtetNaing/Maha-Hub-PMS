@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="82d7a8b01f">
+<meta name="maha-build" content="98f9e28f52">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -29,6 +29,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"maha-hub / solutions - PMS","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"Hospitality technology ecosystem for hotels — PMS, Connect, Booking and Reach.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"brand":{"@type":"Brand","name":"Maha Hub"},"provider":{"@type":"Organization","name":"Maha Hub Group of Companies Limited"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
 <script src="/brand/maha/maha-loader.js"></script>
+<script src="/brand/maha/maha-admin-mfa.js"></script>
 <style>html{-webkit-tap-highlight-color:transparent}
 :root{
   /*
@@ -3580,7 +3581,7 @@ const MahaAuth={
       if(lim){r.tokens.lim=1;this.write(r.tokens)}
       else{
         let t2=null;
-        try{t2=await this.providerMfa(r.tokens)}catch(e){return reject('unavailable','The two-step sign-in service did not answer. Try again in a moment.')}
+        try{t2=(!consoleLike&&window.MahaAdminMfa)?await this.adminMfaPopup(r.tokens):await this.providerMfa(r.tokens)}catch(e){return reject('unavailable','The two-step sign-in service did not answer. Try again in a moment.')}
         if(!t2)return reject('cancelled','Two-step sign-in was not completed. Nothing was changed.');
         r.tokens=t2;this.write(t2);
         await this.trustDevice(t2);
@@ -3662,6 +3663,11 @@ const MahaAuth={
       $('#mfaCode',m).onkeydown=e=>{if(e.key==='Enter')$('#mfaGo',m).onclick()};
       m._wrap._onclose=()=>finish(null);
     });
+  },
+  /* the same Authenticator step in the Maha pop-up of CRM and Billing (QR code the first time, then the 6 digits); it also makes this browser trusted for 14 days */
+  async adminMfaPopup(tk){
+    const t=await window.MahaAdminMfa.step({url:this.base(),key:MAHA_AUTH_CONFIG.publishableKey,deviceId:this.deviceId(),access_token:tk.access_token});
+    return t?{access_token:t.access_token,refresh_token:t.refresh_token,expires_at:Date.now()+Math.max(60,+t.expires_in||3600)*1000,user:tk.user}:null;
   },
   /* Second step of the provider sign-in. Returns tokens that passed the 6-digit step, or null if cancelled/failed. */
   async providerMfa(tokens){
@@ -4323,7 +4329,7 @@ function signinPanel(box,code){
     $$('[data-sc]',box).forEach(b=>b.onclick=()=>signinEmailDialog(code,b.dataset.sc,()=>signinPanel(box,code)));
   },err=>{const l=box.querySelector('#siL');if(l)l.textContent=ProvAdmin.msg(err)});
 }
-function enterProvider(un,uid){
+function enterProvider(un,uid,land){
   let pv=DB.providers.find(x=>x.supabaseId===uid)||DB.providers.find(x=>x.username===un);
   if(!pv){pv=mkUser('pa'+String(uid).replace(/-/g,'').slice(0,10),un,'Platform administrator','Provider',randomSecret());pv.email='';DB.providers.push(pv)}
   pv.supabaseId=uid;pv.username=un;pv.active=true;
@@ -4332,7 +4338,24 @@ function enterProvider(un,uid){
   DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=first?DB.hotels[first]:null;
   DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in (Supabase)'});
   _provMaster=null;_pmAsked='';try{ALOG.add('','Sign in / out','Signed in')}catch(e){}
-  writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go('prov.home');
+  writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();
+  if(land){pmsHotelLand(un);return}
+  go('prov.home');
+}
+/* the PMS address: an admin does not land on the provider pages but in a hotel, like a hotel user */
+const pmsAddr=()=>typeof onSplitHost==='function'&&onSplitHost()&&hostRole()!=='console';
+function pmsHotelLand(un){
+  const list=Object.values(DB.hotels||{}).filter(h=>h&&h.code).map(h=>({code:h.code,name:(h.set&&h.set.name)||h.code})).sort((a,b)=>a.code<b.code?-1:1);
+  if(!list.length){go('prov.home');return}
+  const into=code=>{try{localStorage.setItem('maha.lastHotel.'+un,code)}catch(e){}enterHotel(code)};
+  if(list.length===1){into(list[0].code);return}
+  let last='';try{last=localStorage.getItem('maha.lastHotel.'+un)||''}catch(e){}
+  const rows=l=>l.map(h=>`<button type="button" class="btn ${h.code===last?'gold':'ghost'}" data-pc="${esc(h.code)}" style="display:flex;justify-content:space-between;width:100%;margin:0 0 8px;text-align:left"><span><b>${esc(h.code)}</b> &nbsp;${esc(h.name)}</span></button>`).join('')||'<div class="empty">No hotel matches.</div>';
+  const m=modal('Choose a hotel',`<div class="form2">${fld('Search',`<input id="pcQ" placeholder="Hotel name or code" autocomplete="off">`)}</div><div id="pcL" style="max-height:52vh;overflow:auto;margin-top:10px">${rows(list)}</div>`,{w:520});
+  const bind=()=>$$('[data-pc]',m).forEach(b=>b.onclick=()=>{closeModal(m);into(b.dataset.pc)});
+  bind();$('#pcQ',m).oninput=e=>{const q=e.target.value.trim().toLowerCase();$('#pcL',m).innerHTML=rows(list.filter(h=>!q||h.code.toLowerCase().includes(q)||h.name.toLowerCase().includes(q)));bind()};
+  try{$('#pcQ',m).focus()}catch(e){}
+  m._wrap._onclose=()=>{if(DB.session&&!DB.session.inHotel)go('prov.home')};
 }
 /* ---------- provider-wide settings kept in the cloud: the code catalog and the payment logos ----------
    They belong to the whole system, not to one hotel. The provider changes them (any device); every device and every
@@ -9017,7 +9040,7 @@ function doLogin(){
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
       err.textContent='';try{PlatSet.begin()}catch(e){}   /* the shared codes and logos load in the background; the screen updates when they arrive */
       if(r.provider){   /* an admin may sign in on a system address too: password only on a device trusted for 14 days (limited, view only), else with the Authenticator */
-        const want=lgTargetSys;enterProvider(un,r.userId);if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
+        const want=lgTargetSys;enterProvider(un,r.userId,pmsAddr());if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)&&!pmsAddr()){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
   }
@@ -12999,7 +13022,7 @@ const LEGACY_PAY=['905','915'];
 const payEnabled=c=>!c.hidden&&!LEGACY_PAY.includes(c.refFor||c.code)&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
 function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
 function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
-VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();go('prov.home')};
+VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();if(pmsAddr()){pmsHotelLand(user().username||'')}else go('prov.home')};
 function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes();saveDB()}
 
 /* ---------- Systems: Reach/Connect open-close + in-app switcher ---------- */
