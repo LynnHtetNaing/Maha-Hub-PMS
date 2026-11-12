@@ -4976,8 +4976,9 @@ const Auth = (() => {
   }
   if (required) {
     ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { if (status() === 'ok') touch(); }, {passive: true, capture: true}));
-    setInterval(() => { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } else if (shown === 'lock' && s === 'out') present(); }, 15000);   /* locked for more than an hour: the full sign in */
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s !== 'ok' && !shown) { shown = true; changed(); present(); } else if (shown === 'lock' && s === 'out') present(); } });
+    const outReload = () => { try { sessionStorage.removeItem('maha.crm.landed'); } catch {} try { location.reload(); } catch {} };   /* an hour without activity: the page starts again at the sign-in page (nothing of the old page stays), and after signing in it lands on the Dashboard */
+    setInterval(() => { const s = status(); if (s === 'out' && shown !== 'login') { outReload(); return; } if (s !== 'ok' && !shown) { shown = true; changed(); present(); } }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { const s = status(); if (s === 'out' && shown !== 'login') { outReload(); return; } if (s !== 'ok' && !shown) { shown = true; changed(); present(); } } });
   }
   /* only the provider (the company approver) approves a discount: a sales team member does not */
   const isProvider = () => !required || (!!sess && sess.member === false);
