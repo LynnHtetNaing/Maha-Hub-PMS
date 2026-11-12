@@ -64,6 +64,8 @@ T('the page: Plain keeps the free editor; the CEO alone sees Edit template and N
 T('the page: each batch carries the hotel names and ids and the template with its answer choices; the boxes must be filled first', crm.includes('...enewsPayload(e), ...enRcpt(part)') && crm.includes('p.tpl = {id: tt.id, name: tt.name') && crm.includes("toast('Fill in: ' + miss.join(', '))"));
 T('the page: a saved draft keeps its template and boxes; Replies are listed under Saved (hotel, the choice, the note, the date)', crm.includes("tpl: e.tpl || 'plain', vals: e.vals || {}") && crm.includes("K('reply').sort") && crm.includes('No replies yet.'));
 
+T('the CEO sheet has the note that explains the [ ] words: date, time, large box, optional, {{hotel}}, {{buttons}}', crm.includes('id="et_note"') && crm.includes('<b>[... date ...]</b> a calendar') && crm.includes('<b>[... time ...]</b> a clock') && crm.includes('(optional)') && crm.includes('{{hotel}}</b> is the name of each hotel'));
+
 /* ---- the mail function ---- */
 T('mail function: {{hotel}} becomes each hotel\'s name; each choice gets its own signed link (60 days); a test mail gets links that record nothing', send.includes('swap(s, "{{hotel}}", esc(name))') && send.includes('"https://replace.me/" + k') && send.includes('60 * 86400000') && send.includes('action === "test" ? "test"') && send.includes('names[email]'));
 T('mail function: the extra styles are limited to safe ones', send.includes('"border", "border-left", "border-top", "margin", "margin-top", "margin-bottom", "width"') && !/"(position|float|background-image|url)"/.test(send));
