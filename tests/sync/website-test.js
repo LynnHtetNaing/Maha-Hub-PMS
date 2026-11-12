@@ -38,6 +38,7 @@ T('the old website files are gone', !fs.existsSync(path.join(root, 'our-solution
 const js = fs.readFileSync(path.join(root, 'assets', 'group.js'), 'utf8');
 T('the contact form checks name, business, email, country and message before it opens the email app', /\['name', 'business', 'email', 'country', 'message'\]/.test(js) && /mailto:/.test(js) && /hello@maha-hub\.com/.test(js));
 T('the site script is small', js.length < 14000, js.length + ' bytes');
+T('the site script has no call of the one-element helper where a list is needed (that typo once stopped the whole script)', !/[^$]\$\([^)]*\)\.forEach/.test(js));
 const css = fs.readFileSync(path.join(root, 'assets', 'group.css'), 'utf8');
 T('the colours match the Maha software (forest green, gold, mint)', /--forest:#0A3020/.test(css) && /--gold:#D49A38/.test(css) && /--mint:#cfeee2/.test(css));
 console.log(fails ? ('\n' + fails + ' FAILED') : '\nALL PASSED'); process.exit(fails ? 1 : 0);

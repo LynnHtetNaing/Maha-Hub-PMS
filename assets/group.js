@@ -49,8 +49,8 @@
   } else items.forEach(function (el) { el.classList.add('in'); });
 
   /* the two brand boxes: a tap (or Enter) makes one the big one; tap it again to let go */
-  $('.brands').forEach(function (g) {
-    var cards = $('.brand-card', g);
+  $$('.brands').forEach(function (g) {
+    var cards = $$('.brand-card', g);
     cards.forEach(function (c) {
       c.setAttribute('tabindex', '0');
       var pick = function (e) {
