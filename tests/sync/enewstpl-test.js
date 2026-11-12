@@ -66,6 +66,8 @@ T('the CEO sheet has the note that explains the [ ] words: date, time, large box
 
 T('the Enewletter boxes use our calendar: a date box is the PMS day picker (dd/mm/yyyy and the month grid) and a time box is the hour and minute boxes of the Meeting form, not the browser ones', crm.includes('enhanceDates(box);') && crm.includes('data-tk=') && crm.includes('class="mt-hm"') && !crm.includes("fl.type === 'time' ? 'time'"));
 
+T('every hour + minute pair (the Meeting edit, the meeting forms, the Enewletter) is our own time box: one box with the clock button on the right like the date box, a picker with hours and minutes; the date and time boxes inside a label keep their own shape (the label style does not reach them)', crm.includes('function enhanceTimes(root)') && crm.includes('function timePicker(btn, getHm, done)') && crm.includes('enhanceLists(root); enhanceTimes(root);') && crm.includes('label.f span.dpk,label.f span.mt-hm{display:flex;') && crm.includes("select[data-mf=hh],select[data-th]"));
+
 /* ---- the mail function ---- */
 T('mail function: {{hotel}} becomes each hotel\'s name; each choice gets its own signed link (60 days); a test mail gets links that record nothing', send.includes('swap(s, "{{hotel}}", esc(name))') && send.includes('"https://replace.me/" + k') && send.includes('60 * 86400000') && send.includes('action === "test" ? "test"') && send.includes('names[email]'));
 T('mail function: the extra styles the designer can make are kept and limited to safe ones (no position, float, url)', ['"border-bottom"', '"margin-left"', '"padding-top"', '"vertical-align"', '"letter-spacing"', '"text-transform"', '"width"'].every(x => send.includes(x)) && !/"(position|float|background-image|url)"/.test(send));
