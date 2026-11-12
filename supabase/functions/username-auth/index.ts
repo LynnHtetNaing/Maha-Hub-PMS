@@ -86,7 +86,7 @@ const handle = async (req: Request): Promise<Response> => {
 
   // An admin passed the Authenticator on this device: the device is trusted for 14 days. The caller proves it with its own aal2 session.
   if (body.action === "trust_device") {
-    const token = (req.headers.get("Authorization") || "").replace(/^Bearers+/i, "");
+    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const dev = typeof body.device_id === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(body.device_id) ? body.device_id : "";
     if (!token || !dev || jwtPart(token, "aal") !== "aal2") return json({ error: "not_allowed" }, 403);
     const adm = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });

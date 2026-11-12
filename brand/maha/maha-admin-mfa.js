@@ -1,7 +1,8 @@
-/* Maha Hub: the Authenticator step of an admin (platform owner) in a system that does not have its own (CRM, Billing, the later ones).
-   The sign-in answered "admin_mode: needs_mfa": this device is new for the admin, or its 14 days are over.
-   MahaAdminMfa.step({url, key, deviceId, access_token}) shows the 6-digit box (the QR code first when the admin has no Authenticator yet),
-   then asks the server to trust this device for 14 days, and resolves {access_token, refresh_token, expires_in}, or null when it is closed.
+/* Maha Hub: the Authenticator step of an admin (platform owner) in a system that does not have its own (PMS address, CRM, Billing, the later ones).
+   The sign-in answered "admin_mode: needs_mfa": this browser is new for the admin, or its 14 days are over.
+   MahaAdminMfa.step({url, key, deviceId, access_token}) shows the Maha pop-up (the QR code first when the admin has no Authenticator yet, then the 6-digit code),
+   then asks the server to trust this browser for 14 days, and resolves {access_token, refresh_token, expires_in}, or null when it is closed.
+   The look is the Maha look of the sign-in box: the grey Maha box, the logo and MAHA HUB lettering, the Maha font, forest green and gold.
    No secrets are stored here; the session of the admin is the only thing that is used. */
 (function () {
   'use strict';
@@ -15,36 +16,58 @@
       });
   };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  var ask = function (kind, info, again) {
+  var STYLE_ID = 'mahaMfaStyle';
+  var css = [
+    '.mam{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;overflow:auto;background:rgba(10,48,32,.5);font-family:Inter,"Noto Sans","Noto Sans Thai","Noto Sans Myanmar",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}',
+    '.mam *{box-sizing:border-box}',
+    '.mamb{background:#eceff0;color:#1f2d36;border-radius:26px;width:min(460px,100%);padding:26px 28px 22px;box-shadow:0 40px 60px -18px rgba(8,40,30,.5),0 14px 26px rgba(8,40,30,.22)}',
+    '.mamh{display:flex;align-items:center;gap:12px;margin:0 0 14px}.mamh img{width:52px;height:auto;filter:brightness(.4) saturate(3.4) contrast(1.35)}.mamh b{font:800 20px/1 Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.14em;color:#0b3d2e}',
+    '.mam h2{margin:0 0 6px;font-size:22px;font-weight:700}.mam p{margin:6px 0;color:#556470;font-size:14.5px;line-height:1.5}',
+    '.mam ol{margin:8px 0 12px;padding-left:20px;color:#556470;font-size:14px;line-height:1.55}.mam ol b{color:#1f2d36}',
+    '.mamqr{display:flex;justify-content:center;margin:10px 0}.mamqr img{width:196px;height:196px;background:#fff;border-radius:16px;padding:10px;box-shadow:0 1px 6px rgba(0,0,0,.12)}',
+    '.mamkey{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #c5d0d8;border-radius:12px;padding:8px 10px;margin:8px 0 12px}.mamkey code{flex:1;font:600 12.5px/1.4 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;color:#1f2d36}',
+    '.mamkey button{border:1px solid #c5d0d8;background:#fff;border-radius:9px;padding:6px 12px;font:600 13px Inter,"Noto Sans",system-ui,sans-serif;color:#184D3A;cursor:pointer}',
+    '.mame{min-height:20px;margin:4px 0 8px;font-size:13.5px;color:#B4432F;text-align:center}',
+    '.mamf{display:flex;flex-direction:column;gap:8px}.mamg{border:0;border-radius:14px;background:#0A3020;color:#fff;font:700 16px Inter,"Noto Sans",system-ui,sans-serif;padding:14px;cursor:pointer}.mamg:hover{background:#184D3A}.mamg[disabled]{background:#dfe5e8;color:#9aa6ae;cursor:default}',
+    '.mamx{border:0;background:transparent;color:#556470;font:600 14px Inter,"Noto Sans",system-ui,sans-serif;padding:8px;cursor:pointer}.mamx:hover{color:#1f2d36}',
+    '@media(max-width:420px){.mamb{padding:20px 16px 16px;border-radius:20px}}',
+  ].join('');
+  /* the pop-up: it checks the code itself (verify(code) answers { ok, value } or { ok:false, msg }), so a right code can play the fireworks and a wrong one shakes the boxes */
+  var ask = function (kind, info, verify) {
     return new Promise(function (resolve) {
       var enrol = kind === 'enrol';
-      var w = document.createElement('div');
-      w.setAttribute('role', 'dialog');
-      w.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(10,12,16,.62);padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
-      w.innerHTML = '<div style="background:#fff;color:#1b2430;border-radius:14px;width:min(440px,100%);padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.35)">'
-        + '<h2 style="margin:0 0 8px;font-size:18px">' + (enrol ? 'Set up the Authenticator' : 'Authenticator code') + '</h2>'
+      if (!document.getElementById(STYLE_ID)) { var st = document.createElement('style'); st.id = STYLE_ID; st.textContent = css; document.head.appendChild(st); }
+      var w = document.createElement('div'); w.className = 'mam'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+      w.innerHTML = '<div class="mamb"><div class="mamh"><img src="/brand/maha/gate-gold.png" alt=""><b>MAHA HUB</b></div>'
+        + '<h2>' + (enrol ? 'Set up two-step sign-in' : 'Two-step sign-in') + '</h2>'
         + (enrol
-          ? '<p style="margin:0 0 8px;font-size:13.5px;line-height:1.45">Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator or Authy). If you cannot scan it, type the key into the app instead.</p>'
-            + '<div style="text-align:center;margin:8px 0"><img alt="QR code" src="' + esc(info.qr) + '" style="width:190px;height:190px;background:#fff"></div>'
-            + '<p style="margin:0 0 8px;font-size:12.5px;word-break:break-all"><b>Key:</b> ' + esc(info.secret) + '</p>'
-            + '<p style="margin:0 0 8px;font-size:13.5px">Then type the 6-digit code the app shows.</p>'
-          : '<p style="margin:0 0 8px;font-size:13.5px;line-height:1.45">Type the 6-digit code from your authenticator app. This device is then trusted for 14 days.</p>')
-        + '<input id="mamC" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="width:100%;box-sizing:border-box;font-size:20px;letter-spacing:4px;text-align:center;padding:9px;border:1px solid #b8c0cc;border-radius:8px;background:#fff;color:#1b2430">'
-        + '<div id="mamE" role="alert" style="min-height:18px;margin:6px 0;font-size:12.5px;color:#b3261e">' + (again ? 'That code was not accepted. Use the newest code from the app.' : '') + '</div>'
-        + '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="mamX" style="padding:8px 14px;border-radius:8px;border:1px solid #b8c0cc;background:#fff;color:#1b2430;cursor:pointer">Cancel</button>'
-        + '<button type="button" id="mamG" style="padding:8px 16px;border-radius:8px;border:0;background:#1f6f54;color:#fff;font-weight:600;cursor:pointer">' + (enrol ? 'Turn on and continue' : 'Continue') + '</button></div></div>';
+          ? '<p>Your account needs an Authenticator app. You do this once.</p><ol><li>Open an authenticator app: <b>Google Authenticator</b>, <b>Microsoft Authenticator</b> or <b>Authy</b>.</li><li><b>Scan</b> this QR code.</li><li>Type the <b>6-digit code</b> the app shows.</li></ol>'
+            + '<div class="mamqr"><img alt="QR code" src="' + esc(info.qr) + '"></div>'
+            + '<div class="mamkey"><code id="mamKey">' + esc(info.secret) + '</code><button type="button" id="mamCp">Copy</button></div><p style="margin-top:-4px;font-size:12.5px">Cannot scan? Type this key into the app instead.</p>'
+          : '<p>Type the 6-digit code from your authenticator app. This browser is then trusted for 14 days.</p>')
+        + '<input id="mamC" value="">'
+        + '<div class="mamf"><button type="button" class="mamg" id="mamG" disabled>' + (enrol ? 'Turn on and continue' : 'Continue') + '</button><button type="button" class="mamx" id="mamX">Cancel</button></div></div>';
       document.body.appendChild(w);
-      var done = false;
-      var finish = function (v) { if (done) return; done = true; try { w.remove(); } catch (e) { } resolve(v); };
-      var c = w.querySelector('#mamC');
-      w.querySelector('#mamG').onclick = function () {
-        var v = (c.value || '').replace(/\s+/g, '');
-        if (!/^\d{6}$/.test(v)) { w.querySelector('#mamE').textContent = 'Enter the 6 digits.'; return; }
-        finish(v);
+      var done = false, input = w.querySelector('#mamC'), go = w.querySelector('#mamG'), otp = null, working = false;
+      var finish = function (v) { if (done) return; done = true; document.removeEventListener('keydown', onKey, true); try { w.remove(); } catch (e) { } resolve(v); };
+      var submit = function (code) {
+        code = String(code || input.value || '');
+        if (working || !/^\d{6}$/.test(code)) return;
+        working = true; go.disabled = true; otp && otp.busy(true);
+        Promise.resolve(verify(code)).then(function (r) {
+          working = false; otp && otp.busy(false);
+          if (r && r.ok) { (otp ? otp.win() : Promise.resolve()).then(function () { finish(r.value); }); }
+          else { go.disabled = true; if (otp) otp.error((r && r.msg) || 'That code was not accepted. Use the newest code from the app.'); }
+        });
       };
-      c.onkeydown = function (e) { if (e.key === 'Enter') w.querySelector('#mamG').onclick(); };
+      var onKey = function (e) { if (e.key === 'Escape') { e.preventDefault(); finish(null); } };
+      document.addEventListener('keydown', onKey, true);
+      input.addEventListener('input', function () { go.disabled = !/^\d{6}$/.test(input.value); });
+      if (window.MahaOtp) otp = window.MahaOtp.attach(input, { onComplete: submit });
+      go.onclick = function () { submit(input.value); };
       w.querySelector('#mamX').onclick = function () { finish(null); };
-      setTimeout(function () { try { c.focus(); } catch (e) { } }, 30);
+      var cp = w.querySelector('#mamCp'); if (cp) cp.onclick = function () { try { navigator.clipboard.writeText(info.secret); cp.textContent = 'Copied'; } catch (e) { } };
+      if (!otp) { input.type = 'text'; input.maxLength = 6; input.inputMode = 'numeric'; input.placeholder = '6-digit code'; input.style.cssText = 'width:100%;font-size:22px;text-align:center;padding:12px;border-radius:12px;border:1px solid #c5d0d8;margin:12px 0'; setTimeout(function () { input.focus(); }, 30); }
     });
   };
   var keep = function (d) { return { access_token: d.access_token, refresh_token: d.refresh_token, expires_in: d.expires_in }; };
@@ -62,20 +85,23 @@
             .then(function (p) { pending = p; factorId = p.id; });
         }
         return chain.then(function () {
-          var attempt = function (n) {
-            if (n >= 5) return null;
-            return ask(pending ? 'enrol' : 'verify', pending && pending.totp ? { qr: pending.totp.qr_code, secret: pending.totp.secret } : null, n > 0).then(function (code) {
-              if (!code) { if (pending) api(cfg, 'DELETE', '/factors/' + factorId, null, tok).catch(function () { }); return null; }
-              return api(cfg, 'POST', '/factors/' + factorId + '/challenge', null, tok)
-                .then(function (ch) { return api(cfg, 'POST', '/factors/' + factorId + '/verify', { challenge_id: ch.id, code: code }, tok); })
-                .then(function (ver) {
-                  var t = keep(ver);
-                  return fetch(cfg.url + '/functions/v1/username-auth', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.key, Authorization: 'Bearer ' + t.access_token }, body: JSON.stringify({ action: 'trust_device', device_id: o.deviceId }) })
-                    .catch(function () { }).then(function () { return t; });
-                }, function (e) { if (e && (e.status === 400 || e.status === 422)) return attempt(n + 1); throw e; });
-            });
+          /* the code is checked inside the pop-up; a right code also makes this browser trusted for 14 days */
+          var verify = function (code) {
+            return api(cfg, 'POST', '/factors/' + factorId + '/challenge', null, tok)
+              .then(function (ch) { return api(cfg, 'POST', '/factors/' + factorId + '/verify', { challenge_id: ch.id, code: code }, tok); })
+              .then(function (ver) {
+                var t = keep(ver);
+                return fetch(cfg.url + '/functions/v1/username-auth', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.key, Authorization: 'Bearer ' + t.access_token }, body: JSON.stringify({ action: 'trust_device', device_id: o.deviceId }) })
+                  .catch(function () { }).then(function () { return { ok: true, value: t }; });
+              }, function (e) {
+                if (e && (e.status === 400 || e.status === 422)) return { ok: false, msg: 'That code was not accepted. Use the newest code from the app.' };
+                return { ok: false, msg: 'The two-step sign-in service did not answer. Try again in a moment.' };
+              });
           };
-          return attempt(0);
+          return ask(pending ? 'enrol' : 'verify', pending && pending.totp ? { qr: pending.totp.qr_code, secret: pending.totp.secret } : null, verify).then(function (t) {
+            if (!t) { if (pending) api(cfg, 'DELETE', '/factors/' + factorId, null, tok).catch(function () { }); return null; }
+            return t;
+          });
         });
       });
     }

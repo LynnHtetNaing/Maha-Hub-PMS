@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="cafd496772">
+<meta name="maha-build" content="f13fbda164">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -29,6 +29,8 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"maha-hub / solutions - PMS","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"Hospitality technology ecosystem for hotels — PMS, Connect, Booking and Reach.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"brand":{"@type":"Brand","name":"Maha Hub"},"provider":{"@type":"Organization","name":"Maha Hub Group of Companies Limited"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Jost:wght@500;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
 <script src="/brand/maha/maha-loader.js"></script>
+<script src="/brand/maha/maha-otp.js"></script>
+<script src="/brand/maha/maha-admin-mfa.js"></script>
 <style>html{-webkit-tap-highlight-color:transparent}
 :root{
   /*
@@ -3460,10 +3462,14 @@ const MahaAuth={
      the emailed sign-in code (trusted devices). */
   deviceId(){
     const ok=v=>/^[A-Za-z0-9_-]{16,64}$/.test(v||'');
-    try{const v=localStorage.getItem('maha.deviceId');if(ok(v))return v}catch(e){}
-    let v=this._dev;
+    /* one id for every Maha address of this browser (a cookie on .maha-hub.com): the Authenticator and the emailed code are then asked once for the browser, not once for each address */
+    let c='';try{const m=String(typeof document!=='undefined'?document.cookie:'').match(/(?:^|; )maha_dev=([A-Za-z0-9_-]{16,64})(?=;|$)/);if(m)c=m[1]}catch(e){}
+    let v='';try{v=localStorage.getItem('maha.deviceId')||''}catch(e){}
+    if(ok(c)){if(c!==v){try{localStorage.setItem('maha.deviceId',c)}catch(e){}}this._dev=c;return c}
+    if(!ok(v))v=this._dev;
     if(!ok(v)){const a=new Uint8Array(24);crypto.getRandomValues(a);v=btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');this._dev=v}
     try{localStorage.setItem('maha.deviceId',v)}catch(e){}
+    try{if(typeof location!=='undefined'&&/(^|\.)maha-hub\.com$/.test(location.hostname))document.cookie='maha_dev='+v+'; Domain=.maha-hub.com; Path=/; Max-Age=31536000; Secure; SameSite=Lax'}catch(e){}
     return v;
   },
   /* A limited admin (a device that passed the Authenticator in the last 14 days, signed in with the password only) can look but not change a hotel. */
@@ -3494,26 +3500,37 @@ const MahaAuth={
   /* The password was right; now the person types the code from the email (5 tries, then they start again). */
   async codeStep(username,password,d){
     let again='';
-    for(let i=0;i<5;i++){
-      const a=await this.askEmailCode({sentTo:d.sent_to},again);
-      if(!a)return {ok:false,reason:'cancelled',message:'Sign-in was cancelled.'};
-      if(a.resend)return this.signIn(username,password);
+    /* one check of the typed code with the server: {kind:'ok',val} / {kind:'wrong'} / {kind:'fail',val} */
+    const tryCode=async a=>{
       let res;
       try{
         res=await fetch(this.base()+'/functions/v1/username-auth',{method:'POST',
           headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey},
           body:JSON.stringify({action:'verify_code',username,challenge:d.challenge,code:a.code,remember:!!a.remember,device_id:this.deviceId()})});
-      }catch(e){return {ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}
+      }catch(e){return {kind:'fail',val:{ok:false,reason:'unavailable',message:'The sign-in service did not answer. Check the connection and try again.'}}}
       let v=null;try{v=await res.json()}catch(e){v=null}
-      if(res.ok&&v&&v.access_token&&v.user&&v.user.id)return {ok:true,tokens:this.keep(v),adminMode:v.admin_mode||''};
-      if(res.status===401&&v&&v.error==='code_wrong'){again='That code is not correct. Use the newest code from the email.';continue}
-      if(res.status===401||res.status===503)return {ok:false,reason:'code',message:this.codeMsg(v&&v.error)};
-      return {ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'};
+      if(res.ok&&v&&v.access_token&&v.user&&v.user.id)return {kind:'ok',val:{ok:true,tokens:this.keep(v),adminMode:v.admin_mode||''}};
+      if(res.status===401&&v&&v.error==='code_wrong')return {kind:'wrong'};
+      if(res.status===401||res.status===503)return {kind:'fail',val:{ok:false,reason:'code',message:this.codeMsg(v&&v.error)}};
+      return {kind:'fail',val:{ok:false,reason:'unavailable',message:'The sign-in service is not available right now. Try again in a moment.'}};
+    };
+    for(let i=0;i<5;i++){
+      let pre=null;
+      const a=await this.askEmailCode({sentTo:d.sent_to},again,async x=>{
+        pre={x,r:await tryCode(x)};
+        if(pre.r.kind==='wrong')return {ok:false,msg:'That code is not correct. Use the newest code from the email.'};
+        return {ok:true,value:x,quiet:pre.r.kind!=='ok'};   /* a failure other than a wrong code closes the box quietly (no fireworks) */
+      });
+      if(!a)return {ok:false,reason:'cancelled',message:'Sign-in was cancelled.'};
+      if(a.resend)return this.signIn(username,password);
+      const r=(pre&&pre.x===a)?pre.r:await tryCode(a);
+      if(r.kind==='ok'||r.kind==='fail')return r.val;
+      again='That code is not correct. Use the newest code from the email.';
     }
     return {ok:false,reason:'code',message:this.codeMsg('code_locked')};
   },
   /* Asks for the emailed 6-digit code. Resolves {code,remember}, {resend:true}, or null when the box is closed. Replaced in tests. */
-  askEmailCode(info,again){
+  askEmailCode(info,again,check){
     return new Promise(resolve=>{
       /* the same pop-up as the CRM device check: the system name, Check your email, the code, Remember this device, Continue / Send a new code / Cancel */
       const prov=typeof stackKind==='function'&&stackKind()==='provider';
@@ -3525,7 +3542,15 @@ const MahaAuth={
         +`<div class="emc-btns"><button class="btn gold" id="emGo">Continue</button><button type="button" class="linkbtn" id="emAgain">Send a new code</button><button type="button" class="linkbtn" id="emNo">Cancel</button></div></div>`;
       const m=modal('Check your email',body,{w:420});
       let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
-      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Type the 6 digits.';return}finish({code:v,remember:!!$('#emRem',m).checked})};
+      const emOtp=window.MahaOtp?window.MahaOtp.attach($('#emCode',m),{onComplete:()=>$('#emGo',m).click()}):null;
+      $('#emGo',m).onclick=()=>{const v=($('#emCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#emErr',m).textContent='Type the 6 digits.';return}
+        const val={code:v,remember:!!$('#emRem',m).checked};
+        if(!check){finish(val);return}
+        const go=$('#emGo',m);go.disabled=true;emOtp&&emOtp.busy(true);
+        Promise.resolve(check(val)).catch(()=>({ok:false,msg:'The sign-in service did not answer. Try again.'})).then(r=>{go.disabled=false;emOtp&&emOtp.busy(false);
+          if(r&&r.ok&&r.quiet){finish(r.value);return}
+          if(r&&r.ok){(emOtp?emOtp.win():Promise.resolve()).then(()=>finish(r.value));return}
+          if(emOtp)emOtp.error((r&&r.msg)||'That code is not correct.');else $('#emErr',m).textContent=(r&&r.msg)||'That code is not correct.'})};
       $('#emCode',m).onkeydown=e=>{if(e.key==='Enter')$('#emGo',m).onclick()};
       $('#emNo',m).onclick=()=>finish(null);
       $('#emAgain',m).onclick=()=>finish({resend:true});
@@ -3576,7 +3601,7 @@ const MahaAuth={
       if(lim){r.tokens.lim=1;this.write(r.tokens)}
       else{
         let t2=null;
-        try{t2=await this.providerMfa(r.tokens)}catch(e){return reject('unavailable','The two-step sign-in service did not answer. Try again in a moment.')}
+        try{t2=(!consoleLike&&window.MahaAdminMfa)?await this.adminMfaPopup(r.tokens):await this.providerMfa(r.tokens)}catch(e){return reject('unavailable','The two-step sign-in service did not answer. Try again in a moment.')}
         if(!t2)return reject('cancelled','Two-step sign-in was not completed. Nothing was changed.');
         r.tokens=t2;this.write(t2);
         await this.trustDevice(t2);
@@ -3647,17 +3672,28 @@ const MahaAuth={
     return d;
   },
   /* Asks for the 6-digit code. Returns the code, or null if the person closes the box. Replaced in tests. */
-  askCode(kind,info,again){
+  askCode(kind,info,again,check){
     return new Promise(resolve=>{
       const enrol=kind==='enrol';
       const body=(enrol?`<p class="sub">Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator or Authy). If you cannot scan it, type the key below into the app instead.</p><div style="text-align:center;margin:10px 0"><img alt="QR code" src="${info.qr}" style="width:200px;height:200px;background:#fff"></div><p class="sub" style="word-break:break-all"><b>Key:</b> ${esc(info.secret)}</p><p class="sub">Then type the 6-digit code the app shows.</p>`:`<p class="sub">Type the 6-digit code from your authenticator app.</p>`)
         +`<div class="form2">${fld('6-digit code',`<input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" autofocus>`)}</div><div class="err" id="mfaErr">${again?'That code was not accepted. Use the newest code from the app.':''}</div><div class="btns"><button class="btn gold" id="mfaGo">${enrol?'Turn on and continue':'Continue'}</button></div>`;
       const m=modal(enrol?'Set up two-step sign-in':'Two-step sign-in',body,{w:480});
       let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
-      $('#mfaGo',m).onclick=()=>{const v=($('#mfaCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#mfaErr',m).textContent='Enter the 6 digits.';return}finish(v)};
+      const mfaOtp=window.MahaOtp?window.MahaOtp.attach($('#mfaCode',m),{onComplete:()=>$('#mfaGo',m).click()}):null;
+      $('#mfaGo',m).onclick=()=>{const v=($('#mfaCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#mfaErr',m).textContent='Enter the 6 digits.';return}
+        if(!check){finish(v);return}
+        const go=$('#mfaGo',m);go.disabled=true;mfaOtp&&mfaOtp.busy(true);
+        Promise.resolve(check(v)).catch(()=>({ok:false,msg:'The two-step sign-in service did not answer. Try again.'})).then(r=>{go.disabled=false;mfaOtp&&mfaOtp.busy(false);
+          if(r&&r.ok){(mfaOtp?mfaOtp.win():Promise.resolve()).then(()=>finish(r.value!==undefined?r.value:v));return}
+          if(mfaOtp)mfaOtp.error((r&&r.msg)||'That code was not accepted. Use the newest code from the app.');else $('#mfaErr',m).textContent=(r&&r.msg)||'That code was not accepted.'})};
       $('#mfaCode',m).onkeydown=e=>{if(e.key==='Enter')$('#mfaGo',m).onclick()};
       m._wrap._onclose=()=>finish(null);
     });
+  },
+  /* the same Authenticator step in the Maha pop-up of CRM and Billing (QR code the first time, then the 6 digits); it also makes this browser trusted for 14 days */
+  async adminMfaPopup(tk){
+    const t=await window.MahaAdminMfa.step({url:this.base(),key:MAHA_AUTH_CONFIG.publishableKey,deviceId:this.deviceId(),access_token:tk.access_token});
+    return t?{access_token:t.access_token,refresh_token:t.refresh_token,expires_at:Date.now()+Math.max(60,+t.expires_in||3600)*1000,user:tk.user}:null;
   },
   /* Second step of the provider sign-in. Returns tokens that passed the 6-digit step, or null if cancelled/failed. */
   async providerMfa(tokens){
@@ -3672,8 +3708,16 @@ const MahaAuth={
       factorId=pending.id;
     }
     for(let attempt=0;attempt<5;attempt++){
-      const code=await this.askCode(pending?'enrol':'verify',pending&&pending.totp?{qr:pending.totp.qr_code,secret:pending.totp.secret}:null,attempt>0);
+      let got=null;
+      const code=await this.askCode(pending?'enrol':'verify',pending&&pending.totp?{qr:pending.totp.qr_code,secret:pending.totp.secret}:null,attempt>0,async c=>{
+        try{
+          const ch=await this.authApi('POST','/factors/'+factorId+'/challenge',null,tokens);
+          const ver=await this.authApi('POST','/factors/'+factorId+'/verify',{challenge_id:ch.id,code:c},tokens);
+          got=this.keep(ver);return {ok:true,value:got};
+        }catch(e){if(e&&(e.status===400||e.status===422))return {ok:false,msg:'That code was not accepted. Use the newest code from the app.'};throw e}
+      });
       if(!code){if(pending){try{await this.authApi('DELETE','/factors/'+factorId,null,tokens)}catch(e){}}return null}
+      if(got)return got;   /* the code was checked inside the box */
       try{
         const ch=await this.authApi('POST','/factors/'+factorId+'/challenge',null,tokens);
         const ver=await this.authApi('POST','/factors/'+factorId+'/verify',{challenge_id:ch.id,code},tokens);
@@ -4319,7 +4363,7 @@ function signinPanel(box,code){
     $$('[data-sc]',box).forEach(b=>b.onclick=()=>signinEmailDialog(code,b.dataset.sc,()=>signinPanel(box,code)));
   },err=>{const l=box.querySelector('#siL');if(l)l.textContent=ProvAdmin.msg(err)});
 }
-function enterProvider(un,uid){
+function enterProvider(un,uid,land){
   let pv=DB.providers.find(x=>x.supabaseId===uid)||DB.providers.find(x=>x.username===un);
   if(!pv){pv=mkUser('pa'+String(uid).replace(/-/g,'').slice(0,10),un,'Platform administrator','Provider',randomSecret());pv.email='';DB.providers.push(pv)}
   pv.supabaseId=uid;pv.username=un;pv.active=true;
@@ -4328,7 +4372,24 @@ function enterProvider(un,uid){
   DB.session=stampSession({provider:true,userId:pv.id,hotel:first});H=first?DB.hotels[first]:null;
   DB.provLog.unshift({at:Date.now(),user:pv.name,a:'Provider signed in (Supabase)'});
   _provMaster=null;_pmAsked='';try{ALOG.add('','Sign in / out','Signed in')}catch(e){}
-  writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();go('prov.home');
+  writeLiveSession(DB.session);saveDB();applySysPath(null);renderShell();
+  if(land){pmsHotelLand(un);return}
+  go('prov.home');
+}
+/* the PMS address: an admin does not land on the provider pages but in a hotel, like a hotel user */
+const pmsAddr=()=>typeof onSplitHost==='function'&&onSplitHost()&&hostRole()!=='console';
+function pmsHotelLand(un){
+  const list=Object.values(DB.hotels||{}).filter(h=>h&&h.code).map(h=>({code:h.code,name:(h.set&&h.set.name)||h.code})).sort((a,b)=>a.code<b.code?-1:1);
+  if(!list.length){go('prov.home');return}
+  const into=code=>{try{localStorage.setItem('maha.lastHotel.'+un,code)}catch(e){}enterHotel(code)};
+  if(list.length===1){into(list[0].code);return}
+  let last='';try{last=localStorage.getItem('maha.lastHotel.'+un)||''}catch(e){}
+  const rows=l=>l.map(h=>`<button type="button" class="btn ${h.code===last?'gold':'ghost'}" data-pc="${esc(h.code)}" style="display:flex;justify-content:space-between;width:100%;margin:0 0 8px;text-align:left"><span><b>${esc(h.code)}</b> &nbsp;${esc(h.name)}</span></button>`).join('')||'<div class="empty">No hotel matches.</div>';
+  const m=modal('Choose a hotel',`<div class="form2">${fld('Search',`<input id="pcQ" placeholder="Hotel name or code" autocomplete="off">`)}</div><div id="pcL" style="max-height:52vh;overflow:auto;margin-top:10px">${rows(list)}</div>`,{w:520});
+  const bind=()=>$$('[data-pc]',m).forEach(b=>b.onclick=()=>{closeModal(m);into(b.dataset.pc)});
+  bind();$('#pcQ',m).oninput=e=>{const q=e.target.value.trim().toLowerCase();$('#pcL',m).innerHTML=rows(list.filter(h=>!q||h.code.toLowerCase().includes(q)||h.name.toLowerCase().includes(q)));bind()};
+  try{$('#pcQ',m).focus()}catch(e){}
+  m._wrap._onclose=()=>{if(DB.session&&!DB.session.inHotel)go('prov.home')};
 }
 /* ---------- provider-wide settings kept in the cloud: the code catalog and the payment logos ----------
    They belong to the whole system, not to one hotel. The provider changes them (any device); every device and every
@@ -9013,7 +9074,7 @@ function doLogin(){
       if(!r.ok){if(r.reason==='invalid')return fail();err.textContent=r.message||'Sign-in did not finish. Try again.';return}
       err.textContent='';try{PlatSet.begin()}catch(e){}   /* the shared codes and logos load in the background; the screen updates when they arrive */
       if(r.provider){   /* an admin may sign in on a system address too: password only on a device trusted for 14 days (limited, view only), else with the Authenticator */
-        const want=lgTargetSys;enterProvider(un,r.userId);if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
+        const want=lgTargetSys;enterProvider(un,r.userId,pmsAddr());if(onSplitHost()&&want&&want!=='hub'&&sysAllowed(want)&&!pmsAddr()){location.assign(sysUrl(want,H))}return}staffEnter(r.h,r.u);
     },()=>{if(btn)btn.disabled=false;err.textContent='Sign-in did not finish. Try again.'});
     return;
   }
@@ -12995,7 +13056,7 @@ const LEGACY_PAY=['905','915'];
 const payEnabled=c=>!c.hidden&&!LEGACY_PAY.includes(c.refFor||c.code)&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
 function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
 function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
-VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();go('prov.home')};
+VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();if(pmsAddr()){pmsHotelLand(user().username||'')}else go('prov.home')};
 function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes();saveDB()}
 
 /* ---------- Systems: Reach/Connect open-close + in-app switcher ---------- */
