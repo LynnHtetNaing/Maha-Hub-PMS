@@ -2,22 +2,23 @@
 // A time is free when it is in the opening hours, far enough ahead, and clear of every other event:
 //   - a MEETING must not overlap an event and must START at least GAP_MIN (90) minutes after the start of another one (9:00 taken: 10:30 or later);
 //   - a CALL (30 minutes) only must not overlap an event.
-// Opening hours (Bangkok time) can be changed with Supabase secrets, no code: CAL_HOURS ("09:00-17:00"), CAL_DAYS ("1,2,3,4,5" = Monday to Friday, 0 = Sunday),
-// CAL_STEP (30 minutes between start times), CAL_AHEAD (21 days ahead), CAL_NOTICE_H (24 hours notice).
+// Opening hours (Bangkok time) can be changed with Supabase secrets, no code: CAL_HOURS ("09:00-17:00,21:00-24:00": two windows, a morning to evening one and a night one for
+// customers in other time zones; any number of windows, comma separated), CAL_DAYS ("1,2,3,4,5" = Monday to Friday, 0 = Sunday),
+// CAL_STEP (30 minutes between start times), CAL_AHEAD (60 days ahead, from today), CAL_NOTICE_H (2 hours notice: the first free time is 2 hours from now).
 // Never log customers, titles or times.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GAP_MIN, MEET_MIN, CALL_MIN, listEvents, startOf } from "./gcal.ts";
 
 const num = (k: string, d: number) => { const v = Number(Deno.env.get(k)); return Number.isFinite(v) && v > 0 ? v : d; };
-export const OPEN = (() => {
-  const m = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(Deno.env.get("CAL_HOURS") || "09:00-17:00") || ["", "09", "00", "17", "00"];
-  return { from: Number(m[1]) * 60 + Number(m[2]), to: Number(m[3]) * 60 + Number(m[4]) };
-})();
+/* the opening windows of a day, in minutes (a window may end at 24:00) */
+const windows = (s: string) => s.split(",").map((x) => /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(x.trim())).filter((m) => !!m)
+  .map((m) => ({ from: Number(m![1]) * 60 + Number(m![2]), to: Number(m![3]) * 60 + Number(m![4]) })).filter((w) => w.to > w.from && w.to <= 1440);
+export const OPEN = (() => { const l = windows(Deno.env.get("CAL_HOURS") || "09:00-17:00,21:00-24:00"); return l.length ? l : [{ from: 540, to: 1020 }, { from: 1260, to: 1440 }]; })();
 export const DAYS = new Set((Deno.env.get("CAL_DAYS") || "1,2,3,4,5").split(",").map((x) => Number(x.trim())).filter((x) => x >= 0 && x <= 6));
 export const STEP = num("CAL_STEP", 30);
-export const AHEAD = num("CAL_AHEAD", 21);
-export const NOTICE_H = num("CAL_NOTICE_H", 24);
+export const AHEAD = num("CAL_AHEAD", 60);
+export const NOTICE_H = num("CAL_NOTICE_H", 2);
 
 const pad = (n: number) => String(n).padStart(2, "0");
 export const hhmm = (min: number) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
@@ -51,14 +52,16 @@ export const freeSlots = async (admin: ReturnType<typeof createClient>, fromDate
   const today = dayOf(Date.now()), last = addDays(today, AHEAD);
   let from = fromDate < today ? today : fromDate;
   if (from > last) return {};
-  let to = addDays(from, Math.min(Math.max(days, 1), 42) - 1); if (to > last) to = last;
+  let to = addDays(from, Math.min(Math.max(days, 1), 90) - 1); if (to > last) to = last;
   const busy = await busyBetween(admin, from, to), earliest = Date.now() + NOTICE_H * 3600000, out: Record<string, string[]> = {};
   for (let d = from; d <= to; d = addDays(d, 1)) {
     if (!DAYS.has(weekday(d))) continue;
     const list: string[] = [];
-    for (let m = OPEN.from; m + len <= OPEN.to; m += step) {
-      const s = startOf(d, hhmm(m)), e = s + len * 60000;
-      if (s >= earliest && clear(busy, s, e, gap)) list.push(hhmm(m));
+    for (const w of OPEN) {
+      for (let m = w.from; m + len <= w.to; m += step) {
+        const s = startOf(d, hhmm(m)), e = s + len * 60000;
+        if (s >= earliest && clear(busy, s, e, gap)) list.push(hhmm(m));
+      }
     }
     if (list.length) out[d] = list;
   }

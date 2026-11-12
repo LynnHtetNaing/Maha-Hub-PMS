@@ -131,7 +131,7 @@ export function clientScript(cfg) {
   }
 
   /* ---- step 1: the day and the time ---- */
-  function loadAv() { return api('GET', { q: q() + '&av=1&days=42' }).then(function (a) { AV = a; rebuild(); return a; }); }
+  function loadAv() { return api('GET', { q: q() + '&av=1&days=62' }).then(function (a) { AV = a; rebuild(); return a; }); }
   function tzSelect() {
     var h = '<select id="tz" aria-label="Time zone">', list = zoneList(), i, z;
     for (i = 0; i < list.length; i++) { z = list[i]; h += '<option value="' + esc(z) + '"' + (z === TZ ? ' selected' : '') + '>' + esc(zoneLine(z)) + '</option>'; }
