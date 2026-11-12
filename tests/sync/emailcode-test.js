@@ -143,7 +143,7 @@ let fails = 0; const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + 
 
   /* the function file: the safety rules are in the source */
   T('function: off unless MAHA_REQUIRE_CODE=on', /MAHA_REQUIRE_CODE/.test(fnSrc) && /toLowerCase\(\) === "on"/.test(fnSrc));
-  T('function: no session is returned before the code (needs_code branch comes before the session reply)', fnSrc.indexOf('needs_code: true') > 0 && fnSrc.indexOf('needs_code: true') < fnSrc.lastIndexOf('return sessionBody({ session: data.session'));
+  T('function: no session is returned before the code (needs_code branch comes before the session reply)', fnSrc.indexOf('needs_code: true') > 0 && fnSrc.indexOf('needs_code: true') < fnSrc.lastIndexOf('return await sessionBody({ session: data.session'));
   T('function: fails closed when the trust check errors', /trustError\) return json\(\{ error: "code_unavailable" \}, 503\)/.test(fnSrc));
   T('function: the password session is closed locally, not for other devices', /signOut\(data\.session\.access_token, "local"\)/.test(fnSrc));
   T('function: only a hash of the device id is used', /sha256Hex\(deviceId\)/.test(fnSrc) && !/p_device_hash:\s*deviceId/.test(fnSrc));

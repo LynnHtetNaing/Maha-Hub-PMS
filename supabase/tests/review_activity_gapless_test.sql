@@ -76,7 +76,7 @@ $$;
 
 -- 012: only the provider (code-verified once enrolled) can read the log.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000701', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000701","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000701","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare r jsonb;
@@ -91,7 +91,7 @@ $$;
 reset role;
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000702', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare failed boolean := false;
@@ -126,7 +126,7 @@ delete from auth.mfa_factors;
 
 -- 013: consecutive per-hotel numbers.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000702', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare pidA uuid; a1 jsonb; a2 jsonb; a3 jsonb;
@@ -144,7 +144,7 @@ reset role;
 
 -- Hotel B has its OWN sequence starting where it wants.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000703', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000703","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000703","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare pidB uuid; b1 jsonb; b2 jsonb;
@@ -159,7 +159,7 @@ reset role;
 
 -- A read-only user cannot take numbers; a user of another hotel cannot take numbers for this one.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000704', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000704","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000704","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare pidA uuid; failed boolean := false;
@@ -174,7 +174,7 @@ do $$
 declare pidA uuid := (select id from public.maha_properties where property_code = 'GLA01'); failed boolean := false;
 begin
   perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000703', false);
-  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000703","aal":"aal1"}', false);
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000703","aal":"aal2"}', false);
   set local role authenticated;
   begin perform public.maha_issue_invoice_no(pidA, 1); exception when insufficient_privilege then failed := true; end;
   reset role;
@@ -184,7 +184,7 @@ $$;
 
 -- A failed request leaves no hole: the number taken inside a rolled-back step is handed out again.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000702', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare pidA uuid; x jsonb; y jsonb;
@@ -218,7 +218,7 @@ select id, 'invoices', '101', '{"no":101}'::jsonb, 1, 1 from public.maha_propert
 insert into public.maha_records(property_id, collection, rec_key, data, version, seq)
 select id, 'invoices', '103', '{"no":103}'::jsonb, 1, 2 from public.maha_properties where property_code = 'GLA01';
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000701', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000701","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000701","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare pidA uuid; r jsonb;
@@ -234,7 +234,7 @@ reset role;
 
 -- Hotel staff cannot run the audit.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000702', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000702","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare pidA uuid; failed boolean := false;

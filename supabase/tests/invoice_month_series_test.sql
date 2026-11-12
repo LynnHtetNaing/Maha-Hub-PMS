@@ -28,7 +28,7 @@ end
 $$;
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a02', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a02","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare p uuid; r1 jsonb; r2 jsonb; r3 jsonb; r4 jsonb; r5 jsonb;
@@ -79,7 +79,7 @@ $$;
 
 -- Hotel B has its own series; the hotels never share or interrupt each other.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a03', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a03","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a03","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare p uuid; r jsonb;
@@ -93,7 +93,7 @@ reset role;
 
 -- A read-only user cannot take numbers, and a user of another hotel cannot take this hotel's numbers.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a04', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a04","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a04","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare p uuid;
@@ -108,7 +108,7 @@ end
 $$;
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a03', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a03","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000a03","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare p uuid;

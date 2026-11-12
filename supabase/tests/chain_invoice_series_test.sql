@@ -44,7 +44,7 @@ $$;
 -- helpers (rolled back with everything else): sign in as a user, and take the month number of one hotel
 create function public.t_as(u uuid) returns void language sql as $$
   select set_config('request.jwt.claim.sub', u::text, false),
-         set_config('request.jwt.claims', '{"sub":"' || u::text || '","aal":"aal1"}', false)
+         set_config('request.jwt.claims', '{"sub":"' || u::text || '","aal":"aal2"}', false)
 $$;
 create function public.t_seq(code text, ym text) returns int language sql security definer set search_path = '' as $$
   select (public.maha_issue_invoice_ref((select id from public.maha_properties where property_code = code), ym, 1, 1) ->> 'seq')::int

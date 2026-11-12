@@ -32,6 +32,8 @@
 //   admin_set_active username, active (boolean)  - on/off; off also bans the sign-in so the person is signed out
 //   resend_admin_invite username
 //   remove_admin     username                    - erases the admin (never the Master)
+//   admin_reset_mfa  username                    - the Authenticator of another admin is removed (lost or new phone) and their trusted devices are forgotten; the next sign-in shows a new QR code
+//   forget_my_devices (nothing; every admin may do this for themselves) - the trusted devices of the caller are forgotten: the Authenticator is asked again on each device
 //   Company Sales team (Master admin only; the team is not a hotel and has no hotel):
 //   crm_add_member   username, email, name, dept ("Sales"|"Technician"), pct (0-100) - creates a sales team member, emails a set-password link and adds the person to Staff Credit (the CRM counts the KPI and the credit from it)
 //   crm_set_active   username, active (boolean)  - on/off; off also bans the sign-in and marks the Staff Credit of the person Inactive
@@ -183,6 +185,8 @@ const handle = async (req: Request): Promise<Response> => {
       else if (action === "admin_set_active") event = ok ? (b.active ? "admin_enabled" : "admin_disabled") : "admin_status_failed";
       else if (action === "resend_admin_invite") event = ok ? "admin_invite_resent" : "admin_invite_resend_failed";
       else if (action === "remove_admin") event = ok ? "admin_removed" : "admin_remove_failed";
+      else if (action === "admin_reset_mfa") event = ok ? "admin_authenticator_reset" : "admin_authenticator_reset_failed";
+      else if (action === "forget_my_devices") event = ok ? "admin_devices_forgotten" : "admin_devices_forget_failed";
       else if (action === "forget_devices") event = ok ? "trusted_devices_reset" : "trusted_devices_reset_failed";
       if (ok && b.invitation_sent === false) detail = "email not sent: " + String(b.invitation_error ?? "");
       if (ok && action === "create_hotel") detail = (detail ? detail + "; " : "") + "owner " + username;
@@ -193,6 +197,13 @@ const handle = async (req: Request): Promise<Response> => {
     } catch { /* logging must never break the request */ }
     return json(resBody, status);
   };
+
+  // Every admin may forget their own trusted devices (the Authenticator is then asked again on each device).
+  if (action === "forget_my_devices") {
+    const { error } = await admin.rpc("maha_admin_forget_devices", { p_user: ownerId });
+    if (error) return respond({ error: "provisioning_failed" }, 502);
+    return respond({ ok: true });
+  }
 
   // Only the Master admin may use any action (they all create or change accounts and hotels of the Master).
   if (!isMaster) return respond({ error: "master_only" }, 403);
@@ -613,7 +624,7 @@ const handle = async (req: Request): Promise<Response> => {
   }
 
   // ---------------------------------------------------------------- Admin team (Master only, checked above)
-  if (action === "invite_admin" || action === "admin_hotels" || action === "admin_set_active" || action === "resend_admin_invite" || action === "remove_admin") {
+  if (action === "invite_admin" || action === "admin_hotels" || action === "admin_set_active" || action === "resend_admin_invite" || action === "remove_admin" || action === "admin_reset_mfa") {
     const codes = Array.isArray(body.hotels) ? (body.hotels as unknown[]).map((x) => String(x).toUpperCase()).filter((x) => CODE.test(x)).slice(0, 500) : [];
     const allHotels = body.all_hotels !== false;
     if (action === "invite_admin") {
@@ -652,6 +663,11 @@ const handle = async (req: Request): Promise<Response> => {
     if (action === "resend_admin_invite") {
       const sent = await sendSetPasswordEmail((ident as { recovery_email: string }).recovery_email, "console", (ident as { user_id: string }).user_id);
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
+    }
+    if (action === "admin_reset_mfa") {
+      const { error } = await admin.rpc("maha_admin_reset_mfa", { p_user: uid });
+      if (error) return respond({ error: "provisioning_failed" }, 400);
+      return respond({ ok: true });
     }
     // remove_admin
     const { error } = await admin.rpc("maha_admin_remove", { p_master: ownerId, p_user: uid });

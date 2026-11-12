@@ -36,7 +36,7 @@ $$;
 
 -- Provider: first save (expected version 0), second save, stale save is a conflict and changes nothing.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000801', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000801","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000801","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare r jsonb;
@@ -83,7 +83,7 @@ $$;
 
 -- Hotel staff (and read-only staff) can READ but never write.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000802', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000802","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000802","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare failed boolean := false; r jsonb;
@@ -99,7 +99,7 @@ end
 $$;
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000803', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000803","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000803","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare failed boolean := false;
@@ -113,7 +113,7 @@ reset role;
 
 -- Someone with no hotel cannot read anything.
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000804', false);
-select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000804","aal":"aal1"}', false);
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000804","aal":"aal2"}', false);
 set role authenticated;
 do $$
 declare failed boolean := false;
