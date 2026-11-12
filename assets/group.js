@@ -83,7 +83,7 @@
 
   /* the laptop leans a little toward the pointer */
   $$('.dev').forEach(function (d) {
-    var lap = $('.laptop', d); if (!lap || calm) return;
+    var lap = $('.laptop', d); if (!lap || calm || d.classList.contains('still')) return;
     d.addEventListener('mousemove', function (e) {
       var r = d.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
       lap.style.setProperty('--ry', (x * 9).toFixed(2) + 'deg'); lap.style.setProperty('--rx', (-y * 6).toFixed(2) + 'deg');
