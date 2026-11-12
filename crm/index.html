@@ -4566,8 +4566,10 @@ const ENEWS_TPL = [
    html: '<div style="' + ENT_HERO + '"><h2 style="color:#f3d9a0">You are invited</h2>[Event name]</div><p>Dear {{hotel}},</p><p>We would be happy to see you.</p><div style="' + ENT_BOX + '"><b>Date</b><br>[Event date] at [Event time]</div><div style="' + ENT_BOX + '"><b>Place</b><br>[Place or online link]</div><div style="' + ENT_BOX + '"><b>Length</b><br>[Length, for example 30 minutes]</div><p>{{buttons}}</p>' + ENT_SIGN},
   {id: 'thanks', name: 'Thank you', small: 'After a meeting or a visit', subject: 'Thank you, {{hotel}}',
    html: '<h2 style="color:#b8741a">Thank you</h2><p>Dear {{hotel}},</p><p>Thank you for your time on [Date we met]. It was a pleasure to meet you.</p><p>As we agreed, the next steps are:<br>[Next steps]</p><p>Please reply to this email if you have any question.</p><p>Warm regards,<br>[Your name]<br>Maha Hub</p>'},
-  {id: 'follow', name: 'Gentle reminder', small: 'Follow up, they choose a time', subject: 'A quick follow up for {{hotel}}', kind: 'remind',
-   html: '<p>Dear {{hotel}},</p><p>[Your line]</p><p>If now is not a good time, no problem. Choose a time for our call:<br>[Call date 1] [Call time 1] &middot; [Call date 2] [Call time 2] &middot; [Call date 3] [Call time 3]</p><p>{{buttons}}</p><p>Kind regards,<br>[Your name]<br>Maha Hub</p>'},
+  {id: 'follow', name: 'Gentle reminder', small: 'They choose a time on the calendar', subject: 'A quick follow up for {{hotel}}', kind: 'book',
+   html: '<p>Dear {{hotel}},</p><p>[Your line]</p><p>If now is not a good time, no problem. Choose a time that suits you for a short call:</p><p>{{buttons}}</p><p>Kind regards,<br>[Your name]<br>Maha Hub</p>'},
+  {id: 'meeting', name: 'Meeting request', small: 'They choose a time to meet', subject: 'Can we meet, {{hotel}}?', kind: 'bookm',
+   html: '<div style="' + ENT_HERO + '"><h2 style="color:#f3d9a0">Let us meet</h2>[What the meeting is about]</div><p>Dear {{hotel}},</p><p>[Your line]</p><p>Please choose a time that suits you. You see the free times and pick one.</p><p>{{buttons}}</p>' + ENT_SIGN},
   {id: 'season', name: 'Season greeting', small: 'New Year, Songkran, holidays', subject: 'Happy [Holiday] from Maha Hub',
    html: '<div style="background-color:#8f2f20;color:#ffffff;padding:22px;border-radius:10px"><h2 style="color:#ffe3a8">Happy [Holiday]</h2>Wishing you a full house</div><p>Dear {{hotel}},</p><p>Thank you for being with us. We wish you and your team a happy and busy season.</p><p>Our office is closed from [Closed from date] to [Closed to date] and open again on [Open again date].</p><p>Warm wishes,<br>[Your name]<br>Maha Hub</p>'},
   {id: 'notice', name: 'Service notice', small: 'Maintenance or price change', subject: 'Important notice from Maha Hub',
@@ -4610,6 +4612,8 @@ const entText = (f, v) => f.type === 'date' ? esc(fdate(v)) : f.type === 'area' 
 function entOptions(t, v) {
   const fs = t.fields || [], val = f => String((v && f && v[f.k]) || '');
   if (t.kind === 'interest') return [{k: 'yes', label: t.btn || 'Yes, I am interested'}];
+  /* the hotel opens the live calendar of free times and chooses one (a call of 30 minutes, or a meeting of 60 minutes) */
+  if (t.kind === 'book' || t.kind === 'bookm') return [{k: 'book', label: t.btn || (t.kind === 'bookm' ? 'Choose a time to meet' : 'Choose a time'), data: {title: t.kind === 'bookm' ? 'Meeting' : 'Call'}}, {k: 'later', label: 'Not now, contact me later'}];
   const dates = fs.filter(f => f.type === 'date'), times = fs.filter(f => f.type === 'time');
   if (t.kind === 'event') {
     const title = fs.find(f => f.type === 'text' && /event|title|name|subject/i.test(f.k) && !/your name/i.test(f.k)), place = fs.find(f => /place|where|link|address/i.test(f.k));
@@ -4635,7 +4639,7 @@ function entRender(t, v, preview) {
 }
 const entSubject = (t, v) => String(t.subject || '').replace(/\[([^\[\]<>{}]{2,80})\]/g, (m, lab) => { const k = lab.trim().toLowerCase(), f = (t.fields || []).find(x => x.k === k); return (v && v[k]) ? (f && f.type === 'date' ? fdate(v[k]) : v[k]) : m; });
 const entMissing = (t, v) => (t.fields || []).filter(f => !/optional/i.test(f.k) && !String((v && v[f.k]) || '').trim()).map(f => f.label);
-const ENT_THUMB = {news: 'box', offer: 'hero', update: 'hero', invite: 'hero', thanks: 'lines', follow: 'cta', season: 'hero', notice: 'box', results: 'hero', letter: 'lines', plain: 'lines'};
+const ENT_THUMB = {news: 'box', offer: 'hero', update: 'hero', invite: 'hero', thanks: 'lines', follow: 'cta', meeting: 'cta', season: 'hero', notice: 'box', results: 'hero', letter: 'lines', plain: 'lines'};
 function entGallery(cur) {
   const card = (id, name, small, th) => '<button type="button" class="ent-c" data-tpl="' + esc(id) + '" aria-pressed="' + (cur === id) + '"><div class="ent-th ' + (th || 'lines') + '"><i></i><s></s><s></s><s></s></div><b>' + esc(name) + '</b><small>' + esc(small) + '</small></button>';
   return '<div class="f wide"><span>Template</span><div class="ent-gal" id="en_gal">' + entList().map(t => card(t.id, t.name, t.small || '', ENT_THUMB[t.id] || (/<div style="background-color:#0A3020/.test(t.html) ? 'hero' : 'lines'))).join('') + card('plain', 'Plain', 'Write it yourself') + '</div></div>';
@@ -4652,7 +4656,7 @@ function entEditSheet(id) {
   const t = id ? entGet(id) : {id: '', name: '', small: '', subject: '', html: '<p>Dear {{hotel}},</p><p>[Your message]</p><p>Best regards,<br>[Your name]<br>Maha Hub</p>', kind: '', btn: '', fields: []};
   if (!t) return;
   const tb = [['bold', '<b>B</b>', 'Bold'], ['italic', '<i>I</i>', 'Italic'], ['underline', '<u>U</u>', 'Underline'], ['h', 'Heading', 'Heading'], ['ul', 'List', 'Bullet list'], ['link', 'Link', 'Link']];
-  const kinds = [['', 'None'], ['interest', 'One button (interested)'], ['event', 'Event: Yes / No (makes a Meeting)'], ['remind', 'Reminder: choose a time (makes a Follow up)']];
+  const kinds = [['', 'None'], ['interest', 'One button (interested)'], ['event', 'Event: Yes / No (makes a Meeting)'], ['book', 'Live calendar: they choose a time for a call (makes a Follow up)'], ['bookm', 'Live calendar: they choose a time to meet (makes a Meeting)']];
   openSheet(`${fuHead(id ? 'Edit template: ' + t.name : 'New template')}<div class="fu-pop" style="margin-top:14px">
    <div class="mq-b"><label class="mq-l">Name</label><input id="et_n" style="width:100%" value="${esc(t.name)}"></div>
    <div class="mq-b"><label class="mq-l">Short line under the name</label><input id="et_d" style="width:100%" value="${esc(t.small || '')}"></div>

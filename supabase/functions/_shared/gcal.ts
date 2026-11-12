@@ -83,6 +83,22 @@ export const clashes = async (startMs: number, endMs: number, gapMin: number, ig
   return out;
 };
 
+/* the busy events of the calendar between two moments (free / cancelled ones are left out): used to work out the free times a customer may choose */
+export const listEvents = async (fromMs: number, toMs: number): Promise<{ s: number; e: number }[]> => {
+  if (!configured()) return [];
+  const q = new URLSearchParams({ timeMin: iso(fromMs), timeMax: iso(toMs), singleEvents: "true", maxResults: "250", orderBy: "startTime" });
+  const r = await api("GET", `/calendars/${encodeURIComponent(calId())}/events?${q}`);
+  if (!r.ok) throw new Error("google_read");
+  const out: { s: number; e: number }[] = [];
+  for (const ev of r.data.items || []) {
+    if (ev.status === "cancelled" || ev.transparency === "transparent") continue;
+    const s = ev.start?.dateTime ? Date.parse(ev.start.dateTime) : ev.start?.date ? Date.parse(ev.start.date + "T00:00:00+07:00") : NaN;
+    const e = ev.end?.dateTime ? Date.parse(ev.end.dateTime) : ev.end?.date ? Date.parse(ev.end.date + "T00:00:00+07:00") : NaN;
+    if (!isNaN(s) && !isNaN(e)) out.push({ s, e });
+  }
+  return out;
+};
+
 export const upsertEvent = async (crmId: string, o: { title: string; description?: string; startMs: number; endMs: number }): Promise<boolean> => {
   if (!configured()) return false;
   const id = await eventIdOf(crmId);

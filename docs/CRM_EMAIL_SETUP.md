@@ -62,3 +62,9 @@ A hotel that writes back to `crm@maha-hub.com` appears under **Enewletter > Repl
 1. Supabase secret `INBOUND_SECRET` = any long random text (30+ characters). Deploy: `supabase functions deploy crm-inbound --no-verify-jwt`.
 2. In `workers/crm-inbound/wrangler.toml` set `FORWARD_TO` to the mailbox that receives the replies now (it must be a verified destination in Cloudflare Email Routing). Then `cd workers/crm-inbound`, `npx wrangler secret put INBOUND_SECRET` (type the same text), `npx wrangler deploy`.
 3. Cloudflare > Email > Email Routing > Routing rules: change the rule of `crm@maha-hub.com` from "Send to an email" to **Send to a Worker > crm-inbound**.
+
+## The live calendar a hotel sees (Gentle reminder and Meeting request)
+
+The button "Choose a time" opens a Maha-style calendar at `crm.maha-hub.com/r/...`: the hotel sees the free days and times (Bangkok time), picks one and confirms. The free times come live from your Google Calendar and the CRM Meetings, refresh every 30 seconds, and are checked again when the hotel confirms, so two hotels never get the same time. A chosen time becomes a Meeting (or a Follow up for a call) in the CRM and a Busy event in Google Calendar.
+Default opening hours: Monday to Friday, 09:00 to 17:00, a start time every 30 minutes, up to 21 days ahead, at least 24 hours notice, a meeting 60 minutes, a call 30 minutes, and a meeting starts at least 1 hour 30 minutes after the start of another. Change them without code with Supabase secrets: `CAL_HOURS` (for example `10:00-18:00`), `CAL_DAYS` (`1,2,3,4,5,6` = Monday to Saturday), `CAL_STEP`, `CAL_AHEAD`, `CAL_NOTICE_H`, `CAL_MEET_MIN`, `CAL_GAP_MIN`.
+Deploy after a change of the function: `supabase functions deploy crm-reply --no-verify-jwt`.

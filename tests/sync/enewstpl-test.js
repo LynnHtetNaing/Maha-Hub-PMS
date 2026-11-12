@@ -15,7 +15,7 @@ const code = crm.slice(i, j);
 const api = new Function('K', 'Auth', 'fdate', 'esc', 'document', code + '\nreturn {ENEWS_TPL, entGet, entList, entVals, entRender, entSubject, entMissing, entOptions, entFields};')(
   k => k === 'enews_tpl' ? recs : [], { who: () => 'Lynn' }, d => d ? 'D(' + d + ')' : '', s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'), {});
 const { ENEWS_TPL, entGet, entList, entVals, entRender, entSubject, entMissing, entOptions, entFields } = api;
-T('ten templates', ENEWS_TPL.length === 10 && ['news', 'offer', 'update', 'invite', 'thanks', 'follow', 'season', 'notice', 'results', 'letter'].every(id => ENEWS_TPL.some(t => t.id === id)));
+T('eleven templates', ENEWS_TPL.length === 11 && ['news', 'offer', 'update', 'invite', 'thanks', 'follow', 'meeting', 'season', 'notice', 'results', 'letter'].every(id => ENEWS_TPL.some(t => t.id === id)));
 
 /* every [type here] in the text is a box; the same wording is one box; date and time words give a calendar and a clock */
 const fl = entFields('<p>[Your name] and [your name] <a href="https://x.com/[no]">x</a> [Event date] [Event time] [Your news] [Hotel name]</p>', 'Hi [Holiday]');
@@ -48,16 +48,14 @@ T('the colours and boxes of the templates survive the cleaning of the mail funct
 const inv = entGet('invite'), iv = { 'event name': 'Demo day', 'event date': '2026-12-05', 'event time': '10:00', 'place or online link': 'Online', 'length, for example 30 minutes': '30 min', 'your name': 'Lynn' };
 const io = entOptions(inv, iv);
 T('Event invitation: Yes and No answers; Yes carries the title, date, time and place', inv.kind === 'event' && io.length === 2 && io[0].k === 'yes' && io[0].data.title === 'Demo day' && io[0].data.date === '2026-12-05' && io[0].data.time === '10:00' && io[0].data.place === 'Online' && io[1].k === 'no');
-const fol = entGet('follow'), fv = {}; fol.fields.forEach(f => { fv[f.k] = ''; });
-Object.assign(fv, { 'call date 1': '2026-12-02', 'call time 1': '10:00', 'call date 2': '2026-12-03', 'call time 2': '14:00' });
-const fo = entOptions(fol, fv);
-T('Gentle reminder: one choice for each time filled in, and "call me later"', fol.kind === 'remind' && fo.length === 3 && fo[0].k === 's1' && fo[0].data.time === '10:00' && fo[1].data.time === '14:00' && fo[2].k === 'later');
+const fol = entGet('follow'), fo = entOptions(fol, {}), mt = entGet('meeting'), mo = entOptions(mt, {});
+T('Gentle reminder: the hotel opens the live calendar (a call) or says later; Meeting request: the live calendar for a meeting', fol.kind === 'book' && fo.length === 2 && fo[0].k === 'book' && fo[1].k === 'later' && mt.kind === 'bookm' && mo[0].k === 'book' && mo[0].data.title === 'Meeting');
 T('the subject follows the boxes and keeps {{hotel}} for each hotel', entSubject(inv, iv) === 'You are invited: Demo day' && entGet('offer').subject.includes('{{hotel}}'));
 T('a template tells which boxes are empty; an (optional) box may stay empty', entMissing(inv, { 'event name': '', 'event date': '2026-12-05' }).includes('Event name') && entMissing({ fields: [{ k: 'x (optional)', label: 'X (optional)' }] }, {}).length === 0);
 recs.push({ key: 'letter', name: 'Letter', small: '', subject: 'My subject [Topic]', html: '<p>Hi {{hotel}} [Topic]</p>', tkind: '', btn: '' });
 T("the CEO's own wording and design replace the starting text; the boxes follow the new text", entGet('letter').html === '<p>Hi {{hotel}} [Topic]</p>' && entGet('letter').edited === true && entGet('letter').fields.map(f => f.k).join() === 'topic');
 recs.push({ key: 'c_new1', name: 'Mine', small: 'x', subject: 'Hello', html: '<p>[Your name]</p>', tkind: 'interest', btn: 'Count me in' });
-T('the CEO can add a template of their own, with its answer button', entList().length === 11 && entGet('c_new1').custom === true && entOptions(entGet('c_new1'), {})[0].label === 'Count me in');
+T('the CEO can add a template of their own, with its answer button', entList().length === 12 && entGet('c_new1').custom === true && entOptions(entGet('c_new1'), {})[0].label === 'Count me in');
 
 /* ---- the page ---- */
 T('the page: Plain keeps the free editor; the CEO alone sees Edit template and New template (text, design code, answer buttons); a person fills boxes, not the text', crm.includes("card('plain', 'Plain'") && crm.includes("(Auth.isProvider() ? '' : ' hidden')") && crm.includes("toast('Only the CEO edits a template')") && crm.includes("toast('Only the CEO makes a template')") && crm.includes('Design (code)') && crm.includes("$('#en_plain').hidden = !!tt;") && crm.includes('function entSafe(html)'));
