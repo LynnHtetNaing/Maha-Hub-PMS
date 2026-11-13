@@ -14,7 +14,7 @@ const base = {
   guest: { name: 'Mr. Guest Sample' },
   booking: { no: '9486', confirmation: '9486', arrLabel: 'Friday, 13 November 2026', depLabel: 'Sunday, 15 November 2026', checkin: '14:00', checkout: '12:00', nights: '2 nights', roomType: 'Superior Twin', ratePlan: 'Room Only (RO)', pax: '2 adults' },
   money: { cur: 'THB', payStatus: 'Partially paid', rate: '1,762.50', roomTotal: '3,525.00', paid: '1,500.00', balance: '2,025.00' },
-  policies: { cancel: 'Free until 11 Nov.', child: '', noshow: '', terms: '' },
+  terms: ['Cancellation: free until 11 Nov.', 'No-show: one night charged.'].join('\n'),
   request: ['Late arrival', 'Quiet room'],
 };
 const mail = d => confirmationMail(cleanConfirmation(d));
@@ -28,13 +28,15 @@ T('partly paid shows Deposit Paid and Remaining Amount to Pay', m.html.includes(
 T('paid in full shows Amount Paid only', ((h) => h.includes('>Amount Paid<') && !h.includes('Remaining Amount') && !h.includes('Deposit Paid'))(mail({ ...base, money: { ...base.money, payStatus: 'Paid', paid: '3,525.00', balance: '0.00' } }).html));
 T('pay at the hotel shows Pay to Hotel; collected by the booking channel shows no amount to pay',
   mail({ ...base, money: { ...base.money, payStatus: 'Pay at the hotel', paid: '0.00', balance: '3,525.00' } }).html.includes('Pay to Hotel') && /Collected by the booking channel/.test(mail({ ...base, money: { ...base.money, payStatus: 'OTA collect' } }).html) && !mail({ ...base, money: { ...base.money, payStatus: 'OTA collect' } }).html.includes('Remaining Amount'));
-T('the four policy sections always show, with "-" when empty; the order puts Your Request just above the Terms and Conditions; there is no "Notes for your stay"',
-  ['Cancellation Policy', 'Child Policy', 'No-show Policy', 'Terms and Conditions'].every(t => m.html.includes('>' + t + '<')) && ((h) => h.indexOf('>Your Request<') > h.indexOf('>No-show Policy<') && h.indexOf('>Your Request<') < h.indexOf('>Terms and Conditions<'))(m.html) && />-<\/div>/.test(m.html) && !m.html.includes('Notes for your stay'));
-T('Your Request appears only when there is a request, as bullets', !mail({ ...base, request: [] }).html.includes('Your Request') && m.html.includes('<li style="margin:4px 0">Late arrival</li>'));
-T('each text shows only the first lines: 5 for the policies, 8 for the terms, 6 requests',
-  ((c) => c.policies.cancel.split('\n').length === 5 && c.policies.terms.split('\n').length === 8 && c.request.length === 6 && MAIL_LIMITS.cancel === 5 && MAIL_LIMITS.terms === 8)(cleanConfirmation({ ...base, policies: { cancel: Array.from({ length: 9 }, (_, i) => 'c' + i).join('\n'), child: '', noshow: '', terms: Array.from({ length: 20 }, (_, i) => 't' + i).join('\n') }, request: Array.from({ length: 10 }, (_, i) => 'r' + i) })));
-T('nothing the browser sends can become markup', !mail({ ...base, guest: { name: '<script>alert(1)</script>' }, request: ['<img src=x onerror=1>'] }).html.match(/<script|<img src=x/));
+T('the payment status is plain text like the other lines (no corner tag)', ((h) => /Payment status<\/td><td[^>]*>Partially paid<\/td>/.test(h) && !/border-radius:999px/.test(h.slice(h.indexOf('Price and payment'), h.indexOf('Terms and Conditions'))))(m.html));
+T('there is one policy title, Terms and Conditions: each term on its own line with a dash, and "-" when none is set; the old Cancellation / Child / No-show titles are gone',
+  m.html.includes('>Terms and Conditions<') && m.html.includes('- Cancellation: free until 11 Nov.') && m.html.includes('- No-show: one night charged.') && !/>(Cancellation|Child|No-show) Policy</.test(m.html) && /Terms and Conditions[\s\S]*>-<\/div>/.test(mail({ ...base, terms: '' }).html) && m.text.includes('- Cancellation: free until 11 Nov.'));
+T('Your Request sits just above the Terms and Conditions, only when there is a request, as bullets; there is no "Notes for your stay"',
+  ((h) => h.indexOf('>Your Request<') > 0 && h.indexOf('>Your Request<') < h.indexOf('>Terms and Conditions<'))(m.html) && !mail({ ...base, request: [] }).html.includes('Your Request') && m.html.includes('<li style="margin:4px 0">Late arrival</li>') && !m.html.includes('Notes for your stay'));
+T('every title is a bordered table box', (m.html.match(/border:1px solid #d3dcd8;border-radius:12px/g) || []).length >= 4);
+T('each text shows only the first lines: 12 terms, 6 requests', ((c) => c.terms.split('\n').length === 12 && c.request.length === 6 && MAIL_LIMITS.terms === 12)(cleanConfirmation({ ...base, terms: Array.from({ length: 20 }, (_, i) => 't' + i).join('\n'), request: Array.from({ length: 10 }, (_, i) => 'r' + i) })));
+T('nothing the browser sends can become markup', !mail({ ...base, guest: { name: '<script>alert(1)</script>' }, request: ['<img src=x onerror=1>'], terms: '<b>x</b>' }).html.match(/<script|<img src=x|<b>x/));
 T('the subject names the hotel', confirmationSubject(cleanConfirmation(base)) === 'Thanks! Your booking is confirmed at Sample Hotel');
-T('the PMS: a new setup section "Guest mail policies" (provider only) holds the cancellation, child, no-show and terms texts, with the same line limits; the mail takes them from there',
-  pms.includes("['mailpol','16','Guest mail policies']") && pms.includes('mailpol(box){') && pms.includes('s.mailPol={...out') && pms.includes('mp=s.mailPol||{}') && pms.includes("policies:{cancel,child:mp.child||'',noshow:mp.noshow||'',terms:mp.terms||''}") && /if\(!provOnly\(\)\)return;const out=\{\}/.test(pms));
+T('the PMS: setup section "Guest mail policies" (provider only) holds one box of terms and conditions with the same line limit; the mail takes it from there',
+  pms.includes("['mailpol','16','Guest mail policies']") && pms.includes('mailpol(box){') && pms.includes('s.mailPol={terms:ls.join(') && pms.includes('mp=s.mailPol||{}') && pms.includes("terms:mp.terms||''") && /if\(!provOnly\(\)\)return;const ls=/.test(pms) && !pms.includes('mp.noshow'));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);

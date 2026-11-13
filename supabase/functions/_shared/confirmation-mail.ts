@@ -8,25 +8,25 @@ export type Confirmation = {
   guest: { name: string };
   booking: { no: string; confirmation: string; arrLabel: string; depLabel: string; checkin: string; checkout: string; nights: string; roomType: string; ratePlan: string; pax: string };
   money: { cur: string; payStatus: string; rate: string; roomTotal: string; paid: string; balance: string };
-  policies: { cancel: string; child: string; noshow: string; terms: string };
+  terms: string;   /* one term or condition on each line: the cancellation, child and no-show rules and every other term */
   request: string[];
 };
 
 const clip = (s: unknown, n: number) => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, n);
 /* so the mail stays good-looking: only the first lines of each text are shown (the provider sees the same limits in the hotel setup) */
-export const MAIL_LIMITS = { cancel: 5, child: 5, noshow: 5, terms: 8, request: 6, line: 240 };
+export const MAIL_LIMITS = { terms: 12, request: 6, line: 240 };
 const lim = (s: unknown, n: number) => String(s == null ? "" : s).split(/\n+/).map((x) => clip(x, MAIL_LIMITS.line)).filter(Boolean).slice(0, n).join("\n");
 export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /* a clean copy of whatever the browser sent */
 export function cleanConfirmation(d: any): Confirmation {
-  const o = d && typeof d === "object" ? d : {}, h = o.hotel || {}, g = o.guest || {}, b = o.booking || {}, m = o.money || {}, p = o.policies || {};
+  const o = d && typeof d === "object" ? d : {}, h = o.hotel || {}, g = o.guest || {}, b = o.booking || {}, m = o.money || {};
   return {
     hotel: { name: clip(h.name, 120), address: clip(h.address, 240), phone: clip(h.phone, 40), email: /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(String(h.email || "")) ? clip(h.email, 160) : "" },
     guest: { name: clip(g.name, 120) },
     booking: { no: clip(b.no, 40), confirmation: clip(b.confirmation, 40), arrLabel: clip(b.arrLabel, 60), depLabel: clip(b.depLabel, 60), checkin: clip(b.checkin, 12), checkout: clip(b.checkout, 12), nights: clip(b.nights, 40), roomType: clip(b.roomType, 120), ratePlan: clip(b.ratePlan, 120), pax: clip(b.pax, 80) },
     money: { cur: clip(m.cur, 8), payStatus: clip(m.payStatus, 40), rate: clip(m.rate, 30), roomTotal: clip(m.roomTotal, 30), paid: clip(m.paid, 30), balance: clip(m.balance, 30) },
-    policies: { cancel: lim(p.cancel, MAIL_LIMITS.cancel), child: lim(p.child, MAIL_LIMITS.child), noshow: lim(p.noshow, MAIL_LIMITS.noshow), terms: lim(p.terms, MAIL_LIMITS.terms) },
+    terms: lim(o.terms, MAIL_LIMITS.terms),
     request: (Array.isArray(o.request) ? o.request : []).map((x: unknown) => clip(x, MAIL_LIMITS.line)).filter(Boolean).slice(0, MAIL_LIMITS.request),
   };
 }
@@ -56,9 +56,9 @@ export function confirmationMail(c: Confirmation): { html: string; text: string 
   const maps = H.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(H.name + ", " + H.address) : "";
   const row = (k: string, v: string) => v ? `<tr><td style="padding:9px 0;border-bottom:1px solid ${LINE};color:${MUTED};width:42%;vertical-align:top">${esc(k)}</td><td style="padding:9px 0;border-bottom:1px solid ${LINE};color:${INK};font-weight:bold;vertical-align:top">${esc(v)}</td></tr>` : "";
   const btn = (href: string, label: string, primary: boolean) => `<td style="padding:0 10px 10px 0"><a href="${esc(href)}" target="_blank" style="display:inline-block;padding:12px 22px;border-radius:999px;font-weight:bold;font-size:14px;text-decoration:none;background:${primary ? FOREST : "#dcebe4"};color:${primary ? "#ffffff" : FOREST}">${esc(label)}</a></td>`;
-  const section = (title: string, inner: string) => `<tr><td style="padding:22px 28px 0"><div style="font-size:18px;font-weight:bold;color:${FOREST};padding-bottom:8px;border-bottom:2px solid ${GOLD}">${esc(title)}</div>${inner}</td></tr>`;
-  const para = (t: string) => `<div style="padding-top:10px;color:${INK}">${t ? esc(t).replace(/\n/g, "<br>") : "-"}</div>`;
-  const payTag = M.payStatus && M.payStatus !== "-" ? `<tr><td style="padding:9px 0;border-bottom:1px solid ${LINE};color:${MUTED};width:42%">Payment status</td><td style="padding:9px 0;border-bottom:1px solid ${LINE}"><span style="display:inline-block;padding:3px 12px;border-radius:999px;background:#e3efe9;color:${FOREST};font-weight:bold;font-size:13px">${esc(M.payStatus)}</span></td></tr>` : "";
+  const section = (title: string, inner: string) => `<tr><td style="padding:16px 28px 0"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d3dcd8;border-radius:12px;border-collapse:separate;overflow:hidden"><tr><td style="background:${BOX};padding:12px 18px;border-bottom:1px solid #d3dcd8;font-size:16px;font-weight:bold;color:${FOREST}">${esc(title)}</td></tr><tr><td style="padding:4px 18px 12px">${inner}</td></tr></table></td></tr>`;
+  const dashes = (t: string) => `<div style="padding-top:8px;color:${INK}">${(t ? t.split("\n") : [""]).map((x) => `<div style="padding:3px 0">- ${esc(x)}</div>`.replace("- </div>", "-</div>")).join("")}</div>`;
+  const payTag = M.payStatus && M.payStatus !== "-" ? row("Payment status", M.payStatus) : "";
   const money = M.rate || M.roomTotal;
   const priceTable = money ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px">${payTag}${row("Rate per night", M.rate ? cur + M.rate : "")}${row("Total Room Nights", B.nights)}${row("Total price", M.roomTotal ? cur + M.roomTotal : "")}${payRows(M).map((r) => row(r[0], r[1])).join("")}</table>` : "";
 
@@ -82,11 +82,8 @@ ${H.phone || H.email ? `<table role="presentation" width="100%" cellspacing="0" 
 </td></tr></table></td></tr>
 ${section("Reservation details", `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px">${row("Reservation", B.no)}${row("Guest name", name)}${row("Room Type", B.roomType)}${row("Rate plan", B.ratePlan)}${row("You booked for", B.pax)}${row("Check-in", (B.arrLabel + (B.checkin ? " (from " + B.checkin + ")" : "")).trim())}${row("Check-out", (B.depLabel + (B.checkout ? " (until " + B.checkout + ")" : "")).trim())}</table>`)}
 ${money ? section("Price and payment", priceTable) : ""}
-${section("Cancellation Policy", para(c.policies.cancel))}
-${section("Child Policy", para(c.policies.child))}
-${section("No-show Policy", para(c.policies.noshow))}
 ${c.request.length ? section("Your Request", `<ul style="margin:10px 0 0;padding-left:20px;color:${INK}">${c.request.map((n) => `<li style="margin:4px 0">${esc(n)}</li>`).join("")}</ul>`) : ""}
-${section("Terms and Conditions", para(c.policies.terms))}
+${section("Terms and Conditions", dashes(c.terms))}
 <tr><td style="padding:26px 28px 24px"><div style="color:${MUTED};font-size:13px">Please keep this mail for your records. If you need to change or ask about your booking, contact ${esc(H.name || "the hotel")} directly${H.phone ? " on " + esc(H.phone) : ""}.</div></td></tr>
 <tr><td style="background:#faf5ec;padding:14px 28px;color:#7a7468;font-size:12px">This is an automatic message from Maha Hub on behalf of ${esc(H.name || "the hotel")}. Please do not reply to it.</td></tr>
 </table></td></tr></table></body></html>`;
@@ -99,8 +96,7 @@ ${section("Terms and Conditions", para(c.policies.terms))}
   L("Room Type", B.roomType); L("Rate plan", B.ratePlan); L("You booked for", B.pax);
   if (money) { lines.push(""); L("Payment status", M.payStatus === "-" ? "" : M.payStatus); L("Rate per night", M.rate ? cur + M.rate : ""); L("Total Room Nights", B.nights); L("Total price", M.roomTotal ? cur + M.roomTotal : ""); payRows(M).forEach((r) => L(r[0], r[1])); }
   if (maps) lines.push("", "Directions: " + maps);
-  lines.push("", "Cancellation Policy", c.policies.cancel || "-", "", "Child Policy", c.policies.child || "-", "", "No-show Policy", c.policies.noshow || "-");
   if (c.request.length) lines.push("", "Your Request", ...c.request.map((n) => "- " + n));
-  lines.push("", "Terms and Conditions", c.policies.terms || "-", "", "This is an automatic message from Maha Hub on behalf of " + (H.name || "the hotel") + ". Please do not reply to it.");
+  lines.push("", "Terms and Conditions", ...(c.terms ? c.terms.split("\n").map((x) => "- " + x) : ["-"]), "", "This is an automatic message from Maha Hub on behalf of " + (H.name || "the hotel") + ". Please do not reply to it.");
   return { html, text: lines.join("\n") };
 }

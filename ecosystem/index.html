@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="ff2bf82766">
+<meta name="maha-build" content="95b4a49509">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9489,12 +9489,11 @@ const bkpLong=d=>{if(!d)return '';const x=new Date(d+'T12:00:00Z');return ['Sund
 const bkpNice=n=>String(n||'').replace(/^(mr|mrs|ms|miss|dr)\.?\s/i,(m,t)=>t.charAt(0).toUpperCase()+t.slice(1).toLowerCase()+'. ');
 function bkpMailData(B){
   const d=bkpData(B),s=H.set,mp=s.mailPol||{},N=d.nts.length,cur=bCur(B);
-  const cancel=mp.cancel||(s.google&&s.google.cancelPolicy)||'';
   return {hotel:{name:s.name||'',address:s.addr||'',phone:s.phone||'',email:s.email||''},guest:{name:bkpNice(gName(d.g))},
     booking:{no:String(d.r.no),confirmation:(d.r.confirmation&&d.r.confirmation!=='0')?String(d.r.confirmation):String(d.r.no),arrLabel:bkpLong(B.arr),depLabel:bkpLong(B.dep),checkin:B.eta||'14:00',checkout:B.etd||'12:00',nights:N+' night'+(N===1?'':'s'),
       roomType:RT(B.type).name||B.type,ratePlan:(d.rc.desc||B.rateCode)+' ('+B.rateCode+')',pax:B.adults+' adult'+(B.adults===1?'':'s')+(B.children?' + '+B.children+' child'+(B.children===1?'':'ren'):'')},
     money:{cur,payStatus:d.pay,rate:m2(d.rate),roomTotal:m2(d.roomTotal),paid:m2(d.paid),balance:m2(d.balance)},
-    policies:{cancel,child:mp.child||'',noshow:mp.noshow||'',terms:mp.terms||''},request:d.notes};
+    terms:mp.terms||'',request:d.notes};
 }
 function bkpMail(B){
   if(!need('print'))return;
@@ -13653,20 +13652,16 @@ const SEC={
      s.gaplessInvoices=(s.invMode==='manual')||$('#d_gl',box).checked;
      provLog(`Tax Invoice Reference saved for ${H.code}: ${s.invMode==='manual'?'Manual '+invManualRef(s.invFmt.prefix,s.invFmt.start,s.invFmt.min)+(s.invFmt.unl?' (unlimited digits)':' (fixed width)'):'Standard'}${s.gaplessInvoices?', gapless':''}`);saved()}},
  terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
- mailpol(box){const s=H.set,p=s.mailPol||{},LM={cancel:5,child:5,noshow:5,terms:8,line:240};
+ mailpol(box){const s=H.set,p=s.mailPol||{},LM={terms:12,line:240};
    const lines=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);
-   const ta=(id,label,key)=>fld(label,`<textarea id="${id}" rows="${key==='terms'?8:5}">${esc(p[key]||'')}</textarea><div class="sub" data-cnt="${id}"></div>`);
-   box.innerHTML=secHead('16. Guest mail policies','These texts are shown in the booking confirmation mail that the guest receives. They are not the registration card terms. A box left empty shows "-" in the mail. Only the first lines fit the mail, so keep each text short: up to '+LM.cancel+' lines for the cancellation, child and no-show policies and up to '+LM.terms+' lines for the terms and conditions, one line on each row, up to '+LM.line+' characters.')+`<div class="panel pad">${ta('mp_c','Cancellation policy','cancel')}${ta('mp_ch','Child policy','child')}${ta('mp_ns','No-show policy','noshow')}${ta('mp_t','Terms and conditions','terms')}
+   box.innerHTML=secHead('16. Guest mail policies','These terms and conditions are shown in the booking confirmation mail that the guest receives. They are not the registration card terms. Write one term or condition on each line, for example the cancellation rule, the child policy, the no-show rule and anything else the guest should know. Each line shows in the mail with a dash. Empty shows "-". Only '+LM.terms+' lines fit the mail, up to '+LM.line+' characters each.')+`<div class="panel pad">${fld('Terms and conditions (one on each line)',`<textarea id="mp_t" rows="12">${esc(p.terms||'')}</textarea><div class="sub" id="mp_n"></div>`)}
      <div class="btns"><button class="btn gold" id="mpS">Save</button></div><p class="sub" id="mpE" role="status"></p></div>`;
-   const ids={mp_c:'cancel',mp_ch:'child',mp_ns:'noshow',mp_t:'terms'};
-   const count=()=>Object.keys(ids).forEach(id=>{const n=lines($('#'+id,box).value).length,mx=LM[ids[id]];const c=$('[data-cnt="'+id+'"]',box);c.textContent=n+' of '+mx+' lines'+(n>mx?' - too many, only the first '+mx+' show in the mail':'');c.style.color=n>mx?'#b3261e':''});
-   Object.keys(ids).forEach(id=>$('#'+id,box).addEventListener('input',count));count();
-   $('#mpS',box).onclick=()=>{if(!provOnly())return;const out={};
-     for(const id of Object.keys(ids)){const k=ids[id],ls=lines($('#'+id,box).value);
-       if(ls.length>LM[k]){$('#mpE',box).textContent='Too many lines in one of the boxes: the most is '+LM[k]+'.';return}
-       if(ls.some(x=>x.length>LM.line)){$('#mpE',box).textContent='A line is longer than '+LM.line+' characters. Split it into two lines.';return}
-       out[k]=ls.join('\n')}
-     s.mailPol={...out,at:Date.now(),by:user().name};provLog('Guest mail policies saved at '+H.code);saved('Guest mail policies saved')}},
+   const count=()=>{const n=lines($('#mp_t',box).value).length,c=$('#mp_n',box);c.textContent=n+' of '+LM.terms+' lines'+(n>LM.terms?' - too many, only the first '+LM.terms+' show in the mail':'');c.style.color=n>LM.terms?'#b3261e':''};
+   $('#mp_t',box).addEventListener('input',count);count();
+   $('#mpS',box).onclick=()=>{if(!provOnly())return;const ls=lines($('#mp_t',box).value);
+     if(ls.length>LM.terms){$('#mpE',box).textContent='Too many lines: the most is '+LM.terms+'.';return}
+     if(ls.some(x=>x.length>LM.line)){$('#mpE',box).textContent='A line is longer than '+LM.line+' characters. Split it into two lines.';return}
+     s.mailPol={terms:ls.join('\n'),at:Date.now(),by:user().name};provLog('Guest mail policies saved at '+H.code);saved('Guest mail policies saved')}},
  google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly'];
    box.innerHTML=secHead('Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
    <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
