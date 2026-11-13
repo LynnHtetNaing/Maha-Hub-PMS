@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path');
 const root = path.resolve(__dirname, '..', '..');
 let fails = 0;
 const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++; };
-const pages = ['index', 'about', 'maha-hub-solutions', 'products', 'pricing', 'security', 'maha-hub-academy', 'contact', 'privacy', 'terms', 'refund', 'reset-password', '404'];
+const pages = ['index', 'about', 'maha-hub-solutions', 'products', 'maha-travel', 'pricing', 'security', 'maha-hub-academy', 'contact', 'privacy', 'terms', 'refund', 'reset-password', '404'];
 const html = n => fs.readFileSync(path.join(root, n + '.html'), 'utf8');
 T('all pages exist', pages.every(p => fs.existsSync(path.join(root, p + '.html'))));
 /* addresses the site or the apps answer to */

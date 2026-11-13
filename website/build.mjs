@@ -43,18 +43,21 @@ const PRODUCTS = [
   { id: 'pms', name: 'Maha PMS', kind: 'Property management system', live: true, blurb: 'The command centre for your property: rooms, rates and reservations in one refined workspace.',
     long: 'The foundation of Maha Solutions. Property, rooms, rates, reservations, front office and billing, brought together in a single, connected workspace.',
     features: ['Property and rooms', 'Rates', 'Reservations', 'Front office', 'Folio and billing', 'Guest profiles', 'Housekeeping', 'Reports', 'User roles'] },
-  { id: 'connect', name: 'Maha Connect', kind: 'Channel distribution', live: true, blurb: 'Place your inventory across global channels, with rates and availability held in perfect step.',
+  { id: 'connect', name: 'Maha Connect', kind: 'Channel distribution', live: false, blurb: 'Place your inventory across global channels, with rates and availability held in perfect step.',
     long: 'Channel distribution designed for the discerning operator, keeping rooms and rates precisely aligned across every channel you sell on.',
     features: ['Inventory distribution', 'Rates across channels', 'Connected to Maha PMS'] },
-  { id: 'booking', name: 'Maha Booking', kind: 'Direct booking', live: true, blurb: 'Invite guests to book directly with you, on your own website.',
+  { id: 'booking', name: 'Maha Booking', kind: 'Direct booking', live: false, blurb: 'Invite guests to book directly with you, on your own website.',
     long: 'A direct booking engine for your own website, inviting guests to reserve with you rather than through an intermediary.',
     features: ['Direct bookings on your website', 'Rooms and rates from Maha PMS', 'Reservations created in Maha PMS'] },
-  { id: 'reach', name: 'Maha Reach', kind: 'Marketing and guest engagement', live: true, blurb: 'Cultivate your brand and your guest relationships.',
+  { id: 'reach', name: 'Maha Reach', kind: 'Marketing and guest engagement', live: false, blurb: 'Cultivate your brand and your guest relationships.',
     long: 'Marketing and guest engagement for hotels: stay close to your guests and strengthen your brand with every interaction.',
     features: ['Marketing', 'Campaigns', 'Guest engagement'] },
-  { id: 'sales', name: 'Maha Sales', kind: 'Sales', live: true, blurb: 'Hotel leads, follow-ups and quotations, managed with discipline.',
+  { id: 'sales', name: 'Maha Sales', kind: 'Sales', live: false, blurb: 'Hotel leads, follow-ups and quotations, managed with discipline.',
     long: 'Leads, follow-ups and quotations for hotel sales teams, available from the same Maha sign-in.',
     features: ['Leads', 'Follow-ups', 'Quotations'] },
+  { id: 'travel', name: 'Maha Travel', kind: 'Online travel agency', live: false, blurb: 'Our own online travel channel, connecting guests directly with Maha hotels.',
+    long: 'Maha Travel is our own online travel agency, designed to connect guests directly with Maha hotels, with reservations flowing into Maha PMS and rates held in step through Maha Connect.',
+    features: ['Our own travel channel', 'Reservations into Maha PMS', 'Rates through Maha Connect'] },
   { id: 'hr', name: 'Maha HR', kind: 'People', live: false, blurb: 'Team, attendance and payroll.', long: 'People management for hotel teams: records, attendance and payroll.', features: ['Team', 'Attendance', 'Payroll'] },
   { id: 'account', name: 'Maha Account', kind: 'Finance', live: false, blurb: 'Accounting and finance.', long: 'Accounting and financial control, designed for hotels.', features: ['Accounting', 'Finance'] },
   { id: 'manage', name: 'Maha Manage', kind: 'Back office', live: false, blurb: 'Back office and multi-property.', long: 'Back-office tools and consolidated management reporting across multiple properties.', features: ['Back office', 'Multi-property'] },
@@ -62,13 +65,16 @@ const PRODUCTS = [
   { id: 'stock', name: 'Maha Stock', kind: 'Inventory', live: false, blurb: 'Inventory and suppliers.', long: 'Inventory and supplier management for hotel operations.', features: ['Inventory', 'Suppliers'] },
 ];
 const LIVE = PRODUCTS.filter(p => p.live), SOON = PRODUCTS.filter(p => !p.live);
+const DEV = ['connect', 'booking', 'reach', 'sales', 'travel'];   /* in development and shown as cards; the rest are listed together */
+const prodCard = (p, full) => '<article class="card prod reveal"><span class="tag ' + (p.live ? 'on' : 'soon') + '">' + (p.live ? 'Available now' : 'In development') + '</span><h3>' + p.name + '</h3><div class="kind">' + p.kind + '</div><p>' + p.blurb + '</p>' + (full ? '<ul>' + p.features.slice(0, 3).map(f => '<li>' + f + '</li>').join('') + '</ul>' : '') + '<a class="more" href="' + (p.id === 'travel' ? '/maha-travel' : '/products#' + p.id) + '">Learn more ' + I.arr + '</a></article>';
+const moreCard = '<article class="card prod reveal" style="background:linear-gradient(160deg,#0A3020,#184D3A)"><span class="tag soon">In development</span><h3 style="color:var(--gold2)">Further products</h3><p style="color:#d8e8df">' + SOON.filter(p => !DEV.includes(p.id)).map(p => p.name).join(', ') + '.</p><a class="more" style="color:var(--gold2)" href="/products#soon">See what is planned ' + I.arr + '</a></article>';
 
 /* ---------- shared page parts ---------- */
 const NAV = [
   { key: 'home', href: '/', label: 'Home' },
   { key: 'about', href: '/about', label: 'About' },
   { key: 'solutions', label: 'Maha Solutions', menu: [
-    ['/maha-hub-solutions', 'Overview', 'Connected hotel software'], ['/products', 'Products', 'PMS, Connect, Booking, Reach, Sales'],
+    ['/maha-hub-solutions', 'Overview', 'Connected hotel software'], ['/products', 'Products', 'Maha PMS today, more in development'], ['/maha-travel', 'Maha Travel', 'Our own travel channel, in development'],
     ['/pricing', 'Pricing', 'Plans and how buying works'], ['/security', 'Security', 'How we protect hotel data']] },
   { key: 'academy', href: '/maha-hub-academy', label: 'Maha Academy' },
   { key: 'contact', href: '/contact', label: 'Contact' },
@@ -129,7 +135,7 @@ const footer = () => `</main>
       <p>${ADDRESS}<br>Tel <a href="tel:${PHONE_TEL}">${PHONE}</a></p>
       <p><b>Office</b><br>${OFFICE}<br>Tel <a href="tel:${OFFICE_TEL}">${OFFICE_PHONE}</a></p>
     </div>
-    <div><h4>Our brands</h4><ul><li><a href="/maha-hub-solutions">Maha Solutions</a></li><li><a href="/products">Products</a></li><li><a href="/pricing">Pricing</a></li><li><a href="/maha-hub-academy">Maha Academy</a></li></ul></div>
+    <div><h4>Our brands</h4><ul><li><a href="/maha-hub-solutions">Maha Solutions</a></li><li><a href="/products">Products</a></li><li><a href="/maha-travel">Maha Travel</a></li><li><a href="/pricing">Pricing</a></li><li><a href="/maha-hub-academy">Maha Academy</a></li></ul></div>
     <div><h4>Company</h4><ul><li><a href="/about">About the Group</a></li><li><a href="/security">Security</a></li><li><a href="/contact">Contact</a></li><li><a href="/solutions">Customer sign in</a></li></ul></div>
     <div><h4>Contact</h4><ul><li><a href="mailto:${EMAIL}">${EMAIL}</a></li><li><a href="mailto:${SUPPORT}">${SUPPORT}</a></li><li><a href="/privacy">Privacy Policy</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/refund">Refund Policy</a></li></ul></div>
   </div>
@@ -209,7 +215,7 @@ add('index.html', 'home', {
         <div class="brand-ico">${I.hub}</div>
         <h3>Maha Solutions</h3>
         <p>Connected software for hotels and accommodation businesses: property management, channel distribution, direct booking, guest engagement and sales, all drawing on a single source of hotel data.</p>
-        <ul class="ticks"><li>Maha PMS, Connect, Booking, Reach and Sales</li><li>One sign-in, tailored to each hotel</li><li>Further products in development</li></ul>
+        <ul class="ticks"><li>Maha PMS today, with Connect, Booking, Reach, Sales and Travel in development</li><li>One sign-in, tailored to each hotel</li><li>Further products in development</li></ul>
         <div class="btns"><a class="btn btn-gold" href="/maha-hub-solutions">Discover Solutions ${I.arr}</a><a class="btn btn-line" href="/solutions">Sign in</a></div>
       </article>
       <article class="card brand-card aca reveal">
@@ -242,10 +248,10 @@ add('index.html', 'home', {
 
 <section class="section paper">
   <div class="wrap">
-    <div class="sec-head reveal"><p class="eyebrow">Maha Solutions</p><h2>Every part of your hotel, working as one.</h2><p class="lead">Five products are available today. Each is opened for your hotel individually, and each draws on the same hotel data rather than standing alone.</p></div>
+    <div class="sec-head reveal"><p class="eyebrow">Maha Solutions</p><h2>Every part of your hotel, working as one.</h2><p class="lead">Maha PMS is available today. Maha Connect, Maha Booking, Maha Reach, Maha Sales and Maha Travel are in development and not yet available. Each will draw on the same hotel data rather than standing alone.</p></div>
     <div class="grid g3">
-      ${LIVE.map(p => `<article class="card prod reveal"><span class="tag">Available now</span><h3>${p.name}</h3><div class="kind">${p.kind}</div><p>${p.blurb}</p><ul>${p.features.slice(0, 3).map(f => `<li>${f}</li>`).join('')}</ul><a class="more" href="/products#${p.id}">Learn more ${I.arr}</a></article>`).join('\n      ')}
-      <article class="card prod reveal" style="background:linear-gradient(160deg,#0A3020,#184D3A)"><span class="tag soon">Coming soon</span><h3 style="color:var(--gold2)">Five more in development</h3><p style="color:#d8e8df">${SOON.map(p => p.name).join(', ')}.</p><a class="more" style="color:var(--gold2)" href="/products#soon">See what is planned ${I.arr}</a></article>
+      ${PRODUCTS.filter(p => p.live || DEV.includes(p.id)).map(p => prodCard(p, true)).join('')}
+      ${moreCard}
     </div>
   </div>
 </section>
@@ -340,12 +346,12 @@ ${ctaBand()}`);
 /* ===================================================== SOLUTIONS ===================================================== */
 add('maha-hub-solutions.html', 'solutions', {
   title: 'Maha Solutions | Connected software for hotels',
-  desc: 'Maha Solutions: Maha PMS, Maha Connect, Maha Booking, Maha Reach and Maha Sales, connected software for hotels and accommodation businesses.',
+  desc: 'Maha Solutions: connected software for hotels. Maha PMS is available today, with Connect, Booking, Reach, Sales and Travel in development.',
   canon: '/maha-hub-solutions',
 }, `${pageHero({ crumb: 'Maha Solutions', eyebrow: 'Technology', h1: 'Maha Solutions', shot: ['pms-dashboard','pms-grid','pms-housekeeping'], actions: true, lead: 'Connected software for hotels and accommodation businesses. Every product draws on the same hotel data, so that no team ever enters the same detail twice.', img: '/assets/hero-solutions.webp', pos: '50% 72%', cls: 'ph-light' })}
 <section class="section">
   <div class="wrap">
-    <div class="sec-head center reveal"><p class="eyebrow">One booking, followed through every department</p><h2>Information flows from one product to the next.</h2><p class="lead">This is how a single guest booking travels through Maha Solutions, from first discovery to follow-up.</p></div>
+    <div class="sec-head center reveal"><p class="eyebrow">One booking, followed through every department</p><h2>Information flows from one product to the next.</h2><p class="lead">This is how a single guest booking is designed to travel through Maha Solutions, from first discovery to follow-up. Maha PMS is available today; the other stages arrive as each product is released.</p></div>
     <div class="section dark" style="border-radius:24px;padding:48px 24px 52px">
       <div class="steps">
         <div class="step reveal"><b>Guest finds you</b><span>Maha Reach</span></div>
@@ -361,9 +367,9 @@ add('maha-hub-solutions.html', 'solutions', {
   <div class="wrap">
     <div class="sec-head reveal"><p class="eyebrow">Who it is for</p><h2>Solutions for every kind of hotel.</h2><p class="lead">From a single independent property to a group of hotels, the same products grow with you.</p></div>
     <div class="grid g3">
-      <div class="card reveal"><h3>Independent hotels</h3><p>Run the front office, reservations, housekeeping and billing from one system, and welcome direct bookings on your own website.</p></div>
+      <div class="card reveal"><h3>Independent hotels</h3><p>Run the front office, reservations, housekeeping and billing from one system, with direct booking on your own website planned through Maha Booking.</p></div>
       <div class="card reveal"><h3>Resorts</h3><p>Bring rooms, guests and folios together in Maha PMS, with food and beverage and inventory planned to connect to the same data.</p></div>
-      <div class="card reveal"><h3>Boutique hotels</h3><p>An uncluttered workspace for small teams, with direct booking and channel management that champion your own brand.</p></div>
+      <div class="card reveal"><h3>Boutique hotels</h3><p>An uncluttered workspace for small teams, with direct booking and channel management planned to champion your own brand.</p></div>
       <div class="card reveal"><h3>Serviced apartments</h3><p>Manage units, stays, guests and billing in one place, from short visits to extended stays.</p></div>
       <div class="card reveal"><h3>Hotel groups</h3><p>Give each property its own workspace while keeping data organised under one group, with user roles per team.</p></div>
       <div class="card reveal"><h3>Multi-property operators</h3><p>Use the multi-property capability of Maha PMS, with management reporting planned in Maha Manage.</p></div>
@@ -372,10 +378,10 @@ add('maha-hub-solutions.html', 'solutions', {
 </section>
 <section class="section paper">
   <div class="wrap">
-    <div class="sec-head reveal"><p class="eyebrow">Products</p><h2>Available now.</h2></div>
+    <div class="sec-head reveal"><p class="eyebrow">Products</p><h2>Our products.</h2><p class="lead">Maha PMS is available today. Every other product is in development and not yet available.</p></div>
     <div class="grid g3">
-      ${LIVE.map(p => `<article class="card prod reveal"><span class="tag on">Available now</span><h3>${p.name}</h3><div class="kind">${p.kind}</div><p>${p.blurb}</p><a class="more" href="/products#${p.id}">Learn more ${I.arr}</a></article>`).join('\n      ')}
-      <article class="card prod reveal"><span class="tag soon">Coming soon</span><h3>More products</h3><p>${SOON.map(p => p.name).join(', ')}.</p><a class="more" href="/products#soon">See what is planned ${I.arr}</a></article>
+      ${PRODUCTS.filter(p => p.live || DEV.includes(p.id)).map(p => prodCard(p, false)).join('')}
+      ${moreCard}
     </div>
   </div>
 </section>
@@ -392,21 +398,21 @@ ${ctaBand('Find the right configuration for your property.', 'Tell us about your
 const PSHOT = { pms: ['pms-dashboard','pms-status','pms-grid','pms-housekeeping'] };
 const deviceFrame = id => PSHOT[id] ? laptop(PSHOT[id]) : '';
 const prodBlock = (p, i) => `<article class="split ${i % 2 ? 'rev' : ''}" id="${p.id}" style="padding:44px 0;border-top:1px solid var(--line)">
-  <div class="reveal"><span class="tag ${p.live ? 'on' : 'soon'}">${p.live ? 'Available now' : 'Coming soon'}</span>
+  <div class="reveal"><span class="tag ${p.live ? 'on' : 'soon'}">${p.live ? 'Available now' : 'In development'}</span>
     <h2 style="font-size:clamp(28px,3vw,40px)">${p.name}</h2><p class="kind" style="color:var(--gold3);font-weight:600;margin:-4px 0 12px">${p.kind}</p>
     <p class="lead" style="font-size:18px">${p.long}</p>
-    ${p.live ? '' : '<p class="note">This product is coming soon and is not yet available.</p>'}
+    ${p.live ? '' : '<p class="note">This product is in development and is not yet available.</p>'}
     <div class="hero-cta" style="margin-top:18px">${p.live
       ? `<button class="btn btn-green" type="button" data-book="demo">Book a Demo</button><a class="btn btn-line-dark" href="/solutions">Sign in</a>`
-      : `<a class="btn btn-line-dark" href="/contact?interest=${encodeURIComponent(p.name + ' (in development)')}">Register interest</a>`}</div></div>
+      : `<a class="btn btn-line-dark" href="/contact?interest=${encodeURIComponent(p.name + ' (in development)')}">Register interest</a>${p.id === 'travel' ? '<a class="btn btn-green" href="/maha-travel">Learn more</a>' : ''}`}</div></div>
   <div class="reveal"><div class="card"><h4 style="margin-bottom:14px">What it covers</h4><ul class="ticks" style="margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">${p.features.map(f => `<li>${f}</li>`).join('')}</ul></div>${deviceFrame(p.id)}</div>
 </article>`;
 add('products.html', 'solutions', {
-  title: 'Products | Maha Solutions', desc: 'Maha PMS, Maha Connect, Maha Booking, Maha Reach and Maha Sales are available now. Maha HR, Account, Manage, POS and Stock are coming soon.', canon: '/products',
-}, `${pageHero({ crumb: '<a href="/maha-hub-solutions">Maha Solutions</a> / Products', eyebrow: 'Maha Solutions', h1: 'Products', shot: ['pms-dashboard','pms-grid','pms-housekeeping','pms-status'], lead: 'Maha PMS, Maha Connect, Maha Booking, Maha Reach and Maha Sales are available today. Each is opened for your hotel individually. Products marked coming soon are not yet available.', img: '/assets/banners/heritage.jpg', pos: '50% 35%' })}
+  title: 'Products | Maha Solutions', desc: 'Maha PMS is available today. Maha Connect, Booking, Reach, Sales and Travel, with Maha HR, Account, Manage, POS and Stock, are in development.', canon: '/products',
+}, `${pageHero({ crumb: '<a href="/maha-hub-solutions">Maha Solutions</a> / Products', eyebrow: 'Maha Solutions', h1: 'Products', shot: ['pms-dashboard','pms-grid','pms-housekeeping','pms-status'], lead: 'Maha PMS is available today and is opened for your hotel individually. Every other product is in development and not yet available.', img: '/assets/banners/heritage.jpg', pos: '50% 35%' })}
 <section class="section"><div class="wrap">
   ${LIVE.map(prodBlock).join('\n  ')}
-  <div id="soon" class="sec-head reveal" style="margin-top:64px"><p class="eyebrow">Coming soon</p><h2>Products in development.</h2><p class="lead">These products are in development and are not yet available.</p></div>
+  <div id="soon" class="sec-head reveal" style="margin-top:64px"><p class="eyebrow">In development</p><h2>Products in development.</h2><p class="lead">These products are in development and are not yet available.</p></div>
   ${SOON.map((p, i) => prodBlock(p, i)).join('\n  ')}
 </div></section>
 ${ctaBand('Unsure which product suits you?', 'Tell us about your property and we will recommend the best place to begin.')}`);
@@ -417,7 +423,7 @@ add('pricing.html', 'solutions', {
 }, `${pageHero({ crumb: '<a href="/maha-hub-solutions">Maha Solutions</a> / Pricing', eyebrow: 'Maha Solutions', h1: 'Pricing', lead: 'Flexible plans for every kind of hospitality business. Every price is tailored to your property.', img: '/assets/banners/heritage.jpg', pos: '50% 60%' })}
 <section class="section"><div class="wrap">
   <div class="grid g3">
-    <div class="card reveal"><h3>Single property</h3><p class="note" style="margin-bottom:14px">For independent hotels, boutique hotels and serviced apartments.</p><div class="num" style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>Maha PMS</li><li>Maha Connect (optional)</li><li>Maha Booking (optional)</li><li>Maha Reach (optional)</li><li>Onboarding and support</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20single%20property">Request a quote</a></div>
+    <div class="card reveal"><h3>Single property</h3><p class="note" style="margin-bottom:14px">For independent hotels, boutique hotels and serviced apartments.</p><div class="num" style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>Maha PMS</li><li>Maha Connect (in development)</li><li>Maha Booking (in development)</li><li>Maha Reach (in development)</li><li>Onboarding and support</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20single%20property">Request a quote</a></div>
     <div class="card reveal"><h3>Multi-property</h3><p class="note" style="margin-bottom:14px">For operators managing more than one property.</p><div style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>Everything in the Single property plan</li><li>Several properties under one account</li><li>Onboarding and support</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20multi-property">Talk to us</a></div>
     <div class="card reveal"><h3>Hotel groups</h3><p class="note" style="margin-bottom:14px">For hotel groups and hospitality companies with custom needs.</p><div style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>A tailored set of Maha products</li><li>Group onboarding</li><li>First access to products coming soon</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20hotel%20group">Request a demo</a></div>
   </div>
@@ -432,6 +438,41 @@ add('pricing.html', 'solutions', {
   </div>
 </div></section>
 ${ctaBand('Request a quotation.', 'Tell us about your property and the products you need.')}`);
+
+/* ===================================================== MAHA TRAVEL ===================================================== */
+add('maha-travel.html', 'solutions', {
+  title: 'Maha Travel | Our own online travel agency, in development',
+  desc: 'Maha Travel is the Maha Hub online travel agency, designed to connect guests directly with Maha hotels. In development and not yet available.',
+  canon: '/maha-travel',
+}, `${pageHero({ crumb: '<a href="/maha-hub-solutions">Maha Solutions</a> / Maha Travel', eyebrow: 'Maha Solutions &middot; In development', h1: 'Maha Travel', lead: 'Our own online travel agency, designed to bring guests and Maha hotels together directly. Maha Travel is in development and is not yet available.', actions: false })}
+<section class="section">
+  <div class="wrap split">
+    <div class="reveal">
+      <p class="eyebrow">Our own channel</p>
+      <h2>A travel channel built with hotels, for hotels.</h2>
+      <p class="lead">Maha Travel will give guests a refined way to discover and book Maha hotels, and give hotels a channel they are part of rather than one they simply pay.</p>
+      <p>It is designed to sit at the front of the Maha platform: reservations arrive directly in Maha PMS, and rates and availability stay aligned through Maha Connect. We will share dates and details here as they are confirmed.</p>
+      <div class="hero-cta"><a class="btn btn-green" href="/contact?interest=Maha%20Travel%20(in%20development)">Register interest ${I.arr}</a><button class="btn btn-line-dark" type="button" data-book="talk">Talk with the Team</button></div>
+    </div>
+    <div class="grid" style="gap:16px">
+      <div class="card reveal"><span class="tag soon">In development</span><h3>Planned for guests</h3><ul class="ticks" style="margin:10px 0 0"><li>Discover and compare Maha hotels in one place</li><li>Book directly, with clear rates and conditions</li><li>A consistent, considered experience from search to stay</li></ul></div>
+      <div class="card reveal"><span class="tag soon">In development</span><h3>Planned for hotels</h3><ul class="ticks" style="margin:10px 0 0"><li>A distribution channel of your own group</li><li>Reservations delivered straight into Maha PMS</li><li>Rates and availability kept in step through Maha Connect</li></ul></div>
+    </div>
+  </div>
+</section>
+<section class="section dark">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">How it will fit</p><h2>From discovery to arrival, in one connected flow.</h2><p class="lead">This is the journey Maha Travel is designed to support. Maha PMS is available today; the other stages arrive as each product is released.</p></div>
+    <div class="steps">
+      <div class="step reveal"><b>Guest discovers</b><span>Maha Travel</span></div>
+      <div class="step reveal"><b>Guest books</b><span>Maha Travel</span></div>
+      <div class="step reveal"><b>Reservation arrives</b><span>Maha PMS</span></div>
+      <div class="step reveal"><b>Rates stay aligned</b><span>Maha Connect</span></div>
+      <div class="step reveal"><b>Stay and follow-up</b><span>Maha PMS and Maha Reach</span></div>
+    </div>
+  </div>
+</section>
+${ctaBand('Be among the first partner hotels.', 'Tell us about your hotel and we will keep you informed as Maha Travel takes shape.', '', ['/contact?interest=Maha%20Travel%20(in%20development)', 'Register interest'])}`);
 
 /* ===================================================== SECURITY and legal ===================================================== */
 const docPage = (file, active, crumb, title, lede, partial, canon, img = '/assets/maha-hub-hero.jpg') => add(file, active, { title: `${title} | Maha Hub`, desc: lede, canon },
@@ -564,6 +605,6 @@ for (const [file, html] of Object.entries(pages)) fs.writeFileSync(path.join(ROO
 /* one 404 for every Maha address: the explorer page (errors/unplugged.html) is also the website's 404.html */
 fs.copyFileSync(path.join(ROOT, 'errors', 'unplugged.html'), path.join(ROOT, '404.html'));
 
-const urls = ['/', '/about', '/maha-hub-solutions', '/products', '/pricing', '/security', '/maha-hub-academy', '/contact', '/privacy', '/terms', '/refund', '/solutions'];
+const urls = ['/', '/about', '/maha-hub-solutions', '/products', '/maha-travel', '/pricing', '/security', '/maha-hub-academy', '/contact', '/privacy', '/terms', '/refund', '/solutions'];
 fs.writeFileSync(path.join(ROOT, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map(u => `<url><loc>${SITE}${u === '/' ? '/' : u}</loc></url>`).join('')}</urlset>\n`, 'utf8');
 console.log('built ' + Object.keys(pages).length + ' pages');
