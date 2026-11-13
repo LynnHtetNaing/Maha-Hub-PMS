@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="e7a835c70b">
+<meta name="maha-build" content="a07dd27f50">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1716,6 +1716,11 @@ html[data-skin="modern"] .hkl .hkh .thic{width:34px;height:34px;border-radius:11
 .ivpaid{position:absolute;right:0;top:50%;transform:translateY(-50%);color:#d00000;font-weight:800;font-size:26px;letter-spacing:2px;line-height:1}
 .ivtitle.guest{letter-spacing:1px}
 .ivpad td{height:22px}
+.cfgreet{font-size:13.5px;margin:6px 0 10px}
+table.cfx{width:100%;border-collapse:collapse;margin:0 0 10px;border:1px solid #222}table.cfx th{background:#f0f0f0;text-align:left;font-size:13px;padding:5px 8px;border-bottom:1px solid #222}
+table.cfx td{padding:4px 8px;font-size:12.5px;border-bottom:1px solid #ddd;vertical-align:top}table.cfx tr:last-child td{border-bottom:0}table.cfx td.v{font-weight:700}table.cfx td.n{text-align:right}
+table.cfx td:first-child{width:26%}table.cfx td:nth-child(3){width:21%}table.cfx tr:has(td.n) td:first-child{width:auto}.cfl{margin:0;padding-left:18px}
+.cfclose{margin-top:26px;font-size:13px;line-height:1.6}.cfclose p{margin:0 0 10px}.cfclose .cfsoff{margin-top:18px;text-align:right}.cfpow{margin-top:auto;padding-top:14px;text-align:center;font-size:10.5px;color:#666}
 .cfstay{width:100%;border-collapse:collapse;margin:8px 0 12px}
 .cfstay td{border:1px solid #222;padding:5px 8px;font-size:13px}
 .cfstay td:first-child{width:34%;font-weight:700;background:#f6f6f6}
@@ -3374,7 +3379,6 @@ function shapeHotel(h){
   if(!(h.set.nextRef>=1))h.set.nextRef=1;
   if(!(h.set.nextCN>=1))h.set.nextCN=1;h.creditNotes=h.creditNotes||[];
   if(h.set.bfAdult==null)h.set.bfAdult=h.set.cur==='MMK'?4000:150;
-  if(!h.set.confirmTpl)h.set.confirmTpl='Dear {{guest}},\n\nYour stay at {{hotel}} is confirmed.\nReservation {{rsvn}} · Confirmation No. {{confirmation}}\nArrival {{arr}}    Departure {{dep}}\nRoom {{room}} ({{type}}) · {{nights}} night(s)\nGuests {{adults}} adult(s), {{children}} child(ren)\n\nWe look forward to welcoming you.\n\n{{signature}}';
   h.set.google=Object.assign({
     enabled:false,lat:'',lng:'',countryCode:'',category:'hotel',amenities:[],cancelPolicy:'',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''
   },h.set.google||{});
@@ -5360,7 +5364,7 @@ function bindPlanEditor(root){if(!root)return;root.dataset.chosen=(H.set&&H.set.
     const use=(picked!=='custom'&&PLAN_OFF[picked])?flagsForPlan(picked):flags;const plan=detectPlan(use);
     const fxFlags={};$$('[data-fx]',root).forEach(c=>{fxFlags[c.dataset.fx]=c.checked});
     H.set.features=Object.assign({},H.set.features||{},use,fxFlags);syncLegacyFeatures(H.set.features);H.set.plan=plan;
-    if($('#ftSig',root)){H.set.signature=$('#ftSig',root).value.trim();H.set.confirmTpl=$('#ftTpl',root).value}
+    if($('#ftSig',root)){H.set.signature=$('#ftSig',root).value.trim()}
     const titles=allFunctionKeys().filter(k=>k!=='confirm');const hidden=titles.filter(k=>H.set.features[k]===false);
     provLog(`Functions & plan for ${H.code}: ${planName(H)}`);saveDB();applyFxCss();renderShell();
     toast(hidden.length===titles.length?`Saved. Every title is hidden for ${H.code}. Setup → Functions stays visible.`:`Saved. ${planName(H)} for ${H.code}.`);render()}}
@@ -9476,10 +9480,98 @@ function hsResDetail(b){
   w.querySelector('#bkpX').onclick=shut;w.querySelector('.bkp-shade').onclick=shut;
   closeBkp._k=e=>{if(e.key==='Escape'&&!MODALS.length)shut()};document.addEventListener('keydown',closeBkp._k);
   w.querySelector('#bkpEd').onclick=()=>{closeBkp(true);hsResEdit(B)};
-  w.querySelector('#bkpPr').onclick=()=>{if(!need('print'))return;const p=confirmationPack(B);printPages(p.html,'Reservation confirmation '+p.r.no)};
-  w.querySelector('#bkpMl').onclick=()=>confirmationLetter(B);
+  w.querySelector('#bkpPr').onclick=()=>{if(!need('print'))return;const p=confirmationPack(B);printPages(p.html,'Reservation confirmation '+p.r.no,{to:p.email,rsvn:String(p.r.no),subject:'Thanks! Your booking is confirmed at '+(H.set.name||'your hotel')});};
+  w.querySelector('#bkpMl').onclick=e=>bkpMail(B,e.currentTarget);
   const ci=w.querySelector('#bkpCI');if(ci)ci.onclick=async()=>{if(await checkInUI(B)){refresh();again()}};
   const co=w.querySelector('#bkpCO');if(co)co.onclick=async()=>{if(await checkOut(B)){refresh();again()}};
+}
+
+/* the Mail button of the booking panel: the confirmation goes to the guest through Maha Mail (the pms-send-mail function) as a no-reply mail from the Maha Hub brand.
+   The browser sends only the facts of the booking; the server builds the mail. The policies come from Setup, Guest mail policies (set by the provider). */
+const BKP_MAIL_ERR={not_configured:'Maha Mail is not set up on the server yet.',not_signed_in:'Please sign in again, then try once more.',property_access_denied:'Your sign-in is not allowed to send mail for this hotel.',too_many:'Too many mails were sent this hour. Please try again later.',send_failed:'The mail could not be sent. Please try again.',bad_request:'Check the guest email address.'};
+const bkpLong=d=>{if(!d)return '';const x=new Date(d+'T12:00:00Z');return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][x.getUTCDay()]+', '+x.getUTCDate()+' '+['January','February','March','April','May','June','July','August','September','October','November','December'][x.getUTCMonth()]+' '+x.getUTCFullYear()};
+const bkpNice=n=>String(n||'').replace(/^(mr|mrs|ms|miss|dr)\.?\s/i,(m,t)=>t.charAt(0).toUpperCase()+t.slice(1).toLowerCase()+'. ');
+/* the number the guest knows the booking by: the OTA reservation number (the Reference of the reservation) for an OTA booking, the hotel's own confirmation number for a Direct booking */
+function bkpRefNo(B,d){const r=d.r,hotelNo=(r.confirmation&&r.confirmation!=='0')?String(r.confirmation):String(r.no),ota=String(r.reference||'').trim();return d.co&&d.co.type==='T'&&ota?ota:hotelNo}
+function bkpMailData(B){
+  const d=bkpData(B),s=H.set,mp=s.mailPol||{},N=d.nts.length,cur=bCur(B),refNo=bkpRefNo(B,d);
+  return {hotel:{name:s.name||'',address:s.addr||'',phone:s.phone||'',email:s.email||''},guest:{name:bkpNice(gName(d.g))},
+    booking:{no:refNo,confirmation:refNo,arrLabel:bkpLong(B.arr),depLabel:bkpLong(B.dep),checkin:B.eta||'14:00',checkout:B.etd||'12:00',nights:N+' night'+(N===1?'':'s'),
+      roomType:RT(B.type).name||B.type,ratePlan:(d.rc.desc||B.rateCode)+' ('+B.rateCode+')',pax:B.adults+' adult'+(B.adults===1?'':'s')+(B.children?' + '+B.children+' child'+(B.children===1?'':'ren'):'')},
+    money:{cur,payStatus:d.pay,rate:m2(d.rate),roomTotal:m2(d.roomTotal),paid:m2(d.paid),balance:m2(d.balance)},
+    terms:mp.terms||'',request:d.notes};
+}
+async function bkpSendMail(B,to,subject){
+  const data=bkpMailData(B);
+  try{
+    const t=await MahaAuth.fresh();if(!t)return {ok:false,msg:'Sending needs the cloud sign-in. Please sign in again, then try once more.'};
+    const res=await fetch(MahaAuth.base()+'/functions/v1/pms-send-mail',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
+      body:JSON.stringify({property_code:H.code,to,subject:subject||'',data,rsvn:String((resOf(B)||{}).no||data.booking.no)})});
+    let d=null;try{d=await res.json()}catch(e){}
+    if(!res.ok||!d||d.sent!==1)return {ok:false,msg:BKP_MAIL_ERR[d&&d.error]||'The mail could not be sent. Please try again.'};
+    return {ok:true};
+  }catch(e){return {ok:false,msg:'No connection. Please try again.'}}
+}
+/* the CSS the printed documents (Tax Invoice, Credit Note, Deposit, confirmation) need, copied once so a shared "View document" page looks right on its own, with no other file to load */
+const DOC_VIEW_CSS=".ppage{background:#fff;color:#000;font-family:Inter,\"Noto Sans\",\"Noto Sans Thai\",\"Noto Sans Myanmar\",Arial,sans-serif;position:relative}.ppage.port{width:210mm;min-height:297mm;padding:12mm}.ppage.land{width:297mm;min-height:210mm;padding:10mm}"
+  +".inv{font-size:13.5px}.ivh{display:flex;justify-content:space-between}.ivn{font-size:21px}.ivl{margin-top:4px;line-height:1.55;font-size:12.5px}.ivlogo{width:88px;height:88px;border-radius:12px}.ivtitle{text-align:center;font-weight:700;font-size:20px;margin:10px 0;letter-spacing:.4px;line-height:1.2}.ivtitle.guest{letter-spacing:1px}"
+  +".ivtitlebar{position:relative;display:flex;align-items:center;justify-content:center;min-height:42px;padding:4px 118px 8px;box-sizing:border-box}"
+  +".ivinfo{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;border:1px solid #000;padding:10px 12px;font-size:13px}.ivinfo td{padding:2px 5px;vertical-align:top}.ivinfo td:first-child{white-space:nowrap}"
+  +".ivt{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}.ivt th{border-top:1px solid #000;border-bottom:1px solid #000;padding:8px 6px;text-align:left;font-size:12.5px}.ivt td{padding:6px}.ivt .n,.ivtot .n{text-align:right}"
+  +".ivtot{margin-left:auto;margin-top:10px;border-collapse:collapse;min-width:320px}.ivtot td{padding:3px 8px}.ivtot tr.grand td{border-top:1px solid #000;border-bottom:3px double #000;font-weight:700;padding:5px 8px}.ivw{text-align:center;font-weight:700;margin:10px 0}"
+  +".ivfoot{position:static;margin-top:auto;font-size:12px;padding-top:12px}.ivfoot p{margin:0}.ivcont{text-align:center;font-style:italic;color:#444;padding:14px 0;font-size:12.5px}"
+  +".sigs{display:flex;justify-content:space-around;margin-top:56px;text-align:center}.sigs span,.sigs div{display:block;min-width:200px;border-top:1px solid #000;margin-bottom:3px;padding-top:4px}"
+  +".clfoot{font-size:11px;padding-top:4px}.clterms,.clack{margin-bottom:8px}.clterms b,.clack b{display:block;margin-bottom:2px}.clack p{margin:0}"
+  +"table.cfx{width:100%;border-collapse:collapse;margin:0 0 10px;border:1px solid #222}table.cfx th{background:#f0f0f0;text-align:left;font-size:13px;padding:5px 8px;border-bottom:1px solid #222}table.cfx td{padding:4px 8px;font-size:12.5px;border-bottom:1px solid #ddd;vertical-align:top}table.cfx tr:last-child td{border-bottom:0}table.cfx td.v{font-weight:700}table.cfx td.n{text-align:right}table.cfx td:first-child{width:26%}table.cfx td:nth-child(3){width:21%}.cfl{margin:0;padding-left:18px}"
+  +".cfgreet{font-size:13.5px;margin:6px 0 10px}.cfclose{margin-top:26px;font-size:13px;line-height:1.6}.cfclose p{margin:0 0 10px}.cfclose .cfsoff{margin-top:18px;text-align:right}.cfpow{margin-top:30px;padding-top:14px;text-align:center;font-size:10.5px;color:#666}"
+  +".cfstay{width:100%;border-collapse:collapse;margin:8px 0 12px}.cfstay td{border:1px solid #222;padding:5px 8px;font-size:13px}.cfstay td:first-child{width:34%;font-weight:700;background:#f6f6f6}.cfbody{font-size:13.5px;line-height:1.55;white-space:pre-wrap}"
+  +".cfsign{margin-top:18px;font-size:13px}.cfsign b{display:block;margin-top:28px;border-top:1px solid #000;width:220px;padding-top:4px}"
+  +"@media print{.dvbar{display:none}body{background:#fff!important;padding:0!important}}";
+/* a shared document is one self-contained page: no other file to load, so the CSS above is copied into it. A floating bar lets the guest print it or save it as a PDF. */
+function docViewHtml(title,bodyHtml){
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title>'
+   +'<style>'+DOC_VIEW_CSS+'body{margin:0;background:#9aa6ad;display:flex;flex-direction:column;align-items:center;padding:20px 10px 44px;font-family:Inter,Arial,sans-serif}'
+   +'.dvbar{position:sticky;top:10px;z-index:2;background:#0A3020;color:#fff;padding:10px 18px;border-radius:999px;display:flex;gap:14px;align-items:center;margin-bottom:16px;box-shadow:0 10px 24px -10px rgba(0,0,0,.4);font:600 14px Inter,Arial,sans-serif}'
+   +'.dvbar button{border:0;border-radius:999px;background:#D49A38;color:#1a272f;font:700 14px Inter,Arial,sans-serif;padding:8px 16px;cursor:pointer}</style></head>'
+   +'<body><div class="dvbar"><span>'+esc(title)+'</span><button type="button" onclick="window.print()">Save as PDF / Print</button></div>'+bodyHtml+'</body></html>';
+}
+/* sends a document already shown in a print preview: a short message and a View button, the document itself opened from a secure link the guest can print or save */
+async function pmsSendDoc(to,subject,title,bodyHtml,rsvn){
+  try{
+    const t=await MahaAuth.fresh();if(!t)return {ok:false,msg:'Sending needs the cloud sign-in. Please sign in again, then try once more.'};
+    const res=await fetch(MahaAuth.base()+'/functions/v1/pms-send-mail',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
+      body:JSON.stringify({property_code:H.code,to,subject:subject||title,doc:{title,html:docViewHtml(title,bodyHtml)},rsvn:rsvn||''})});
+    let d=null;try{d=await res.json()}catch(e){}
+    if(!res.ok||!d||d.sent!==1)return {ok:false,msg:BKP_MAIL_ERR[d&&d.error]||'The mail could not be sent. Please try again.'};
+    return {ok:true};
+  }catch(e){return {ok:false,msg:'No connection. Please try again.'}}
+}
+/* the automatic mail (a hotel preference, off by default): only for a Direct reservation that has a guest email; OTA and walk-in bookings are sent by hand */
+async function autoConfirmMail(B){
+  try{
+    if(H.set.autoConfirmMail!==true||B.status!=='confirmed')return;
+    const r=resOf(B),co=r&&CO(r.companyId);if(!co||co.code!=='DIR')return;
+    const g=G(B.guestId),to=String((r&&r.email)||(g&&g.email)||'').trim();
+    if(!/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(to))return;
+    const res=await bkpSendMail(B,to,'');
+    if(res.ok){histB(B,'Confirmation emailed automatically to '+to);log('Auto-emailed confirmation RSVN '+r.no,B.id);saveDB();toast('Confirmation emailed to '+to)}
+    else toast('The confirmation mail was not sent: '+res.msg);
+  }catch(e){}
+}
+/* the Mail button sends at once: no box to fill in. It shows a loading state while sending, then a success or an error message.
+   The address used is the one already on the reservation or the guest profile; a booking with no email on file cannot be sent this way. */
+async function bkpMail(B,btn){
+  if(!need('print'))return;
+  const pack=confirmationPack(B),subject='Thanks! Your booking is confirmed at '+(H.set.name||'your hotel');
+  const to=String(pack.email||'').trim();
+  if(!/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(to)){toast('No guest email on file. Add an email to the guest or the reservation, then try again.');return}
+  const label=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sending...'}
+  const res=await bkpSendMail(B,to,subject);
+  if(btn){btn.disabled=false;btn.innerHTML=label}
+  if(!res.ok){toast(res.msg);return}
+  histB(B,'Confirmation emailed to '+to);log('Emailed confirmation RSVN '+pack.r.no,B.id);saveDB();
+  centerNote('Confirmation sent successfully to '+to+'.','saved');
 }
 function hsResPopup(b){
   const g=G(b.guestId),r=resOf(b),ch=chanOfBooking(b),n=stayNights(b).length;
@@ -10200,18 +10292,18 @@ function reservationScreen(box,r,B,o={}){
   const upcoming=dates(B.arr,B.dep).filter(d=>d>=H.set.bd);const dr=B.nightly[upcoming[0]||B.arr]||0;
   const rc=H.rateCodes.find(x=>x.code===B.rateCode)||{};
   const RB={};
-  const RICON={aSave:'device-floppy',aProf:'user-circle',aRate:'adjustments',aNotif:'bell',aCopy:'copy',aAdd:'plus',aShare:'users',aDep:'cash',aRef:'arrow-back-up',aFol:'folder',aCI:'login',aCan:'x',aNS:'user-x',aRecall:'refresh',aReinst:'refresh',aBack:'arrow-left',aLog:'history'};
-  const RLAB={aSave:'Save',aProf:'Guest profile',aRate:'Rate setup',aNotif:'Notices',aCopy:'Copy to new reservation',aAdd:'Add another room',aShare:'Add sharing guest',aDep:'Deposit',aRef:'Refund',aFol:'Open folio',aCI:'Check in',aCan:'Cancel',aNS:'Mark no-show',aRecall:'Recall no-show',aReinst:'Reinstate',aBack:'Check back in',aLog:'User logs'};
+  const RICON={aSave:'device-floppy',aProf:'user-circle',aRate:'adjustments',aNotif:'bell',aCopy:'copy',aAdd:'plus',aShare:'users',aDep:'cash',aRef:'arrow-back-up',aFol:'folder',aCI:'login',aCan:'x',aNS:'user-x',aRecall:'refresh',aReinst:'refresh',aBack:'arrow-left',aLog:'history',aMail:'mail'};
+  const RLAB={aSave:'Save',aProf:'Guest profile',aRate:'Rate setup',aNotif:'Notices',aCopy:'Copy to new reservation',aAdd:'Add another room',aShare:'Add sharing guest',aDep:'Deposit',aRef:'Refund',aFol:'Open folio',aCI:'Check in',aCan:'Cancel',aNS:'Mark no-show',aRecall:'Recall no-show',aReinst:'Reinstate',aBack:'Check back in',aLog:'User logs',aMail:'Mail'};
   const RCLS={aCI:' acc',aFol:' acc',aRef:' acc',aCan:' dng'};
   const tbR=(id,icon,title,dis)=>{RB[id]={title,dis};return ''};
   if(['confirmed','tentative'].includes(B.status)){tbR('aCI','bed','Check in',!can('checkin'));tbR('aCan','x','Cancel booking',!can('res.cancel'));if(B.arr<=H.set.bd)tbR('aNS','log','Mark no-show',!can('res.cancel'))}
   if(B.status==='noshow'&&B.statusDate===H.set.bd&&B.dep>H.set.bd)tbR('aRecall','x','Recall no-show',false);
   if(B.status==='cancelled'&&!closedBooking(B)&&B.dep>H.set.bd)tbR('aReinst','x','Reinstate',false);
   if(canCheckBack(B))tbR('aBack','left','Check back in (Auto)',false);
-  const RTB=()=>{void `${tbR('aSave','save','Save changes',!(canEd||GE))}${tbR('aProf','idc','Guest profile')}${tbR('aRate','cal','Advance rate setup')}${tbR('aNotif','bell','Notifications')}${tbR('aLog','log','User logs of this reservation: who created it and what was changed')}${tbR('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tbR('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
+  const RTB=()=>{void `${tbR('aSave','save','Save changes',!(canEd||GE))}${tbR('aMail','mail','Send the booking confirmation by mail',!can('print'))}${tbR('aProf','idc','Guest profile')}${tbR('aRate','cal','Advance rate setup')}${tbR('aNotif','bell','Notifications')}${tbR('aLog','log','User logs of this reservation: who created it and what was changed')}${tbR('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tbR('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
      ${B.status==='inhouse'?tbR('aShare','user','Add a guest sharing this room (guests staying with the main guest)',!(can('profile')||can('res.edit')||can('checkin'))):''}${(['confirmed','tentative'].includes(B.status)||resDeps(B).length)?tbR('aDep','dollar',resDeps(B).length?'Reservation deposits (see, add, correct, refund)':'Reservation Deposit',!can('pay')&&!resDeps(B).length):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tbR('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tbR('aFol','folder','Open folio'):''}`;
    const bt=(id,menu)=>{const x=RB[id];if(!x)return '';return `<button type="button" class="${menu?'fmi':'fbtn'}${menu?'':(RCLS[id]||'')}" id="${id}" title="${esc(x.title)}" aria-label="${esc(x.title)}" ${x.dis?'disabled':''}>${tbi(RICON[id]||'plus',menu?17:18)}<span>${esc(RLAB[id]||x.title)}</span></button>`};
-   const main=['aSave','aCI','aCan','aRef','aReinst','aRecall','aFol','aShare','aDep','aProf','aRate'].map(k=>bt(k,false)).join(''),more=['aNotif','aLog','aCopy','aAdd','aNS','aBack'].map(k=>bt(k,true)).join('');
+   const main=['aSave','aCI','aCan','aRef','aReinst','aRecall','aFol','aMail','aShare','aDep','aProf','aRate'].map(k=>bt(k,false)).join(''),more=['aNotif','aLog','aCopy','aAdd','aNS','aBack'].map(k=>bt(k,true)).join('');
    return `<div class="toolbar rtbn">${main}<span class="fmore"><button type="button" class="fbtn" id="rMoreB" aria-haspopup="menu" aria-expanded="false"><span>More</span>${tbi('chevron-down',16)}</button><div class="fmm" id="rMoreM" role="menu" hidden>${more}</div></span>${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="fsp"></span>${stBadge(B)}</div>`};
   const lockNote=mode==='closed'?`<div class="lockbar">This booking was closed by Close Day on ${fd(B.statusDate)}. Billing, dates and rates are final; only the provider can amend it. Guest details can still be edited.</div>`:
     mode==='restricted'?`<div class="lockbar">The first night is closed. Only the departure date and the rates of today and upcoming nights can be changed. Guest details can still be edited.</div>`:
@@ -10297,7 +10389,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
     if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'No-show recalled');log('Recalled no-show RSVN '+r.no);reopen();toast('No-show recalled. The guest is expected today.')};
   if(q('#aReinst'))q('#aReinst').onclick=()=>{if(!need('res.cancel'))return;if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'Reinstated');log('Reinstated RSVN '+r.no);reopen()};
   if(q('#aBack'))q('#aBack').onclick=()=>{if(checkBackIn(B))reopen()};
-  if(q('#aMail'))q('#aMail').onclick=()=>{if(typeof confirmationLetter==='function')confirmationLetter(B)};
+  if(q('#aMail'))q('#aMail').onclick=e=>bkpMail(B,e.currentTarget);
   if(q('#bDnm')){const sync=()=>{const on=!!B.roomBlock;q('#bDnm').setAttribute('aria-pressed',on);q('#bDnmSign').hidden=!on;q('#bDnmSign').title=on?'Do not move: '+(B.roomBlock.reason||''):'';q('#bRoom').disabled=on||!E('b')};q('#bDnm').onclick=()=>dnmToggle(B,sync);q('#bDnmSign').onclick=()=>dnmInfo(B,sync)}
   q('#bTypeRm').onchange=()=>{if(B.roomBlock){q('#bTypeRm').value=B.type;toast(`Do not move is on for room ${B.room}: ${B.roomBlock.reason}. Turn Do not move off first.`);return}const t=q('#bTypeRm').value;q('#bRoom').innerHTML='<option value="">Assign later</option>'+H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>`<option value="${x.no}" ${!roomFree(x.no,q('#bArr').value,q('#bDep').value,B.id)?'disabled':''}>${x.no}</option>`).join('')};
   q('#bRc').onchange=()=>{const k=rateKindOf(q('#bRc').value),rcz=H.rateCodes.find(x=>x.code===q('#bRc').value);if(rcz&&rcz.kind==='zero')q('#bRate').value=0;else if(!(+q('#bRate').value>0))q('#bRate').value='';q('#bRate').disabled=k==='comp'||!(E('rate')&&can('rate'));cmUpd()};
@@ -10498,6 +10590,7 @@ function newReservation(el,pre,walkin,o){
     B.billTo=q('#nBill').value;r.billTo=B.billTo;B.bill={name:q('#nBn').value.trim(),addr:q('#nBa').value.trim(),tax:q('#nBtx').value.trim(),branch:q('#nBbr').value.trim()};
     r.bookings.push(B);H.reservations.push(r);histB(B,'Reservation created');log(`Created RSVN ${r.no}`,B.id);saveDB();
     if(depN>0){postPayment(H,B,q('#nPay').value,depN,{...lineCtx(sh),folio:1,deposit:true,adv:true,ref:q('#nPref').value.trim(),remark:''});histB(B,'Reservation deposit '+m2(depN));log('Reservation deposit '+m2(depN)+' RSVN '+r.no,B.id);saveDB()}
+    if(!walkin)autoConfirmMail(B);
     if(o&&o.saved&&!walkin){o.saved(B,r,depN);return}
     if(walkin){if(checkIn(B,true)){saveDB();go('bill.open',B.id)}else go('res.open',B.id)}
     else{go('res.open',B.id);toast(depN>0?`Reservation ${r.no} created with deposit ${m2(depN)}`:`Reservation ${r.no} created`);}};
@@ -11440,11 +11533,23 @@ function prepareMail(o){o=o||{};const to=String(o.to||'').trim();const subject=o
   window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   toast('Mail prepared. Your mail program can send it.')}
 function fitA4(root){if(!root)return;root.querySelectorAll('.a4fit').forEach(page=>{const inner=page.querySelector(':scope > .a4in');if(!inner)return;inner.style.transform='none';inner.style.width='100%';const cs=getComputedStyle(page);const avail=page.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);const need=inner.scrollHeight;if(avail>40&&need>avail+2){const s=Math.max(0.62,Math.min(1,avail/need));inner.style.transform='scale('+s+')';inner.style.width=(100/s)+'%'}})}
-function printPages(html,title,mail){const m=modal(title+' – preview',`<div class="btns"><button class="btn gold" id="ppP">${ic('print',16)} Print</button><button class="btn" id="ppM">${ic('mail',16)} Mail</button><span class="sub">Mail opens your mail program with this document. Maha Hub records it as prepared.</span></div><div class="ppwrap">${html}</div>`,{w:1000,cls:'ppmodal'});
+function printPages(html,title,mail){
+  const auto=!!(mail&&mail.to&&mail.auto!==false&&/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(mail.to));
+  const sub=auto?'Mail sends this document to '+esc(mail.to)+' at once, with a link they can view, print or save.':'Mail opens your mail program with this document. Maha Hub records it as prepared.';
+  const m=modal(title+' – preview',`<div class="btns"><button class="btn gold" id="ppP">${ic('print',16)} Print</button><button class="btn" id="ppM">${ic('mail',16)} Mail</button><span class="sub">${sub}</span></div><div class="ppwrap">${html}</div>`,{w:1000,cls:'ppmodal'});
   setTimeout(()=>fitA4(m),40);
   $('#ppP',m).onclick=()=>{try{log('Printed: '+title)}catch(e){}const p=$('#print');p.innerHTML=html;document.body.classList.add('printing');fitA4(p);window.print();setTimeout(()=>document.body.classList.remove('printing'),500)};
-  $('#ppM',m).onclick=()=>{const text=(mail&&mail.body)||((m.querySelector('.ppwrap')&&m.querySelector('.ppwrap').innerText||'').replace(/\n{3,}/g,'\n\n').trim().slice(0,3500));
-    prepareMail(Object.assign({doc:title,subject:title+' · '+((H&&H.set&&H.set.name)||''),body:text},mail||{}))}}
+  $('#ppM',m).onclick=async()=>{
+    if(!auto){const text=(mail&&mail.body)||((m.querySelector('.ppwrap')&&m.querySelector('.ppwrap').innerText||'').replace(/\n{3,}/g,'\n\n').trim().slice(0,3500));
+      prepareMail(Object.assign({doc:title,subject:title+' · '+((H&&H.set&&H.set.name)||''),body:text},mail||{}));return}
+    const btn=$('#ppM',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sending...';
+    const res=await pmsSendDoc(mail.to,mail.subject||(title+' · '+H.set.name),title,html,mail.rsvn||'');
+    btn.disabled=false;btn.innerHTML=lbl;
+    if(!res.ok){toast(res.msg);return}
+    try{log('Emailed '+title+' to '+mail.to)}catch(e){}
+    centerNote(title+' sent successfully to '+mail.to+'.','saved');
+  };
+}
 function defaultBillTo(r){const co=r&&CO(r.companyId);if(co&&co.code!=='WIN'&&co.code!=='DIR')return 'company';return 'guest'}
 function billParty(B,choice,other){const r=B&&resOf(B),g=B?G(B.guestId):{},co=r&&CO(r.companyId);const pick=choice||(B&&B.billTo)||defaultBillTo(r);
   if(pick==='other'){const b=(B&&B.bill)||{};const o=other&&typeof other==='object'?other:null;
@@ -11523,7 +11628,7 @@ const docEquiv=(B,amt)=>B&&bForeign(B)?`<div class="ivq">Equivalent ${esc(curMai
 function moneyTotals(box,B){const cur=docCurWord(B),t=taxSplit(box.base||0,true),gross=r2((box.base||0)+(box.nonvat||0));
   const svc=H.set.svc>0?`<tr><td>Service Charge ${H.set.svc}%</td><td class="n">${m2(t.svc)}</td></tr>`:'';
   return `<table class="ivtot"><tr><td>Total Balance (${esc(cur)})</td><td class="n">${m2(box.balance)}</td></tr>${svc}<tr><td>Vatable</td><td class="n">${m2(r2(t.net+t.svc))}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(t.vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(box.nonvat||0)}</td></tr><tr class="grand"><td>Total Amount (${esc(cur)})</td><td class="n">${m2(gross)}</td></tr></table><div class="ivw">${amountWords(gross,B)}</div>${docEquiv(B,gross)}`}
-function hotelHead(){return `<div class="ivh"><div><b class="ivn">${esc(H.set.name)}</b><div class="ivl"><b>${esc(H.set.legal)}</b><br><b>${esc(H.set.branch)}</b><br>${esc(H.set.addr)}<br>Tel. : ${esc(H.set.phone)}${H.set.fax?' Fax. : '+esc(H.set.fax):''}<br>HOTEL TAX ID : ${esc(H.set.taxId)}<br>Website : ${esc(H.set.web)} | E-Mail : ${esc(H.set.email)}</div></div><img src="${docLogo()}" class="ivlogo" alt=""></div>`}
+function hotelHead(){return `<div class="ivh"><div><b class="ivn">${esc(H.set.name)}</b><div class="ivl"><b>${esc(H.set.legal)}</b><br><b>${esc(H.set.branch)}</b><br>${esc(H.set.addr)}<br>Tel. : ${esc(H.set.phone)}${H.set.fax?' | Fax. : '+esc(H.set.fax):''}<br>HOTEL TAX ID : ${esc(H.set.taxId)}<br>Website : ${esc(H.set.web)} | E-Mail : ${esc(H.set.email)}</div></div><img src="${docLogo()}" class="ivlogo" alt=""></div>`}
 function moneyDocHtml(B,spec){const r=resOf(B),g=G(B.guestId),bt=billParty(B,spec.billTo,spec.billTo==='other'?spec.other:null),pages=chunkDoc(flattenDoc(spec.rows)),now=fd(todayZ())+' '+tms(Date.now());
   const sets=spec.copies==='copy'?['COPY']:spec.copies==='original'?['ORIGINAL']:['ORIGINAL','COPY'];
   const totals=spec.credit?creditTotals(spec,B):moneyTotals(spec,B);const coName=companyLine(B,bt);
@@ -11690,7 +11795,7 @@ function printRegCard(B){
   const back=`<div class="ppage port regb a4fit"><div class="a4in"><div class="rbhead"><img src="${H.set.logo||ICON}" alt=""><div><b>${esc(H.set.name)}</b><div class="rbt">TERMS AND CONDITIONS</div></div></div>
    <div class="terms">${blocks.map(b=>`<section class="tl tl-${b.k}"><h4>${esc(b.title)}</h4><ol>${b.lines.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section>`).join('')}</div>
    <div class="rbsign"><div><span></span>Guest's Signature</div><div><span></span>Date</div></div></div></div>`;
-  log(`Printed registration card RSVN ${r.no}`,B.id);saveDB();printPages(front+back,'Registration card RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Registration card '+r.no+' · '+H.set.name});
+  log(`Printed registration card RSVN ${r.no}`,B.id);saveDB();printPages(front+back,'Registration card RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Registration card '+r.no+' · '+H.set.name,auto:false});
 }
 
 /* ================= Shift, Close Day, Setup, Provider ================= */
@@ -12634,8 +12739,8 @@ function permBind(root){
   $$('[data-term]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.term);if(u)accessModal(u,()=>R())});
   $$('[data-cancel]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.cancel);if(!u)return;if(u.owner||u.protected){toast('The owner account is protected.');return}cancelUserModal(u,()=>R())});
   $$('[data-pre]',root).forEach(s=>s.onchange=()=>{if(!s.value)return;const u=H.users.find(x=>x.id===s.dataset.pre);u.perms=[...PRESET[s.value]];u.role=s.value;provLog(`Applied preset ${s.value} to ${u.username}`);saveDB();R()});
-  $$('[data-rs]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rs);if(!u)return;b.disabled=true;ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{b.disabled=false;if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Set-password link sent again to '+u.username);saveDB();toast('A new set-password link was sent to '+u.username+'. Use the newest email only.')},err=>{b.disabled=false;toast(ProvAdmin.msg(err))})});
-  $$('[data-rp]',root).forEach(b=>b.onclick=async ()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>toast(ProvAdmin.msg(err)));return}const pw=await dlgAsk(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
+  $$('[data-rs]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rs);if(!u)return;const rsLbl=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spin"></span> Sending...';ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{b.disabled=false;b.innerHTML=rsLbl;if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Set-password link sent again to '+u.username);saveDB();toast('A new set-password link was sent to '+u.username+'. Use the newest email only.')},err=>{b.disabled=false;b.innerHTML=rsLbl;toast(ProvAdmin.msg(err))})});
+  $$('[data-rp]',root).forEach(b=>b.onclick=async ()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){const rpLbl=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spin"></span> Sending...';ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{b.disabled=false;b.innerHTML=rpLbl;if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>{b.disabled=false;b.innerHTML=rpLbl;toast(ProvAdmin.msg(err))});return}const pw=await dlgAsk(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
   $$('[data-act]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;if(nowActive&&u.cancelled){accessNote(u,'User reinstated',user().name);delete u.cancelled}if(nowActive&&accessWhy(u)==='ended')setTimeout(()=>toast('Their access term has ended. Set a new Access term so they can sign in.'),400);provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();R()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
 }
 function usersPage(el,prov){
@@ -12681,8 +12786,8 @@ function usersPage(el,prov){
   if(prov){
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
     $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
-      $('#auE',m).textContent='Creating the login...';
-      ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff'}).then(d=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast(d&&d.invitation_sent===false?'Login created, but the email could not be sent now. Use Reset password in a few minutes.':'Login created. A set-password email was sent.')},err=>{$('#auE',m).textContent=ProvAdmin.msg(err)});return}
+      $('#auE',m).textContent='';const auBtn=$('#auS',m),auLbl=auBtn.innerHTML;auBtn.disabled=true;auBtn.innerHTML='<span class="spin"></span> Creating the login...';
+      ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff'}).then(d=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast(d&&d.invitation_sent===false?'Login created, but the email could not be sent now. Use Reset password in a few minutes.':'Login created. A set-password email was sent.')},err=>{auBtn.disabled=false;auBtn.innerHTML=auLbl;$('#auE',m).textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){$('#auE',m).textContent='The password needs at least 8 characters.';return}
       const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,p);nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;H.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render()}};
   }
@@ -13387,7 +13492,7 @@ VIEWS['prov.functions']=el=>{
   el.innerHTML=pageHead('Functions & plan',provHotelPicker())+`<p class="sub">One page under Setup for <b>${esc(H.set.name)}</b> (${esc(H.code)}). Build Up or Full Package sets the PMS titles and Connect, Booking, Reach and Sales together. You can still set a PMS title on its own. The hotel file itself stays under Properties → Property setup.</p>
     <div class="panel pad" id="fnBox">${planEditorHtml(true)}
     <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{confirmation}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
-    ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="6">${esc(H.set.confirmTpl||'')}</textarea>`)}
+    ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}
     <div class="btns"><button class="btn gold" id="fnSave">Save functions &amp; plan</button></div></div>`;
   bindPicker(el);bindPlanEditor($('#fnBox',el));
 };
@@ -13437,7 +13542,7 @@ function propertyChecks(h){return setupChecks(h).filter(c=>c.k!=='staff'&&c.k!==
 let SET_SEC='profile';
 const SET_SECTIONS=[['profile','1','Hotel profile'],['tax','2','Currency, tax & service'],['bd','3','Business date & times'],['floors','4','Floors'],['types','5','Room types'],['rooms','6','Rooms'],
   ['plan','7','Floor plan'],['rates','8','Rate codes'],['charges','9','Charge codes'],['pay','10','Payment methods'],['companies','11','Companies & agents'],['allot','12','Room totals'],
-  ['docs','13','Registration card & invoice'],['tiref','14','Tax Invoice Reference'],['terms','15','Terms & Conditions'],['activate','16','Review & activate']];
+  ['docs','13','Registration card & invoice'],['tiref','14','Tax Invoice Reference'],['terms','15','Terms & Conditions'],['mailpol','16','Booking confirmation mail'],['activate','17','Review & activate']];
 VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
   el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · property setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
    <div class="su"><nav class="sunav">${SET_SECTIONS.map(s=>{const st=ok(s[0]);return `<button class="${SET_SEC===s[0]?'on':''}" data-sec="${s[0]}"><span class="sun">${s[1]}</span>${s[2]}${st===true?'<i class="ok">✓</i>':st===false?'<i class="no">•</i>':''}</button>`}).join('')}</nav>
@@ -13614,6 +13719,16 @@ const SEC={
      s.gaplessInvoices=(s.invMode==='manual')||$('#d_gl',box).checked;
      provLog(`Tax Invoice Reference saved for ${H.code}: ${s.invMode==='manual'?'Manual '+invManualRef(s.invFmt.prefix,s.invFmt.start,s.invFmt.min)+(s.invFmt.unl?' (unlimited digits)':' (fixed width)'):'Standard'}${s.gaplessInvoices?', gapless':''}`);saved()}},
  terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
+ mailpol(box){const s=H.set,p=s.mailPol||{},LM={terms:12,line:240};
+   const lines=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);
+   box.innerHTML=secHead('16. Booking confirmation mail','These terms and conditions are shown in the booking confirmation mail that the guest receives. They are not the registration card terms. Write one term or condition on each line, for example the cancellation rule, the child policy, the no-show rule and anything else the guest should know. Each line shows in the mail with a dash. Empty shows "-". Only '+LM.terms+' lines fit the mail, up to '+LM.line+' characters each.')+`<div class="panel pad"><label class="f row gap"><input type="checkbox" id="mp_auto" ${s.autoConfirmMail===true?'checked':''}> Send the confirmation mail automatically when a <b>Direct reservation</b> is made (off by default). OTA and walk-in bookings are always sent by hand with the Mail button.</label>${fld('Terms and conditions (one on each line)',`<textarea id="mp_t" rows="12">${esc(p.terms||'')}</textarea><div class="sub" id="mp_n"></div>`)}
+     <div class="btns"><button class="btn gold" id="mpS">Save</button></div><p class="sub" id="mpE" role="status"></p></div>`;
+   const count=()=>{const n=lines($('#mp_t',box).value).length,c=$('#mp_n',box);c.textContent=n+' of '+LM.terms+' lines'+(n>LM.terms?' - too many, only the first '+LM.terms+' show in the mail':'');c.style.color=n>LM.terms?'#b3261e':''};
+   $('#mp_t',box).addEventListener('input',count);count();
+   $('#mpS',box).onclick=()=>{if(!provOnly())return;const ls=lines($('#mp_t',box).value);
+     if(ls.length>LM.terms){$('#mpE',box).textContent='Too many lines: the most is '+LM.terms+'.';return}
+     if(ls.some(x=>x.length>LM.line)){$('#mpE',box).textContent='A line is longer than '+LM.line+' characters. Split it into two lines.';return}
+     s.mailPol={terms:ls.join('\n'),at:Date.now(),by:user().name};s.autoConfirmMail=!!$('#mp_auto',box).checked;provLog('Booking confirmation mail settings saved at '+H.code+' (automatic mail '+(s.autoConfirmMail?'on':'off')+')');saved('Saved')}},
  google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly'];
    box.innerHTML=secHead('Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
    <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
@@ -13640,7 +13755,7 @@ const SEC={
      provLog(`Direct booking / Google metadata saved for ${H.code}`);saved()};
    $('#gOpen',box).onclick=()=>{const base=($('#g_base',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')}},
  activate(box){const ck=setupChecks(H),all=ck.every(c=>c.ok);
-   box.innerHTML=secHead('16. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
+   box.innerHTML=secHead('17. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
    <div class="btns">${H.active!==false?`<button class="btn red" id="acOff">Deactivate hotel</button>`:`<button class="btn gold" id="acOn" ${all?'':'disabled'}>Activate hotel</button>`}</div>${all||H.active!==false?'':'<p class="sub">Finish every item to activate. Staff and direct booking open under Setup.</p>'}</div>`;
    $$('[data-fix]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.fix;if(k==='staff'){go('prov.perms');return}if(k==='google'){go('prov.google');return}SET_SEC=k;render()});
    if($('#acOn',box))$('#acOn',box).onclick=()=>{if(!provOnly())return;H.active=true;H.activatedAt=Date.now();provLog(`Activated ${H.code}`);saved(`${H.code} is active. Its staff can now sign in.`)};
@@ -13747,10 +13862,11 @@ VIEWS['prov.team']=async el=>{
       if(!/^[A-Za-z0-9._-]{3,40}$/.test(u)){toast('The username needs 3 to 40 letters, numbers, dots or dashes.');return}
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){toast('Enter a valid email.');return}
       if(!all&&!codes.length){toast('Choose at least one hotel, or switch on All hotels.');return}
+      const tmBtn=m.querySelector('[data-s]'),tmLbl=tmBtn.innerHTML;tmBtn.disabled=true;tmBtn.innerHTML='<span class="spin"></span> Sending invite...';
       try{const d=await ProvAdmin.call({action:'invite_admin',username:u,name:n,email:e,all_hotels:all,hotels:all?[]:codes});
         closeModal(m);ALOG.add('','Admin team','Invited '+u+' ('+(all?'all hotels':codes.join(', '))+')');ALOG.send();
         toast(d&&d.invitation_sent===false?'Admin created, but the email was not sent. Use Resend invite.':'Invite sent to '+e+'.');again()}
-      catch(err){toast(ProvAdmin.msg(err))}}};
+      catch(err){tmBtn.disabled=false;tmBtn.innerHTML=tmLbl;toast(ProvAdmin.msg(err))}}};
 };
 VIEWS['prov.crmteam']=async el=>{
   if(adminOnlyMaster(el,'CRM team'))return;
@@ -15158,22 +15274,28 @@ function chargeTarget(B,code){const r=resOf(B);if(!r||!r.groupId)return B;const 
   const tc=TCODES.find(c=>c.code===code)||{};const hit=(g.routing||[]).find(x=>x.on!==false&&(x.match==='ALL'||x.match===code||x.match===(tc.dept||'')||x.match===(tc.tab||'')));
   if(!hit||hit.to!=='master')return B;return bookingById(g.masterId)||B}
 function fillTpl(tpl,map){return String(tpl||'').replace(/\{\{(\w+)\}\}/g,(_,k)=>map[k]==null?'':String(map[k]))}
-function confirmationPack(B){const r=resOf(B),g=G(B.guestId),co=CO(r.companyId);const dep=depositReceived(B);const map={guest:gName(g),hotel:H.set.name,rsvn:r.no,confirmation:(r.confirmation&&r.confirmation!=='0')?r.confirmation:String(r.no),arr:fd(B.arr),dep:fd(B.dep),room:B.room||'to be assigned',type:RT(B.type).name||B.type,nights:nights(B),adults:B.adults,children:B.children,signature:H.set.signature||H.set.name,deposit:dep>0.004?m2(dep)+' '+bCur(B):'none'};
-  let letter=fillTpl(H.set.confirmTpl,map);if(dep>0.004&&!/\{\{deposit\}\}/.test(H.set.confirmTpl||'')&&letter.indexOf(m2(dep))<0)letter+='\n\nReservation deposit received: '+m2(dep)+' '+bCur(B)+'.';
-  const rows=[['Reservation no.',r.no],['Guest',gName(g)],['Arrival',fd(B.arr)],['Departure',fd(B.dep)],['Nights',nights(B)],['Room type',RT(B.type).name||B.type],['Room',B.room||'To be assigned'],['Guests',B.adults+' adult(s), '+B.children+' child(ren)'],['Company',co&&co.code!=='WIN'&&co.code!=='DIR'?co.name:'—'],['Deposit',dep>0.004?m2(dep)+' '+bCur(B):'None']];
-  const html=`<div class="ppage port cf"><div class="a4in">${hotelHead()}<div class="ivtitle">RESERVATION CONFIRMATION</div>
-    <table class="cfstay">${rows.map(x=>`<tr><td>${esc(x[0])}</td><td>${esc(x[1])}</td></tr>`).join('')}</table>
-    <div class="cfbody">${esc(letter)}</div>
-    <div class="cfsign">With our compliments,<b>${esc(H.set.signature||H.set.name)}</b><span class="sub">${esc(H.set.name)} · ${esc(H.set.phone)} · ${esc(H.set.email)}</span></div></div></div>`;
-  const text=['RESERVATION CONFIRMATION',H.set.name,'',letter,'',...rows.map(x=>x[0]+': '+x[1]),'',H.set.signature||H.set.name,H.set.addr||'',H.set.phone||'',H.set.email||''].join('\n');
-  return {r,g,html,text,email:r.email||g.email||''}}
-function confirmationLetter(B){const pack=confirmationPack(B);
-  const m=modal('Reservation confirmation',`<p class="sub">This letter is for the guest to keep, or to send as text from your mail program. Maha Hub records it as prepared. The layout is ready for your approval.</p>
-    <div class="form2">${fld('To',`<input id="cfTo" value="${esc(pack.email)}" placeholder="guest@email">`,'span2')}</div>
-    <div class="btns"><button class="btn gold" id="cfPr">${ic('print',16)} Print / preview</button><button class="btn" id="cfGo">${ic('mail',16)} Mail as text</button><button class="btn ghost" id="cfX">Close</button></div>`,{w:640});
-  $('#cfX',m).onclick=()=>closeModal(m);
-  $('#cfPr',m).onclick=()=>{const to=$('#cfTo',m).value.trim();closeModal(m);printPages(pack.html,'Reservation confirmation '+pack.r.no,{to,rsvn:pack.r.no,subject:'Reservation '+pack.r.no+' · '+H.set.name,body:pack.text,doc:'Reservation confirmation'})};
-  $('#cfGo',m).onclick=()=>{const to=$('#cfTo',m).value.trim();closeModal(m);prepareMail({to,subject:'Reservation '+pack.r.no+' · '+H.set.name,body:pack.text,rsvn:pack.r.no,doc:'Reservation confirmation'})}}
+/* the booking confirmation for print (A4, English): the same facts and wording as the mail, with the hotel's full details and logo and the full price breakdown (service charge and VAT from the hotel setup) */
+function bkpPayRows(d){
+  const cur=d.cur?d.cur+' ':'',amt=v=>v?cur+v:'';
+  switch(d.payStatus){case 'Paid':return [['Amount Paid',amt(d.paid||d.roomTotal)]];case 'Partially paid':return [['Deposit Paid',amt(d.paid)],['Remaining Amount to Pay',amt(d.balance)]];case 'Pay at the hotel':return [['Pay to Hotel',amt(d.balance||d.roomTotal)]];case 'OTA collect':return [['Payment','Collected by the booking channel']];default:return []}
+}
+function confirmationPrintHtml(B){
+  const D=bkpMailData(B),d=bkpData(B),cur=bCur(B)+' ',bk=D.booking,m=D.money,sp=taxSplit(d.roomTotal,true),sv=H.set.svc||0,vt=H.set.vat||0;
+  const rows4=[['Reservation',bk.no,'Guest name',D.guest.name],['Check-in',bk.arrLabel+(bk.checkin?' (from '+bk.checkin+')':''),'Check-out',bk.depLabel+(bk.checkout?' (until '+bk.checkout+')':'')],['Room Type',bk.roomType,'Total Room Nights',bk.nights],['Rate plan',bk.ratePlan,'Pax',bk.pax],['Room',B.room||'-','Booking Source',d.srcName]];
+  const price=[['Payment status',m.payStatus==='-'?'':m.payStatus],['Rate per night (service charge and VAT included)',cur+m.rate],['Total Room Nights',bk.nights],['Room charge before service charge and VAT',cur+m2(sp.net)],...(sv>0?[['Service Charge '+sv+'%',cur+m2(sp.svc)]]:[]),...(vt>0?[['VAT '+vt+'%',cur+m2(sp.vat)]]:[]),['Total price',cur+m.roomTotal],...bkpPayRows(m)].filter(x=>x[1]);
+  const lines=t=>String(t||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const terms=lines(D.terms);
+  return `<div class="ppage port cf"><div class="a4in">${hotelHead()}<div class="ivtitle">BOOKING CONFIRMATION</div>
+    <div class="cfgreet">Thanks, <b>${esc(D.guest.name)}</b>! Your booking is confirmed. ${esc(H.set.name)} is expecting you on ${esc(bk.arrLabel)}.</div>
+    <table class="cfx"><tr><th colspan="4">Reservation details</th></tr>${rows4.map(r=>'<tr><td>'+esc(r[0])+'</td><td class="v">'+esc(r[1])+'</td><td>'+esc(r[2])+'</td><td class="v">'+esc(r[3])+'</td></tr>').join('')}</table>
+    <table class="cfx"><tr><th colspan="2">Price and payment</th></tr>${price.map(r=>'<tr><td>'+esc(r[0])+'</td><td class="v n">'+esc(r[1])+'</td></tr>').join('')}</table>
+    ${D.request.length?'<table class="cfx"><tr><th>Your Request</th></tr><tr><td><ul class="cfl">'+D.request.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></td></tr></table>':''}
+    <table class="cfx"><tr><th>Terms and Conditions</th></tr><tr><td>${(terms.length?terms:['']).map(x=>'<div>- '+esc(x)+'</div>').join('').replace('- </div>','-</div>')}</td></tr></table>
+    <div class="cfclose"><p>Thank you for choosing ${esc(H.set.name)}. We look forward to welcoming you and making your stay a memorable one.</p><p class="cfsoff">Sincerely,<br><b>${esc(H.set.name)} Team</b></p></div>
+    <div class="cfpow">Powered by Maha Hub</div></div></div>`}
+function confirmationPack(B){const r=resOf(B),g=G(B.guestId),D=bkpMailData(B),bk=D.booking;
+  const text=['BOOKING CONFIRMATION',H.set.name,'','Thanks, '+D.guest.name+'! Your booking is confirmed.',H.set.name+' is expecting you on '+bk.arrLabel+'.','','Reservation: '+bk.no,'Guest name: '+D.guest.name,'Check-in: '+bk.arrLabel+(bk.checkin?' (from '+bk.checkin+')':''),'Check-out: '+bk.depLabel+(bk.checkout?' (until '+bk.checkout+')':''),'Room Type: '+bk.roomType,'Total Room Nights: '+bk.nights,'Rate plan: '+bk.ratePlan,'Pax: '+bk.pax,'',H.set.addr||'',H.set.phone||'',H.set.email||''].join('\n');
+  return {r,g,html:confirmationPrintHtml(B),text,email:r.email||g.email||''}}
 const ROSTER_DEPTS=['Front Office','Housekeeping','Food & Beverage','Security','Engineering'];
 function weekStart(d){const dt=P(d),day=(dt.getDay()+6)%7;return addD(d,-day)}
 let rosterDept='Front Office',rosterFrom=null;
@@ -15275,10 +15397,10 @@ VIEWS['set.approve']=el=>{
 VIEWS['set.features']=el=>{if(!can('setup')&&!user().isProv){el.innerHTML='<div class="empty">Hotel setup opens this page.</div>';return}
   shapeHotel(H);
   el.innerHTML=pageHead('Functions')+`<div class="panel pad">${planEditorHtml(false)}
-    <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{confirmation}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
-    ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}${fld('Letter',`<textarea id="ftTpl" rows="8">${esc(H.set.confirmTpl||'')}</textarea>`)}
-    <div class="btns"><button class="btn gold" id="ftSave">Save letter</button></div></div>`;
-  $('#ftSave',el).onclick=()=>{if(!need('setup'))return;H.set.signature=$('#ftSig',el).value.trim();H.set.confirmTpl=$('#ftTpl',el).value;log('Confirmation letter saved');saveDB();toast('Confirmation letter saved')};
+    <h3 class="mt">Booking confirmation</h3><p class="sub">The booking confirmation (print and mail) has one design for every hotel. The signature below is printed on it. The terms and conditions come from the provider's Setup, Guest mail policies.</p>
+    ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}
+    <div class="btns"><button class="btn gold" id="ftSave">Save</button></div></div>`;
+  $('#ftSave',el).onclick=()=>{if(!need('setup'))return;H.set.signature=$('#ftSig',el).value.trim();log('Booking confirmation signature saved');saveDB();toast('Saved')};
 };
 function foreignGuests(){return allBookings().filter(b=>['inhouse','out'].includes(b.status)&&!skipOcc(b)).map(b=>{const g=G(b.guestId);return {b,g,r:resOf(b)}}).filter(x=>x.g.nationality&&H.set.nat&&x.g.nationality!==H.set.nat)}
 VIEWS['tax.tm30']=el=>{
