@@ -63,6 +63,18 @@
     });
   });
 
+  /* the ecosystem map: choosing a product shows how it connects */
+  $$('.eco').forEach(function (e) {
+    var nodes = $$('.eco-node', e), tag = $('#eco-tag', e), name = $('#eco-name', e), txt = $('#eco-text', e), lnk = $('#eco-link', e);
+    nodes.forEach(function (n) {
+      n.addEventListener('click', function () {
+        nodes.forEach(function (x) { x.classList.toggle('on', x === n); });
+        tag.textContent = n.getAttribute('data-status'); tag.className = 'tag' + (n.getAttribute('data-status') === 'Available now' ? '' : ' soon');
+        name.textContent = n.getAttribute('data-name'); txt.textContent = n.getAttribute('data-text'); lnk.setAttribute('href', n.getAttribute('data-link'));
+      });
+    });
+  });
+
   /* header shadow once the page is scrolled */
   var head = $('.site-head');
   var onScroll = function () { if (head) head.classList.toggle('stuck', (window.scrollY || 0) > 8); };

@@ -40,29 +40,29 @@ const I = {
 
 /* ---------- products ---------- */
 const PRODUCTS = [
-  { id: 'pms', name: 'Maha PMS', kind: 'Property management system', live: true, blurb: 'The command centre for your property: rooms, rates and reservations in one refined workspace.',
+  { id: 'pms', for: 'Independent hotels, resorts, boutique hotels, serviced apartments and hotel groups.', name: 'Maha PMS', kind: 'Property management system', live: true, blurb: 'The command centre for your property: rooms, rates and reservations in one refined workspace.',
     long: 'The foundation of Maha Solutions. Property, rooms, rates, reservations, front office and billing, brought together in a single, connected workspace.',
     features: ['Property and rooms', 'Rates', 'Reservations', 'Front office', 'Folio and billing', 'Guest profiles', 'Housekeeping', 'Reports', 'User roles'] },
-  { id: 'connect', name: 'Maha Connect', kind: 'Channel distribution', live: false, blurb: 'Place your inventory across global channels, with rates and availability held in perfect step.',
+  { id: 'connect', for: 'Hotels that sell through several online channels.', name: 'Maha Connect', kind: 'Channel distribution', live: false, blurb: 'Place your inventory across global channels, with rates and availability held in perfect step.',
     long: 'Channel distribution designed for the discerning operator, keeping rooms and rates precisely aligned across every channel you sell on.',
     features: ['Inventory distribution', 'Rates across channels', 'Connected to Maha PMS'] },
-  { id: 'booking', name: 'Maha Booking', kind: 'Direct booking', live: false, blurb: 'Invite guests to book directly with you, on your own website.',
+  { id: 'booking', for: 'Hotels that want to take direct bookings on their own website.', name: 'Maha Booking Engine', kind: 'Direct booking engine', live: false, blurb: 'Invite guests to book directly with you, on your own website.',
     long: 'A direct booking engine for your own website, inviting guests to reserve with you rather than through an intermediary.',
     features: ['Direct bookings on your website', 'Rooms and rates from Maha PMS', 'Reservations created in Maha PMS'] },
-  { id: 'reach', name: 'Maha Reach', kind: 'Marketing and guest engagement', live: false, blurb: 'Cultivate your brand and your guest relationships.',
+  { id: 'reach', for: 'Hotels building their brand and their guest relationships.', name: 'Maha Reach', kind: 'Marketing and guest engagement', live: false, blurb: 'Cultivate your brand and your guest relationships.',
     long: 'Marketing and guest engagement for hotels: stay close to your guests and strengthen your brand with every interaction.',
     features: ['Marketing', 'Campaigns', 'Guest engagement'] },
-  { id: 'sales', name: 'Maha Sales', kind: 'Sales', live: false, blurb: 'Hotel leads, follow-ups and quotations, managed with discipline.',
+  { id: 'sales', for: 'Hotel sales teams managing leads, follow-ups and quotations.', name: 'Maha Sales', kind: 'Sales', live: false, blurb: 'Hotel leads, follow-ups and quotations, managed with discipline.',
     long: 'Leads, follow-ups and quotations for hotel sales teams, available from the same Maha sign-in.',
     features: ['Leads', 'Follow-ups', 'Quotations'] },
-  { id: 'travel', name: 'Maha Travel', kind: 'Independent online travel channel', live: false, blurb: 'One place where hotelier and guest meet, led by Maha with the tools and the markets for growth.',
+  { id: 'travel', for: 'Hoteliers who want a channel of their own, and travellers who want to book hotels directly.', name: 'Maha Travel', kind: 'Independent online travel channel', live: false, blurb: 'One place where hotelier and guest meet, led by Maha with the tools and the markets for growth.',
     long: 'An independent online travel channel that links the hotelier and the customer in one place. Maha leads the growth, supporting hotels with the tools they need and the markets that bring them revenue.',
     features: ['Hotelier and guest, in one place', 'Tools and markets from Maha', 'Reservations into Maha PMS'] },
-  { id: 'hr', name: 'Maha HR', kind: 'People', live: false, blurb: 'Team, attendance and payroll.', long: 'People management for hotel teams: records, attendance and payroll.', features: ['Team', 'Attendance', 'Payroll'] },
-  { id: 'account', name: 'Maha Account', kind: 'Finance', live: false, blurb: 'Accounting and finance.', long: 'Accounting and financial control, designed for hotels.', features: ['Accounting', 'Finance'] },
-  { id: 'manage', name: 'Maha Manage', kind: 'Back office', live: false, blurb: 'Back office and multi-property.', long: 'Back-office tools and consolidated management reporting across multiple properties.', features: ['Back office', 'Multi-property'] },
-  { id: 'pos', name: 'Maha POS', kind: 'Point of sale', live: false, blurb: 'F&B and retail point of sale.', long: 'Point of sale for food and beverage and retail outlets.', features: ['F&B', 'Retail'] },
-  { id: 'stock', name: 'Maha Stock', kind: 'Inventory', live: false, blurb: 'Inventory and suppliers.', long: 'Inventory and supplier management for hotel operations.', features: ['Inventory', 'Suppliers'] },
+  { id: 'hr', for: 'Hotel teams and their managers.', name: 'Maha HR', kind: 'People', live: false, blurb: 'Team, attendance and payroll.', long: 'People management for hotel teams: records, attendance and payroll.', features: ['Team', 'Attendance', 'Payroll'] },
+  { id: 'account', for: 'Hotel finance and accounts teams.', name: 'Maha Account', kind: 'Finance', live: false, blurb: 'Accounting and finance.', long: 'Accounting and financial control, designed for hotels.', features: ['Accounting', 'Finance'] },
+  { id: 'manage', for: 'Operators of several properties.', name: 'Maha Manage', kind: 'Back office', live: false, blurb: 'Back office and multi-property.', long: 'Back-office tools and consolidated management reporting across multiple properties.', features: ['Back office', 'Multi-property'] },
+  { id: 'pos', for: 'Hotel restaurants, bars and retail outlets.', name: 'Maha POS', kind: 'Point of sale', live: false, blurb: 'F&B and retail point of sale.', long: 'Point of sale for food and beverage and retail outlets.', features: ['F&B', 'Retail'] },
+  { id: 'stock', for: 'Hotel operations and purchasing teams.', name: 'Maha Stock', kind: 'Inventory', live: false, blurb: 'Inventory and suppliers.', long: 'Inventory and supplier management for hotel operations.', features: ['Inventory', 'Suppliers'] },
 ];
 const LIVE = PRODUCTS.filter(p => p.live), SOON = PRODUCTS.filter(p => !p.live);
 const DEV = ['connect', 'booking', 'reach', 'sales', 'travel'];   /* in development and shown as cards; the rest are listed together */
@@ -152,7 +152,7 @@ const footer = () => `</main>
 /* the real screens of our systems (demo data), taken with tools/site-shots.mjs */
 const SHOT = { 'pms-dashboard': 'Maha PMS: manager dashboard', 'pms-status': 'Maha PMS: room status', 'pms-grid': 'Maha PMS: room grid', 'pms-inhouse': 'Maha PMS: in-house guests', 'pms-housekeeping': 'Maha PMS: housekeeping', 'pms-roomstatus': 'Maha PMS: rooms', 'pms-arrivals': 'Maha PMS: arrivals' };
 /* a laptop whose screen changes by itself; names = files in /assets/site */
-const cyc = (names, cls = '', cap = false) => `<div class="cyc ${cls}">${names.map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="1755" height="1170"${i ? ' loading="lazy"' : ' fetchpriority="high"'}>`).join('')}${cap ? '<span class="cap"></span>' : ''}</div>`;
+const cyc = (names, cls = '', cap = false) => `<div class="cyc ${cls}">${names.map((n, i) => `<img src="/assets/site/${n}.webp" alt="${SHOT[n]} (demo data)" data-cap="${SHOT[n]}" width="1755" height="1170"${i ? ' loading="lazy" decoding="async"' : ' fetchpriority="high"'}>`).join('')}${cap ? '<span class="cap"></span>' : ''}</div>`;
 const laptop = names => `<div class="dev"><div class="laptop"><div class="dots"><i></i><i></i><i></i></div>${cyc(names)}</div></div>`;
 
 const ctaBand = (h = 'Experience Maha in your hotel.', p = 'Book a demonstration, or speak with our team for ten minutes. Choose a time that suits you, in your own time zone.', extra = '', primary = null) => `<section class="cta"><div class="wrap"><div class="cta-in reveal">
@@ -210,7 +210,7 @@ add('index.html', 'home', {
     <div class="sec-head center reveal"><p class="eyebrow">Our brands</p><h2>Two brands. One purpose.</h2><p class="lead">Each brand holds its own distinct focus. Together, they serve hotels and the people who make them exceptional.</p></div>
     <div class="brands">
       <article class="card brand-card sol reveal">
-        <img class="bc-mark" src="/brand/pms/bar-mark.png" alt="" aria-hidden="true">
+        <img class="bc-mark" src="/brand/pms/bar-mark.png" alt="" aria-hidden="true" width="170" height="170" loading="lazy" decoding="async">
         <span class="brand-tag">Technology</span>
         <div class="brand-ico">${I.hub}</div>
         <h3>Maha Solutions</h3>
@@ -219,7 +219,7 @@ add('index.html', 'home', {
         <div class="btns"><a class="btn btn-gold" href="/maha-hub-solutions">Discover Solutions ${I.arr}</a><a class="btn btn-line" href="/solutions">Sign in</a></div>
       </article>
       <article class="card brand-card aca reveal">
-        <img class="bc-mark" src="/brand/pms/bar-mark.png" alt="" aria-hidden="true">
+        <img class="bc-mark" src="/brand/pms/bar-mark.png" alt="" aria-hidden="true" width="170" height="170" loading="lazy" decoding="async">
         <span class="brand-tag">Education</span>
         <div class="brand-ico">${I.cap}</div>
         <h3>Maha Academy</h3>
@@ -228,6 +228,24 @@ add('index.html', 'home', {
         <div class="btns"><a class="btn btn-green" href="/maha-hub-academy">Discover the Academy ${I.arr}</a><a class="btn btn-line-dark" href="/contact?interest=Maha%20Hub%20Academy">Register interest</a></div>
       </article>
     </div>
+  </div>
+</section>
+<section class="section alt" id="ecosystem">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">Our technology ecosystem</p><h2>Connected by design, not a collection of separate tools.</h2><p class="lead">Maha PMS is the foundation. Select a product to see how it relates to the others.</p></div>
+    <div class="eco reveal">
+      <div class="eco-map" role="group" aria-label="Maha Solutions ecosystem">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="50" y1="50" x2="50" y2="11"/><line x1="50" y1="50" x2="89" y2="38"/><line x1="50" y1="50" x2="74" y2="87"/><line x1="50" y1="50" x2="26" y2="87"/><line x1="50" y1="50" x2="11" y2="38"/></svg>
+        <button type="button" class="eco-node core on" data-eco="pms" data-name="Maha PMS" data-status="Available now" data-text="The foundation of Maha Solutions: property, rooms, rates, reservations, front office and billing in one connected workspace." data-link="/products#pms" style="left:50%;top:50%">Maha PMS<small>Available now</small></button>
+      <button type="button" class="eco-node" data-eco="connect" data-name="Maha Connect" data-status="In development" data-text="Distributes the rooms and rates held in Maha PMS across the channels you sell on." data-link="/products#connect" style="left:50%;top:11%">Maha Connect<small>In development</small></button>
+      <button type="button" class="eco-node" data-eco="booking" data-name="Maha Booking Engine" data-status="In development" data-text="Takes rooms and rates from Maha PMS for your own website, and creates the reservation in Maha PMS." data-link="/products#booking" style="left:89%;top:38%">Maha Booking Engine<small>In development</small></button>
+      <button type="button" class="eco-node" data-eco="travel" data-name="Maha Travel" data-status="In development" data-text="Our own online travel agency. Reservations are designed to arrive in Maha PMS, with rates aligned through Maha Connect." data-link="/maha-travel" style="left:74%;top:87%">Maha Travel<small>In development</small></button>
+      <button type="button" class="eco-node" data-eco="reach" data-name="Maha Reach" data-status="In development" data-text="Marketing and guest engagement, working from the same hotel and guest information." data-link="/products#reach" style="left:26%;top:87%">Maha Reach<small>In development</small></button>
+      <button type="button" class="eco-node" data-eco="sales" data-name="Maha Sales" data-status="In development" data-text="Leads, follow-ups and quotations for hotel sales teams, opened from the same Maha sign-in." data-link="/products#sales" style="left:11%;top:38%">Maha Sales<small>In development</small></button>
+      </div>
+      <div class="eco-info" id="eco-info" aria-live="polite"><span class="tag" id="eco-tag">Available now</span><h3 id="eco-name">Maha PMS</h3><p id="eco-text">The foundation of Maha Solutions: property, rooms, rates, reservations, front office and billing in one connected workspace.</p><a class="more" id="eco-link" href="/products#pms">Learn more ${I.arr}</a></div>
+    </div>
+    <p class="center note" style="margin-top:22px">Further solutions in development: Maha HR, Maha Account, Maha Manage, Maha POS and Maha Stock.</p>
   </div>
 </section>
 
@@ -248,7 +266,7 @@ add('index.html', 'home', {
 
 <section class="section paper">
   <div class="wrap">
-    <div class="sec-head reveal"><p class="eyebrow">Maha Solutions</p><h2>Every part of your hotel, working as one.</h2><p class="lead">Maha PMS is available today. Maha Connect, Maha Booking, Maha Reach, Maha Sales and Maha Travel are in development and not yet available. Each will draw on the same hotel data rather than standing alone.</p></div>
+    <div class="sec-head reveal"><p class="eyebrow">Maha Solutions</p><h2>Every part of your hotel, working as one.</h2><p class="lead">Maha PMS is available today. Maha Connect, Maha Booking Engine, Maha Reach, Maha Sales and Maha Travel are in development and not yet available. Each will draw on the same hotel data rather than standing alone.</p></div>
     <div class="grid g3">
       ${PRODUCTS.filter(p => p.live || DEV.includes(p.id)).map(p => prodCard(p, true)).join('')}
       ${moreCard}
@@ -266,6 +284,16 @@ add('index.html', 'home', {
       <p>Exceptional hospitality is the result of two things working in harmony: well-connected systems and well-prepared people. Our two brands exist to support both, and we remain candid about what is available today and what is still being built.</p>
       <div class="hero-cta"><a class="btn btn-line-dark" href="/about">Read about the Group</a><button class="btn btn-green" type="button" data-book="talk">Talk with the Team</button></div>
     </div>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">Our vision</p><h2>A more connected, more capable hospitality industry.</h2></div>
+    <div class="grid g2">
+      <div class="card reveal"><div class="ico">${I.globe}</div><h3>Vision</h3><p>To contribute to a more connected, innovative and professionally developed hospitality industry, beginning in Myanmar and expanding beyond.</p></div>
+      <div class="card reveal"><div class="ico">${I.chart}</div><h3>Mission</h3><p>To build practical technology and education that help hospitality businesses and their people operate with confidence, deliver exceptional service and grow.</p></div>
+    </div>
+    <p class="center" style="margin:28px 0 0"><a class="btn btn-line-dark" href="/about">Discover our Group ${I.arr}</a></p>
   </div>
 </section>
 
@@ -294,6 +322,31 @@ add('index.html', 'home', {
     </div>
   </div>
 </section>
+<section class="section paper">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">Partnerships</p><h2>Growing the industry together.</h2><p class="lead">We welcome conversations with organisations that share our commitment to hospitality.</p></div>
+    <div class="grid g3">
+      <div class="card reveal"><div class="ico">${I.people}</div><h3>Hotel and hospitality</h3><p>Hotels, groups and hospitality businesses that want to shape and grow with Maha Solutions.</p></div>
+      <div class="card reveal"><div class="ico">${I.screen}</div><h3>Technology and software</h3><p>Technology providers and software integrations that complement the Maha ecosystem.</p></div>
+      <div class="card reveal"><div class="ico">${I.globe}</div><h3>Distribution and OTA</h3><p>Distribution partners and online travel agencies that connect with our hotels.</p></div>
+      <div class="card reveal"><div class="ico">${I.key}</div><h3>Payment solutions</h3><p>Payment providers that help hotels and guests transact securely.</p></div>
+      <div class="card reveal"><div class="ico">${I.cap}</div><h3>Education and institutions</h3><p>Schools, institutions and training bodies working with Maha Academy.</p></div>
+      <div class="card reveal" style="background:linear-gradient(160deg,#0A3020,#184D3A)"><h3 style="color:var(--gold2)">Work with us</h3><p style="color:#d8e8df">Tell us how you would like to collaborate.</p><p style="margin-top:14px"><a class="btn btn-gold" href="/contact?interest=Partnership">Become a Partner ${I.arr}</a></p></div>
+    </div>
+  </div>
+</section>
+<section class="section alt" id="enquiries">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">Corporate contact</p><h2>Speak with the right team.</h2><p class="lead">Choose the enquiry that fits, and we will direct it to the right person.</p></div>
+    <div class="grid g3">
+      <a class="card reveal" href="/contact?interest=Business%20enquiry" style="color:inherit"><div class="ico">${I.mail}</div><h3>Business enquiries</h3><p>General questions about the Group and its divisions.</p></a>
+      <a class="card reveal" href="/contact?interest=Partnership" style="color:inherit"><div class="ico">${I.people}</div><h3>Partnership enquiries</h3><p>Collaboration with hotels, technology, distribution, payments and education.</p></a>
+      <a class="card reveal" href="/contact?interest=Technology%20enquiry" style="color:inherit"><div class="ico">${I.screen}</div><h3>Technology enquiries</h3><p>Maha Solutions, products in development and integrations.</p></a>
+      <a class="card reveal" href="/contact?interest=Maha%20Hub%20Academy" style="color:inherit"><div class="ico">${I.cap}</div><h3>Academy enquiries</h3><p>Programmes, registration and corporate training.</p></a>
+      <div class="card reveal" style="grid-column:span 2"><h3>Official contact</h3><p><b>${COMPANY}</b><br>${ADDRESS}<br>Tel <a href="tel:${PHONE_TEL}">${PHONE}</a><br><b>Operation Office</b><br>${OFFICE}<br>Tel <a href="tel:${OFFICE_TEL}">${OFFICE_PHONE}</a><br><a href="mailto:${EMAIL}">${EMAIL}</a></p></div>
+    </div>
+  </div>
+</section>
 ${ctaBand()}`);
 
 /* ===================================================== ABOUT ===================================================== */
@@ -318,12 +371,42 @@ add('about.html', 'about', {
 </section>
 <section class="section alt">
   <div class="wrap">
-    <div class="sec-head center reveal"><p class="eyebrow">What we believe</p><h2>The convictions we build on.</h2></div>
+    <div class="sec-head center reveal"><p class="eyebrow">Core values</p><h2>The convictions we build on.</h2></div>
     <div class="grid g3">
       <div class="card reveal"><div class="ico">${I.people}</div><h3>People first</h3><p>Technology delivers value only when the team using it is confident. We pair every tool with learning.</p></div>
       <div class="card reveal"><div class="ico">${I.shield}</div><h3>Honest and careful</h3><p>We describe our products and programmes accurately, protect the data entrusted to us and never claim what we do not hold.</p></div>
       <div class="card reveal"><div class="ico">${I.hub}</div><h3>Built to connect</h3><p>Information should move seamlessly from one tool and one team to the next, never to be entered twice.</p></div>
     </div>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">Vision and mission</p><h2>Where we are heading, and how we work.</h2></div>
+    <div class="grid g2">
+      <div class="card reveal"><div class="ico">${I.globe}</div><h3>Our vision</h3><p>To contribute to a more connected, innovative and professionally developed hospitality industry, beginning in Myanmar and expanding beyond.</p></div>
+      <div class="card reveal"><div class="ico">${I.chart}</div><h3>Our mission</h3><p>To build practical technology and education that help hospitality businesses and their people operate with confidence, deliver exceptional service and grow.</p></div>
+    </div>
+  </div>
+</section>
+<section class="section alt">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">Business structure</p><h2>One parent company, two business divisions.</h2></div>
+    <div class="grid g3">
+      <div class="card reveal"><div class="ico">${I.hub}</div><h3>${COMPANY}</h3><p>The parent company. It sets the direction, standards and values for both divisions.</p></div>
+      <div class="card reveal"><div class="ico">${I.screen}</div><h3>Maha Solutions</h3><p>Hospitality technology and digital business solutions. <a href="/maha-hub-solutions">Explore Maha Solutions</a></p></div>
+      <div class="card reveal"><div class="ico">${I.cap}</div><h3>Maha Academy</h3><p>Professional hospitality education and training. <a href="/maha-hub-academy">Explore Maha Academy</a></p></div>
+    </div>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap split">
+    <div class="reveal">
+      <p class="eyebrow">Regional ambition</p>
+      <h2>Rooted in Myanmar, built for the region.</h2>
+      <p class="lead">We begin in Myanmar, where our Group is based, with the ambition to serve hospitality businesses across the region and beyond as our products and programmes mature.</p>
+      <p>We describe only what we have built and what is in development, and we will extend this page as each stage is confirmed.</p>
+    </div>
+    <div class="card reveal"><h3>What guides us</h3><ul class="ticks" style="margin:10px 0 0"><li>People first: tools are only useful when the team is confident</li><li>Integrity: we state clearly what is available and what is not</li><li>Connection: information should move once, never twice</li><li>Practical excellence: standards built around real hotel work</li></ul></div>
   </div>
 </section>
 <section class="section paper">
@@ -355,7 +438,7 @@ add('maha-hub-solutions.html', 'solutions', {
     <div class="section dark" style="border-radius:24px;padding:48px 24px 52px">
       <div class="steps">
         <div class="step reveal"><b>Guest finds you</b><span>Maha Reach</span></div>
-        <div class="step reveal"><b>Guest books</b><span>Maha Booking or a channel via Maha Connect</span></div>
+        <div class="step reveal"><b>Guest books</b><span>Maha Booking Engine or a channel via Maha Connect</span></div>
         <div class="step reveal"><b>Reservation arrives</b><span>Maha PMS</span></div>
         <div class="step reveal"><b>Stay and billing</b><span>Maha PMS: front office, folio, housekeeping</span></div>
         <div class="step reveal"><b>Follow up</b><span>Maha Reach and Maha Sales</span></div>
@@ -367,7 +450,7 @@ add('maha-hub-solutions.html', 'solutions', {
   <div class="wrap">
     <div class="sec-head reveal"><p class="eyebrow">Who it is for</p><h2>Solutions for every kind of hotel.</h2><p class="lead">From a single independent property to a group of hotels, the same products grow with you.</p></div>
     <div class="grid g3">
-      <div class="card reveal"><h3>Independent hotels</h3><p>Run the front office, reservations, housekeeping and billing from one system, with direct booking on your own website planned through Maha Booking.</p></div>
+      <div class="card reveal"><h3>Independent hotels</h3><p>Run the front office, reservations, housekeeping and billing from one system, with direct booking on your own website planned through Maha Booking Engine.</p></div>
       <div class="card reveal"><h3>Resorts</h3><p>Bring rooms, guests and folios together in Maha PMS, with food and beverage and inventory planned to connect to the same data.</p></div>
       <div class="card reveal"><h3>Boutique hotels</h3><p>An uncluttered workspace for small teams, with direct booking and channel management planned to champion your own brand.</p></div>
       <div class="card reveal"><h3>Serviced apartments</h3><p>Manage units, stays, guests and billing in one place, from short visits to extended stays.</p></div>
@@ -405,7 +488,7 @@ const prodBlock = (p, i) => `<article class="split ${i % 2 ? 'rev' : ''}" id="${
     <div class="hero-cta" style="margin-top:18px">${p.live
       ? `<button class="btn btn-green" type="button" data-book="demo">Book a Demo</button><a class="btn btn-line-dark" href="/solutions">Sign in</a>`
       : `<a class="btn btn-line-dark" href="/contact?interest=${encodeURIComponent(p.name + ' (in development)')}">Register interest</a>${p.id === 'travel' ? '<a class="btn btn-green" href="/maha-travel">Learn more</a>' : ''}`}</div></div>
-  <div class="reveal"><div class="card"><h4 style="margin-bottom:14px">What it covers</h4><ul class="ticks" style="margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">${p.features.map(f => `<li>${f}</li>`).join('')}</ul></div>${deviceFrame(p.id)}</div>
+  <div class="reveal"><div class="card"><h4 style="margin-bottom:14px">What it covers</h4><ul class="ticks" style="margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">${p.features.map(f => `<li>${f}</li>`).join('')}</ul><h4 style="margin:18px 0 6px">Intended for</h4><p style="margin:0">${p.for}</p></div>${deviceFrame(p.id)}</div>
 </article>`;
 add('products.html', 'solutions', {
   title: 'Products | Maha Solutions', desc: 'Maha PMS is available today. Maha Connect, Booking, Reach, Sales and Travel, with Maha HR, Account, Manage, POS and Stock, are in development.', canon: '/products',
@@ -423,7 +506,7 @@ add('pricing.html', 'solutions', {
 }, `${pageHero({ crumb: '<a href="/maha-hub-solutions">Maha Solutions</a> / Pricing', eyebrow: 'Maha Solutions', h1: 'Pricing', lead: 'Flexible plans for every kind of hospitality business. Every price is tailored to your property.', img: '/assets/banners/heritage.jpg', pos: '50% 60%' })}
 <section class="section"><div class="wrap">
   <div class="grid g3">
-    <div class="card reveal"><h3>Single property</h3><p class="note" style="margin-bottom:14px">For independent hotels, boutique hotels and serviced apartments.</p><div class="num" style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>Maha PMS</li><li>Maha Connect (in development)</li><li>Maha Booking (in development)</li><li>Maha Reach (in development)</li><li>Onboarding and support</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20single%20property">Request a quote</a></div>
+    <div class="card reveal"><h3>Single property</h3><p class="note" style="margin-bottom:14px">For independent hotels, boutique hotels and serviced apartments.</p><div class="num" style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>Maha PMS</li><li>Maha Connect (in development)</li><li>Maha Booking Engine (in development)</li><li>Maha Reach (in development)</li><li>Onboarding and support</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20single%20property">Request a quote</a></div>
     <div class="card reveal"><h3>Multi-property</h3><p class="note" style="margin-bottom:14px">For operators managing more than one property.</p><div style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>Everything in the Single property plan</li><li>Several properties under one account</li><li>Onboarding and support</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20multi-property">Talk to us</a></div>
     <div class="card reveal"><h3>Hotel groups</h3><p class="note" style="margin-bottom:14px">For hotel groups and hospitality companies with custom needs.</p><div style="font-size:30px;color:var(--gold3);margin-bottom:12px">Contact for pricing</div><ul class="ticks" style="margin:0 0 22px"><li>A tailored set of Maha products</li><li>Group onboarding</li><li>First access to products coming soon</li></ul><a class="btn btn-green" href="/contact?interest=Pricing%3A%20hotel%20group">Request a demo</a></div>
   </div>
@@ -434,6 +517,8 @@ add('pricing.html', 'solutions', {
     <div class="card reveal"><h3>What you pay for</h3><p>Access to Maha software by subscription, together with any related digital hospitality services agreed in your quotation, such as onboarding.</p></div>
     <div class="card reveal"><h3>Your quote</h3><p>Prices depend on your property type, size and the products you choose. Your quotation confirms the plan, billing period and currency before you pay.</p></div>
     <div class="card reveal"><h3>Payment</h3><p>Payments are processed securely by a third-party payment provider. We do not store full card numbers.</p></div>
+    <div class="card reveal"><h3>Onboarding and implementation</h3><p>Set-up and onboarding for your property are agreed in your quotation, so you know what is included before you begin.</p></div>
+    <div class="card reveal"><h3>Optional integrations</h3><p>Integrations beyond the standard setup are quoted separately where they are required.</p></div>
     <div class="card reveal"><h3>Changes and cancellation</h3><p>You can cancel at the end of a billing period. See our <a href="/refund">Refund and Cancellation Policy</a> and <a href="/terms">Terms of Service</a>.</p></div>
   </div>
 </div></section>
@@ -502,6 +587,19 @@ add('maha-hub-academy.html', 'academy', {
     <div class="frame reveal"><img src="/assets/banners/heritage.jpg" alt="A traditional temple roof above a garden with hot air balloons in the sky" loading="lazy" width="1228" height="720"></div>
   </div>
 </section>
+<section class="section">
+  <div class="wrap">
+    <div class="sec-head center reveal"><p class="eyebrow">Programme categories</p><h2>Six areas of professional learning.</h2><p class="lead">Programmes in each area are in preparation. Details, dates and registration will be published here as they are confirmed.</p></div>
+    <div class="grid g3">
+      <div class="card reveal"><span class="tag soon">In preparation</span><h3>Professional development</h3><p>Personal and professional skills for a long, successful career in hospitality.</p></div>
+      <div class="card reveal"><span class="tag soon">In preparation</span><h3>Operational training</h3><p>Front office, housekeeping, and food and beverage operations, taught around real hotel work.</p></div>
+      <div class="card reveal"><span class="tag soon">In preparation</span><h3>Management training</h3><p>Leadership, cost control, revenue management and hotel sales and marketing.</p></div>
+      <div class="card reveal"><span class="tag soon">In preparation</span><h3>Technology training</h3><p>Confident use of modern hotel systems, including training on Maha PMS.</p></div>
+      <div class="card reveal"><span class="tag soon">In preparation</span><h3>Online learning</h3><p>Flexible learning that fits around a working hotel, from anywhere.</p></div>
+      <div class="card reveal"><span class="tag soon">In preparation</span><h3>Corporate training</h3><p>Programmes shaped for a hotel or a hotel group, delivered for the whole team.</p></div>
+    </div>
+  </div>
+</section>
 <section class="section alt">
   <div class="wrap">
     <div class="sec-head center reveal"><p class="eyebrow">Learning areas</p><h2>What we plan to teach.</h2></div>
@@ -542,7 +640,7 @@ add('contact.html', 'contact', {
       <option value="">Choose a topic</option>
       <optgroup label="Maha Solutions">${LIVE.map(p => `<option>${p.name}</option>`).join('')}${SOON.map(p => `<option>${p.name} (in development)</option>`).join('')}<option>Pricing: single property</option><option>Pricing: multi-property</option><option>Pricing: hotel group</option></optgroup>
       <optgroup label="Maha Academy"><option>Maha Academy</option></optgroup>
-      <optgroup label="Other"><option>Partnership</option><option>Something else</option></optgroup>
+      <optgroup label="Other"><option>Business enquiry</option><option>Technology enquiry</option><option>Partnership</option><option>Something else</option></optgroup>
     </select></div>
     <div class="field full"><label for="f-message">Message</label><textarea id="f-message" name="message" required></textarea><span class="err">Tell us how we can help.</span></div>
     <div class="field full"><button class="btn btn-green" type="submit">Send message ${I.arr}</button></div>
