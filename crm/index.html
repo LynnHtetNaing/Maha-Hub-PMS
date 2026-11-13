@@ -701,6 +701,8 @@ main{padding-top:44px}
 .db-row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.db-row:first-of-type{border-top:0}.db-row small{display:block;color:var(--ink-2)}
 .db-tag{font-size:11.5px;padding:2px 10px;border-radius:999px;white-space:nowrap;align-self:center}.db-t-red{background:#fbe6e3;color:#c0453a}.db-t-amb{background:#fbf0d9;color:#9a6a0a}.db-t-grn{background:#e0f2e8;color:#176B50}
 .db-none{color:var(--ink-2);padding:6px 0}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -4527,7 +4529,7 @@ async function sendQuoteSheet(q, to) {
     root.classList.add('wide');
     $('#sq_go', root).onclick = async () => {
       const subject = $('#sq_s', root).value.trim(), message = $('#sq_m', root).value.trim(); if (!subject || !message) { toast('Write the subject and the message'); return; }
-      const b = $('#sq_go', root); b.disabled = true; b.textContent = 'Sending…';
+      const b = $('#sq_go', root); b.disabled = true; b.innerHTML = '<span class="spin"></span> Sending...';
       const docs = [], qd = await buildQuoteHTML(q); if (qd.blockers && qd.blockers.length) { b.disabled = false; b.textContent = 'Send'; alert('Fix before sending:\n\n- ' + qd.blockers.join('\n- ')); return; }
       docs.push({title: 'Quotation ' + (q.no || ''), quoteNo: q.no || '', html: shareHtml(qd.html)});
       if (rev) docs.push({title: 'Master Service Agreement', quoteNo: q.no || '', html: shareHtml(buildMsaHTML(msaFromQuote(q)))});
@@ -4556,7 +4558,10 @@ function enewsSendSheet() {
     const prog = $('#en_prog', root);
     $('#en_testgo', root).onclick = async () => {
       const a = $('#en_test', root).value.trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)) { toast('Write your email address'); return; }
-      const r = await mailApi({action: 'test', to: [a], ...enewsPayload(e), subject: '[Test] ' + e.subject}); toast(r.error ? mailErr(r.error) : r.sent ? 'Test email sent' : 'The test was not sent' + (r.errors && r.errors[0] ? ': ' + r.errors[0] : ''));
+      const tg = $('#en_testgo', root), tgLbl = tg.innerHTML; tg.disabled = true; tg.innerHTML = '<span class="spin"></span> Sending...';
+      const r = await mailApi({action: 'test', to: [a], ...enewsPayload(e), subject: '[Test] ' + e.subject});
+      tg.disabled = false; tg.innerHTML = tgLbl;
+      toast(r.error ? mailErr(r.error) : r.sent ? 'Test email sent' : 'The test was not sent' + (r.errors && r.errors[0] ? ': ' + r.errors[0] : ''));
     };
     $('#en_go', root).onclick = async () => {
       const tt0 = e.tpl && e.tpl !== 'plain' ? entGet(e.tpl) : null;
@@ -4564,7 +4569,7 @@ function enewsSendSheet() {
         const bad = []; for (const o of entOptions(tt0, e.vals)) if (o.data && o.data.date && o.data.time) { const ev = tt0.kind === 'event', cl = await calClashes(o.data.date, o.data.time, '', ev ? CAL_LEN : CAL_CALL, ev ? CAL_GAP : 0); if (cl.length) bad.push(fdate(o.data.date) + ' ' + o.data.time + ' (' + cl[0].title + ' ' + cl[0].start + ')'); }
         if (bad.length && !confirm('These times are not free:\n\n' + bad.join('\n') + '\n\nSend anyway? A hotel that picks a time that is taken is told so.')) return;
       }
-      const go = $('#en_go', root); go.disabled = true; let sent = 0, skipped = 0, failed = 0;
+      const go = $('#en_go', root); go.disabled = true; go.innerHTML = '<span class="spin"></span> Sending...'; let sent = 0, skipped = 0, failed = 0;
       for (let i = 0; i < to.length; i += 50) {
         prog.textContent = 'Sending ' + Math.min(i + 50, to.length) + ' of ' + to.length + '…';
         const part = to.slice(i, i + 50), r = await mailApi({action: 'newsletter', to: part, ...enewsPayload(e), ...enRcpt(part)});

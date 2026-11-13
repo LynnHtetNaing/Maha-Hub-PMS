@@ -15,8 +15,8 @@ T('a person is limited to 40 mails an hour, and every send is recorded', fn.incl
 T('the key and the addresses never go to the log', !/console\.(log|error|warn)/.test(fn));
 T('the log table is private: only the hotel people read their own rows, only the server writes', /revoke all on public\.maha_pms_mail_log from public, anon, authenticated/.test(sql) && /grant select on public\.maha_pms_mail_log to authenticated/.test(sql) && sql.includes('maha_can_access_property(property_id)') && sql.includes('enable row level security'));
 T('the migration runs in the GitHub database test', wf.includes('20261113_043_pms_mail_log.sql'));
-T('the Mail button of the booking panel opens the Maha Mail box: To, Subject, the text, Send, and Open in my mail program as a fallback',
-  pms.includes('w.querySelector(\'#bkpMl\').onclick=()=>bkpMail(B)') && pms.includes("modal('Send by Maha Mail'") && pms.includes("'/functions/v1/pms-send-mail'") && pms.includes('Open in my mail program'));
-T('a sent mail is written in the booking history; a refusal is shown in words; with no cloud sign-in it points to the mail program',
-  pms.includes("histB(B,'Confirmation emailed to '+to)") && pms.includes('BKP_MAIL_ERR') && pms.includes('Sending needs the cloud sign-in'));
+T('the Mail button of the booking panel sends at once (no box to fill in): a loading state while sending, then a success note',
+  pms.includes('w.querySelector(\'#bkpMl\').onclick=e=>bkpMail(B,e.currentTarget)') && pms.includes("'<span class=\"spin\"></span> Sending...'") && pms.includes("'/functions/v1/pms-send-mail'") && pms.includes("centerNote('Confirmation sent successfully to '"));
+T('a sent mail is written in the booking history; a refusal, or a booking with no guest email, is shown in words',
+  pms.includes("histB(B,'Confirmation emailed to '+to)") && pms.includes('BKP_MAIL_ERR') && pms.includes('No guest email on file'));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
