@@ -55,9 +55,9 @@ const PRODUCTS = [
   { id: 'sales', name: 'Maha Sales', kind: 'Sales', live: false, blurb: 'Hotel leads, follow-ups and quotations, managed with discipline.',
     long: 'Leads, follow-ups and quotations for hotel sales teams, available from the same Maha sign-in.',
     features: ['Leads', 'Follow-ups', 'Quotations'] },
-  { id: 'travel', name: 'Maha Travel', kind: 'Online travel agency', live: false, blurb: 'Our own online travel channel, connecting guests directly with Maha hotels.',
-    long: 'Maha Travel is our own online travel agency, designed to connect guests directly with Maha hotels, with reservations flowing into Maha PMS and rates held in step through Maha Connect.',
-    features: ['Our own travel channel', 'Reservations into Maha PMS', 'Rates through Maha Connect'] },
+  { id: 'travel', name: 'Maha Travel', kind: 'Independent online travel channel', live: false, blurb: 'One place where hotelier and guest meet, led by Maha with the tools and the markets for growth.',
+    long: 'An independent online travel channel that links the hotelier and the customer in one place. Maha leads the growth, supporting hotels with the tools they need and the markets that bring them revenue.',
+    features: ['Hotelier and guest, in one place', 'Tools and markets from Maha', 'Reservations into Maha PMS'] },
   { id: 'hr', name: 'Maha HR', kind: 'People', live: false, blurb: 'Team, attendance and payroll.', long: 'People management for hotel teams: records, attendance and payroll.', features: ['Team', 'Attendance', 'Payroll'] },
   { id: 'account', name: 'Maha Account', kind: 'Finance', live: false, blurb: 'Accounting and finance.', long: 'Accounting and financial control, designed for hotels.', features: ['Accounting', 'Finance'] },
   { id: 'manage', name: 'Maha Manage', kind: 'Back office', live: false, blurb: 'Back office and multi-property.', long: 'Back-office tools and consolidated management reporting across multiple properties.', features: ['Back office', 'Multi-property'] },
@@ -441,34 +441,35 @@ ${ctaBand('Request a quotation.', 'Tell us about your property and the products 
 
 /* ===================================================== MAHA TRAVEL ===================================================== */
 add('maha-travel.html', 'solutions', {
-  title: 'Maha Travel | Our own online travel agency, in development',
-  desc: 'Maha Travel is the Maha Hub online travel agency, designed to connect guests directly with Maha hotels. In development and not yet available.',
+  title: 'Maha Travel | An independent travel channel for hotels and guests, in development',
+  desc: 'Maha Travel is an independent online travel channel that links the hotelier and the customer in one place, with Maha leading growth through tools and markets. In development and not yet available.',
   canon: '/maha-travel',
-}, `${pageHero({ crumb: '<a href="/maha-hub-solutions">Maha Solutions</a> / Maha Travel', eyebrow: 'Maha Solutions &middot; In development', h1: 'Maha Travel', lead: 'Our own online travel agency, designed to bring guests and Maha hotels together directly. Maha Travel is in development and is not yet available.', actions: false })}
+}, `${pageHero({ crumb: '<a href="/maha-hub-solutions">Maha Solutions</a> / Maha Travel', eyebrow: 'Maha Solutions &middot; In development', h1: 'Maha Travel', lead: 'An independent online travel channel that brings the hotelier and the customer together in one place. Maha leads the growth, with the tools hotels need and the markets that bring them revenue. Maha Travel is in development and is not yet available.', actions: false })}
 <section class="section">
   <div class="wrap split">
     <div class="reveal">
-      <p class="eyebrow">Our own channel</p>
-      <h2>A travel channel built with hotels, for hotels.</h2>
-      <p class="lead">Maha Travel will give guests a refined way to discover and book Maha hotels, and give hotels a channel they are part of rather than one they simply pay.</p>
-      <p>It is designed to sit at the front of the Maha platform: reservations arrive directly in Maha PMS, and rates and availability stay aligned through Maha Connect. We will share dates and details here as they are confirmed.</p>
+      <p class="eyebrow">Our purpose</p>
+      <h2>One place where hotelier and guest meet.</h2>
+      <p class="lead">Maha Travel is an independent travel channel with a clear purpose: to link the hotelier and the customer directly, in one place.</p>
+      <p>Maha leads the growth. We support each hotel with the tools it needs to sell well, and we open the markets that bring it revenue. Reservations arrive directly in Maha PMS, and rates stay aligned through Maha Connect. Dates and details will be shared here as they are confirmed.</p>
       <div class="hero-cta"><a class="btn btn-green" href="/contact?interest=Maha%20Travel%20(in%20development)">Register interest ${I.arr}</a><button class="btn btn-line-dark" type="button" data-book="talk">Talk with the Team</button></div>
     </div>
     <div class="grid" style="gap:16px">
-      <div class="card reveal"><span class="tag soon">In development</span><h3>Planned for guests</h3><ul class="ticks" style="margin:10px 0 0"><li>Discover and compare Maha hotels in one place</li><li>Book directly, with clear rates and conditions</li><li>A consistent, considered experience from search to stay</li></ul></div>
-      <div class="card reveal"><span class="tag soon">In development</span><h3>Planned for hotels</h3><ul class="ticks" style="margin:10px 0 0"><li>A distribution channel of your own group</li><li>Reservations delivered straight into Maha PMS</li><li>Rates and availability kept in step through Maha Connect</li></ul></div>
+      <div class="card reveal"><span class="tag soon">In development</span><h3>For the hotelier</h3><ul class="ticks" style="margin:10px 0 0"><li>The tools needed to present, price and sell your hotel</li><li>Reservations delivered directly into Maha PMS</li><li>Rates and availability kept aligned through Maha Connect</li></ul></div>
+      <div class="card reveal"><span class="tag soon">In development</span><h3>For the customer</h3><ul class="ticks" style="margin:10px 0 0"><li>One considered place to discover and book hotels</li><li>Direct contact with the hotel behind the booking</li><li>A consistent experience from search to stay</li></ul></div>
+      <div class="card reveal"><span class="tag soon">In development</span><h3>Markets for revenue</h3><ul class="ticks" style="margin:10px 0 0"><li>Markets opened and led by Maha for each hotel</li><li>Growth guided by Maha, not left to chance</li></ul></div>
     </div>
   </div>
 </section>
 <section class="section dark">
   <div class="wrap">
-    <div class="sec-head center reveal"><p class="eyebrow">How it will fit</p><h2>From discovery to arrival, in one connected flow.</h2><p class="lead">This is the journey Maha Travel is designed to support. Maha PMS is available today; the other stages arrive as each product is released.</p></div>
+    <div class="sec-head center reveal"><p class="eyebrow">How Maha leads growth</p><h2>The tools, the markets and the guest, in one connected flow.</h2><p class="lead">This is the journey Maha Travel is designed to support. Maha PMS is available today; the other stages arrive as each product is released.</p></div>
     <div class="steps">
-      <div class="step reveal"><b>Guest discovers</b><span>Maha Travel</span></div>
-      <div class="step reveal"><b>Guest books</b><span>Maha Travel</span></div>
-      <div class="step reveal"><b>Reservation arrives</b><span>Maha PMS</span></div>
-      <div class="step reveal"><b>Rates stay aligned</b><span>Maha Connect</span></div>
-      <div class="step reveal"><b>Stay and follow-up</b><span>Maha PMS and Maha Reach</span></div>
+      <div class="step reveal"><b>Maha equips the hotel</b><span>Maha PMS and Maha Connect</span></div>
+      <div class="step reveal"><b>Maha opens the markets</b><span>Maha Travel</span></div>
+      <div class="step reveal"><b>The guest books</b><span>Directly with the hotel, through Maha Travel</span></div>
+      <div class="step reveal"><b>The reservation arrives</b><span>Maha PMS</span></div>
+      <div class="step reveal"><b>Revenue grows</b><span>With Maha leading the way</span></div>
     </div>
   </div>
 </section>
