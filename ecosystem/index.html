@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="0cc3baa71a">
+<meta name="maha-build" content="a07dd27f50">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9480,7 +9480,7 @@ function hsResDetail(b){
   w.querySelector('#bkpX').onclick=shut;w.querySelector('.bkp-shade').onclick=shut;
   closeBkp._k=e=>{if(e.key==='Escape'&&!MODALS.length)shut()};document.addEventListener('keydown',closeBkp._k);
   w.querySelector('#bkpEd').onclick=()=>{closeBkp(true);hsResEdit(B)};
-  w.querySelector('#bkpPr').onclick=()=>{if(!need('print'))return;const p=confirmationPack(B);printPages(p.html,'Reservation confirmation '+p.r.no)};
+  w.querySelector('#bkpPr').onclick=()=>{if(!need('print'))return;const p=confirmationPack(B);printPages(p.html,'Reservation confirmation '+p.r.no,{to:p.email,rsvn:String(p.r.no),subject:'Thanks! Your booking is confirmed at '+(H.set.name||'your hotel')});};
   w.querySelector('#bkpMl').onclick=e=>bkpMail(B,e.currentTarget);
   const ci=w.querySelector('#bkpCI');if(ci)ci.onclick=async()=>{if(await checkInUI(B)){refresh();again()}};
   const co=w.querySelector('#bkpCO');if(co)co.onclick=async()=>{if(await checkOut(B)){refresh();again()}};
@@ -9507,6 +9507,40 @@ async function bkpSendMail(B,to,subject){
     const t=await MahaAuth.fresh();if(!t)return {ok:false,msg:'Sending needs the cloud sign-in. Please sign in again, then try once more.'};
     const res=await fetch(MahaAuth.base()+'/functions/v1/pms-send-mail',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
       body:JSON.stringify({property_code:H.code,to,subject:subject||'',data,rsvn:String((resOf(B)||{}).no||data.booking.no)})});
+    let d=null;try{d=await res.json()}catch(e){}
+    if(!res.ok||!d||d.sent!==1)return {ok:false,msg:BKP_MAIL_ERR[d&&d.error]||'The mail could not be sent. Please try again.'};
+    return {ok:true};
+  }catch(e){return {ok:false,msg:'No connection. Please try again.'}}
+}
+/* the CSS the printed documents (Tax Invoice, Credit Note, Deposit, confirmation) need, copied once so a shared "View document" page looks right on its own, with no other file to load */
+const DOC_VIEW_CSS=".ppage{background:#fff;color:#000;font-family:Inter,\"Noto Sans\",\"Noto Sans Thai\",\"Noto Sans Myanmar\",Arial,sans-serif;position:relative}.ppage.port{width:210mm;min-height:297mm;padding:12mm}.ppage.land{width:297mm;min-height:210mm;padding:10mm}"
+  +".inv{font-size:13.5px}.ivh{display:flex;justify-content:space-between}.ivn{font-size:21px}.ivl{margin-top:4px;line-height:1.55;font-size:12.5px}.ivlogo{width:88px;height:88px;border-radius:12px}.ivtitle{text-align:center;font-weight:700;font-size:20px;margin:10px 0;letter-spacing:.4px;line-height:1.2}.ivtitle.guest{letter-spacing:1px}"
+  +".ivtitlebar{position:relative;display:flex;align-items:center;justify-content:center;min-height:42px;padding:4px 118px 8px;box-sizing:border-box}"
+  +".ivinfo{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;border:1px solid #000;padding:10px 12px;font-size:13px}.ivinfo td{padding:2px 5px;vertical-align:top}.ivinfo td:first-child{white-space:nowrap}"
+  +".ivt{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}.ivt th{border-top:1px solid #000;border-bottom:1px solid #000;padding:8px 6px;text-align:left;font-size:12.5px}.ivt td{padding:6px}.ivt .n,.ivtot .n{text-align:right}"
+  +".ivtot{margin-left:auto;margin-top:10px;border-collapse:collapse;min-width:320px}.ivtot td{padding:3px 8px}.ivtot tr.grand td{border-top:1px solid #000;border-bottom:3px double #000;font-weight:700;padding:5px 8px}.ivw{text-align:center;font-weight:700;margin:10px 0}"
+  +".ivfoot{position:static;margin-top:auto;font-size:12px;padding-top:12px}.ivfoot p{margin:0}.ivcont{text-align:center;font-style:italic;color:#444;padding:14px 0;font-size:12.5px}"
+  +".sigs{display:flex;justify-content:space-around;margin-top:56px;text-align:center}.sigs span,.sigs div{display:block;min-width:200px;border-top:1px solid #000;margin-bottom:3px;padding-top:4px}"
+  +".clfoot{font-size:11px;padding-top:4px}.clterms,.clack{margin-bottom:8px}.clterms b,.clack b{display:block;margin-bottom:2px}.clack p{margin:0}"
+  +"table.cfx{width:100%;border-collapse:collapse;margin:0 0 10px;border:1px solid #222}table.cfx th{background:#f0f0f0;text-align:left;font-size:13px;padding:5px 8px;border-bottom:1px solid #222}table.cfx td{padding:4px 8px;font-size:12.5px;border-bottom:1px solid #ddd;vertical-align:top}table.cfx tr:last-child td{border-bottom:0}table.cfx td.v{font-weight:700}table.cfx td.n{text-align:right}table.cfx td:first-child{width:26%}table.cfx td:nth-child(3){width:21%}.cfl{margin:0;padding-left:18px}"
+  +".cfgreet{font-size:13.5px;margin:6px 0 10px}.cfclose{margin-top:26px;font-size:13px;line-height:1.6}.cfclose p{margin:0 0 10px}.cfclose .cfsoff{margin-top:18px;text-align:right}.cfpow{margin-top:30px;padding-top:14px;text-align:center;font-size:10.5px;color:#666}"
+  +".cfstay{width:100%;border-collapse:collapse;margin:8px 0 12px}.cfstay td{border:1px solid #222;padding:5px 8px;font-size:13px}.cfstay td:first-child{width:34%;font-weight:700;background:#f6f6f6}.cfbody{font-size:13.5px;line-height:1.55;white-space:pre-wrap}"
+  +".cfsign{margin-top:18px;font-size:13px}.cfsign b{display:block;margin-top:28px;border-top:1px solid #000;width:220px;padding-top:4px}"
+  +"@media print{.dvbar{display:none}body{background:#fff!important;padding:0!important}}";
+/* a shared document is one self-contained page: no other file to load, so the CSS above is copied into it. A floating bar lets the guest print it or save it as a PDF. */
+function docViewHtml(title,bodyHtml){
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title>'
+   +'<style>'+DOC_VIEW_CSS+'body{margin:0;background:#9aa6ad;display:flex;flex-direction:column;align-items:center;padding:20px 10px 44px;font-family:Inter,Arial,sans-serif}'
+   +'.dvbar{position:sticky;top:10px;z-index:2;background:#0A3020;color:#fff;padding:10px 18px;border-radius:999px;display:flex;gap:14px;align-items:center;margin-bottom:16px;box-shadow:0 10px 24px -10px rgba(0,0,0,.4);font:600 14px Inter,Arial,sans-serif}'
+   +'.dvbar button{border:0;border-radius:999px;background:#D49A38;color:#1a272f;font:700 14px Inter,Arial,sans-serif;padding:8px 16px;cursor:pointer}</style></head>'
+   +'<body><div class="dvbar"><span>'+esc(title)+'</span><button type="button" onclick="window.print()">Save as PDF / Print</button></div>'+bodyHtml+'</body></html>';
+}
+/* sends a document already shown in a print preview: a short message and a View button, the document itself opened from a secure link the guest can print or save */
+async function pmsSendDoc(to,subject,title,bodyHtml,rsvn){
+  try{
+    const t=await MahaAuth.fresh();if(!t)return {ok:false,msg:'Sending needs the cloud sign-in. Please sign in again, then try once more.'};
+    const res=await fetch(MahaAuth.base()+'/functions/v1/pms-send-mail',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
+      body:JSON.stringify({property_code:H.code,to,subject:subject||title,doc:{title,html:docViewHtml(title,bodyHtml)},rsvn:rsvn||''})});
     let d=null;try{d=await res.json()}catch(e){}
     if(!res.ok||!d||d.sent!==1)return {ok:false,msg:BKP_MAIL_ERR[d&&d.error]||'The mail could not be sent. Please try again.'};
     return {ok:true};
@@ -11499,11 +11533,23 @@ function prepareMail(o){o=o||{};const to=String(o.to||'').trim();const subject=o
   window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
   toast('Mail prepared. Your mail program can send it.')}
 function fitA4(root){if(!root)return;root.querySelectorAll('.a4fit').forEach(page=>{const inner=page.querySelector(':scope > .a4in');if(!inner)return;inner.style.transform='none';inner.style.width='100%';const cs=getComputedStyle(page);const avail=page.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);const need=inner.scrollHeight;if(avail>40&&need>avail+2){const s=Math.max(0.62,Math.min(1,avail/need));inner.style.transform='scale('+s+')';inner.style.width=(100/s)+'%'}})}
-function printPages(html,title,mail){const m=modal(title+' – preview',`<div class="btns"><button class="btn gold" id="ppP">${ic('print',16)} Print</button><button class="btn" id="ppM">${ic('mail',16)} Mail</button><span class="sub">Mail opens your mail program with this document. Maha Hub records it as prepared.</span></div><div class="ppwrap">${html}</div>`,{w:1000,cls:'ppmodal'});
+function printPages(html,title,mail){
+  const auto=!!(mail&&mail.to&&mail.auto!==false&&/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(mail.to));
+  const sub=auto?'Mail sends this document to '+esc(mail.to)+' at once, with a link they can view, print or save.':'Mail opens your mail program with this document. Maha Hub records it as prepared.';
+  const m=modal(title+' – preview',`<div class="btns"><button class="btn gold" id="ppP">${ic('print',16)} Print</button><button class="btn" id="ppM">${ic('mail',16)} Mail</button><span class="sub">${sub}</span></div><div class="ppwrap">${html}</div>`,{w:1000,cls:'ppmodal'});
   setTimeout(()=>fitA4(m),40);
   $('#ppP',m).onclick=()=>{try{log('Printed: '+title)}catch(e){}const p=$('#print');p.innerHTML=html;document.body.classList.add('printing');fitA4(p);window.print();setTimeout(()=>document.body.classList.remove('printing'),500)};
-  $('#ppM',m).onclick=()=>{const text=(mail&&mail.body)||((m.querySelector('.ppwrap')&&m.querySelector('.ppwrap').innerText||'').replace(/\n{3,}/g,'\n\n').trim().slice(0,3500));
-    prepareMail(Object.assign({doc:title,subject:title+' · '+((H&&H.set&&H.set.name)||''),body:text},mail||{}))}}
+  $('#ppM',m).onclick=async()=>{
+    if(!auto){const text=(mail&&mail.body)||((m.querySelector('.ppwrap')&&m.querySelector('.ppwrap').innerText||'').replace(/\n{3,}/g,'\n\n').trim().slice(0,3500));
+      prepareMail(Object.assign({doc:title,subject:title+' · '+((H&&H.set&&H.set.name)||''),body:text},mail||{}));return}
+    const btn=$('#ppM',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sending...';
+    const res=await pmsSendDoc(mail.to,mail.subject||(title+' · '+H.set.name),title,html,mail.rsvn||'');
+    btn.disabled=false;btn.innerHTML=lbl;
+    if(!res.ok){toast(res.msg);return}
+    try{log('Emailed '+title+' to '+mail.to)}catch(e){}
+    centerNote(title+' sent successfully to '+mail.to+'.','saved');
+  };
+}
 function defaultBillTo(r){const co=r&&CO(r.companyId);if(co&&co.code!=='WIN'&&co.code!=='DIR')return 'company';return 'guest'}
 function billParty(B,choice,other){const r=B&&resOf(B),g=B?G(B.guestId):{},co=r&&CO(r.companyId);const pick=choice||(B&&B.billTo)||defaultBillTo(r);
   if(pick==='other'){const b=(B&&B.bill)||{};const o=other&&typeof other==='object'?other:null;
@@ -11749,7 +11795,7 @@ function printRegCard(B){
   const back=`<div class="ppage port regb a4fit"><div class="a4in"><div class="rbhead"><img src="${H.set.logo||ICON}" alt=""><div><b>${esc(H.set.name)}</b><div class="rbt">TERMS AND CONDITIONS</div></div></div>
    <div class="terms">${blocks.map(b=>`<section class="tl tl-${b.k}"><h4>${esc(b.title)}</h4><ol>${b.lines.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section>`).join('')}</div>
    <div class="rbsign"><div><span></span>Guest's Signature</div><div><span></span>Date</div></div></div></div>`;
-  log(`Printed registration card RSVN ${r.no}`,B.id);saveDB();printPages(front+back,'Registration card RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Registration card '+r.no+' · '+H.set.name});
+  log(`Printed registration card RSVN ${r.no}`,B.id);saveDB();printPages(front+back,'Registration card RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Registration card '+r.no+' · '+H.set.name,auto:false});
 }
 
 /* ================= Shift, Close Day, Setup, Provider ================= */
