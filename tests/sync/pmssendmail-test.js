@@ -1,0 +1,22 @@
+/* The PMS Mail button: the confirmation is sent to the guest through Maha Mail by the pms-send-mail function, in the hotel's name.
+     node tests/sync/pmssendmail-test.js ecosystem/index.html */
+const fs = require('fs'), path = require('path');
+const root = path.join(__dirname, '..', '..');
+const rd = f => fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');
+const pms = fs.readFileSync(process.argv[2], 'utf8').replace(/\r\n/g, '\n');
+const fn = rd('supabase/functions/pms-send-mail/index.ts'), sql = rd('supabase/migrations/20261113_043_pms_mail_log.sql'), wf = rd('.github/workflows/tenant-cloud-storage-tests.yml');
+let fails = 0; const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n); if (!ok) fails++; };
+
+T('the function needs a signed-in person who may write to that hotel (the same rule as the PMS cloud), and an unknown hotel looks like a forbidden one',
+  fn.includes('auth.getUser(') && fn.includes('maha_can_write_property') && fn.includes('from("maha_properties")') && fn.includes('property_access_denied'));
+T('one guest address per call, a clean subject and text, no attachment, no link of our own', fn.includes('validEmail(to)') && !/attachments*[:=[]/.test(fn) && !/https:\/\/crm\.maha-hub\.com\/r\//.test(fn));
+T('the mail is sent in the hotel name (from the database, not from the browser) and replies go to the hotel email', fn.includes('name: hotel') && fn.includes('prop.name') && fn.includes('replyTo: { email: replyTo, name: hotel }'));
+T('a person is limited to 40 mails an hour, and every send is recorded', fn.includes('HOURLY_LIMIT = 40') && fn.includes('too_many') && fn.includes('from("maha_pms_mail_log").insert'));
+T('the key and the addresses never go to the log', !/console\.(log|error|warn)/.test(fn));
+T('the log table is private: only the hotel people read their own rows, only the server writes', /revoke all on public\.maha_pms_mail_log from public, anon, authenticated/.test(sql) && /grant select on public\.maha_pms_mail_log to authenticated/.test(sql) && sql.includes('maha_can_access_property(property_id)') && sql.includes('enable row level security'));
+T('the migration runs in the GitHub database test', wf.includes('20261113_043_pms_mail_log.sql'));
+T('the Mail button of the booking panel opens the Maha Mail box: To, Subject, the text, Send, and Open in my mail program as a fallback',
+  pms.includes('w.querySelector(\'#bkpMl\').onclick=()=>bkpMail(B)') && pms.includes("modal('Send by Maha Mail'") && pms.includes("'/functions/v1/pms-send-mail'") && pms.includes('Open in my mail program'));
+T('a sent mail is written in the booking history; a refusal is shown in words; with no cloud sign-in it points to the mail program',
+  pms.includes("histB(B,'Confirmation emailed to '+to)") && pms.includes('BKP_MAIL_ERR') && pms.includes('Sending needs the cloud sign-in'));
+console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
