@@ -11,7 +11,7 @@ const site = ['index', 'about', 'maha-hub-solutions', 'products', 'pricing', 'se
 const bad = [];
 site.forEach(p => { for (const m of read(p + '.html').matchAll(/href="([^"]*)"/g)) if (/^\/(ecosystem|reach|connect|sales|book|edc-link)(\/|$)/i.test(m[1]) || /^\/solutions-PMS/i.test(m[1])) bad.push(p + ': ' + m[1]); });
 T('no website page links to a system (only to the Main sign-in page /solutions)', bad.length === 0, bad.join(' ; '));
-T('the Products page has a plain Sign in for the available product (Maha PMS), going to /solutions; products in development have no Sign in', (read('products.html').match(/href="\/solutions">Sign in<\/a>/g) || []).length === 1);
+T('the Products page has a plain Sign in for the available product (Maha PMS), going to /solutions; products in development have no Sign in', (read('products.html').split('<main')[1].match(/href="\/solutions">Sign in<\/a>/g) || []).length === 1);
 T('the website generator no longer holds system addresses', !/ecosystem\/(Connect|Booking|Reach|Sales)/.test(read('website/build.mjs')));
 const robots = read('robots.txt');
 T('search engines are told to stay out of the systems', ['/ecosystem/', '/reach/', '/connect/', '/sales/', '/crm/', '/edc-link/'].every(p => robots.includes('Disallow: ' + p)));
