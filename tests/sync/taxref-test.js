@@ -227,11 +227,11 @@ T('starting number is never lower than the highest number already issued', /high
   /* ---------------- 3. section list, numbering, menus ---------------- */
   const sl = src.match(/const SET_SECTIONS=\[([\s\S]*?)\];/)[1];
   const secs = [...sl.matchAll(/\['([a-z]+)','(\d+)','([^']+)'\]/g)].map(m => ({ k: m[1], n: +m[2], t: m[3] }));
-  T('the section list is numbered 1, 2, 3 ... without a gap', secs.length === 16 && secs.every((s, i) => s.n === i + 1), secs.map(s => s.n).join(','));
-  T('Tax Invoice Reference sits next to Registration card & invoice (13, then 14)', secs[12].k === 'docs' && secs[13].k === 'tiref' && secs[13].t === 'Tax Invoice Reference' && secs[14].k === 'terms' && secs[15].k === 'activate');
+  T('the section list is numbered 1, 2, 3 ... without a gap', secs.length === 17 && secs.every((s, i) => s.n === i + 1), secs.map(s => s.n).join(','));
+  T('Tax Invoice Reference sits next to Registration card & invoice (13, then 14)', secs[12].k === 'docs' && secs[13].k === 'tiref' && secs[13].t === 'Tax Invoice Reference' && secs[14].k === 'terms' && secs[15].k === 'mailpol' && secs[16].k === 'activate');
   T('the heading of every section shows its own number', (() => {
-    const heads = { docs: "secHead('13. Registration card & invoice')", tiref: "secHead('14. Tax Invoice Reference'", terms: "secHead('15. Terms & Conditions')", activate: "secHead('16. Review & activate'", plan: "secHead('7. Floor plan'" };
-    return Object.values(heads).every(h => src.includes(h)) && !/secHead\('1[45]\. (Terms|Review)/.test(src.replace("secHead('15. Terms", '').replace("secHead('16. Review", ''));
+    const heads = { docs: "secHead('13. Registration card & invoice')", tiref: "secHead('14. Tax Invoice Reference'", terms: "secHead('15. Terms & Conditions')", mailpol: "secHead('16. Guest mail policies'", activate: "secHead('17. Review & activate'", plan: "secHead('7. Floor plan'" };
+    return Object.values(heads).every(h => src.includes(h)) && !/secHead\('1[45]\. (Terms|Review)/.test(src.replace("secHead('15. Terms", '').replace("secHead('17. Review", ''));
   })());
   T('the old texts that named section 14 for the Terms are updated', /Terms & Conditions \(section 15\)/.test(src) && !/Terms & Conditions \(section 14\)/.test(src));
   const pm = src.slice(src.indexOf('const PROV_MENU=['), src.indexOf('const VIEWS={}'));

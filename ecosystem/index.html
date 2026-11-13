@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="13f7ec56c5">
+<meta name="maha-build" content="ff2bf82766">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9482,27 +9482,38 @@ function hsResDetail(b){
   const co=w.querySelector('#bkpCO');if(co)co.onclick=async()=>{if(await checkOut(B)){refresh();again()}};
 }
 
-/* the Mail button of the booking panel: the confirmation goes to the guest through Maha Mail (the pms-send-mail function), in the hotel's name; replies go to the hotel email */
-const BKP_MAIL_ERR={not_configured:'Maha Mail is not set up on the server yet.',not_signed_in:'Please sign in again, then try once more.',property_access_denied:'Your sign-in is not allowed to send mail for this hotel.',too_many:'Too many mails were sent this hour. Please try again later.',send_failed:'The mail could not be sent. Try again, or use Open in my mail program.',bad_request:'Check the address and the subject.'};
+/* the Mail button of the booking panel: the confirmation goes to the guest through Maha Mail (the pms-send-mail function) as a no-reply mail from the Maha Hub brand.
+   The browser sends only the facts of the booking; the server builds the mail. The policies come from Setup, Guest mail policies (set by the provider). */
+const BKP_MAIL_ERR={not_configured:'Maha Mail is not set up on the server yet.',not_signed_in:'Please sign in again, then try once more.',property_access_denied:'Your sign-in is not allowed to send mail for this hotel.',too_many:'Too many mails were sent this hour. Please try again later.',send_failed:'The mail could not be sent. Try again, or use Open in my mail program.',bad_request:'Check the guest email address.'};
+const bkpLong=d=>{if(!d)return '';const x=new Date(d+'T12:00:00Z');return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][x.getUTCDay()]+', '+x.getUTCDate()+' '+['January','February','March','April','May','June','July','August','September','October','November','December'][x.getUTCMonth()]+' '+x.getUTCFullYear()};
+const bkpNice=n=>String(n||'').replace(/^(mr|mrs|ms|miss|dr)\.?\s/i,(m,t)=>t.charAt(0).toUpperCase()+t.slice(1).toLowerCase()+'. ');
+function bkpMailData(B){
+  const d=bkpData(B),s=H.set,mp=s.mailPol||{},N=d.nts.length,cur=bCur(B);
+  const cancel=mp.cancel||(s.google&&s.google.cancelPolicy)||'';
+  return {hotel:{name:s.name||'',address:s.addr||'',phone:s.phone||'',email:s.email||''},guest:{name:bkpNice(gName(d.g))},
+    booking:{no:String(d.r.no),confirmation:(d.r.confirmation&&d.r.confirmation!=='0')?String(d.r.confirmation):String(d.r.no),arrLabel:bkpLong(B.arr),depLabel:bkpLong(B.dep),checkin:B.eta||'14:00',checkout:B.etd||'12:00',nights:N+' night'+(N===1?'':'s'),
+      roomType:RT(B.type).name||B.type,ratePlan:(d.rc.desc||B.rateCode)+' ('+B.rateCode+')',pax:B.adults+' adult'+(B.adults===1?'':'s')+(B.children?' + '+B.children+' child'+(B.children===1?'':'ren'):'')},
+    money:{cur,payStatus:d.pay,rate:m2(d.rate),roomTotal:m2(d.roomTotal),paid:m2(d.paid),balance:m2(d.balance)},
+    policies:{cancel,child:mp.child||'',noshow:mp.noshow||'',terms:mp.terms||''},request:d.notes};
+}
 function bkpMail(B){
   if(!need('print'))return;
-  const pack=confirmationPack(B),subject='Reservation '+pack.r.no+' \u00b7 '+H.set.name;
+  const data=bkpMailData(B),pack=confirmationPack(B),subject='Thanks! Your booking is confirmed at '+(H.set.name||'your hotel');
   const m=modal('Send by Maha Mail',`<p class="sub">The confirmation is sent as a no-reply mail from Maha Hub. The guest cannot reply to it.</p>
     <div class="form2">${fld('To',`<input id="mlTo" type="email" value="${esc(pack.email)}" placeholder="guest@email">`,'span2')}${fld('Subject',`<input id="mlSb" value="${esc(subject)}">`,'span2')}</div>
-    <div style="white-space:pre-wrap;max-height:240px;overflow:auto;background:rgba(127,127,127,.1);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px">${esc(pack.text)}</div>
+    <div style="background:rgba(127,127,127,.1);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px;line-height:1.6"><b>${esc(data.guest.name)}</b><br>${esc(data.booking.arrLabel)} to ${esc(data.booking.depLabel)} (${esc(data.booking.nights)})<br>${esc(data.booking.roomType)} \u00b7 ${esc(data.booking.pax)}<br>${esc(data.money.payStatus)}</div>
     <div class="btns"><button class="btn gold" id="mlGo">${ic('mail',16)} Send</button><button class="btn" id="mlPm">Open in my mail program</button><button class="btn ghost" id="mlX">Cancel</button></div><p class="sub" id="mlMsg" role="status"></p>`,{w:660,cls:'dlg'});
   const msg=t=>{$('#mlMsg',m).textContent=t};
   $('#mlX',m).onclick=()=>closeModal(m);
-  $('#mlPm',m).onclick=()=>{const to=$('#mlTo',m).value.trim();closeModal(m);prepareMail({to,subject:$('#mlSb',m).value.trim()||subject,body:pack.text,rsvn:pack.r.no,doc:'Reservation confirmation'})};
+  $('#mlPm',m).onclick=()=>{const to=$('#mlTo',m).value.trim();closeModal(m);prepareMail({to,subject:'Reservation '+pack.r.no+' \u00b7 '+H.set.name,body:pack.text,rsvn:pack.r.no,doc:'Reservation confirmation'})};
   $('#mlGo',m).onclick=async()=>{
     const to=$('#mlTo',m).value.trim(),sb=$('#mlSb',m).value.trim();
     if(!/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(to)){msg('Write the guest email address.');return}
-    if(!sb){msg('Write the subject.');return}
     const go=$('#mlGo',m);go.disabled=true;msg('Sending...');
     try{
       const t=await MahaAuth.fresh();if(!t){msg('Sending needs the cloud sign-in. Use Open in my mail program.');go.disabled=false;return}
       const res=await fetch(MahaAuth.base()+'/functions/v1/pms-send-mail',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
-        body:JSON.stringify({property_code:H.code,to,subject:sb,message:pack.letter,rows:pack.rows,footer:pack.sig,rsvn:String(pack.r.no)})});
+        body:JSON.stringify({property_code:H.code,to,subject:sb,data,rsvn:String(pack.r.no)})});
       let d=null;try{d=await res.json()}catch(e){}
       if(!res.ok||!d||d.sent!==1){msg(BKP_MAIL_ERR[d&&d.error]||'The mail could not be sent. Try again, or use Open in my mail program.');go.disabled=false;return}
       histB(B,'Confirmation emailed to '+to);log('Emailed confirmation RSVN '+pack.r.no,B.id);saveDB();toast('Confirmation sent to '+to);closeModal(m);
@@ -13465,7 +13476,7 @@ function propertyChecks(h){return setupChecks(h).filter(c=>c.k!=='staff'&&c.k!==
 let SET_SEC='profile';
 const SET_SECTIONS=[['profile','1','Hotel profile'],['tax','2','Currency, tax & service'],['bd','3','Business date & times'],['floors','4','Floors'],['types','5','Room types'],['rooms','6','Rooms'],
   ['plan','7','Floor plan'],['rates','8','Rate codes'],['charges','9','Charge codes'],['pay','10','Payment methods'],['companies','11','Companies & agents'],['allot','12','Room totals'],
-  ['docs','13','Registration card & invoice'],['tiref','14','Tax Invoice Reference'],['terms','15','Terms & Conditions'],['activate','16','Review & activate']];
+  ['docs','13','Registration card & invoice'],['tiref','14','Tax Invoice Reference'],['terms','15','Terms & Conditions'],['mailpol','16','Guest mail policies'],['activate','17','Review & activate']];
 VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
   el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · property setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
    <div class="su"><nav class="sunav">${SET_SECTIONS.map(s=>{const st=ok(s[0]);return `<button class="${SET_SEC===s[0]?'on':''}" data-sec="${s[0]}"><span class="sun">${s[1]}</span>${s[2]}${st===true?'<i class="ok">✓</i>':st===false?'<i class="no">•</i>':''}</button>`}).join('')}</nav>
@@ -13642,6 +13653,20 @@ const SEC={
      s.gaplessInvoices=(s.invMode==='manual')||$('#d_gl',box).checked;
      provLog(`Tax Invoice Reference saved for ${H.code}: ${s.invMode==='manual'?'Manual '+invManualRef(s.invFmt.prefix,s.invFmt.start,s.invFmt.min)+(s.invFmt.unl?' (unlimited digits)':' (fixed width)'):'Standard'}${s.gaplessInvoices?', gapless':''}`);saved()}},
  terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
+ mailpol(box){const s=H.set,p=s.mailPol||{},LM={cancel:5,child:5,noshow:5,terms:8,line:240};
+   const lines=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);
+   const ta=(id,label,key)=>fld(label,`<textarea id="${id}" rows="${key==='terms'?8:5}">${esc(p[key]||'')}</textarea><div class="sub" data-cnt="${id}"></div>`);
+   box.innerHTML=secHead('16. Guest mail policies','These texts are shown in the booking confirmation mail that the guest receives. They are not the registration card terms. A box left empty shows "-" in the mail. Only the first lines fit the mail, so keep each text short: up to '+LM.cancel+' lines for the cancellation, child and no-show policies and up to '+LM.terms+' lines for the terms and conditions, one line on each row, up to '+LM.line+' characters.')+`<div class="panel pad">${ta('mp_c','Cancellation policy','cancel')}${ta('mp_ch','Child policy','child')}${ta('mp_ns','No-show policy','noshow')}${ta('mp_t','Terms and conditions','terms')}
+     <div class="btns"><button class="btn gold" id="mpS">Save</button></div><p class="sub" id="mpE" role="status"></p></div>`;
+   const ids={mp_c:'cancel',mp_ch:'child',mp_ns:'noshow',mp_t:'terms'};
+   const count=()=>Object.keys(ids).forEach(id=>{const n=lines($('#'+id,box).value).length,mx=LM[ids[id]];const c=$('[data-cnt="'+id+'"]',box);c.textContent=n+' of '+mx+' lines'+(n>mx?' - too many, only the first '+mx+' show in the mail':'');c.style.color=n>mx?'#b3261e':''});
+   Object.keys(ids).forEach(id=>$('#'+id,box).addEventListener('input',count));count();
+   $('#mpS',box).onclick=()=>{if(!provOnly())return;const out={};
+     for(const id of Object.keys(ids)){const k=ids[id],ls=lines($('#'+id,box).value);
+       if(ls.length>LM[k]){$('#mpE',box).textContent='Too many lines in one of the boxes: the most is '+LM[k]+'.';return}
+       if(ls.some(x=>x.length>LM.line)){$('#mpE',box).textContent='A line is longer than '+LM.line+' characters. Split it into two lines.';return}
+       out[k]=ls.join('\n')}
+     s.mailPol={...out,at:Date.now(),by:user().name};provLog('Guest mail policies saved at '+H.code);saved('Guest mail policies saved')}},
  google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly'];
    box.innerHTML=secHead('Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
    <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
@@ -13668,7 +13693,7 @@ const SEC={
      provLog(`Direct booking / Google metadata saved for ${H.code}`);saved()};
    $('#gOpen',box).onclick=()=>{const base=($('#g_base',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')}},
  activate(box){const ck=setupChecks(H),all=ck.every(c=>c.ok);
-   box.innerHTML=secHead('16. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
+   box.innerHTML=secHead('17. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
    <div class="btns">${H.active!==false?`<button class="btn red" id="acOff">Deactivate hotel</button>`:`<button class="btn gold" id="acOn" ${all?'':'disabled'}>Activate hotel</button>`}</div>${all||H.active!==false?'':'<p class="sub">Finish every item to activate. Staff and direct booking open under Setup.</p>'}</div>`;
    $$('[data-fix]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.fix;if(k==='staff'){go('prov.perms');return}if(k==='google'){go('prov.google');return}SET_SEC=k;render()});
    if($('#acOn',box))$('#acOn',box).onclick=()=>{if(!provOnly())return;H.active=true;H.activatedAt=Date.now();provLog(`Activated ${H.code}`);saved(`${H.code} is active. Its staff can now sign in.`)};
