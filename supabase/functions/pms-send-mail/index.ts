@@ -1,12 +1,12 @@
 // Supabase Edge Function: pms-send-mail
 // Sends a hotel's reservation confirmation (written in the PMS) to its guest through Maha Mail (Brevo).
-//   POST { property_code, to, subject, message, rows?: [[label, value], ...], footer?, replyTo?, rsvn? }
+//   POST { property_code, to, subject, message, rows?: [[label, value], ...], footer?, rsvn? }
 //   - the person must be signed in and allowed to write to that hotel (the same check the PMS cloud uses);
 //   - one guest address per call; a plain letter plus an optional table of details; no attachment, no links of our own;
-//   - the mail is sent in the hotel's name, replies go to the hotel's own email;
+//   - a no-reply mail from the Maha Hub brand: the hotel name and the hotel address are not the sender, and there is no reply address;
 //   - each send is recorded in maha_pms_mail_log (who, to whom, which reservation, the result); at most 40 mails an hour per person.
 // Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY (the same ones crm-send-mail uses).
-// Optional: PMS_MAIL_FROM (default crm@maha-hub.com, an address Brevo already trusts), MAHA_ALLOWED_ORIGIN.
+// Optional: PMS_MAIL_FROM (default noreply@maha-hub.com; Brevo must trust that sender or the whole maha-hub.com domain), PMS_MAIL_FROM_NAME (default Maha Hub), MAHA_ALLOWED_ORIGIN.
 // Deploy with JWT verification off (--no-verify-jwt): the function checks the signed-in person itself.
 // Never log addresses, subjects, message text or keys.
 
@@ -65,20 +65,19 @@ const handle = async (req: Request): Promise<Response> => {
 
   const hotel = clip(prop.name, 120) || "Hotel";
   const rows: [string, string][] = (Array.isArray(b.rows) ? b.rows : []).slice(0, 30).map((r: unknown) => Array.isArray(r) ? [clip(r[0], 60), clip(r[1], 200)] as [string, string] : ["", ""] as [string, string]).filter((r: [string, string]) => r[0] && r[1]);
-  const replyTo = validEmail(b.replyTo) ? b.replyTo : "";
   const rsvn = clip(b.rsvn, 40), footer = clip(b.footer, 600).trim();
-  const FROM = { name: hotel, email: Deno.env.get("PMS_MAIL_FROM") || "crm@maha-hub.com" };
+  const FROM = { name: Deno.env.get("PMS_MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("PMS_MAIL_FROM") || "noreply@maha-hub.com" };
 
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:620px;margin:0 auto;border:1px solid #e3ddd0;border-radius:12px;overflow:hidden">`
-    + `<div style="background:#0A3020;color:#fff;padding:14px 20px;font-weight:bold">${esc(hotel)}</div>`
+    + `<div style="background:#0A3020;color:#fff;padding:14px 20px;font-weight:bold">Maha Hub</div>`
     + `<div style="padding:20px">${esc(message).replace(/\n/g, "<br>")}`
     + (rows.length ? `<table style="width:100%;border-collapse:collapse;margin-top:18px;font-size:14px">${rows.map((r) => `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;color:#666;width:40%">${esc(r[0])}</td><td style="padding:6px 0;border-bottom:1px solid #eee"><b>${esc(r[1])}</b></td></tr>`).join("")}</table>` : "")
-    + (footer ? `<p style="margin:18px 0 0;color:#444">${esc(footer).replace(/\n/g, "<br>")}</p>` : "") + `</div><div style="background:#faf5ec;color:#7a7468;font-size:12px;padding:10px 20px">Sent for ${esc(hotel)} through Maha Hub.</div></div>`;
-  const textBody = message + (rows.length ? "\n\n" + rows.map((r) => `${r[0]}: ${r[1]}`).join("\n") : "") + (footer ? "\n\n" + footer : "") + `\n\nSent for ${hotel} through Maha Hub.`;
+    + (footer ? `<p style="margin:18px 0 0;color:#444">${esc(footer).replace(/\n/g, "<br>")}</p>` : "") + `</div><div style="background:#faf5ec;color:#7a7468;font-size:12px;padding:10px 20px">This is an automatic message from Maha Hub. Please do not reply to it.</div></div>`;
+  const textBody = message + (rows.length ? "\n\n" + rows.map((r) => `${r[0]}: ${r[1]}`).join("\n") : "") + (footer ? "\n\n" + footer : "") + "\n\nThis is an automatic message from Maha Hub. Please do not reply to it.";
 
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST", headers: { "api-key": BREVO, "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ sender: FROM, to: [{ email: to }], ...(replyTo ? { replyTo: { email: replyTo, name: hotel } } : {}), subject, htmlContent: html, textContent: textBody, tags: ["pms-confirmation"] }),
+    body: JSON.stringify({ sender: FROM, to: [{ email: to }], subject, htmlContent: html, textContent: textBody, tags: ["pms-confirmation"] }),
   });
   const out = await res.json().catch(() => ({}));
   await admin.from("maha_pms_mail_log").insert({

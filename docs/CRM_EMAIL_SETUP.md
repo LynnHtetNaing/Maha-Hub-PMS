@@ -90,3 +90,8 @@ Deploy after a change of the function: `supabase functions deploy crm-reply --no
 A full-page drag-and-drop designer (GrapesJS, open source, kept in `crm/vendor`, loaded only when it opens). Drag blocks (heading, text, picture, button, hero, offer box, two columns, line) into the mail, click any text to edit it, change colours, sizes and spacing on the right, and check the Laptop and Phone view. It only offers styles the mail keeps, so what you see is what the hotel gets. `[Type here]`, `{{hotel}}` and `{{buttons}}` are buttons on the left. A **Code** button shows and edits the raw design.
 - Pictures: add a picture block, then paste a picture address, or upload a file (png, jpeg, gif, webp, up to 3 MB). Uploaded pictures go to the public bucket `crm-images`: run `supabase/migrations/20261113_042_crm_images.sql` (staging first, then live).
 - Canva: design in Canva, download the picture (PNG or JPG), and upload it as a Picture block. The text of the mail stays real text.
+
+## PMS mails to guests (pms-send-mail): a no-reply mail from Maha Hub
+The PMS Mail button sends the reservation confirmation as `noreply@maha-hub.com`, name `Maha Hub`, with no reply address (the hotel name is not the sender).
+Brevo → Senders → Add a sender → name `Maha Hub`, address `noreply@maha-hub.com` (the maha-hub.com domain is already verified for the CRM). Optional secrets: `PMS_MAIL_FROM`, `PMS_MAIL_FROM_NAME`.
+Deploy: `supabase.cmd functions deploy pms-send-mail --project-ref wragaoglvksbbgmfjyzp --no-verify-jwt`. The SQL for the mail record is `supabase/migrations/20261113_043_pms_mail_log.sql`.

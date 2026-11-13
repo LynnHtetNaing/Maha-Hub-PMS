@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="d10a7ec251">
+<meta name="maha-build" content="13f7ec56c5">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -9487,7 +9487,7 @@ const BKP_MAIL_ERR={not_configured:'Maha Mail is not set up on the server yet.',
 function bkpMail(B){
   if(!need('print'))return;
   const pack=confirmationPack(B),subject='Reservation '+pack.r.no+' \u00b7 '+H.set.name;
-  const m=modal('Send by Maha Mail',`<p class="sub">The confirmation is sent in the name of ${esc(H.set.name)}. The guest's reply goes to ${esc(H.set.email||'your hotel email')}.</p>
+  const m=modal('Send by Maha Mail',`<p class="sub">The confirmation is sent as a no-reply mail from Maha Hub. The guest cannot reply to it.</p>
     <div class="form2">${fld('To',`<input id="mlTo" type="email" value="${esc(pack.email)}" placeholder="guest@email">`,'span2')}${fld('Subject',`<input id="mlSb" value="${esc(subject)}">`,'span2')}</div>
     <div style="white-space:pre-wrap;max-height:240px;overflow:auto;background:rgba(127,127,127,.1);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px">${esc(pack.text)}</div>
     <div class="btns"><button class="btn gold" id="mlGo">${ic('mail',16)} Send</button><button class="btn" id="mlPm">Open in my mail program</button><button class="btn ghost" id="mlX">Cancel</button></div><p class="sub" id="mlMsg" role="status"></p>`,{w:660,cls:'dlg'});
@@ -9502,7 +9502,7 @@ function bkpMail(B){
     try{
       const t=await MahaAuth.fresh();if(!t){msg('Sending needs the cloud sign-in. Use Open in my mail program.');go.disabled=false;return}
       const res=await fetch(MahaAuth.base()+'/functions/v1/pms-send-mail',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
-        body:JSON.stringify({property_code:H.code,to,subject:sb,message:pack.letter,rows:pack.rows,footer:pack.sig,replyTo:H.set.email||'',rsvn:String(pack.r.no)})});
+        body:JSON.stringify({property_code:H.code,to,subject:sb,message:pack.letter,rows:pack.rows,footer:pack.sig,rsvn:String(pack.r.no)})});
       let d=null;try{d=await res.json()}catch(e){}
       if(!res.ok||!d||d.sent!==1){msg(BKP_MAIL_ERR[d&&d.error]||'The mail could not be sent. Try again, or use Open in my mail program.');go.disabled=false;return}
       histB(B,'Confirmation emailed to '+to);log('Emailed confirmation RSVN '+pack.r.no,B.id);saveDB();toast('Confirmation sent to '+to);closeModal(m);
