@@ -83,6 +83,7 @@ const hmac = async (data: string): Promise<string> => {
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const validEmail = (s: unknown): s is string => typeof s === "string" && s.length <= 254 && /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(s);
 const FOOT = "Maha Hub Group of Companies Limited · Bangkok, Thailand (Head Office) · ph : +66 (0) 641 081 434";
+const LOGO = "https://maha-hub.com/brand/maha/gate-gold.png";
 
 const unsubscribe = async (req: Request, url: URL): Promise<Response> => {
   const u = url.searchParams.get("u") || "", s = url.searchParams.get("s") || "";
@@ -169,7 +170,7 @@ const handle = async (req: Request): Promise<Response> => {
   const FROM = { name: Deno.env.get("MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("MAIL_FROM") || "crm@maha-hub.com" };
   const replyTo = validEmail(b.replyTo) ? b.replyTo : (Deno.env.get("MAIL_REPLY_TO") || FROM.email);
   const bodyHtml = (extra: string, rich = richHtml) => rich
-    ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:620px;margin:0 auto;border:1px solid #e3ddd0;border-radius:12px;overflow:hidden"><div style="background:#0A3020;color:#fff;padding:14px 20px;font-weight:bold;font-size:16px">${esc(FROM.name)}</div><div style="padding:20px">${rich}</div><div style="background:#faf5ec;padding:12px 20px;font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`
+    ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:620px;margin:0 auto;border:1px solid #e3ddd0;border-radius:12px;overflow:hidden"><table role="presentation" cellspacing="0" cellpadding="0" style="background:#0A3020;width:100%"><tr><td style="padding:14px 20px"><table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="padding-right:10px"><img src="${LOGO}" alt="" width="24" height="24" style="display:block;border:0"></td><td style="color:#fff;font-weight:bold;font-size:16px">${esc(FROM.name)}</td></tr></table></td></tr></table><div style="padding:20px">${rich}</div><div style="background:#faf5ec;padding:12px 20px;font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`
     : `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222">${esc(message).replace(/\n/g, "<br>")}${links.length ? `<p style="margin-top:20px">${links.map((l) => `<a href="${l.url}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 16px;background:#0A3020;color:#fff;border-radius:6px;text-decoration:none">${esc(l.title)}</a>`).join("")}</p>` : ""}<hr style="border:0;border-top:1px solid #ddd;margin:24px 0 10px"><div style="font-size:12px;color:#777">${esc(FOOT)}${extra}</div></div>`;
 
   let sent = 0, failed = 0; const errors: string[] = [], log: Record<string, unknown>[] = [];
