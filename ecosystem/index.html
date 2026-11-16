@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="3e5d4a862a">
+<meta name="maha-build" content="f474f971a6">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1384,7 +1384,7 @@ html[data-mode=dark] tr.ucan td{background:rgba(248,113,113,.07)}
 /* Maha logo: the gate. Big (login, choosing page) and the stacked PMS logo on the login card */
 .gstk,.gfull{container-type:inline-size;display:grid;justify-items:center;text-align:center}
 .gstk .gtx{margin-top:3.4cqw}.gstk .gplq{display:grid;place-items:center;width:42cqw;aspect-ratio:1;border-radius:22%;background:linear-gradient(160deg,#154a42,#0b2c27);box-shadow:0 10px 24px -12px rgba(8,40,34,.65)}.gstk .gplq img{width:76%;height:auto;display:block}
-.gstk .gtx{display:grid;gap:1.6cqw;justify-items:center}.gstk .gtx b{font:700 11cqw/1 Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.2em;text-indent:.2em;color:#0f5a44}.gstk .gtx small{font:600 3.1cqw/1.2 "Jost",Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.32em;text-indent:.32em;color:#5d7a6c}
+.gstk .gtx{display:grid;gap:1.6cqw;justify-items:center}.gstk .gtx b{font:700 11cqw/1 Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.2em;text-indent:.2em;color:#0f5a44;white-space:nowrap}.gstk .gtx b.gtx-prov{font-size:8cqw;letter-spacing:.08em;text-indent:.08em}.gstk .gtx small{font:600 3.1cqw/1.2 "Jost",Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.32em;text-indent:.32em;color:#5d7a6c}
 html[data-mode=dark] .gstk .gtx b{color:#d4b15a}html[data-mode=dark] .gstk .gtx small{color:#9fb8ac}
 .gfull{grid-template-columns:30% 1fr;column-gap:3%;align-items:center;justify-items:start;text-align:left}.gfull img{width:100%;height:auto;display:block;filter:drop-shadow(0 6px 18px rgba(0,0,0,.5))}.gfull b{font:700 max(7.5px,5.2cqw)/1 Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.1em;white-space:nowrap;color:#e6cf95;text-shadow:0 2px 14px rgba(0,0,0,.55)}
 @media (max-width:700px){.eco-shell .eco-hero .eco-lockup.gfull,.eco-hero .eco-lockup.gfull{width:190px!important;margin-bottom:18px}}
@@ -5474,7 +5474,7 @@ function findStaff(un){for(const h of Object.values(DB.hotels)){const u=h.users.
 function usernameTaken(un){return !!findStaff(un.toLowerCase())||DB.providers.some(p=>p.username===un.toLowerCase())}
 const LOGO=()=>`<img src="${ICON_BAR}" class="tblogo" alt="Maha">`;
 const lgTileSrc=k=>k==='hub'?'/brand/maha/pms-stack-light.png':'/brand/maha/solutions-lockup-light.png';
-const gateStack=(kind)=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b>'+(kind==='provider'?'MAHA PROVIDER':'MAHA PMS')+'</b><small>'+(kind==='provider'?'PROVIDER CONSOLE':'HOTEL MANAGEMENT SOFTWARE')+'</small></span>';
+const gateStack=(kind)=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b'+(kind==='provider'?' class="gtx-prov"':'')+'>'+(kind==='provider'?'MAHA PROVIDER':'MAHA PMS')+'</b><small>'+(kind==='provider'?'PROVIDER CONSOLE':'HOTEL MANAGEMENT SOFTWARE')+'</small></span>';
 /* the sign-in logo: the Maha PMS stack for the hotel system, the same stack (Maha Provider) for the provider console */
 const stackKind=()=>(typeof lgTargetSys!=='undefined'&&lgTargetSys==='hub')?'hub':(typeof lgProvider!=='undefined'&&lgProvider)?'provider':'';
 const LOGO_TILE=()=>{const kind=stackKind();return kind?`<div id="lgTile" class="eco-tile gstk" data-kind="${kind}" role="img" aria-label="${kind==='provider'?'Maha Provider':'Maha PMS'}">${gateStack(kind)}</div>`:`<img id="lgTile" src="${lgTileSrc(typeof lgTargetSys!=='undefined'?lgTargetSys:null)}" class="eco-lockup eco-tile" alt="Maha Solutions">`};
@@ -15823,7 +15823,7 @@ function armIdle(){
 }
 function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;DB.session.locked=true;try{writeLiveSession(DB.session)}catch(e){}const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   const lu=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),uname=(lu&&lu.username)||user().name;
-  d.innerHTML=`<div class="panel pad"><div class="gstk">${gateStack(DB.session.provider?'provider':'hub')}</div><h2 class="eco-hi">Screen Locked</h2><p class="eco-hisub">Your shift stays open — type your password to go on.</p><label class="f"><span>Username</span><div class="eco-field"><input id="idleUser" value="${esc(uname)}" disabled></div></label><label class="f"><span>Password</span><div class="eco-field"><input id="idlePw" type="password"></div></label><div class="err" id="idleE"></div><div class="btns"><button class="eco-btn gold" id="idleGo">Unlock</button></div></div>`;
+  d.innerHTML=`<div class="panel pad"><div class="gstk">${gateStack(DB.session.provider?'provider':'hub')}</div><h2 class="eco-hi">Screen Locked</h2><p class="eco-hisub">${DB.session.provider?'Type your password to go on.':'Your shift stays open — type your password to go on.'}</p><label class="f"><span>Username</span><div class="eco-field"><input id="idleUser" value="${esc(uname)}" disabled></div></label><label class="f"><span>Password</span><div class="eco-field"><input id="idlePw" type="password"></div></label><div class="err" id="idleE"></div><div class="btns"><button class="eco-btn gold" id="idleGo">Unlock</button></div></div>`;
   document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();delete DB.session.locked;stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
   const go=()=>{const pw=$('#idlePw').value;
     if(MahaAuth.on()){const u=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),cur=MahaAuth.read();
