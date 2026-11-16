@@ -8,8 +8,8 @@ T('every click on a booking opens the panel (hsResDetail); the old Reservation D
   /function hsResEdit\(b\)\{const m=modal\('Reservation Detail'/.test(src) && /function hsResDetail\(b\)\{\n  closeBkp\(true\);/.test(src) && !/function hsResDetail\(b\)\{const m=modal/.test(src));
 T('the panel is half of the screen, comes from the right, and the whole panel scrolls',
   /\.bkp-panel\{[^}]*right:0;[^}]*width:50%/.test(src) && /\.bkp-panel\{[^}]*overflow:auto/.test(src) && /translateX\(102%\)/.test(src));
-T('the close button is the same round button, red on hover, as the pop-ups',
-  /\.bkp \.mx\{width:40px;height:40px;border-radius:50%/.test(src) && /\.bkp \.mx:hover\{background:#c0392b/.test(src));
+T('the close button is the same round button, red on hover, as the pop-ups, sized down to match the smaller panel',
+  /\.bkp \.mx\{width:32px;height:32px;border-radius:50%/.test(src) && /\.bkp \.mx:hover\{background:#c0392b/.test(src));
 T('the sections have titles with an icon: Stay Details, Booking Details, Guest Details, Charges Details, Notes',
   ['Stay Details', 'Booking Details', 'Guest Details', 'Charges Details', "'Notes'"].every(t => src.includes("'" + t.replace(/'/g, '') + "'") || src.includes(t)));
 T('Booking Details shows status, room, room type with code, rate plan with code, rate per night, pax, channel, source, booked, modified and cancelled dates',
