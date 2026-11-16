@@ -11,7 +11,10 @@ let fails = 0; const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n);
 
 T('the function still checks sign-in and write access before either kind of mail', fn.includes('auth.getUser(') && fn.includes('maha_can_write_property') && fn.includes('const since = ') && fn.includes('HOURLY_LIMIT'));
 T('a document mail makes a long random token, stores the document under it (the trusted server, not the browser), and never trusts a huge or empty document',
-  fn.includes('crypto.randomUUID().replace(/-/g, "")') && fn.includes('from("maha_shared_docs").insert') && fn.includes('DOC_HTML_MAX') && fn.includes('!docHtml.trim() || docHtml.length > DOC_HTML_MAX'));
+  fn.includes('crypto.randomUUID().replace(/-/g, "")') && fn.includes('from("maha_shared_docs").insert') && fn.includes('DOC_HTML_MAX') && fn.includes('!docHtml.trim()') && fn.includes('docHtml.length > DOC_HTML_MAX'));
+T('an empty document and an oversized one are told apart: empty is bad_request (a real client bug), oversized is its own doc_too_large error, never both mapped to "check the guest email"',
+  fn.includes('if (!docHtml.trim()) return json(req, { error: "bad_request" }, 400);') && fn.includes('if (docHtml.length > DOC_HTML_MAX) return json(req, { error: "doc_too_large" }, 413);') && pms.includes("doc_too_large:'This document is too large to email"));
+T('the document size limit has real headroom for a multi-page, ORIGINAL+COPY invoice that repeats the hotel logo on every page', /const DOC_HTML_MAX = 3_000_000;/.test(fn));
 T('the link reuses the CRM\'s own document page (crm.maha-hub.com/d/<token>), not a new page of our own', fn.includes('"https://crm.maha-hub.com/d/"') && fn.includes('PMS_DOC_BASE'));
 T('the mail has a View button naming the document and the hotel, and is still the Maha Hub no-reply brand', fn.includes('function docMailHtml') && fn.includes('View ${esc(docTitle)}') && fn.includes('Please do not reply'));
 T('each send (confirmation or a document) is logged the same way, with the document title as the record', fn.includes("doc: docName") && fn.includes("status: res.ok ? \"sent\" : \"failed\""));

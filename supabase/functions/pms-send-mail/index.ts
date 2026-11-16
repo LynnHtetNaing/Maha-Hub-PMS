@@ -38,7 +38,10 @@ const json = (req: Request, body: unknown, status = 200) =>
 const validEmail = (s: unknown): s is string => typeof s === "string" && s.length <= 254 && /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(s);
 const clip = (s: unknown, n: number) => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").slice(0, n);
 const HOURLY_LIMIT = 40;
-const DOC_HTML_MAX = 600_000;   // the shared-document table accepts up to 6,000,000; one document stays far under that
+// A Tax Invoice / Credit Note / Deposit page embeds the hotel's own logo (a data: image) once per printed page, and a
+// multi-page, ORIGINAL+COPY document repeats it several times, so this needs real headroom above a short mail's size.
+// The shared-document table accepts up to 6,000,000; this stays comfortably under that.
+const DOC_HTML_MAX = 3_000_000;
 
 /* the short branded mail for a document link: Maha Hub header, the hotel's name, one line, a View button */
 function docMailHtml(hotelName: string, docTitle: string, link: string): string {
@@ -102,7 +105,8 @@ const handle = async (req: Request): Promise<Response> => {
   if (b.doc && typeof b.doc === "object") {
     const docTitle = clip(b.doc.title, 160).trim() || "Document";
     const docHtml = String(b.doc.html || "");
-    if (!docHtml.trim() || docHtml.length > DOC_HTML_MAX) return json(req, { error: "bad_request" }, 400);
+    if (!docHtml.trim()) return json(req, { error: "bad_request" }, 400);
+    if (docHtml.length > DOC_HTML_MAX) return json(req, { error: "doc_too_large" }, 413);
     const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
     const { error: insErr } = await admin.from("maha_shared_docs").insert({ token, title: docTitle, html: docHtml, created_by: u.user.id });
     if (insErr) { await send(clip(b.subject, 200).trim() || docTitle, "", "", docTitle); return json(req, { error: "send_failed" }, 502); }
