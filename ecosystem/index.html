@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="560789b015">
+<meta name="maha-build" content="90fc65a68e">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -1131,6 +1131,7 @@ html .modal .mx{width:40px;height:40px;border-radius:50%;font-size:30px;font-wei
 .bkp-kv .red,.bkp-kv span.red{color:#c0392b}.bkp-kv .due{color:#b3421f;font-weight:800}
 .bkp-pay{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12.5px;font-weight:700;background:#eceff0;color:#4b5963}.bkp-pay.paid{background:#d9f0e3;color:#0b6e4f}.bkp-pay.part{background:#fbefd5;color:#8a6420}.bkp-pay.hotel{background:#dcebf7;color:#1f5c8a}.bkp-pay.ota{background:#ece3f6;color:#5b3a8a}
 .bkp-notes{margin:0;padding-left:20px}.bkp-notes li{margin:4px 0}.bkp-none{margin:0;color:var(--m-mut,var(--mut))}
+.bkp-sent{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;background:#d9f0e3;color:#0b6e4f}.bkp-sent[hidden]{display:none}
 @media(max-width:900px){.bkp-panel{width:100%;max-width:100%}.bkp-kv{grid-template-columns:120px 1fr}}
 @media(prefers-reduced-motion:reduce){.bkp-panel,.bkp-shade{transition:none}}
 @media print{.bkp{display:none}}
@@ -9466,7 +9467,7 @@ function hsResDetail(b){
   const html='<div class="bkp-shade"></div><aside class="bkp-panel" role="dialog" aria-modal="true" aria-label="Booking details">'
    +'<div class="bkp-h"><div><small>Booking confirmation</small><h2>'+esc(gName(g))+' <span class="bkp-chip s-'+B.status+'">'+(BKP_STATUS[B.status]||B.status)+'</span>'+(B.room?' <span class="bkp-chip rm">Room '+esc(B.room)+'</span>':'')+'</h2><small>Reservation '+esc(String(r.no))+(r.reference?' &middot; Ref '+esc(String(r.reference)):'')+'</small></div><button type="button" class="mx" id="bkpX" aria-label="Close">&times;</button></div>'
    +'<div class="bkp-a">'+(arriveToday?'<button type="button" class="btn gold" id="bkpCI">'+tbi('login',17)+' Check-in</button>':'')+(leaveToday?'<button type="button" class="btn gold" id="bkpCO">'+tbi('logout',17)+' Check-out</button>':'')+'<span class="sp"></span>'
-   +'<button type="button" class="btn" id="bkpEd">'+ic('detail',16)+' '+(canEdit?'Edit':'Details')+'</button><button type="button" class="btn" id="bkpPr">'+ic('print',16)+' Print</button><button type="button" class="btn" id="bkpMl">'+ic('mail',16)+' Mail</button></div>'
+   +'<button type="button" class="btn" id="bkpEd">'+ic('detail',16)+' '+(canEdit?'Edit':'Details')+'</button><button type="button" class="btn" id="bkpPr">'+ic('print',16)+' Print</button><button type="button" class="btn" id="bkpMl">'+ic('mail',16)+' Mail</button><span class="bkp-sent" id="bkpMlNote" hidden></span></div>'
    +'<div class="bkp-b">'
    +sec('cal','Stay Details','<div class="bkp-d"><div><small>Check-in</small><b>'+bkpDay(B.arr)+'</b><small>from '+esc(B.eta||'14:00')+'</small></div><div><span class="bkp-n">'+N+' night'+(N===1?'':'s')+'</span></div><div><small>Check-out</small><b>'+bkpDay(B.dep)+'</b><small>until '+esc(B.etd||'12:00')+'</small></div></div>')
    +sec('bed','Booking Details','<div class="bkp-kv">'+kv('Booking Status',BKP_STATUS[B.status]||B.status)+kv('Room',B.room?esc(B.room):'-')+kv('Room Type',esc((RT(B.type).name||B.type)+' ('+B.type+')'))+kv('Rate Plan',esc((d.rc.desc||B.rateCode)+' ('+B.rateCode+')'))+kv('Rate per Night',esc(cur)+' '+m2(d.rate))+kv('Pax',pax)+kv('Channel',esc(d.ch?d.ch.name:'Direct'))+kv('Booking Source',esc(d.srcName))+kv('Booked Date',esc(d.booked))+kv('Modified Date',esc(d.modified))+(d.cancelled?kv('Cancelled Date',esc(d.cancelled),'red').replace('<span>','<span class="red">'):'')+'</div>')
@@ -9572,6 +9573,7 @@ async function bkpMail(B,btn){
   if(!res.ok){toast(res.msg);return}
   histB(B,'Confirmation emailed to '+to);log('Emailed confirmation RSVN '+pack.r.no,B.id);saveDB();
   centerNote('Confirmation sent successfully to '+to+'.','saved');
+  const note=document.getElementById('bkpMlNote');if(note){note.hidden=false;note.textContent='Sent to '+to+' · '+tms(Date.now())}
 }
 function hsResPopup(b){
   const g=G(b.guestId),r=resOf(b),ch=chanOfBooking(b),n=stayNights(b).length;
@@ -11536,7 +11538,7 @@ function fitA4(root){if(!root)return;root.querySelectorAll('.a4fit').forEach(pag
 function printPages(html,title,mail){
   const auto=!!(mail&&mail.to&&mail.auto!==false&&/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(mail.to));
   const sub=auto?'Mail sends this document to '+esc(mail.to)+' at once, with a link they can view, print or save.':'Mail opens your mail program with this document. Maha Hub records it as prepared.';
-  const m=modal(title+' – preview',`<div class="btns"><button class="btn gold" id="ppP">${ic('print',16)} Print</button><button class="btn" id="ppM">${ic('mail',16)} Mail</button><span class="sub">${sub}</span></div><div class="ppwrap">${html}</div>`,{w:1000,cls:'ppmodal'});
+  const m=modal(title+' – preview',`<div class="btns"><button class="btn gold" id="ppP">${ic('print',16)} Print</button><button class="btn" id="ppM">${ic('mail',16)} Mail</button><span class="bkp-sent" id="ppSentNote" hidden></span><span class="sub">${sub}</span></div><div class="ppwrap">${html}</div>`,{w:1000,cls:'ppmodal'});
   setTimeout(()=>fitA4(m),40);
   $('#ppP',m).onclick=()=>{try{log('Printed: '+title)}catch(e){}const p=$('#print');p.innerHTML=html;document.body.classList.add('printing');fitA4(p);window.print();setTimeout(()=>document.body.classList.remove('printing'),500)};
   $('#ppM',m).onclick=async()=>{
@@ -11548,6 +11550,7 @@ function printPages(html,title,mail){
     if(!res.ok){toast(res.msg);return}
     try{log('Emailed '+title+' to '+mail.to)}catch(e){}
     centerNote(title+' sent successfully to '+mail.to+'.','saved');
+    const note=m.querySelector('#ppSentNote');if(note){note.hidden=false;note.textContent='Sent to '+mail.to+' · '+tms(Date.now())}
   };
 }
 function defaultBillTo(r){const co=r&&CO(r.companyId);if(co&&co.code!=='WIN'&&co.code!=='DIR')return 'company';return 'guest'}
