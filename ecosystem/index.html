@@ -11000,7 +11000,9 @@ function creditTotals(spec,B){const cur=docCurWord(B),c=spec.cn,sg=c.neg?-1:1,t=
 function printCreditNote(B,cn,o){if(!need('print'))return;o=o||{};const spec={credit:true,cn,deposit:false,guest:false,paid:false,folio:cn.folio||1,
     rows:cn.rows.map(x=>({bd:cn.bd,desc:x.desc,ref:x.ref||'',amt:x.amt})),balance:cn.neg?0:cn.total,base:cn.vatable,nonvat:cn.nonvat,billTo:o.bill||B.billTo||defaultBillTo(resOf(B)),other:o.other||B.bill||{},copies:o.copies||'both',inv:{no:cn.no,bd:cn.bd}};
   const built=moneyDocHtml(B,spec),r=resOf(B),g=G(B.guestId);cn.prints=(cn.prints||0)+1;log('Credit note '+cn.no+' printed RSVN '+r.no,B.id);saveDB();
-  printPages(built.html,'Credit note '+cn.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Credit note '+cn.no+' · '+H.set.name})}
+  /* printing keeps ORIGINAL + COPY (both papers); the mailed copy is just the one COPY - the guest does not need two */
+  const mailHtml=spec.copies==='copy'?built.html:moneyDocHtml(B,Object.assign({},spec,{copies:'copy'})).html;
+  printPages(built.html,'Credit note '+cn.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Credit note '+cn.no+' · '+H.set.name,html:mailHtml})}
 const cpEnvOf=B=>({bd:H.set.bd,isLocked,resDate:(resOf(B)||{}).date,shift:curShift(),shifts:H.shifts});
 function psAfterPost(B,cn){if(!cn||!can('print'))return;dlgConfirm(`Credit Note ${cn.no} (${cn.label} ${m2(cn.total)}) is ready.\nPrint it now? It prints two papers: the original and a copy.`,{title:'Credit Note',yes:'Print',no:'Not now'}).then(v=>{if(v)printCreditNote(B,cn)})}
 function psCreditList(B,after){const list=(H.creditNotes||[]).filter(c=>c.bookingId===B.id).slice().reverse();
@@ -11573,7 +11575,7 @@ function printPages(html,title,mail){
     if(!auto){const text=(mail&&mail.body)||((m.querySelector('.ppwrap')&&m.querySelector('.ppwrap').innerText||'').replace(/\n{3,}/g,'\n\n').trim().slice(0,3500));
       prepareMail(Object.assign({doc:title,subject:title+' · '+((H&&H.set&&H.set.name)||''),body:text},mail||{}));return}
     const btn=$('#ppM',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sending...';
-    const res=await pmsSendDoc(mail.to,mail.subject||(title+' · '+H.set.name),title,html,mail.rsvn||'');
+    const res=await pmsSendDoc(mail.to,mail.subject||(title+' · '+H.set.name),title,mail.html||html,mail.rsvn||'');
     btn.disabled=false;btn.innerHTML=lbl;
     if(!res.ok){toast(res.msg);return}
     try{log('Emailed '+title+' to '+mail.to)}catch(e){}
@@ -11690,7 +11692,9 @@ function receiptSpec(B,line){const grp=B.lines.filter(l=>l.group&&l.group===line
 function openMoneyDoc(B,spec,title){const built=moneyDocHtml(B,spec);const r=resOf(B),g=G(B.guestId);
   if(!spec.guest){const t=taxSplit(spec.base||0,true);H.taxCopies=H.taxCopies||[];H.taxCopies.push({no:spec.inv.no,bookingId:B.id,folio:spec.folio,bd:spec.inv.bd,at:Date.now(),guest:gName(g),room:B.room||'',billName:built.bt.name,billTax:built.bt.tax||'',amount:r2((spec.base||0)+(spec.nonvat||0)),vat:t.vat,vatable:r2(t.net+t.svc),nonvat:spec.nonvat||0})}
   log(title+' RSVN '+r.no,B.id);saveDB();
-  printPages(built.html,title,{to:r.email||g.email||'',rsvn:r.no,subject:title+' · '+H.set.name})}
+  /* printing keeps ORIGINAL + COPY (both papers); the mailed copy is just the one COPY - the guest does not need two */
+  const mailHtml=spec.copies==='copy'?built.html:moneyDocHtml(B,Object.assign({},spec,{copies:'copy'})).html;
+  printPages(built.html,title,{to:r.email||g.email||'',rsvn:r.no,subject:title+' · '+H.set.name,html:mailHtml})}
 function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line);spec.billTo=billTo;spec.other=other;spec.copies=copies||'both';spec.guest=false;
   if(gaplessOn(H)&&!invoiceExists(H,B,spec.key)){reserveInvoice(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio).then(()=>printReceipt(B,line,billTo,other,copies),e=>toast(gaplessMsg(e)));return}
   spec.inv=taxInvoiceFor(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio);
@@ -11721,8 +11725,11 @@ function printDeposit(B){if(!need('print'))return;const seen=new Set(),lines=[];
   if(!lines.length){toast('No reservation deposit is posted.');return}
   const bf=billFields(B);const m=modal('Print reservation deposit',`<div class="form2">${bf.html}${fld('Print',`<select id="ivC">${opt('both','Original & Copy (2 sets)','both')}${opt('original','Original only')}${opt('copy','Copy only')}</select>`)}</div>
     <div class="sub">Same as any tax invoice, with one deposit line. Original and copy print together unless you choose one.</div><div class="btns"><button class="btn gold" id="ivGo">Preview</button></div>`,{w:680});
-  $('#ivGo',m).onclick=()=>{const o=readBill(m);closeModal(m);const run=()=>{const html=lines.map(l=>{const spec=receiptSpec(B,l);spec.billTo=o.bill;spec.other=o.other;spec.copies=o.copies;spec.guest=false;spec.deposit=true;spec.inv=taxInvoiceFor(B,spec.key,spec.base,o.bill,4);const built=moneyDocHtml(B,spec);const t=taxSplit(spec.base,true);H.taxCopies=H.taxCopies||[];H.taxCopies.push({no:spec.inv.no,bookingId:B.id,folio:4,bd:spec.inv.bd,at:Date.now(),guest:gName(G(B.guestId)),room:B.room||'',billName:built.bt.name,billTax:built.bt.tax||'',amount:spec.base,vat:t.vat,vatable:r2(t.net+t.svc),nonvat:0});return built.html}).join('');
-    const r=resOf(B),g=G(B.guestId);log('Printed reservation deposit RSVN '+r.no,B.id);saveDB();printPages(html,'Reservation deposit RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Reservation deposit '+r.no+' · '+H.set.name})};
+  $('#ivGo',m).onclick=()=>{const o=readBill(m);closeModal(m);const run=()=>{const specs=lines.map(l=>{const spec=receiptSpec(B,l);spec.billTo=o.bill;spec.other=o.other;spec.copies=o.copies;spec.guest=false;spec.deposit=true;spec.inv=taxInvoiceFor(B,spec.key,spec.base,o.bill,4);const built=moneyDocHtml(B,spec);const t=taxSplit(spec.base,true);H.taxCopies=H.taxCopies||[];H.taxCopies.push({no:spec.inv.no,bookingId:B.id,folio:4,bd:spec.inv.bd,at:Date.now(),guest:gName(G(B.guestId)),room:B.room||'',billName:built.bt.name,billTax:built.bt.tax||'',amount:spec.base,vat:t.vat,vatable:r2(t.net+t.svc),nonvat:0});return spec});
+    const html=specs.map(spec=>moneyDocHtml(B,spec).html).join('');
+    /* printing keeps whatever Original/Copy choice was made above; the mailed copy is just the one COPY - the guest does not need two */
+    const mailHtml=o.copies==='copy'?html:specs.map(spec=>moneyDocHtml(B,Object.assign({},spec,{copies:'copy'})).html).join('');
+    const r=resOf(B),g=G(B.guestId);log('Printed reservation deposit RSVN '+r.no,B.id);saveDB();printPages(html,'Reservation deposit RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Reservation deposit '+r.no+' · '+H.set.name,html:mailHtml})};
     if(gaplessOn(H)){const miss=lines.filter(l=>!invoiceExists(H,B,receiptSpec(B,l).key));if(miss.length){(async()=>{try{for(const l of miss){const sp=receiptSpec(B,l);await reserveInvoice(B,sp.key,sp.base,o.bill,4)}}catch(e){toast(gaplessMsg(e));return}run()})();return}}
     run()}}
 
@@ -15094,7 +15101,7 @@ function clTaxOf(it){const B=bookingById(it.bookingId),ch=B?(B.lines||[]).filter
   if(!ch.length||!(tot>0))return {base:r2(it.amt),non:0};const k=it.amt/tot,base=r2(sum(ch.filter(l=>l.vat),l=>Math.abs(l.amt))*k);return {base,non:r2(it.amt-base)}}
 const CL_ACK_DEFAULT='We confirm that the reservations and amounts listed in this tax invoice are correct, and we agree to pay {amount} to {hotel} under the terms above.';
 const CL_TERMS_DEFAULT='1. Payment is due within 30 days of the invoice date unless the hotel agreed another term in writing.\n2. Please pay by the method agreed with the hotel and write the tax invoice number on your payment.\n3. Anything in this invoice that is not correct must reach the hotel within 7 days of the invoice date.\n4. Late payment may stop the credit given to this company.';
-function clInvoiceHtml(items,inv,bt){
+function clInvoiceHtml(items,inv,bt,labels){
   const now=fd(todayZ())+' '+tms(Date.now()),total=r2(sum(items,x=>x.amt)),got=r2(sum(items,x=>x.amt-x.open)),due=r2(total-got),paid=items.every(x=>x.open<=0.004);
   const tx=items.map(clTaxOf),base=r2(sum(tx,x=>x.base)),non=r2(sum(tx,x=>x.non));
   const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],dmy=d=>{const p=String(d||'').split('-');return p.length===3?(+p[2])+' '+MON[+p[1]-1]+' '+p[0]:''},dm=d=>{const p=String(d||'').split('-');return p.length===3?(+p[2])+' '+MON[+p[1]-1]:''};
@@ -15112,7 +15119,7 @@ function clInvoiceHtml(items,inv,bt){
      ${last?`<table class="ivtot"><tr><td>Total Balance (${esc(H.set.cur)})</td><td class="n">${m2(total)}</td></tr><tr><td>Vatable</td><td class="n">${m2(base-taxSplit(base,true).vat)}</td></tr><tr><td>${esc(H.set.taxName)} ${H.set.vat} %</td><td class="n">${m2(taxSplit(base,true).vat)}</td></tr><tr><td>Non VAT</td><td class="n">${m2(non)}</td></tr><tr><td>Received to date</td><td class="n">${m2(got)}</td></tr><tr class="grand"><td>${paid?'Total Amount':'Balance due'} (${esc(H.set.cur)})</td><td class="n">${m2(paid?total:due)}</td></tr></table><div class="ivw">${word}</div>`:'<div class="ivcont">Continued on the next page</div>'}
      ${last?`<div class="ivfoot clfoot"><div class="clterms"><b>Terms</b>${terms}</div><div class="clack"><b>Acknowledgement of payer</b><p>${esc(String(H.set.clAck||CL_ACK_DEFAULT).replace('{amount}',H.set.cur+' '+m2(due>0?due:total)).replace('{hotel}',H.set.legal||H.set.name))}</p></div>
       <div class="sigs"><div><span></span>Payer's signature<br><small>Name / position / date</small></div><div><span></span>Company stamp</div><div><span></span>Cashier's signature<br><b>${esc(user().name.toUpperCase())}</b></div></div></div>`:''}</div>`};
-  return ['ORIGINAL','COPY'].map(lb=>pages.map((c,i)=>page(c.slice(),i,lb)).join('')).join('')}
+  return (labels||['ORIGINAL','COPY']).map(lb=>pages.map((c,i)=>page(c.slice(),i,lb)).join('')).join('')}
 async function clInvoice(){
   if(!clAllowed()){toast('City ledger invoices are closed for your account. Ask the provider.');return}
   refreshCityItems(H);const items=(H.cityLedger||[]).filter(x=>CLSEL[x.id]&&x.status!=='void').sort((a,b)=>String(a.bd).localeCompare(String(b.bd))||(a.id<b.id?-1:1));
@@ -15125,7 +15132,8 @@ async function clInvoice(){
   const inv=taxInvoiceFor(V,key,amount,bt,1);inv.cl=true;inv.clItems=items.map(x=>x.id);inv.clCompany=items[0].companyId||'';
   items.forEach(x=>{x.inv=invRef(inv);x.invKey=key});saveDB();log('City ledger tax invoice '+invRef(inv)+' ('+items.length+' reservation'+(items.length===1?'':'s')+')');
   const title='Tax invoice '+invRef(inv);
-  printPages(clInvoiceHtml(items,inv,bt),title,{to:(co&&co.email)||'',rsvn:'',subject:title+' · '+H.set.name});refresh()}
+  /* printing keeps ORIGINAL + COPY (both papers); the mailed copy is just the one COPY - the company does not need two */
+  printPages(clInvoiceHtml(items,inv,bt),title,{to:(co&&co.email)||'',rsvn:'',subject:title+' · '+H.set.name,html:clInvoiceHtml(items,inv,bt,['COPY'])});refresh()}
 VIEWS['bill.city']=el=>{
   const allow=clAllowed();
   refreshCityItems(H);const all=(H.cityLedger||[]).filter(x=>x.status!=='void'),open=(H.cityLedger||[]).filter(x=>x.status==='open'),buckets=['0-30','31-60','61-90','90+'];
