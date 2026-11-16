@@ -28,4 +28,9 @@ T('Credit note, the folio invoice/receipt, and the reservation deposit are not c
 T('the booking confirmation preview opened from the panel also sends for real now, to the guest on the booking', pms.includes("printPages(p.html,'Reservation confirmation '+p.r.no,{to:p.email"));
 T('internal reports keep the old Mail (no guest to send to): Hotel Status, Shift report, Forecast, Terms preview are untouched',
   ["printPages(hxPrintHtml(S,", "printPages(res.html,'Shift report", "printPages(fcPrint(tbl,to,days),'Forecast')"].every(s => pms.includes(s)));
+T('the City Ledger consolidated tax invoice sends the same way, to the company\'s own email (set on Company / Agency)',
+  pms.includes("printPages(clInvoiceHtml(items,inv,bt),title,{to:(co&&co.email)||''") && pms.includes("const title='Tax invoice '+invRef(inv);"));
+T('Company / Agency has its own Email field (for City Ledger invoices), editable by setup, saved with validation',
+  pms.includes('<th>Email</th>') && pms.includes('data-coe="${c.id}"') && pms.includes("$$('[data-coe]',el).forEach(inp=>inp.onchange=") && pms.includes("fld('Email (for City Ledger invoices)',`<input id=\"ceml\">`") && pms.includes('email,comm:pct,'));
+T('the Guest Profile no longer has its own Email guest button (nothing to send from there by design)', !pms.includes("tb('gpM','mail','Email guest')") && !pms.includes("$('#gpM',m).onclick"));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
