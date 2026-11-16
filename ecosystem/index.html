@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>maha-hub / solutions</title>
-<meta name="maha-build" content="d8dae46937">
+<meta name="maha-build" content="3e5d4a862a">
 <link rel="canonical" href="/solutions">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0A3020">
@@ -14140,19 +14140,24 @@ function pwProblem(pw,un){if(pw.length<6)return 'Use at least 6 characters.';con
 
 /* ---- second step at sign-in ---- */
 function providerSecondStep(p,done){const box=$('#lform');
-  box.innerHTML=`<h2>Two-step verification</h2><div class="sub">Open <b>Google Authenticator</b> on your phone and type the 6-digit code for <b>Maha Hub (${esc(p.username)})</b>.</div>
-   <label class="f"><span>Authenticator code</span><input id="mfaC" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123 456" class="mfacode" autofocus></label>
-   <div class="err" id="mfaE" role="alert"></div><button class="btn gold wide" id="mfaGo">Verify and sign in</button>
-   <button type="button" class="linkbtn" id="mfaRec">Lost your phone? Use a recovery code</button><button type="button" class="linkbtn" id="mfaBack">Back to sign-in</button>`;
-  let rec=false;const inp=$('#mfaC');setTimeout(()=>inp.focus(),30);
-  const tryIt=()=>{const v=inp.value.trim(),e=$('#mfaE');if(Date.now()<lockUntil){e.textContent=`Too many wrong codes. Try again in ${Math.ceil((lockUntil-Date.now())/1000)} seconds.`;return}
+  let rec=false,otp=null;
+  const paint=()=>{
+    box.innerHTML=`<h2>Two-step verification</h2><div class="sub">Open <b>Google Authenticator</b> on your phone and type the 6-digit code for <b>Maha Hub (${esc(p.username)})</b>.</div>
+     ${rec?`<label class="f"><span>Recovery code</span><input id="mfaC" autocomplete="one-time-code" maxlength="9" placeholder="abcd-1234" autofocus></label>`:`<div class="form2">${fld('Authenticator code',`<input id="mfaC" inputmode="numeric" autocomplete="one-time-code" maxlength="6">`)}</div>`}
+     <div class="err" id="mfaE" role="alert"></div><button class="btn gold wide" id="mfaGo">Verify and sign in</button>
+     <button type="button" class="linkbtn" id="mfaRec">${rec?'Use the authenticator code instead':'Lost your phone? Use a recovery code'}</button><button type="button" class="linkbtn" id="mfaBack">Back to sign-in</button>`;
+    const inp=$('#mfaC');
+    otp=(!rec&&window.MahaOtp)?window.MahaOtp.attach(inp,{onComplete:()=>tryIt()}):null;
+    if(!otp)setTimeout(()=>inp.focus(),30);
+    $('#mfaGo').onclick=tryIt;inp.onkeydown=e=>{if(e.key==='Enter')tryIt()};
+    $('#mfaRec').onclick=()=>{rec=!rec;paint()};
+    $('#mfaBack').onclick=()=>showLogin()};
+  const tryIt=()=>{const inp=$('#mfaC'),v=inp.value.trim(),e=$('#mfaE');if(Date.now()<lockUntil){e.textContent=`Too many wrong codes. Try again in ${Math.ceil((lockUntil-Date.now())/1000)} seconds.`;return}
     let ok=false;if(rec){const hsh=pwHash(p.recSalt||p.salt,v.toLowerCase());const i=(p.recovery||[]).indexOf(hsh);if(i>=0){p.recovery.splice(i,1);ok=true;DB.provLog.unshift({at:Date.now(),user:p.name,a:'Signed in with a recovery code ('+p.recovery.length+' left)'})}}
     else ok=verifyTotp(p.mfa.secret,v);
-    if(!ok){fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}e.textContent=rec?'This recovery code is not valid or was already used.':'The code is not correct. Check the time on your phone and try the newest code.';inp.value='';inp.focus();return}
-    fails=0;done()};
-  $('#mfaGo').onclick=tryIt;inp.onkeydown=e=>{if(e.key==='Enter')tryIt()};
-  $('#mfaRec').onclick=()=>{rec=!rec;$('#mfaRec').textContent=rec?'Use the authenticator code instead':'Lost your phone? Use a recovery code';inp.placeholder=rec?'abcd-1234':'123 456';inp.maxLength=rec?9:7;inp.removeAttribute('inputmode');$('.f span',box).textContent=rec?'Recovery code':'Authenticator code';inp.focus()};
-  $('#mfaBack').onclick=()=>showLogin()}
+    if(!ok){fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}const msg=rec?'This recovery code is not valid or was already used.':'The code is not correct. Check the time on your phone and try the newest code.';if(otp)otp.error(msg);else{e.textContent=msg;inp.value='';inp.focus()}return}
+    fails=0;if(otp)otp.win().then(done);else done()};
+  paint()}
 
 /* ---- My profile (provider, username sign-in mode): account information, sign-in security and logs ---- */
 function renderProviderProfile(el){
@@ -14235,9 +14240,12 @@ VIEWS['prov.account']=el=>{if(MahaAuth.on()){renderProviderProfile(el);return}co
   const setup=moving=>{const secret=newTotpSecret(),label=encodeURIComponent('Maha Hub:'+p.username),uri=`otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent('Maha Hub')}&algorithm=SHA1&digits=6&period=30`;
     mb.innerHTML=`<ol class="mfasteps"><li>Install <b>Google Authenticator</b> on your phone (App Store or Google Play).</li><li>In the app, tap <b>+</b> then <b>Scan a QR code</b> and scan this code:</li></ol>
      <div class="qrwrap">${qrSvg(uri,190)}<div><div class="sub">Can't scan? Choose <b>Enter a setup key</b> and type:</div><code class="seckey">${fmtSecret(secret)}</code><div class="sub">Account: Maha Hub (${esc(p.username)}) · Time based</div></div></div>
-     <ol class="mfasteps" start="3"><li>Type the 6-digit code the app shows:</li></ol><div class="row gap"><input id="mfC" class="mfacode" inputmode="numeric" maxlength="7" placeholder="123 456"><button class="btn gold" id="mfOk">${moving?'Confirm new phone':'Turn on'}</button></div><div class="err" id="mfE"></div><div id="mfOut"></div>`;
-    $('#mfOk',mb).onclick=()=>{if(!verifyTotp(secret,$('#mfC',mb).value)){$('#mfE',mb).textContent='The code does not match. Wait for a new code and try again.';return}
-      p.mfa={enabled:true,secret,at:Date.now()};const codes=newRecoveryCodes(p);provLog(moving?'Google Authenticator moved to a new phone':'Google Authenticator turned on');saveDB();mb.innerHTML=`<div class="mfaon">✓ Google Authenticator is on. You will need a code at every provider sign-in.</div><div id="mfOut"></div><div class="btns"><button class="btn" id="mfDone">Continue</button></div>`;showCodes(codes);$('#mfDone',mb).onclick=()=>render()}};
+     <ol class="mfasteps" start="3"><li>Type the 6-digit code the app shows:</li></ol><div class="form2">${fld('6-digit code',`<input id="mfC" inputmode="numeric" maxlength="6">`)}</div><div class="btns"><button class="btn gold" id="mfOk">${moving?'Confirm new phone':'Turn on'}</button></div><div class="err" id="mfE"></div><div id="mfOut"></div>`;
+    const mfInp=$('#mfC',mb);
+    const mfOtp=window.MahaOtp?window.MahaOtp.attach(mfInp,{onComplete:()=>$('#mfOk',mb).click()}):null;
+    const mfaOn=()=>{p.mfa={enabled:true,secret,at:Date.now()};const codes=newRecoveryCodes(p);provLog(moving?'Google Authenticator moved to a new phone':'Google Authenticator turned on');saveDB();mb.innerHTML=`<div class="mfaon">✓ Google Authenticator is on. You will need a code at every provider sign-in.</div><div id="mfOut"></div><div class="btns"><button class="btn" id="mfDone">Continue</button></div>`;showCodes(codes);$('#mfDone',mb).onclick=()=>render()};
+    $('#mfOk',mb).onclick=()=>{if(!verifyTotp(secret,mfInp.value)){const msg='The code does not match. Wait for a new code and try again.';if(mfOtp)mfOtp.error(msg);else $('#mfE',mb).textContent=msg;return}
+      if(mfOtp)mfOtp.win().then(mfaOn);else mfaOn()}};
   paintMfa();
   $('#acS',el).onclick=()=>{const e=$('#acE',el),un=$('#acU',el).value.trim().toLowerCase(),nm=$('#acN',el).value.trim(),p1=$('#acP1',el).value,p2=$('#acP2',el).value,p0=$('#acP0',el).value;
     if(p.hash!==pwHash(p.salt,p0)){e.textContent='Enter your current password to save changes.';return}
