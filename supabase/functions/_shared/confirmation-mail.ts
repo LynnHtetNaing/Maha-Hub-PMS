@@ -3,30 +3,32 @@
 // Everything is clipped and escaped here, so the browser can never put markup or a script into the mail.
 // No dependencies, so the same code runs in the Edge function, in the tests and in the sample page.
 
+export type ConfirmationBox = { title: string; text: string };
 export type Confirmation = {
   hotel: { name: string; address: string; phone: string; email: string };
   guest: { name: string };
-  booking: { no: string; confirmation: string; arrLabel: string; depLabel: string; checkin: string; checkout: string; nights: string; roomType: string; ratePlan: string; pax: string };
+  booking: { no: string; confirmation: string; arrLabel: string; depLabel: string; checkin: string; checkout: string; nights: string; roomType: string; ratePlan: string; pax: string; channel: string };
   money: { cur: string; payStatus: string; rate: string; roomTotal: string; paid: string; balance: string };
-  terms: string;   /* one term or condition on each line: the cancellation, child and no-show rules and every other term */
+  boxes: ConfirmationBox[];   /* the provider's own titled policy boxes (Cancellation Policy, Child Policy, ...), each a few lines shown with a bullet */
   request: string[];
 };
 
 const clip = (s: unknown, n: number) => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, n);
-/* so the mail stays good-looking: only the first lines of each text are shown (the provider sees the same limits in the hotel setup) */
-export const MAIL_LIMITS = { terms: 12, request: 6, line: 240 };
+/* so the mail stays good-looking: only the first lines of each text, and only the first boxes, are shown (the provider sees the same limits in the hotel setup) */
+export const MAIL_LIMITS = { boxes: 8, lines: 12, title: 60, request: 6, line: 240 };
 const lim = (s: unknown, n: number) => String(s == null ? "" : s).split(/\n+/).map((x) => clip(x, MAIL_LIMITS.line)).filter(Boolean).slice(0, n).join("\n");
 export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /* a clean copy of whatever the browser sent */
 export function cleanConfirmation(d: any): Confirmation {
   const o = d && typeof d === "object" ? d : {}, h = o.hotel || {}, g = o.guest || {}, b = o.booking || {}, m = o.money || {};
+  const boxesIn = Array.isArray(o.boxes) ? o.boxes : [];
   return {
     hotel: { name: clip(h.name, 120), address: clip(h.address, 240), phone: clip(h.phone, 40), email: /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(String(h.email || "")) ? clip(h.email, 160) : "" },
     guest: { name: clip(g.name, 120) },
-    booking: { no: clip(b.no, 40), confirmation: clip(b.confirmation, 40), arrLabel: clip(b.arrLabel, 60), depLabel: clip(b.depLabel, 60), checkin: clip(b.checkin, 12), checkout: clip(b.checkout, 12), nights: clip(b.nights, 40), roomType: clip(b.roomType, 120), ratePlan: clip(b.ratePlan, 120), pax: clip(b.pax, 80) },
+    booking: { no: clip(b.no, 40), confirmation: clip(b.confirmation, 40), arrLabel: clip(b.arrLabel, 60), depLabel: clip(b.depLabel, 60), checkin: clip(b.checkin, 12), checkout: clip(b.checkout, 12), nights: clip(b.nights, 40), roomType: clip(b.roomType, 120), ratePlan: clip(b.ratePlan, 120), pax: clip(b.pax, 80), channel: clip(b.channel, 60) },
     money: { cur: clip(m.cur, 8), payStatus: clip(m.payStatus, 40), rate: clip(m.rate, 30), roomTotal: clip(m.roomTotal, 30), paid: clip(m.paid, 30), balance: clip(m.balance, 30) },
-    terms: lim(o.terms, MAIL_LIMITS.terms),
+    boxes: boxesIn.map((x: any) => ({ title: clip(x && x.title, MAIL_LIMITS.title), text: lim(x && x.text, MAIL_LIMITS.lines) })).filter((x) => x.title || x.text).slice(0, MAIL_LIMITS.boxes),
     request: (Array.isArray(o.request) ? o.request : []).map((x: unknown) => clip(x, MAIL_LIMITS.line)).filter(Boolean).slice(0, MAIL_LIMITS.request),
   };
 }
@@ -57,7 +59,7 @@ export function confirmationMail(c: Confirmation): { html: string; text: string 
   const row = (k: string, v: string) => v ? `<tr><td style="padding:9px 0;border-bottom:1px solid ${LINE};color:${MUTED};width:42%;vertical-align:top">${esc(k)}</td><td style="padding:9px 0;border-bottom:1px solid ${LINE};color:${INK};font-weight:bold;vertical-align:top">${esc(v)}</td></tr>` : "";
   const btn = (href: string, label: string, primary: boolean) => `<td style="padding:0 10px 10px 0"><a href="${esc(href)}" target="_blank" style="display:inline-block;padding:12px 22px;border-radius:999px;font-weight:bold;font-size:14px;text-decoration:none;background:${primary ? FOREST : "#dcebe4"};color:${primary ? "#ffffff" : FOREST}">${esc(label)}</a></td>`;
   const section = (title: string, inner: string) => `<tr><td style="padding:16px 28px 0"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d3dcd8;border-radius:12px;border-collapse:separate;overflow:hidden"><tr><td style="background:${BOX};padding:12px 18px;border-bottom:1px solid #d3dcd8;font-size:16px;font-weight:bold;color:${FOREST}">${esc(title)}</td></tr><tr><td style="padding:4px 18px 12px">${inner}</td></tr></table></td></tr>`;
-  const dashes = (t: string) => `<div style="padding-top:8px;color:${INK}">${(t ? t.split("\n") : [""]).map((x) => `<div style="padding:3px 0">- ${esc(x)}</div>`.replace("- </div>", "-</div>")).join("")}</div>`;
+  const bullets = (t: string) => `<ul style="margin:6px 0 0;padding-left:20px;color:${INK}">${(t ? t.split("\n") : [""]).map((x) => `<li style="margin:3px 0">${esc(x)}</li>`).join("")}</ul>`;
   const payTag = M.payStatus && M.payStatus !== "-" ? row("Payment status", M.payStatus) : "";
   const money = M.rate || M.roomTotal;
   const priceTable = money ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px">${payTag}${row("Rate per night", M.rate ? cur + M.rate : "")}${row("Total Room Nights", B.nights)}${row("Total price", M.roomTotal ? cur + M.roomTotal : "")}${payRows(M).map((r) => row(r[0], r[1])).join("")}</table>` : "";
@@ -78,10 +80,10 @@ ${H.address ? `<div style="margin-top:14px;color:${MUTED};font-size:13px">Addres
 ${H.phone || H.email ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:12px"><tr>${H.phone ? `<td valign="top" style="padding-right:8px"><div style="color:${MUTED};font-size:13px">Phone</div><div style="font-weight:bold">${esc(H.phone)}</div></td>` : ""}${H.email ? `<td valign="top"><div style="color:${MUTED};font-size:13px">Email</div><div style="font-weight:bold"><a href="mailto:${esc(H.email)}" style="color:${INK};text-decoration:none">${esc(H.email)}</a></div></td>` : ""}</tr></table>` : ""}
 <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:16px"><tr>${maps ? btn(maps, "Directions", true) : ""}${H.email ? btn("mailto:" + H.email, "Email the hotel", false) : ""}</tr></table>
 </td></tr></table></td></tr>
-${section("Reservation details", `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px">${row("Reservation", B.no)}${B.confirmation && B.confirmation !== B.no ? row("Confirmation number", B.confirmation) : ""}${row("Guest name", name)}${row("Room Type", B.roomType)}${row("Rate plan", B.ratePlan)}${row("You booked for", B.pax)}${row("Check-in", (B.arrLabel + (B.checkin ? " (from " + B.checkin + ")" : "")).trim())}${row("Check-out", (B.depLabel + (B.checkout ? " (until " + B.checkout + ")" : "")).trim())}</table>`)}
+${section("Reservation details", `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px">${row("Reservation", B.no)}${B.confirmation && B.confirmation !== B.no ? row("Confirmation number", B.confirmation) : ""}${row("Guest name", name)}${row("Room Type", B.roomType)}${row("Rate plan", B.ratePlan)}${row("You booked for", B.pax)}${row("Check-in", (B.arrLabel + (B.checkin ? " (from " + B.checkin + ")" : "")).trim())}${row("Check-out", (B.depLabel + (B.checkout ? " (until " + B.checkout + ")" : "")).trim())}${row("Channel", B.channel)}</table>`)}
 ${money ? section("Price and payment", priceTable) : ""}
 ${c.request.length ? section("Your Request", `<ul style="margin:10px 0 0;padding-left:20px;color:${INK}">${c.request.map((n) => `<li style="margin:4px 0">${esc(n)}</li>`).join("")}</ul>`) : ""}
-${section("Terms and Conditions", dashes(c.terms))}
+${c.boxes.map((b) => section(b.title || "Terms and Conditions", bullets(b.text))).join("")}
 <tr><td style="padding:26px 28px 24px"><div style="color:${MUTED};font-size:13px">Please keep this mail for your records. If you need to change or ask about your booking, contact ${esc(H.name || "the hotel")} directly${H.phone ? " on " + esc(H.phone) : ""}.</div></td></tr>
 <tr><td style="background:#faf5ec;padding:14px 28px;color:#7a7468;font-size:12px">This is an automatic message from Maha Hub on behalf of ${esc(H.name || "the hotel")}. Please do not reply to it.</td></tr>
 </table></td></tr></table></body></html>`;
@@ -91,10 +93,11 @@ ${section("Terms and Conditions", dashes(c.terms))}
   const L = (k: string, v: string) => { if (v) lines.push(`${k}: ${v}`); };
   L("Hotel", H.name); L("Address", H.address); L("Phone", H.phone); L("Email", H.email); L("Confirmation number", B.confirmation); L("Reservation", B.no); L("Guest name", name);
   L("Check-in", (B.arrLabel + (B.checkin ? " (from " + B.checkin + ")" : "")).trim()); L("Check-out", (B.depLabel + (B.checkout ? " (until " + B.checkout + ")" : "")).trim());
-  L("Room Type", B.roomType); L("Rate plan", B.ratePlan); L("You booked for", B.pax);
+  L("Room Type", B.roomType); L("Rate plan", B.ratePlan); L("You booked for", B.pax); L("Channel", B.channel);
   if (money) { lines.push(""); L("Payment status", M.payStatus === "-" ? "" : M.payStatus); L("Rate per night", M.rate ? cur + M.rate : ""); L("Total Room Nights", B.nights); L("Total price", M.roomTotal ? cur + M.roomTotal : ""); payRows(M).forEach((r) => L(r[0], r[1])); }
   if (maps) lines.push("", "Directions: " + maps);
   if (c.request.length) lines.push("", "Your Request", ...c.request.map((n) => "- " + n));
-  lines.push("", "Terms and Conditions", ...(c.terms ? c.terms.split("\n").map((x) => "- " + x) : ["-"]), "", "This is an automatic message from Maha Hub on behalf of " + (H.name || "the hotel") + ". Please do not reply to it.");
+  c.boxes.forEach((b) => lines.push("", b.title || "Terms and Conditions", ...(b.text ? b.text.split("\n").map((x) => "- " + x) : ["-"])));
+  lines.push("", "This is an automatic message from Maha Hub on behalf of " + (H.name || "the hotel") + ". Please do not reply to it.");
   return { html, text: lines.join("\n") };
 }
