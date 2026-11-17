@@ -7,8 +7,11 @@ const src = fs.readFileSync(process.argv[2], 'utf8').replace(/\r\n/g, '\n');
 let fails = 0;
 const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n); if (!ok) fails++; };
 
-T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.includes("VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);") && src.includes('<table class="grid"><tr><th>No.</th><th>Property name</th><th>Status</th><th>Setup</th><th>Business date</th>') && !src.includes("class=\"pgrid") && !src.includes('class="pcard"'));
-T('Hotels home keeps a search box and the same actions (Open hotel, Close Day)', src.includes('id="phQ"') && src.includes('data-open="${h.code}">Open hotel</button>') && src.includes("${h.active!==false&&featOn(h,'fn.cd.close')?` <button class=\"btn sm ghost\" data-cd=\"${h.code}\">"));
+T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.includes("VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);") && src.includes('<table class="grid"><tr><th>No.</th><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Subscription until</th><th>Currency</th><th>Business date</th><th>Locked through</th>') && !src.includes("class=\"pgrid") && !src.includes('class="pcard"'));
+T('Hotels home (now the one and only Hotels page - Hotels list was merged into it) keeps a search box, a row number, and an Open hotel button beside Action - no Setup fraction, no Open shifts column, no Close Day shortcut',
+  src.includes('id="phQ"') && src.includes("<button class=\"btn sm gold\" data-open=\"${h.code}\">Open hotel</button> <button type=\"button\" class=\"btn sm ghost\" data-pvact=\"${h.code}\"") &&
+  !src.includes('data-cd=') && !src.includes('<th>Setup</th>') && !src.includes('<th class="n">Open shifts</th>') &&
+  src.includes(" {t:'Hotels List',flat:'prov.home'},") && !src.includes("VIEWS['prov.hotels']"));
 T('Open hotel on an unfinished property goes straight to the Backend wizard (one step at a time, as before); a fully set-up property instead shows the exact same Select System (Frontend/Backend) layer a hotel user sees at sign-in, landing straight into that area',
   src.includes('const ck=propertyChecks(h);') && src.includes("if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}") &&
   src.includes("const a=await selectSystemPage(h,false);SEL_ON=false;") &&
@@ -87,9 +90,12 @@ T('every Hotel Setup subtitle and the rest of the Provider group get a real side
     .every(k => new RegExp("'"+k.replace('.','\\.')+"':'\\w+'").test(src)) &&
   ["'Hotels':'building'","'Whole system':'layers'","'Team & records':'users'","'Account':'user'","'Hotel':'building'","'Connections':'swap'","'Records':'clip'","'Hotel Setup':'building'"].every(f => src.includes(f)));
 
-T('Company / Agency logos come first on the page, above the long company/channel list, so adding or changing a logo is not buried below 20+ rows',
-  src.includes("const logoBox=document.createElement('div');logoBox.className='panel pad';box.appendChild(logoBox);") &&
-  src.indexOf("const logoBox=document.createElement('div');logoBox.className='panel pad';box.appendChild(logoBox);") < src.indexOf("box.insertAdjacentHTML('beforeend','<h3 class=\"mt\">All companies &amp; agents</h3>');"));
+T('Company / Agency logos are a column right in the one All companies & agents list (no separate table above it any more) - Credit limit was dropped to make room, and listEditor gained a reusable "logo" column type (upload/remove, saved at once, not waiting for the main Save button) for this',
+  !src.includes("const logoBox=document.createElement('div')") && !src.includes('Company / Agency logos</h3>') &&
+  src.includes("{k:'logo',h:'Logo',type:'logo',") && !src.includes("{k:'creditLimit',h:'Credit limit',type:'number',w:'110px'}") &&
+  src.includes("c.type==='logo'?`<div class=\"row gap\" style=\"align-items:center\">${r[c.k]?`<img src=\"${r[c.k]}\" class=\"chb chblogo\" alt=\"\">`:''}<label class=\"btn sm ghost\">${ic('upload',12)}<input type=\"file\" accept=\"image/*\" data-logoup=\"${i}\" data-logok=\"${c.k}\" hidden></label>") &&
+  src.includes("onUpload:(r,url)=>{const c=H.companies.find(x=>x.id===r.id);if(!c){toast('Save this row first, then add its logo.');return false}c.logo=url;") &&
+  src.includes("onRemove:r=>{const c=H.companies.find(x=>x.id===r.id);if(!c)return;delete c.logo;"));
 
 T('the Non-VAT toggle (Charge codes) gets a real dark-mode colour instead of staying light-mode white',
   src.includes('html[data-skin="modern"][data-mode=dark] .tog{background:color-mix(in srgb,var(--a1) 8%,var(--m-card));color:var(--m-ink);border-color:#ffffff22}'));
@@ -103,5 +109,23 @@ T('the Setup Floor plan editor\'s room/facility tiles are rounded with a shadow,
 
 T('the User Details & Permission list shows the Active/Inactive/Cancelled chip and the access term on one horizontal line, not stacked',
   src.includes('.pptbl td .uat{display:inline-block!important;margin:0 0 0 8px!important;vertical-align:middle}'));
+
+T('Hotels list was folded into Hotels (one title, not two) - the merged table keeps a row number, the Chain/Subscription/Locked-through columns, drops the Open shifts column, and puts Open hotel right beside Action (no Setup fraction, no Close Day shortcut); the Active/Not active chip (.hst) gets a real dark-mode colour too',
+  src.includes("<td>${i+1}</td><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain=\"${h.code}\">") &&
+  src.includes("<button class=\"btn sm gold\" data-open=\"${h.code}\">Open hotel</button> <button type=\"button\" class=\"btn sm ghost\" data-pvact=\"${h.code}\"") &&
+  src.includes('html[data-skin="modern"][data-mode=dark] .hst.on{background:#16a34a2e;color:#4ade80}') &&
+  src.includes('html[data-skin="modern"][data-mode=dark] .hst.off{background:#e11d4833;color:#fb7185}'));
+
+T('Chain / Group box (Hotel profile and the Chains/Groups page) is a plain drop-down plus a Save chain button sitting right beside it, on one line - no "+ New chain..." option baked into the drop-down any more; creating a chain lives only on the Chains/Groups page (chainListPanel\'s own New chain / group button), and every chain created there is what fills this drop-down',
+  src.includes('${fld(\'Chain / Group\',`<div class="row gap"><select id="chSel" style="flex:1"><option value="">None (stand-alone hotel)</option>${info.chains.map(c=>opt(c.chain_code,chainLabel(c),cur?cur.chain_code:\'\')).join(\'\')}</select><button class="btn" id="chGo">Save chain</button></div>`)}') &&
+  !src.includes('<option value="__new">+ New chain...</option>') && !src.includes("if(sel==='__new')") &&
+  src.includes("$('#chNew',el).onclick=()=>newChainForm(async()=>{await ChainInfo.load(true);if(after)after();else chainListPanel(el)})"));
+
+T('Hotels List is one flat sidebar entry, not a group with a single nested subtitle - no title/subtitle double layer; it still highlights when open and still works in the hidden classic menubar build (no crash on a group with no items array)',
+  src.includes("if(m.flat){groups.push({t:m.t,flat:m.flat});return}") &&
+  src.includes(':g.flat\n    ?`<div class="mg"><button type="button" class="mgb" data-go="${esc(g.flat)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||\'folder\')}<span>${esc(g.t)}</span></button></div>`') &&
+  src.includes("if(m.flat)return `<button class=\"mtop\" data-go=\"${esc(m.flat)}\">${esc(m.t)}</button>`;") &&
+  src.includes("$$('.mg>.mgb[data-go]',nav).forEach(b=>{const on=b.dataset.go===VIEW") &&
+  src.includes('.mgb.on{background:linear-gradient(90deg,var(--a1),color-mix(in srgb,var(--a1) 65%,var(--a2)));color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--a1) 45%,transparent)}'));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
