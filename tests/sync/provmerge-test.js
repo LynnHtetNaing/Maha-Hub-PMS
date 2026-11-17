@@ -70,4 +70,8 @@ T('Terms & Conditions as a Hotel Setup subtitle page drops the embedded page\'s 
 T('Direct booking & Google (reached from inside a hotel via the Provider menu) is bare too - its own title already comes from the outer page',
   src.includes("bindPicker(el);SEC_BARE=true;SEC.google($('#gBody',el));"));
 
+T('a handful of pale light-mode-only badges/boxes on the Hotel Setup pages (payment methods, hotel logo, terms preview, Ready/Match/Active pills, card-details box) get a real dark-mode colour instead of staying a stray light patch',
+  ['.cbh{color:var(--m-ink)}', '.payitem.on{border-color:#2f6b47', '.autoadd{background:#17304f;color:#9cc7f0}', '.rg{background:#ffffff14', '.logoprev{background:var(--m-card)', '.tclang .tcprev{color:var(--m-mut)}', '.pill.g{background:#16a34a33;color:#4ade80}', '.pst.on{background:#16a34a2e;color:#4ade80}', '.pst.off{background:#e11d4833;color:#fb7185}']
+    .every(frag => src.includes('html[data-skin="modern"][data-mode=dark] ' + frag)));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
