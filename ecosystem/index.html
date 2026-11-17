@@ -7813,7 +7813,7 @@ const MENU=[
 /* Provider console, two levels. Level 1 (this menu): the whole system, no hotel picked. Level 2 (PROV_WS_MENU): a hotel's own workspace, shown whenever the page is one of PROV_WS_VIEWS. */
 const PROV_MENU=[
  {t:'Hotels',items:[['Hotels','prov.home'],['Hotels list','prov.hotels']]},
- {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup']]},
+ {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
@@ -15605,24 +15605,38 @@ async function mahaPayBillingSave(publishable,secret){
   const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-keys',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'set',purpose:'billing',publishable,secret})});
   const d=await res.json().catch(()=>null);if(!res.ok)throw new Error('Could not save Maha Pay billing keys. Please try again.');return d;
 }
-VIEWS['prov.stripe']=async el=>{
+/* whole-system, no hotel to pick - the one account every hotel's subscription payment goes to */
+VIEWS['prov.mahapay']=async el=>{
+  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
+  const mpBill=await mahaPayBillingStatus();if(!el.isConnected)return;
+  el.innerHTML=pageHead('Maha Pay — Billing')+`<div class="panel pad" style="max-width:760px">
+    <p class="sub">The one account that collects every hotel's subscription payment to Maha Hub. Set this once, here, for the whole system; a new property needs nothing extra - it uses this automatically. A hotel never sees the word "Stripe" for this, only <b>Maha Pay</b>. (A hotel's own Stripe account, for collecting ITS guests' card payments, is a separate, per-hotel setting under each hotel's own Stripe payments (3DS) page - not here.)</p>
+    <label class="f"><span>Publishable key</span><input id="mpbPk" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc((mpBill&&mpBill.publishable)||'')}"></label>
+    <label class="f"><span>Secret key</span><input id="mpbSk" type="password" placeholder="${mpBill&&mpBill.configured?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
+    <div class="err" id="mpbErr"></div>
+    <div class="sub" id="mpbSt">${mpBill&&mpBill.configured?'Maha Pay billing is set up. Every hotel can pay its invoices.':'Not set up yet - hotels cannot pay their invoices until this is saved.'}</div>
+    <div class="btns"><button class="btn gold" id="mpbSave">Save Maha Pay billing keys</button></div>
+  </div>`;
+  $('#mpbSave',el).onclick=async()=>{
+    const publishable=$('#mpbPk',el).value.trim(),secret=$('#mpbSk',el).value.trim();
+    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#mpbErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
+    if(secret&&!/^sk_(test|live)_/.test(secret)){$('#mpbErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
+    if(!secret&&!(mpBill&&mpBill.configured)){$('#mpbErr',el).textContent='Paste the secret key.';return}
+    const btn=$('#mpbSave',el),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Saving...';
+    try{await mahaPayBillingSave(publishable,secret);$('#mpbErr',el).textContent='';$('#mpbSt',el).textContent='Maha Pay billing is set up. Every hotel can pay its invoices.';toast('Maha Pay billing keys saved')}
+    catch(e){$('#mpbErr',el).textContent=e.message}
+    finally{btn.disabled=false;btn.innerHTML=lbl}
+  };
+};
+VIEWS['prov.stripe']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
   const c=stripeCfg()||{};
   const hotels=Object.values(DB.hotels||{});
   if(!H&&hotels[0]){H=hotels[0];if(DB.session)DB.session.hotel=H.code}
   if(H)shapeHotel(H);
   const st=H&&H.set.stripe||{};
-  const mpBill=await mahaPayBillingStatus();if(!el.isConnected)return;
-  el.innerHTML=`<div class="panel pad mt" style="max-width:760px">
-    <h3 style="margin-top:0">Maha Pay — Billing</h3>
-    <p class="sub">The one account that collects every hotel's subscription payment to Maha Hub. Set this once; a new property needs nothing extra - it uses this automatically. A hotel never sees the word "Stripe" here, only <b>Maha Pay</b>.</p>
-    <label class="f"><span>Publishable key</span><input id="mpbPk" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc((mpBill&&mpBill.publishable)||'')}"></label>
-    <label class="f"><span>Secret key</span><input id="mpbSk" type="password" placeholder="${mpBill&&mpBill.configured?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
-    <div class="err" id="mpbErr"></div>
-    <div class="sub" id="mpbSt">${mpBill&&mpBill.configured?'Maha Pay billing is set up. Every hotel can pay its invoices.':'Not set up yet - hotels cannot pay their invoices until this is saved.'}</div>
-    <div class="btns"><button class="btn gold" id="mpbSave">Save Maha Pay billing keys</button></div>
-  </div>`+pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:760px">
-    <p class="sub">Everything below is the OTHER Stripe use: a hotel's own account for collecting ITS guests' / OTA agents' card payments (EDC links). Unrelated to Maha Pay billing above.</p>
+  el.innerHTML=pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:760px">
+    <p class="sub">This is a hotel's own account for collecting ITS guests' / OTA agents' card payments (EDC links) - set up one hotel at a time. Maha Hub's own "Maha Pay" billing account (what collects a hotel's subscription payment to you) is a separate, whole-system setting under Provider Console → Whole system → Maha Pay — Billing, not here.</p>
     <p><b>Yes — real card money needs a Stripe account.</b> Maha Hub does not hold guest funds. It creates Checkout links; Stripe settles to the connected account’s bank. These keys live under Setup, not in property setup.</p>
     <p class="sub">I cannot finish Stripe’s company / KYC / bank setup for you — that is done only in the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">Stripe Dashboard</a> by the account owner (ID, business docs, bank). Until Stripe shows charges enabled, only <b>test mode</b> works.</p>
     <h3 class="mt">Who receives the money?</h3>
@@ -15666,16 +15680,6 @@ VIEWS['prov.stripe']=async el=>{
       <li>Refresh → Paid (Stripe) + last4 (no full PAN).</li>
     </ol>
   </div>`;
-  $('#mpbSave',el).onclick=async()=>{
-    const publishable=$('#mpbPk',el).value.trim(),secret=$('#mpbSk',el).value.trim();
-    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#mpbErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
-    if(secret&&!/^sk_(test|live)_/.test(secret)){$('#mpbErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
-    if(!secret&&!(mpBill&&mpBill.configured)){$('#mpbErr',el).textContent='Paste the secret key.';return}
-    const btn=$('#mpbSave',el),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Saving...';
-    try{await mahaPayBillingSave(publishable,secret);$('#mpbErr',el).textContent='';$('#mpbSt',el).textContent='Maha Pay billing is set up. Every hotel can pay its invoices.';toast('Maha Pay billing keys saved')}
-    catch(e){$('#mpbErr',el).textContent=e.message}
-    finally{btn.disabled=false;btn.innerHTML=lbl}
-  };
   $('#stSave',el).onclick=()=>{
     const publishable=$('#stPk',el).value.trim(), secret=$('#stSk',el).value.trim(), server=$('#stSrv',el).value.trim().replace(/\/+$/,'');
     if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
