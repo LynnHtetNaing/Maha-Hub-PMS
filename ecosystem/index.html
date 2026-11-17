@@ -158,6 +158,7 @@ table.grid tr.click{cursor:pointer}@media (hover:hover){table.grid tr.click:hove
 .st{font-weight:700;font-size:11px;padding:3px 7px;border-radius:3px;white-space:nowrap;background:#e8eef2}.st-inhouse,.st-ih{background:#d8f3e4;color:#146c3a}.st-i{background:#d6eefc;color:#0b5f8a}.st-confirmed{background:#d7e7f8;color:#1a4f86}.st-tentative{background:#fff1c2;color:#7a5800}.st-out,.st-o{background:#fde0dc;color:#9a2c22}.st-cancelled,.st-noshow{background:#f6e4e4;color:#7a3030}
 #limBadge{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);z-index:9000;background:#6b4e00;color:#fff;border:1px solid #e8c766;border-radius:999px;padding:6px 14px;font-size:12.5px;box-shadow:0 2px 10px rgba(0,0,0,.3);pointer-events:none}
 .lockbar{background:#fff4d6;border:1px solid #efd18c;border-radius:4px;padding:7px 10px;margin-bottom:8px;font-size:12.5px}.lockbar.sm{margin:6px 0 0;padding:4px 8px}
+.toastbar{background:#eef2f4;border:1px solid var(--line);border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:13px}.toastbar.saved{background:#e1f3e7;border-color:#9bd7b2;color:#17603a}
 /* reservation screen */
 .rscreen{background:#f4f7f9;border:1px solid var(--line);border-radius:6px;padding:8px}.hrow{display:grid;grid-template-columns:repeat(11,1fr);gap:6px;margin-bottom:8px}.w2{grid-column:span 2}.w3{grid-column:span 3}.w4{grid-column:span 4}
 .btabs{display:flex;gap:2px;border-bottom:2px solid #8fb2cc;margin-bottom:8px}.btab{background:#e6eef4;border:1px solid #bcd0de;border-bottom:0;padding:5px 12px;border-radius:4px 4px 0 0;cursor:pointer}.btab.on{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--gold-muted)}
@@ -7956,7 +7957,40 @@ async function billLoad(){
 const billMoney=(n,c)=>esc(c||'USD')+' '+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const billPill=s=>`<span class="pill ${s==='paid'||s==='active'||s==='accepted'?'g':s==='open'?'':'r'}">${esc(s.charAt(0).toUpperCase()+s.slice(1))}</span>`;
 function billTable(cols,rows){const hf=rows.some(r=>BILL_FILES[r.id]);return `<div style="overflow-x:auto"><table class="grid"><tr>${cols.map(c=>`<th${c[2]?' style="text-align:right"':''}>${c[0]}</th>`).join('')}${hf?'<th>Files</th>':''}</tr>${rows.map(r=>`<tr>${cols.map(c=>`<td${c[2]?' style="text-align:right"':''}>${c[1](r)}</td>`).join('')}${hf?`<td class="nowrap">${billFiles(r)}</td>`:''}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">Nothing here yet.</td></tr>`}</table></div>`}
+/* Maha Pay: a hotel pays its own open invoice from right here, no separate billing page - a real Stripe
+   Checkout session under the one platform ("billing") account, branded Maha Pay, never "Stripe" to the hotel. */
+async function mahaPayStart(docId,btn){
+  const lbl=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> Starting...'}
+  try{
+    const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
+    const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-billing-pay',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'create',doc_id:docId})});
+    let d=null;try{d=await res.json()}catch(e){}
+    if(!res.ok||!d||!d.url)throw new Error((d&&d.error==='not_configured')?'Maha Pay is not set up yet. Please contact Maha Hub support.':(d&&d.error==='already_paid')?'This invoice is already paid.':'Maha Pay could not start. Please try again.');
+    location.href=d.url;
+  }catch(e){if(btn){btn.disabled=false;btn.innerHTML=lbl}toast(e.message)}
+}
+async function mahaPayConfirm(docId,sessionId){
+  try{
+    const t=await MahaAuth.fresh();if(!t)return false;
+    const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-billing-pay',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'confirm',doc_id:docId,session_id:sessionId})});
+    const d=await res.json().catch(()=>null);return !!(res.ok&&d&&d.paid);
+  }catch(e){return false}
+}
 function billView(tab,title){return async el=>{
+  let payNote='';
+  if(tab==='invoices'){
+    const hi=(location.hash||'').indexOf('?'),hq=new URLSearchParams(hi<0?'':location.hash.slice(hi+1)),mp=hq.get('maha_pay');
+    if(mp==='1'&&hq.get('doc')&&hq.get('session_id')){
+      el.innerHTML=pageHead(esc(title))+`<div class="panel pad"><p class="sub">Confirming your payment...</p></div>`;
+      const paid=await mahaPayConfirm(hq.get('doc'),hq.get('session_id'));
+      try{history.replaceState(null,'',location.pathname+location.search+'#/sbill.invoices')}catch(e){}
+      payNote=paid?'<div class="toastbar saved">Payment received — thank you. Maha Pay has marked this invoice paid.</div>':'<div class="toastbar">We could not confirm that payment yet. If you were charged, it will show as paid shortly, or contact Maha Hub support.</div>';
+      if(!el.isConnected)return;
+    }else if(mp==='cancelled'){
+      try{history.replaceState(null,'',location.pathname+location.search+'#/sbill.invoices')}catch(e){}
+      payNote='<div class="toastbar">Payment cancelled. The invoice is still open.</div>';
+    }
+  }
   el.innerHTML=pageHead(esc(title))+`<div class="panel pad"><p class="sub">Loading...</p></div>`;
   const {rows,err}=await billLoad();if(!el.isConnected)return;
   const of=k=>rows.filter(d=>d.kind===k);let body='';
@@ -7969,11 +8003,12 @@ function billView(tab,title){return async el=>{
     <p><a class="btn ghost" href="${BILLING_URL}?hotel=${encodeURIComponent(H.code)}" target="_blank" rel="noopener">Open in its own tab &#8599;</a></p>`}
   else if(tab==='quotes')body=billTable([['Quote #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Valid until',r=>r.due_date?fd(r.due_date):'-'],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]],of('quote'));
   else if(tab==='subscriptions')body=billTable([['Plan',r=>esc(r.no)],['From',r=>r.period_from?fd(r.period_from):'-'],['Until',r=>r.period_to?fd(r.period_to):'-'],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1],['Note',r=>esc(r.note||'')]],of('subscription'));
-  else if(tab==='invoices')body=billTable([['Invoice #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Due',r=>r.due_date?fd(r.due_date):'-'],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]],of('invoice'));
+  else if(tab==='invoices')body=billTable([['Invoice #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Due',r=>r.due_date?fd(r.due_date):'-'],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1],['',r=>r.status==='open'?`<button type="button" class="btn sm gold" data-mahapay="${esc(r.id)}">Pay with Maha Pay</button>`:'']],of('invoice'));
   else if(tab==='payments')body=billTable([['Payment #',r=>esc(r.no)],['Date',r=>fd(r.doc_date)],['Paid for',r=>esc(r.paid_for||'-')],['Status',r=>billPill(r.status)],['Amount',r=>billMoney(r.amount,r.currency),1]],of('payment'));
   else{const bal={};const ev=rows.filter(d=>(d.kind==='invoice'||d.kind==='payment')&&d.status!=='void').sort((a,b)=>a.doc_date<b.doc_date?-1:a.doc_date>b.doc_date?1:a.created_at<b.created_at?-1:1).map(d=>{bal[d.currency]=(bal[d.currency]||0)+(d.kind==='invoice'?+d.amount:-d.amount);return Object.assign({},d,{run:bal[d.currency]})}).reverse();
     body=billTable([['Date',r=>fd(r.doc_date)],['Type',r=>r.kind==='invoice'?'Invoice':'Payment'],['No.',r=>esc(r.no)],['Charged',r=>r.kind==='invoice'?billMoney(r.amount,r.currency):'',1],['Paid',r=>r.kind==='payment'?billMoney(r.amount,r.currency):'',1],['Balance',r=>billMoney(r.run,r.currency),1]],ev)}
-  el.innerHTML=pageHead(esc(title))+`<div class="panel pad">${err?`<div class="err">${esc(err)}</div>`:''}${body}</div>`;$$('[data-bf]',el).forEach(b=>b.onclick=()=>billOpenFile(b.dataset.bf))}}
+  el.innerHTML=pageHead(esc(title))+`<div class="panel pad">${payNote}${err?`<div class="err">${esc(err)}</div>`:''}${body}</div>`;$$('[data-bf]',el).forEach(b=>b.onclick=()=>billOpenFile(b.dataset.bf));
+  $$('[data-mahapay]',el).forEach(b=>b.onclick=()=>mahaPayStart(b.dataset.mahapay,b))}}
 if(typeof VIEWS!=='undefined')[['home','Overview'],['quotes','Quotes'],['subscriptions','Subscriptions'],['invoices','Invoices'],['payments','Payments Made'],['statements','Statements']].forEach(([k,t])=>{VIEWS['sbill.'+k]=billView(k,t)});
 /* Provider: the Billing records of one hotel. Only a platform admin can write them (the server enforces it). */
 async function billingAdmin(h){
@@ -15557,14 +15592,37 @@ VIEWS['help.home']=el=>{
 };
 function lastStayEnd(g){const stays=allBookings().filter(b=>b.guestId===g.id&&['inhouse','confirmed','tentative','out'].includes(b.status));if(stays.some(b=>['inhouse','confirmed','tentative'].includes(b.status)&&b.dep>=H.set.bd))return null;const outs=stays.filter(b=>b.status==='out');if(!outs.length)return null;return outs.map(b=>b.statusDate).sort().pop()}
 function purgeGuest(g){g.purged=true;g.last='Purged';g.first='';g.middle='';g.other='';g.email='';g.phone='';g.address='';g.photo='';g.socialId='';g.birthday='';g.remark='';if(g.doc)g.doc={type:'',no:'',place:'',ptype:'',issued:'',expiry:'',visaType:'',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''};g.card=null}
-VIEWS['prov.stripe']=el=>{
+/* Maha Pay - Billing: Maha Hub's own Stripe account, the one that collects every hotel's subscription payment. Always the
+   platform ("billing") row in maha_stripe_keys - nothing to set up per hotel, a new property is covered automatically.
+   Never shown to a hotel as "Stripe" - hotels see only "Maha Pay". */
+async function mahaPayBillingStatus(){
+  const t=await MahaAuth.fresh();if(!t)return null;
+  const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-keys',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'get_status',purpose:'billing'})});
+  const d=await res.json().catch(()=>null);return res.ok?d:null;
+}
+async function mahaPayBillingSave(publishable,secret){
+  const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
+  const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-keys',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'set',purpose:'billing',publishable,secret})});
+  const d=await res.json().catch(()=>null);if(!res.ok)throw new Error('Could not save Maha Pay billing keys. Please try again.');return d;
+}
+VIEWS['prov.stripe']=async el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
   const c=stripeCfg()||{};
   const hotels=Object.values(DB.hotels||{});
   if(!H&&hotels[0]){H=hotels[0];if(DB.session)DB.session.hotel=H.code}
   if(H)shapeHotel(H);
   const st=H&&H.set.stripe||{};
-  el.innerHTML=pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:760px">
+  const mpBill=await mahaPayBillingStatus();if(!el.isConnected)return;
+  el.innerHTML=`<div class="panel pad mt" style="max-width:760px">
+    <h3 style="margin-top:0">Maha Pay — Billing</h3>
+    <p class="sub">The one account that collects every hotel's subscription payment to Maha Hub. Set this once; a new property needs nothing extra - it uses this automatically. A hotel never sees the word "Stripe" here, only <b>Maha Pay</b>.</p>
+    <label class="f"><span>Publishable key</span><input id="mpbPk" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc((mpBill&&mpBill.publishable)||'')}"></label>
+    <label class="f"><span>Secret key</span><input id="mpbSk" type="password" placeholder="${mpBill&&mpBill.configured?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
+    <div class="err" id="mpbErr"></div>
+    <div class="sub" id="mpbSt">${mpBill&&mpBill.configured?'Maha Pay billing is set up. Every hotel can pay its invoices.':'Not set up yet - hotels cannot pay their invoices until this is saved.'}</div>
+    <div class="btns"><button class="btn gold" id="mpbSave">Save Maha Pay billing keys</button></div>
+  </div>`+pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:760px">
+    <p class="sub">Everything below is the OTHER Stripe use: a hotel's own account for collecting ITS guests' / OTA agents' card payments (EDC links). Unrelated to Maha Pay billing above.</p>
     <p><b>Yes — real card money needs a Stripe account.</b> Maha Hub does not hold guest funds. It creates Checkout links; Stripe settles to the connected account’s bank. These keys live under Setup, not in property setup.</p>
     <p class="sub">I cannot finish Stripe’s company / KYC / bank setup for you — that is done only in the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">Stripe Dashboard</a> by the account owner (ID, business docs, bank). Until Stripe shows charges enabled, only <b>test mode</b> works.</p>
     <h3 class="mt">Who receives the money?</h3>
@@ -15608,6 +15666,16 @@ VIEWS['prov.stripe']=el=>{
       <li>Refresh → Paid (Stripe) + last4 (no full PAN).</li>
     </ol>
   </div>`;
+  $('#mpbSave',el).onclick=async()=>{
+    const publishable=$('#mpbPk',el).value.trim(),secret=$('#mpbSk',el).value.trim();
+    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#mpbErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
+    if(secret&&!/^sk_(test|live)_/.test(secret)){$('#mpbErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
+    if(!secret&&!(mpBill&&mpBill.configured)){$('#mpbErr',el).textContent='Paste the secret key.';return}
+    const btn=$('#mpbSave',el),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Saving...';
+    try{await mahaPayBillingSave(publishable,secret);$('#mpbErr',el).textContent='';$('#mpbSt',el).textContent='Maha Pay billing is set up. Every hotel can pay its invoices.';toast('Maha Pay billing keys saved')}
+    catch(e){$('#mpbErr',el).textContent=e.message}
+    finally{btn.disabled=false;btn.innerHTML=lbl}
+  };
   $('#stSave',el).onclick=()=>{
     const publishable=$('#stPk',el).value.trim(), secret=$('#stSk',el).value.trim(), server=$('#stSrv',el).value.trim().replace(/\/+$/,'');
     if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
