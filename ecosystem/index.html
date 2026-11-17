@@ -11930,10 +11930,17 @@ async function recurringAutoInvoice(h){
     const no='AUTO-'+h.code+'-'+h.set.subUntil.replace(/-/g,'');
     const dup=await ctx.call('maha_billing_docs?select=id&property_id=eq.'+ctx.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(no));
     if(dup&&dup.length){h.set.recurringInvoicedFor=h.set.subUntil;saveDB();return}
-    const subs=await ctx.call('maha_billing_docs?select=amount,currency&property_id=eq.'+ctx.pid+'&kind=eq.subscription&order=period_to.desc&limit=1');
-    const basis=(subs&&subs[0])||{amount:0,currency:h.set.cur||'USD'};
-    await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify({property_id:ctx.pid,kind:'invoice',no,doc_date:iso(new Date()),due_date:h.set.subUntil,amount:basis.amount,currency:(basis.currency||'USD').toUpperCase(),status:'open',note:'Recurring charge - renewal due '+fd(h.set.subUntil)})});
-    h.set.recurringInvoicedFor=h.set.subUntil;provLog('Recurring charge: invoice '+no+' auto-created for hotel '+h.code);saveDB()
+    /* the same amount and currency already on record for this hotel - the latest Subscription document if there is
+       one, else the latest Invoice (many hotels are billed as a plain invoice, never a "subscription" document) */
+    const subs=await ctx.call('maha_billing_docs?select=amount,currency&property_id=eq.'+ctx.pid+'&kind=eq.subscription&order=period_to.desc,doc_date.desc&limit=1');
+    let basis=subs&&subs[0];
+    if(!basis||!(+basis.amount>0)){
+      const invs=await ctx.call('maha_billing_docs?select=amount,currency&property_id=eq.'+ctx.pid+'&kind=eq.invoice&order=doc_date.desc,created_at.desc&limit=1');
+      basis=invs&&invs[0]
+    }
+    if(!basis||!(+basis.amount>0)){provLog('Recurring charge: no subscription or invoice amount on record for '+h.code+' - nothing auto-created yet. Add one first.');return}
+    await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify({property_id:ctx.pid,kind:'invoice',no,doc_date:iso(new Date()),due_date:h.set.subUntil,amount:+basis.amount,currency:(basis.currency||h.set.cur||'USD').toUpperCase(),status:'open',note:'Recurring charge - renewal due '+fd(h.set.subUntil)})});
+    h.set.recurringInvoicedFor=h.set.subUntil;provLog('Recurring charge: invoice '+no+' auto-created for hotel '+h.code+' ('+m2(+basis.amount)+' '+(basis.currency||'').toUpperCase()+')');saveDB()
   }catch(e){}
 }
 function provBillFiles(h,ctx,row,after){
@@ -13527,7 +13534,6 @@ const SEC={
  docs(box){const s=H.set;box.innerHTML=secHead('13. Registration card & invoice')+`<div class="panel pad"><div class="form3">${fld('Registration form code (e.g. ร.ร.3)',`<input id="d_fc" value="${esc(s.formCode||'')}">`)}${fld('Building (report header)',`<input id="d_bl" value="${esc(s.building||'')}">`)}</div>
    <p class="sub">The receipt / tax invoice and registration card use the hotel profile (section 1) and the Terms & Conditions (section 15). The tax invoice numbers are set in section 14, Tax Invoice Reference.</p><div class="btns"><button class="btn gold" id="dS">Save</button></div></div>`;
    const rcBox=document.createElement('div');box.appendChild(rcBox);regCardEditor(rcBox);
-   const clBox=document.createElement('div');box.appendChild(clBox);clTermsEditor(clBox);
    $('#dS',box).onclick=()=>{if(!provOnly())return;s.formCode=$('#d_fc',box).value.trim();s.building=$('#d_bl',box).value.trim();provLog(`Documents saved for ${H.code}`);saved()}},
  tiref(box){const s=H.set,cloud=MahaAuth.on(),live=H.active!==false,man0=s.invMode==='manual',f0=s.invFmt||{};
    box.innerHTML=secHead('14. Tax Invoice Reference','The one place for the tax invoice numbers of this hotel. Set the format once, before the hotel goes live. After that the numbers run by themselves, one after the other, with no gaps.')+`<div class="panel pad">
@@ -13573,7 +13579,8 @@ const SEC={
        s.invMode=m;if(m==='manual')s.invFmt={prefix:p.prefix,start:p.start,min:p.minDigits,unl:p.unlimited};
        s.nextInv=Math.max(1,+$('#d_inv',box).value||1)}
      s.gaplessInvoices=(s.invMode==='manual')||$('#d_gl',box).checked;
-     provLog(`Tax Invoice Reference saved for ${H.code}: ${s.invMode==='manual'?'Manual '+invManualRef(s.invFmt.prefix,s.invFmt.start,s.invFmt.min)+(s.invFmt.unl?' (unlimited digits)':' (fixed width)'):'Standard'}${s.gaplessInvoices?', gapless':''}`);saved()}},
+     provLog(`Tax Invoice Reference saved for ${H.code}: ${s.invMode==='manual'?'Manual '+invManualRef(s.invFmt.prefix,s.invFmt.start,s.invFmt.min)+(s.invFmt.unl?' (unlimited digits)':' (fixed width)'):'Standard'}${s.gaplessInvoices?', gapless':''}`);saved()};
+   if(typeof document!=='undefined'){const clBox=document.createElement('div');box.appendChild(clBox);clTermsEditor(clBox)}},
  terms(box){VIEWS['prov.terms'](box);if(SEC_BARE){const ph=box.querySelector('.phead');if(ph)ph.remove()}else box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
  mailpol(box){const s=H.set,p=s.mailPol||{},LM={boxes:8,lines:12,title:60,line:240};
    const lines=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);

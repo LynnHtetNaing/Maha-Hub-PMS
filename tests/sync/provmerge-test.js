@@ -128,4 +128,8 @@ T('Hotels List is one flat sidebar entry, not a group with a single nested subti
   src.includes("$$('.mg>.mgb[data-go]',nav).forEach(b=>{const on=b.dataset.go===VIEW") &&
   src.includes('.mgb.on{background:linear-gradient(90deg,var(--a1),color-mix(in srgb,var(--a1) 65%,var(--a2)));color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--a1) 45%,transparent)}'));
 
+T('City Ledger invoice terms moved from Registration card & invoice to Tax Invoice Reference - it is about what prints on a tax invoice, not the registration card',
+  !/docs\(box\)\{[\s\S]*?clTermsEditor/.test(src.slice(src.indexOf(' docs(box){'), src.indexOf(' tiref(box){'))) &&
+  /tiref\(box\)\{[\s\S]*?clTermsEditor\(clBox\)/.test(src.slice(src.indexOf(' tiref(box){'), src.indexOf(' terms(box){'))));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);

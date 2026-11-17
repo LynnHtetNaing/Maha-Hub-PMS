@@ -47,11 +47,14 @@ T('an open invoice in the hotel\'s own Billing > Invoices page gets a "Pay with 
 T('returning from Checkout re-confirms the payment with the server (never trusts the URL) before showing it as paid, and always cleans the pay params out of the address bar', pms.includes('const paid=await mahaPayConfirm(hq.get(\'doc\'),hq.get(\'session_id\'));') && pms.includes("history.replaceState(null,'',location.pathname+location.search+'#/sbill.invoices')"));
 
 T('Recurring charge is just an on/off switch next to the subscription date, not a separate function or an automatic charge', pms.includes('id="pbRecChg"') && pms.includes("h.set.recurringCharge=$('#pbRecChg',box).checked;") && pms.includes('Never charges a card by itself.'));
-T('when on, it auto-creates the next open invoice (same amount/currency as the last subscription) starting HOTEL_WARN_DAYS before the subscription date - never sooner, never after it already ran once for that date',
+T('when on, it auto-creates the next open invoice starting HOTEL_WARN_DAYS before the subscription date - never sooner, never after it already ran once for that date - with the same amount/currency as the latest Subscription record, or the latest Invoice if there is no Subscription record (many hotels are only ever billed as a plain invoice); it never creates a zero-amount invoice',
   pms.includes('async function recurringAutoInvoice(h){') &&
   pms.includes("if(!h||!h.set||!h.set.recurringCharge||!h.set.subUntil||!MahaAuth.on())return;") &&
   pms.includes("if(h.set.recurringInvoicedFor===h.set.subUntil)return;") &&
   pms.includes("if(!(days>=0&&days<=HOTEL_WARN_DAYS))return;") &&
+  pms.includes("kind=eq.subscription&order=period_to.desc,doc_date.desc&limit=1") &&
+  pms.includes("kind=eq.invoice&order=doc_date.desc,created_at.desc&limit=1") &&
+  pms.includes("if(!basis||!(+basis.amount>0)){provLog('Recurring charge: no subscription or invoice amount on record for '+h.code+' - nothing auto-created yet. Add one first.');return}") &&
   pms.includes("kind:'invoice',no,doc_date:iso(new Date()),due_date:h.set.subUntil") &&
   pms.includes("h.set.recurringInvoicedFor=h.set.subUntil;"));
 T('the auto-created invoice is what the hotel pays itself with Pay with Maha Pay, checked whenever admin opens that hotel\'s Billing page or the whole Hotels list - never a hidden automatic charge',
