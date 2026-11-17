@@ -34,8 +34,9 @@ T('prov.functions (outside any hotel, with a hotel picker) is untouched - it sti
   src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Functions & plan')+`<div class=\"panel pad\"><p>Leave the hotel first."));
 
 T('Direct booking & Google has no hotel-staff equivalent, so it is a genuinely new, provider-only addition: reachable now from inside the hotel (the Provider menu group), no longer forced to "leave the hotel first"',
-  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Hotel Setup','prov.setup'],['Direct booking & Google','prov.google'],['EDC Card Link','prov.edc'],['Amend records','prov.amend'],['Amendment log','prov.log']]};") &&
+  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Hotel Setup','prov.setup'],['Direct booking & Google','prov.google'],['Stripe payments (this hotel)','prov.stripe'],['EDC Card Link','prov.edc'],['Amend records','prov.amend'],['Amendment log','prov.log']]};") &&
   !src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Direct booking & Google')"));
+T('This hotel\'s own Stripe keys (guest/OTA card payments) are reachable from the Provider menu while inside the hotel too, since they are set up one hotel at a time', src.includes("['Stripe payments (this hotel)','prov.stripe']"));
 T('prov.systems and prov.distribution are genuinely whole-platform (one table across every hotel at once), so they correctly stay provider-console-only, left alone',
   src.includes("if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems')+'<div class=\"empty\">Open this from the provider console (leave the hotel first).</div>';return}") &&
   src.includes("if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Distribution')+'<div class=\"empty\">Open this from the provider console (leave the hotel first).</div>';return}"));
