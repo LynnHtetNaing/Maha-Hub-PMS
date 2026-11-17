@@ -8518,7 +8518,7 @@ function modernShellHTML(){
 function modernNavInit(){
   const nav=$('#msbnav');if(!nav)return;
   chainBtnSync();
-  const src=areaMenu(DB.session.provider&&DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):MENU);
+  const src=areaMenu(DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU);
   const groups=[];
   src.forEach(m=>{if(m.report){if(can('reports')&&feat('reports'))groups.push({t:'Report',report:true,items:[]});return}
     const items=m.items.filter(x=>(!x[2]||can(x[2]))&&(!x[3]||feat(x[3])));if(items.length)groups.push({t:m.t,items})});
@@ -8777,7 +8777,7 @@ function renderShell(){
   if($('#tbProfM'))$('#tbProfM').onclick=e=>{e.stopPropagation();openAccountMenu($('#tbProfM'))};
   const tick=()=>{const c=$('#rtClock');if(c){const n=new Date();c.textContent=fd(iso(n));c.title='System date · '+VERSION}};tick();clearInterval(window._rtc);window._rtc=setInterval(tick,20000);
   const providerConsole=!!(DB.session.provider&&!DB.session.inHotel);
-  const raw=DB.session.provider?(DB.session.inHotel?MENU.concat([PROV_HOTEL_GROUP]):(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;
+  const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;
   const hide=providerConsole?[]:['Tax','Help','AI','Setup'];
   const menu=areaMenu(raw).filter(m=>!hide.includes(m.t));
   const nav=$('#menubar');
@@ -12542,7 +12542,8 @@ function loadingGrid(o){const cv=o.querySelector('.mh-grid');if(!cv)return;const
 function loadingHide(){if(window.MahaLoader&&MahaLoader.isShowing())return MahaLoader.hide();const o=document.getElementById('mhLoad');if(!o)return;o.classList.add('out');setTimeout(()=>{if(o.classList.contains('out'))o.remove()},450)}
 async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r;try{r=await fn()}finally{if(!window.MahaLoader)await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));await loadingHide()}return r}
 /* ---- who sees what ---- */
-function hasBackend(){try{return !!(DB&&DB.session&&!DB.session.provider&&H&&can('setup'))}catch(e){return false}}
+/* a provider operating a hotel (inHotel) gets the same Backend an owner/manager gets, plus their own extra group below - never while outside a hotel */
+function hasBackend(){try{return !!(DB&&DB.session&&H&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}
 function curArea(){const se=DB&&DB.session;return se&&se.area==='back'&&hasBackend()?'back':'front'}
 function setArea(a){if(DB&&DB.session){DB.session.area=a==='back'?'back':'front';try{writeLiveSession(DB.session)}catch(e){}}}
 function BACKEND_MENU(){
@@ -12551,7 +12552,12 @@ function BACKEND_MENU(){
   return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users','set.userlogs']),g('Finance & data',['ac.buy']),g('Billing',['sbill.home','sbill.quotes','sbill.subscriptions','sbill.invoices','sbill.payments','sbill.statements']),g('Help',['help.home']),{t:'Report',report:true}]}
 function areaMenu(src){
   const se=DB&&DB.session;
-  if(se&&se.provider){let pm=true;try{provMasterLoad();pm=provMaster()}catch(e){}return pm?src:src.map(g=>g.items?Object.assign({},g,{items:g.items.filter(it=>!MASTER_VIEWS.includes(it[1]))}):g)}
+  if(se&&se.provider){
+    let pm=true;try{provMasterLoad();pm=provMaster()}catch(e){}
+    const base=pm?src:src.map(g=>g.items?Object.assign({},g,{items:g.items.filter(it=>!MASTER_VIEWS.includes(it[1]))}):g);
+    if(!se.inHotel)return base;
+    /* inside a hotel: the same Frontend / Backend split a manager gets - admin-only items (the provider's own extras) live in Backend only */
+    return curArea()==='back'?BACKEND_MENU().concat([PROV_HOTEL_GROUP]):base.filter(m=>m.t!=='Setup')}
   if(!se)return src;
   return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
 function firstBackendView(){for(const g of BACKEND_MENU())for(const it of (g.items||[]))if(viewAllowed(it[1]))return it[1];return 'set.hotel'}
@@ -13322,7 +13328,9 @@ let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_e
 const LEGACY_PAY=['905','915'];
 const payEnabled=c=>!c.hidden&&!LEGACY_PAY.includes(c.refFor||c.code)&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
 function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
-function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
+function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('front');provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
+/* same as enterHotel, but straight into Backend: every admin function (the hotel's own, merged with the provider's own extras) in one place */
+function enterHotelBackend(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('back');provLog(`Entered hotel ${code} (Backend)`);saveDB();applySysPath('hub');renderShell();go(firstBackendView());toast(`You are in ${H.set.name} · Backend. Use the switch icon to move between systems.`)}
 VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();if(pmsAddr()){pmsHotelLand(user().username||'')}else go('prov.home')};
 function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes();saveDB()}
 
@@ -13549,7 +13557,7 @@ VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
       if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}   /* not set up yet: straight to the Backend wizard, one step at a time */
       const m=modal('Open '+h.code+' — '+esc(h.set.name),`<p class="sub">Choose where to work.</p><div class="btns" style="justify-content:center;gap:16px"><button type="button" class="btn gold" id="ohFront">${mIc('desk')} Frontend</button><button type="button" class="btn" id="ohBack">${mIc('tools')} Backend</button></div>`,{w:420});
       $('#ohFront',m).onclick=()=>{closeModal(m);enterHotel(h.code)};
-      $('#ohBack',m).onclick=()=>{closeModal(m);SET_SEC='profile';go('prov.setup')}});
+      $('#ohBack',m).onclick=()=>{closeModal(m);enterHotelBackend(h.code)}});
     $$('[data-cd]',el).forEach(b=>b.onclick=()=>{enterHotel(b.dataset.cd);go('cd.close')})};
   paint();
   $('#pvNewP',el).onclick=newPropertyForm;
