@@ -2842,6 +2842,9 @@ html[data-skin="modern"][data-mode=dark] .pst.off{background:#e11d4833;color:#fb
 html[data-skin="modern"][data-mode=dark] .tog{background:color-mix(in srgb,var(--a1) 8%,var(--m-card));color:var(--m-ink);border-color:#ffffff22}
 html[data-skin="modern"][data-mode=dark] .hst.on{background:#16a34a2e;color:#4ade80}
 html[data-skin="modern"][data-mode=dark] .hst.off{background:#e11d4833;color:#fb7185}
+/* a flat, single-link sidebar group (Hotels List) highlights the same way a regular item does when it is the open page */
+.mgb.on{background:linear-gradient(90deg,var(--a1),color-mix(in srgb,var(--a1) 65%,var(--a2)));color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--a1) 45%,transparent)}
+.mgb.on .mi{opacity:1;color:#fff}
 </style>
 <script>!function(){try{var m=/^#mh=([\w-]+)$/.exec(location.hash);if(m){history.replaceState(null,'',location.pathname+location.search);sessionStorage.setItem('maha.handover',decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))))}}catch(e){}}()</script>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
@@ -7798,7 +7801,7 @@ const MENU=[
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Overview','sbill.home','setup'],['Quotes','sbill.quotes','setup'],['Subscriptions','sbill.subscriptions','setup'],['Invoices','sbill.invoices','setup'],['Payments Made','sbill.payments','setup'],['Statements','sbill.statements','setup'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['User Logs','set.userlogs','userlogs'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
 /* Provider console, two levels. Level 1 (this menu): the whole system, no hotel picked. Level 2 (PROV_WS_MENU): a hotel's own workspace, shown whenever the page is one of PROV_WS_VIEWS. */
 const PROV_MENU=[
- {t:'Hotels',items:[['Hotels','prov.home']]},
+ {t:'Hotels List',flat:'prov.home'},
  {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
@@ -8298,9 +8301,12 @@ function modernNavInit(){
   const src=areaMenu(DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU);
   const groups=[];
   src.forEach(m=>{if(m.report){if(can('reports')&&feat('reports'))groups.push({t:'Report',report:true,items:[]});return}
+    if(m.flat){groups.push({t:m.t,flat:m.flat});return}
     const items=m.items.filter(x=>(!x[2]||can(x[2]))&&(!x[3]||feat(x[3])));if(items.length)groups.push({t:m.t,items})});
   nav.innerHTML=groups.map((g,i)=>g.report
     ?`<div class="mg"><button type="button" class="mgb" data-report="1" title="Report">${mIc(MG_ICON.Report)}<span>Report</span></button></div>`
+    :g.flat
+    ?`<div class="mg"><button type="button" class="mgb" data-go="${esc(g.flat)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||'folder')}<span>${esc(g.t)}</span></button></div>`
     :`<div class="mg${MSB_OPEN[g.t]?' open':''}" data-gt="${esc(g.t)}"><button type="button" class="mgb" data-g="${esc(g.t)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||'folder')}<span>${esc(g.t)}</span>${mIc('chev','car')}</button><div class="mgi">${g.items.map(x=>`<button type="button" class="mit" data-go="${x[1]}" data-t="${esc(x[0])}">${mIc(MV_ICON[x[1]]||'folder')}<span>${esc(x[0])}</span></button>`).join('')}</div></div>`).join('');
   nav.onclick=e=>{const g=e.target.closest('[data-g]'),it=e.target.closest('[data-go]'),rp=e.target.closest('[data-report]');
     if(g){const sh=$('#mshell');if(sh&&sh.classList.contains('slim')){sh.classList.remove('slim');try{localStorage.setItem('maha.msb','wide')}catch(x){}const tg=$('#msbTog');if(tg)tg.innerHTML=mIc('left')}
@@ -8319,6 +8325,8 @@ function msbMark(){
   let grp='',title='';
   if(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW)$$('.mg.open',nav).forEach(g=>g.classList.remove('open'));   /* the first page opens no menu group */
   $$('.mit',nav).forEach(b=>{const on=b.dataset.go===VIEW,quiet=!!(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW);b.classList.toggle('on',on&&!quiet);if(on&&!grp){grp=b.closest('.mg').dataset.gt||'';title=b.dataset.t||'';if(!quiet){MSB_OPEN[grp]=true;b.closest('.mg').classList.add('open')}}});
+  /* a flat, single-link group (e.g. Hotels List) has no .mit inside it to mark - the .mgb itself is the page link */
+  $$('.mg>.mgb[data-go]',nav).forEach(b=>{const on=b.dataset.go===VIEW,quiet=!!(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW);b.classList.toggle('on',on&&!quiet)});
   const h=$('#view h1'),h1=h?h.textContent.replace(/\s+/g,' ').trim():'';
   const c=$('#mcrumb');if(c)c.innerHTML='Workspace'+(grp?' / '+esc(grp):'')+(title||h1?' / <b>'+esc(title||h1)+'</b>':'')}
 function shellHTML(){
@@ -8560,6 +8568,7 @@ function renderShell(){
   const nav=$('#menubar');
   nav.innerHTML=`<button class="mtoggle" id="mtoggle" aria-label="Menu">☰</button><div class="mitems" id="mitems">`+menu.map((m,i)=>{
     if(m.report)return can('reports')&&feat('reports')?`<button class="mtop" data-report="1">Report <span class="car" aria-hidden="true">▾</span></button>`:'';
+    if(m.flat)return `<button class="mtop" data-go="${esc(m.flat)}">${esc(m.t)}</button>`;
     const items=m.items.filter(x=>(!x[2]||can(x[2]))&&(!x[3]||feat(x[3])));if(!items.length)return '';
     return `<div class="mgrp"><button class="mtop" data-m="${i}" aria-expanded="false">${esc(m.t)} <span class="car" aria-hidden="true">▾</span></button><div class="mdrop" hidden>${items.map(x=>`<button data-go="${x[1]}">${titleMark(x[0])}<span>${esc(x[0])}</span></button>`).join('')}</div></div>`}).join('')+`</div>`;
   $$('.mtop[data-m]',nav).forEach(b=>b.onclick=e=>{e.stopPropagation();const d=b.nextElementSibling,open=d.hidden,panel=menuPanel();if(panel){$$('.mdrop').forEach(x=>{x.hidden=true});$$('.mtop[data-m]').forEach(x=>x.setAttribute('aria-expanded','false'));if(open){d.hidden=false;b.setAttribute('aria-expanded','true');setTimeout(()=>{try{b.scrollIntoView({block:'nearest'})}catch(x){}},0)}return}closeMenus();if(open)placeMenuDrop(b,d)});

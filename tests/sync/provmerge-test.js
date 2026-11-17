@@ -11,7 +11,7 @@ T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.inclu
 T('Hotels home (now the one and only Hotels page - Hotels list was merged into it) keeps a search box, a row number, and an Open hotel button beside Action - no Setup fraction, no Open shifts column, no Close Day shortcut',
   src.includes('id="phQ"') && src.includes("<button class=\"btn sm gold\" data-open=\"${h.code}\">Open hotel</button> <button type=\"button\" class=\"btn sm ghost\" data-pvact=\"${h.code}\"") &&
   !src.includes('data-cd=') && !src.includes('<th>Setup</th>') && !src.includes('<th class="n">Open shifts</th>') &&
-  src.includes(" {t:'Hotels',items:[['Hotels','prov.home']]},") && !src.includes("VIEWS['prov.hotels']"));
+  src.includes(" {t:'Hotels List',flat:'prov.home'},") && !src.includes("VIEWS['prov.hotels']"));
 T('Open hotel on an unfinished property goes straight to the Backend wizard (one step at a time, as before); a fully set-up property instead shows the exact same Select System (Frontend/Backend) layer a hotel user sees at sign-in, landing straight into that area',
   src.includes('const ck=propertyChecks(h);') && src.includes("if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}") &&
   src.includes("const a=await selectSystemPage(h,false);SEL_ON=false;") &&
@@ -117,5 +117,12 @@ T('Chain / Group box (Hotel profile and the Chains/Groups page) is a plain drop-
   src.includes('${fld(\'Chain / Group\',`<div class="row gap"><select id="chSel" style="flex:1"><option value="">None (stand-alone hotel)</option>${info.chains.map(c=>opt(c.chain_code,chainLabel(c),cur?cur.chain_code:\'\')).join(\'\')}</select><button class="btn" id="chGo">Save chain</button></div>`)}') &&
   !src.includes('<option value="__new">+ New chain...</option>') && !src.includes("if(sel==='__new')") &&
   src.includes("$('#chNew',el).onclick=()=>newChainForm(async()=>{await ChainInfo.load(true);if(after)after();else chainListPanel(el)})"));
+
+T('Hotels List is one flat sidebar entry, not a group with a single nested subtitle - no title/subtitle double layer; it still highlights when open and still works in the hidden classic menubar build (no crash on a group with no items array)',
+  src.includes("if(m.flat){groups.push({t:m.t,flat:m.flat});return}") &&
+  src.includes(':g.flat\n    ?`<div class="mg"><button type="button" class="mgb" data-go="${esc(g.flat)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||\'folder\')}<span>${esc(g.t)}</span></button></div>`') &&
+  src.includes("if(m.flat)return `<button class=\"mtop\" data-go=\"${esc(m.flat)}\">${esc(m.t)}</button>`;") &&
+  src.includes("$$('.mg>.mgb[data-go]',nav).forEach(b=>{const on=b.dataset.go===VIEW") &&
+  src.includes('.mgb.on{background:linear-gradient(90deg,var(--a1),color-mix(in srgb,var(--a1) 65%,var(--a2)));color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--a1) 45%,transparent)}'));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
