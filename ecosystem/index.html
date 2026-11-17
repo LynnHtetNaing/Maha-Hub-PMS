@@ -11930,10 +11930,17 @@ async function recurringAutoInvoice(h){
     const no='AUTO-'+h.code+'-'+h.set.subUntil.replace(/-/g,'');
     const dup=await ctx.call('maha_billing_docs?select=id&property_id=eq.'+ctx.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(no));
     if(dup&&dup.length){h.set.recurringInvoicedFor=h.set.subUntil;saveDB();return}
-    const subs=await ctx.call('maha_billing_docs?select=amount,currency&property_id=eq.'+ctx.pid+'&kind=eq.subscription&order=period_to.desc&limit=1');
-    const basis=(subs&&subs[0])||{amount:0,currency:h.set.cur||'USD'};
-    await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify({property_id:ctx.pid,kind:'invoice',no,doc_date:iso(new Date()),due_date:h.set.subUntil,amount:basis.amount,currency:(basis.currency||'USD').toUpperCase(),status:'open',note:'Recurring charge - renewal due '+fd(h.set.subUntil)})});
-    h.set.recurringInvoicedFor=h.set.subUntil;provLog('Recurring charge: invoice '+no+' auto-created for hotel '+h.code);saveDB()
+    /* the same amount and currency already on record for this hotel - the latest Subscription document if there is
+       one, else the latest Invoice (many hotels are billed as a plain invoice, never a "subscription" document) */
+    const subs=await ctx.call('maha_billing_docs?select=amount,currency&property_id=eq.'+ctx.pid+'&kind=eq.subscription&order=period_to.desc,doc_date.desc&limit=1');
+    let basis=subs&&subs[0];
+    if(!basis||!(+basis.amount>0)){
+      const invs=await ctx.call('maha_billing_docs?select=amount,currency&property_id=eq.'+ctx.pid+'&kind=eq.invoice&order=doc_date.desc,created_at.desc&limit=1');
+      basis=invs&&invs[0]
+    }
+    if(!basis||!(+basis.amount>0)){provLog('Recurring charge: no subscription or invoice amount on record for '+h.code+' - nothing auto-created yet. Add one first.');return}
+    await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify({property_id:ctx.pid,kind:'invoice',no,doc_date:iso(new Date()),due_date:h.set.subUntil,amount:+basis.amount,currency:(basis.currency||h.set.cur||'USD').toUpperCase(),status:'open',note:'Recurring charge - renewal due '+fd(h.set.subUntil)})});
+    h.set.recurringInvoicedFor=h.set.subUntil;provLog('Recurring charge: invoice '+no+' auto-created for hotel '+h.code+' ('+m2(+basis.amount)+' '+(basis.currency||'').toUpperCase()+')');saveDB()
   }catch(e){}
 }
 function provBillFiles(h,ctx,row,after){
