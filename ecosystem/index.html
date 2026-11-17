@@ -10797,7 +10797,9 @@ function billingSplit(el,id){
   const extra=BF.sel&&bookingById(BF.sel);const keep=extra&&extra.status!=='inhouse'?extra:null;
   const rowsF=()=>{const a=allBookings().filter(b=>b.status==='inhouse'&&(!skipOcc(b)||houseAccount(b)));return keep?[keep].concat(a.filter(b=>b.id!==keep.id)):a};
   if(BF.sel&&!rowsF().find(b=>b.id===BF.sel))BF.sel=null;
-  el.innerHTML=cdBackBar()+pageHead('Billing / Folio','<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';cdBackBind(el);
+  /* a checked-out folio is what Folio Inquiry is for, so the title says that even when opened straight here (Open folio, Close Day, ...) */
+  const title=(extra&&extra.status==='out')?'Folio Inquiry':'Billing / Folio';
+  el.innerHTML=cdBackBar()+pageHead(title,'<div class="bsrch" id="bfSearch"></div>','act')+'<div class="bfpane" id="bfPane"></div>';cdBackBind(el);
   bfSearchBar($('#bfSearch',el),rowsF,x=>{BF.sel=x;billingSplit(el)});
   const pane=$('#bfPane',el);if(BF.sel)folioPane(pane,BF.sel,()=>billingSplit(el));else pane.innerHTML='<div class="panel empty">Type a room number or guest name above, then press Search.</div>';
 }
@@ -10908,18 +10910,18 @@ function folioPane(el,id,onRe){
   const r=resOf(B),g=G(B.guestId),co=CO(r.companyId),total=bal(B),closed=closedBooking(B),back=canCheckBack(B);
   const sel=folSel&&B.lines.find(l=>l.id===folSel);const one=MOB_Q.matches;const act=one?1:(folAct[B.id]||1);
   const FTB=()=>{const FB={};
+   /* a checked-out folio (Folio Inquiry, or a checked-out guest opened from Billing / Folio) has nothing left to post, pay, transfer, split, offset or lock -
+      show only what still works, all on the outside as plain buttons, with no "More" to dig through */
+   const simple=B.status==='out';
    const IC2={fPost:'plus',fPay:'cash',fAdv:'wallet',fMove:'arrows-exchange',fInv:'printer',fDet:'file-text',fView:'layout-grid',fRate:'adjustments',fSplit:'arrows-split',fOff:'circle-minus',fReg:'id',fNot:'bell',fLog:'history',fBack:'arrow-left',fCCI:'arrow-back-up',fOut:'logout'};
    const LB={fPost:'Post',fPay:'Payment',fAdv:'Advance',fMove:'Transfer',fInv:'Print',fDet:'Detail',fView:'Folio view',fRate:'Rate setup',fSplit:'Split selected line',fOff:'Offset selected line',fReg:'Registration card',fNot:'Notices',fLog:'User logs',fBack:'Check back in',fCCI:'Cancel check-in',fOut:'Check out'};
    const tbF=(id,icon,title,dis,blocked)=>{const lk=id==='fLock',ic3=lk?(icon==='unlock'?'lock-open':'lock'):(IC2[id]||'plus'),lb=lk?(icon==='unlock'?'Unlock folio':'Lock folio'):(LB[id]||title);
-    const main=['fPost','fPay','fAdv','fMove','fInv','fDet','fOut','fBack'].includes(id);
+    const main=['fPost','fPay','fAdv','fMove','fInv','fDet','fOut','fBack'].includes(id)||(simple&&['fNot','fLog'].includes(id));
     FB[id]=`<button type="button" class="${main?'fbtn'+(id==='fOut'?' out':''):'fmi'}${blocked?' blocked':''}" id="${id}" title="${esc(title)}" aria-label="${esc(title)}" ${dis?'disabled':''}${blocked?' aria-disabled="true"':''}>${tbi(ic3,main?18:17)}<span>${esc(lb)}</span></button>`;return ''};
    void `${tbF('fView','grid','Folio view')}${tbF('fPost','plus','Post new transaction. After check-out: Rebate or Adjust (+)',B.status==='inhouse'?(closed||!can('post')):B.status!=='out')}${tbF('fMove','move','Transfer selected line to another room',closed||!can('move')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel)||folLocked(B,sel.folio))}
     ${tbF('fDet','detail','Reservation detail')}${tbF('fRate','cal','Advance rate setup')}${tbF('fPay','pay','Payment – freezes this folio and posts one red receipt line. Also Refund',(B.status==='out'?false:(closed||!can('pay')))||['cancelled','noshow'].includes(B.status))}${tbF('fAdv','wallet','Advance payment – credit on this folio, grey (+) and red receipt (−) on Folio 4',closed||!can('pay')||['cancelled','noshow','out'].includes(B.status))}
     ${tbF('fSplit','split','Split selected transaction',closed||!can('post')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel))}${tbF('fOff','offset','Offset (freeze) selected transaction',closed||!can('corrpost')||!sel||sel.fixed||frozen(sel)||sel.settled||payLocked(sel)||folLocked(B,sel.folio))}${tbF('fLock',folLocked(B,act)?'unlock':'lock',folLocked(B,act)?'Unlock Folio '+act:'Lock Folio '+act,closed||!can('post'))}${tbF('fInv','print','Print the red receipt, a one-line guest folio for the advance credit, or a guest folio of this folio',!can('print'))}
     ${tbF('fReg','card','Print registration card',!can('print'))}${tbF('fNot','bell','Notifications')}${tbF('fLog','log','User logs of this folio')}${back?tbF('fBack','left','Check back in (Auto)',!can('checkin')):''}${B.status==='inhouse'?(cancelCheckInBlock(B)?`${tbF('fCCI','undo','Cancel Check-In – blocked: '+CCI_BLOCK_MSG,false,true)}`:tbF('fCCI','undo','Cancel Check-In – back to Reservation, room becomes VD',!can('checkin'))):''}${tbF('fOut','out','Check out',!can('checkout')||B.status!=='inhouse')}`;
-   /* a checked-out folio (Folio Inquiry, or a checked-out guest opened from Billing / Folio) has nothing left to post, pay, transfer, split, offset or lock -
-      show only what still works, all on the outside, with no "More" to dig through */
-   const simple=B.status==='out';
    const mainKeys=simple?['fInv','fDet','fNot','fLog']:['fPost','fPay','fAdv','fMove','fInv','fDet'];
    const rows=simple?'':['fView','fRate','fSplit','fOff','fLock','fReg','fNot','fLog','fCCI'].map(k=>FB[k]||'').join('');
    const more=rows?`<span class="fmore"><button type="button" class="fbtn" id="fMoreB" aria-haspopup="menu" aria-expanded="false"><span>More</span>${tbi('chevron-down',16)}</button><div class="fmm" id="fMoreM" role="menu" hidden>${rows}</div></span>`:'';

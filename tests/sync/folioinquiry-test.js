@@ -13,4 +13,8 @@ T('a checked-out folio (status "out") shows only Print, Detail, Notices and User
   src.includes("const simple=B.status==='out';") && src.includes("const mainKeys=simple?['fInv','fDet','fNot','fLog']:['fPost','fPay','fAdv','fMove','fInv','fDet'];") && src.includes("const rows=simple?'':['fView','fRate','fSplit','fOff','fLock','fReg','fNot','fLog','fCCI'].map(k=>FB[k]||'').join('');") && src.includes("const more=rows?"));
 T('Check in back still shows on a checked-out folio when it applies, and Check out never does (the booking is no longer in house)',
   src.includes('${FB.fBack||\'\'}${simple?\'\':FB.fOut||\'\'}'));
+T('Notices and User logs sit on the outside as plain horizontal buttons on a checked-out folio, not the vertical full-width "More" menu style',
+  src.includes("const main=['fPost','fPay','fAdv','fMove','fInv','fDet','fOut','fBack'].includes(id)||(simple&&['fNot','fLog'].includes(id));"));
+T('opening a checked-out booking\'s folio - from Folio Inquiry, Close Day, or anywhere else - titles the page "Folio Inquiry", not "Billing / Folio"',
+  src.includes("const title=(extra&&extra.status==='out')?'Folio Inquiry':'Billing / Folio';") && src.includes("el.innerHTML=cdBackBar()+pageHead(title,'<div class=\"bsrch\" id=\"bfSearch\"></div>','act')"));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
