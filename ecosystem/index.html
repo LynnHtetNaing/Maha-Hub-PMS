@@ -2827,6 +2827,18 @@ html[data-mode=dark] .fbtn.acc{background:color-mix(in srgb,var(--accent,#176B50
   .eco-shell:not(.is-signin) .eco-mini{min-height:52px;padding:10px 12px;align-items:flex-start}
   .eco-shell:not(.is-signin) .eco-soon{grid-template-columns:1fr 1fr;gap:10px}
 }
+/* Dark-theme fixes: a handful of badges/boxes kept a pale light-mode colour with no dark-mode match, so they showed as
+   a stray white/pastel patch on a dark page (Hotel Setup pages especially: Payment methods, Hotel profile logo, Terms
+   & Conditions, the "Ready"/"Match"/"Active" pills, the card-details box used on Maha Pay and the card-entry forms). */
+html[data-skin="modern"][data-mode=dark] .cbh{color:var(--m-ink)}
+html[data-skin="modern"][data-mode=dark] .payitem.on{border-color:#2f6b47;background:color-mix(in srgb,#16a34a 16%,var(--m-card))}
+html[data-skin="modern"][data-mode=dark] .autoadd{background:#17304f;color:#9cc7f0}
+html[data-skin="modern"][data-mode=dark] .rg{background:#ffffff14;color:var(--m-mut)}
+html[data-skin="modern"][data-mode=dark] .logoprev{background:var(--m-card);border-color:#ffffff22}
+html[data-skin="modern"][data-mode=dark] .tclang .tcprev{color:var(--m-mut)}
+html[data-skin="modern"][data-mode=dark] .pill.g{background:#16a34a33;color:#4ade80}
+html[data-skin="modern"][data-mode=dark] .pst.on{background:#16a34a2e;color:#4ade80}
+html[data-skin="modern"][data-mode=dark] .pst.off{background:#e11d4833;color:#fb7185}
 </style>
 <script>!function(){try{var m=/^#mh=([\w-]+)$/.exec(location.hash);if(m){history.replaceState(null,'',location.pathname+location.search);sessionStorage.setItem('maha.handover',decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))))}}catch(e){}}()</script>
 <script>!function(){try{var m=localStorage.getItem('maha.density');if(m==='compact'){document.documentElement.classList.add('compact');document.documentElement.dataset.density='compact'}else{document.documentElement.dataset.density='comfort'}}catch(e){document.documentElement.dataset.density='comfort'}}()</script>
@@ -9018,7 +9030,10 @@ const TITLE_ICON={
  'direct booking & google':'globe','system rules':'gear','system rules (per hotel)':'gear',
  'distribution (google hotels)':'globe','code catalog (all hotels)':'card','code catalog – all hotels':'card','security center':'lock',
  'backup & migration':'upload','recycle bin':'trash','revenue analysis':'grid','amend records':'detail','amendment log':'log','my account & security':'user',
- 'back to provider console':'left','hotels':'bank','terms & conditions':'card'
+ 'back to provider console':'left','hotels':'bank','terms & conditions':'card',
+ 'hotel profile':'idc','currency, tax & service':'cash','business date & times':'cal','floors':'grid','room types':'copy','rooms':'bed','floor plan':'fit',
+ 'charge codes':'ledger','payment methods':'cardp','companies & agents':'bank','room totals':'xls','registration card & invoice':'card',
+ 'tax invoice reference':'pdf','booking confirmation mail':'mail','review & activate':'play','hotel billing':'cash'
 };
 function titleMark(label){
   const raw=String(label||'');
@@ -10562,7 +10577,7 @@ VIEWS['profile.companies']=el=>{
   ${H.companies.map(c=>`<tr><td class="nowrap">${c.logo?`<img src="${c.logo}" class="chb chblogo" alt="">`:chanBadge(c)}${prov?` <label class="btn sm ghost">${ic('upload',12)}<input type="file" accept="image/*" data-colg="${c.id}" hidden></label>${c.logo?`<button class="btn sm ghost" data-colx="${c.id}">No logo</button>`:''}`:''}</td><td>${c.code}</td><td>${esc(c.name)}</td><td>${c.type==='T'?'(T) Travel agent':'(C) Company'}</td><td>${esc(c.address)}</td><td>${esc(c.taxId)}</td><td>${esc(c.branch)}</td><td>${canSetup?`<input class="cemail" data-coe="${c.id}" value="${esc(c.email||'')}" placeholder="email@company.com">`:esc(c.email||'-')}</td><td class="n">${commPct(c)||'-'}</td><td>${commPct(c)?(commBasis(c)==='net'?'Net':'Gross'):'-'}</td><td class="n">${+c.creditLimit>0?m2(c.creditLimit):'—'}</td><td class="n">${H.reservations.filter(r=>r.companyId===c.id).length}</td>${prov?`<td><button class="btn sm ghost" data-ce="${c.id}">Commission</button></td>`:''}</tr>`).join('')}</table></div>
   <p class="sub">The logo shows here and on the Room Grid, separate from any Payment method logo - its own picture for this company or agent. The email is used to send the City Ledger tax invoice. Credit limit 0 means no limit. A limit blocks a new City Ledger transfer when the open balance would go over it.${prov?' Commission and the way the rate is shown are set here by the provider for this hotel. The user types the rate in the way set here (gross or net, as the agent states it); the system works out the commission and the gross rate.':' Commission is set by the provider.'}</p>
   ${prov?'<div class="panel pad mt" id="coProvFull"></div>':''}`;
-  if(prov)SEC.companies($('#coProvFull',el));
+  if(prov){SEC_BARE=false;SEC.companies($('#coProvFull',el))}
   $$('[data-colg]',el).forEach(inp=>inp.onchange=e=>{const file=e.target.files[0];if(!file)return;if(file.size>2e6){toast('Choose an image under 2 MB.');return}const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
     const c=H.companies.find(x=>x.id===inp.dataset.colg);if(!c)return;c.logo=cv.toDataURL('image/png');log('Logo added for '+c.code);saveDB();render();toast('Logo added')};img.src=rd.result};rd.readAsDataURL(file)});
   $$('[data-colx]',el).forEach(b=>b.onclick=()=>{const c=H.companies.find(x=>x.id===b.dataset.colx);if(!c)return;delete c.logo;log('Logo removed for '+c.code);saveDB();render()});
@@ -10586,7 +10601,7 @@ VIEWS['profile.rates']=el=>{
   ${H.rateCodes.map(r=>`<tr><td><b>${r.code}</b></td><td>${esc(r.desc)}</td><td>${fd(r.valid)}</td><td>${fd(r.until)}</td><td>${r.kind==='zero'?(r.comp==='COMP'?'Complimentary – always 0':'House use – 0 allowed'):r.kind==='amt'?'+'+m2(r.v)+' on base':(r.v>=0?'+':'')+r.v+'% on base'}</td><td>${esc(r.meal)}</td>${H.roomTypes.map(t=>`<td class="n">${m2(rateFor(H,t.code,r.code))}</td>`).join('')}</tr>`).join('')}</table></div>
   <p class="sub">Complimentary rates are always 0. House use can be 0. Every other rate must be at least 1 unit of the currency. All rates are inclusive of service charge ${H.set.svc}% and ${esc(H.set.taxName)} ${H.set.vat}%.</p>
   ${prov?'<div class="panel pad mt" id="rcProv"></div>':''}`;
-  if(prov)SEC.rates($('#rcProv',el));
+  if(prov){SEC_BARE=false;SEC.rates($('#rcProv',el))}
 };
 
 /* ================= Billing / Folio (Section 7) ================= */
@@ -11840,7 +11855,7 @@ VIEWS['set.codes']=el=>{
     rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
       DB.payLogos=DB.payLogos||{};DB.payLogos[code]=cv.toDataURL('image/png');log('Payment logo uploaded for '+code);refresh();toast('Logo saved')};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)});
   $$('[data-lgx]',el).forEach(b=>b.onclick=()=>{if(!need('setup'))return;delete H.set.payLogos[b.dataset.lgx];log('Payment logo removed for '+b.dataset.lgx);refresh()});
-  if(prov){SEC.charges($('#tcProvC',el));SEC.pay($('#tcProvP',el))}
+  if(prov){SEC_BARE=false;SEC.charges($('#tcProvC',el));SEC.pay($('#tcProvP',el))}
 };
 function dummyRoomsHtml(){ensureDummyBooking(H);const rooms=H.rooms.filter(r=>r.dummy);
   return `<div class="panel mt" id="dmBox"><div class="ph">Dummy rooms · rate 0</div>
@@ -11860,7 +11875,7 @@ VIEWS['set.rooms']=el=>{const prov=!!(user().provider||user().isProv);
   <div class="panel"><table class="grid"><tr><th>Room</th><th>Floor</th><th>Type</th><th>Housekeeping</th></tr>${H.rooms.filter(r=>!r.dummy).map(r=>`<tr><td>${r.no}</td><td>${r.floor}</td><td>${r.type}</td><td>${r.ooo?r.ooo.kind:hkShort(r)}</td></tr>`).join('')}</table></div></div>${dummyRoomsHtml()}
   ${prov?'<div class="panel pad mt" id="rmProvT"></div><div class="panel pad mt" id="rmProvR"></div>':''}`;
   bindDummyAdd(el,false);
-  if(prov){SEC.types($('#rmProvT',el));SEC.rooms($('#rmProvR',el))}};
+  if(prov){SEC_BARE=false;SEC.types($('#rmProvT',el));SEC.rooms($('#rmProvR',el))}};
 
 /* ---------- Provider console (2.2, 1.6) ---------- */
 function provLog(a,extra){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H?H.code:'',a,...(extra||{})});try{ALOG.add(H&&DB.session&&DB.session.inHotel?H.code:'',/^Entered hotel|^Left hotel/.test(a)?'Entered a hotel':'Provider console',a)}catch(e){}}
@@ -13242,12 +13257,14 @@ VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
   const paint=()=>{const q=PHQ.trim().toLowerCase(),rows=hs.filter(h=>!q||(h.set.name+' '+h.code).toLowerCase().includes(q));
     $('#phRows',el).innerHTML=rows.length?rows.map((h,i)=>{const ck=propertyChecks(h),done=ck.filter(c=>c.ok).length;
       return `<tr><td>${i+1}</td><td><b>${esc(h.set.name)}</b> <span class="sub">${esc(h.code)} · ${esc(h.set.cur)} · ${esc(planName(h))}</span></td><td><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td><div class="pbar"><i style="width:${ck.length?done/ck.length*100:0}%"></i></div><span class="sub">${done} of ${ck.length}</span></td><td>${fd(h.set.bd)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="nowrap"><button class="btn sm gold" data-open="${h.code}">Open hotel</button>${h.active!==false&&featOn(h,'fn.cd.close')?` <button class="btn sm ghost" data-cd="${h.code}">${ic('log',14)} Close Day</button>`:''}</td></tr>`}).join(''):'<tr><td colspan="8" class="empty">No property matches.</td></tr>';
-    $$('[data-open]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.open];if(!h)return;openHotel(h.code);
+    $$('[data-open]',el).forEach(b=>b.onclick=async()=>{const h=DB.hotels[b.dataset.open];if(!h)return;openHotel(h.code);
       const ck=propertyChecks(h);
       if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}   /* not set up yet: straight to the Backend wizard, one step at a time */
-      const m=modal('Open '+h.code+' — '+esc(h.set.name),`<p class="sub">Choose where to work.</p><div class="btns" style="justify-content:center;gap:16px"><button type="button" class="btn gold" id="ohFront">${mIc('desk')} Frontend</button><button type="button" class="btn" id="ohBack">${mIc('tools')} Backend</button></div>`,{w:420});
-      $('#ohFront',m).onclick=()=>{closeModal(m);enterHotel(h.code)};
-      $('#ohBack',m).onclick=()=>{closeModal(m);enterHotelBackend(h.code)}});
+      DB.session.inHotel=true;DB.session.at=Date.now();setArea('front');saveDB();
+      const a=await selectSystemPage(h,false);SEL_ON=false;   /* the exact same Select System layer a hotel user sees at sign-in */
+      setArea(a);provLog(`Entered hotel ${h.code} (${a==='back'?'Backend':'front office'})`);saveDB();
+      await withLoading(a==='back'?'Opening Backend':'Opening Frontend',1800,async()=>{applySysPath('hub');renderShell();go(a==='back'?firstBackendView():firstHotelView())});
+      toast(`You are in ${h.set.name}${a==='back'?' · Backend':''}. Use the switch icon to move between systems.`)});
     $$('[data-cd]',el).forEach(b=>b.onclick=()=>{enterHotel(b.dataset.cd);go('cd.close')})};
   paint();
   $('#pvNewP',el).onclick=newPropertyForm;
@@ -13345,9 +13362,9 @@ SET_SECTIONS.forEach(([k,num,title])=>{VIEWS['hset.'+k]=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
   if(!H){go('prov.home');return}
   shapeHotel(H);
-  el.innerHTML=pageHead(title)+'<div class="panel pad" id="hsBox"></div>';
-  SEC[k]($('#hsBox',el))}});
-VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
+  el.innerHTML=pageHead(title)+'<div id="hsBox"></div>';
+  SEC_BARE=true;SEC[k]($('#hsBox',el))}});
+VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};SEC_BARE=false;
   el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · property setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
    <div class="su"><nav class="sunav">${SET_SECTIONS.map(s=>{const st=ok(s[0]);return `<button class="${SET_SEC===s[0]?'on':''}" data-sec="${s[0]}"><span class="sun">${s[1]}</span>${s[2]}${st===true?'<i class="ok">✓</i>':st===false?'<i class="no">•</i>':''}</button>`}).join('')}</nav>
    <section class="subody" id="suBody"></section></div>`;
@@ -13357,7 +13374,11 @@ VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>
   const i=SET_SECTIONS.findIndex(s=>s[0]===SET_SEC);box.insertAdjacentHTML('beforeend',`<div class="sunext">${i>0?`<button class="btn ghost" data-go2="${SET_SECTIONS[i-1][0]}">‹ ${esc(SET_SECTIONS[i-1][2])}</button>`:'<span></span>'}${i<SET_SECTIONS.length-1?`<button class="btn" data-go2="${SET_SECTIONS[i+1][0]}">${esc(SET_SECTIONS[i+1][2])} ›</button>`:''}</div>`);
   $$('[data-go2]',box).forEach(b=>b.onclick=()=>{if(SET_SEC==='rooms'&&b.dataset.go2!=='types'&&b.dataset.go2!=='floors'&&!roomTotalsOk(H)){dlgAlert('The rooms do not add up to the total of each room type.\n\n'+roomTotals(H).filter(x=>!x.ok).map(x=>x.code+': '+x.have+' rooms listed, total '+(x.set?x.allot:'not set')).join('\n')+'\n\nCheck the totals in section 5 or the rooms in section 6, then continue.','Room totals');return}SET_SEC=b.dataset.go2;render()});
 };
-const secHead=(t,d)=>`<h2 class="sut">${esc(t)}</h2>${d?`<p class="sub">${d}</p>`:''}`;
+/* SEC_BARE: true when a Hotel Setup section is its own standalone page (hset.*) - the page's own title already
+   shows it, so secHead's repeated numbered heading and blurb would just be a second title. False in the
+   step-by-step wizard (prov.setup), where secHead IS the page's only heading. */
+let SEC_BARE=false;
+const secHead=(t,d)=>SEC_BARE?'':`<h2 class="sut">${esc(t)}</h2>${d?`<p class="sub">${d}</p>`:''}`;
 function saved(msg){try{ulSafety(msg)}catch(e){}saveDB();render();toast(msg||'Saved')}
 /* generic list editor: rows are edited in place; ↑↓ to move; ✕ to delete */
 function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data=JSON.parse(JSON.stringify(rows));
@@ -13528,7 +13549,7 @@ const SEC={
        s.nextInv=Math.max(1,+$('#d_inv',box).value||1)}
      s.gaplessInvoices=(s.invMode==='manual')||$('#d_gl',box).checked;
      provLog(`Tax Invoice Reference saved for ${H.code}: ${s.invMode==='manual'?'Manual '+invManualRef(s.invFmt.prefix,s.invFmt.start,s.invFmt.min)+(s.invFmt.unl?' (unlimited digits)':' (fixed width)'):'Standard'}${s.gaplessInvoices?', gapless':''}`);saved()}},
- terms(box){VIEWS['prov.terms'](box);box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
+ terms(box){VIEWS['prov.terms'](box);if(SEC_BARE){const ph=box.querySelector('.phead');if(ph)ph.remove()}else box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},
  mailpol(box){const s=H.set,p=s.mailPol||{},LM={boxes:8,lines:12,title:60,line:240};
    const lines=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);
    let boxes=(p.boxes&&p.boxes.length?p.boxes:(p.terms?[{title:'Terms and Conditions',text:p.terms}]:[])).map(x=>({title:x.title||'',text:x.text||''}));
@@ -13590,7 +13611,7 @@ VIEWS['prov.google']=el=>{
   if(!DB.session.inHotel&&!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
   if(!H){el.innerHTML=pageHead('Direct booking & Google')+'<div class="empty">Create a property first.</div>';return}
   el.innerHTML=pageHead('Direct booking & Google',provHotelPicker())+`<div id="gBody"></div>`;
-  bindPicker(el);SEC.google($('#gBody',el));
+  bindPicker(el);SEC_BARE=true;SEC.google($('#gBody',el));
 };
 /* All chains with their hotels: create a chain and see who is in it (provider only, cloud) */
 function chainListPanel(el,after){
