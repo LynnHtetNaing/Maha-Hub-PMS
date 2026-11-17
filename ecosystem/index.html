@@ -9547,7 +9547,7 @@ const DOC_VIEW_CSS=".ppage{background:#fff;color:#000;font-family:Inter,\"Noto S
   +"table.cfx td.bl{padding:6px 8px 6px 22px;position:relative}table.cfx td.bl div{margin:4px 0}table.cfx td.bl div::before{content:\"•\";position:absolute;left:8px;color:#0A3020;font-weight:700}"
   +".cfstay{width:100%;border-collapse:collapse;margin:8px 0 12px}.cfstay td{border:1px solid #222;padding:5px 8px;font-size:13px}.cfstay td:first-child{width:34%;font-weight:700;background:#f6f6f6}.cfbody{font-size:13.5px;line-height:1.55;white-space:pre-wrap}"
   +".cfsign{margin-top:18px;font-size:13px}.cfsign b{display:block;margin-top:28px;border-top:1px solid #000;width:220px;padding-top:4px}"
-  +"@media print{.dvbar{display:none}body{background:#fff!important;padding:0!important}}";
+  +"@media print{.dvbar{display:none}body{background:#fff!important;padding:0!important;display:block}.ppage{break-after:page}}";
 /* a shared document is one self-contained page: no other file to load, so the CSS above is copied into it. A floating bar lets the guest print it or save it as a PDF. */
 function docViewHtml(title,bodyHtml){
   return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title>'
@@ -9557,11 +9557,11 @@ function docViewHtml(title,bodyHtml){
    +'<body><div class="dvbar"><span>'+esc(title)+'</span><button type="button" onclick="window.print()">Save as PDF / Print</button></div>'+bodyHtml+'</body></html>';
 }
 /* sends a document already shown in a print preview: a short message and a View button, the document itself opened from a secure link the guest can print or save */
-async function pmsSendDoc(to,subject,title,bodyHtml,rsvn){
+async function pmsSendDoc(to,subject,title,bodyHtml,rsvn,guest,stay){
   try{
     const t=await MahaAuth.fresh();if(!t)return {ok:false,msg:'Sending needs the cloud sign-in. Please sign in again, then try once more.'};
     const res=await fetch(MahaAuth.base()+'/functions/v1/pms-send-mail',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},
-      body:JSON.stringify({property_code:H.code,to,subject:subject||title,doc:{title,html:docViewHtml(title,bodyHtml)},rsvn:rsvn||''})});
+      body:JSON.stringify({property_code:H.code,to,subject:subject||title,doc:{title,html:docViewHtml(title,bodyHtml)},rsvn:rsvn||'',guest:guest||'',stay:stay||null})});
     let d=null;try{d=await res.json()}catch(e){}
     if(!res.ok||!d||d.sent!==1)return {ok:false,msg:BKP_MAIL_ERR[d&&d.error]||'The mail could not be sent. Please try again.'};
     return {ok:true};
@@ -11002,7 +11002,7 @@ function printCreditNote(B,cn,o){if(!need('print'))return;o=o||{};const spec={cr
   const built=moneyDocHtml(B,spec),r=resOf(B),g=G(B.guestId);cn.prints=(cn.prints||0)+1;log('Credit note '+cn.no+' printed RSVN '+r.no,B.id);saveDB();
   /* printing keeps ORIGINAL + COPY (both papers); the mailed copy is just the one COPY - the guest does not need two */
   const mailHtml=spec.copies==='copy'?built.html:moneyDocHtml(B,Object.assign({},spec,{copies:'copy'})).html;
-  printPages(built.html,'Credit note '+cn.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Credit note '+cn.no+' · '+H.set.name,html:mailHtml})}
+  printPages(built.html,'Credit note '+cn.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Credit note '+cn.no+' · '+H.set.name,html:mailHtml,guest:gName(g),stay:{rsvn:r.no,room:B.room||'',arr:fd(B.arr),dep:fd(B.dep)}})}
 const cpEnvOf=B=>({bd:H.set.bd,isLocked,resDate:(resOf(B)||{}).date,shift:curShift(),shifts:H.shifts});
 function psAfterPost(B,cn){if(!cn||!can('print'))return;dlgConfirm(`Credit Note ${cn.no} (${cn.label} ${m2(cn.total)}) is ready.\nPrint it now? It prints two papers: the original and a copy.`,{title:'Credit Note',yes:'Print',no:'Not now'}).then(v=>{if(v)printCreditNote(B,cn)})}
 function psCreditList(B,after){const list=(H.creditNotes||[]).filter(c=>c.bookingId===B.id).slice().reverse();
@@ -11575,7 +11575,7 @@ function printPages(html,title,mail){
     if(!auto){const text=(mail&&mail.body)||((m.querySelector('.ppwrap')&&m.querySelector('.ppwrap').innerText||'').replace(/\n{3,}/g,'\n\n').trim().slice(0,3500));
       prepareMail(Object.assign({doc:title,subject:title+' · '+((H&&H.set&&H.set.name)||''),body:text},mail||{}));return}
     const btn=$('#ppM',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Sending...';
-    const res=await pmsSendDoc(mail.to,mail.subject||(title+' · '+H.set.name),title,mail.html||html,mail.rsvn||'');
+    const res=await pmsSendDoc(mail.to,mail.subject||(title+' · '+H.set.name),title,mail.html||html,mail.rsvn||'',mail.guest||'',mail.stay||null);
     btn.disabled=false;btn.innerHTML=lbl;
     if(!res.ok){toast(res.msg);return}
     try{log('Emailed '+title+' to '+mail.to)}catch(e){}
@@ -11694,7 +11694,7 @@ function openMoneyDoc(B,spec,title){const built=moneyDocHtml(B,spec);const r=res
   log(title+' RSVN '+r.no,B.id);saveDB();
   /* printing keeps ORIGINAL + COPY (both papers); the mailed copy is just the one COPY - the guest does not need two */
   const mailHtml=spec.copies==='copy'?built.html:moneyDocHtml(B,Object.assign({},spec,{copies:'copy'})).html;
-  printPages(built.html,title,{to:r.email||g.email||'',rsvn:r.no,subject:title+' · '+H.set.name,html:mailHtml})}
+  printPages(built.html,title,{to:r.email||g.email||'',rsvn:r.no,subject:title+' · '+H.set.name,html:mailHtml,guest:gName(g),stay:{rsvn:r.no,room:B.room||'',arr:fd(B.arr),dep:fd(B.dep)}})}
 function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line);spec.billTo=billTo;spec.other=other;spec.copies=copies||'both';spec.guest=false;
   if(gaplessOn(H)&&!invoiceExists(H,B,spec.key)){reserveInvoice(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio).then(()=>printReceipt(B,line,billTo,other,copies),e=>toast(gaplessMsg(e)));return}
   spec.inv=taxInvoiceFor(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio);
@@ -11729,7 +11729,7 @@ function printDeposit(B){if(!need('print'))return;const seen=new Set(),lines=[];
     const html=specs.map(spec=>moneyDocHtml(B,spec).html).join('');
     /* printing keeps whatever Original/Copy choice was made above; the mailed copy is just the one COPY - the guest does not need two */
     const mailHtml=o.copies==='copy'?html:specs.map(spec=>moneyDocHtml(B,Object.assign({},spec,{copies:'copy'})).html).join('');
-    const r=resOf(B),g=G(B.guestId);log('Printed reservation deposit RSVN '+r.no,B.id);saveDB();printPages(html,'Reservation deposit RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Reservation deposit '+r.no+' · '+H.set.name,html:mailHtml})};
+    const r=resOf(B),g=G(B.guestId);log('Printed reservation deposit RSVN '+r.no,B.id);saveDB();printPages(html,'Reservation deposit RSVN '+r.no,{to:r.email||g.email||'',rsvn:r.no,subject:'Reservation deposit '+r.no+' · '+H.set.name,html:mailHtml,guest:gName(g),stay:{rsvn:r.no,room:B.room||'',arr:fd(B.arr),dep:fd(B.dep)}})};
     if(gaplessOn(H)){const miss=lines.filter(l=>!invoiceExists(H,B,receiptSpec(B,l).key));if(miss.length){(async()=>{try{for(const l of miss){const sp=receiptSpec(B,l);await reserveInvoice(B,sp.key,sp.base,o.bill,4)}}catch(e){toast(gaplessMsg(e));return}run()})();return}}
     run()}}
 
