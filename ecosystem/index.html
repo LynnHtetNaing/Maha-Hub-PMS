@@ -11881,12 +11881,34 @@ function provSubCard(box,h){
   const state=h.set.subRevokedAt&&Date.now()>=h.set.subRevokedAt?'Revoked: the hotel is stopped':!sd?'No date set (no limit)':stopped?'Ended: the hotel is stopped':n<0?'Ended: stops at 06:00 tomorrow':n===0?'Ends today (stops 06:00 tomorrow)':n+' day'+(n===1?'':'s')+' left';
   box.innerHTML=`<h3>Hotel subscription</h3><p class="sub">The whole hotel account. Warning starts 10 days before; the hotel stops at 06:00 the morning after the date.</p><p style="margin:0 0 10px">Valid until <b>${sd?fd(sd):'-'}</b> &middot; <span class="${stopped?'hs2-bad':'hs2-ok'}">${esc(state)}</span></p>
     <div class="btns" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 8px"><button type="button" class="btn sm ghost" data-pbe="1">+1 month</button><button type="button" class="btn sm ghost" data-pbe="3">+3 months</button><button type="button" class="btn sm ghost" data-pbe="6">+6 months</button><button type="button" class="btn sm ghost" data-pbe="12">+1 year</button><button type="button" class="btn sm red" id="pbRev">Revoke now</button></div>
-    <div class="btns" style="justify-content:flex-start;align-items:center;gap:8px"><input type="date" id="pbD" value="${esc(sd||'')}" style="max-width:170px"><button type="button" class="btn sm gold" id="pbSave">Save date</button><button type="button" class="btn sm ghost" id="pbClr">Clear date</button></div>`;
+    <div class="btns" style="justify-content:flex-start;align-items:center;gap:8px"><input type="date" id="pbD" value="${esc(sd||'')}" style="max-width:170px"><button type="button" class="btn sm gold" id="pbSave">Save date</button><button type="button" class="btn sm ghost" id="pbClr">Clear date</button></div>
+    <label class="chk mt"><input type="checkbox" id="pbRecChg" ${h.set.recurringCharge?'checked':''}> Recurring charge - ${HOTEL_WARN_DAYS} days before this date, auto-create the next invoice so the hotel can Pay with Maha Pay itself. Never charges a card by itself.</label>`;
   const done=(msg)=>{saveDB();render();toast(msg)};
   $$('[data-pbe]',box).forEach(b=>b.onclick=()=>{const base=h.set.subUntil&&h.set.subUntil>iso(new Date())?P(h.set.subUntil):P(iso(new Date()));base.setMonth(base.getMonth()+(+b.dataset.pbe));const v=iso(base);h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' extended to '+fd(v));done(h.code+' subscription extended to '+fd(v)+'.')});
   $('#pbRev',box).onclick=async()=>{if(!await dlgConfirm('Revoke the subscription of '+h.code+' now? Its staff are stopped at once.'))return;h.set.subUntil=addD(iso(new Date()),-1);h.set.subRevokedAt=Date.now();provLog('Subscription of hotel '+h.code+' revoked (stopped now)');done(h.code+' subscription revoked.')};
   $('#pbSave',box).onclick=()=>{const v=$('#pbD',box).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));done(h.code+' subscription is valid until '+fd(v)+'.')};
-  $('#pbClr',box).onclick=()=>{if(!h.set.subUntil&&!h.set.subRevokedAt)return;delete h.set.subUntil;delete h.set.subRevokedAt;provLog('Subscription date cleared for hotel '+h.code);done('Subscription date cleared for '+h.code+'.')}}
+  $('#pbClr',box).onclick=()=>{if(!h.set.subUntil&&!h.set.subRevokedAt)return;delete h.set.subUntil;delete h.set.subRevokedAt;provLog('Subscription date cleared for hotel '+h.code);done('Subscription date cleared for '+h.code+'.')};
+  $('#pbRecChg',box).onchange=()=>{h.set.recurringCharge=$('#pbRecChg',box).checked;if(!h.set.recurringCharge)delete h.set.recurringInvoicedFor;provLog('Recurring charge turned '+(h.set.recurringCharge?'on':'off')+' for hotel '+h.code);saveDB();toast(h.set.recurringCharge?'Recurring charge is on.':'Recurring charge is off.');if(h.set.recurringCharge)recurringAutoInvoice(h)}}
+/* Recurring charge: when on, HOTEL_WARN_DAYS before a hotel's subscription date, auto-create the next open invoice
+   (same amount/currency as its last subscription) so the hotel can press "Pay with Maha Pay" itself on sbill.invoices -
+   never an automatic charge. recurringInvoicedFor remembers the subUntil it already made one for, so it only runs once
+   per expiry date. */
+async function recurringAutoInvoice(h){
+  if(!h||!h.set||!h.set.recurringCharge||!h.set.subUntil||!MahaAuth.on())return;
+  if(h.set.recurringInvoicedFor===h.set.subUntil)return;
+  const days=diff(iso(new Date()),h.set.subUntil);
+  if(!(days>=0&&days<=HOTEL_WARN_DAYS))return;
+  try{
+    const ctx=await provBillCtx(h);
+    const no='AUTO-'+h.code+'-'+h.set.subUntil.replace(/-/g,'');
+    const dup=await ctx.call('maha_billing_docs?select=id&property_id=eq.'+ctx.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(no));
+    if(dup&&dup.length){h.set.recurringInvoicedFor=h.set.subUntil;saveDB();return}
+    const subs=await ctx.call('maha_billing_docs?select=amount,currency&property_id=eq.'+ctx.pid+'&kind=eq.subscription&order=period_to.desc&limit=1');
+    const basis=(subs&&subs[0])||{amount:0,currency:h.set.cur||'USD'};
+    await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify({property_id:ctx.pid,kind:'invoice',no,doc_date:iso(new Date()),due_date:h.set.subUntil,amount:basis.amount,currency:(basis.currency||'USD').toUpperCase(),status:'open',note:'Recurring charge - renewal due '+fd(h.set.subUntil)})});
+    h.set.recurringInvoicedFor=h.set.subUntil;provLog('Recurring charge: invoice '+no+' auto-created for hotel '+h.code);saveDB()
+  }catch(e){}
+}
 function provBillFiles(h,ctx,row,after){
   const m=modal('Files – '+esc(row.no),'<div id="bfBody"></div>',{w:640});
   const kb=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
@@ -11944,7 +11966,7 @@ async function provBillRecords(box,h){
 VIEWS['prov.billing']=el=>{
   const h=H;if(!h){go('prov.home');return}
   el.innerHTML=pageHead('Hotel Billing',provHotelPicker())+`<div class="cols2" style="grid-template-columns:minmax(260px,320px) minmax(0,1fr)"><div class="panel pad" id="pbSub"></div><div class="panel pad" id="pbUsr"></div></div><div class="panel pad mt" id="pbRec"></div>`;
-  bindPicker(el);provSubCard($('#pbSub',el),h);userAccessAdmin(h,$('#pbUsr',el));provBillRecords($('#pbRec',el),h)};
+  bindPicker(el);provSubCard($('#pbSub',el),h);userAccessAdmin(h,$('#pbUsr',el));provBillRecords($('#pbRec',el),h);recurringAutoInvoice(h)};
 VIEWS['prov.hotels']=el=>{
   el.innerHTML=pageHead('Hotels',`<button class="btn gold" id="pvNew">Add hotel</button>`)+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Subscription until</th><th>Currency</th><th>Business date</th><th>Locked through</th><th class="n">Rooms</th><th class="n">Staff</th><th class="n">Open shifts</th><th></th></tr>
    ${Object.values(DB.hotels).map(h=>`<tr class="${h===H?'on':''}"><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst  ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.subUntil?(()=>{const n=diff(iso(new Date()),h.set.subUntil);return fd(h.set.subUntil)+` <span class="sub" ${n<=7?'style="color:#b3261e"':''}>(${n<0?'ended':n+' d'})</span>`})():'<span class="sub">Not set</span>'}</td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="n">${h.shifts.filter(s=>s.status==='open').length}</td>
@@ -11979,6 +12001,7 @@ VIEWS['prov.hotels']=el=>{
     setTimeout(()=>{document.addEventListener('pointerdown',out,true);document.addEventListener('keydown',esc2,true);window.addEventListener('scroll',sc,true)},0);
     $$('[data-i]',menu).forEach(mi=>mi.onclick=()=>{close();src[+mi.dataset.i].click()})});
   if(MahaAuth.on())ChainInfo.load().then(info=>$$('[data-chain]',el).forEach(td=>{const c=chainOfHotel(info,td.dataset.chain);td.textContent=c?chainLabel(c):'-'}),()=>{})
+  Object.values(DB.hotels).forEach(h2=>recurringAutoInvoice(h2));
   $('#pvNew',el).onclick=()=>{if(MahaAuth.on()){newPropertyForm();return}const m=modal('Add hotel',`<div class="form2">${fld('Hotel code',`<input id="nhC" placeholder="e.g. BKK02" autofocus>`)}${fld('Hotel name',`<input id="nhN">`)}${fld('Currency',`<select id="nhCur">${opt('THB')}${opt('MMK')}${opt('USD')}</select>`)}${fld('Country',`<input id="nhCo" value="Thailand">`)}
     ${fld('Service charge %',`<input type="number" id="nhS" value="10">`)}${fld('Tax %',`<input type="number" id="nhV" value="7">`)}${fld('Owner username (unique across all hotels)',`<input id="nhU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${fld('Owner password',`<input id="nhP" type="text" value="">`)}</div><div class="err" id="nhE"></div><div class="btns"><button class="btn gold" id="nhS2">Create hotel</button></div>`,{w:620});
     $('#nhS2',m).onclick=()=>{const c=$('#nhC',m).value.trim().toUpperCase(),n=$('#nhN',m).value.trim(),pw=$('#nhP',m).value;if(!/^[A-Z0-9]{3,8}$/.test(c)){$('#nhE',m).textContent='Hotel code: 3 to 8 letters or numbers.';return}if(DB.hotels[c]){$('#nhE',m).textContent='This hotel code is already used.';return}if(!n){$('#nhE',m).textContent='Enter the hotel name.';return}if(pw.length<8){$('#nhE',m).textContent='The owner password needs at least 8 characters.';return}const ou=$('#nhU',m).value.trim().toLowerCase();if(!/^[a-z0-9._-]{3,20}$/.test(ou)){$('#nhE',m).textContent='Owner username: 3 to 20 letters, numbers, dot, dash or underscore.';return}if(usernameTaken(ou)){$('#nhE',m).textContent='This username is already used in another hotel. Usernames must be unique across all hotels.';return}
