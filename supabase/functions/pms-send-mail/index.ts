@@ -38,19 +38,52 @@ const json = (req: Request, body: unknown, status = 200) =>
 const validEmail = (s: unknown): s is string => typeof s === "string" && s.length <= 254 && /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(s);
 const clip = (s: unknown, n: number) => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").slice(0, n);
 const HOURLY_LIMIT = 40;
-const DOC_HTML_MAX = 600_000;   // the shared-document table accepts up to 6,000,000; one document stays far under that
+// A Tax Invoice / Credit Note / Deposit page embeds the hotel's own logo (a data: image) once per printed page, and a
+// multi-page, ORIGINAL+COPY document repeats it several times, so this needs real headroom above a short mail's size.
+// The shared-document table accepts up to 6,000,000; this stays comfortably under that.
+const DOC_HTML_MAX = 3_000_000;
 
-/* the short branded mail for a document link: Maha Hub header, the hotel's name, one line, a View button */
-function docMailHtml(hotelName: string, docTitle: string, link: string): string {
+type Stay = { rsvn: string; room: string; arr: string; dep: string };
+
+/* the guest's own reservation facts sent along with a document (Tax Invoice, Credit Note, Deposit, Guest Folio): all optional, never trusted beyond a short clip */
+function cleanStay(s: unknown): Stay | null {
+  if (!s || typeof s !== "object") return null;
+  const o = s as Record<string, unknown>;
+  const rsvn = clip(o.rsvn, 40).trim(), room = clip(o.room, 20).trim(), arr = clip(o.arr, 40).trim(), dep = clip(o.dep, 40).trim();
+  if (!rsvn && !room && !arr && !dep) return null;
+  return { rsvn, room, arr, dep };
+}
+/* the guest-facing heading: a Guest Folio's title carries an internal " · folio N" suffix meant for the PMS screen, not the guest, so it is dropped here only -
+   the document itself (its own printed heading) and the subject's own fallback keep the full title */
+const mailHeadingOf = (docTitle: string): string => docTitle.replace(/\s*·\s*folio\s*\d+\s*$/i, "").trim() || docTitle;
+
+/* the short branded mail for a document link: Maha Hub header and logo, a greeting and thank-you on the hotel's behalf, the reservation's own
+   details (not an internal folio number) when given, and a rounded (not pill-shaped) View button */
+function docMailHtml(hotelName: string, docTitle: string, link: string, guestName: string, stay: Stay | null): string {
   const FOREST = "#0A3020", GOLD = "#D49A38", INK = "#1f2d36", MUTED = "#5b6a73";
+  const LOGO = "https://maha-hub.com/brand/maha/gate-gold.png";
+  const heading = mailHeadingOf(docTitle);
+  const greet = guestName ? `Dear ${esc(guestName)},` : "Dear Guest,";
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:8px 14px;background:#f7f9f8;font-size:12.5px;color:${MUTED};border-bottom:1px solid #eef1ef;white-space:nowrap">${esc(label)}</td><td style="padding:8px 14px;font-size:13.5px;font-weight:600;border-bottom:1px solid #eef1ef">${esc(value)}</td></tr>`;
+  const rows = stay ? [
+    stay.rsvn ? row("Reservation No.", stay.rsvn) : "",
+    stay.room ? row("Room", stay.room) : "",
+    (stay.arr || stay.dep) ? row("Stay", [stay.arr, stay.dep].filter(Boolean).join(" – ")) : "",
+  ].filter(Boolean).join("") : "";
+  const stayBox = rows ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 20px;border:1px solid #e3e8e5;border-radius:10px;overflow:hidden">${rows}</table>` : "";
   return `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#eef2f0;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:${INK}">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2f0"><tr><td align="center" style="padding:20px 10px">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden">
-<tr><td style="background:${FOREST};padding:18px 28px;color:#fff;font-weight:bold;font-size:18px;letter-spacing:2px">MAHA HUB</td></tr>
-<tr><td style="padding:26px 28px"><div style="font-size:18px;font-weight:bold;color:${FOREST};margin-bottom:10px">${esc(docTitle)}</div>
-<p style="margin:0 0 20px;color:${INK}">Please find your ${esc(docTitle).toLowerCase()} from ${esc(hotelName)} using the link below. You can view, print or save it.</p>
-<a href="${esc(link)}" target="_blank" style="display:inline-block;padding:12px 24px;border-radius:999px;font-weight:bold;font-size:14px;text-decoration:none;background:${GOLD};color:#1a272f">View ${esc(docTitle)}</a>
-<p style="margin:22px 0 0;color:${MUTED};font-size:13px">If the button does not work, copy this link into your browser:<br>${esc(link)}</p></td></tr>
+<tr><td style="background:${FOREST};padding:16px 28px"><img src="${LOGO}" width="26" height="26" alt="" style="vertical-align:middle;margin-right:10px;border-radius:6px"><span style="vertical-align:middle;color:#fff;font-weight:bold;font-size:18px;letter-spacing:2px">MAHA HUB</span></td></tr>
+<tr><td style="padding:26px 28px">
+<p style="margin:0 0 4px">${greet}</p>
+<p style="margin:0 0 18px;color:${INK}">Thank you for staying with <b>${esc(hotelName)}</b>. Please find your ${esc(heading).toLowerCase()} below.</p>
+${stayBox}
+<a href="${esc(link)}" target="_blank" style="display:inline-block;padding:12px 24px;border-radius:10px;font-weight:bold;font-size:14px;text-decoration:none;background:${GOLD};color:#1a272f">View ${esc(heading)}</a>
+<p style="margin:22px 0 0;color:${MUTED};font-size:13px">If the button does not work, copy this link into your browser:<br>${esc(link)}</p>
+<p style="margin:22px 0 0;color:${INK}">We hope to welcome you back again soon.<br>${esc(hotelName)}</p>
+</td></tr>
 <tr><td style="background:#faf5ec;padding:14px 28px;color:#7a7468;font-size:12px">This is an automatic message from Maha Hub on behalf of ${esc(hotelName)}. Please do not reply to it.</td></tr>
 </table></td></tr></table></body></html>`;
 }
@@ -102,15 +135,24 @@ const handle = async (req: Request): Promise<Response> => {
   if (b.doc && typeof b.doc === "object") {
     const docTitle = clip(b.doc.title, 160).trim() || "Document";
     const docHtml = String(b.doc.html || "");
-    if (!docHtml.trim() || docHtml.length > DOC_HTML_MAX) return json(req, { error: "bad_request" }, 400);
+    if (!docHtml.trim()) return json(req, { error: "bad_request" }, 400);
+    if (docHtml.length > DOC_HTML_MAX) return json(req, { error: "doc_too_large" }, 413);
     const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
     const { error: insErr } = await admin.from("maha_shared_docs").insert({ token, title: docTitle, html: docHtml, created_by: u.user.id });
     if (insErr) { await send(clip(b.subject, 200).trim() || docTitle, "", "", docTitle); return json(req, { error: "send_failed" }, 502); }
     const link = (Deno.env.get("PMS_DOC_BASE") || "https://crm.maha-hub.com/d/") + token;
     const hotelName = clip(prop.name, 120) || "Your hotel";
-    const subject = clip(b.subject, 200).trim() || (docTitle + " from " + hotelName);
-    const ok = await send(subject, docMailHtml(hotelName, docTitle, link),
-      `${hotelName}\n\nPlease find your ${docTitle.toLowerCase()} using the link below. You can view, print or save it.\n\n${docTitle}: ${link}\n\nThis is an automatic message from Maha Hub on behalf of ${hotelName}. Please do not reply to it.`, docTitle);
+    const guest = clip(b.guest, 120).trim(), stay = cleanStay(b.stay);
+    const heading = mailHeadingOf(docTitle);
+    const subject = clip(b.subject, 200).trim() || (heading + " from " + hotelName);
+    const greetLine = guest ? `Dear ${guest},` : "Dear Guest,";
+    const stayLines = stay ? [
+      stay.rsvn ? `Reservation No.: ${stay.rsvn}` : "",
+      stay.room ? `Room: ${stay.room}` : "",
+      (stay.arr || stay.dep) ? `Stay: ${[stay.arr, stay.dep].filter(Boolean).join(" - ")}` : "",
+    ].filter(Boolean).join("\n") + "\n\n" : "";
+    const ok = await send(subject, docMailHtml(hotelName, docTitle, link, guest, stay),
+      `${greetLine}\n\nThank you for staying with ${hotelName}. Please find your ${heading.toLowerCase()} using the link below. You can view, print or save it.\n\n${stayLines}${heading}: ${link}\n\nWe hope to welcome you back again soon.\n${hotelName}\n\nThis is an automatic message from Maha Hub on behalf of ${hotelName}. Please do not reply to it.`, docTitle);
     if (!ok) return json(req, { error: "send_failed" }, 502);
     return json(req, { sent: 1, link });
   }
