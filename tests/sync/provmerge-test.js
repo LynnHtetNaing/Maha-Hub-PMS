@@ -90,9 +90,12 @@ T('every Hotel Setup subtitle and the rest of the Provider group get a real side
     .every(k => new RegExp("'"+k.replace('.','\\.')+"':'\\w+'").test(src)) &&
   ["'Hotels':'building'","'Whole system':'layers'","'Team & records':'users'","'Account':'user'","'Hotel':'building'","'Connections':'swap'","'Records':'clip'","'Hotel Setup':'building'"].every(f => src.includes(f)));
 
-T('Company / Agency logos come first on the page, above the long company/channel list, so adding or changing a logo is not buried below 20+ rows',
-  src.includes("const logoBox=document.createElement('div');logoBox.className='panel pad';box.appendChild(logoBox);") &&
-  src.indexOf("const logoBox=document.createElement('div');logoBox.className='panel pad';box.appendChild(logoBox);") < src.indexOf("box.insertAdjacentHTML('beforeend','<h3 class=\"mt\">All companies &amp; agents</h3>');"));
+T('Company / Agency logos are a column right in the one All companies & agents list (no separate table above it any more) - Credit limit was dropped to make room, and listEditor gained a reusable "logo" column type (upload/remove, saved at once, not waiting for the main Save button) for this',
+  !src.includes("const logoBox=document.createElement('div')") && !src.includes('Company / Agency logos</h3>') &&
+  src.includes("{k:'logo',h:'Logo',type:'logo',") && !src.includes("{k:'creditLimit',h:'Credit limit',type:'number',w:'110px'}") &&
+  src.includes("c.type==='logo'?`<div class=\"row gap\" style=\"align-items:center\">${r[c.k]?`<img src=\"${r[c.k]}\" class=\"chb chblogo\" alt=\"\">`:''}<label class=\"btn sm ghost\">${ic('upload',12)}<input type=\"file\" accept=\"image/*\" data-logoup=\"${i}\" data-logok=\"${c.k}\" hidden></label>") &&
+  src.includes("onUpload:(r,url)=>{const c=H.companies.find(x=>x.id===r.id);if(!c){toast('Save this row first, then add its logo.');return false}c.logo=url;") &&
+  src.includes("onRemove:r=>{const c=H.companies.find(x=>x.id===r.id);if(!c)return;delete c.logo;"));
 
 T('the Non-VAT toggle (Charge codes) gets a real dark-mode colour instead of staying light-mode white',
   src.includes('html[data-skin="modern"][data-mode=dark] .tog{background:color-mix(in srgb,var(--a1) 8%,var(--m-card));color:var(--m-ink);border-color:#ffffff22}'));
