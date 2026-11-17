@@ -9,6 +9,8 @@ const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n); if (!ok) fails
 
 T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.includes("VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);") && src.includes('<table class="grid"><tr><th>No.</th><th>Property name</th><th>Status</th><th>Setup</th><th>Business date</th>') && !src.includes("class=\"pgrid") && !src.includes('class="pcard"'));
 T('Hotels home keeps a search box and the same actions (Open hotel, Close Day)', src.includes('id="phQ"') && src.includes('data-open="${h.code}">Open hotel</button>') && src.includes("${h.active!==false&&featOn(h,'fn.cd.close')?` <button class=\"btn sm ghost\" data-cd=\"${h.code}\">"));
+T('Open hotel on an unfinished property goes straight to the Backend wizard (one step at a time, as before); a fully set-up property instead asks Frontend or Backend',
+  src.includes('const ck=propertyChecks(h);') && src.includes("if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}") && src.includes("$('#ohFront',m).onclick=()=>{closeModal(m);enterHotel(h.code)};") && src.includes("$('#ohBack',m).onclick=()=>{closeModal(m);SET_SEC='profile';go('prov.setup')}"));
 
 T('Rate Codes: the hotel\'s own read-only table is unchanged; the provider additionally gets the real rate-code editor (SEC.rates) on the same page',
   src.includes("VIEWS['profile.rates']=el=>{\n  const prov=!!(user().provider||user().isProv);") && src.includes("${prov?'<div class=\"panel pad mt\" id=\"rcProv\"></div>':''}") && src.includes("if(prov)SEC.rates($('#rcProv',el));"));

@@ -13544,7 +13544,12 @@ VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
   const paint=()=>{const q=PHQ.trim().toLowerCase(),rows=hs.filter(h=>!q||(h.set.name+' '+h.code).toLowerCase().includes(q));
     $('#phRows',el).innerHTML=rows.length?rows.map((h,i)=>{const ck=propertyChecks(h),done=ck.filter(c=>c.ok).length;
       return `<tr><td>${i+1}</td><td><b>${esc(h.set.name)}</b> <span class="sub">${esc(h.code)} · ${esc(h.set.cur)} · ${esc(planName(h))}</span></td><td><span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td><div class="pbar"><i style="width:${ck.length?done/ck.length*100:0}%"></i></div><span class="sub">${done} of ${ck.length}</span></td><td>${fd(h.set.bd)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td><td class="nowrap"><button class="btn sm gold" data-open="${h.code}">Open hotel</button>${h.active!==false&&featOn(h,'fn.cd.close')?` <button class="btn sm ghost" data-cd="${h.code}">${ic('log',14)} Close Day</button>`:''}</td></tr>`}).join(''):'<tr><td colspan="8" class="empty">No property matches.</td></tr>';
-    $$('[data-open]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.open);SET_SEC='profile';go('prov.setup')});
+    $$('[data-open]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.open];if(!h)return;openHotel(h.code);
+      const ck=propertyChecks(h);
+      if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}   /* not set up yet: straight to the Backend wizard, one step at a time */
+      const m=modal('Open '+h.code+' — '+esc(h.set.name),`<p class="sub">Choose where to work.</p><div class="btns" style="justify-content:center;gap:16px"><button type="button" class="btn gold" id="ohFront">${mIc('desk')} Frontend</button><button type="button" class="btn" id="ohBack">${mIc('tools')} Backend</button></div>`,{w:420});
+      $('#ohFront',m).onclick=()=>{closeModal(m);enterHotel(h.code)};
+      $('#ohBack',m).onclick=()=>{closeModal(m);SET_SEC='profile';go('prov.setup')}});
     $$('[data-cd]',el).forEach(b=>b.onclick=()=>{enterHotel(b.dataset.cd);go('cd.close')})};
   paint();
   $('#pvNewP',el).onclick=newPropertyForm;
