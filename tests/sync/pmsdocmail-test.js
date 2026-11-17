@@ -51,4 +51,6 @@ T('the Reservation Deposit print keeps whichever Original/Copy choice was picked
   /const mailHtml=o\.copies==='copy'\?html:specs\.map\(spec=>moneyDocHtml\(B,Object\.assign\(\{\},spec,\{copies:'copy'\}\)\)\.html\)\.join\(''\);/.test(pms) && (pms.match(/taxInvoiceFor\(B,spec\.key,spec\.base,o\.bill,4\)/g) || []).length === 1 && pms.includes("html:mailHtml,guest:gName(g),stay:{rsvn:r.no,room:B.room||'',arr:fd(B.arr),dep:fd(B.dep)}}"));
 T('the shared document view page breaks cleanly between its printed pages instead of running on as one continuous page when printed or saved as PDF',
   pms.includes('@media print{.dvbar{display:none}body{background:#fff!important;padding:0!important;display:block}.ppage{break-after:page}}'));
+T('each printed page in the shared document view is exactly 210x297mm including its own padding (border-box), so the break-after does not add a blank extra page from the padding pushing it past one physical A4 sheet',
+  pms.includes('const DOC_VIEW_CSS="*{box-sizing:border-box}.ppage{'));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
