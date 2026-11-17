@@ -9,6 +9,15 @@ const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n); if (!ok) fails
 
 T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.includes("VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);") && src.includes('<table class="grid"><tr><th>No.</th><th>Property name</th><th>Status</th><th>Setup</th><th>Business date</th>') && !src.includes("class=\"pgrid") && !src.includes('class="pcard"'));
 T('Hotels home keeps a search box and the same actions (Open hotel, Close Day)', src.includes('id="phQ"') && src.includes('data-open="${h.code}">Open hotel</button>') && src.includes("${h.active!==false&&featOn(h,'fn.cd.close')?` <button class=\"btn sm ghost\" data-cd=\"${h.code}\">"));
+T('Open hotel on an unfinished property goes straight to the Backend wizard (one step at a time, as before); a fully set-up property instead asks Frontend or Backend, and Backend there means the real, merged Backend',
+  src.includes('const ck=propertyChecks(h);') && src.includes("if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}") && src.includes("$('#ohFront',m).onclick=()=>{closeModal(m);enterHotel(h.code)};") && src.includes("$('#ohBack',m).onclick=()=>{closeModal(m);enterHotelBackend(h.code)}"));
+T('a provider inside a hotel gets the exact same Frontend/Backend split a manager gets: Backend is the real, merged Backend menu plus the provider\'s own extra items (admin-only, never in Frontend); hasBackend only switches on for a provider while inside a hotel',
+  src.includes("function hasBackend(){try{return !!(DB&&DB.session&&H&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}") &&
+  src.includes("if(!se.inHotel)return base;") && src.includes("return curArea()==='back'?BACKEND_MENU().concat([PROV_HOTEL_GROUP]):base.filter(m=>m.t!=='Setup')}") &&
+  src.includes("function enterHotelBackend(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('back');provLog(`Entered hotel ${code} (Backend)`);saveDB();applySysPath('hub');renderShell();go(firstBackendView());"));
+T('the raw menu computation and the sidebar nav both stopped hard-coding the provider\'s extra items onto every area - areaMenu alone decides when they show',
+  src.includes("const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;") &&
+  src.includes("const src=areaMenu(DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU);"));
 
 T('Rate Codes: the hotel\'s own read-only table is unchanged; the provider additionally gets the real rate-code editor (SEC.rates) on the same page',
   src.includes("VIEWS['profile.rates']=el=>{\n  const prov=!!(user().provider||user().isProv);") && src.includes("${prov?'<div class=\"panel pad mt\" id=\"rcProv\"></div>':''}") && src.includes("if(prov)SEC.rates($('#rcProv',el));"));
