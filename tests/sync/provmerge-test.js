@@ -17,7 +17,7 @@ T('Open hotel on an unfinished property goes straight to the Backend wizard (one
 T('a provider inside a hotel gets the exact same Frontend/Backend split a manager gets, but admin\'s own Backend is built fresh from the Provider Console\'s own sections (Hotel Setup, one subtitle per section), not the hotel-staff\'s merged Backend menu; hasBackend only switches on for a provider while inside a hotel',
   src.includes("function hasBackend(){try{return !!(DB&&DB.session&&H&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}") &&
   src.includes("if(!se.inHotel)return base;") && src.includes("return curArea()==='back'?ADMIN_BACKEND_MENU():base.filter(m=>m.t!=='Setup')}") &&
-  src.includes("function ADMIN_BACKEND_MENU(){") && src.includes("{t:'Hotel Setup',items:SET_SECTIONS.map(([k,num,title])=>[title,'hset.'+k])}") &&
+  src.includes("function ADMIN_BACKEND_MENU(){") && src.includes("{t:'Hotel Setup',items:SET_SECTIONS.filter(([k])=>k!=='allot').map(([k,num,title])=>[title,'hset.'+k])}") &&
   src.includes("function enterHotelBackend(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('back');provLog(`Entered hotel ${code} (Backend)`);saveDB();applySysPath('hub');renderShell();go(firstBackendView());"));
 T('the raw menu computation and the sidebar nav both stopped hard-coding the provider\'s extra items onto every area - areaMenu alone decides when they show',
   src.includes("const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;") &&
@@ -81,5 +81,27 @@ T('Modern is the only design left - no Classic choice anywhere: skinIsModern is 
 
 T('the Provider Console now renders with the Modern sidebar shell even with no hotel open at all (a brand-new provider, or any whole-system page) - the sidebar shows "Provider console" / "Maha Hub" instead of crashing on a missing H',
   src.includes("<div class=\"msb-prop\"><small>${H?'Current property':'Provider console'}</small><b>${H?esc(H.set.name):'Maha Hub'}</b>${H?'<button type=\"button\" class=\"msb-chain\" id=\"msbChain\" hidden>Your Chain Hotels</button>':''}</div>"));
+
+T('every Hotel Setup subtitle and the rest of the Provider group get a real sidebar icon (MV_ICON) instead of the same generic folder, and the group headers (Hotel Setup, Hotels, Whole system, Team & records, Account, Hotel, Connections, Records) do too (MG_ICON)',
+  ['hset.profile','hset.tax','hset.bd','hset.floors','hset.types','hset.rooms','hset.plan','hset.rates','hset.charges','hset.pay','hset.companies','hset.allot','hset.docs','hset.tiref','hset.terms','hset.mailpol','hset.activate','prov.google','prov.stripe','prov.amend']
+    .every(k => new RegExp("'"+k.replace('.','\\.')+"':'\\w+'").test(src)) &&
+  ["'Hotels':'building'","'Whole system':'layers'","'Team & records':'users'","'Account':'user'","'Hotel':'building'","'Connections':'swap'","'Records':'clip'","'Hotel Setup':'building'"].every(f => src.includes(f)));
+
+T('Company / Agency logos come first on the page, above the long company/channel list, so adding or changing a logo is not buried below 20+ rows',
+  src.includes("const logoBox=document.createElement('div');logoBox.className='panel pad';box.appendChild(logoBox);") &&
+  src.indexOf("const logoBox=document.createElement('div');logoBox.className='panel pad';box.appendChild(logoBox);") < src.indexOf("box.insertAdjacentHTML('beforeend','<h3 class=\"mt\">All companies &amp; agents</h3>');"));
+
+T('the Non-VAT toggle (Charge codes) gets a real dark-mode colour instead of staying light-mode white',
+  src.includes('html[data-skin="modern"][data-mode=dark] .tog{background:color-mix(in srgb,var(--a1) 8%,var(--m-card));color:var(--m-ink);border-color:#ffffff22}'));
+
+T('Rooms and Room totals are one Hotel Setup page now (hset.rooms covers both, each with its own subtitle), not two separate subtitles - Room totals is no longer listed on its own in the Backend sidebar',
+  src.includes("VIEWS['hset.rooms']=el=>{") && src.includes("box.insertAdjacentHTML('beforeend','<h3 style=\"margin-top:0\">Room list</h3>');") && src.includes("box.insertAdjacentHTML('beforeend','<h3 class=\"mt\">Room totals</h3>');") &&
+  src.includes("return [{t:'Hotel Setup',items:SET_SECTIONS.filter(([k])=>k!=='allot').map(([k,num,title])=>[title,'hset.'+k])},"));
+
+T('the Setup Floor plan editor\'s room/facility tiles are rounded with a shadow, matching the Frontend Housekeeping Status floor plan look, instead of the old flat sharp-edged boxes',
+  src.includes('.fpi{position:absolute;box-sizing:border-box;border:2px solid #eceff1;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.3);'));
+
+T('the User Details & Permission list shows the Active/Inactive/Cancelled chip and the access term on one horizontal line, not stacked',
+  src.includes('.pptbl td .uat{display:inline-block!important;margin:0 0 0 8px!important;vertical-align:middle}'));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
