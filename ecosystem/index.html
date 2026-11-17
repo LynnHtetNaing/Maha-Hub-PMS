@@ -10850,7 +10850,9 @@ function hkFolioView(el){
   $$('[data-hkp]',pane).forEach(b=>b.onclick=()=>{const B=bookingById(b.dataset.hkp);if(B)postModal(B,()=>{saveDB();re()},1,true)});
 }
 VIEWS['rm.hkfolio']=(el)=>hkFolioView(el);
-VIEWS['bill.folio']=(el,id)=>billingSplit(el,id);
+/* the plain "Folio" menu item: if the last folio shown was a checked-out one kept on screen (opened from Folio Inquiry, Close Day, ...),
+   clicking here with no booking named should drop it and start fresh, not stay stuck showing that same checked-out folio under its own title */
+VIEWS['bill.folio']=(el,id)=>{if(!id){const cur=BF.sel&&bookingById(BF.sel);if(cur&&cur.status!=='inhouse')BF.sel=null}billingSplit(el,id)};
 VIEWS['bill.open']=(el,id)=>billingSplit(el,id);
 let FI={by:'name',q:''};
 /* Folio Inquiry: checked-out folios as a list. A line opens the same Billing / Folio view used everywhere else (one step, not a read-only

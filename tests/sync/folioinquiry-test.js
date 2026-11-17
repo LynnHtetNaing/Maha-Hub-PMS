@@ -17,4 +17,6 @@ T('Notices and User logs sit on the outside as plain horizontal buttons on a che
   src.includes("const main=['fPost','fPay','fAdv','fMove','fInv','fDet','fOut','fBack'].includes(id)||(simple&&['fNot','fLog'].includes(id));"));
 T('opening a checked-out booking\'s folio - from Folio Inquiry, Close Day, or anywhere else - titles the page "Folio Inquiry", not "Billing / Folio"',
   src.includes("const title=(extra&&extra.status==='out')?'Folio Inquiry':'Billing / Folio';") && src.includes("el.innerHTML=cdBackBar()+pageHead(title,'<div class=\"bsrch\" id=\"bfSearch\"></div>','act')"));
+T('the plain "Folio" menu item drops a checked-out folio left on screen from Folio Inquiry/Close Day and starts fresh, instead of staying stuck on it under the "Folio Inquiry" title',
+  src.includes("VIEWS['bill.folio']=(el,id)=>{if(!id){const cur=BF.sel&&bookingById(BF.sel);if(cur&&cur.status!=='inhouse')BF.sel=null}billingSplit(el,id)};") && src.includes("$$('[data-go]',nav).forEach(b=>b.onclick=()=>{closeMenus();const mi=$('#mitems');if(mi)mi.classList.remove('open');go(b.dataset.go)});"));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
