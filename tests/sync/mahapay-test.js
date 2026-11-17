@@ -34,7 +34,7 @@ T('the Backend prov.stripe page is admin-only key setup (publishable/secret, Sav
   pms.includes("VIEWS['prov.stripe']=async el=>{") && !pms.includes('id="plGo"') && !pms.includes('id="ccGo"') && !pms.includes('id="ccCardMount"') && pms.includes('No Stripe keys shown there, just Maha Pay.'));
 
 T('Maha Pay is a payment option right inside the existing Advance Payment / Payment window (payModal) - a hotel-staff tile, not an admin-only page; the backend page only links the keys, front office then uses it without seeing them',
-  pms.includes('let mahaPayOn=false;') && pms.includes('data-pc="__mahapay"') && pms.includes("if(code==='__mahapay'){save();mahaPayOn=true;"));
+  pms.includes('let mahaPayOn=false;') && pms.includes('data-pc="__mahapay"') && pms.includes("if(code==='__mahapay'){if(mpStatus&&!mpStatus.configured){"));
 
 T('the Maha Pay panel charges via Stripe Elements (never raw card data to our server) or sends a Payment Link, re-using the same guest-pay helpers; it tells the front office plainly when this hotel is not yet linked',
   pms.includes('const initMahaPayPanel=async()=>{') && pms.includes('await hotelStripeStatus(H.code)') &&
@@ -60,4 +60,20 @@ T('when on, it auto-creates the next open invoice starting HOTEL_WARN_DAYS befor
 T('the auto-created invoice is what the hotel pays itself with Pay with Maha Pay, checked whenever admin opens that hotel\'s Billing page or the whole Hotels list - never a hidden automatic charge',
   pms.includes("provBillRecords($('#pbRec',el),h);recurringAutoInvoice(h)};") &&
   pms.includes('Object.values(DB.hotels).forEach(h2=>recurringAutoInvoice(h2));'));
+T('the Maha Pay tile is checked against this hotel\'s Stripe status as soon as the Payment window opens (not only after it is clicked), and is shown locked, never a dead-end click, when the hotel is not linked',
+  pms.includes('let mpStatus=null;hotelStripeStatus(H.code).then(st=>{mpStatus=st;') &&
+  pms.includes("mpStatus&&!mpStatus.configured?'off':''") &&
+  pms.includes('Ask the provider to link Stripe for this hotel first.') &&
+  pms.includes("if(mpStatus&&!mpStatus.configured){toast(\"Maha Pay is not set up for this hotel yet. Ask the provider to link Stripe first.\");return}"));
+T('leaving Maha Pay for another payment type has a real, labelled way back right inside the Maha Pay panel, not a bare icon', pms.includes('id="mpBack">&larr; Choose a different payment type</button>'));
+T('a successful Maha Pay card charge posts the same way a normal card payment does - postPayment, frozen open bills, folio/report-visible - and auto-closes; the VCC charge code (991) is an auto / system code, never pickable from the ordinary tile list',
+  pms.includes("code:'991',desc:'Maha Pay (card)',type:'p',ptab:'CREDIT CARD',pic:'cardp',auto:true") &&
+  pms.includes("const postMahaPay=(amount,ref,desc)=>noShiftGate('payment',sh=>{") &&
+  pms.includes("const P_=postPayment(H,B,'991',amount,{...lineCtx(sh),folio,ref,remark:'',desc,adv,deposit});") &&
+  pms.includes('await guestPayCharge(H.code,st.publishable,amount,currency,refv,guestv,cardEl);') && pms.includes('postMahaPay(amount,refv,'));
+T('a failed Maha Pay charge shows the failure under the box (no full-screen loader) and leaves the window open to retry - it never silently posts anything', pms.includes("$('#mpErr',m).textContent='Failed: '+e.message;"));
+T('a Payment Link never posts anything by itself - it is kept as a pending record on the booking (with the Stripe session id) until someone checks it, so a guest who never pays leaves no silent gap',
+  pms.includes('B.mahaPayLinks=B.mahaPayLinks||[];B.mahaPayLinks.push({id:') && pms.includes('posted:false});saveDB();') &&
+  pms.includes('Nothing is posted until the guest pays.'));
+T('Check status re-asks Stripe directly (never trusts the browser) before posting a pending link as a real payment, and only then', pms.includes('const paid=await guestPayLinkStatus(H.code,row.sessionId);') && pms.includes("if(!paid){b.disabled=false;b.innerHTML=lbl;toast('Not paid yet. Try again later.');return}") && pms.includes('row.posted=true;postMahaPay(row.amount,row.ref,'));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);

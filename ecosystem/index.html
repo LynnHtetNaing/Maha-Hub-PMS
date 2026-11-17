@@ -857,6 +857,8 @@ tr.sel td{outline:0!important;background:#ffd98a!important;color:#3a2a05!importa
 .nitile{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:1px solid transparent;border-radius:6px;padding:12px 6px;cursor:pointer;color:#2a5f86;text-align:center}
 .nitile svg{color:#2f7fd0}.nitile b{font-size:20px;color:#1d2b36;font-weight:600}.nitile span{font-size:12.5px;line-height:1.25}
 @media (hover:hover){.nitile:hover{background:#eef6fb;border-color:#cfe2ef}}.nitile.on{background:var(--select);border-color:var(--gold)}
+.ptile.mahapay b{color:#6a3fc0}.ptile.mahapay svg{color:#6a3fc0}
+.ptile.mahapay.off{cursor:not-allowed;opacity:.55}.ptile.mahapay.off:hover{background:none;border-color:transparent}
 .niform{padding:14px 16px;display:flex;flex-direction:column;gap:9px}
 .amtrow{display:flex;gap:6px;align-items:center}.niamt{font-size:20px;color:#c0392b;font-weight:700;flex:1}
 .nihits{border:1px solid var(--line);border-radius:4px;margin-top:3px;max-height:180px;overflow:auto}.nihits button{display:block;width:100%;text-align:left;background:#fff;border:0;border-bottom:1px solid #eef2f5;padding:6px 8px;cursor:pointer}@media (hover:hover){.nihits button:hover{background:#eef6fb}}
@@ -3315,7 +3317,8 @@ const TCODES=[
  {code:'981',desc:'Payment Link',type:'p',ptab:'OTHER',pic:'qr'},
  {code:'982',desc:'Loyalty Points Redeem',type:'p',ptab:'OTHER',pic:'wallet'},
  {code:'983',desc:'Member Points Redeem',type:'p',ptab:'OTHER',pic:'wallet'},
- {code:'990',desc:'Advance Deposit',type:'p',ptab:'OTHER',pic:'wallet',auto:true}];
+ {code:'990',desc:'Advance Deposit',type:'p',ptab:'OTHER',pic:'wallet',auto:true},
+ {code:'991',desc:'Maha Pay (card)',type:'p',ptab:'CREDIT CARD',pic:'cardp',auto:true}];
 /* the methods added in this release start Closed for every hotel; the provider opens the ones a hotel really accepts (Payment methods) */
 const NEW_PAY_CODES=['1501','1502','1503','1504','1505','1506','1507','1508','1509','1510','1511','1512','1513','1514','1515','1516','1517','1518','1519','1520','1521','1522','981','982','983'];
 /* Catalog logos (DB.payLogos) are Auto Added for every hotel. A hotel logo is used only when the catalog has none. Refunds use the same logo. Open or close of the method, per hotel, shows or hides that logo on the payment screen. */
@@ -11022,6 +11025,7 @@ function roomGuestsPanel(B,ed){const rows=guestsInRoom(B);
 let payTab='CASH',payRef=false;
 function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','noshow'].includes(B.status)&&(mode==='adv'||psPaid(B)<=0.004)){toast('This booking is not active.');return}
   folio=folio||1;const adv=mode==='adv';payRef=false;let mahaPayOn=false;
+  let mpStatus=null;hotelStripeStatus(H.code).then(st=>{mpStatus=st;try{paint()}catch(e){}}).catch(()=>{mpStatus={configured:false};try{paint()}catch(e){}});
   if(folLocked(B,folio)){toast(`Folio ${folio} is locked. Unlock it first.`);return}
   if(adv&&B.status==='out'){toast('The guest has checked out. Use Payment instead.');return}
   if(!adv&&!['inhouse','out'].includes(B.status)&&psPaid(B)<=0.004){toast('There is no bill yet. Use Advance Payment for a reservation deposit.');return}
@@ -11043,14 +11047,16 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   const paint=()=>{const inTab=codes().filter(c=>c.ptab===payTab),nPay=allP().filter(c=>c.ptab===payTab&&!c.refund).length,nRef=allP().filter(c=>c.ptab===payTab&&c.refund).length;const list=adv?inTab:inTab.filter(c=>!!c.refund===payRef);const card=g.card;const cardCode=card&&codes().find(c=>c.card===card.type&&!c.refund);
     $('#pyB',m).innerHTML=`<div class="nitabs">${shownPayTabs().map(t=>`<button class="${t===payTab?'on':''}" data-pt="${esc(t)}">${esc(titleLabel(t,'p:'))}</button>`).join('')}</div>
     <div class="nimain"><div class="nileft">${adv?'':`<div class="segs refseg"><button type="button" id="pyPayT" aria-pressed="${!payRef}" ${noBill?'disabled title="There is no bill to pay"':''}>Payment types (${nPay})</button><button type="button" id="pyRefT" aria-pressed="${payRef}">Refund types (${nRef})</button></div>`}
-     <div class="nitiles">${(!payRef)?`<button class="nitile ptile mahapay ${mahaPayOn?'on':''}" data-pc="__mahapay">${ic('cardp',42)}<b>MAHA PAY</b><span>Charge a card or send a pay link</span></button>`:''}${list.map(c=>`<button class="nitile ptile ${c.refund?'rf':''} ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
-     <div class="niform">${mahaPayOn?`<div class="sub pynote"><b>Maha Pay</b> – charge this hotel's own Stripe account, or send a payment link. <button type="button" class="infob" id="mpBack" title="Back">&larr;</button></div>
+     <div class="nitiles">${(!payRef)?`<button type="button" class="nitile ptile mahapay ${mahaPayOn?'on':''} ${mpStatus&&!mpStatus.configured?'off':''}" data-pc="__mahapay" ${mpStatus&&!mpStatus.configured?'title="Ask the provider to link Stripe for this hotel first."':''}>${ic('cardp',42)}<b>MAHA PAY</b><span>${mpStatus&&!mpStatus.configured?'Not set up for this hotel':mpStatus===null?'Checking…':'Charge a card or send a pay link'}</span></button>`:''}${list.map(c=>`<button class="nitile ptile ${c.refund?'rf':''} ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
+     <div class="niform">${mahaPayOn?`<div class="sub pynote"><b>Maha Pay</b> – charge this hotel's own Stripe account, or send a payment link. <button type="button" class="btn ghost sm" id="mpBack">&larr; Choose a different payment type</button></div>
+      ${(B.mahaPayLinks||[]).filter(x=>!x.posted).length?`<div class="panel pad" id="mpPend"><h3 style="margin-top:0">Payment links sent, awaiting the guest</h3>${(B.mahaPayLinks||[]).filter(x=>!x.posted).map(x=>`<div class="row gap" style="align-items:center;justify-content:space-between" data-mplrow="${x.id}"><span>${m2(x.amount)} ${esc(x.currency)}${x.ref?' · '+esc(x.ref):''} · sent ${fdt(x.at)}</span><button type="button" class="btn sm ghost" data-mplcheck="${x.id}">Check status</button></div>`).join('')}</div>`:''}
       <div class="form3">${fld('Amount',`<input id="mpAmt" class="n niamt" inputmode="decimal" placeholder="0.00" value="${cs&&cs.cur!==bCur(B)?'':defAmt()}">`,'pyh')}${fld('Currency',`<input id="mpCur" value="${esc(H.set.cur||'USD')}">`,'pyh')}${fld('Reference#',`<input id="mpRef" maxlength="60" placeholder="Reference info">`,'pyh')}</div>
       ${fld('Guest / company name',`<input id="mpGuest" value="${esc((g&&g.name)||'')}">`)}
       <div class="sub" id="mpStatus">Checking Maha Pay for this hotel…</div>
       <div id="mpCardWrap" style="display:none"><div class="cardbox"><div class="cbh">${ic('cardp',16)} Card details <span class="sub">– goes straight to Stripe, never to Maha Hub</span></div><div id="mpCardMount" class="eco-field" style="padding:10px"></div></div></div>
       <div class="err" id="mpErr"></div>
-      <div class="btns end"><button class="btn red" id="mpClose">Close</button><button class="btn ghost" id="mpLinkGo" disabled>Send Payment Link</button><button class="btn purple" id="mpGo" disabled>Charge card</button></div>`:`<div class="defpay"><div class="dph">DEFAULT PAYMENT</div>${card?`<button class="dpc" id="pyDef">${ic('cardp',30)}<span>Credit card# •••• ${esc(card.last4)} · Exp. ${esc(card.exp||'')}</span></button>`:'<div class="sub pad">No card on file in the guest profile.</div>'}</div>
+      <div class="btns end"><button class="btn red" id="mpClose">Close</button><button class="btn ghost" id="mpLinkGo" disabled>Send Payment Link</button><button class="btn purple" id="mpGo" disabled>Charge card</button></div>
+      <div class="sub" id="mpBusy"></div>`:`<div class="defpay"><div class="dph">DEFAULT PAYMENT</div>${card?`<button class="dpc" id="pyDef">${ic('cardp',30)}<span>Credit card# •••• ${esc(card.last4)} · Exp. ${esc(card.exp||'')}</span></button>`:'<div class="sub pad">No card on file in the guest profile.</div>'}</div>
       <div class="sub pynote"><b>${adv?(deposit?'Reservation deposit':'Advance payment'):'Folio '+folio+': outstanding '+m2(folioBal(B,folio))}</b><button type="button" class="infob" id="pyI" title="How this works" aria-label="How this works">i</button></div>
       ${fld('Tran code',`<div class="row gap"><input id="pyC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="pySr" title="Search">${ic('search',15)}</button></div><div id="pyHits"></div>`,'pyh')}
       ${fld('Description',`<input id="pyD" value="${cur?esc(cur.desc):''}">`,'pyh')}${cur&&cur.ptab==='CREDIT CARD'&&!cur.refund?`<div class="cardbox"><div class="cbh">${ic('cardp',16)} Card details <span class="sub">– only the last 4 digits are shown after saving</span></div><div class="form2">${fld('Card number',`<input id="cdN" inputmode="numeric" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="23">`,'span2')}${fld('Expiry (MM/YY)',`<input id="cdE" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5">`)}${fld('CVC',`<input id="cdC" type="password" inputmode="numeric" autocomplete="cc-csc" placeholder="•••" maxlength="4">`)}${fld('Card holder name',`<input id="cdH" autocomplete="cc-name" placeholder="As printed on the card">`,'span2')}</div></div>`:''}
@@ -11059,7 +11065,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
       ${fld('Remark',`<textarea id="pyM" rows="2"></textarea>`)}<div class="err" id="pyE"></div>
       <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?(deposit?'Post deposit':'Post advance payment'):'Post payment'}</button></div>`}</div></div>`;
     if(m._v)['pyR','pyA','pyM'].forEach(id=>{if(m._v[id]!=null&&m._v[id]!=='')$('#'+id,m).value=m._v[id]});
-    const pick=code=>{if(code==='__mahapay'){save();mahaPayOn=true;cur=null;paint();return}const c0=TCODES.find(c=>c.code===code);if(c0&&c0.refund){closeModal(m);psEntry(B,'refund',after,c0.code);return}save();cur=c0;mahaPayOn=false;payTab=cur.ptab;payRef=false;if(m._v)m._v.pyA='';paint();$('#pyA',m).focus()};
+    const pick=code=>{if(code==='__mahapay'){if(mpStatus&&!mpStatus.configured){toast("Maha Pay is not set up for this hotel yet. Ask the provider to link Stripe first.");return}save();mahaPayOn=true;cur=null;paint();return}const c0=TCODES.find(c=>c.code===code);if(c0&&c0.refund){closeModal(m);psEntry(B,'refund',after,c0.code);return}save();cur=c0;mahaPayOn=false;payTab=cur.ptab;payRef=false;if(m._v)m._v.pyA='';paint();$('#pyA',m).focus()};
     $$('[data-pt]',m).forEach(b=>b.onclick=()=>{save();mahaPayOn=false;payTab=b.dataset.pt;paint()});
     if($('#pyPayT',m)){$('#pyPayT',m).onclick=()=>{if(noBill)return;save();mahaPayOn=false;payRef=false;paint()};$('#pyRefT',m).onclick=()=>{save();mahaPayOn=false;payRef=true;paint()}}
     $$('[data-pc]',m).forEach(b=>b.onclick=()=>pick(b.dataset.pc));
@@ -11078,6 +11084,13 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     if($('#cdN',m)){$('#cdN',m).oninput=e=>{const v=e.target.value.replace(/\D/g,'').slice(0,19);e.target.value=v.replace(/(.{4})/g,'$1 ').trim()};$('#cdE',m).oninput=e=>{let v=e.target.value.replace(/\D/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);e.target.value=v};$('#cdC',m).oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)}}
     if(cs){const h=$('#pyCur',m);h.innerHTML=curPanelHtml(B,cs);const Pq=curPanelBind(h,B,cs,()=>$('#pyA',m).value,folioBal(B,folio),-1,()=>{save();if(m._v)m._v.pyA='';paint()});$('#pyA',m).addEventListener('input',Pq)}
     $('#pyCalc',m).onclick=()=>calcPad($('#pyPad',m),$('#pyA',m));$('#pyX',m).onclick=()=>closeModal(m);$('#pyP',m).onclick=doPay};
+  /* posts the same way a normal credit-card payment does (postPayment + freeze the open bills it settles), so a
+     Maha Pay charge or a paid link "posts as usual" - never a side record that the folio and reports don't see */
+  const postMahaPay=(amount,ref,desc)=>noShiftGate('payment',sh=>{
+    const P_=postPayment(H,B,'991',amount,{...lineCtx(sh),folio,ref,remark:'',desc,adv,deposit});
+    const refNo=ref||String(P_.A.sys).padStart(6,'0');if(!ref)[P_.A,P_.R,P_.C].filter(Boolean).forEach(x=>x.ref=refNo);
+    if(!adv){P_.A.fixed=true;B.lines.forEach(l=>{if(l.id===P_.A.id||l.folio!==folio||l.offset||l.settled)return;l.settled=true;l.settledBy=P_.A.group;l.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Frozen by payment '+P_.A.sys+' until a correct payment. After Close Day it stays frozen.'})})}
+    saveDB();closeModal(m);after();toast(adv?'Advance payment recorded via Maha Pay.':'Payment recorded via Maha Pay.')});
   const initMahaPayPanel=async()=>{
     let st=null;try{st=await hotelStripeStatus(H.code)}catch(e){}
     const stEl=$('#mpStatus',m);if(!stEl)return;
@@ -11085,6 +11098,14 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     stEl.textContent='Maha Pay is ready.';
     if($('#mpCardWrap',m))$('#mpCardWrap',m).style.display='';
     if($('#mpLinkGo',m))$('#mpLinkGo',m).disabled=false;
+    $$('[data-mplcheck]',m).forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.mplcheck,row=(B.mahaPayLinks||[]).find(x=>x.id===id);if(!row)return;
+      const lbl=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spin"></span> Checking...';
+      try{const paid=await guestPayLinkStatus(H.code,row.sessionId);
+        if(!paid){b.disabled=false;b.innerHTML=lbl;toast('Not paid yet. Try again later.');return}
+        row.posted=true;postMahaPay(row.amount,row.ref,'Maha Pay link'+(row.guest?' - '+row.guest:''))}
+      catch(e){b.disabled=false;b.innerHTML=lbl;toast(e.message)}
+    });
     try{await loadStripeJs()}catch(e){stEl.textContent=e.message;return}
     if(!$('#mpCardMount',m))return;
     const stripe=Stripe(st.publishable),elements=stripe.elements(),cardEl=elements.create('card');
@@ -11093,17 +11114,18 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     const vals=()=>({amount:+String($('#mpAmt',m).value).replace(/,/g,'')||0,currency:$('#mpCur',m).value.trim()||'USD',refv:$('#mpRef',m).value.trim(),guestv:$('#mpGuest',m).value.trim()});
     if($('#mpGo',m))$('#mpGo',m).onclick=async()=>{
       const{amount,currency,refv,guestv}=vals();if(!(amount>0)){$('#mpErr',m).textContent='Enter an amount.';return}
-      const btn=$('#mpGo',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Charging...';
-      try{await guestPayCharge(H.code,st.publishable,amount,currency,refv,guestv,cardEl);log(`Maha Pay charge ${m2(amount)} ${currency} RSVN ${resOf(B).no} folio ${folio}`,B.id);closeModal(m);after();toast('Card charged via Maha Pay')}
-      catch(e){$('#mpErr',m).textContent=e.message}
-      finally{if($('#mpGo',m)){btn.disabled=false;btn.innerHTML=lbl}}
+      $('#mpErr',m).textContent='';const busy=$('#mpBusy',m);$$('#mpLinkGo,#mpGo',m).forEach(x=>x.disabled=true);if(busy)busy.innerHTML='<span class="spin"></span> Charging... this can take a few seconds.';
+      try{await guestPayCharge(H.code,st.publishable,amount,currency,refv,guestv,cardEl);log(`Maha Pay charge ${m2(amount)} ${currency} RSVN ${resOf(B).no} folio ${folio}`,B.id);if(busy)busy.textContent='Charged successfully.';postMahaPay(amount,refv,'Maha Pay'+(guestv?' - '+guestv:''))}
+      catch(e){$('#mpErr',m).textContent='Failed: '+e.message;if(busy)busy.textContent='';if($('#mpGo',m))$('#mpGo',m).disabled=false;if($('#mpLinkGo',m))$('#mpLinkGo',m).disabled=false}
     };
     if($('#mpLinkGo',m))$('#mpLinkGo',m).onclick=async()=>{
       const{amount,currency,refv,guestv}=vals();if(!(amount>0)){$('#mpErr',m).textContent='Enter an amount.';return}
-      const btn=$('#mpLinkGo',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Creating...';
-      try{const url=await guestPayLink(H.code,amount,currency,refv,guestv);$('#mpErr',m).textContent='';log(`Maha Pay link created ${m2(amount)} ${currency} RSVN ${resOf(B).no} folio ${folio}`,B.id);dlgAlert(`<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>`,'Maha Pay link')}
-      catch(e){$('#mpErr',m).textContent=e.message}
-      finally{if($('#mpLinkGo',m)){btn.disabled=false;btn.innerHTML=lbl}}
+      $('#mpErr',m).textContent='';const btn=$('#mpLinkGo',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Creating...';
+      try{const {url,sessionId}=await guestPayLink(H.code,amount,currency,refv,guestv);
+        B.mahaPayLinks=B.mahaPayLinks||[];B.mahaPayLinks.push({id:'mpl'+uid(),at:Date.now(),amount,currency,ref:refv,guest:guestv,sessionId,folio,user:user().name,posted:false});saveDB();
+        log(`Maha Pay link created ${m2(amount)} ${currency} RSVN ${resOf(B).no} folio ${folio}`,B.id);
+        dlgAlert(`<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a><p class="sub mt">Nothing is posted until the guest pays. Come back to Maha Pay and press <b>Check status</b> on this link once they have.</p>`,'Maha Pay link');paint()}
+      catch(e){$('#mpErr',m).textContent=e.message;btn.disabled=false;btn.innerHTML=lbl}
     };
   };
   const save=()=>{m._v={};['pyR','pyA','pyM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value})};
@@ -15419,7 +15441,15 @@ async function guestPayLink(code,amount,currency,ref,guest){
   const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
   const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-guest-pay',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'link',property_code:code,amount,currency,ref,guest})});
   const d=await res.json().catch(()=>null);if(!res.ok||!d||!d.url)throw new Error((d&&d.error==='not_configured')?"Set up this hotel's Stripe keys first.":'Could not create the link. Please try again.');
-  return d.url;
+  return {url:d.url,sessionId:d.session_id};
+}
+/* the guest may pay this link minutes, hours or never - this asks Stripe directly whether that session is now paid,
+   so a pending link can be reconciled without a webhook (never trust the browser's own memory of it) */
+async function guestPayLinkStatus(code,sessionId){
+  const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
+  const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-guest-pay',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'status',property_code:code,session_id:sessionId})});
+  const d=await res.json().catch(()=>null);if(!res.ok||!d)throw new Error('Could not check that link. Please try again.');
+  return !!d.paid;
 }
 let _stripeJsLoading=null;
 function loadStripeJs(){if(window.Stripe)return Promise.resolve();if(_stripeJsLoading)return _stripeJsLoading;

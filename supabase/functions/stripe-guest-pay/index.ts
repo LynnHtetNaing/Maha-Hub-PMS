@@ -7,9 +7,10 @@
 //   charge  - an OTA's own Virtual Credit Card (VCC) the hotel already has: a Stripe Elements card field on the
 //             page sends the card straight to Stripe and gets back a payment_method id (never the PAN/CVC) - this
 //             function only ever sees that id, and uses it to charge the hotel's own account immediately.
-//   POST { action: 'link'|'charge', property_code, amount, currency?, ref?, guest?, payment_method_id? (charge only) }
-//     link   -> { sent:1, url }
+//   POST { action: 'link'|'charge'|'status', property_code, amount, currency?, ref?, guest?, payment_method_id? (charge only), session_id? (status only) }
+//     link   -> { sent:1, url, session_id } - the session_id lets the hotel check later whether the guest ever paid
 //     charge -> { sent:1, ok, status }
+//     status -> { paid, status } - re-asks Stripe directly (never trusts anything the browser remembers)
 // Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, MAHA_ALLOWED_ORIGIN (optional).
 // Deploy with JWT verification off (--no-verify-jwt): the function checks the signed-in person itself.
 // Never log the secret key or any card data; a payment_method id is not card data (Stripe's own tokenised reference).
@@ -51,11 +52,11 @@ const handle = async (req: Request): Promise<Response> => {
 
   let b: any; try { b = await req.json(); } catch { return json(req, { error: "bad_request" }, 400); }
   const action = clip(b.action, 10);
-  if (!["link", "charge"].includes(action)) return json(req, { error: "bad_request" }, 400);
+  if (!["link", "charge", "status"].includes(action)) return json(req, { error: "bad_request" }, 400);
   const code = clip(b.property_code, 40);
   if (!code) return json(req, { error: "bad_request" }, 400);
-  const amount = +b.amount || 0;
-  if (!(amount > 0)) return json(req, { error: "bad_request" }, 400);
+  const amount = action === "status" ? 0 : +b.amount || 0;
+  if (action !== "status" && !(amount > 0)) return json(req, { error: "bad_request" }, 400);
 
   const { data: prop } = await userClient.from("maha_properties").select("id,name").eq("property_code", code).maybeSingle();
   if (!prop) return json(req, { error: "property_access_denied" }, 403);
@@ -66,6 +67,18 @@ const handle = async (req: Request): Promise<Response> => {
   const { data: key } = await admin.from("maha_stripe_keys").select("secret_key").eq("purpose", "guest").eq("property_id", prop.id).maybeSingle();
   const secret = (key && key.secret_key || "").trim();
   if (!secret) return json(req, { error: "not_configured" }, 503);
+
+  if (action === "status") {
+    const sid = clip(b.session_id, 80);
+    if (!sid || !/^cs_/.test(sid)) return json(req, { error: "bad_request" }, 400);
+    const res = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(sid), {
+      headers: { Authorization: "Bearer " + secret },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return json(req, { error: "send_failed" }, 502);
+    const paid = data.payment_status === "paid" || data.status === "complete";
+    return json(req, { paid, status: data.status });
+  }
 
   const cur = (clip(b.currency, 3) || "USD").toLowerCase();
   const ref = clip(b.ref, 60), guest = clip(b.guest, 80);
@@ -91,7 +104,7 @@ const handle = async (req: Request): Promise<Response> => {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return json(req, { error: "send_failed" }, 502);
-    return json(req, { sent: 1, url: data.url });
+    return json(req, { sent: 1, url: data.url, session_id: data.id });
   }
 
   // charge: the card was already tokenised by Stripe.js in the browser - this id, never the card itself
