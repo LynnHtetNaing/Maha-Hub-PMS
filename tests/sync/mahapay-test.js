@@ -30,8 +30,18 @@ T('only an open invoice or subscription can be paid, and an already-paid one is 
 T('the provider sets Maha Pay billing keys once, on its own whole-system page (no hotel to pick, purpose "billing", no property_code) - nothing to configure per hotel',
   pms.includes("body:JSON.stringify({action:'set',purpose:'billing',publishable,secret})") && pms.includes("VIEWS['prov.mahapay']=async el=>{") && pms.includes("pageHead('Maha Pay — Billing')") && pms.includes('A hotel never sees the word "Stripe" for this, only <b>Maha Pay</b>.'));
 T('Maha Pay billing sits under Whole system in the provider menu, not nested under picking a hotel first', pms.includes("['Maha Pay — Billing','prov.mahapay']") && !pms.includes("const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms','prov.mahapay']"));
-T('the existing hotel-own-Stripe (guest payment) page is untouched and no longer carries the Maha Pay billing box - it is purely the per-hotel page again, with a note pointing to where Maha Pay billing now lives',
-  pms.includes("VIEWS['prov.stripe']=el=>{") && !pms.includes("VIEWS['prov.stripe']=async el=>{") && pms.includes('Provider Console → Whole system → Maha Pay — Billing, not here.') && pms.includes('<h3 class="mt" id="stHotelHead">This hotel’s Stripe keys</h3>'));
+T('the Backend prov.stripe page is admin-only key setup (publishable/secret, Save/Clear) - no Payment Link or card-charge forms there any more, since that moved into the hotel\'s own Advance Payment / Payment window',
+  pms.includes("VIEWS['prov.stripe']=async el=>{") && !pms.includes('id="plGo"') && !pms.includes('id="ccGo"') && !pms.includes('id="ccCardMount"') && pms.includes('No Stripe keys shown there, just Maha Pay.'));
+
+T('Maha Pay is a payment option right inside the existing Advance Payment / Payment window (payModal) - a hotel-staff tile, not an admin-only page; the backend page only links the keys, front office then uses it without seeing them',
+  pms.includes('let mahaPayOn=false;') && pms.includes('data-pc="__mahapay"') && pms.includes("if(code==='__mahapay'){save();mahaPayOn=true;"));
+
+T('the Maha Pay panel charges via Stripe Elements (never raw card data to our server) or sends a Payment Link, re-using the same guest-pay helpers; it tells the front office plainly when this hotel is not yet linked',
+  pms.includes('const initMahaPayPanel=async()=>{') && pms.includes('await hotelStripeStatus(H.code)') &&
+  pms.includes("Maha Pay is not set up for this hotel yet. Ask the provider to link this hotel's Stripe keys first.") &&
+  pms.includes('await guestPayCharge(H.code,st.publishable,amount,currency,refv,guestv,cardEl)') &&
+  pms.includes('await guestPayLink(H.code,amount,currency,refv,guestv)'));
+
 
 T('an open invoice in the hotel\'s own Billing > Invoices page gets a "Pay with Maha Pay" button that starts the real Checkout flow', pms.includes("r.status==='open'?`<button type=\"button\" class=\"btn sm gold\" data-mahapay=\"${esc(r.id)}\">Pay with Maha Pay</button>`:''") && pms.includes("$$('[data-mahapay]',el).forEach(b=>b.onclick=()=>mahaPayStart(b.dataset.mahapay,b))"));
 T('returning from Checkout re-confirms the payment with the server (never trusts the URL) before showing it as paid, and always cleans the pay params out of the address bar', pms.includes('const paid=await mahaPayConfirm(hq.get(\'doc\'),hq.get(\'session_id\'));') && pms.includes("history.replaceState(null,'',location.pathname+location.search+'#/sbill.invoices')"));
