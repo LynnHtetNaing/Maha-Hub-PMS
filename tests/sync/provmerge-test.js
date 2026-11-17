@@ -141,4 +141,7 @@ T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark 
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
   src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));
 
+T('Hotels (prov.home) is the provider\'s main landing page, so it never shows a Back button, whatever the nav stack happens to hold',
+  src.includes("el.innerHTML=pageHead('Hotels','',undefined,true)+`"));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
