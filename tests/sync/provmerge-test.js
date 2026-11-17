@@ -144,4 +144,24 @@ T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark 
 T('Hotels (prov.home) is the provider\'s main landing page, so it never shows a Back button, whatever the nav stack happens to hold',
   src.includes("el.innerHTML=pageHead('Hotels','',undefined,true)+`"));
 
+T('Booking / Reservation detail panel text is smaller throughout (header and every body section), not just the header strip',
+  src.includes('.bkp-h small{') && /\.bkp-h small\{[^}]*font-size:10\.5px/.test(src) &&
+  /\.bkp-h h2\{[^}]*font-size:14px/.test(src) &&
+  /\.bkp-chip\{[^}]*font:700 9\.5px/.test(src) &&
+  /\.bkp-c h3\{[^}]*font-size:13px/.test(src) &&
+  /\.bkp-kv\{[^}]*font-size:11\.5px/.test(src) &&
+  /\.bkp-d b\{[^}]*font-size:12px/.test(src) &&
+  /\.bkp-n\{[^}]*font-size:10px/.test(src) &&
+  /\.bkp-pay\{[^}]*font-size:11px/.test(src) &&
+  /\.bkp-sent\{[^}]*font-size:10\.5px/.test(src));
+
+T('Hotel Settings (hotel-staff Backend) and Hotel profile (provider\'s Hotel Setup, section 1 / hset.profile) are the same form - one renderer, not two pages that could drift apart',
+  src.includes("VIEWS['set.hotel']=el=>{el.innerHTML=pageHead('Hotel Settings')+'<div id=\"hsBox\"></div>';SEC_BARE=true;SEC.profile($('#hsBox',el))};") &&
+  src.includes(' profile(box){const s=H.set,prov=!!(user().provider||user().isProv),E=prov||can(\'setup\'),d=E?\'\':\'disabled\';') &&
+  src.includes("fld('Check-in time',`<input id=\"p_ci\"") && src.includes("fld('Country',`<input id=\"p_country\"") &&
+  src.includes('<h3>Breakfast and auto-lock</h3>') && src.includes('id="chBox"'));
+
+T('switching to Backend lands the provider (inside a hotel) on Hotel profile, and hotel staff on Hotel Settings - the same merged form either way',
+  src.includes("function firstBackendView(){if(DB.session&&DB.session.provider)return 'hset.profile';"));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
