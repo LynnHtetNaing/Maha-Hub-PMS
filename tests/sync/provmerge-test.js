@@ -132,4 +132,36 @@ T('City Ledger invoice terms moved from Registration card & invoice to Tax Invoi
   !/docs\(box\)\{[\s\S]*?clTermsEditor/.test(src.slice(src.indexOf(' docs(box){'), src.indexOf(' tiref(box){'))) &&
   /tiref\(box\)\{[\s\S]*?clTermsEditor\(clBox\)/.test(src.slice(src.indexOf(' tiref(box){'), src.indexOf(' terms(box){'))));
 
+T('Sign-in and the idle lock screen stay light, never the Dark theme, even though skinIsModern() is now unconditional - both strip data-skin/data-mode/data-pal off <html> directly instead of going through applySkin() (which would just put the user\'s Dark preference straight back)',
+  src.includes("function showLogin(msg){\n  /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme - skinIsModern() is\n     unconditional now, so drop the attributes directly instead of going through applySkin() */\n  try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}") &&
+  src.includes("try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}\n  const d=document.createElement('div');d.id='idleLock';d.className='idlelock';") &&
+  src.includes("d.remove();try{applySkin()}catch(e){}armIdle()};"));
+
+T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
+  src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
+  src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));
+
+T('Hotels (prov.home) is the provider\'s main landing page, so it never shows a Back button, whatever the nav stack happens to hold',
+  src.includes("el.innerHTML=pageHead('Hotels','',undefined,true)+`"));
+
+T('Booking / Reservation detail panel text is smaller throughout (header and every body section), not just the header strip',
+  src.includes('.bkp-h small{') && /\.bkp-h small\{[^}]*font-size:10\.5px/.test(src) &&
+  /\.bkp-h h2\{[^}]*font-size:14px/.test(src) &&
+  /\.bkp-chip\{[^}]*font:700 9\.5px/.test(src) &&
+  /\.bkp-c h3\{[^}]*font-size:13px/.test(src) &&
+  /\.bkp-kv\{[^}]*font-size:11\.5px/.test(src) &&
+  /\.bkp-d b\{[^}]*font-size:12px/.test(src) &&
+  /\.bkp-n\{[^}]*font-size:10px/.test(src) &&
+  /\.bkp-pay\{[^}]*font-size:11px/.test(src) &&
+  /\.bkp-sent\{[^}]*font-size:10\.5px/.test(src));
+
+T('Hotel Settings (hotel-staff Backend) and Hotel profile (provider\'s Hotel Setup, section 1 / hset.profile) are the same form - one renderer, not two pages that could drift apart',
+  src.includes("VIEWS['set.hotel']=el=>{el.innerHTML=pageHead('Hotel Settings')+'<div id=\"hsBox\"></div>';SEC_BARE=true;SEC.profile($('#hsBox',el))};") &&
+  src.includes(' profile(box){const s=H.set,prov=!!(user().provider||user().isProv),E=prov||can(\'setup\'),d=E?\'\':\'disabled\';') &&
+  src.includes("fld('Check-in time',`<input id=\"p_ci\"") && src.includes("fld('Country',`<input id=\"p_country\"") &&
+  src.includes('<h3>Breakfast and auto-lock</h3>') && src.includes('id="chBox"'));
+
+T('switching to Backend lands the provider (inside a hotel) on Hotel profile, and hotel staff on Hotel Settings - the same merged form either way',
+  src.includes("function firstBackendView(){if(DB.session&&DB.session.provider)return 'hset.profile';"));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
