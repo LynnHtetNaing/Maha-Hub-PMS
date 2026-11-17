@@ -10764,7 +10764,9 @@ VIEWS['profile.companies']=el=>{
   const canSetup=can('setup');
   el.innerHTML=pageHead('Company / Agency',can('setup')?'<button class="btn gold" id="coN">Add company or agent</button>':'','act')+`<div class="panel scroll"><table class="grid"><tr><th>Logo</th><th>Code</th><th>Name</th><th>Type</th><th>Address</th><th>Tax ID</th><th>Branch</th><th>Email</th><th class="n">Comm. %</th><th>Rate typed as</th><th class="n">Credit limit</th><th class="n">Bookings</th>${prov?'<th></th>':''}</tr>
   ${H.companies.map(c=>`<tr><td class="nowrap">${c.logo?`<img src="${c.logo}" class="chb chblogo" alt="">`:chanBadge(c)}${prov?` <label class="btn sm ghost">${ic('upload',12)}<input type="file" accept="image/*" data-colg="${c.id}" hidden></label>${c.logo?`<button class="btn sm ghost" data-colx="${c.id}">No logo</button>`:''}`:''}</td><td>${c.code}</td><td>${esc(c.name)}</td><td>${c.type==='T'?'(T) Travel agent':'(C) Company'}</td><td>${esc(c.address)}</td><td>${esc(c.taxId)}</td><td>${esc(c.branch)}</td><td>${canSetup?`<input class="cemail" data-coe="${c.id}" value="${esc(c.email||'')}" placeholder="email@company.com">`:esc(c.email||'-')}</td><td class="n">${commPct(c)||'-'}</td><td>${commPct(c)?(commBasis(c)==='net'?'Net':'Gross'):'-'}</td><td class="n">${+c.creditLimit>0?m2(c.creditLimit):'—'}</td><td class="n">${H.reservations.filter(r=>r.companyId===c.id).length}</td>${prov?`<td><button class="btn sm ghost" data-ce="${c.id}">Commission</button></td>`:''}</tr>`).join('')}</table></div>
-  <p class="sub">The logo shows here and on the Room Grid, separate from any Payment method logo - its own picture for this company or agent. The email is used to send the City Ledger tax invoice. Credit limit 0 means no limit. A limit blocks a new City Ledger transfer when the open balance would go over it.${prov?' Commission and the way the rate is shown are set here by the provider for this hotel. The user types the rate in the way set here (gross or net, as the agent states it); the system works out the commission and the gross rate.':' Commission is set by the provider.'}</p>`;
+  <p class="sub">The logo shows here and on the Room Grid, separate from any Payment method logo - its own picture for this company or agent. The email is used to send the City Ledger tax invoice. Credit limit 0 means no limit. A limit blocks a new City Ledger transfer when the open balance would go over it.${prov?' Commission and the way the rate is shown are set here by the provider for this hotel. The user types the rate in the way set here (gross or net, as the agent states it); the system works out the commission and the gross rate.':' Commission is set by the provider.'}</p>
+  ${prov?'<div class="panel pad mt" id="coProvFull"></div>':''}`;
+  if(prov)SEC.companies($('#coProvFull',el));
   $$('[data-colg]',el).forEach(inp=>inp.onchange=e=>{const file=e.target.files[0];if(!file)return;if(file.size>2e6){toast('Choose an image under 2 MB.');return}const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
     const c=H.companies.find(x=>x.id===inp.dataset.colg);if(!c)return;c.logo=cv.toDataURL('image/png');log('Logo added for '+c.code);saveDB();render();toast('Logo added')};img.src=rd.result};rd.readAsDataURL(file)});
   $$('[data-colx]',el).forEach(b=>b.onclick=()=>{const c=H.companies.find(x=>x.id===b.dataset.colx);if(!c)return;delete c.logo;log('Logo removed for '+c.code);saveDB();render()});
@@ -10783,9 +10785,12 @@ VIEWS['profile.companies']=el=>{
       const was=commPct(c)+'% '+commBasis(c);c.comm=pct;c.rateBasis=$('#kb',m).value==='net'?'net':'gross';provLog('Commission of '+c.code+' at '+H.code+': '+was+' to '+pct+'% '+c.rateBasis);log('Commission of '+c.code+' set to '+pct+'% '+c.rateBasis);saveDB();closeModal(m);refresh()}});
 };
 VIEWS['profile.rates']=el=>{
+  const prov=!!(user().provider||user().isProv);
   el.innerHTML=pageHead('Rate Codes')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Valid</th><th>Until</th><th>Rule</th><th>Meal</th>${H.roomTypes.map(t=>`<th class="n">${t.code}</th>`).join('')}</tr>
   ${H.rateCodes.map(r=>`<tr><td><b>${r.code}</b></td><td>${esc(r.desc)}</td><td>${fd(r.valid)}</td><td>${fd(r.until)}</td><td>${r.kind==='zero'?(r.comp==='COMP'?'Complimentary – always 0':'House use – 0 allowed'):r.kind==='amt'?'+'+m2(r.v)+' on base':(r.v>=0?'+':'')+r.v+'% on base'}</td><td>${esc(r.meal)}</td>${H.roomTypes.map(t=>`<td class="n">${m2(rateFor(H,t.code,r.code))}</td>`).join('')}</tr>`).join('')}</table></div>
-  <p class="sub">Complimentary rates are always 0. House use can be 0. Every other rate must be at least 1 unit of the currency. All rates are inclusive of service charge ${H.set.svc}% and ${esc(H.set.taxName)} ${H.set.vat}%.</p>`;
+  <p class="sub">Complimentary rates are always 0. House use can be 0. Every other rate must be at least 1 unit of the currency. All rates are inclusive of service charge ${H.set.svc}% and ${esc(H.set.taxName)} ${H.set.vat}%.</p>
+  ${prov?'<div class="panel pad mt" id="rcProv"></div>':''}`;
+  if(prov)SEC.rates($('#rcProv',el));
 };
 
 /* ================= Billing / Folio (Section 7) ================= */
@@ -12122,13 +12127,16 @@ function systemMatrix(users,editable){const rows=hotelSystems(H);return `<div cl
   ${rows.map(s=>`<tr><td><b>${esc(s.name)}</b><div class="sub">${s.hotel?'Open for this hotel':'Closed for this hotel'}</div></td>${users.map(u=>{const on=userHasSystem(u,s.kind);return `<td class="c">${editable?`<button class="tog sm ${on?'on':''}" data-su="${u.id}" data-sk="${s.kind}">${on?'Open':'Locked'}</button>`:(on?'<span class="utick" title="Open">✓</span>':'<span class="udash" title="Locked">–</span>')}</td>`}).join('')}</tr>`).join('')}</table></div>`}
 VIEWS['set.users']=el=>usersPage(el,false);
 VIEWS['set.codes']=el=>{
+  const prov=!!(user().provider||user().isProv);
   el.innerHTML=pageHead('Transaction Codes')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Type</th><th>Group</th><th>Tax</th><th>Logo</th></tr>${TCODES.filter(c=>(!c.auto||c.code==='100')).map(c=>`<tr><td>${c.code}</td><td>${esc(c.desc)}</td><td>${c.type==='c'?(c.rebFor||c.rebate?'Rebate (−)':c.adjFor||/^Adjust/i.test(c.desc)?'Adjust (+)':'Charge (+)'):c.refund?'Refund':'Payment (−)'}</td><td>${esc(c.type==='c'?c.tab||c.dept||'':c.ptab||'')}</td><td>${c.type==='c'?(chargeVat(c)?'Service + '+esc(H.set.taxName)+' inclusive':'Non-VAT'):'—'}</td>
    <td class="nowrap">${c.type==='p'?(c.refund?`<span class="sub">uses ${c.refFor} logo</span>`:(!payEnabled(c)?'<span class="sub">Closed for this hotel</span>':`${payLogo(c)?`<img class="plthumb" src="${payLogo(c)}" alt="">${payLogoSource(c)==='auto'?' <span class="autoadd">Auto Added</span>':''}`:'<span class="sub">icon</span>'}`)):''}</td></tr>`).join('')}</table></div>
-  <p class="sub">This list is view-only. Only the provider opens or closes VAT for each post, and opens or closes each payment method. A logo marked Auto Added is the one stored for every hotel, and it shows here when that method is open for this hotel.</p>`;
+  <p class="sub">This list is view-only. Only the provider opens or closes VAT for each post, and opens or closes each payment method. A logo marked Auto Added is the one stored for every hotel, and it shows here when that method is open for this hotel.</p>
+  ${prov?'<div class="panel pad mt" id="tcProvC"></div><div class="panel pad mt" id="tcProvP"></div>':''}`;
   $$('[data-lg]',el).forEach(inp=>inp.onchange=e=>{if(!need('setup'))return;const file=e.target.files[0];if(!file)return;if(file.size>2e6){toast('Choose an image under 2 MB.');return}const code=inp.dataset.lg,rd=new FileReader();
     rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
       DB.payLogos=DB.payLogos||{};DB.payLogos[code]=cv.toDataURL('image/png');log('Payment logo uploaded for '+code);refresh();toast('Logo saved')};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)});
   $$('[data-lgx]',el).forEach(b=>b.onclick=()=>{if(!need('setup'))return;delete H.set.payLogos[b.dataset.lgx];log('Payment logo removed for '+b.dataset.lgx);refresh()});
+  if(prov){SEC.charges($('#tcProvC',el));SEC.pay($('#tcProvP',el))}
 };
 function dummyRoomsHtml(){ensureDummyBooking(H);const rooms=H.rooms.filter(r=>r.dummy);
   return `<div class="panel mt" id="dmBox"><div class="ph">Dummy rooms · rate 0</div>
@@ -12143,9 +12151,12 @@ function bindDummyAdd(root,asProvider){const b=$('#dmAdd',root);if(!b)return;
   $$('[data-dmdel]',root).forEach(x=>x.onclick=()=>{if(asProvider){if(!provOnly())return}else if(!need('setup'))return;if(x.dataset.dmdel==='D999'){toast('D999 is the breakfast account and stays.');return}
     if(allBookings().some(bk=>bk.room===x.dataset.dmdel&&['confirmed','tentative','inhouse'].includes(bk.status)&&!bk.masterDummy)){toast('That dummy room still has a booking.');return}
     H.rooms=H.rooms.filter(r=>r.no!==x.dataset.dmdel);ensureDummyBooking(H);log('Dummy room removed '+x.dataset.dmdel);refresh()})}
-VIEWS['set.rooms']=el=>{el.innerHTML=pageHead('Rooms & Room Types')+`<div class="cols2"><div class="panel"><table class="grid"><tr><th>Code</th><th>Room type</th><th>Max pax</th><th>Rooms</th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${t.code}</td><td>${esc(t.name)}</td><td>${t.max}</td><td>${H.rooms.filter(r=>r.type===t.code&&!r.dummy).length}</td></tr>`).join('')}</table></div>
-  <div class="panel"><table class="grid"><tr><th>Room</th><th>Floor</th><th>Type</th><th>Housekeeping</th></tr>${H.rooms.filter(r=>!r.dummy).map(r=>`<tr><td>${r.no}</td><td>${r.floor}</td><td>${r.type}</td><td>${r.ooo?r.ooo.kind:hkShort(r)}</td></tr>`).join('')}</table></div></div>${dummyRoomsHtml()}`;
-  bindDummyAdd(el,false)};
+VIEWS['set.rooms']=el=>{const prov=!!(user().provider||user().isProv);
+  el.innerHTML=pageHead('Rooms & Room Types')+`<div class="cols2"><div class="panel"><table class="grid"><tr><th>Code</th><th>Room type</th><th>Max pax</th><th>Rooms</th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${t.code}</td><td>${esc(t.name)}</td><td>${t.max}</td><td>${H.rooms.filter(r=>r.type===t.code&&!r.dummy).length}</td></tr>`).join('')}</table></div>
+  <div class="panel"><table class="grid"><tr><th>Room</th><th>Floor</th><th>Type</th><th>Housekeeping</th></tr>${H.rooms.filter(r=>!r.dummy).map(r=>`<tr><td>${r.no}</td><td>${r.floor}</td><td>${r.type}</td><td>${r.ooo?r.ooo.kind:hkShort(r)}</td></tr>`).join('')}</table></div></div>${dummyRoomsHtml()}
+  ${prov?'<div class="panel pad mt" id="rmProvT"></div><div class="panel pad mt" id="rmProvR"></div>':''}`;
+  bindDummyAdd(el,false);
+  if(prov){SEC.types($('#rmProvT',el));SEC.rooms($('#rmProvR',el))}};
 
 /* ---------- Provider console (2.2, 1.6) ---------- */
 function provLog(a,extra){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H?H.code:'',a,...(extra||{})});try{ALOG.add(H&&DB.session&&DB.session.inHotel?H.code:'',/^Entered hotel|^Left hotel/.test(a)?'Entered a hotel':'Provider console',a)}catch(e){}}
@@ -15470,7 +15481,14 @@ VIEWS['set.approve']=el=>{
   $$('[data-apn]',el).forEach(b=>b.onclick=()=>decide(b.dataset.apn,'rejected'));
 };
 VIEWS['set.features']=el=>{if(!can('setup')&&!user().isProv){el.innerHTML='<div class="empty">Hotel setup opens this page.</div>';return}
+  const prov=!!(user().provider||user().isProv);
   shapeHotel(H);
+  if(prov){   /* the provider's fuller control (Package, Style, PMS titles, each feature switch) on the same screen the hotel already has; staff keep the view below, unchanged */
+    el.innerHTML=pageHead('Functions')+`<div class="panel pad" id="fnBox">${planEditorHtml(true)}
+      <h3 class="mt">Confirmation letter</h3><p class="sub">Placeholders: {{guest}} {{hotel}} {{rsvn}} {{confirmation}} {{arr}} {{dep}} {{room}} {{type}} {{nights}} {{adults}} {{children}} {{deposit}} {{signature}}</p>
+      ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}
+      <div class="btns"><button class="btn gold" id="fnSave">Save functions &amp; plan</button></div></div>`;
+    bindPlanEditor($('#fnBox',el));return}
   el.innerHTML=pageHead('Functions')+`<div class="panel pad">${planEditorHtml(false)}
     <h3 class="mt">Booking confirmation</h3><p class="sub">The booking confirmation (print and mail) has one design for every hotel. The signature below is printed on it. The terms and conditions come from the provider's Setup, Guest mail policies.</p>
     ${fld('Signature',`<input id="ftSig" value="${esc(H.set.signature||'')}">`)}
