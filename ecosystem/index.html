@@ -5327,12 +5327,9 @@ const HOTEL_PACKAGES={
   build:{name:'Build Up',note:'Maha PMS with the essential titles. Connect, Booking, Reach and Sales are closed for this hotel. Each system can still be opened on its own, and each person is opened under Staff & permissions.'},
   fullpkg:{name:'Full Package',note:'Every PMS title is open, and Connect, Booking, Reach and Sales are open for this hotel. Each person still needs that system under Setup → Staff & permissions. Direct booking still needs the Google details under Setup → Direct booking & Google before guests can book.'}
 };
-const HOTEL_SKINS={
-  classic:{name:'Classic',note:'The familiar Maha look: forest green and gold. This is how the system looks today.'},
-  modern:{name:'Modern',note:'A calm, modern look: a left sidebar menu with icons, softer screens, and a colour theme each person chooses for themselves. Same screens, same buttons, same workflow.'}
-};
-function skinOf(h){const id=h&&h.set&&h.set.skin;return HOTEL_SKINS[id]?id:'classic'}
-function applySkin(){try{const root=document.documentElement;if(skinIsModern()){root.setAttribute('data-skin','modern');root.setAttribute('data-pal',userTheme());root.setAttribute('data-mode',userMode())}else{root.setAttribute('data-skin','classic');root.removeAttribute('data-pal');root.removeAttribute('data-mode')}}catch(e){}}
+/* Modern is the only design now - no Classic choice anywhere (skinIsModern() always true). applySkin keeps the
+   theme/mode attributes in sync with the signed-in person's own colour and light/dark choice. */
+function applySkin(){try{const root=document.documentElement;root.setAttribute('data-skin','modern');root.setAttribute('data-pal',userTheme());root.setAttribute('data-mode',userMode())}catch(e){}}
 function applyHotelPackage(h,id){
   shapeHotel(h);
   const pkg=HOTEL_PACKAGES[id];if(!pkg)return;
@@ -5356,14 +5353,11 @@ function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.s
   const pkg=H.set&&H.set.package;
   const boxes=functionGroups().map(g=>`<h3 class="featsec">${esc(g.t)}</h3><div class="featgrid">${g.items.map(([k,l])=>`<label class="chk"><input type="checkbox" data-fn="${k}" ${feat(k)?'checked':''} ${editable?'':'disabled'}> ${esc(l)}</label>`).join('')}</div>`).join('');
   const pkgRow=editable?`<h3 class="featsec">Package</h3><div class="planrow">${Object.entries(HOTEL_PACKAGES).map(([id,p])=>`<button type="button" class="btn ${pkg===id?'gold':''}" data-pkg="${id}">${esc(p.name)}</button>`).join('')}</div><p class="sub" id="pkgNote">${esc((HOTEL_PACKAGES[pkg]||{note:'One choice for this hotel. Build Up or Full Package sets the PMS titles and Connect, Booking and Reach together. Maha Sales is not switched per hotel.'}).note)}</p>`:`<p>Package: <b>${esc((HOTEL_PACKAGES[pkg]||{name:'Custom mix'}).name)}</b>. Plan: <b>${esc(planName(H))}</b>.</p>`;
-  const skin=skinOf(H);
-  const skinRow=editable?`<h3 class="featsec">Style</h3><div class="planrow">${Object.entries(HOTEL_SKINS).map(([id,k])=>`<button type="button" class="btn ${skin===id?'gold':''}" data-skin-pick="${id}">${esc(k.name)}</button>`).join('')}</div><p class="sub" id="skinNote">${esc(HOTEL_SKINS[skin].note)}</p>`:`<p>Style: <b>${esc(HOTEL_SKINS[skin].name)}</b>.</p>`;
-  const head=editable?`${pkgRow}${skinRow}<h3 class="featsec">PMS titles</h3><div class="planrow">${plans.map(([id,name])=>`<button type="button" class="btn ${plan===id?'gold':''}" data-plan="${id}">${name}</button>`).join('')}</div><p class="sub" id="planNote">${esc((HOTEL_PLANS[plan]||HOTEL_PLANS.full).note)}</p><p class="sub">Setup → Functions stays visible so the hotel can read this list. Staff cannot turn a hidden title back on.</p>`:pkgRow;
+  const head=editable?`${pkgRow}<h3 class="featsec">PMS titles</h3><div class="planrow">${plans.map(([id,name])=>`<button type="button" class="btn ${plan===id?'gold':''}" data-plan="${id}">${name}</button>`).join('')}</div><p class="sub" id="planNote">${esc((HOTEL_PLANS[plan]||HOTEL_PLANS.full).note)}</p><p class="sub">Setup → Functions stays visible so the hotel can read this list. Staff cannot turn a hidden title back on.</p>`:pkgRow;
   return head+boxes+fxHtml(editable)}
 function bindPlanEditor(root){if(!root)return;root.dataset.chosen=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);
   const mark=id=>{$$('[data-plan]',root).forEach(b=>b.classList.toggle('gold',b.dataset.plan===id));const n=$('#planNote',root);if(n)n.textContent=(HOTEL_PLANS[id]||HOTEL_PLANS.custom).note;root.dataset.chosen=id;if(H.set)H.set.package='';$$('[data-pkg]',root).forEach(b=>b.classList.remove('gold'));const pn=$('#pkgNote',root);if(pn)pn.textContent='PMS titles were changed on their own. Save, or choose Build Up or Full Package again to set the whole hotel in one step.'};
   $$('[data-pkg]',root).forEach(b=>b.onclick=()=>{if(!provOnly())return;applyHotelPackage(H,b.dataset.pkg);provLog(`${HOTEL_PACKAGES[b.dataset.pkg].name} for ${H.code}`);saveDB();toast(`${HOTEL_PACKAGES[b.dataset.pkg].name} saved for ${H.code}.`);render()});
-  $$('[data-skin-pick]',root).forEach(b=>b.onclick=()=>{if(!provOnly())return;const id=b.dataset.skinPick;if(!HOTEL_SKINS[id])return;H.set.skin=id;provLog(`Style ${HOTEL_SKINS[id].name} for ${H.code}`);saveDB();applySkin();toast(`${HOTEL_SKINS[id].name} style saved for ${H.code}.`);render()});
   $$('[data-plan]',root).forEach(b=>b.onclick=()=>{mark(b.dataset.plan);if(b.dataset.plan==='custom')return;const flags=flagsForPlan(b.dataset.plan);$$('[data-fn]',root).forEach(c=>{c.checked=!!flags[c.dataset.fn]})});
   $$('[data-fn]',root).forEach(c=>c.addEventListener('change',()=>mark('custom')));
   const btn=$('#fnSave',root);if(!btn)return;
@@ -8265,7 +8259,9 @@ function keepLoginOnDevice(){try{return lightOnly()||document.documentElement.cl
 function userMode(){if(lightOnly())return 'light';let m=null;const r=rawUserRec();if(r&&r.uiMode)m=r.uiMode;if(!m){try{m=localStorage.getItem(modeStoreKey())}catch(e){}}return m==='dark'?'dark':'light'}
 function paintModeBtn(){const b=document.getElementById('modeTog');if(!b)return;if(lightOnly()){b.style.display='none';return}const d=userMode()==='dark';b.innerHTML=mIc(d?'sun':'moon');b.title=d?'Switch to Light mode':'Switch to Dark mode';b.setAttribute('aria-label',b.title)}
 function setUserMode(m,silent){m=m==='dark'&&!lightOnly()?'dark':'light';const r=rawUserRec();if(r)r.uiMode=m;try{localStorage.setItem(modeStoreKey(),m);localStorage.setItem('maha.pref.mode',m)}catch(e){}try{saveDB()}catch(e){}applySkin();paintModeBtn();if(!silent)toast((m==='dark'?'Dark':'Light')+' mode saved')}
-function skinIsModern(){try{const se=DB&&DB.session;return !!(se&&typeof H!=='undefined'&&H&&H.set&&!(se.provider&&!se.inHotel)&&skinOf(H)==='modern')}catch(e){return false}}
+/* Modern is the only design: the whole app (every hotel, Frontend and Backend, and the Provider Console itself,
+   with or without a hotel open) always renders with the Modern shell now - there is no more Classic choice. */
+function skinIsModern(){return true}
 function setUserTheme(id){if(!MODERN_THEMES.some(x=>x[0]===id))return;const r=rawUserRec();if(r)r.uiTheme=id;try{localStorage.setItem(themeStoreKey(),id);localStorage.setItem('maha.pref.pal',id)}catch(e){}try{saveDB()}catch(e){}applySkin();toast('Theme saved')}
 function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
   const um=userMode();return (lightOnly()?'':'<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div>')+'<div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
@@ -8276,7 +8272,7 @@ function modernShellHTML(){
   const n=notifBadgeCount();
   return `<div class="mshell${msbSlim()?' slim':''}" id="mshell">
   <aside class="msb" id="msb"><div class="msb-top"><img class="msb-gate" src="/brand/maha/gate-small.png" alt=""><span class="msb-brand">Maha PMS</span><button type="button" class="msb-tog" id="msbTog" title="Collapse or expand the menu" aria-label="Collapse or expand the menu">${mIc(msbSlim()?'right':'left')}</button></div>
-  <div class="msb-prop"><small>Current property</small><b>${esc(H.set.name)}</b><button type="button" class="msb-chain" id="msbChain" hidden>Your Chain Hotels</button></div><nav class="msbnav" id="msbnav" aria-label="Main"></nav>
+  <div class="msb-prop"><small>${H?'Current property':'Provider console'}</small><b>${H?esc(H.set.name):'Maha Hub'}</b>${H?'<button type="button" class="msb-chain" id="msbChain" hidden>Your Chain Hotels</button>':''}</div><nav class="msbnav" id="msbnav" aria-label="Main"></nav>
   <button type="button" class="msb-me" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu"><span class="tbav">${avatarInner(20)}</span><span class="msb-mt"><b>${esc(user().name)}</b><small>${curShift()?esc(curShift().name)+' · ':''}<span id="rtClock"></span></small></span></button></aside>
   <div class="msb-back" id="msbBack"></div>
   <header class="topbar mtop"><button type="button" class="tbico mopen" id="msbOpen" aria-label="Menu">${mIc('menu')}</button><div class="mcrumb" id="mcrumb"></div>${areaSwitchHtml()}

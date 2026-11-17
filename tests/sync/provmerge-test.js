@@ -74,4 +74,12 @@ T('a handful of pale light-mode-only badges/boxes on the Hotel Setup pages (paym
   ['.cbh{color:var(--m-ink)}', '.payitem.on{border-color:#2f6b47', '.autoadd{background:#17304f;color:#9cc7f0}', '.rg{background:#ffffff14', '.logoprev{background:var(--m-card)', '.tclang .tcprev{color:var(--m-mut)}', '.pill.g{background:#16a34a33;color:#4ade80}', '.pst.on{background:#16a34a2e;color:#4ade80}', '.pst.off{background:#e11d4833;color:#fb7185}']
     .every(frag => src.includes('html[data-skin="modern"][data-mode=dark] ' + frag)));
 
+T('Modern is the only design left - no Classic choice anywhere: skinIsModern is unconditional, applySkin only ever sets data-skin="modern", and the per-hotel Style picker (Classic/Modern) is gone from Functions',
+  src.includes('function skinIsModern(){return true}') &&
+  src.includes(`function applySkin(){try{const root=document.documentElement;root.setAttribute('data-skin','modern');root.setAttribute('data-pal',userTheme());root.setAttribute('data-mode',userMode())}catch(e){}}`) &&
+  !src.includes('HOTEL_SKINS') && !src.includes('data-skin-pick') && !src.includes("root.setAttribute('data-skin','classic')"));
+
+T('the Provider Console now renders with the Modern sidebar shell even with no hotel open at all (a brand-new provider, or any whole-system page) - the sidebar shows "Provider console" / "Maha Hub" instead of crashing on a missing H',
+  src.includes("<div class=\"msb-prop\"><small>${H?'Current property':'Provider console'}</small><b>${H?esc(H.set.name):'Maha Hub'}</b>${H?'<button type=\"button\" class=\"msb-chain\" id=\"msbChain\" hidden>Your Chain Hotels</button>':''}</div>"));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
