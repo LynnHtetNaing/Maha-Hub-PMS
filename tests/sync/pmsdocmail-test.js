@@ -38,6 +38,8 @@ T('the City Ledger consolidated tax invoice sends the same way, to the company\'
   pms.includes("printPages(clInvoiceHtml(items,inv,bt),title,{to:(co&&co.email)||''") && pms.includes("const title='Tax invoice '+invRef(inv);"));
 T('Company / Agency has its own Email field (for City Ledger invoices), editable by setup, saved with validation',
   pms.includes('<th>Email</th>') && pms.includes('data-coe="${c.id}"') && pms.includes("$$('[data-coe]',el).forEach(inp=>inp.onchange=") && pms.includes("fld('Email (for City Ledger invoices)',`<input id=\"ceml\">`") && pms.includes('email,comm:pct,'));
+T('the Company / Agency logo can only be uploaded or removed by the provider; the hotel\'s own backend (Setup) only ever views it, never uploads one',
+  pms.includes("chanBadge(c)}${prov?` <label class=\"btn sm ghost\">") && !pms.includes('chanBadge(c)}${canSetup?` <label'));
 T('the Guest Profile no longer has its own Email guest button (nothing to send from there by design)', !pms.includes("tb('gpM','mail','Email guest')") && !pms.includes("$('#gpM',m).onclick"));
 T('printPages can send a different, mail-only html than what Print shows, and passes along the guest name and stay facts (room, dates, reservation no.) for the mail text',
   pms.includes("pmsSendDoc(mail.to,mail.subject||(title+' · '+H.set.name),title,mail.html||html,mail.rsvn||'',mail.guest||'',mail.stay||null)") && pms.includes('async function pmsSendDoc(to,subject,title,bodyHtml,rsvn,guest,stay){') && pms.includes('guest:guest||\'\',stay:stay||null'));
