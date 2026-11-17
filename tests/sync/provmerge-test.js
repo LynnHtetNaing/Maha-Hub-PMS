@@ -7,8 +7,11 @@ const src = fs.readFileSync(process.argv[2], 'utf8').replace(/\r\n/g, '\n');
 let fails = 0;
 const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n); if (!ok) fails++; };
 
-T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.includes("VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);") && src.includes('<table class="grid"><tr><th>No.</th><th>Property name</th><th>Status</th><th>Setup</th><th>Business date</th>') && !src.includes("class=\"pgrid") && !src.includes('class="pcard"'));
-T('Hotels home keeps a search box and the same actions (Open hotel, Close Day)', src.includes('id="phQ"') && src.includes('data-open="${h.code}">Open hotel</button>') && src.includes("${h.active!==false&&featOn(h,'fn.cd.close')?` <button class=\"btn sm ghost\" data-cd=\"${h.code}\">"));
+T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.includes("VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);") && src.includes('<table class="grid"><tr><th>No.</th><th>Code</th><th>Hotel</th><th>Chain</th><th>Status</th><th>Subscription until</th><th>Currency</th><th>Business date</th><th>Locked through</th>') && !src.includes("class=\"pgrid") && !src.includes('class="pcard"'));
+T('Hotels home (now the one and only Hotels page - Hotels list was merged into it) keeps a search box, a row number, and an Open hotel button beside Action - no Setup fraction, no Open shifts column, no Close Day shortcut',
+  src.includes('id="phQ"') && src.includes("<button class=\"btn sm gold\" data-open=\"${h.code}\">Open hotel</button> <button type=\"button\" class=\"btn sm ghost\" data-pvact=\"${h.code}\"") &&
+  !src.includes('data-cd=') && !src.includes('<th>Setup</th>') && !src.includes('<th class="n">Open shifts</th>') &&
+  src.includes(" {t:'Hotels',items:[['Hotels','prov.home']]},") && !src.includes("VIEWS['prov.hotels']"));
 T('Open hotel on an unfinished property goes straight to the Backend wizard (one step at a time, as before); a fully set-up property instead shows the exact same Select System (Frontend/Backend) layer a hotel user sees at sign-in, landing straight into that area',
   src.includes('const ck=propertyChecks(h);') && src.includes("if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}") &&
   src.includes("const a=await selectSystemPage(h,false);SEL_ON=false;") &&
@@ -103,5 +106,16 @@ T('the Setup Floor plan editor\'s room/facility tiles are rounded with a shadow,
 
 T('the User Details & Permission list shows the Active/Inactive/Cancelled chip and the access term on one horizontal line, not stacked',
   src.includes('.pptbl td .uat{display:inline-block!important;margin:0 0 0 8px!important;vertical-align:middle}'));
+
+T('Hotels list was folded into Hotels (one title, not two) - the merged table keeps a row number, the Chain/Subscription/Locked-through columns, drops the Open shifts column, and puts Open hotel right beside Action (no Setup fraction, no Close Day shortcut); the Active/Not active chip (.hst) gets a real dark-mode colour too',
+  src.includes("<td>${i+1}</td><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain=\"${h.code}\">") &&
+  src.includes("<button class=\"btn sm gold\" data-open=\"${h.code}\">Open hotel</button> <button type=\"button\" class=\"btn sm ghost\" data-pvact=\"${h.code}\"") &&
+  src.includes('html[data-skin="modern"][data-mode=dark] .hst.on{background:#16a34a2e;color:#4ade80}') &&
+  src.includes('html[data-skin="modern"][data-mode=dark] .hst.off{background:#e11d4833;color:#fb7185}'));
+
+T('Chain / Group box (Hotel profile and the Chains/Groups page) is a plain drop-down plus a Save chain button sitting right beside it, on one line - no "+ New chain..." option baked into the drop-down any more; creating a chain lives only on the Chains/Groups page (chainListPanel\'s own New chain / group button), and every chain created there is what fills this drop-down',
+  src.includes('${fld(\'Chain / Group\',`<div class="row gap"><select id="chSel" style="flex:1"><option value="">None (stand-alone hotel)</option>${info.chains.map(c=>opt(c.chain_code,chainLabel(c),cur?cur.chain_code:\'\')).join(\'\')}</select><button class="btn" id="chGo">Save chain</button></div>`)}') &&
+  !src.includes('<option value="__new">+ New chain...</option>') && !src.includes("if(sel==='__new')") &&
+  src.includes("$('#chNew',el).onclick=()=>newChainForm(async()=>{await ChainInfo.load(true);if(after)after();else chainListPanel(el)})"));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
