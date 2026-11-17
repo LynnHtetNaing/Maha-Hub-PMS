@@ -3418,7 +3418,6 @@ function shapeHotel(h){
   (h.rateCodes||[]).forEach(r=>{if(r.meal==='ABF'&&(r.bfAdult==null||r.bfAdult===''))r.bfAdult=h.set.bfAdult});
   (h.companies||[]).forEach(c=>{if(c.creditLimit==null)c.creditLimit=0});
   h.shiftFloats=Array.isArray(h.shiftFloats)?h.shiftFloats:[];h.handovers=Array.isArray(h.handovers)?h.handovers:[];h.amend=h.amend||[];h.audits=h.audits||[];h.logs=h.logs||[];h.invoices=h.invoices||[];
-  h.edcLinks=Array.isArray(h.edcLinks)?h.edcLinks:[];
   if(h.users&&h.users.length&&!h.users.some(u=>u.owner)){const m=h.users.find(u=>u.role==='Manager')||h.users[0];m.owner=true;m.protected=true}
   (h.users||[]).forEach(u=>{if(u.owner&&Array.isArray(u.perms)&&!u.perms.includes('userlogs'))u.perms.push('userlogs')});
 }
@@ -3859,32 +3858,10 @@ function persistDB(){
   }).catch(()=>{});
 }
 const CLOUDKEY='mahahub.cloud';
-const STRIPEKEY='mahahub.stripe';
 const CLOUD_PUBLISHABLE='sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
 let _cloudApplying=false,_cloudT=0,_cloudErrAt=0;
 function cloudCfg(){try{return JSON.parse(localStorage.getItem(CLOUDKEY)||'null')}catch(e){return null}}
 function saveCloudCfg(c){localStorage.setItem(CLOUDKEY,JSON.stringify(c))}
-function stripeCfg(){try{return JSON.parse(localStorage.getItem(STRIPEKEY)||'null')}catch(e){return null}}
-function saveStripeCfg(c){localStorage.setItem(STRIPEKEY,JSON.stringify(c||{}))}
-function stripeHost(){const c=stripeCfg();return (c&&c.server)||localStorage.getItem('maha.stripeHost')||'http://127.0.0.1:8783'}
-/** Effective Stripe config for a hotel: hotel’s own keys win, else platform helper/keys (+ optional Connect account). */
-function hotelStripeCfg(h){
-  h=h||H;shapeHotel(h);
-  const plat=stripeCfg()||{};
-  const hs=(h&&h.set&&h.set.stripe)||{};
-  const secret=(hs.secret||'').trim()||(plat.secret||'').trim();
-  const publishable=(hs.publishable||'').trim()||(plat.publishable||'').trim();
-  const server=(plat.server||stripeHost()||'').replace(/\/+$/,'');
-  const connectAccount=(hs.connectAccountId||'').trim();
-  const ownHotelSecret=!!(hs.secret||'').trim();
-  return {
-    secret,publishable,server,connectAccount,
-    ownHotelSecret,
-    /* Ready if hotel has its own secret, or platform helper/secret can charge (optionally for a Connect account). */
-    ready:!!(ownHotelSecret||secret||server)
-  };
-}
-function stripeReady(h){return hotelStripeCfg(h||H).ready}
 function cloudUrl(raw){const u=String(raw||'').trim().replace(/\/+$/,'');return (/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?$/i.test(u)||/^http:\/\/127\.0\.0\.1:\d+$/i.test(u))?u:''}
 function cloudStrip(db){
   const o=JSON.parse(JSON.stringify(db));
@@ -3962,7 +3939,7 @@ function adoptTenantHotel(code,payload){
    - reservation / invoice / profile numbers come from non-overlapping blocks leased from the server;
    - nothing is ever overwritten blindly: every write carries the version it was based on. */
 const MS_KEYS={shiftFloats:'k',handovers:'id',reservations:'id',guests:'id',companies:'id',rooms:'no',roomTypes:'code',rateCodes:'code',shifts:'id',petty:'id',suppliers:'id',purchases:'id',users:'id',invoices:'no',audits:'date',cityLedger:'id',groups:'id',shiftCodes:'code'};
-const MS_DESC=new Set(['amend','edcLinks','approvals','mailLog','logs']);   /* lists the PMS fills newest-first */
+const MS_DESC=new Set(['amend','approvals','mailLog','logs']);   /* lists the PMS fills newest-first */
 const MS_NODELETE=new Set(['logs','mailLog']);                                /* local trimming must not delete other devices' history */
 const MS_COUNTERS=['nextRsv','nextInternal','nextInv','nextSys','nextProfile','nextRef','nextCN'];
 const MS_SKIP=new Set(['session','cardVault']);
@@ -5316,7 +5293,7 @@ function functionGroups(){const groups=[];
   return groups}
 function allFunctionKeys(){const keys=[];functionGroups().forEach(g=>g.items.forEach(x=>keys.push(x[0])));return keys}
 /* ---- Small functions: the buttons inside screens. Each can be switched on or off per hotel in Functions & plan. A missing key means ON (the way the system works today). ---- */
-const FX_LIST=[["Reservation screen",[["fx.res.checkin","Check in","#aCI"],["fx.res.cancel","Cancel booking","#aCan"],["fx.res.noshow","Mark no-show","#aNS"],["fx.res.recall","Recall no-show","#aRecall"],["fx.res.reinstate","Reinstate a cancelled booking","#aReinst"],["fx.res.checkback","Check back in (Auto)","#aBack"],["fx.res.rate","Advance rate setup button","#aRate"],["fx.res.notif","Notifications button","#aNotif"],["fx.res.regcard","Print registration card","#aReg"],["fx.res.deposit","Reservation Deposit","#aDep"],["fx.res.payment","Payment / Refund button","#aRef"],["fx.res.depinv","Deposit invoice","#aDinv"],["fx.res.folio","Open folio","#aFol"],["fx.res.copy","Copy to new reservation (extension)","#aCopy"],["fx.res.addroom","Add another room to this reservation","#aAdd"],["fx.res.profile","Guest profile (ID icon)","#aProf,#gOpen"]]],["Reservation list",[["fx.reslist.new","New reservation button","[data-go=\"res.new\"]"]]],["Front Office lists (Arrivals, Departures, In House)",[["fx.fo.checkin","Check in icon in the list","[data-ci]"],["fx.fo.express","Express check-in pin","[data-exp]"],["fx.fo.regcard","Print registration card icon in the list","[data-prc]"],["fx.fo.checkback","Check back in icon in the list","[data-back]"],["fx.fo.depfolio","Open folio button (Departures)","#dFol"],["fx.fo.depout","Check out button (Departures)","#dCo"]]],["Billing / Folio toolbar",[["fx.folio.view","Folio view","#fView"],["fx.folio.post","Post new transaction","#fPost"],["fx.folio.move","Transfer selected line to another room","#fMove"],["fx.folio.detail","Reservation detail","#fDet"],["fx.folio.rate","Advance rate setup","#fRate"],["fx.folio.pay","Payment","#fPay"],["fx.folio.adv","Advance payment","#fAdv"],["fx.folio.split","Split selected transaction","#fSplit"],["fx.folio.offset","Offset (freeze) selected transaction","#fOff"],["fx.folio.print","Print invoice / receipt / guest folio","#fInv"],["fx.folio.notif","Notifications","#fNot"],["fx.folio.logs","User logs of the folio","#fLog"],["fx.folio.back","Check back in (Auto)","#fBack"],["fx.folio.cancelci","Cancel Check-In","#fCCI"],["fx.folio.out","Check out","#fOut"],["fx.folio.lock","Lock / Unlock folio","#fLock"],["fx.folio.regcard","Print registration card","#fReg"],["fx.folio.movenum","Move line to folio 1 / 2 / 3 / 4 buttons","[data-mv]"]]],["Billing / Folio: after check-out",[["fx.after.refund","Refund (checked-out folio)",""],["fx.after.rebate","Rebate (checked-out folio)",""],["fx.after.adjust","Adjust (+) (checked-out folio)",""]]],["Transaction window",[["fx.tx.corrpost","Correct post","#tCP"],["fx.tx.corrpay","Correct payment","#tCY"],["fx.tx.rebate","Rebate (closed-day charge)","#tReb"],["fx.tx.logs","User Logs (line)","#tUL"],["fx.tx.pos","POS LOG","#tPL"],["fx.tx.calc","Amount calculator","#tCalc"]]],["Post and Payment windows",[["fx.post.calc","Post window: amount calculator","#niCalc"],["fx.post.adjust","Post window: Adjust types","#niKa"],["fx.post.rebate","Post window: Rebate types","#niKr"],["fx.pay.calc","Payment window: amount calculator","#pyCalc"],["fx.pay.default","Payment window: default payment (card on file)","#pyDef"]]],["Close Day",[["fx.cd.rate","Check rate","#cdC"],["fx.cd.checkin","Check in (from an arrival conflict)","[data-cdci]"],["fx.cd.noshow","No-show (from an arrival conflict)","[data-cdns]"],["fx.cd.folio","Folio / check out (from a departure conflict)","[data-cdfo]"],["fx.cd.ratesetup","Rate setup (from a rate conflict)","[data-cdrate]"],["fx.cd.closeshift","Close shift of another cashier","[data-cdsh]"]]],["Guest profile window",[["fx.gp.regcard","Print registration card","#gpReg"],["fx.gp.deletephoto","Delete photo","#gpDel"]]],["Housekeeping and room window",[["fx.hk.dash","Housekeeping dashboard button","#hkDash"],["fx.hk.discrepancy","Close Sleep / Skip discrepancy","#rpDc"],["fx.hk.folio","Room window: Folio button","#rpF"],["fx.hk.reservation","Room window: Reservation button","#rpRs"],["fx.hk.ooo","Room window: Out of order button","#rpOO"]]],["Advance rate calendar",[["fx.ar.apply","Apply rate code to all editable nights","#arApply"],["fx.ar.reset","Reset all editable nights","#arDel"],["fx.ar.clear","Reset the selected night","#arClear"],["fx.ar.copy","Copy the selected night to the following nights","#arCopy"]]],["Group, company, allotment, EDC",[["fx.group.new","New group","#gpNew"],["fx.group.master","Open master folio","#gpFol"],["fx.group.room","Add to rooming list","#gpRoom"],["fx.group.routing","Route to master (add routing rule)","#rtAdd"],["fx.company.add","Add company or agent","#coN"],["fx.allot.add","Add allotment","#fcAddA"],["fx.edc.new","New payment link (EDC)","#edcNew"],["fx.edc.refresh","Refresh payment links","#edcSync"]]],["Inquiry, Hotel Status and Reports buttons",[["fx.fc.print","Forecast: Print","#fcPr"],["fx.fc.excel","Forecast: Export to Excel","#fcEx"],["fx.fc.copy","Forecast: Copy","#fcCp"],["fx.hs.print","Hotel Status: Print","#hsPr"],["fx.hs.details","Hotel Status: Details","#hsDet"],["fx.hs.closeday","Hotel Status: Close Day button","#hsCD"],["fx.rp.excel","Reports: Download Excel","#rpX"],["fx.rp.pdf","Reports: Download PDF","#rpPdf"],["fx.rp.print","Reports: Print","#rpPr"]]],["Duty Roster",[["fx.roster.publish","Publish roster","#rsPub"],["fx.roster.approve","Approve roster","#rsOk"]]]];
+const FX_LIST=[["Reservation screen",[["fx.res.checkin","Check in","#aCI"],["fx.res.cancel","Cancel booking","#aCan"],["fx.res.noshow","Mark no-show","#aNS"],["fx.res.recall","Recall no-show","#aRecall"],["fx.res.reinstate","Reinstate a cancelled booking","#aReinst"],["fx.res.checkback","Check back in (Auto)","#aBack"],["fx.res.rate","Advance rate setup button","#aRate"],["fx.res.notif","Notifications button","#aNotif"],["fx.res.regcard","Print registration card","#aReg"],["fx.res.deposit","Reservation Deposit","#aDep"],["fx.res.payment","Payment / Refund button","#aRef"],["fx.res.depinv","Deposit invoice","#aDinv"],["fx.res.folio","Open folio","#aFol"],["fx.res.copy","Copy to new reservation (extension)","#aCopy"],["fx.res.addroom","Add another room to this reservation","#aAdd"],["fx.res.profile","Guest profile (ID icon)","#aProf,#gOpen"]]],["Reservation list",[["fx.reslist.new","New reservation button","[data-go=\"res.new\"]"]]],["Front Office lists (Arrivals, Departures, In House)",[["fx.fo.checkin","Check in icon in the list","[data-ci]"],["fx.fo.express","Express check-in pin","[data-exp]"],["fx.fo.regcard","Print registration card icon in the list","[data-prc]"],["fx.fo.checkback","Check back in icon in the list","[data-back]"],["fx.fo.depfolio","Open folio button (Departures)","#dFol"],["fx.fo.depout","Check out button (Departures)","#dCo"]]],["Billing / Folio toolbar",[["fx.folio.view","Folio view","#fView"],["fx.folio.post","Post new transaction","#fPost"],["fx.folio.move","Transfer selected line to another room","#fMove"],["fx.folio.detail","Reservation detail","#fDet"],["fx.folio.rate","Advance rate setup","#fRate"],["fx.folio.pay","Payment","#fPay"],["fx.folio.adv","Advance payment","#fAdv"],["fx.folio.split","Split selected transaction","#fSplit"],["fx.folio.offset","Offset (freeze) selected transaction","#fOff"],["fx.folio.print","Print invoice / receipt / guest folio","#fInv"],["fx.folio.notif","Notifications","#fNot"],["fx.folio.logs","User logs of the folio","#fLog"],["fx.folio.back","Check back in (Auto)","#fBack"],["fx.folio.cancelci","Cancel Check-In","#fCCI"],["fx.folio.out","Check out","#fOut"],["fx.folio.lock","Lock / Unlock folio","#fLock"],["fx.folio.regcard","Print registration card","#fReg"],["fx.folio.movenum","Move line to folio 1 / 2 / 3 / 4 buttons","[data-mv]"]]],["Billing / Folio: after check-out",[["fx.after.refund","Refund (checked-out folio)",""],["fx.after.rebate","Rebate (checked-out folio)",""],["fx.after.adjust","Adjust (+) (checked-out folio)",""]]],["Transaction window",[["fx.tx.corrpost","Correct post","#tCP"],["fx.tx.corrpay","Correct payment","#tCY"],["fx.tx.rebate","Rebate (closed-day charge)","#tReb"],["fx.tx.logs","User Logs (line)","#tUL"],["fx.tx.pos","POS LOG","#tPL"],["fx.tx.calc","Amount calculator","#tCalc"]]],["Post and Payment windows",[["fx.post.calc","Post window: amount calculator","#niCalc"],["fx.post.adjust","Post window: Adjust types","#niKa"],["fx.post.rebate","Post window: Rebate types","#niKr"],["fx.pay.calc","Payment window: amount calculator","#pyCalc"],["fx.pay.default","Payment window: default payment (card on file)","#pyDef"]]],["Close Day",[["fx.cd.rate","Check rate","#cdC"],["fx.cd.checkin","Check in (from an arrival conflict)","[data-cdci]"],["fx.cd.noshow","No-show (from an arrival conflict)","[data-cdns]"],["fx.cd.folio","Folio / check out (from a departure conflict)","[data-cdfo]"],["fx.cd.ratesetup","Rate setup (from a rate conflict)","[data-cdrate]"],["fx.cd.closeshift","Close shift of another cashier","[data-cdsh]"]]],["Guest profile window",[["fx.gp.regcard","Print registration card","#gpReg"],["fx.gp.deletephoto","Delete photo","#gpDel"]]],["Housekeeping and room window",[["fx.hk.dash","Housekeeping dashboard button","#hkDash"],["fx.hk.discrepancy","Close Sleep / Skip discrepancy","#rpDc"],["fx.hk.folio","Room window: Folio button","#rpF"],["fx.hk.reservation","Room window: Reservation button","#rpRs"],["fx.hk.ooo","Room window: Out of order button","#rpOO"]]],["Advance rate calendar",[["fx.ar.apply","Apply rate code to all editable nights","#arApply"],["fx.ar.reset","Reset all editable nights","#arDel"],["fx.ar.clear","Reset the selected night","#arClear"],["fx.ar.copy","Copy the selected night to the following nights","#arCopy"]]],["Group, company, allotment",[["fx.group.new","New group","#gpNew"],["fx.group.master","Open master folio","#gpFol"],["fx.group.room","Add to rooming list","#gpRoom"],["fx.group.routing","Route to master (add routing rule)","#rtAdd"],["fx.company.add","Add company or agent","#coN"],["fx.allot.add","Add allotment","#fcAddA"]]],["Inquiry, Hotel Status and Reports buttons",[["fx.fc.print","Forecast: Print","#fcPr"],["fx.fc.excel","Forecast: Export to Excel","#fcEx"],["fx.fc.copy","Forecast: Copy","#fcCp"],["fx.hs.print","Hotel Status: Print","#hsPr"],["fx.hs.details","Hotel Status: Details","#hsDet"],["fx.hs.closeday","Hotel Status: Close Day button","#hsCD"],["fx.rp.excel","Reports: Download Excel","#rpX"],["fx.rp.pdf","Reports: Download PDF","#rpPdf"],["fx.rp.print","Reports: Print","#rpPr"]]],["Duty Roster",[["fx.roster.publish","Publish roster","#rsPub"],["fx.roster.approve","Approve roster","#rsOk"]]]];
 function fxOn(k){return featOn(H,k)}
 function fxGuard(k){if(fxOn(k))return true;toast('This function is switched off for this hotel. The provider can switch it on under Functions & plan.');return false}
 function applyFxCss(){
@@ -7803,7 +7780,7 @@ const MENU=[
  {t:'Profile',items:[['Guest Profile','profile.guests','profile','fn.profile.guests'],['Company / Agency','profile.companies','','fn.profile.companies'],['Rate Codes','profile.rates','','fn.profile.rates']]},
  {t:'Reservation',items:[['New Reservation','res.new','res.create','fn.res.new'],['Walk-In','res.walkin','res.create','fn.res.walkin'],['Reservation List / Change','res.list','','fn.res.list'],['Group Reservation','res.group','res.create','fn.res.group'],['Advance Rate Setup','res.rate','rate','fn.res.rate'],['Room Grid','fo.grid','','fn.res.grid']]},
  {t:'Front Office',items:[['Manager Dashboard','fo.dash','reports','fn.fo.dash'],['Arrivals','fo.arrivals','','fn.fo.arrivals'],['Departures','fo.departures','','fn.fo.departures'],['In House','fo.inhouse','','fn.fo.inhouse'],['Duty Roster','fo.roster','','fn.fo.roster']]},
- {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['Payment / EDC links','bill.edclinks','pay','fn.bill.folio'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','approve','fn.set.approve']]},
+ {t:'Billing / Folio',items:[['Folio','bill.folio','','fn.bill.folio'],['Folio Inquiry','bill.inquiry','','fn.bill.inquiry'],['Transaction Inquiry','bill.trans','','fn.bill.trans'],['City Ledger','bill.city','pay','fn.bill.city'],['Master Folio','bill.master','','fn.bill.master'],['Approvals','set.approve','approve','fn.set.approve']]},
  {t:'Room Management',items:[['Housekeeping Status','rm.hkstatus','','fn.rm.hkstatus'],['Room Status','rm.roomstatus','roomstatus','fn.rm.roomstatus'],['HK Folio','rm.hkfolio','','fn.rm.hkfolio'],['Out of Order','rm.ooo','','fn.rm.ooo']]},
  {t:'Inquiry',items:[['Hotel Status','fo.status','','fn.inq.status'],['Guest','inq.guest','','fn.inq.guest'],['Booking History','inq.history','','fn.inq.history'],['Forecast','inq.forecast','','fn.inq.forecast']]},
  {t:'Close Day',items:[['Post Room / Close Day','cd.close','','fn.cd.close'],['My Shift & Cashier','cd.shift','','fn.cd.shift'],['Petty Cash','cd.petty','','fn.cd.petty'],['Cash Handover','cd.handover','','fn.cd.handover']]},
@@ -7819,7 +7796,7 @@ const PROV_MENU=[
 const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems']]},
- {t:'Connections',items:[['Direct booking & Google','prov.google'],['Distribution (Google Hotels)','prov.distribution'],['EDC Card Link','prov.edc'],['Stripe payments (3DS)','prov.stripe']]},
+ {t:'Connections',items:[['Direct booking & Google','prov.google'],['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
  {t:'Billing',items:[['Hotel Billing','prov.billing']]},
  {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log'],['User Logs','prov.userlogs']]},
  {t:'Hotels',items:[['Open PMS','prov.enter'],['All hotels','prov.home']]}];
@@ -8149,221 +8126,6 @@ function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPref
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
 }
-function edcPack(L){
-  if(!L||!L.id)return '';
-  return edcB64url(JSON.stringify({
-    id:L.id,h:L.hotel||(H&&H.code)||'',g:L.guest||'',a:+L.amount||0,c:L.cur||(H&&H.set&&H.set.cur)||'THB',
-    r:L.ref||'',n:L.note||'',m:L.merchant||(H&&H.set&&H.set.name)||'',co:L.company||(H&&H.set&&H.set.legal)||'',
-    ct:L.contact||(H&&H.set&&H.set.phone)||'',x:L.expiresAt||null,at:L.createdAt||Date.now()
-  }));
-}
-function edcLinkUrl(link){
-  /* Prefer live Stripe Checkout URL when this link was created with Stripe 3DS. */
-  if(link&&link.stripeUrl)return link.stripeUrl;
-  const base=hubBaseUrl()+'edc-link/';
-  if(!link)return base;
-  /* Absolute https/http URL — pasteable & clickable in chat apps. Keep short (no huge payload). */
-  const u=new URL('edc-link/',hubBaseUrl());
-  u.searchParams.set('id',link.id);
-  if(link.hotel)u.searchParams.set('h',link.hotel);
-  u.searchParams.set('a',String(+link.amount||0));
-  u.searchParams.set('c',link.cur||(H&&H.set&&H.set.cur)||'THB');
-  if(link.guest)u.searchParams.set('g',link.guest);
-  if(link.ref)u.searchParams.set('r',link.ref);
-  if(link.note)u.searchParams.set('n',link.note);
-  if(link.expiresAt)u.searchParams.set('x',String(link.expiresAt));
-  if(link.stripeSessionId)u.searchParams.set('cs',link.stripeSessionId);
-  const cfg=cloudCfg();
-  if(cfg&&cfg.url)u.searchParams.set('cloud',cfg.url.replace(/\/+$/,''));
-  const sh=stripeHost();
-  if(link&&link.stripeSessionId&&sh)u.searchParams.set('stripe',sh.replace(/\/+$/,''));
-  return u.toString();
-}
-function openEdcLink(link){const url=edcLinkUrl(link);if(openApp(url,link?'Guest payment link':'EDC / payment link'))toast('Opened guest payment link')}
-const STRIPE_ZERO_DEC=new Set(['bif','clp','djf','gnf','jpy','kmf','krw','mga','pyg','rwf','ugx','vnd','vuv','xaf','xof','xpf']);
-function stripeUnitAmount(amount,cur){const c=String(cur||'thb').toLowerCase();const n=+amount;if(!(n>0))throw new Error('Amount must be greater than 0');return STRIPE_ZERO_DEC.has(c)?Math.round(n):Math.round(n*100)}
-async function stripeCreateCheckout(link){
-  const successUrl=hubBaseUrl()+'edc-link/?paid=1&id='+encodeURIComponent(link.id)+'&session_id={CHECKOUT_SESSION_ID}';
-  const cancelUrl=hubBaseUrl()+'edc-link/?cancelled=1&id='+encodeURIComponent(link.id);
-  const cfg=hotelStripeCfg(H);
-  const payload={
-    amount:link.amount,currency:link.cur||(H&&H.set&&H.set.cur)||'THB',
-    guest:link.guest||'',ref:link.ref||'',note:link.note||'',hotel:link.hotel||(H&&H.code)||'',
-    linkId:link.id,successUrl,cancelUrl,
-    /* Hotel’s own secret (preferred) or Connect account under the platform secret. */
-    secret:cfg.ownHotelSecret?cfg.secret:undefined,
-    stripeAccount:(!cfg.ownHotelSecret&&cfg.connectAccount)?cfg.connectAccount:undefined
-  };
-  const server=(cfg.server||'').replace(/\/+$/,'');
-  if(server){
-    try{
-      const ckHdr={'Content-Type':'application/json'};const sbTok=(typeof MahaAuth!=='undefined'&&MahaAuth.read)?MahaAuth.read():null;if(sbTok&&sbTok.access_token)ckHdr['Authorization']='Bearer '+sbTok.access_token;
-      const res=await fetch(server+'/api/checkout',{method:'POST',headers:ckHdr,body:JSON.stringify(payload)});
-      const data=await res.json().catch(()=>({}));
-      if(res.ok&&data.url)return Object.assign({account:payload.stripeAccount||null,hotelOwned:!!payload.secret},data);
-      if(cfg.secret&&(data.error||'').includes('STRIPE_SECRET_KEY')){/* fall through */}
-      else if(!res.ok)throw new Error(data.error||('Stripe helper HTTP '+res.status));
-      else if(data.url)return data;
-    }catch(e){
-      if(!cfg.secret)throw e;
-    }
-  }
-  if(!cfg.secret)throw new Error('Add this hotel’s Stripe secret under Setup → Stripe payments, or save platform keys on that same page');
-  const cur=String(payload.currency||'thb').toLowerCase();
-  const unit=stripeUnitAmount(payload.amount,cur);
-  const body=new URLSearchParams();
-  const set=(k,v)=>{if(v!=null&&v!=='')body.append(k,String(v))};
-  set('mode','payment');
-  set('success_url',successUrl);
-  set('cancel_url',cancelUrl);
-  set('client_reference_id',link.id);
-  set('payment_method_types[0]','card');
-  set('line_items[0][quantity]','1');
-  set('line_items[0][price_data][currency]',cur);
-  set('line_items[0][price_data][unit_amount]',String(unit));
-  set('line_items[0][price_data][product_data][name]',(payload.note||payload.ref||'Hotel charge').slice(0,120));
-  set('line_items[0][price_data][product_data][description]',[payload.guest,payload.ref,payload.hotel].filter(Boolean).join(' · ').slice(0,200));
-  set('payment_method_options[card][request_three_d_secure]','any');
-  set('payment_intent_data[metadata][linkId]',link.id);
-  set('payment_intent_data[metadata][hotel]',payload.hotel);
-  set('payment_intent_data[metadata][guest]',payload.guest);
-  set('metadata[linkId]',link.id);
-  set('metadata[hotel]',payload.hotel);
-  set('metadata[guest]',payload.guest);
-  set('metadata[ref]',payload.ref);
-  const headers={'Authorization':'Bearer '+cfg.secret,'Content-Type':'application/x-www-form-urlencoded'};
-  if(payload.stripeAccount)headers['Stripe-Account']=payload.stripeAccount;
-  const res=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers,body});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error((data.error&&data.error.message)||('Stripe HTTP '+res.status));
-  return {ok:true,id:data.id,url:data.url,livemode:!!data.livemode,account:payload.stripeAccount||null,hotelOwned:cfg.ownHotelSecret};
-}
-async function stripeFetchSession(sessionId){
-  const cfg=hotelStripeCfg(H);
-  const server=(cfg.server||'').replace(/\/+$/,'');
-  if(server){
-    try{
-      const hdrs={'Content-Type':'application/json'};
-      if(cfg.ownHotelSecret&&cfg.secret)hdrs['X-Maha-Stripe-Secret']=cfg.secret;
-      if(!cfg.ownHotelSecret&&cfg.connectAccount)hdrs['Stripe-Account']=cfg.connectAccount;
-      const res=await fetch(server+'/api/session/'+encodeURIComponent(sessionId),{headers:hdrs});
-      const data=await res.json().catch(()=>({}));
-      if(res.ok)return data;
-    }catch(e){if(!cfg.secret)throw e}
-  }
-  if(!cfg.secret)throw new Error('Stripe secret / helper not configured for this hotel');
-  const headers={Authorization:'Bearer '+cfg.secret};
-  if(!cfg.ownHotelSecret&&cfg.connectAccount)headers['Stripe-Account']=cfg.connectAccount;
-  const res=await fetch('https://api.stripe.com/v1/checkout/sessions/'+encodeURIComponent(sessionId)+'?expand[]=payment_intent&expand[]=payment_intent.payment_method',{headers});
-  const session=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error((session.error&&session.error.message)||('Stripe HTTP '+res.status));
-  const paid=session.payment_status==='paid'||session.status==='complete';
-  const pi=session.payment_intent&&typeof session.payment_intent==='object'?session.payment_intent:null;
-  const pm=pi&&pi.payment_method&&typeof pi.payment_method==='object'?pi.payment_method:null;
-  const card=pm&&pm.card?{brand:String(pm.card.brand||'card').toUpperCase(),last4:pm.card.last4||'',exp:(pm.card.exp_month&&pm.card.exp_year)?String(pm.card.exp_month).padStart(2,'0')+'/'+String(pm.card.exp_year).slice(-2):'',holder:(pm.billing_details&&pm.billing_details.name)||'',stripe:true}:null;
-  return {ok:true,id:session.id,paid,paymentStatus:session.payment_status,status:session.status,card,metadata:session.metadata||{},livemode:!!session.livemode};
-}
-async function stripeFetchInvoice(invoiceId){
-  const cfg=hotelStripeCfg(H);
-  const server=(cfg.server||'').replace(/\/+$/,'');
-  if(server){
-    try{
-      const hdrs={'Content-Type':'application/json'};
-      if(cfg.ownHotelSecret&&cfg.secret)hdrs['X-Maha-Stripe-Secret']=cfg.secret;
-      if(!cfg.ownHotelSecret&&cfg.connectAccount)hdrs['Stripe-Account']=cfg.connectAccount;
-      const res=await fetch(server+'/api/invoice/'+encodeURIComponent(invoiceId),{headers:hdrs});
-      const data=await res.json().catch(()=>({}));
-      if(res.ok)return data;
-    }catch(e){if(!cfg.secret)throw e}
-  }
-  if(!cfg.secret)throw new Error('Stripe secret / helper not configured for this hotel');
-  const headers={Authorization:'Bearer '+cfg.secret};
-  if(!cfg.ownHotelSecret&&cfg.connectAccount)headers['Stripe-Account']=cfg.connectAccount;
-  const res=await fetch('https://api.stripe.com/v1/invoices/'+encodeURIComponent(invoiceId),{headers});
-  const inv=await res.json().catch(()=>({}));
-  if(!res.ok)throw new Error((inv.error&&inv.error.message)||('Stripe HTTP '+res.status));
-  return {ok:true,id:inv.id,paid:inv.status==='paid',status:inv.status,url:inv.hosted_invoice_url||'',livemode:!!inv.livemode};
-}
-const EDC_BRIDGE_KEY='mahahub.edc.bridge.v1';
-function edcBridgeAll(){try{const o=JSON.parse(localStorage.getItem(EDC_BRIDGE_KEY)||'{"links":[]}');o.links=Array.isArray(o.links)?o.links:[];return o}catch(e){return {links:[]}}}
-function edcBridgePut(link){const b=edcBridgeAll();const i=b.links.findIndex(x=>x.id===link.id);if(i>=0)b.links[i]=link;else b.links.unshift(link);if(b.links.length>200)b.links.length=200;try{localStorage.setItem(EDC_BRIDGE_KEY,JSON.stringify(b))}catch(e){}return link}
-function edcBridgeGet(id){return edcBridgeAll().links.find(x=>x.id===id)||null}
-function edcLinkMeta(L){
-  return {
-    guest:L.guest||'',email:L.email||'',amount:L.amount,cur:L.cur||(H&&H.set&&H.set.cur)||'THB',ref:L.ref||'',note:L.note||'',
-    merchant:L.merchant||(H&&H.set&&H.set.name)||'',company:L.company||(H&&H.set&&H.set.legal)||'',
-    contact:L.contact||(H&&H.set&&H.set.phone)||'',expiresAt:L.expiresAt||null,
-    createdAt:L.createdAt||Date.now(),submittedAt:L.submittedAt||null,keyedAt:L.keyedAt||null,
-    stripeSessionId:L.stripeSessionId||'',stripeInvoiceId:L.stripeInvoiceId||'',stripeUrl:L.stripeUrl||'',stripeLivemode:!!L.stripeLivemode
-  };
-}
-function edcToCloudPayload(L){
-  return {id:L.id,hotel:L.hotel||(H&&H.code)||'',status:L.status||'waiting',meta:edcLinkMeta(L),card:L.card||null};
-}
-function edcFromCloudRow(row){
-  const m=row.meta||{};
-  return {
-    id:row.id,hotel:row.hotel,status:row.status||'waiting',
-    guest:m.guest||'',email:m.email||'',amount:+m.amount||0,cur:m.cur||'THB',ref:m.ref||'',note:m.note||'',
-    merchant:m.merchant||'',company:m.company||'',contact:m.contact||'',
-    expiresAt:m.expiresAt||null,createdAt:m.createdAt||Date.now(),submittedAt:m.submittedAt||null,keyedAt:m.keyedAt||null,
-    stripeSessionId:m.stripeSessionId||'',stripeInvoiceId:m.stripeInvoiceId||'',stripeUrl:m.stripeUrl||'',stripeLivemode:!!m.stripeLivemode,
-    card:row.card||null
-  };
-}
-async function edcCloudRpc(name,body,opt){
-  const c=opt&&opt.url?{url:opt.url,anon:opt.anon||CLOUD_PUBLISHABLE}:cloudCfg();
-  if(!c||!c.url||!(c.anon||CLOUD_PUBLISHABLE))throw new Error('NOCFG');
-  const anon=c.anon||CLOUD_PUBLISHABLE;
-  const headers={'Content-Type':'application/json','apikey':anon};
-  if(!/^sb_/.test(anon))headers.Authorization='Bearer '+anon;
-  const res=await fetch(String(c.url).replace(/\/+$/,'')+'/rest/v1/rpc/'+name,{method:'POST',headers,body:JSON.stringify(body)});
-  const text=await res.text();let data=null;try{data=text?JSON.parse(text):null}catch(e){data={message:text}}
-  if(!res.ok)throw new Error((data&&(data.message||data.error||data.msg))||('HTTP '+res.status));
-  return data;
-}
-async function edcCloudPut(L){
-  const c=cloudCfg();if(!c||!c.url||!c.pass)return false;
-  await edcCloudRpc('maha_edc_put',{pass:c.pass,link:edcToCloudPayload(L)});
-  return true;
-}
-async function edcCloudSyncHotel(){
-  if(!H)return 0;
-  shapeHotel(H);
-  let n=0;
-  const c=cloudCfg();
-  if(c&&c.url&&c.pass){
-    try{
-      const rows=await edcCloudRpc('maha_edc_list',{pass:c.pass,hotel:H.code});
-      (Array.isArray(rows)?rows:[]).forEach(row=>{
-        const L=edcFromCloudRow(row);
-        const i=H.edcLinks.findIndex(x=>x.id===L.id);
-        if(i>=0){
-          const prev=H.edcLinks[i];
-          H.edcLinks[i]=Object.assign({},prev,L,{card:L.card||prev.card||null});
-          edcBridgePut(Object.assign({hotel:H.code},H.edcLinks[i]));
-        }else{
-          H.edcLinks.unshift(L);
-          edcBridgePut(Object.assign({hotel:H.code},L));
-        }
-        n++;
-      });
-    }catch(e){/* schema may not be installed yet */}
-  }
-  /* Same-browser bridge: guest phone on another device needs Cloud; same PC still works. */
-  edcBridgeAll().links.filter(x=>x.hotel===H.code).forEach(L=>{
-    const i=H.edcLinks.findIndex(x=>x.id===L.id);
-    if(i<0){H.edcLinks.unshift(L);n++}
-    else{
-      const cur=H.edcLinks[i];
-      if((L.submittedAt||0)>(cur.submittedAt||0)||(L.card&&!cur.card)||(L.status==='submitted'&&cur.status==='waiting')){
-        H.edcLinks[i]=Object.assign({},cur,L);n++;
-      }
-    }
-  });
-  if(n)saveDB();
-  return n;
-}
 function copyText(t){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}finally{a.remove()}}
 function reachUrl(h){return sysUrl('reach',h)}
 function connectHost(){return (localStorage.getItem('maha.connectHost')||'http://127.0.0.1:8782').replace(/\/+$/,'')}
@@ -8471,9 +8233,9 @@ const MI={
 function mIc(n,cls){return '<svg class="mi'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(MI[n]||MI.folder)+'"/></svg>'}
 const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','Billing / Folio':'receipt','Room Management':'bed','Inquiry':'search','Close Day':'moon','Help':'help','Report':'chart','Setup':'gear','Provider':'gear','Property set-up':'building','Rates & profiles':'tag','People & access':'users','Finance & data':'db','Billing':'receipt'};
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
- 'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.edclinks':'card','bill.city':'book','bill.master':'layers','set.approve':'check',
+ 'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.city':'book','bill.master':'layers','set.approve':'check',
  'rm.hkstatus':'spark','rm.roomstatus':'grid','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','cd.handover':'swap','help.home':'help',
- 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.billing':'receipt','prov.hotels':'building','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.edc':'card','prov.log':'history'};
+ 'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.billing':'receipt','prov.hotels':'building','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.log':'history'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;
@@ -8497,7 +8259,7 @@ function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
   const um=userMode();return (lightOnly()?'':'<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div>')+'<div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
-const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Hotel Setup','prov.setup'],['Direct booking & Google','prov.google'],['Stripe payments (this hotel)','prov.stripe'],['EDC Card Link','prov.edc'],['Amend records','prov.amend'],['Amendment log','prov.log']]};
+const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct booking & Google','prov.google'],['Stripe payments (this hotel)','prov.stripe'],['Amend records','prov.amend'],['Amendment log','prov.log']]};
 function modernShellHTML(){
   const n=notifBadgeCount();
   return `<div class="mshell${msbSlim()?' slim':''}" id="mshell">
@@ -8856,7 +8618,7 @@ function routeOf(){const h=location.hash||'';if(h.indexOf('#/')!==0)return null;
   return /^[a-z0-9._-]{2,40}$/i.test(v)?{v,arg}:null}
 function areaOfView(v){try{return BACKEND_MENU().some(g=>(g.items||[]).some(it=>it[1]===v))?'back':'front'}catch(e){return 'front'}}
 function routeAllowed(v){try{
-  if(!DB||!DB.session||!VIEWS[v]||v==='sys.pick'||v==='prov.edc')return false;
+  if(!DB||!DB.session||!VIEWS[v]||v==='sys.pick')return false;
   if(/^prov\./.test(v))return !!DB.session.provider;
   if(DB.session.provider&&!DB.session.inHotel)return false;
   let ok=true;const chk=list=>(list||[]).forEach(g=>(g.items||[]).forEach(it=>{if(it[1]===v)ok=ok&&(!it[2]||can(it[2]))&&(!it[3]||feat(it[3]))}));
@@ -8882,7 +8644,6 @@ function go(v,arg){try{window.MahaLoader&&MahaLoader.pageOpen()}catch(e){}const 
   if(v==='res.open'&&!go.keepBack)resBack='res.list';go.keepBack=false;
   if(v==='prov.enter'){if(H&&DB.session&&DB.session.provider&&!DB.session.inHotel)enterHotel(H.code);return}
   if(v==='prov.crm'){closeMenus();openApp(crmUrl(),'CRM');return}   /* the company Sales is separate software with its own sign-in; it opens in its own tab */
-  if(v==='prov.edc'){if(!(DB.session&&DB.session.provider)){toast('Only the provider can open EDC Card Link from here.');return}closeMenus();openEdcLink();return}
   if(!providerConsole&&v==='sys.pick'){openSystemsSwitcher();return}
   if(!providerConsole&&!viewAllowed(v)){toast('This function is hidden for this hotel. The provider opens it under Functions & plan.');return}
   try{ulScreen(v,arg)}catch(e){}
@@ -9246,7 +9007,7 @@ const TITLE_ICON={
  'reservation list / change':'card','reservation':'card','group reservation':'folder','advance rate setup':'cal','room grid':'grid',
  'hotel status':'bed','inquiry / hotel status':'bed','manager dashboard':'cash','arrivals':'pin','front office / arrivals':'pin',
  'departures':'out','front office / departures':'out','forecast':'cal','inquiry / forecast':'cal','in house':'bed','duty roster':'user',
- 'folio':'card','billing / folio / folio':'card','folio inquiry':'search','billing / folio':'card','transaction inquiry':'log','payment / edc links':'cardp',
+ 'folio':'card','billing / folio / folio':'card','folio inquiry':'search','billing / folio':'card','transaction inquiry':'log',
  'city ledger':'ledger','master folio':'folder','approvals':'bell','housekeeping status':'bed','room management / housekeeping':'bed',
  'out of order':'offset','out of order / out of inventory':'offset','guest':'search','guest inquiry':'search','booking history':'log',
  'post room / close day':'log','my shift & cashier':'cash','petty cash':'wallet','tm.30':'idc','e-tax file':'xls',
@@ -9254,7 +9015,7 @@ const TITLE_ICON={
  'help':'help','hotel settings':'gear','functions':'wand','functions & plan':'wand','staff & permissions':'lock',
  'transaction codes':'card','rooms & room types':'bed','purchasing & ap':'wallet','backup & restore':'save',
  'all properties':'bank','properties':'bank','property setup':'gear','systems':'wifi','systems (reach · connect · booking)':'wifi',
- 'direct booking & google':'globe','edc card link':'cardp','stripe payments (3ds)':'cardp','system rules':'gear','system rules (per hotel)':'gear',
+ 'direct booking & google':'globe','system rules':'gear','system rules (per hotel)':'gear',
  'distribution (google hotels)':'globe','code catalog (all hotels)':'card','code catalog – all hotels':'card','security center':'lock',
  'backup & migration':'upload','recycle bin':'trash','revenue analysis':'grid','amend records':'detail','amendment log':'log','my account & security':'user',
  'back to provider console':'left','hotels':'bank','terms & conditions':'card'
@@ -11084,138 +10845,6 @@ function psModal(B,kind,after,presetKey,asReq){
       saveDB();closeModal(m);after();toast(PS_NAME[kind]+' posted: '+m2(a));psAfterPost(B,cn)};
     noShiftGate(kind==='refund'?'payment':'post',run)}}
 function psPlaceholder(){}
-/* ---------- EDC Card Links (Billing) — guest collect for EDC key-in ---------- */
-function edcStatusPill(st){
-  return ({waiting:'<span class="pill y">Waiting guest</span>',submitted:'<span class="pill b">Ready for EDC</span>',paid:'<span class="pill g">Paid (Stripe)</span>',keyed:'<span class="pill g">Keyed</span>',cancelled:'<span class="pill r">Cancelled</span>',expired:'<span class="pill r">Expired</span>'}[st]||esc(st));
-}
-function showEdcKeyIn(L,after){
-  if(!L||!L.card){toast('No card on this link yet.');return}
-  const c=L.card;
-  const pan=String(c.pan||'').replace(/\D/g,'').replace(/(\d{4})(?=\d)/g,'$1 ').trim()||('•••• '+ (c.last4||''));
-  const m=modal('EDC key-in sheet',`<p class="sub">${esc(L.guest||'')} · <b>${m2(L.amount)} ${esc(L.cur||H.set.cur)}</b> · ${esc(L.ref||L.id)}</p>
-    <div class="panel pad" style="background:#0d3a2c;color:#e8f2ec;font-family:ui-monospace,Menlo,monospace">
-      <div>Holder: ${esc(c.holder||'—')}</div>
-      <div>Brand: ${esc(c.brand||'—')}</div>
-      <div style="font-size:1.2rem;margin:8px 0">PAN: ${esc(pan)}</div>
-      <div>Exp: ${esc(c.exp||'—')} · CVC: ${esc(c.cvc||'(cleared)')}</div>
-    </div>
-    <p class="sub">Key these into your EDC / key-in machine. After a successful charge, mark keyed — CVC is cleared.</p>
-    <div class="btns"><button class="btn gold" id="edcKeyed">Marked keyed on EDC</button><button class="btn ghost" id="edcClose">Close</button></div>`,{w:520});
-  $('#edcClose',m).onclick=()=>closeModal(m);
-  $('#edcKeyed',m).onclick=async()=>{
-    L.status='keyed';L.keyedAt=Date.now();if(L.card)L.card.cvc='';
-    edcBridgePut(Object.assign({},L,{hotel:H.code}));
-    log('EDC keyed '+L.id+' · •••• '+(L.card&&L.card.last4||''));
-    const cld=cloudCfg();
-    if(cld&&cld.pass){try{await edcCloudRpc('maha_edc_keyed',{pass:cld.pass,id:L.id})}catch(e){try{await edcCloudPut(L)}catch(e2){}}}
-    saveDB();closeModal(m);toast('Marked keyed · CVC cleared');if(after)after();
-  };
-}
-VIEWS['bill.edclinks']=el=>{
-  if(!need('pay'))return;
-  shapeHotel(H);
-  const cloudOn=!!(cloudCfg()&&cloudCfg().url&&cloudCfg().pass);
-  const stripeOn=stripeReady();
-  el.innerHTML=pageHead('Payment / EDC links',`<button class="btn ghost" id="edcSync">Refresh</button><button class="btn gold" id="edcNew">${ic('pay',16)} New link</button>`,'act')+
-    `<div class="panel pad"><p class="sub">${stripeOn
-      ? 'Stripe is on for this hotel (own keys, Connect, or platform helper): guest pays on <b>Checkout</b> with <b>3D Secure</b>. Money goes to that Stripe account — not Maha Hub. Full PAN stays with Stripe.'
-      : 'Stripe is off for this hotel: guest form is <b>EDC key-in</b> only (no bank OTP). Add this hotel’s Stripe under Setup → Stripe payments, or platform keys on that same page.'}
-      ${stripeOn?' <span class="pill g">Stripe on</span>':' <span class="pill y">Stripe off</span>'}
-      ${cloudOn?' <span class="pill g">Cloud on</span>':' <span class="pill y">Cloud off</span>'}</p>
-      <p class="sub">Guest host: <a href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">${esc(edcLinkUrl())}</a></p></div>
-     <div class="panel mt scroll"><table class="grid"><tr><th>Status</th><th>Created</th><th>Guest</th><th>Ref</th><th class="n">Amount</th><th>Card</th><th></th></tr>
-      ${H.edcLinks.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(p=>`<tr>
-        <td>${edcStatusPill(p.status)}${(p.stripeSessionId||p.stripeInvoiceId)?' <span class="pill b">Stripe</span>':''}</td><td>${fdt(p.createdAt)}</td><td>${esc(p.guest||'—')}${p.email?`<div class="sub">${esc(p.email)}</div>`:''}</td><td>${esc(p.ref||p.note||'—')}</td>
-        <td class="n">${m2(p.amount)} ${esc(p.cur||H.set.cur)}</td>
-        <td>${p.card?esc((p.card.brand||'')+' •••• '+(p.card.last4||'')): '<span class="sub">—</span>'}</td>
-        <td class="nowrap">
-          <button class="btn sm ghost" data-copy="${p.id}">Copy link</button>
-          <a class="btn sm gold" href="${esc(edcLinkUrl(p))}" target="_blank" rel="noopener">Open</a>
-          ${p.status==='submitted'&&p.card&&p.card.pan?`<button class="btn sm gold" data-view="${p.id}">EDC key-in</button>`:''}
-          ${p.status==='waiting'?`<button class="btn sm ghost" data-cancel="${p.id}">Cancel</button>`:''}
-          ${p.status==='keyed'&&p.card&&p.card.pan?`<button class="btn sm ghost" data-wipe="${p.id}">Wipe card #</button>`:''}
-        </td></tr>`).join('')||'<tr><td colspan="7" class="empty">No payment links yet.</td></tr>'}
-     </table></div>`;
-  const refresh=()=>render();
-  const shareLink=p=>{
-    const url=edcLinkUrl(p);
-    copyText(url);
-    modal('Share with guest',`<p class="sub">${p.stripeUrl?'This is a <b>Stripe Checkout</b> link. Guest pays with card + 3D Secure.':'Send this <b>blue link</b> to the guest.'}</p>
-      <p style="margin:12px 0;word-break:break-all;font-size:15px"><a href="${esc(url)}" target="_blank" rel="noopener" style="color:#0b57d0;text-decoration:underline">${esc(url)}</a></p>
-      <label class="f"><span>Link</span><input id="edcUrl" value="${esc(url)}" readonly></label>
-      <div class="btns"><button class="btn gold" id="edcCopy2">Copy link</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">Open link</a></div>`,{w:560});
-    $('#edcCopy2').onclick=()=>{copyText($('#edcUrl').value);toast('Copied — paste into chat')};
-  };
-  const syncStripePaid=async()=>{
-    let n=0;
-    for(const p of H.edcLinks){
-      if(p.status==='paid'||p.status==='cancelled')continue;
-      if(!p.stripeSessionId&&!p.stripeInvoiceId)continue;
-      try{
-        const s=p.stripeInvoiceId&&!p.stripeSessionId?await stripeFetchInvoice(p.stripeInvoiceId):await stripeFetchSession(p.stripeSessionId);
-        if(s&&s.paid){
-          p.status='paid';p.submittedAt=Date.now();p.card=s.card||p.card||{brand:'CARD',last4:'',stripe:true};
-          edcBridgePut(Object.assign({},p,{hotel:H.code}));
-          try{await edcCloudPut(p)}catch(e){}
-          n++;
-        }
-      }catch(e){}
-    }
-    return n;
-  };
-  $('#edcSync',el).onclick=async()=>{
-    $('#edcSync',el).disabled=true;
-    try{
-      const sn=await syncStripePaid();
-      const n=await edcCloudSyncHotel();
-      toast((sn||n)?`Updated ${(sn||0)+(n||0)} link(s)`:'No new payments yet');
-      refresh();
-    }catch(e){toast('Refresh failed. '+(e.message||e))}
-    finally{$('#edcSync',el).disabled=false}
-  };
-  syncStripePaid().then(n=>{if(n){saveDB();refresh()}}).catch(()=>{});
-  edcCloudSyncHotel().then(n=>{if(n)refresh()}).catch(()=>{});
-  $('#edcNew',el).onclick=()=>{
-    const m=modal(stripeOn?'New Stripe payment link':'New EDC collection link',`<div class="form2">
-      ${fld('Guest name',`<input id="edcG" autofocus placeholder="Guest full name">`)}
-      ${fld(stripeOn?'Amount to charge':'Amount to key',`<input id="edcA" type="number" min="0.01" step="0.01" value="">`)}
-      ${fld('Currency',`<input id="edcC" value="${esc(H.set.cur||'THB')}">`)}
-      ${fld('Reservation / ref',`<input id="edcR" placeholder="Optional">`)}
-      ${fld('Note / reason',`<input id="edcN" placeholder="e.g. Deposit for stay" class="span2">`,'span2')}
-      ${fld('Link expires',`<select id="edcX"><option value="24">24 hours</option><option value="72" selected>3 days</option><option value="168">7 days</option><option value="0">No expiry</option></select>`)}
-    </div><p class="sub">${stripeOn?'Creates a Stripe Checkout session with <b>3D Secure required</b>.':'Manual EDC collect (no bank OTP). Configure Stripe for real 3DS.'}</p><div class="err" id="edcErr"></div><div class="btns"><button class="btn gold" id="edcSave">Create link</button></div>`,{w:560});
-    $('#edcSave',m).onclick=async()=>{
-      const guest=$('#edcG',m).value.trim(), amt=+$('#edcA',m).value, cur=$('#edcC',m).value.trim()||H.set.cur, note=$('#edcN',m).value.trim(), ref=$('#edcR',m).value.trim(), hrs=+$('#edcX',m).value;
-      if(!guest){$('#edcErr',m).textContent='Enter the guest name.';return}
-      if(!(amt>0)){$('#edcErr',m).textContent='Enter an amount greater than 0.';return}
-      const btn=$('#edcSave',m);btn.disabled=true;btn.textContent=stripeOn?'Creating Stripe link…':'Creating…';
-      const id='edc'+uid();
-      const link={id,hotel:H.code,guest,amount:r2(amt),cur,ref,note,status:'waiting',createdAt:Date.now(),submittedAt:null,keyedAt:null,card:null,
-        merchant:H.set.name||H.code,company:H.set.legal||'',contact:H.set.phone||'',expiresAt:hrs?Date.now()+hrs*36e5:null};
-      try{
-        if(stripeOn){
-          const sess=await stripeCreateCheckout(link);
-          link.stripeSessionId=sess.id;link.stripeUrl=sess.url;link.stripeLivemode=!!sess.livemode;
-        }
-        H.edcLinks.unshift(link);
-        edcBridgePut(link);
-        log('Created '+(link.stripeUrl?'Stripe':'EDC')+' link '+id+' for '+guest+' · '+m2(amt)+' '+cur);
-        try{await edcCloudPut(link)}catch(e){}
-        saveDB();closeModal(m);render();shareLink(link);toast(link.stripeUrl?'Stripe Checkout ready — send to guest':'Link ready — send to guest');
-      }catch(e){
-        btn.disabled=false;btn.textContent='Create link';
-        $('#edcErr',m).textContent=e.message||String(e);
-      }
-    };
-  };
-  $$('[data-copy]',el).forEach(b=>b.onclick=()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.copy);if(!p)return;shareLink(p)});
-  $$('[data-cancel]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.cancel);if(!p||p.status!=='waiting')return;if(!await dlgConfirm('Cancel link '+p.id+'?'))return;p.status='cancelled';edcBridgePut(Object.assign({},p,{hotel:H.code}));try{await edcCloudPut(p)}catch(e){}log('Cancelled link '+p.id);saveDB();render()});
-  $$('[data-view]',el).forEach(b=>b.onclick=()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.view);showEdcKeyIn(p,refresh)});
-  $$('[data-wipe]',el).forEach(b=>b.onclick=async()=>{const p=H.edcLinks.find(x=>x.id===b.dataset.wipe);if(!p||!p.card)return;if(!await dlgConfirm('Permanently remove full card number for '+p.id+'?'))return;
-    p.card.pan='';p.card.cvc='';edcBridgePut(Object.assign({},p,{hotel:H.code}));
-    const cld=cloudCfg();if(cld&&cld.pass){try{await edcCloudRpc('maha_edc_wipe',{pass:cld.pass,id:p.id})}catch(e){}}
-    log('Wiped EDC PAN '+p.id);saveDB();toast('Card number wiped');render()});
-};
 
 /* ---------- post new transaction: "New Item Folio" (7.x) ---------- */
 let postTab='MISC.',postKind='c';   /* postKind: c charge types, adj Adjust types, reb Rebate types */
@@ -11363,7 +10992,7 @@ function roomGuestsPanel(B,ed){const rows=guestsInRoom(B);
   return `<div class="pn"><div class="pnh blue">Guests in this room (${rows.length} of ${paxOfBooking(B)})</div><div class="pnb">${rows.length<2&&ed?'<p class="sub" style="margin:0 0 6px">Only the main guest is in this room. To add another guest who stays in the room, use the <b>Add guest</b> icon in the toolbar above.</p>':''}<div class="shlist">${rows.map((id,i)=>`<div class="shrow"><span>${ic('user',15)} <b>${esc(gName(G(id)))}</b> <em>${i===0?'Main guest (bills and posts go here)':'Sharing guest'}</em></span><span><button class="pnic" data-sp="${id}" title="View or update this guest profile">${ic('idc',16)}</button>${i>0&&ed?`<button class="pnic" data-sr="${id}" title="Remove from this room">${ic('erase',14)}</button>`:''}</span></div>`).join('')}</div></div></div>`}
 let payTab='CASH',payRef=false;
 function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','noshow'].includes(B.status)&&(mode==='adv'||psPaid(B)<=0.004)){toast('This booking is not active.');return}
-  folio=folio||1;const adv=mode==='adv';payRef=false;
+  folio=folio||1;const adv=mode==='adv';payRef=false;let mahaPayOn=false;
   if(folLocked(B,folio)){toast(`Folio ${folio} is locked. Unlock it first.`);return}
   if(adv&&B.status==='out'){toast('The guest has checked out. Use Payment instead.');return}
   if(!adv&&!['inhouse','out'].includes(B.status)&&psPaid(B)<=0.004){toast('There is no bill yet. Use Advance Payment for a reservation deposit.');return}
@@ -11385,21 +11014,33 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   const paint=()=>{const inTab=codes().filter(c=>c.ptab===payTab),nPay=allP().filter(c=>c.ptab===payTab&&!c.refund).length,nRef=allP().filter(c=>c.ptab===payTab&&c.refund).length;const list=adv?inTab:inTab.filter(c=>!!c.refund===payRef);const card=g.card;const cardCode=card&&codes().find(c=>c.card===card.type&&!c.refund);
     $('#pyB',m).innerHTML=`<div class="nitabs">${shownPayTabs().map(t=>`<button class="${t===payTab?'on':''}" data-pt="${esc(t)}">${esc(titleLabel(t,'p:'))}</button>`).join('')}</div>
     <div class="nimain"><div class="nileft">${adv?'':`<div class="segs refseg"><button type="button" id="pyPayT" aria-pressed="${!payRef}" ${noBill?'disabled title="There is no bill to pay"':''}>Payment types (${nPay})</button><button type="button" id="pyRefT" aria-pressed="${payRef}">Refund types (${nRef})</button></div>`}
-     <div class="nitiles">${list.map(c=>`<button class="nitile ptile ${c.refund?'rf':''} ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
-     <div class="niform"><div class="defpay"><div class="dph">DEFAULT PAYMENT</div>${card?`<button class="dpc" id="pyDef">${ic('cardp',30)}<span>Credit card# •••• ${esc(card.last4)} · Exp. ${esc(card.exp||'')}</span></button>`:'<div class="sub pad">No card on file in the guest profile.</div>'}</div>
+     <div class="nitiles">${(!payRef)?`<button class="nitile ptile mahapay ${mahaPayOn?'on':''}" data-pc="__mahapay">${ic('cardp',42)}<b>MAHA PAY</b><span>Charge a card or send a pay link</span></button>`:''}${list.map(c=>`<button class="nitile ptile ${c.refund?'rf':''} ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
+     <div class="niform">${mahaPayOn?`<div class="sub pynote"><b>Maha Pay</b> – charge this hotel's own Stripe account, or send a payment link. <button type="button" class="infob" id="mpBack" title="Back">&larr;</button></div>
+      <div class="form3">${fld('Amount',`<input id="mpAmt" class="n niamt" inputmode="decimal" placeholder="0.00" value="${cs&&cs.cur!==bCur(B)?'':defAmt()}">`,'pyh')}${fld('Currency',`<input id="mpCur" value="${esc(H.set.cur||'USD')}">`,'pyh')}${fld('Reference#',`<input id="mpRef" maxlength="60" placeholder="Reference info">`,'pyh')}</div>
+      ${fld('Guest / company name',`<input id="mpGuest" value="${esc((g&&g.name)||'')}">`)}
+      <div class="sub" id="mpStatus">Checking Maha Pay for this hotel…</div>
+      <div id="mpCardWrap" style="display:none"><div class="cardbox"><div class="cbh">${ic('cardp',16)} Card details <span class="sub">– goes straight to Stripe, never to Maha Hub</span></div><div id="mpCardMount" class="eco-field" style="padding:10px"></div></div></div>
+      <div class="err" id="mpErr"></div>
+      <div class="btns end"><button class="btn red" id="mpClose">Close</button><button class="btn ghost" id="mpLinkGo" disabled>Send Payment Link</button><button class="btn purple" id="mpGo" disabled>Charge card</button></div>`:`<div class="defpay"><div class="dph">DEFAULT PAYMENT</div>${card?`<button class="dpc" id="pyDef">${ic('cardp',30)}<span>Credit card# •••• ${esc(card.last4)} · Exp. ${esc(card.exp||'')}</span></button>`:'<div class="sub pad">No card on file in the guest profile.</div>'}</div>
       <div class="sub pynote"><b>${adv?(deposit?'Reservation deposit':'Advance payment'):'Folio '+folio+': outstanding '+m2(folioBal(B,folio))}</b><button type="button" class="infob" id="pyI" title="How this works" aria-label="How this works">i</button></div>
       ${fld('Tran code',`<div class="row gap"><input id="pyC" value="${cur?cur.code:''}" placeholder="Type code or name" autocomplete="off"><button class="btn ghost sm" id="pySr" title="Search">${ic('search',15)}</button></div><div id="pyHits"></div>`,'pyh')}
       ${fld('Description',`<input id="pyD" value="${cur?esc(cur.desc):''}">`,'pyh')}${cur&&cur.ptab==='CREDIT CARD'&&!cur.refund?`<div class="cardbox"><div class="cbh">${ic('cardp',16)} Card details <span class="sub">– only the last 4 digits are shown after saving</span></div><div class="form2">${fld('Card number',`<input id="cdN" inputmode="numeric" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="23">`,'span2')}${fld('Expiry (MM/YY)',`<input id="cdE" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5">`)}${fld('CVC',`<input id="cdC" type="password" inputmode="numeric" autocomplete="cc-csc" placeholder="•••" maxlength="4">`)}${fld('Card holder name',`<input id="cdH" autocomplete="cc-name" placeholder="As printed on the card">`,'span2')}</div></div>`:''}
       ${fld('Reference#',`<input id="pyR" maxlength="60" placeholder="Reference info (max 60 characters)">`,'pyh')}
       ${fld('Amount',`<div class="amtrow"><input id="pyA" class="n niamt" inputmode="decimal" placeholder="0.00" value="${cs&&cs.cur!==bCur(B)?'':defAmt()}"><button class="btn ghost sm" id="pyCalc" title="Calculator">${ic('grid',20)}</button></div><div id="pyPad"></div>`,'pyh')}${cs?'<div id="pyCur"></div>':''}
       ${fld('Remark',`<textarea id="pyM" rows="2"></textarea>`)}<div class="err" id="pyE"></div>
-      <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?(deposit?'Post deposit':'Post advance payment'):'Post payment'}</button></div></div></div>`;
+      <div class="btns end"><button class="btn red" id="pyX">Close</button><button class="btn purple" id="pyP">${adv?(deposit?'Post deposit':'Post advance payment'):'Post payment'}</button></div>`}</div></div>`;
     if(m._v)['pyR','pyA','pyM'].forEach(id=>{if(m._v[id]!=null&&m._v[id]!=='')$('#'+id,m).value=m._v[id]});
-    const pick=code=>{const c0=TCODES.find(c=>c.code===code);if(c0&&c0.refund){closeModal(m);psEntry(B,'refund',after,c0.code);return}save();cur=c0;payTab=cur.ptab;payRef=false;if(m._v)m._v.pyA='';paint();$('#pyA',m).focus()};
-    if($('#pyI',m))$('#pyI',m).onclick=()=>dlgAlert(adv?(deposit?'Reservation deposit. One line on this folio: Reservation Deposit - (payment type). For its receipt / tax invoice, open the reservation, click Deposit and then Print deposit invoice.':'Advance payment. Same three lines. Printing the credit or the red line makes the receipt / tax invoice, with the card and remark. If this folio still has an amount to pay, the amount below is that balance, so the folio comes back to 0.'):`Payment on Folio ${folio}: outstanding ${m2(folioBal(B,folio))}. Every post and advance line already on this folio freezes until a correct payment, and stays frozen after Close Day. One red line is posted. Print that line for the receipt / tax invoice. A charge remark is not printed. The advance credit keeps its card and remark on that invoice. A refund can be made for any payment (advance, normal or reservation deposit): choose Refund types, then the type to pay back by.`,'How this payment works');
-    $$('[data-pt]',m).forEach(b=>b.onclick=()=>{save();payTab=b.dataset.pt;paint()});
-    if($('#pyPayT',m)){$('#pyPayT',m).onclick=()=>{if(noBill)return;save();payRef=false;paint()};$('#pyRefT',m).onclick=()=>{save();payRef=true;paint()}}
+    const pick=code=>{if(code==='__mahapay'){save();mahaPayOn=true;cur=null;paint();return}const c0=TCODES.find(c=>c.code===code);if(c0&&c0.refund){closeModal(m);psEntry(B,'refund',after,c0.code);return}save();cur=c0;mahaPayOn=false;payTab=cur.ptab;payRef=false;if(m._v)m._v.pyA='';paint();$('#pyA',m).focus()};
+    $$('[data-pt]',m).forEach(b=>b.onclick=()=>{save();mahaPayOn=false;payTab=b.dataset.pt;paint()});
+    if($('#pyPayT',m)){$('#pyPayT',m).onclick=()=>{if(noBill)return;save();mahaPayOn=false;payRef=false;paint()};$('#pyRefT',m).onclick=()=>{save();mahaPayOn=false;payRef=true;paint()}}
     $$('[data-pc]',m).forEach(b=>b.onclick=()=>pick(b.dataset.pc));
+    if(mahaPayOn){
+      $('#mpClose',m).onclick=()=>closeModal(m);
+      $('#mpBack',m).onclick=()=>{mahaPayOn=false;paint()};
+      initMahaPayPanel();
+      return;
+    }
+    if($('#pyI',m))$('#pyI',m).onclick=()=>dlgAlert(adv?(deposit?'Reservation deposit. One line on this folio: Reservation Deposit - (payment type). For its receipt / tax invoice, open the reservation, click Deposit and then Print deposit invoice.':'Advance payment. Same three lines. Printing the credit or the red line makes the receipt / tax invoice, with the card and remark. If this folio still has an amount to pay, the amount below is that balance, so the folio comes back to 0.'):`Payment on Folio ${folio}: outstanding ${m2(folioBal(B,folio))}. Every post and advance line already on this folio freezes until a correct payment, and stays frozen after Close Day. One red line is posted. Print that line for the receipt / tax invoice. A charge remark is not printed. The advance credit keeps its card and remark on that invoice. A refund can be made for any payment (advance, normal or reservation deposit): choose Refund types, then the type to pay back by.`,'How this payment works');
     if($('#pyDef',m))$('#pyDef',m).onclick=()=>{if(cardCode)pick(cardCode.code);else{const first=codes().find(c=>c.ptab==='CREDIT CARD'&&!c.refund);if(first)pick(first.code)}};
     $('#pyC',m).oninput=()=>{const q=$('#pyC',m).value.trim().toLowerCase();const ex=codes().find(c=>c.code===q);if(ex){pick(ex.code);return}
       const hits=q?codes().filter(c=>c.code.startsWith(q)||c.desc.toLowerCase().includes(q)).slice(0,8):[];
@@ -11408,6 +11049,34 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
     if($('#cdN',m)){$('#cdN',m).oninput=e=>{const v=e.target.value.replace(/\D/g,'').slice(0,19);e.target.value=v.replace(/(.{4})/g,'$1 ').trim()};$('#cdE',m).oninput=e=>{let v=e.target.value.replace(/\D/g,'').slice(0,4);if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);e.target.value=v};$('#cdC',m).oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,4)}}
     if(cs){const h=$('#pyCur',m);h.innerHTML=curPanelHtml(B,cs);const Pq=curPanelBind(h,B,cs,()=>$('#pyA',m).value,folioBal(B,folio),-1,()=>{save();if(m._v)m._v.pyA='';paint()});$('#pyA',m).addEventListener('input',Pq)}
     $('#pyCalc',m).onclick=()=>calcPad($('#pyPad',m),$('#pyA',m));$('#pyX',m).onclick=()=>closeModal(m);$('#pyP',m).onclick=doPay};
+  const initMahaPayPanel=async()=>{
+    let st=null;try{st=await hotelStripeStatus(H.code)}catch(e){}
+    const stEl=$('#mpStatus',m);if(!stEl)return;
+    if(!st||!st.configured){stEl.textContent="Maha Pay is not set up for this hotel yet. Ask the provider to link this hotel's Stripe keys first.";return}
+    stEl.textContent='Maha Pay is ready.';
+    if($('#mpCardWrap',m))$('#mpCardWrap',m).style.display='';
+    if($('#mpLinkGo',m))$('#mpLinkGo',m).disabled=false;
+    try{await loadStripeJs()}catch(e){stEl.textContent=e.message;return}
+    if(!$('#mpCardMount',m))return;
+    const stripe=Stripe(st.publishable),elements=stripe.elements(),cardEl=elements.create('card');
+    cardEl.mount('#mpCardMount');
+    if($('#mpGo',m))$('#mpGo',m).disabled=false;
+    const vals=()=>({amount:+String($('#mpAmt',m).value).replace(/,/g,'')||0,currency:$('#mpCur',m).value.trim()||'USD',refv:$('#mpRef',m).value.trim(),guestv:$('#mpGuest',m).value.trim()});
+    if($('#mpGo',m))$('#mpGo',m).onclick=async()=>{
+      const{amount,currency,refv,guestv}=vals();if(!(amount>0)){$('#mpErr',m).textContent='Enter an amount.';return}
+      const btn=$('#mpGo',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Charging...';
+      try{await guestPayCharge(H.code,st.publishable,amount,currency,refv,guestv,cardEl);log(`Maha Pay charge ${m2(amount)} ${currency} RSVN ${resOf(B).no} folio ${folio}`,B.id);closeModal(m);after();toast('Card charged via Maha Pay')}
+      catch(e){$('#mpErr',m).textContent=e.message}
+      finally{if($('#mpGo',m)){btn.disabled=false;btn.innerHTML=lbl}}
+    };
+    if($('#mpLinkGo',m))$('#mpLinkGo',m).onclick=async()=>{
+      const{amount,currency,refv,guestv}=vals();if(!(amount>0)){$('#mpErr',m).textContent='Enter an amount.';return}
+      const btn=$('#mpLinkGo',m),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Creating...';
+      try{const url=await guestPayLink(H.code,amount,currency,refv,guestv);$('#mpErr',m).textContent='';log(`Maha Pay link created ${m2(amount)} ${currency} RSVN ${resOf(B).no} folio ${folio}`,B.id);dlgAlert(`<a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>`,'Maha Pay link')}
+      catch(e){$('#mpErr',m).textContent=e.message}
+      finally{if($('#mpLinkGo',m)){btn.disabled=false;btn.innerHTML=lbl}}
+    };
+  };
   const save=()=>{m._v={};['pyR','pyA','pyM'].forEach(id=>{const e=$('#'+id,m);if(e)m._v[id]=e.value})};
   const doPay=()=>noShiftGate('payment',sh=>doPay0(sh));const doPay0=sh=>{if(!need('pay'))return;const e=$('#pyE',m);if(!cur){e.textContent='Choose a payment type.';return}const a0=r2(+String($('#pyA',m).value).replace(/,/g,''));
     if(!(a0>0)){e.textContent='Enter an amount above 0.';return}
@@ -12550,14 +12219,21 @@ function BACKEND_MENU(){
   const f=v=>{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it;return null};
   const g=(t,ids)=>({t,items:ids.map(f).filter(Boolean)});
   return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users','set.userlogs']),g('Finance & data',['ac.buy']),g('Billing',['sbill.home','sbill.quotes','sbill.subscriptions','sbill.invoices','sbill.payments','sbill.statements']),g('Help',['help.home']),{t:'Report',report:true}]}
+/* the admin's own Backend, inside a hotel: nothing shared with the hotel-staff Backend above except People & access -
+   Hotel Setup (every section as its own subtitle, not the wizard's own tabs), People & access, and admin's own Billing
+   (creating invoices/subscriptions for the hotel, not the hotel's own read-only records) */
+function ADMIN_BACKEND_MENU(){
+  const people=BACKEND_MENU().find(g=>g.t==='People & access');
+  return [{t:'Hotel Setup',items:SET_SECTIONS.map(([k,num,title])=>[title,'hset.'+k])},
+    people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_GROUP]}
 function areaMenu(src){
   const se=DB&&DB.session;
   if(se&&se.provider){
     let pm=true;try{provMasterLoad();pm=provMaster()}catch(e){}
     const base=pm?src:src.map(g=>g.items?Object.assign({},g,{items:g.items.filter(it=>!MASTER_VIEWS.includes(it[1]))}):g);
     if(!se.inHotel)return base;
-    /* inside a hotel: the same Frontend / Backend split a manager gets - admin-only items (the provider's own extras) live in Backend only */
-    return curArea()==='back'?BACKEND_MENU().concat([PROV_HOTEL_GROUP]):base.filter(m=>m.t!=='Setup')}
+    /* inside a hotel: the same Frontend / Backend split a manager gets - admin-only items (the provider's own Backend, see ADMIN_BACKEND_MENU) live in Backend only */
+    return curArea()==='back'?ADMIN_BACKEND_MENU():base.filter(m=>m.t!=='Setup')}
   if(!se)return src;
   return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
 function firstBackendView(){for(const g of BACKEND_MENU())for(const it of (g.items||[]))if(viewAllowed(it[1]))return it[1];return 'set.hotel'}
@@ -13383,22 +13059,13 @@ VIEWS['prov.systems']=el=>{
          <p class="sub mt">Server: <input id="bkHost" value="${esc(bHost)}" style="min-width:180px"> <button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></p>
        </div>
      </div>
-     <div class="panel pad mt" style="background:#f3f6f4">
-       <b>Payment / EDC links</b>
-       <div class="sub">With Stripe keys: real Checkout + 3D Secure. Without Stripe: guest card form for EDC key-in (no bank OTP). Configure under <b>Stripe payments (3DS)</b>.</div>
-       <div class="btns mt">
-         <a class="btn gold" id="cxEdc" href="${esc(edcLinkUrl())}" target="_blank" rel="noopener">Open guest page host</a>
-         <button class="btn ghost" id="cxStripe" type="button">Stripe settings</button>
-       </div>
-       <p class="sub mt" style="word-break:break-all">${esc(edcLinkUrl())}</p>
-     </div>
-     <p class="sub mt"><button class="btn sm ghost" id="cxRules" type="button">System rules →</button>
+     <p class="sub mt"><button class="btn sm ghost" id="cxStripe" type="button">Stripe payments (this hotel) →</button>
+       · <button class="btn sm ghost" id="cxRules" type="button">System rules →</button>
        · <button class="btn sm ghost" id="cxDist" type="button">Distribution / Google →</button></p>
    </div>
    </details></div>`;
   $('#cxSaveHost',el).onclick=()=>{const v=($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782';localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
   $('#bkSaveHost',el).onclick=()=>{const v=($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781';localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
-  if($('#cxEdc',el))$('#cxEdc',el).onclick=e=>{e.preventDefault();openEdcLink()};
   if($('#cxStripe',el))$('#cxStripe',el).onclick=()=>go('prov.stripe');
   if($('#cxRules',el))$('#cxRules',el).onclick=()=>go('prov.rules');
   if($('#cxDist',el))$('#cxDist',el).onclick=()=>go('prov.distribution');
@@ -13649,6 +13316,14 @@ let SET_SEC='profile';
 const SET_SECTIONS=[['profile','1','Hotel profile'],['tax','2','Currency, tax & service'],['bd','3','Business date & times'],['floors','4','Floors'],['types','5','Room types'],['rooms','6','Rooms'],
   ['plan','7','Floor plan'],['rates','8','Rate codes'],['charges','9','Charge codes'],['pay','10','Payment methods'],['companies','11','Companies & agents'],['allot','12','Room totals'],
   ['docs','13','Registration card & invoice'],['tiref','14','Tax Invoice Reference'],['terms','15','Terms & Conditions'],['mailpol','16','Booking confirmation mail'],['activate','17','Review & activate']];
+/* each Hotel Setup section as its own real page (title + subtitle in the menu), not stuck inside the wizard's own tab bar -
+   the admin's Backend menu links straight to these; the step-by-step wizard (prov.setup, for a brand new property) is unchanged */
+SET_SECTIONS.forEach(([k,num,title])=>{VIEWS['hset.'+k]=el=>{
+  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
+  if(!H){go('prov.home');return}
+  shapeHotel(H);
+  el.innerHTML=pageHead(title)+'<div class="panel pad" id="hsBox"></div>';
+  SEC[k]($('#hsBox',el))}});
 VIEWS['prov.setup']=el=>{if(!H){go('prov.home');return}if(!SET_SECTIONS.some(s=>s[0]===SET_SEC))SET_SEC='profile';applyHotelCodes();const ck=propertyChecks(H),ok=k=>{const c=ck.find(x=>x.k===k);return c?c.ok:null};
   el.innerHTML=`<div class="suhead"><button class="btn ghost" id="suBack">${ic('left',15)} Properties</button><button class="btn gold" id="suEnter">Enter hotel (front office)</button><div><h1>${esc(H.set.name)}</h1><div class="sub">${esc(H.code)} · ${H.active!==false?'<span class="pst on">Active</span>':'<span class="pst off">Not active</span>'} · property setup ${ck.filter(c=>c.ok).length} of ${ck.length} complete</div></div></div>
    <div class="su"><nav class="sunav">${SET_SECTIONS.map(s=>{const st=ok(s[0]);return `<button class="${SET_SEC===s[0]?'on':''}" data-sec="${s[0]}"><span class="sun">${s[1]}</span>${s[2]}${st===true?'<i class="ok">✓</i>':st===false?'<i class="no">•</i>':''}</button>`}).join('')}</nav>
@@ -13770,7 +13445,13 @@ const SEC={
    listEditor(box,{rows:H.companies.map(c=>({...c,creditLimit:+c.creditLimit||0,rateBasis:commBasis(c),_old:true,_fix:!!c.chan})),cols:[{k:'code',h:'Code',ro:true,fix:true,w:'80px'},{k:'type',h:'Type',fix:true,opts:[['C','(C) Company'],['T','(T) Travel agent']]},{k:'name',h:'Name',fix:true},{k:'address',h:'Address'},{k:'taxId',h:'Tax ID',w:'130px'},{k:'comm',h:'Commission %',type:'number',w:'100px'},{k:'rateBasis',h:'Rate typed as',opts:[['gross','Gross'],['net','Net']],w:'110px'},{k:'creditLimit',h:'Credit limit',type:'number',w:'110px'}],
     blank:()=>({id:'c'+uid(),code:'',type:'T',name:'',address:'',taxId:'',branch:'Head Office',comm:0,rateBasis:'gross',creditLimit:0}),
     validate:d=>{if(d.some(c=>!c.code||!c.name))return 'Every company needs a code and a name.';if(new Set(d.map(c=>String(c.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(c=>+c.creditLimit<0))return 'Credit limit cannot be below 0.';if(d.some(c=>+c.comm<0||+c.comm>=100))return 'Commission must be from 0 to below 100.';const used=H.companies.filter(c=>!d.some(x=>x.id===c.id)&&H.reservations.some(r=>r.companyId===c.id));return used.length?`${used.map(c=>c.code).join(', ')} is used by bookings and cannot be deleted.`:''},
-    save:d=>{H.companies=d.map(c=>Object.assign({},H.companies.find(o=>o.id===c.id)||{},{id:c.id||'c'+uid(),code:String(c.code).toUpperCase(),type:c.type,name:c.name,address:c.address||'',taxId:c.taxId||'',branch:c.branch||'',comm:+c.comm||0,rateBasis:c.rateBasis==='net'?'net':'gross',creditLimit:Math.max(0,+c.creditLimit||0)}));provLog(`Companies saved for ${H.code}`);saved()}})},
+    save:d=>{H.companies=d.map(c=>Object.assign({},H.companies.find(o=>o.id===c.id)||{},{id:c.id||'c'+uid(),code:String(c.code).toUpperCase(),type:c.type,name:c.name,address:c.address||'',taxId:c.taxId||'',branch:c.branch||'',comm:+c.comm||0,rateBasis:c.rateBasis==='net'?'net':'gross',creditLimit:Math.max(0,+c.creditLimit||0)}));provLog(`Companies saved for ${H.code}`);saved()}});
+   const logoBox=document.createElement('div');logoBox.className='panel pad mt';box.appendChild(logoBox);
+   const paintLogos=()=>{logoBox.innerHTML='<h3 style="margin-top:0">Company / Agency logos</h3><p class="sub">Shows on the Room Grid, separate from any Payment method logo - its own picture for this company or agent.</p><table class="grid"><tr><th>Logo</th><th>Code</th><th>Name</th></tr>'+H.companies.map(c=>`<tr><td class="nowrap">${c.logo?`<img src="${c.logo}" class="chb chblogo" alt="">`:chanBadge(c)} <label class="btn sm ghost">${ic('upload',12)}<input type="file" accept="image/*" data-colg="${c.id}" hidden></label>${c.logo?`<button class="btn sm ghost" data-colx="${c.id}">No logo</button>`:''}</td><td>${esc(c.code)}</td><td>${esc(c.name)}</td></tr>`).join('')+'</table>';
+     $$('[data-colg]',logoBox).forEach(inp=>inp.onchange=e=>{const file=e.target.files[0];if(!file)return;if(file.size>2e6){toast('Choose an image under 2 MB.');return}const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),s=Math.min(1,200/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*s));cv.height=Math.max(1,Math.round(img.height*s));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+       const c=H.companies.find(x=>x.id===inp.dataset.colg);if(!c)return;c.logo=cv.toDataURL('image/png');log('Logo added for '+c.code);saveDB();paintLogos();toast('Logo added')};img.src=rd.result};rd.readAsDataURL(file)});
+     $$('[data-colx]',logoBox).forEach(b=>b.onclick=()=>{const c=H.companies.find(x=>x.id===b.dataset.colx);if(!c)return;delete c.logo;log('Logo removed for '+c.code);saveDB();paintLogos()})};
+   paintLogos()},
  allot(box){const t=roomTotals(H);box.innerHTML=secHead('12. Room totals','The total number of rooms of each room type (its allotment) against the rooms listed in section 6. Every room type must match before the hotel can be activated. Agency allotments are not part of the PMS: they are managed in the channel manager.')+`<div class="panel scroll"><table class="grid"><tr><th>Room type</th><th>Name</th><th class="n">Total (allotment)</th><th class="n">Rooms listed</th><th>Status</th></tr>${t.map(x=>`<tr><td><b>${esc(x.code)}</b></td><td>${esc(x.name)}</td><td class="n">${x.set?x.allot:'—'}</td><td class="n">${x.have}</td><td>${x.ok?'<span class="pill g">Match</span>':x.set?'<span class="pill r">Differ by '+Math.abs(x.have-x.allot)+'</span>':'<span class="pill y">Total not set</span>'}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Add room types first (section 5).</td></tr>'}</table></div>
    <div class="btns" style="margin-top:12px"><button class="btn" id="rtFill" ${t.some(x=>!x.set)?'':'disabled'}>Use the rooms listed now as the totals</button></div>`;
    $('#rtFill',box).onclick=()=>{if(!provOnly())return;roomTotals(H).forEach(x=>{if(!x.set){const rt=H.roomTypes.find(r=>r.code===x.code);if(rt)rt.allot=x.have}});provLog('Room totals set from the rooms listed for '+H.code);saved('Totals saved')}},
@@ -15641,97 +15322,73 @@ VIEWS['prov.mahapay']=async el=>{
     finally{btn.disabled=false;btn.innerHTML=lbl}
   };
 };
-VIEWS['prov.stripe']=el=>{
+/* a hotel's own Stripe account (purpose "guest"): collects ITS guests'/OTA cards, kept securely server-side, never in the hotel's
+   own synced record or the browser's local storage. Branded Maha Pay wherever a guest or hotel sees it. */
+async function hotelStripeStatus(code){
+  const t=await MahaAuth.fresh();if(!t)return null;
+  const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-keys',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'get_status',purpose:'guest',property_code:code})});
+  const d=await res.json().catch(()=>null);return res.ok?d:null;
+}
+async function hotelStripeSave(code,publishable,secret){
+  const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
+  const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-keys',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'set',purpose:'guest',property_code:code,publishable,secret})});
+  const d=await res.json().catch(()=>null);if(!res.ok)throw new Error('Could not save. Please try again.');return d;
+}
+async function hotelStripeClear(code){
+  const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
+  await fetch(MahaAuth.base()+'/functions/v1/stripe-keys',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'clear',purpose:'guest',property_code:code})});
+}
+async function guestPayLink(code,amount,currency,ref,guest){
+  const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
+  const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-guest-pay',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'link',property_code:code,amount,currency,ref,guest})});
+  const d=await res.json().catch(()=>null);if(!res.ok||!d||!d.url)throw new Error((d&&d.error==='not_configured')?"Set up this hotel's Stripe keys first.":'Could not create the link. Please try again.');
+  return d.url;
+}
+let _stripeJsLoading=null;
+function loadStripeJs(){if(window.Stripe)return Promise.resolve();if(_stripeJsLoading)return _stripeJsLoading;
+  _stripeJsLoading=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://js.stripe.com/v3/';s.onload=res;s.onerror=()=>rej(new Error('Could not load the secure card field.'));document.head.appendChild(s)});
+  return _stripeJsLoading}
+async function guestPayCharge(code,publishable,amount,currency,ref,guest,cardEl){
+  await loadStripeJs();
+  const stripe=Stripe(publishable);
+  const{paymentMethod,error}=await stripe.createPaymentMethod({type:'card',card:cardEl});
+  if(error)throw new Error(error.message||'The card could not be read.');
+  const t=await MahaAuth.fresh();if(!t)throw new Error('Sign in again, then try once more.');
+  const res=await fetch(MahaAuth.base()+'/functions/v1/stripe-guest-pay',{method:'POST',headers:{'Content-Type':'application/json','apikey':MAHA_AUTH_CONFIG.publishableKey,'Authorization':'Bearer '+t.access_token},body:JSON.stringify({action:'charge',property_code:code,amount,currency,ref,guest,payment_method_id:paymentMethod.id})});
+  const d=await res.json().catch(()=>null);
+  if(!res.ok||!d)throw new Error((d&&d.error==='needs_3ds')?'This card needs 3D Secure - send a Payment Link instead.':(d&&d.error==='not_configured')?"Set up this hotel's Stripe keys first.":'The charge did not go through.');
+  if(!d.ok)throw new Error('The charge did not go through (status: '+d.status+').');
+  return true;
+}
+VIEWS['prov.stripe']=async el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">Provider only.</div>';return}
-  const c=stripeCfg()||{};
   const hotels=Object.values(DB.hotels||{});
   if(!H&&hotels[0]){H=hotels[0];if(DB.session)DB.session.hotel=H.code}
   if(H)shapeHotel(H);
-  const st=H&&H.set.stripe||{};
-  el.innerHTML=pageHead('Stripe payments (3DS)')+`<div class="panel pad" style="max-width:760px">
-    <p class="sub">This is a hotel's own account for collecting ITS guests' / OTA agents' card payments (EDC links) - set up one hotel at a time. Maha Hub's own "Maha Pay" billing account (what collects a hotel's subscription payment to you) is a separate, whole-system setting under Provider Console → Whole system → Maha Pay — Billing, not here.</p>
-    <p><b>Yes — real card money needs a Stripe account.</b> Maha Hub does not hold guest funds. It creates Checkout links; Stripe settles to the connected account’s bank. These keys live under Setup, not in property setup.</p>
-    <p class="sub">I cannot finish Stripe’s company / KYC / bank setup for you — that is done only in the <a href="https://dashboard.stripe.com" target="_blank" rel="noopener">Stripe Dashboard</a> by the account owner (ID, business docs, bank). Until Stripe shows charges enabled, only <b>test mode</b> works.</p>
-    <h3 class="mt">Who receives the money?</h3>
-    <ul class="sub">
-      <li><b>Each hotel has its own Stripe</b> — paste that hotel’s keys below. Guest pays → hotel’s Stripe balance.</li>
-      <li><b>Hotels under Maha (Connect)</b> — platform keys here + each hotel’s <code>acct_…</code> Connect id. Guest pays → that hotel’s connected account.</li>
-      <li><b>Sandbox / demo</b> — platform helper keys only (what you already set up for testing).</li>
-    </ul>
-    <h3 class="mt">Platform / helper keys (fallback + Connect)</h3>
-    <label class="f"><span>Publishable key</span><input id="stPk" placeholder="pk_test_…" autocomplete="off" spellcheck="false" value="${esc(c.publishable||'')}"></label>
-    <label class="f"><span>Secret key</span><input id="stSk" type="password" placeholder="sk_test_…" autocomplete="off" spellcheck="false" value="${esc(c.secret||'')}"></label>
-    <label class="f"><span>Stripe helper server</span><input id="stSrv" placeholder="http://127.0.0.1:8783" value="${esc(c.server||stripeHost())}"></label>
-    <p class="sub">Recommended: <code>./stripe/start.sh</code> with gitignored <code>stripe/.env</code>. Or paste keys here for local demos.</p>
-    <div class="err" id="stErr"></div>
-    <div class="sub" id="stSt">${c.secret||c.server?'Platform keys / helper saved on this browser.':'No platform Stripe keys on this browser yet.'}</div>
-    <div class="btns"><button class="btn gold" id="stSave">Save platform keys</button><button class="btn" id="stPing">Check helper</button><button class="btn ghost" id="stOff">Clear</button></div>
-    <h3 class="mt" id="stHotelHead">This hotel’s Stripe keys</h3>
-    ${H?`${provHotelPicker()}
-    <p class="sub">Keys for <b>${esc(H.code)}</b> · ${esc(H.set.name)}. Own secret sends the guest payment to this hotel. A Connect <code>acct_…</code> uses the platform keys above. Secrets stay on this hotel file and are not uploaded to Cloud.</p>
-    <label class="f"><span>Label (optional)</span><input id="stLabel" value="${esc(st.label||'')}" placeholder="e.g. Maha Stripe TH"></label>
-    <label class="f"><span>Publishable key</span><input id="stPkH" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc(st.publishable||'')}"></label>
-    <label class="f"><span>Secret key</span><input id="stSkH" type="password" placeholder="${st.secret?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
-    <label class="f"><span>Connect account id (optional)</span><input id="stAcct" placeholder="acct_…" autocomplete="off" spellcheck="false" value="${esc(st.connectAccountId||'')}"></label>
-    <div class="err" id="stHErr"></div>
-    <div class="btns"><button class="btn gold" id="stHSave">Save Stripe for this hotel</button><button class="btn ghost" id="stHClear">Clear hotel Stripe</button></div>`:'<p class="sub">Create a property first.</p>'}
-    <h3 class="mt">Hotels mapped</h3>
-    <table class="grid"><tr><th>Hotel</th><th>Own secret</th><th>Connect acct</th><th>Ready</th><th></th></tr>
-      ${hotels.map(h=>{shapeHotel(h);const hs=h.set.stripe||{},cfg=hotelStripeCfg(h);return `<tr>
-        <td>${esc(h.code)} · ${esc(h.set.name)}${hs.label?` <span class="sub">(${esc(hs.label)})</span>`:''}</td>
-        <td>${hs.secret?'<span class="pill g">Yes</span>':'<span class="sub">—</span>'}</td>
-        <td>${hs.connectAccountId?esc(hs.connectAccountId):'<span class="sub">—</span>'}</td>
-        <td>${cfg.ready?'<span class="pill g">Ready</span>':'<span class="pill y">Not set</span>'}</td>
-        <td><button class="btn sm ghost" data-sthotel="${esc(h.code)}">Edit keys</button></td>
-      </tr>`}).join('')||'<tr><td colspan="5" class="empty">No hotels yet.</td></tr>'}
-    </table>
-    <h3 class="mt">Guest 3DS flow</h3>
-    <ol class="sub">
-      <li>Hotel (or platform) Stripe keys saved.</li>
-      <li>Billing → Payment / EDC links → create link → guest gets <code>checkout.stripe.com</code>.</li>
-      <li>Test 3DS card <code>4000000000003220</code>. Live mode uses the bank OTP / app.</li>
-      <li>Refresh → Paid (Stripe) + last4 (no full PAN).</li>
-    </ol>
+  const st=H?await hotelStripeStatus(H.code):null;if(!el.isConnected)return;
+  el.innerHTML=pageHead('Stripe payments (this hotel)')+`<div class="panel pad" style="max-width:720px">
+    <p class="sub">Link this hotel's own Stripe account once - its front office can then use <b>Maha Pay</b> inside Billing (Advance Payment / Payment) to charge a guest's or OTA's card, or send them a payment link. No Stripe keys shown there, just Maha Pay.</p>
+    ${H?provHotelPicker():''}
+    ${!H?'<p class="sub">Create a property first.</p>':`<h3 class="mt">Keys for ${esc(H.code)} · ${esc(H.set.name)}</h3>
+    <label class="f"><span>Publishable key</span><input id="hgPk" placeholder="pk_test_… or pk_live_…" autocomplete="off" spellcheck="false" value="${esc((st&&st.publishable)||'')}"></label>
+    <label class="f"><span>Secret key</span><input id="hgSk" type="password" placeholder="${st&&st.configured?'Saved — paste to replace':'sk_test_… or sk_live_…'}" autocomplete="off" spellcheck="false"></label>
+    <div class="err" id="hgErr"></div>
+    <div class="sub" id="hgSt">${st&&st.configured?'Set up - Maha Pay is ready for this hotel.':'Not set up yet.'}</div>
+    <div class="btns"><button class="btn gold" id="hgSave">Save</button><button class="btn ghost" id="hgClear">Clear</button></div>`}
   </div>`;
-  $('#stSave',el).onclick=()=>{
-    const publishable=$('#stPk',el).value.trim(), secret=$('#stSk',el).value.trim(), server=$('#stSrv',el).value.trim().replace(/\/+$/,'');
-    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
-    if(secret&&!/^sk_(test|live)_/.test(secret)){$('#stErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
-    if(!secret&&!server){$('#stErr',el).textContent='Paste a secret key and/or a helper server URL.';return}
-    saveStripeCfg({publishable,secret,server:server||'http://127.0.0.1:8783',savedAt:Date.now()});
-    localStorage.setItem('maha.stripeHost',server||'http://127.0.0.1:8783');
-    $('#stErr',el).textContent='';$('#stSt',el).textContent='Saved. Hotels without their own keys use this platform / helper.';
-    toast('Platform Stripe settings saved');
-  };
-  $('#stPing',el).onclick=async()=>{
-    const server=($('#stSrv',el).value.trim()||stripeHost()).replace(/\/+$/,'');
-    $('#stSt',el).textContent='Checking '+server+'…';
-    try{
-      const r=await fetch(server+'/api/status');const j=await r.json();
-      $('#stSt',el).textContent=j.hasSecret
-        ?('Helper OK · '+(j.livemode?'LIVE':'TEST')+' · secret loaded')
-        :('Helper reachable but STRIPE_SECRET_KEY not set on the server. '+ (j.note||''));
-    }catch(e){$('#stSt',el).textContent='Helper not reachable. Run: ./stripe/start.sh'}
-  };
-  $('#stOff',el).onclick=()=>{localStorage.removeItem(STRIPEKEY);localStorage.removeItem('maha.stripeHost');toast('Platform Stripe keys cleared');render()};
   if($('#pvH',el))bindPicker(el);
-  if($('#stHSave',el))$('#stHSave',el).onclick=()=>{
-    if(!provOnly()||!H)return;
-    const publishable=$('#stPkH',el).value.trim();
-    const typed=$('#stSkH',el).value.trim();
-    const connectAccountId=$('#stAcct',el).value.trim();
-    const label=$('#stLabel',el).value.trim();
-    const prev=H.set.stripe||{};
-    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#stHErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
-    if(typed&&!/^sk_(test|live)_/.test(typed)){$('#stHErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
-    if(connectAccountId&&!/^acct_/.test(connectAccountId)){$('#stHErr',el).textContent='Connect account id should start with acct_.';return}
-    if(!typed&&!prev.secret&&!connectAccountId){$('#stHErr',el).textContent='Paste a hotel secret key, or a Connect acct_ id (with platform keys).';return}
-    H.set.stripe={publishable,secret:typed||prev.secret||'',connectAccountId,label};
-    provLog('Stripe account settings saved for '+H.code+(connectAccountId?' · Connect '+connectAccountId:'')+(H.set.stripe.secret?' · own secret':''));
-    saved('Stripe for '+H.code+' saved');
+  if(!H)return;
+  $('#hgSave',el).onclick=async()=>{
+    const publishable=$('#hgPk',el).value.trim(),secret=$('#hgSk',el).value.trim();
+    if(publishable&&!/^pk_(test|live)_/.test(publishable)){$('#hgErr',el).textContent='Publishable key should start with pk_test_ or pk_live_.';return}
+    if(secret&&!/^sk_(test|live)_/.test(secret)){$('#hgErr',el).textContent='Secret key should start with sk_test_ or sk_live_.';return}
+    if(!secret&&!(st&&st.configured)){$('#hgErr',el).textContent='Paste the secret key.';return}
+    const btn=$('#hgSave',el),lbl=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Saving...';
+    try{await hotelStripeSave(H.code,publishable,secret);provLog('Stripe (guest payments) saved for '+H.code);toast('Saved');render()}
+    catch(e){$('#hgErr',el).textContent=e.message}
+    finally{btn.disabled=false;btn.innerHTML=lbl}
   };
-  if($('#stHClear',el))$('#stHClear',el).onclick=async ()=>{if(!provOnly()||!H)return;if(!await dlgConfirm('Clear Stripe keys for '+H.code+'?'))return;H.set.stripe={publishable:'',secret:'',connectAccountId:'',label:''};provLog('Cleared Stripe settings for '+H.code);saved('Hotel Stripe cleared')};
-  $$('[data-sthotel]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sthotel);go('prov.stripe')});
+  $('#hgClear',el).onclick=async()=>{if(!await dlgConfirm("Clear this hotel's Stripe keys?"))return;await hotelStripeClear(H.code);provLog('Cleared Stripe (guest payments) for '+H.code);toast('Cleared');render()};
 };
 /* ---- Backup & migration (provider): take one hotel's data out, bring another system's data in. ---- */
 const MIG_MAX_ROWS=20000,MIG_MAX_BYTES=6e6;

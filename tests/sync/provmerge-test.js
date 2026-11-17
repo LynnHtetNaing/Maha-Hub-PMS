@@ -11,9 +11,10 @@ T('Hotels home (prov.home) is a searchable list, not a grid of cards', src.inclu
 T('Hotels home keeps a search box and the same actions (Open hotel, Close Day)', src.includes('id="phQ"') && src.includes('data-open="${h.code}">Open hotel</button>') && src.includes("${h.active!==false&&featOn(h,'fn.cd.close')?` <button class=\"btn sm ghost\" data-cd=\"${h.code}\">"));
 T('Open hotel on an unfinished property goes straight to the Backend wizard (one step at a time, as before); a fully set-up property instead asks Frontend or Backend, and Backend there means the real, merged Backend',
   src.includes('const ck=propertyChecks(h);') && src.includes("if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}") && src.includes("$('#ohFront',m).onclick=()=>{closeModal(m);enterHotel(h.code)};") && src.includes("$('#ohBack',m).onclick=()=>{closeModal(m);enterHotelBackend(h.code)}"));
-T('a provider inside a hotel gets the exact same Frontend/Backend split a manager gets: Backend is the real, merged Backend menu plus the provider\'s own extra items (admin-only, never in Frontend); hasBackend only switches on for a provider while inside a hotel',
+T('a provider inside a hotel gets the exact same Frontend/Backend split a manager gets, but admin\'s own Backend is built fresh from the Provider Console\'s own sections (Hotel Setup, one subtitle per section), not the hotel-staff\'s merged Backend menu; hasBackend only switches on for a provider while inside a hotel',
   src.includes("function hasBackend(){try{return !!(DB&&DB.session&&H&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}") &&
-  src.includes("if(!se.inHotel)return base;") && src.includes("return curArea()==='back'?BACKEND_MENU().concat([PROV_HOTEL_GROUP]):base.filter(m=>m.t!=='Setup')}") &&
+  src.includes("if(!se.inHotel)return base;") && src.includes("return curArea()==='back'?ADMIN_BACKEND_MENU():base.filter(m=>m.t!=='Setup')}") &&
+  src.includes("function ADMIN_BACKEND_MENU(){") && src.includes("{t:'Hotel Setup',items:SET_SECTIONS.map(([k,num,title])=>[title,'hset.'+k])}") &&
   src.includes("function enterHotelBackend(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('back');provLog(`Entered hotel ${code} (Backend)`);saveDB();applySysPath('hub');renderShell();go(firstBackendView());"));
 T('the raw menu computation and the sidebar nav both stopped hard-coding the provider\'s extra items onto every area - areaMenu alone decides when they show',
   src.includes("const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;") &&
@@ -42,8 +43,8 @@ T('Functions: hotel staff (without provider access) see the exact same read-only
 T('prov.functions (outside any hotel, with a hotel picker) is untouched - it still refuses to run while inside a hotel, since set.features now covers that case',
   src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Functions & plan')+`<div class=\"panel pad\"><p>Leave the hotel first."));
 
-T('Direct booking & Google has no hotel-staff equivalent, so it is a genuinely new, provider-only addition: reachable now from inside the hotel (the Provider menu group), no longer forced to "leave the hotel first"',
-  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Hotel Setup','prov.setup'],['Direct booking & Google','prov.google'],['Stripe payments (this hotel)','prov.stripe'],['EDC Card Link','prov.edc'],['Amend records','prov.amend'],['Amendment log','prov.log']]};") &&
+T('Direct booking & Google has no hotel-staff equivalent, so it is a genuinely new, provider-only addition: reachable now from inside the hotel (the trimmed Provider menu group - Hotel Setup and EDC Card Link moved out/removed), no longer forced to "leave the hotel first"',
+  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct booking & Google','prov.google'],['Stripe payments (this hotel)','prov.stripe'],['Amend records','prov.amend'],['Amendment log','prov.log']]};") &&
   !src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Direct booking & Google')"));
 T('This hotel\'s own Stripe keys (guest/OTA card payments) are reachable from the Provider menu while inside the hotel too, since they are set up one hotel at a time', src.includes("['Stripe payments (this hotel)','prov.stripe']"));
 T('prov.systems and prov.distribution are genuinely whole-platform (one table across every hotel at once), so they correctly stay provider-console-only, left alone',
