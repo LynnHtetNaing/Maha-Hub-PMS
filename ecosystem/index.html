@@ -8723,7 +8723,9 @@ function ecoPreviewHotel(){
 }
 function lgDark(){try{return !IS_APP&&localStorage.getItem('maha.pref.mode')==='dark'}catch(e){return false}}
 function showLogin(msg){
-  try{applySkin()}catch(e){}   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme */
+  /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme - skinIsModern() is
+     unconditional now, so drop the attributes directly instead of going through applySkin() */
+  try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}
   if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
   if(lgTargetSys==='sales'){if(!IS_APP){location.replace(salesUrl());return}lgTargetSys=null}   /* never a sign-in for the hotel Sales */
@@ -8734,7 +8736,7 @@ function showLogin(msg){
   if(lgTargetSys&&!hotelSystems(preview,null).some(s=>s.kind===lgTargetSys&&CHOOSER_OPEN.includes(s.kind)))lgTargetSys=null;
   try{applySysPath(lgTargetSys||null)}catch(e){}
   const lgOpen=!!(lgTargetSys||lgProvider), lgChosen=!!lgTargetSys;
-  document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${lgDark()?' eco-dk':''}">
+  document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${(!lgOpen&&lgDark())?' eco-dk':''}">
   <section class="eco-hero" style="--eco-photo:url('${ECO_HERO}')" aria-label="Maha Hub ecosystem">
     <div class="eco-hero-bg" aria-hidden="true"></div>
     <div class="eco-leaves" aria-hidden="true"></div>
@@ -8759,7 +8761,7 @@ function showLogin(msg){
   </section>
   <aside class="eco-login" aria-label="Sign in"${lgOpen?'':' hidden'}>
     <div class="eco-login-inner">
-      <button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark"></button>
+      <button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>
       <button type="button" class="eco-back" id="lgBack">&lsaquo; All systems</button>
       ${LOGO_TILE()}
       <div class="eco-sysrow"><span class="eco-sysico" id="lgSysIco" aria-hidden="true"></span><div class="eco-systxt"><h2 class="eco-hi" id="lgTitle">Sign in</h2><p class="eco-hisub" id="lgSub">Enter your username and password.</p></div></div>
@@ -15676,10 +15678,15 @@ function armIdle(){
   const left=Math.max(1000,limit-(Date.now()-idleAnchor()));
   _idle=setTimeout(screenRuleCheck,left);
 }
-function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;DB.session.locked=true;try{writeLiveSession(DB.session)}catch(e){}const d=document.createElement('div');d.id='idleLock';d.className='idlelock';   /* the lock screen always stays light, like the sign-in page, whatever the app's own Dark/Light theme is */
+function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session)return;DB.session.locked=true;try{writeLiveSession(DB.session)}catch(e){}
+  /* the lock screen always stays light, like the sign-in page, whatever the app's own Dark/Light theme is - Modern's
+     dark-mode rules key off these attributes on <html>, so drop them while locked (same trick as the Select
+     Property / Select System pages) and let applySkin() put them back on unlock */
+  try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}
+  const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   const lu=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),uname=(lu&&lu.username)||user().name;
   d.innerHTML=`<div class="panel pad"><div class="gstk">${gateStack(DB.session.provider?'provider':'hub')}</div><h2 class="eco-hi">Screen Locked</h2><p class="eco-hisub">${DB.session.provider?'Type your password to go on.':'Your shift stays open — type your password to go on.'}</p><label class="f"><span>Username</span><div class="eco-field"><input id="idleUser" value="${esc(uname)}" disabled></div></label><label class="f"><span>Password</span><div class="eco-field"><input id="idlePw" type="password"></div></label><div class="err" id="idleE"></div><div class="btns"><button class="eco-btn gold" id="idleGo">Unlock</button></div></div>`;
-  document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();delete DB.session.locked;stampSession(DB.session);writeLiveSession(DB.session);d.remove();armIdle()};
+  document.body.appendChild(d);const unlock=()=>{_activeAt=Date.now();delete DB.session.locked;stampSession(DB.session);writeLiveSession(DB.session);d.remove();try{applySkin()}catch(e){}armIdle()};
   const go=()=>{const pw=$('#idlePw').value;
     if(MahaAuth.on()){const u=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),cur=MahaAuth.read();
       if(!u||!pw){$('#idleE').textContent='Password is not correct.';return}

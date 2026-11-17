@@ -132,4 +132,13 @@ T('City Ledger invoice terms moved from Registration card & invoice to Tax Invoi
   !/docs\(box\)\{[\s\S]*?clTermsEditor/.test(src.slice(src.indexOf(' docs(box){'), src.indexOf(' tiref(box){'))) &&
   /tiref\(box\)\{[\s\S]*?clTermsEditor\(clBox\)/.test(src.slice(src.indexOf(' tiref(box){'), src.indexOf(' terms(box){'))));
 
+T('Sign-in and the idle lock screen stay light, never the Dark theme, even though skinIsModern() is now unconditional - both strip data-skin/data-mode/data-pal off <html> directly instead of going through applySkin() (which would just put the user\'s Dark preference straight back)',
+  src.includes("function showLogin(msg){\n  /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme - skinIsModern() is\n     unconditional now, so drop the attributes directly instead of going through applySkin() */\n  try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}") &&
+  src.includes("try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}\n  const d=document.createElement('div');d.id='idleLock';d.className='idlelock';") &&
+  src.includes("d.remove();try{applySkin()}catch(e){}armIdle()};"));
+
+T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
+  src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
+  src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
