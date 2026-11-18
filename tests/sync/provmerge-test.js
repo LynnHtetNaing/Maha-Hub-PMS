@@ -49,9 +49,10 @@ T('Functions: hotel staff (without provider access) see the exact same read-only
 T('prov.functions (outside any hotel, with a hotel picker) is untouched - it still refuses to run while inside a hotel, since set.features now covers that case',
   src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Functions & plan')+`<div class=\"panel pad\"><p>Leave the hotel first."));
 
-T('Direct booking & Google has no hotel-staff equivalent, so it is a genuinely new, provider-only addition: reachable now from inside the hotel (the trimmed Provider menu group - Hotel Setup and EDC Card Link moved out/removed), no longer forced to "leave the hotel first"',
-  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct booking & Google','prov.google'],['Stripe payments (this hotel)','prov.stripe'],['Amend records','prov.amend'],['Amendment log','prov.log']]};") &&
-  !src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Direct booking & Google')"));
+T('Direct Booking Engine has no hotel-staff equivalent, so it is a genuinely new, provider-only addition: reachable now from inside the hotel (the trimmed Provider menu group - Hotel Setup and EDC Card Link moved out/removed), no longer forced to "leave the hotel first"; Amendment Records and Amendment Log split out into their own Records group, not bundled in with it',
+  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct Booking Engine','prov.google'],['Stripe payments (this hotel)','prov.stripe']]};") &&
+  src.includes("const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};") &&
+  !src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Direct Booking Engine')"));
 T('This hotel\'s own Stripe keys (guest/OTA card payments) are reachable from the Provider menu while inside the hotel too, since they are set up one hotel at a time', src.includes("['Stripe payments (this hotel)','prov.stripe']"));
 T('prov.systems and prov.distribution are genuinely whole-platform (one table across every hotel at once), so they correctly stay provider-console-only, left alone',
   src.includes("if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems')+'<div class=\"empty\">Open this from the provider console (leave the hotel first).</div>';return}") &&
@@ -70,7 +71,7 @@ T('a Hotel Setup subtitle page (hset.*) shows its section once, under the page\'
 T('Terms & Conditions as a Hotel Setup subtitle page drops the embedded page\'s own duplicate title and hotel picker, keeping just the editor',
   src.includes("terms(box){VIEWS['prov.terms'](box);if(SEC_BARE){const ph=box.querySelector('.phead');if(ph)ph.remove()}else box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},"));
 
-T('Direct booking & Google (reached from inside a hotel via the Provider menu) is bare too - its own title already comes from the outer page',
+T('Direct Booking Engine (reached from inside a hotel via the Provider menu) is bare too - its own title already comes from the outer page',
   src.includes("bindPicker(el);SEC_BARE=true;SEC.google($('#gBody',el));"));
 
 T('a handful of pale light-mode-only badges/boxes on the Hotel Setup pages (payment methods, hotel logo, terms preview, Ready/Match/Active pills, card-details box) get a real dark-mode colour instead of staying a stray light patch',
@@ -181,5 +182,18 @@ T('a Tax Invoice added from Backend > Hotel Billing gets the same auto-generated
 
 T('a .scroll panel (Rate codes, Charge codes, Companies & agents, and every other admin table wider than its panel) really scrolls sideways in the Modern skin, instead of being silently clipped to nothing - a .panel:has(>table) rule meant to round off a table\'s corners was overriding it with no scrollbar at all',
   src.includes('html[data-skin="modern"] .panel:has(>table):not(.scroll),html[data-skin="modern"] .panel:has(>.ph):not(.scroll){overflow:hidden}'));
+
+T('Direct booking & Google is renamed Direct Booking Engine everywhere (menus and page titles), and its amenities list covers a lot more of what a property can actually have, not just the original ten',
+  src.includes("{t:'Connections',items:[['Direct Booking Engine','prov.google']") &&
+  src.includes("box.innerHTML=secHead('Direct Booking Engine',") &&
+  src.includes("el.innerHTML=pageHead('Direct Booking Engine',provHotelPicker())") &&
+  src.includes("{k:'google',t:'Direct Booking Engine metadata'") &&
+  ['front_desk','bar','room_service','business_center','meeting_room','elevator','non_smoking_rooms','family_rooms','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kids_club','sauna','kitchen','balcony','beachfront','tour_desk','atm','bbq','garden','heating','accessible_facilities'].every(a=>src.includes("'"+a+"'")));
+
+T('Amendment Records and Amendment Log are their own Records group inside a hotel\'s Provider menu, not bundled in with Direct Booking Engine / Stripe payments / Back to provider console; both names are now parallel (Amendment Records, Amendment Log) everywhere, not the old mismatched "Amend records"',
+  src.includes("const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};") &&
+  src.includes("people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_GROUP]}") &&
+  src.includes("el.innerHTML=pageHead('Amendment Records',") &&
+  (src.match(/\['Amendment Records','prov\.amend'\]/g) || []).length === 2);
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);

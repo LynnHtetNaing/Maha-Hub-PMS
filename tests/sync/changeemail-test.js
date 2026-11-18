@@ -94,8 +94,8 @@ const cut = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a +
   T('no developer commands anywhere in the page', !/server\.mjs|port 878/.test(src));
   T('the Systems page keeps the server address boxes', /id="cxHost"/.test(systems) && /id="bkHost"/.test(systems));
   T('the name Provider history is gone', !/provider history/i.test(src));
-  T('the console menu and the hotel menu both say Amendment log', (src.match(/\['Amendment log','prov\.log'\]/g) || []).length === 2);
-  T('the page itself is called Amendment log', /pageHead\('Amendment log'/.test(src) && !/Amendment Log/.test(src));
+  T('the console menu and the hotel menu both say Amendment Log', (src.match(/\['Amendment Log','prov\.log'\]/g) || []).length === 2);
+  T('the page itself is called Amendment Log', /pageHead\('Amendment Log'/.test(src));
 
   /* the server function: provider gate comes first, and the email never reaches the log */
   const gate = fnSrc.indexOf('maha_platform_admins'), act = fnSrc.indexOf('action === "change_staff_email"');
