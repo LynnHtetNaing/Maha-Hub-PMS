@@ -164,4 +164,8 @@ T('Hotel Settings (hotel-staff Backend) and Hotel profile (provider\'s Hotel Set
 T('switching to Backend lands the provider (inside a hotel) on Hotel profile, and hotel staff on Hotel Settings - the same merged form either way',
   src.includes("function firstBackendView(){if(DB.session&&DB.session.provider)return 'hset.profile';"));
 
+T('native form controls (text inputs, scrollbars) default to light even when the browser/OS itself is set to Dark - without this, the lock screen, sign-in and Select Property pages looked part-Dark (dark input boxes) even after their own data-skin/data-mode/data-pal were stripped off <html>, because nothing had told the browser the page itself is light',
+  /html\{color-scheme:light\}/.test(src) &&
+  src.indexOf('html{color-scheme:light}')<src.indexOf('html[data-skin="modern"][data-mode=dark]{color-scheme:dark;'));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
