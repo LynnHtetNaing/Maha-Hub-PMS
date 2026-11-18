@@ -79,4 +79,10 @@ T('Check status re-asks Stripe directly (never trusts the browser) before postin
 T('the MAHA PAY tile is one title under Credit Card, not repeated under every payment method (Cash, City Ledger, ...); Credit Card stays open as a tab even for a hotel with Maha Pay but no other card method enabled',
   pms.includes("(!payRef&&payTab==='CREDIT CARD')?`<button type=\"button\" class=\"nitile ptile mahapay") &&
   pms.includes("||(t==='CREDIT CARD'&&mpStatus&&mpStatus.configured));return a.length?a:PAY_TABS};"));
+T('Recurring charge now has a billing period (Monthly / 3 months / 6 months / Annually), and the subscription date only rolls forward to the next period once the renewal invoice this hotel paid itself is actually marked paid - never just because it was created',
+  pms.includes("const RECURRING_PERIODS={m1:['Monthly',1],m3:['Every 3 months',3],m6:['Every 6 months',6],m12:['Annually',12]};") &&
+  pms.includes('id="pbRecPeriod"') &&
+  pms.includes("const prev=await ctx0.call('maha_billing_docs?select=status&property_id=eq.'+ctx0.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(prevNo));") &&
+  pms.includes("if(prev&&prev[0]&&prev[0].status==='paid'){") &&
+  pms.includes("const months=(RECURRING_PERIODS[h.set.recurringPeriod]||RECURRING_PERIODS.m12)[1];"));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);

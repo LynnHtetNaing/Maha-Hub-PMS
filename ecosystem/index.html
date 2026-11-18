@@ -11923,19 +11923,37 @@ function provSubCard(box,h){
   box.innerHTML=`<h3>Hotel subscription</h3><p class="sub">The whole hotel account. Warning starts 10 days before; the hotel stops at 06:00 the morning after the date.</p><p style="margin:0 0 10px">Valid until <b>${sd?fd(sd):'-'}</b> &middot; <span class="${stopped?'hs2-bad':'hs2-ok'}">${esc(state)}</span></p>
     <div class="btns" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 8px"><button type="button" class="btn sm ghost" data-pbe="1">+1 month</button><button type="button" class="btn sm ghost" data-pbe="3">+3 months</button><button type="button" class="btn sm ghost" data-pbe="6">+6 months</button><button type="button" class="btn sm ghost" data-pbe="12">+1 year</button><button type="button" class="btn sm red" id="pbRev">Revoke now</button></div>
     <div class="btns" style="justify-content:flex-start;align-items:center;gap:8px"><input type="date" id="pbD" value="${esc(sd||'')}" style="max-width:170px"><button type="button" class="btn sm gold" id="pbSave">Save date</button><button type="button" class="btn sm ghost" id="pbClr">Clear date</button></div>
-    <label class="chk mt"><input type="checkbox" id="pbRecChg" ${h.set.recurringCharge?'checked':''}> Recurring charge - ${HOTEL_WARN_DAYS} days before this date, auto-create the next invoice so the hotel can Pay with Maha Pay itself. Never charges a card by itself.</label>`;
+    <label class="chk mt"><input type="checkbox" id="pbRecChg" ${h.set.recurringCharge?'checked':''}> Recurring charge - ${HOTEL_WARN_DAYS} days before this date, auto-create the next invoice so the hotel can Pay with Maha Pay itself. Never charges a card by itself.</label>
+    <div class="f mt" style="max-width:220px"><span>Billing period</span><select id="pbRecPeriod">${Object.keys(RECURRING_PERIODS).map(k=>opt(k,RECURRING_PERIODS[k][0],h.set.recurringPeriod||'m12')).join('')}</select></div>
+    <p class="sub">Once that renewal invoice is marked paid, the subscription date itself moves forward by this period and the cycle repeats - never before it is paid.</p>`;
   const done=(msg)=>{saveDB();render();toast(msg)};
   $$('[data-pbe]',box).forEach(b=>b.onclick=()=>{const base=h.set.subUntil&&h.set.subUntil>iso(new Date())?P(h.set.subUntil):P(iso(new Date()));base.setMonth(base.getMonth()+(+b.dataset.pbe));const v=iso(base);h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' extended to '+fd(v));done(h.code+' subscription extended to '+fd(v)+'.')});
   $('#pbRev',box).onclick=async()=>{if(!await dlgConfirm('Revoke the subscription of '+h.code+' now? Its staff are stopped at once.'))return;h.set.subUntil=addD(iso(new Date()),-1);h.set.subRevokedAt=Date.now();provLog('Subscription of hotel '+h.code+' revoked (stopped now)');done(h.code+' subscription revoked.')};
   $('#pbSave',box).onclick=()=>{const v=$('#pbD',box).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));done(h.code+' subscription is valid until '+fd(v)+'.')};
   $('#pbClr',box).onclick=()=>{if(!h.set.subUntil&&!h.set.subRevokedAt)return;delete h.set.subUntil;delete h.set.subRevokedAt;provLog('Subscription date cleared for hotel '+h.code);done('Subscription date cleared for '+h.code+'.')};
-  $('#pbRecChg',box).onchange=()=>{h.set.recurringCharge=$('#pbRecChg',box).checked;if(!h.set.recurringCharge)delete h.set.recurringInvoicedFor;provLog('Recurring charge turned '+(h.set.recurringCharge?'on':'off')+' for hotel '+h.code);saveDB();toast(h.set.recurringCharge?'Recurring charge is on.':'Recurring charge is off.');if(h.set.recurringCharge)recurringAutoInvoice(h)}}
+  $('#pbRecChg',box).onchange=()=>{h.set.recurringCharge=$('#pbRecChg',box).checked;if(!h.set.recurringCharge)delete h.set.recurringInvoicedFor;provLog('Recurring charge turned '+(h.set.recurringCharge?'on':'off')+' for hotel '+h.code);saveDB();toast(h.set.recurringCharge?'Recurring charge is on.':'Recurring charge is off.');if(h.set.recurringCharge)recurringAutoInvoice(h)};
+  $('#pbRecPeriod',box).onchange=()=>{h.set.recurringPeriod=$('#pbRecPeriod',box).value;provLog('Recurring charge period set to '+RECURRING_PERIODS[h.set.recurringPeriod][0]+' for hotel '+h.code);saveDB();toast('Billing period: '+RECURRING_PERIODS[h.set.recurringPeriod][0])}}
 /* Recurring charge: when on, HOTEL_WARN_DAYS before a hotel's subscription date, auto-create the next open invoice
    (same amount/currency as its last subscription) so the hotel can press "Pay with Maha Pay" itself on sbill.invoices -
    never an automatic charge. recurringInvoicedFor remembers the subUntil it already made one for, so it only runs once
-   per expiry date. */
+   per expiry date. Once that invoice is marked paid, the date itself rolls forward by recurringPeriod and the whole
+   cycle repeats - the date only ever moves once the hotel has actually paid, never just because the invoice exists. */
+const RECURRING_PERIODS={m1:['Monthly',1],m3:['Every 3 months',3],m6:['Every 6 months',6],m12:['Annually',12]};
 async function recurringAutoInvoice(h){
   if(!h||!h.set||!h.set.recurringCharge||!h.set.subUntil||!MahaAuth.on())return;
+  try{
+    if(h.set.recurringInvoicedFor&&h.set.recurringInvoicedFor===h.set.subUntil){
+      const ctx0=await provBillCtx(h);
+      const prevNo='AUTO-'+h.code+'-'+h.set.recurringInvoicedFor.replace(/-/g,'');
+      const prev=await ctx0.call('maha_billing_docs?select=status&property_id=eq.'+ctx0.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(prevNo));
+      if(prev&&prev[0]&&prev[0].status==='paid'){
+        const months=(RECURRING_PERIODS[h.set.recurringPeriod]||RECURRING_PERIODS.m12)[1];
+        const base=P(h.set.subUntil);base.setMonth(base.getMonth()+months);const nv=iso(base);
+        h.set.subUntil=nv;delete h.set.recurringInvoicedFor;
+        provLog('Recurring charge: '+h.code+' renewal paid - subscription rolled to '+fd(nv));saveDB()
+      }
+    }
+  }catch(e){}
   if(h.set.recurringInvoicedFor===h.set.subUntil)return;
   const days=diff(iso(new Date()),h.set.subUntil);
   if(!(days>=0&&days<=HOTEL_WARN_DAYS))return;
