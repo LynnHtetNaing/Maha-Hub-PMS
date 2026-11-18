@@ -2454,8 +2454,10 @@ html[data-skin="modern"] .rscreen:not(.nres):not(.compact) .rcol .pnb.g4,html[da
 html[data-skin="modern"] .rscreen:not(.nres):not(.compact) .pnb{gap:8px}
 html[data-skin="modern"] .rscreen:not(.nres):not(.compact) .pnb .f .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 html[data-skin="modern"] .rscreen:not(.nres):not(.compact) .rgrid2{grid-template-columns:1.5fr 1fr;gap:14px}
-/* panels: tables and notes sit inside the rounded corners with space around them */
-html[data-skin="modern"] .panel:has(>table),html[data-skin="modern"] .panel:has(>.ph){overflow:hidden}
+/* panels: tables and notes sit inside the rounded corners with space around them - never on a .scroll panel,
+   which clips its wide table to nothing instead of letting it scroll sideways (the Rate codes / Charge codes /
+   Companies & agents style admin tables, whose columns can run wider than the panel) */
+html[data-skin="modern"] .panel:has(>table):not(.scroll),html[data-skin="modern"] .panel:has(>.ph):not(.scroll){overflow:hidden}
 html[data-skin="modern"] .panel:not(.pad)>p,html[data-skin="modern"] .panel:not(.pad)>.sub{margin:0;padding:12px 18px}
 html[data-skin="modern"] .panel:not(.pad)>.form2,html[data-skin="modern"] .panel:not(.pad)>.form3,html[data-skin="modern"] .panel:not(.pad)>.form4,html[data-skin="modern"] .panel:not(.pad)>.row,html[data-skin="modern"] .panel:not(.pad)>.btns:not(.pad){padding:14px 18px 16px}
 html[data-skin="modern"] .panel:not(.pad)>h3,html[data-skin="modern"] .panel:not(.pad)>h4{padding:12px 18px 0;margin:0}
@@ -11044,7 +11046,9 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   const noBill=!adv&&!B.lines.some(l=>l.folio===folio&&isCharge(l)&&!l.settled&&!l.offset);   /* nothing to pay: only a refund is possible */
   payRef=noBill;
   /* a title with no open method is not shown in the Payment window */
-  const shownPayTabs=()=>{const a=PAY_TABS.filter(t=>TCODES.some(c=>c.type==='p'&&!c.auto&&payEnabled(c)&&c.ptab===t));return a.length?a:PAY_TABS};
+  /* Maha Pay lives under Credit Card, so that tab stays open even for a hotel with Maha Pay but no other card
+     method enabled - otherwise the tab (and Maha Pay with it) would never show at all */
+  const shownPayTabs=()=>{const a=PAY_TABS.filter(t=>TCODES.some(c=>c.type==='p'&&!c.auto&&payEnabled(c)&&c.ptab===t)||(t==='CREDIT CARD'&&mpStatus&&mpStatus.configured));return a.length?a:PAY_TABS};
   if(!shownPayTabs().includes(payTab))payTab=shownPayTabs()[0];
   const allP=()=>TCODES.filter(c=>c.type==='p'&&!c.auto&&payEnabled(c)&&PAY_TABS.includes(c.ptab));
   const codes=()=>allP().filter(c=>adv?!c.refund:(noBill?c.refund:true));
@@ -11052,7 +11056,7 @@ function payModal(B,after,folio,mode){if(!need('pay'))return;if(['cancelled','no
   const paint=()=>{const inTab=codes().filter(c=>c.ptab===payTab),nPay=allP().filter(c=>c.ptab===payTab&&!c.refund).length,nRef=allP().filter(c=>c.ptab===payTab&&c.refund).length;const list=adv?inTab:inTab.filter(c=>!!c.refund===payRef);const card=g.card;const cardCode=card&&codes().find(c=>c.card===card.type&&!c.refund);
     $('#pyB',m).innerHTML=`<div class="nitabs">${shownPayTabs().map(t=>`<button class="${t===payTab?'on':''}" data-pt="${esc(t)}">${esc(titleLabel(t,'p:'))}</button>`).join('')}</div>
     <div class="nimain"><div class="nileft">${adv?'':`<div class="segs refseg"><button type="button" id="pyPayT" aria-pressed="${!payRef}" ${noBill?'disabled title="There is no bill to pay"':''}>Payment types (${nPay})</button><button type="button" id="pyRefT" aria-pressed="${payRef}">Refund types (${nRef})</button></div>`}
-     <div class="nitiles">${(!payRef)?`<button type="button" class="nitile ptile mahapay ${mahaPayOn?'on':''} ${mpStatus&&!mpStatus.configured?'off':''}" data-pc="__mahapay" ${mpStatus&&!mpStatus.configured?'title="Ask the provider to link Stripe for this hotel first."':''}>${ic('cardp',42)}<b>MAHA PAY</b><span>${mpStatus&&!mpStatus.configured?'Not set up for this hotel':mpStatus===null?'Checking…':'Charge a card or send a pay link'}</span></button>`:''}${list.map(c=>`<button class="nitile ptile ${c.refund?'rf':''} ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
+     <div class="nitiles">${(!payRef&&payTab==='CREDIT CARD')?`<button type="button" class="nitile ptile mahapay ${mahaPayOn?'on':''} ${mpStatus&&!mpStatus.configured?'off':''}" data-pc="__mahapay" ${mpStatus&&!mpStatus.configured?'title="Ask the provider to link Stripe for this hotel first."':''}>${ic('cardp',42)}<b>MAHA PAY</b><span>${mpStatus&&!mpStatus.configured?'Not set up for this hotel':mpStatus===null?'Checking…':'Charge a card or send a pay link'}</span></button>`:''}${list.map(c=>`<button class="nitile ptile ${c.refund?'rf':''} ${cur&&cur.code===c.code?'on':''}" data-pc="${c.code}">${payIcon(c,42)}<b>${c.code}</b><span>${esc(c.desc)}</span>${c.region?`<em class="rg">${esc(c.region)}</em>`:''}</button>`).join('')||'<div class="empty">No types here.</div>'}</div></div>
      <div class="niform">${mahaPayOn?`<div class="sub pynote"><b>Maha Pay</b> – charge this hotel's own Stripe account, or send a payment link. <button type="button" class="btn ghost sm" id="mpBack">&larr; Choose a different payment type</button></div>
       ${(B.mahaPayLinks||[]).filter(x=>!x.posted).length?`<div class="panel pad" id="mpPend"><h3 style="margin-top:0">Payment links sent, awaiting the guest</h3>${(B.mahaPayLinks||[]).filter(x=>!x.posted).map(x=>`<div class="row gap" style="align-items:center;justify-content:space-between" data-mplrow="${x.id}"><span>${m2(x.amount)} ${esc(x.currency)}${x.ref?' · '+esc(x.ref):''} · sent ${fdt(x.at)}</span><button type="button" class="btn sm ghost" data-mplcheck="${x.id}">Check status</button></div>`).join('')}</div>`:''}
       <div class="form3">${fld('Amount',`<input id="mpAmt" class="n niamt" inputmode="decimal" placeholder="0.00" value="${cs&&cs.cur!==bCur(B)?'':defAmt()}">`,'pyh')}${fld('Currency',`<input id="mpCur" value="${esc(H.set.cur||'USD')}">`,'pyh')}${fld('Reference#',`<input id="mpRef" maxlength="60" placeholder="Reference info">`,'pyh')}</div>
@@ -11970,19 +11974,19 @@ function provBillFiles(h,ctx,row,after){
         provLog('Billing: file attached to '+row.no+' for hotel '+h.code);paint();after()}catch(e){E.textContent='Could not upload: '+e.message}}};
   paint()}
 function provBillForm(h,ctx,kind,row,after){
-  const e=row||{},st=PB_STATUS[kind],sub=kind==='subscription';
-  const m=modal((row?'Edit ':'Add ')+PB_KINDS[kind].toLowerCase()+' – '+esc(h.code),`<div class="form2">${fld(sub?'Plan name':'Number',`<input id="pfN" maxlength="40" value="${esc(e.no||'')}" ${row?'':'autofocus'}>`)}${fld('Date',`<input type="date" id="pfD" value="${esc(e.doc_date||iso(new Date()))}">`)}
+  const e=row||{},st=PB_STATUS[kind],sub=kind==='subscription',inv=kind==='invoice';
+  const m=modal((row?'Edit ':'Add ')+PB_KINDS[kind].toLowerCase()+' – '+esc(h.code),`<div class="form2">${fld(sub?'Plan name':'Number',`<input id="pfN" maxlength="40" value="${esc(e.no||'')}" ${inv||row?'disabled':'autofocus'} ${inv&&!row?'placeholder="Given automatically (TIV-TH2026/11/001)"':''}>`)}${fld('Date',`<input type="date" id="pfD" value="${esc(e.doc_date||iso(new Date()))}">`)}
     ${kind==='invoice'||kind==='quote'?fld(kind==='quote'?'Valid until':'Due date',`<input type="date" id="pfU" value="${esc(e.due_date||'')}">`):''}${sub?fld('Period from',`<input type="date" id="pfF" value="${esc(e.period_from||'')}">`)+fld('Period until',`<input type="date" id="pfT" value="${esc(e.period_to||'')}">`):''}
     ${fld('Amount',`<input type="number" id="pfA" min="0" step="0.01" value="${e.amount!=null?e.amount:0}">`)}${fld('Currency',`<input id="pfC" maxlength="3" value="${esc(e.currency||'USD')}">`)}
     ${kind==='payment'?fld('Paid for (invoice number)',`<input id="pfP" maxlength="40" value="${esc(e.paid_for||'')}">`):''}${fld('Status',`<select id="pfS">${st.map(x=>`<option value="${x}"${(e.status||st[0])===x?' selected':''}>${x.charAt(0).toUpperCase()+x.slice(1)}</option>`).join('')}</select>`)}${fld('Note',`<input id="pfO" maxlength="500" value="${esc(e.note||'')}">`,'span2')}</div>
     <div class="err" id="pfE"></div><div class="btns"><button class="btn gold" id="pfS1">Save</button></div>`,{w:640});
-  $('#pfS1',m).onclick=async()=>{const no=$('#pfN',m).value.trim();if(!no){$('#pfE',m).textContent='Enter '+(sub?'the plan name':'a number')+'.';return}
-    const body={kind,no,doc_date:$('#pfD',m).value||iso(new Date()),due_date:$('#pfU',m)?($('#pfU',m).value||null):null,period_from:sub?($('#pfF',m).value||null):null,period_to:sub?($('#pfT',m).value||null):null,amount:+$('#pfA',m).value||0,currency:($('#pfC',m).value||'USD').toUpperCase(),paid_for:$('#pfP',m)?($('#pfP',m).value.trim()||null):null,note:$('#pfO',m).value.trim()||null,status:$('#pfS',m).value};
+  $('#pfS1',m).onclick=async()=>{const no=$('#pfN',m).value.trim();if(!inv&&!no){$('#pfE',m).textContent='Enter '+(sub?'the plan name':'a number')+'.';return}
+    const body={kind,...(inv&&!row?{}:{no}),doc_date:$('#pfD',m).value||iso(new Date()),due_date:$('#pfU',m)?($('#pfU',m).value||null):null,period_from:sub?($('#pfF',m).value||null):null,period_to:sub?($('#pfT',m).value||null):null,amount:+$('#pfA',m).value||0,currency:($('#pfC',m).value||'USD').toUpperCase(),paid_for:$('#pfP',m)?($('#pfP',m).value.trim()||null):null,note:$('#pfO',m).value.trim()||null,status:$('#pfS',m).value};
     if(sub&&!body.period_to){$('#pfE',m).textContent='Choose the period end date.';return}
-    try{if(row)await ctx.call('maha_billing_docs?id=eq.'+row.id,{method:'PATCH',body:JSON.stringify(body)});else await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify(Object.assign({property_id:ctx.pid},body))});
+    try{let gotNo=no;if(row)await ctx.call('maha_billing_docs?id=eq.'+row.id,{method:'PATCH',body:JSON.stringify(body)});else{const made=await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify(Object.assign({property_id:ctx.pid},body))});gotNo=(made&&made[0]&&made[0].no)||no}
       if(kind==='payment'&&body.paid_for&&body.status==='paid'){try{await ctx.call('maha_billing_docs?property_id=eq.'+ctx.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(body.paid_for),{method:'PATCH',body:JSON.stringify({status:'paid'})})}catch(x){}}
       if(sub&&body.status==='active'){h.set.subUntil=body.period_to;delete h.set.subRevokedAt;saveDB()}
-      provLog('Billing: '+PB_KINDS[kind].toLowerCase()+' '+no+(row?' updated':' added')+' for hotel '+h.code);closeModal(m);after()}catch(x){$('#pfE',m).textContent='Could not save: '+x.message}}}
+      provLog('Billing: '+PB_KINDS[kind].toLowerCase()+' '+gotNo+(row?' updated':' added')+' for hotel '+h.code);if(inv&&!row)toast('Tax Invoice '+gotNo+' issued');closeModal(m);after()}catch(x){$('#pfE',m).textContent='Could not save: '+x.message}}}
 async function provBillRecords(box,h){
   const TABS=[['overview','Overview'],['quote','Quotes'],['subscription','Subscriptions'],['invoice','Invoices'],['payment','Payments Made'],['statements','Statements']];
   box.innerHTML='<h3>Billing records</h3><p class="sub">Loading...</p>';let ctx,rows=[];
@@ -12007,10 +12011,12 @@ async function provBillRecords(box,h){
   $$('[data-ed]',box).forEach(b=>b.onclick=()=>{const r=rows.find(x=>x.id===b.dataset.ed);if(r)provBillForm(h,ctx,r.kind,r,redraw)});
   $$('[data-mp]',box).forEach(b=>b.onclick=async()=>{try{await ctx.call('maha_billing_docs?id=eq.'+b.dataset.mp,{method:'PATCH',body:JSON.stringify({status:'paid'})});provLog('Billing: invoice marked paid for hotel '+h.code);redraw()}catch(e){toast('Could not save: '+e.message)}});
   $$('[data-dl]',box).forEach(b=>b.onclick=async()=>{if(!await dlgConfirm('Delete this billing record?'))return;try{await ctx.call('maha_billing_docs?id=eq.'+b.dataset.dl,{method:'DELETE'});provLog('Billing: record deleted for hotel '+h.code);redraw()}catch(e){toast('Could not delete: '+e.message)}})}
+/* Two clearly separate blocks: the hotel's subscription date, then its billing ledger. Each person's own access
+   term is admin'd under People & access (set.users / the Hotels list Access action) - not repeated here. */
 VIEWS['prov.billing']=el=>{
   const h=H;if(!h){go('prov.home');return}
-  el.innerHTML=pageHead('Hotel Billing',provHotelPicker())+`<div class="cols2" style="grid-template-columns:minmax(260px,320px) minmax(0,1fr)"><div class="panel pad" id="pbSub"></div><div class="panel pad" id="pbUsr"></div></div><div class="panel pad mt" id="pbRec"></div>`;
-  bindPicker(el);provSubCard($('#pbSub',el),h);userAccessAdmin(h,$('#pbUsr',el));provBillRecords($('#pbRec',el),h);recurringAutoInvoice(h)};
+  el.innerHTML=pageHead('Hotel Billing',provHotelPicker())+`<div class="panel pad" id="pbSub"></div><div class="panel pad mt" id="pbRec"></div>`;
+  bindPicker(el);provSubCard($('#pbSub',el),h);provBillRecords($('#pbRec',el),h);recurringAutoInvoice(h)};
 /* ---- Recycle bin (cloud): a deleted hotel is kept for 30 days, then erased ---- */
 function recycleRows(list,now){
   return (Array.isArray(list)?list:[]).map(r=>({code:String(r.property_code||''),name:String(r.name||r.property_code||''),deletedAt:Date.parse(r.deleted_at)||0,purgeAt:Date.parse(r.purge_at)||0,by:String(r.deleted_by||''),records:+r.records||0,staff:+r.staff||0}))

@@ -76,4 +76,7 @@ T('a Payment Link never posts anything by itself - it is kept as a pending recor
   pms.includes('B.mahaPayLinks=B.mahaPayLinks||[];B.mahaPayLinks.push({id:') && pms.includes('posted:false});saveDB();') &&
   pms.includes('Nothing is posted until the guest pays.'));
 T('Check status re-asks Stripe directly (never trusts the browser) before posting a pending link as a real payment, and only then', pms.includes('const paid=await guestPayLinkStatus(H.code,row.sessionId);') && pms.includes("if(!paid){b.disabled=false;b.innerHTML=lbl;toast('Not paid yet. Try again later.');return}") && pms.includes('row.posted=true;postMahaPay(row.amount,row.ref,'));
+T('the MAHA PAY tile is one title under Credit Card, not repeated under every payment method (Cash, City Ledger, ...); Credit Card stays open as a tab even for a hotel with Maha Pay but no other card method enabled',
+  pms.includes("(!payRef&&payTab==='CREDIT CARD')?`<button type=\"button\" class=\"nitile ptile mahapay") &&
+  pms.includes("||(t==='CREDIT CARD'&&mpStatus&&mpStatus.configured));return a.length?a:PAY_TABS};"));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
