@@ -5341,7 +5341,7 @@ function syncLegacyFeatures(f){const leg={dashboard:['fn.fo.dash'],roster:['fn.f
 function planName(h){const id=h&&h.set&&h.set.plan;return (HOTEL_PLANS[id]||HOTEL_PLANS.full).name}
 const HOTEL_PACKAGES={
   build:{name:'Build Up',note:'Maha PMS with the essential titles. Connect, Booking, Reach and Sales are closed for this hotel. Each system can still be opened on its own, and each person is opened under Staff & permissions.'},
-  fullpkg:{name:'Full Package',note:'Every PMS title is open, and Connect, Booking, Reach and Sales are open for this hotel. Each person still needs that system under Setup → Staff & permissions. Direct booking still needs the Google details under Setup → Direct booking & Google before guests can book.'}
+  fullpkg:{name:'Full Package',note:'Every PMS title is open, and Connect, Booking, Reach and Sales are open for this hotel. Each person still needs that system under Setup → Staff & permissions. Direct booking still needs the Google details under Setup → Direct Booking Engine before guests can book.'}
 };
 /* Modern is the only design now - no Classic choice anywhere (skinIsModern() always true). applySkin keeps the
    theme/mode attributes in sync with the signed-in person's own colour and light/dark choice. */
@@ -7818,9 +7818,9 @@ const PROV_MENU=[
 const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems']]},
- {t:'Connections',items:[['Direct booking & Google','prov.google'],['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
+ {t:'Connections',items:[['Direct Booking Engine','prov.google'],['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
  {t:'Billing',items:[['Hotel Billing','prov.billing']]},
- {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amend records','prov.amend'],['Amendment log','prov.log'],['User Logs','prov.userlogs']]},
+ {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amendment Records','prov.amend'],['Amendment Log','prov.log'],['User Logs','prov.userlogs']]},
  {t:'Hotels',items:[['Open PMS','prov.enter'],['All hotels','prov.home']]}];
 function provWsOn(){const se=typeof DB!=='undefined'&&DB&&DB.session;return !!(se&&se.provider&&!se.inHotel&&typeof H!=='undefined'&&H&&PROV_WS_VIEWS.includes(VIEW))}
 function provHotels(){return provWsOn()&&H?[H]:Object.values(DB.hotels)}
@@ -8287,7 +8287,8 @@ function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
   const um=userMode();return (lightOnly()?'':'<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div>')+'<div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
-const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct booking & Google','prov.google'],['Stripe payments (this hotel)','prov.stripe'],['Amend records','prov.amend'],['Amendment log','prov.log']]};
+const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct Booking Engine','prov.google'],['Stripe payments (this hotel)','prov.stripe']]};
+const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};
 function modernShellHTML(){
   const n=notifBadgeCount();
   return `<div class="mshell${msbSlim()?' slim':''}" id="mshell">
@@ -11923,19 +11924,37 @@ function provSubCard(box,h){
   box.innerHTML=`<h3>Hotel subscription</h3><p class="sub">The whole hotel account. Warning starts 10 days before; the hotel stops at 06:00 the morning after the date.</p><p style="margin:0 0 10px">Valid until <b>${sd?fd(sd):'-'}</b> &middot; <span class="${stopped?'hs2-bad':'hs2-ok'}">${esc(state)}</span></p>
     <div class="btns" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 8px"><button type="button" class="btn sm ghost" data-pbe="1">+1 month</button><button type="button" class="btn sm ghost" data-pbe="3">+3 months</button><button type="button" class="btn sm ghost" data-pbe="6">+6 months</button><button type="button" class="btn sm ghost" data-pbe="12">+1 year</button><button type="button" class="btn sm red" id="pbRev">Revoke now</button></div>
     <div class="btns" style="justify-content:flex-start;align-items:center;gap:8px"><input type="date" id="pbD" value="${esc(sd||'')}" style="max-width:170px"><button type="button" class="btn sm gold" id="pbSave">Save date</button><button type="button" class="btn sm ghost" id="pbClr">Clear date</button></div>
-    <label class="chk mt"><input type="checkbox" id="pbRecChg" ${h.set.recurringCharge?'checked':''}> Recurring charge - ${HOTEL_WARN_DAYS} days before this date, auto-create the next invoice so the hotel can Pay with Maha Pay itself. Never charges a card by itself.</label>`;
+    <label class="chk mt"><input type="checkbox" id="pbRecChg" ${h.set.recurringCharge?'checked':''}> Recurring charge - ${HOTEL_WARN_DAYS} days before this date, auto-create the next invoice so the hotel can Pay with Maha Pay itself. Never charges a card by itself.</label>
+    <div class="f mt" style="max-width:220px"><span>Billing period</span><select id="pbRecPeriod">${Object.keys(RECURRING_PERIODS).map(k=>opt(k,RECURRING_PERIODS[k][0],h.set.recurringPeriod||'m12')).join('')}</select></div>
+    <p class="sub">Once that renewal invoice is marked paid, the subscription date itself moves forward by this period and the cycle repeats - never before it is paid.</p>`;
   const done=(msg)=>{saveDB();render();toast(msg)};
   $$('[data-pbe]',box).forEach(b=>b.onclick=()=>{const base=h.set.subUntil&&h.set.subUntil>iso(new Date())?P(h.set.subUntil):P(iso(new Date()));base.setMonth(base.getMonth()+(+b.dataset.pbe));const v=iso(base);h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' extended to '+fd(v));done(h.code+' subscription extended to '+fd(v)+'.')});
   $('#pbRev',box).onclick=async()=>{if(!await dlgConfirm('Revoke the subscription of '+h.code+' now? Its staff are stopped at once.'))return;h.set.subUntil=addD(iso(new Date()),-1);h.set.subRevokedAt=Date.now();provLog('Subscription of hotel '+h.code+' revoked (stopped now)');done(h.code+' subscription revoked.')};
   $('#pbSave',box).onclick=()=>{const v=$('#pbD',box).value;if(!v){toast('Choose a date, or use Clear date.');return}h.set.subUntil=v;delete h.set.subRevokedAt;provLog('Subscription of hotel '+h.code+' valid until '+fd(v));done(h.code+' subscription is valid until '+fd(v)+'.')};
   $('#pbClr',box).onclick=()=>{if(!h.set.subUntil&&!h.set.subRevokedAt)return;delete h.set.subUntil;delete h.set.subRevokedAt;provLog('Subscription date cleared for hotel '+h.code);done('Subscription date cleared for '+h.code+'.')};
-  $('#pbRecChg',box).onchange=()=>{h.set.recurringCharge=$('#pbRecChg',box).checked;if(!h.set.recurringCharge)delete h.set.recurringInvoicedFor;provLog('Recurring charge turned '+(h.set.recurringCharge?'on':'off')+' for hotel '+h.code);saveDB();toast(h.set.recurringCharge?'Recurring charge is on.':'Recurring charge is off.');if(h.set.recurringCharge)recurringAutoInvoice(h)}}
+  $('#pbRecChg',box).onchange=()=>{h.set.recurringCharge=$('#pbRecChg',box).checked;if(!h.set.recurringCharge)delete h.set.recurringInvoicedFor;provLog('Recurring charge turned '+(h.set.recurringCharge?'on':'off')+' for hotel '+h.code);saveDB();toast(h.set.recurringCharge?'Recurring charge is on.':'Recurring charge is off.');if(h.set.recurringCharge)recurringAutoInvoice(h)};
+  $('#pbRecPeriod',box).onchange=()=>{h.set.recurringPeriod=$('#pbRecPeriod',box).value;provLog('Recurring charge period set to '+RECURRING_PERIODS[h.set.recurringPeriod][0]+' for hotel '+h.code);saveDB();toast('Billing period: '+RECURRING_PERIODS[h.set.recurringPeriod][0])}}
 /* Recurring charge: when on, HOTEL_WARN_DAYS before a hotel's subscription date, auto-create the next open invoice
    (same amount/currency as its last subscription) so the hotel can press "Pay with Maha Pay" itself on sbill.invoices -
    never an automatic charge. recurringInvoicedFor remembers the subUntil it already made one for, so it only runs once
-   per expiry date. */
+   per expiry date. Once that invoice is marked paid, the date itself rolls forward by recurringPeriod and the whole
+   cycle repeats - the date only ever moves once the hotel has actually paid, never just because the invoice exists. */
+const RECURRING_PERIODS={m1:['Monthly',1],m3:['Every 3 months',3],m6:['Every 6 months',6],m12:['Annually',12]};
 async function recurringAutoInvoice(h){
   if(!h||!h.set||!h.set.recurringCharge||!h.set.subUntil||!MahaAuth.on())return;
+  try{
+    if(h.set.recurringInvoicedFor&&h.set.recurringInvoicedFor===h.set.subUntil){
+      const ctx0=await provBillCtx(h);
+      const prevNo='AUTO-'+h.code+'-'+h.set.recurringInvoicedFor.replace(/-/g,'');
+      const prev=await ctx0.call('maha_billing_docs?select=status&property_id=eq.'+ctx0.pid+'&kind=eq.invoice&no=eq.'+encodeURIComponent(prevNo));
+      if(prev&&prev[0]&&prev[0].status==='paid'){
+        const months=(RECURRING_PERIODS[h.set.recurringPeriod]||RECURRING_PERIODS.m12)[1];
+        const base=P(h.set.subUntil);base.setMonth(base.getMonth()+months);const nv=iso(base);
+        h.set.subUntil=nv;delete h.set.recurringInvoicedFor;
+        provLog('Recurring charge: '+h.code+' renewal paid - subscription rolled to '+fd(nv));saveDB()
+      }
+    }
+  }catch(e){}
   if(h.set.recurringInvoicedFor===h.set.subUntil)return;
   const days=diff(iso(new Date()),h.set.subUntil);
   if(!(days>=0&&days<=HOTEL_WARN_DAYS))return;
@@ -12258,7 +12277,7 @@ function ADMIN_BACKEND_MENU(){
   /* Room totals is just a check against the Rooms list right above it, not a separate subtitle to go find - the merged
      hset.rooms page (just above) covers both, with its own subtitle for each. */
   return [{t:'Hotel Setup',items:SET_SECTIONS.filter(([k])=>k!=='allot').map(([k,num,title])=>[title,'hset.'+k])},
-    people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_GROUP]}
+    people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_GROUP]}
 function areaMenu(src){
   const se=DB&&DB.session;
   if(se&&se.provider){
@@ -12598,7 +12617,7 @@ function usersPage(el,prov){
 VIEWS['prov.perms']=el=>usersPage(el,true);
 
 VIEWS['prov.amend']=el=>{
-  el.innerHTML=pageHead('Amend Records',provHotelPicker()+`<input id="paQ" placeholder="RSVN#, guest or room" style="min-width:220px">`)+`<p class="sub">Amendments change closed records. Each one needs a reason and is kept in the amendment log with the value before and after.</p><div class="panel scroll" id="paR"></div>`;bindPicker(el);
+  el.innerHTML=pageHead('Amendment Records',provHotelPicker()+`<input id="paQ" placeholder="RSVN#, guest or room" style="min-width:220px">`)+`<p class="sub">Amendments change closed records. Each one needs a reason and is kept in the amendment log with the value before and after.</p><div class="panel scroll" id="paR"></div>`;bindPicker(el);
   const run=()=>{const q=$('#paQ',el).value.trim().toLowerCase();const rows=allBookings().filter(b=>!q||(gName(G(b.guestId))+' '+resOf(b).no+' '+(b.room||'')).toLowerCase().includes(q)).slice(0,60);
     $('#paR',el).innerHTML=`<table class="grid"><tr><th>RSVN#</th><th>Guest</th><th>Room</th><th>Arrival</th><th>Departure</th><th>Status</th><th></th></tr>${rows.map(b=>`<tr><td>${resOf(b).no}</td><td>${esc(gName(G(b.guestId)))}</td><td>${esc(b.room||'')}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${stBadge(b)}</td><td><button class="btn sm" data-am="${b.id}">Amend</button></td></tr>`).join('')}</table>`;
     $$('[data-am]',el).forEach(b=>b.onclick=()=>provAmend(bookingById(b.dataset.am),run))};
@@ -12723,7 +12742,7 @@ function userLogsPage(el,prov){
 VIEWS['set.userlogs']=el=>userLogsPage(el,false);
 VIEWS['prov.userlogs']=el=>userLogsPage(el,true);
 VIEWS['prov.log']=el=>{
-  el.innerHTML=pageHead('Amendment log',provHotelPicker())+`<div class="panel scroll"><table class="grid"><tr><th>When</th><th>By</th><th>RSVN#</th><th>What</th><th>Before</th><th>After</th><th>Reason</th></tr>
+  el.innerHTML=pageHead('Amendment Log',provHotelPicker())+`<div class="panel scroll"><table class="grid"><tr><th>When</th><th>By</th><th>RSVN#</th><th>What</th><th>Before</th><th>After</th><th>Reason</th></tr>
    ${H.amend.map(a=>`<tr><td>${fdt(a.at)}</td><td>${esc(a.user)}</td><td>${a.rsvn||''}</td><td>${esc(a.what)}</td><td>${esc(a.before||'')}</td><td>${esc(a.after||'')}</td><td>${esc(a.reason||'')}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No amendments for this hotel.</td></tr>'}</table></div>
    <div class="panel mt"><div class="ph">Provider activity</div><table class="grid"><tr><th>When</th><th>By</th><th>Hotel</th><th>Action</th></tr>${DB.provLog.slice(0,100).map(a=>`<tr><td>${fdt(a.at)}</td><td>${esc(a.user)}</td><td>${esc(a.hotel||'')}</td><td>${esc(a.a)}${a.reason?' – '+esc(a.reason):''}</td></tr>`).join('')}</table></div>`;bindPicker(el);
 };
@@ -13376,7 +13395,7 @@ function setupChecks(h){const s=h.set,g=s.google||{};
   {k:'companies',t:'Companies and agents',ok:(h.companies||[]).length>0},
   {k:'staff',t:'Staff & permissions',ok:h.users.some(u=>u.role==='Manager'&&u.active!==false)},
   {k:'terms',t:'Terms & Conditions',ok:true},
-  {k:'google',t:'Direct booking & Google metadata',ok:!g.enabled||!!(g.lat&&g.lng&&g.countryCode&&g.cancelPolicy)}]}
+  {k:'google',t:'Direct Booking Engine metadata',ok:!g.enabled||!!(g.lat&&g.lng&&g.countryCode&&g.cancelPolicy)}]}
 function roomTotalsBanner(){const t=roomTotals(H),bad=t.filter(x=>!x.ok);
   return `<div class="panel pad rtot ${bad.length?'rtbad':'rtok'}"><b>${bad.length?'Room totals do not match yet':'Room totals match'}</b><div class="rtrow">${t.map(x=>`<span class="rtc ${x.ok?'ok':'no'}">${esc(x.code)}: ${x.have} of ${x.set?x.allot:'not set'}</span>`).join('')}</div>${bad.length?'<p class="sub">Each room type must have exactly its total number of rooms (the position of the rooms does not matter). Set the total in section 5, or add / remove rooms here. You cannot move on to the next step until they match.</p>':''}</div>`}
 function propertyChecks(h){return setupChecks(h).filter(c=>c.k!=='staff'&&c.k!=='google')}
@@ -13640,8 +13659,11 @@ const SEC={
        if(boxes.some(b=>b.title.length>LM.title)){$('#mpE',box).textContent='A box title is longer than '+LM.title+' characters.';return}
        s.mailPol={boxes:clean,at:Date.now(),by:user().name};s.autoConfirmMail=!!$('#mp_auto',box).checked;provLog('Booking confirmation mail settings saved at '+H.code+' (automatic mail '+(s.autoConfirmMail?'on':'off')+')');saved('Saved')}};
    paint()},
- google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly'];
-   box.innerHTML=secHead('Direct booking & Google','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
+ google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly',
+    'front_desk','bar','room_service','business_center','meeting_room','elevator','non_smoking_rooms','family_rooms','laundry','concierge',
+    'luggage_storage','currency_exchange','ev_charging','kids_club','sauna','kitchen','balcony','beachfront','tour_desk','atm','bbq','garden','heating','accessible_facilities'];
+   /* title stays its own, separate thing for now - this will be reworked once Google Hotel Ads can actually be connected */
+   box.innerHTML=secHead('Direct Booking Engine','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
    <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
    <div class="form3 mt">
     ${fld('Latitude',`<input id="g_lat" value="${esc(g.lat||'')}" placeholder="13.7367">`)}
@@ -13675,8 +13697,8 @@ const SEC={
 VIEWS['prov.google']=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
   if(!DB.session.inHotel&&!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
-  if(!H){el.innerHTML=pageHead('Direct booking & Google')+'<div class="empty">Create a property first.</div>';return}
-  el.innerHTML=pageHead('Direct booking & Google',provHotelPicker())+`<div id="gBody"></div>`;
+  if(!H){el.innerHTML=pageHead('Direct Booking Engine')+'<div class="empty">Create a property first.</div>';return}
+  el.innerHTML=pageHead('Direct Booking Engine',provHotelPicker())+`<div id="gBody"></div>`;
   bindPicker(el);SEC_BARE=true;SEC.google($('#gBody',el));
 };
 /* All chains with their hotels: create a chain and see who is in it (provider only, cloud) */
