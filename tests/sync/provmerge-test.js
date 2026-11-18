@@ -168,4 +168,15 @@ T('native form controls (text inputs, scrollbars) default to light even when the
   /html\{color-scheme:light\}/.test(src) &&
   src.indexOf('html{color-scheme:light}')<src.indexOf('html[data-skin="modern"][data-mode=dark]{color-scheme:dark;'));
 
+T('Backend > Hotel Billing is two clear blocks (subscription, then the billing ledger) - each person\'s own access term is admin\'d under People & access already, so it is not repeated here',
+  src.includes("el.innerHTML=pageHead('Hotel Billing',provHotelPicker())+`<div class=\"panel pad\" id=\"pbSub\"></div><div class=\"panel pad mt\" id=\"pbRec\"></div>`;") &&
+  src.includes("bindPicker(el);provSubCard($('#pbSub',el),h);provBillRecords($('#pbRec',el),h);recurringAutoInvoice(h)};") &&
+  !/VIEWS\['prov\.billing'\]=el=>\{[\s\S]{0,400}userAccessAdmin/.test(src));
+
+T('a Tax Invoice added from Backend > Hotel Billing gets the same auto-generated gapless number as everywhere else, never one typed by hand - only editing an already-numbered invoice still shows it (disabled)',
+  src.includes('const e=row||{},st=PB_STATUS[kind],sub=kind===\'subscription\',inv=kind===\'invoice\';') &&
+  src.includes('${inv||row?\'disabled\':\'autofocus\'} ${inv&&!row?\'placeholder="Given automatically (TIV-TH2026/11/001)"\':\'\'}') &&
+  src.includes("const body={kind,...(inv&&!row?{}:{no}),") &&
+  src.includes("let gotNo=no;if(row)await ctx.call('maha_billing_docs?id=eq.'+row.id,{method:'PATCH',body:JSON.stringify(body)});else{const made=await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify(Object.assign({property_id:ctx.pid},body))});gotNo=(made&&made[0]&&made[0].no)||no}"));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
