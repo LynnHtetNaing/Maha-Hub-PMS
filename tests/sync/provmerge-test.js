@@ -145,6 +145,9 @@ T('a browser\'s own "force dark site colours" feature (which some check a color-
 T('a provider (admin) operating a hotel\'s PMS stays on the console\'s own address (/solutions) - only a real hotel-staff sign-in gets /solutions-PMS; this is DB.session.provider-aware so it works from every caller of applySysPath(\'hub\') (enterHotel, enterHotelBackend, switchHotel, the Frontend/Backend area switch) without having to touch each one',
   src.includes("const provHub=kind==='hub'&&typeof DB!=='undefined'&&!!(DB.session&&DB.session.provider);const want=!kind||provHub?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';"));
 
+T('on the sign-in page, the subtitle ("Enter your username and password.") sits centred under the title, not flush left - the title and subtitle boxes are the same width (the wider of the two stretches the shared container), so centring the subtitle text visually puts it under the middle of the title',
+  src.includes('.eco-shell .eco-login .eco-hisub{margin:2px 0 0;text-align:center;font-size:12.5px;line-height:1.3;white-space:nowrap}'));
+
 T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
   src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));
