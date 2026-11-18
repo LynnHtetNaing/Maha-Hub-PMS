@@ -148,6 +148,17 @@ T('a provider (admin) operating a hotel\'s PMS stays on the console\'s own addre
 T('on the sign-in page, the subtitle ("Enter your username and password.") sits centred under the title, not flush left - the title and subtitle boxes are the same width (the wider of the two stretches the shared container), so centring the subtitle text visually puts it under the middle of the title',
   src.includes('.eco-shell .eco-login .eco-hisub{margin:2px 0 0;text-align:center;font-size:12.5px;line-height:1.3;white-space:nowrap}'));
 
+T('Direct Booking Engine amenities actually wrap onto new lines instead of overflowing off the edge of the panel - the markup used a "wrap" class that was never defined anywhere, so flex-wrap never happened; it is now a proper grid of checkbox pills (the same look as the currency picker), each one highlighting green when ticked',
+  src.includes('.row.wrap{flex-wrap:wrap}') &&
+  src.includes("$$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));"));
+
+T('amenities are grouped into named subtitles the way a real booking engine (1HotelRez) sets them up - Hotel Facilities, then Sports and Recreation - not one long alphabetical list, and AMEN (used for the save/load logic) is simply every group\'s items flattened, so nothing about saving or loading had to change',
+  src.includes("const AMEN_GROUPS=[\n    {t:'Hotel Facilities',items:[") &&
+  src.includes("{t:'Sports and Recreation',items:[") &&
+  src.includes('const AMEN=AMEN_GROUPS.flatMap(gr=>gr.items);') &&
+  src.includes('${AMEN_GROUPS.map(gr=>`<h4 class="mt">${esc(gr.t)}</h4><div class="curgrid">${gr.items.map(a=>') &&
+  ['car_park','coffee_shop','executive_floor','nightclub','safety_deposit_boxes','salon','shops','valet_parking','babysitting','bicycle_rental','casino','smoking_room','golf_course','jacuzzi','squash_courts','steamroom','tennis_courts','water_sports_motorized','water_sports_non_motorized','outdoor_pool','indoor_pool','pool_kids'].filter(a=>a!=='car_park').every(a=>src.includes("'"+a+"'")));
+
 T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
   src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));
