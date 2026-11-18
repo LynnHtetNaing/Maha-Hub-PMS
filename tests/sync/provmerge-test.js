@@ -148,6 +148,11 @@ T('a provider (admin) operating a hotel\'s PMS stays on the console\'s own addre
 T('on the sign-in page, the subtitle ("Enter your username and password.") sits centred under the title, not flush left - the title and subtitle boxes are the same width (the wider of the two stretches the shared container), so centring the subtitle text visually puts it under the middle of the title',
   src.includes('.eco-shell .eco-login .eco-hisub{margin:2px 0 0;text-align:center;font-size:12.5px;line-height:1.3;white-space:nowrap}'));
 
+T('Direct Booking Engine amenities actually wrap onto new lines instead of overflowing off the edge of the panel - the markup used a "wrap" class that was never defined anywhere, so flex-wrap never happened; it is now a proper grid of checkbox pills (the same look as the currency picker), each one highlighting green when ticked',
+  src.includes('.row.wrap{flex-wrap:wrap}') &&
+  src.includes('<div class="curgrid" id="g_am">${AMEN.map(a=>`<label class="curchk ${(g.amenities||[]).includes(a)?\'on\':\'\'}"><input type="checkbox" data-am="${a}"') &&
+  src.includes("$$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));"));
+
 T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
   src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));
