@@ -80,7 +80,7 @@ T('a handful of pale light-mode-only badges/boxes on the Hotel Setup pages (paym
 
 T('Modern is the only design left - no Classic choice anywhere: skinIsModern is unconditional, applySkin only ever sets data-skin="modern", and the per-hotel Style picker (Classic/Modern) is gone from Functions',
   src.includes('function skinIsModern(){return true}') &&
-  src.includes(`function applySkin(){try{const root=document.documentElement;root.setAttribute('data-skin','modern');root.setAttribute('data-pal',userTheme());root.setAttribute('data-mode',userMode())}catch(e){}}`) &&
+  src.includes(`function applySkin(){try{const root=document.documentElement;root.setAttribute('data-skin','modern');root.setAttribute('data-pal',userTheme());const mode=userMode();root.setAttribute('data-mode',mode);const cs=document.getElementById('csMeta');if(cs)cs.setAttribute('content',mode)}catch(e){}}`) &&
   !src.includes('HOTEL_SKINS') && !src.includes('data-skin-pick') && !src.includes("root.setAttribute('data-skin','classic')"));
 
 T('the Provider Console now renders with the Modern sidebar shell even with no hotel open at all (a brand-new provider, or any whole-system page) - the sidebar shows "Provider console" / "Maha Hub" instead of crashing on a missing H',
@@ -134,9 +134,13 @@ T('City Ledger invoice terms moved from Registration card & invoice to Tax Invoi
   /tiref\(box\)\{[\s\S]*?clTermsEditor\(clBox\)/.test(src.slice(src.indexOf(' tiref(box){'), src.indexOf(' terms(box){'))));
 
 T('Sign-in and the idle lock screen stay light, never the Dark theme, even though skinIsModern() is now unconditional - both strip data-skin/data-mode/data-pal off <html> directly instead of going through applySkin() (which would just put the user\'s Dark preference straight back)',
-  src.includes("function showLogin(msg){\n  /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme - skinIsModern() is\n     unconditional now, so drop the attributes directly instead of going through applySkin() */\n  try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}") &&
-  src.includes("try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}\n  const d=document.createElement('div');d.id='idleLock';d.className='idlelock';") &&
+  src.includes("function showLogin(msg){\n  /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme - skinIsModern() is\n     unconditional now, so drop the attributes directly instead of going through applySkin() */\n  try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}\n  forceLightMeta();") &&
+  src.includes("try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}\n  forceLightMeta();\n  const d=document.createElement('div');d.id='idleLock';d.className='idlelock';") &&
   src.includes("d.remove();try{applySkin()}catch(e){}armIdle()};"));
+
+T('a browser\'s own "force dark site colours" feature (which some check a color-scheme meta tag for, not just the page\'s CSS) gets the same light-only signal on the sign-in page and the idle lock screen - a static meta tag alone would be wrong, since it would also force the real in-app Dark theme to look light everywhere else',
+  src.includes('<meta name="color-scheme" content="light dark" id="csMeta">') &&
+  src.includes("function forceLightMeta(){try{const cs=document.getElementById('csMeta');if(cs)cs.setAttribute('content','light')}catch(e){}}"));
 
 T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
