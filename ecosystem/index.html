@@ -7820,10 +7820,11 @@ const PROV_MENU=[
  {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
-const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
+const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.be.info','prov.be.amenities','prov.be.policies','prov.be.theme','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems']]},
- {t:'Connections',items:[['Direct Booking Engine','prov.google'],['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
+ {t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]},
+ {t:'Connections',items:[['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
  {t:'Billing',items:[['Hotel Billing','prov.billing']]},
  {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amendment Records','prov.amend'],['Amendment Log','prov.log'],['User Logs','prov.userlogs']]},
  {t:'Hotels',items:[['Open PMS','prov.enter'],['All hotels','prov.home']]}];
@@ -8261,14 +8262,14 @@ const MI={
 };
 function mIc(n,cls){return '<svg class="mi'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(MI[n]||MI.folder)+'"/></svg>'}
 const MG_ICON={'Profile':'user','Reservation':'calplus','Front Office':'desk','Billing / Folio':'receipt','Room Management':'bed','Inquiry':'search','Close Day':'moon','Help':'help','Report':'chart','Setup':'gear','Provider':'gear','Property set-up':'building','Rates & profiles':'tag','People & access':'users','Finance & data':'db','Billing':'receipt',
- 'Hotels':'building','Whole system':'layers','Team & records':'users','Account':'user','Hotel':'building','Connections':'swap','Records':'clip','Hotel Setup':'building'};
+ 'Hotels':'building','Whole system':'layers','Team & records':'users','Account':'user','Hotel':'building','Connections':'swap','Records':'clip','Hotel Setup':'building','Booking Engine':'search'};
 const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.rates':'tag','res.new':'calplus','res.walkin':'login','res.list':'list','res.group':'users','res.rate':'sliders','fo.grid':'grid',
  'fo.dash':'dash','fo.arrivals':'arrin','fo.departures':'arrout','fo.inhouse':'bed','fo.roster':'clip','bill.folio':'receipt','bill.inquiry':'filesearch','bill.trans':'swap','bill.city':'book','bill.master':'layers','set.approve':'check',
  'rm.hkstatus':'spark','rm.roomstatus':'grid','rm.hkfolio':'receipt','rm.ooo':'ban','fo.status':'pulse','inq.guest':'user','inq.history':'history','inq.forecast':'trend','cd.close':'moon','cd.shift':'clock','cd.petty':'wallet','cd.handover':'swap','help.home':'help',
  'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.billing':'receipt','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.log':'history',
  /* Hotel Setup, one subtitle per section, and the rest of the Provider group inside a hotel */
  'hset.profile':'building','hset.tax':'wallet','hset.bd':'clock','hset.floors':'layers','hset.types':'list','hset.rooms':'bed','hset.plan':'grid','hset.rates':'tag','hset.charges':'receipt','hset.pay':'card','hset.companies':'users','hset.allot':'hash','hset.docs':'clip','hset.tiref':'filesearch','hset.terms':'book','hset.mailpol':'check','hset.activate':'spark',
- 'prov.google':'search','prov.stripe':'card','prov.amend':'tools'};
+ 'prov.google':'search','prov.be.info':'building','prov.be.amenities':'spark','prov.be.policies':'book','prov.be.theme':'sliders','prov.stripe':'card','prov.amend':'tools'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;
@@ -8294,7 +8295,8 @@ function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
   const um=userMode();return (lightOnly()?'':'<div class="thm"><h4>Mode</h4><div class="modeseg"><button type="button" data-mode-pick="light" class="'+(um==='light'?'on':'')+'">'+mIc('sun')+'Light</button><button type="button" data-mode-pick="dark" class="'+(um==='dark'?'on':'')+'">'+mIc('moon')+'Dark</button></div></div>')+'<div class="thm"><h4>Colour theme</h4><div class="sw">'+MODERN_THEMES.map(p=>'<button type="button" data-theme="'+p[0]+'" class="'+(cur===p[0]?'on':'')+'" title="'+p[1]+'"><i style="background:linear-gradient(135deg,'+p[2]+' 58%,'+p[3]+' 58%)"></i>'+p[1]+'</button>').join('')+'</div></div>'}
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
-const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct Booking Engine','prov.google'],['Stripe payments (this hotel)','prov.stripe']]};
+const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Stripe payments (this hotel)','prov.stripe']]};
+const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]};
 const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};
 function modernShellHTML(){
   const n=notifBadgeCount();
@@ -12285,7 +12287,7 @@ function ADMIN_BACKEND_MENU(){
   /* Room totals is just a check against the Rooms list right above it, not a separate subtitle to go find - the merged
      hset.rooms page (just above) covers both, with its own subtitle for each. */
   return [{t:'Hotel Setup',items:SET_SECTIONS.filter(([k])=>k!=='allot').map(([k,num,title])=>[title,'hset.'+k])},
-    people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_GROUP]}
+    people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_BE_GROUP,PROV_HOTEL_GROUP]}
 function areaMenu(src){
   const se=DB&&DB.session;
   if(se&&se.provider){
@@ -13063,7 +13065,10 @@ let _extraApplied=[];function applyHotelCodes(){applyCatalog();migratePerms();_e
 /* Retired from the screens: staff choose the card by its brand (Visa, Master...), not by a general Credit Card or OTA Virtual Card. The codes stay for old postings and reports. */
 const LEGACY_PAY=['905','915'];
 const payEnabled=c=>!c.hidden&&!LEGACY_PAY.includes(c.refFor||c.code)&&!(H&&H.set.payOff&&H.set.payOff[c.refFor||c.code]);
-function provOnly(){if(!user().provider){toast('Provider only.');return false}return true}
+/* a provider operating inside a hotel is user().isProv, not user().provider (see user()'s own comment: full
+   permissions there too) - provOnly() must accept either, or every provider-only Save silently does nothing
+   the moment that provider has actually entered the hotel it's editing */
+function provOnly(){const u=user();if(!u.provider&&!u.isProv){toast('Provider only.');return false}return true}
 function enterHotel(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('front');provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
 /* same as enterHotel, but straight into Backend: every admin function (the hotel's own, merged with the provider's own extras) in one place */
 function enterHotelBackend(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('back');provLog(`Entered hotel ${code} (Backend)`);saveDB();applySysPath('hub');renderShell();go(firstBackendView());toast(`You are in ${H.set.name} · Backend. Use the switch icon to move between systems.`)}
@@ -13667,39 +13672,6 @@ const SEC={
        if(boxes.some(b=>b.title.length>LM.title)){$('#mpE',box).textContent='A box title is longer than '+LM.title+' characters.';return}
        s.mailPol={boxes:clean,at:Date.now(),by:user().name};s.autoConfirmMail=!!$('#mp_auto',box).checked;provLog('Booking confirmation mail settings saved at '+H.code+' (automatic mail '+(s.autoConfirmMail?'on':'off')+')');saved('Saved')}};
    paint()},
- google(box){shapeHotel(H);const g=H.set.google;
-   /* grouped the way a real booking engine (1HotelRez) sets amenities up - Hotel Facilities, then Sports and
-      Recreation, each its own subtitle - not one long alphabetical list */
-   const AMEN_GROUPS=[
-    {t:'Hotel Facilities',items:['wifi','front_desk','breakfast','restaurant','bar','coffee_shop','poolside_bar','rooftop_bar','room_service','business_center','meeting_room','executive_floor','elevator','air_conditioning','heating','family_rooms','non_smoking_rooms','smoking_room','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kitchen','balcony','tour_desk','atm','bbq','accessible_facilities','babysitting','bicycle_rental','casino','nightclub','pet_friendly','airport_shuttle','safety_deposit_boxes','salon','shops','valet_parking']},
-    {t:'Sports and Recreation',items:['outdoor_pool','indoor_pool','pool_kids','spa','fitness','sauna','steamroom','kids_club','beachfront','garden','golf_course','jacuzzi','massage','squash_courts','tennis_courts','water_sports_motorized','water_sports_non_motorized']}];
-   const AMEN=AMEN_GROUPS.flatMap(gr=>gr.items);
-   /* title stays its own, separate thing for now - this will be reworked once Google Hotel Ads can actually be connected */
-   box.innerHTML=secHead('Direct Booking Engine','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
-   <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
-   <div class="form3 mt">
-    ${fld('Latitude',`<input id="g_lat" value="${esc(g.lat||'')}" placeholder="13.7367">`)}
-    ${fld('Longitude',`<input id="g_lng" value="${esc(g.lng||'')}" placeholder="100.561">`)}
-    ${fld('Country code (ISO)',`<input id="g_cc" value="${esc(g.countryCode||'')}" maxlength="2" placeholder="TH">`)}
-    ${fld('Category',`<input id="g_cat" value="${esc(g.category||'hotel')}">`)}
-    ${fld('Brand shown on landing page',`<input id="g_br" value="${esc(g.brand||'Maha Booking')}">`)}
-    ${fld('Booking base URL',`<input id="g_base" value="${esc(g.bookBaseUrl||'http://127.0.0.1:8781/book')}" placeholder="https://book.example.com/book">`)}
-    ${fld('Public photo URL (optional)',`<input id="g_ph" value="${esc(g.photoUrl||'')}" class="span2">`,'span2')}
-   </div>
-   <h3 class="mt">Amenities (public)</h3>
-   <div id="g_am">${AMEN_GROUPS.map(gr=>`<h4 class="mt">${esc(gr.t)}</h4><div class="curgrid">${gr.items.map(a=>`<label class="curchk ${(g.amenities||[]).includes(a)?'on':''}"><input type="checkbox" data-am="${a}" ${(g.amenities||[]).includes(a)?'checked':''}> ${esc(a.replace(/_/g,' ').replace('pool kids','pool (kids)').replace('golf course','golf course (on site)'))}</label>`).join('')}</div>`).join('')}</div>
-   ${fld('Cancellation policy (required when booking is enabled)',`<textarea id="g_cx" rows="4">${esc(g.cancelPolicy||'')}</textarea>`)}
-   <p class="sub">Google approval, Hotel Center, Maps matching, and ARI certification are outside Maha Hub. Export feeds from Setup → <b>Distribution (Google Hotels)</b>.</p>
-   <div class="btns"><button class="btn gold" id="gS">Save</button>
-    <button class="btn ghost" id="gOpen" type="button">Open booking page</button></div></div>`;
-   $('#gS',box).onclick=()=>{if(!provOnly())return;const en=$('#g_en',box).checked;const lat=$('#g_lat',box).value.trim(),lng=$('#g_lng',box).value.trim(),cc=$('#g_cc',box).value.trim().toUpperCase(),cx=$('#g_cx',box).value.trim();
-     if(en&&(!lat||!lng||!/^[A-Z]{2}$/.test(cc)||!cx)){toast('When booking is enabled, latitude, longitude, country code and cancellation policy are required.');return}
-     H.set.google={enabled:en,lat,lng,countryCode:cc,category:$('#g_cat',box).value.trim()||'hotel',brand:$('#g_br',box).value.trim()||'Maha Booking',
-       bookBaseUrl:$('#g_base',box).value.trim(),photoUrl:$('#g_ph',box).value.trim(),cancelPolicy:cx,
-       amenities:$$('[data-am]',box).filter(x=>x.checked).map(x=>x.dataset.am)};
-     provLog(`Direct booking / Google metadata saved for ${H.code}`);saved()};
-   $$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));
-   $('#gOpen',box).onclick=()=>{const base=($('#g_base',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')}},
  activate(box){const ck=setupChecks(H),all=ck.every(c=>c.ok);
    box.innerHTML=secHead('17. Review & activate','Staff of this hotel can sign in only when it is active. Staff access and direct booking are under Setup, not in this hotel file.')+`<div class="panel pad"><table class="grid kv">${ck.map(c=>`<tr><td>${esc(c.t)}</td><td class="n">${c.ok?'<span class="pill g">Ready</span>':`<button class="btn sm" data-fix="${c.k}">Fix</button>`}</td></tr>`).join('')}</table>
    <div class="btns">${H.active!==false?`<button class="btn red" id="acOff">Deactivate hotel</button>`:`<button class="btn gold" id="acOn" ${all?'':'disabled'}>Activate hotel</button>`}</div>${all||H.active!==false?'':'<p class="sub">Finish every item to activate. Staff and direct booking open under Setup.</p>'}</div>`;
@@ -13707,13 +13679,65 @@ const SEC={
    if($('#acOn',box))$('#acOn',box).onclick=()=>{if(!provOnly())return;H.active=true;H.activatedAt=Date.now();provLog(`Activated ${H.code}`);saved(`${H.code} is active. Its staff can now sign in.`)};
    if($('#acOff',box))$('#acOff',box).onclick=async ()=>{if(!provOnly())return;if(!await dlgConfirm('Deactivate this hotel? Its staff will not be able to sign in.'))return;H.active=false;provLog(`Deactivated ${H.code}`);saved()}}
 };
-VIEWS['prov.google']=el=>{
+/* Direct Booking Engine: not one crowded page any more - a real subtitle per job (same pattern as Hotel Setup's
+   own hset.* pages), the way 1HotelRez's own Set Up menu splits Property information / Amenities / Policies /
+   Theme apart. Every subtitle shares the one H.set.google record; saving one never blanks another's fields. */
+const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings']];
+const BE={
+ info(box){const s=H.set,g=s.google;
+  box.innerHTML=secHead('1. Property Information','What Maha Booking (and, later, Google Hotel List matching) shows about this property. Maha is <b>not</b> a Google Connectivity Partner yet - this does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
+   <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
+   <div class="form3 mt">
+    ${fld('Latitude',`<input id="g_lat" value="${esc(g.lat||'')}" placeholder="13.7367">`)}
+    ${fld('Longitude',`<input id="g_lng" value="${esc(g.lng||'')}" placeholder="100.561">`)}
+    ${fld('Country code (ISO)',`<input id="g_cc" value="${esc(g.countryCode||'')}" maxlength="2" placeholder="TH">`)}
+    ${fld('Category',`<input id="g_cat" value="${esc(g.category||'hotel')}">`)}
+    ${fld('Booking base URL',`<input id="g_base" value="${esc(g.bookBaseUrl||'http://127.0.0.1:8781/book')}" placeholder="https://book.example.com/book">`,'span2')}
+   </div>
+   <p class="sub">Currency, service and tax come from this hotel's own setup, not from here. Amenities, cancellation policy and branding are their own subtitles.</p>
+   <div class="btns"><button class="btn gold" id="gS">Save</button>
+    <button class="btn ghost" id="gOpen" type="button">Open booking page</button></div></div>`;
+  $('#gS',box).onclick=()=>{if(!provOnly())return;const en=$('#g_en',box).checked;const lat=$('#g_lat',box).value.trim(),lng=$('#g_lng',box).value.trim(),cc=$('#g_cc',box).value.trim().toUpperCase();
+    if(en&&(!lat||!lng||!/^[A-Z]{2}$/.test(cc)||!g.cancelPolicy)){toast('When booking is enabled, latitude, longitude, country code and a cancellation policy (Policies & Notices) are required.');return}
+    Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:$('#g_cat',box).value.trim()||'hotel',bookBaseUrl:$('#g_base',box).value.trim()});
+    provLog(`Direct Booking Engine property info saved for ${H.code}`);saved()};
+  $('#gOpen',box).onclick=()=>{const base=($('#g_base',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')}},
+ amenities(box){const g=H.set.google;
+  /* grouped the way a real booking engine (1HotelRez) sets amenities up - Hotel Facilities, then Sports and
+     Recreation, each its own heading - not one long alphabetical list */
+  const AMEN_GROUPS=[
+   {t:'Hotel Facilities',items:['wifi','front_desk','breakfast','restaurant','bar','coffee_shop','poolside_bar','rooftop_bar','room_service','business_center','meeting_room','executive_floor','elevator','air_conditioning','heating','family_rooms','non_smoking_rooms','smoking_room','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kitchen','balcony','tour_desk','atm','bbq','accessible_facilities','babysitting','bicycle_rental','casino','nightclub','pet_friendly','airport_shuttle','safety_deposit_boxes','salon','shops','valet_parking','parking']},
+   {t:'Sports and Recreation',items:['outdoor_pool','indoor_pool','pool_kids','spa','fitness','sauna','steamroom','kids_club','beachfront','garden','golf_course','jacuzzi','massage','squash_courts','tennis_courts','water_sports_motorized','water_sports_non_motorized']}];
+  box.innerHTML=secHead('2. Amenities','Shown to the guest on the Maha Booking page, grouped the same way here as there.')+`<div class="panel pad">
+   <div id="g_am">${AMEN_GROUPS.map(gr=>`<h4 class="mt">${esc(gr.t)}</h4><div class="curgrid">${gr.items.map(a=>`<label class="curchk ${(g.amenities||[]).includes(a)?'on':''}"><input type="checkbox" data-am="${a}" ${(g.amenities||[]).includes(a)?'checked':''}> ${esc(a.replace(/_/g,' ').replace('pool kids','pool (kids)').replace('golf course','golf course (on site)'))}</label>`).join('')}</div>`).join('')}</div>
+   <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
+  $$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));
+  $('#gS',box).onclick=()=>{if(!provOnly())return;g.amenities=$$('[data-am]',box).filter(x=>x.checked).map(x=>x.dataset.am);provLog(`Direct Booking Engine amenities saved for ${H.code}`);saved()}},
+ policies(box){const g=H.set.google;
+  box.innerHTML=secHead('3. Policies & Notices','The cancellation policy is required before direct booking can be switched on (Property Information).')+`<div class="panel pad">
+   ${fld('Cancellation policy (required when booking is enabled)',`<textarea id="g_cx" rows="4">${esc(g.cancelPolicy||'')}</textarea>`,'span2')}
+   ${fld('Important notice (optional - shown to every guest before they book)',`<textarea id="g_notice" rows="3">${esc(g.importantNotice||'')}</textarea>`,'span2')}
+   <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
+  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicy=$('#g_cx',box).value.trim();g.importantNotice=$('#g_notice',box).value.trim();provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
+ theme(box){const g=H.set.google;
+  box.innerHTML=secHead('4. Booking Theme & Settings','How the booking page introduces itself to the guest.')+`<div class="panel pad"><div class="form2">
+   ${fld('Brand shown on landing page',`<input id="g_br" value="${esc(g.brand||'Maha Booking')}">`)}
+   ${fld('Public photo URL (optional)',`<input id="g_ph" value="${esc(g.photoUrl||'')}">`)}
+   </div>
+   <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
+  $('#gS',box).onclick=()=>{if(!provOnly())return;g.brand=$('#g_br',box).value.trim()||'Maha Booking';g.photoUrl=$('#g_ph',box).value.trim();provLog(`Direct Booking Engine theme saved for ${H.code}`);saved()}}
+};
+BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
   if(!DB.session.inHotel&&!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
-  if(!H){el.innerHTML=pageHead('Direct Booking Engine')+'<div class="empty">Create a property first.</div>';return}
-  el.innerHTML=pageHead('Direct Booking Engine',provHotelPicker())+`<div id="gBody"></div>`;
-  bindPicker(el);SEC_BARE=true;SEC.google($('#gBody',el));
-};
+  if(!H){el.innerHTML=pageHead(title)+'<div class="empty">Create a property first.</div>';return}
+  shapeHotel(H);
+  el.innerHTML=pageHead(title,provHotelPicker())+`<div id="gBody"></div>`;
+  bindPicker(el);SEC_BARE=true;BE[k]($('#gBody',el))
+}});
+/* kept as a redirect - every existing go('prov.google') (the activate checklist, Hotels-list shortcuts) lands on
+   the first Booking Engine subtitle instead of a page that no longer exists */
+VIEWS['prov.google']=()=>go('prov.be.info');
 /* All chains with their hotels: create a chain and see who is in it (provider only, cloud) */
 function chainListPanel(el,after){
   if(!el)return;if(!MahaAuth.on()){el.innerHTML='';return}

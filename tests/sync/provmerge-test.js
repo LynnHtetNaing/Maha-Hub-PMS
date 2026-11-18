@@ -50,7 +50,7 @@ T('prov.functions (outside any hotel, with a hotel picker) is untouched - it sti
   src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Functions & plan')+`<div class=\"panel pad\"><p>Leave the hotel first."));
 
 T('Direct Booking Engine has no hotel-staff equivalent, so it is a genuinely new, provider-only addition: reachable now from inside the hotel (the trimmed Provider menu group - Hotel Setup and EDC Card Link moved out/removed), no longer forced to "leave the hotel first"; Amendment Records and Amendment Log split out into their own Records group, not bundled in with it',
-  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Direct Booking Engine','prov.google'],['Stripe payments (this hotel)','prov.stripe']]};") &&
+  src.includes("const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Stripe payments (this hotel)','prov.stripe']]};") &&
   src.includes("const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};") &&
   !src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Direct Booking Engine')"));
 T('This hotel\'s own Stripe keys (guest/OTA card payments) are reachable from the Provider menu while inside the hotel too, since they are set up one hotel at a time', src.includes("['Stripe payments (this hotel)','prov.stripe']"));
@@ -71,8 +71,21 @@ T('a Hotel Setup subtitle page (hset.*) shows its section once, under the page\'
 T('Terms & Conditions as a Hotel Setup subtitle page drops the embedded page\'s own duplicate title and hotel picker, keeping just the editor',
   src.includes("terms(box){VIEWS['prov.terms'](box);if(SEC_BARE){const ph=box.querySelector('.phead');if(ph)ph.remove()}else box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},"));
 
-T('Direct Booking Engine (reached from inside a hotel via the Provider menu) is bare too - its own title already comes from the outer page',
-  src.includes("bindPicker(el);SEC_BARE=true;SEC.google($('#gBody',el));"));
+T('Direct Booking Engine is 4 real subtitles (same pattern as Hotel Setup\'s own hset.* pages), not one page with a "wrap" class pretending to be sections - each one bare, its title already coming from the outer page, reachable from both the provider console (with a hotel picker) and from inside the hotel\'s own Booking Engine sidebar group',
+  src.includes("const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings']];") &&
+  src.includes("BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{") &&
+  src.includes("bindPicker(el);SEC_BARE=true;BE[k]($('#gBody',el))") &&
+  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]};") &&
+  src.includes("VIEWS['prov.google']=()=>go('prov.be.info');"));
+
+T('saving one Booking Engine subtitle never blanks another\'s fields - every BE.* section reads and writes the same H.set.google record, just its own slice of it (Object.assign, not a wholesale replace)',
+  src.includes('Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:') &&
+  src.includes('g.amenities=$$(\'[data-am]\',box).filter(x=>x.checked).map(x=>x.dataset.am);') &&
+  src.includes("g.cancelPolicy=$('#g_cx',box).value.trim();g.importantNotice=$('#g_notice',box).value.trim();") &&
+  src.includes("g.brand=$('#g_br',box).value.trim()||'Maha Booking';g.photoUrl=$('#g_ph',box).value.trim();"));
+
+T('provOnly() accepts a provider operating inside a hotel too (user().isProv), not just user().provider - otherwise every provider-only Save silently does nothing the moment that provider has actually entered the hotel it is editing (caught testing the new Booking Engine subtitles, but it is the one gate used by all 42 provider-only actions in the app)',
+  src.includes('function provOnly(){const u=user();if(!u.provider&&!u.isProv){') );
 
 T('a handful of pale light-mode-only badges/boxes on the Hotel Setup pages (payment methods, hotel logo, terms preview, Ready/Match/Active pills, card-details box) get a real dark-mode colour instead of staying a stray light patch',
   ['.cbh{color:var(--m-ink)}', '.payitem.on{border-color:#2f6b47', '.autoadd{background:#17304f;color:#9cc7f0}', '.rg{background:#ffffff14', '.logoprev{background:var(--m-card)', '.tclang .tcprev{color:var(--m-mut)}', '.pill.g{background:#16a34a33;color:#4ade80}', '.pst.on{background:#16a34a2e;color:#4ade80}', '.pst.off{background:#e11d4833;color:#fb7185}']
@@ -152,12 +165,12 @@ T('Direct Booking Engine amenities actually wrap onto new lines instead of overf
   src.includes('.row.wrap{flex-wrap:wrap}') &&
   src.includes("$$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));"));
 
-T('amenities are grouped into named subtitles the way a real booking engine (1HotelRez) sets them up - Hotel Facilities, then Sports and Recreation - not one long alphabetical list, and AMEN (used for the save/load logic) is simply every group\'s items flattened, so nothing about saving or loading had to change',
-  src.includes("const AMEN_GROUPS=[\n    {t:'Hotel Facilities',items:[") &&
+T('amenities are grouped into named subtitles the way a real booking engine (1HotelRez) sets them up - Hotel Facilities, then Sports and Recreation - not one long alphabetical list, on Amenities\' own BE subtitle page',
+  src.includes(" amenities(box){const g=H.set.google;") &&
+  src.includes("{t:'Hotel Facilities',items:[") &&
   src.includes("{t:'Sports and Recreation',items:[") &&
-  src.includes('const AMEN=AMEN_GROUPS.flatMap(gr=>gr.items);') &&
-  src.includes('${AMEN_GROUPS.map(gr=>`<h4 class="mt">${esc(gr.t)}</h4><div class="curgrid">${gr.items.map(a=>') &&
-  ['car_park','coffee_shop','executive_floor','nightclub','safety_deposit_boxes','salon','shops','valet_parking','babysitting','bicycle_rental','casino','smoking_room','golf_course','jacuzzi','squash_courts','steamroom','tennis_courts','water_sports_motorized','water_sports_non_motorized','outdoor_pool','indoor_pool','pool_kids'].filter(a=>a!=='car_park').every(a=>src.includes("'"+a+"'")));
+  src.includes("'parking']},") &&
+  ['coffee_shop','executive_floor','nightclub','safety_deposit_boxes','salon','shops','valet_parking','babysitting','bicycle_rental','casino','smoking_room','golf_course','jacuzzi','squash_courts','steamroom','tennis_courts','water_sports_motorized','water_sports_non_motorized','outdoor_pool','indoor_pool','pool_kids'].every(a=>src.includes("'"+a+"'")));
 
 T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
@@ -205,15 +218,17 @@ T('a .scroll panel (Rate codes, Charge codes, Companies & agents, and every othe
   src.includes('html[data-skin="modern"] .panel:has(>table):not(.scroll),html[data-skin="modern"] .panel:has(>.ph):not(.scroll){overflow:hidden}'));
 
 T('Direct booking & Google is renamed Direct Booking Engine everywhere (menus and page titles), and its amenities list covers a lot more of what a property can actually have, not just the original ten',
-  src.includes("{t:'Connections',items:[['Direct Booking Engine','prov.google']") &&
-  src.includes("box.innerHTML=secHead('Direct Booking Engine',") &&
-  src.includes("el.innerHTML=pageHead('Direct Booking Engine',provHotelPicker())") &&
+  src.includes("{t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]}") &&
+  src.includes("box.innerHTML=secHead('1. Property Information',") &&
   src.includes("{k:'google',t:'Direct Booking Engine metadata'") &&
   ['front_desk','bar','room_service','business_center','meeting_room','elevator','non_smoking_rooms','family_rooms','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kids_club','sauna','kitchen','balcony','beachfront','tour_desk','atm','bbq','garden','heating','accessible_facilities'].every(a=>src.includes("'"+a+"'")));
 
+T('the whole-system provider console (not inside any hotel) and a hotel\'s own Backend both reach the same 4 Booking Engine subtitles - a real sidebar group each, not a single crowded page',
+  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]};") &&
+  src.includes("people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_BE_GROUP,PROV_HOTEL_GROUP]}"));
+
 T('Amendment Records and Amendment Log are their own Records group inside a hotel\'s Provider menu, not bundled in with Direct Booking Engine / Stripe payments / Back to provider console; both names are now parallel (Amendment Records, Amendment Log) everywhere, not the old mismatched "Amend records"',
   src.includes("const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};") &&
-  src.includes("people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_GROUP]}") &&
   src.includes("el.innerHTML=pageHead('Amendment Records',") &&
   (src.match(/\['Amendment Records','prov\.amend'\]/g) || []).length === 2);
 
