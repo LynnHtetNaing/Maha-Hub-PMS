@@ -142,6 +142,9 @@ T('a browser\'s own "force dark site colours" feature (which some check a color-
   src.includes('<meta name="color-scheme" content="light dark" id="csMeta">') &&
   src.includes("function forceLightMeta(){try{const cs=document.getElementById('csMeta');if(cs)cs.setAttribute('content','light')}catch(e){}}"));
 
+T('a provider (admin) operating a hotel\'s PMS stays on the console\'s own address (/solutions) - only a real hotel-staff sign-in gets /solutions-PMS; this is DB.session.provider-aware so it works from every caller of applySysPath(\'hub\') (enterHotel, enterHotelBackend, switchHotel, the Frontend/Backend area switch) without having to touch each one',
+  src.includes("const provHub=kind==='hub'&&typeof DB!=='undefined'&&!!(DB.session&&DB.session.provider);const want=!kind||provHub?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';"));
+
 T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
   src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));

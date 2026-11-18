@@ -8148,7 +8148,9 @@ function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
   if(se&&typeof H!=='undefined'&&H&&H.set&&H.set.name)return 'Maha PMS - '+H.set.name;
   return 'Maha PMS'}
 function setTabIcons(kind){const pre=kind==='hub'?'/brand/maha/pms-icon-':'/brand/maha/icon-';document.querySelectorAll('link[rel="icon"],link[rel="apple-touch-icon"]').forEach(l=>{const m=(l.getAttribute('href')||'').match(/icon-(\d+)\.png/);if(m)l.setAttribute('href',pre+m[1]+'.png')})}
-function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const want=!kind?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
+/* a provider (admin) stays on the console's own address even while operating a hotel's PMS - only a real hotel-staff
+   sign-in gets the /solutions-PMS address. Address bar only; the title and tab icon below still show PMS/the hotel. */
+function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const provHub=kind==='hub'&&typeof DB!=='undefined'&&!!(DB.session&&DB.session.provider);const want=!kind||provHub?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
   const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(!onSplitHost()&&norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=seg==='PMS'?tabTitleFor():seg?('maha-hub / solutions / '+seg):'maha-hub / solutions';try{setTabIcons(kind)}catch(e){}}
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
