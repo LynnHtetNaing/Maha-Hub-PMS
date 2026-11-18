@@ -179,4 +179,7 @@ T('a Tax Invoice added from Backend > Hotel Billing gets the same auto-generated
   src.includes("const body={kind,...(inv&&!row?{}:{no}),") &&
   src.includes("let gotNo=no;if(row)await ctx.call('maha_billing_docs?id=eq.'+row.id,{method:'PATCH',body:JSON.stringify(body)});else{const made=await ctx.call('maha_billing_docs',{method:'POST',body:JSON.stringify(Object.assign({property_id:ctx.pid},body))});gotNo=(made&&made[0]&&made[0].no)||no}"));
 
+T('a .scroll panel (Rate codes, Charge codes, Companies & agents, and every other admin table wider than its panel) really scrolls sideways in the Modern skin, instead of being silently clipped to nothing - a .panel:has(>table) rule meant to round off a table\'s corners was overriding it with no scrollbar at all',
+  src.includes('html[data-skin="modern"] .panel:has(>table):not(.scroll),html[data-skin="modern"] .panel:has(>.ph):not(.scroll){overflow:hidden}'));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
