@@ -13667,9 +13667,13 @@ const SEC={
        if(boxes.some(b=>b.title.length>LM.title)){$('#mpE',box).textContent='A box title is longer than '+LM.title+' characters.';return}
        s.mailPol={boxes:clean,at:Date.now(),by:user().name};s.autoConfirmMail=!!$('#mp_auto',box).checked;provLog('Booking confirmation mail settings saved at '+H.code+' (automatic mail '+(s.autoConfirmMail?'on':'off')+')');saved('Saved')}};
    paint()},
- google(box){shapeHotel(H);const g=H.set.google,AMEN=['wifi','parking','breakfast','air_conditioning','pool','spa','fitness','airport_shuttle','restaurant','pet_friendly',
-    'front_desk','bar','room_service','business_center','meeting_room','elevator','non_smoking_rooms','family_rooms','laundry','concierge',
-    'luggage_storage','currency_exchange','ev_charging','kids_club','sauna','kitchen','balcony','beachfront','tour_desk','atm','bbq','garden','heating','accessible_facilities'];
+ google(box){shapeHotel(H);const g=H.set.google;
+   /* grouped the way a real booking engine (1HotelRez) sets amenities up - Hotel Facilities, then Sports and
+      Recreation, each its own subtitle - not one long alphabetical list */
+   const AMEN_GROUPS=[
+    {t:'Hotel Facilities',items:['wifi','front_desk','breakfast','restaurant','bar','coffee_shop','poolside_bar','rooftop_bar','room_service','business_center','meeting_room','executive_floor','elevator','air_conditioning','heating','family_rooms','non_smoking_rooms','smoking_room','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kitchen','balcony','tour_desk','atm','bbq','accessible_facilities','babysitting','bicycle_rental','casino','nightclub','pet_friendly','airport_shuttle','safety_deposit_boxes','salon','shops','valet_parking']},
+    {t:'Sports and Recreation',items:['outdoor_pool','indoor_pool','pool_kids','spa','fitness','sauna','steamroom','kids_club','beachfront','garden','golf_course','jacuzzi','massage','squash_courts','tennis_courts','water_sports_motorized','water_sports_non_motorized']}];
+   const AMEN=AMEN_GROUPS.flatMap(gr=>gr.items);
    /* title stays its own, separate thing for now - this will be reworked once Google Hotel Ads can actually be connected */
    box.innerHTML=secHead('Direct Booking Engine','Public fields for Maha Booking and future Google Hotel List matching. Maha is <b>not</b> a Google Connectivity Partner yet. This does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
    <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
@@ -13683,7 +13687,7 @@ const SEC={
     ${fld('Public photo URL (optional)',`<input id="g_ph" value="${esc(g.photoUrl||'')}" class="span2">`,'span2')}
    </div>
    <h3 class="mt">Amenities (public)</h3>
-   <div class="curgrid" id="g_am">${AMEN.map(a=>`<label class="curchk ${(g.amenities||[]).includes(a)?'on':''}"><input type="checkbox" data-am="${a}" ${(g.amenities||[]).includes(a)?'checked':''}> ${esc(a.replace(/_/g,' '))}</label>`).join('')}</div>
+   <div id="g_am">${AMEN_GROUPS.map(gr=>`<h4 class="mt">${esc(gr.t)}</h4><div class="curgrid">${gr.items.map(a=>`<label class="curchk ${(g.amenities||[]).includes(a)?'on':''}"><input type="checkbox" data-am="${a}" ${(g.amenities||[]).includes(a)?'checked':''}> ${esc(a.replace(/_/g,' ').replace('pool kids','pool (kids)').replace('golf course','golf course (on site)'))}</label>`).join('')}</div>`).join('')}</div>
    ${fld('Cancellation policy (required when booking is enabled)',`<textarea id="g_cx" rows="4">${esc(g.cancelPolicy||'')}</textarea>`)}
    <p class="sub">Google approval, Hotel Center, Maps matching, and ARI certification are outside Maha Hub. Export feeds from Setup → <b>Distribution (Google Hotels)</b>.</p>
    <div class="btns"><button class="btn gold" id="gS">Save</button>
