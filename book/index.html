@@ -58,13 +58,31 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 .sub{color:var(--mut);margin:0 0 22px;max-width:40rem;line-height:1.5}
 .meta{display:flex;flex-wrap:wrap;gap:10px 18px;margin:0 0 24px;color:var(--mut);font-size:14px}
 .meta strong{color:var(--ink);font-weight:600}
+.amenities{display:flex;flex-wrap:wrap;gap:8px 20px;margin:0 0 24px}
+.amen-chip{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink)}
+.amen-chip .ic{font-size:15px;width:18px;text-align:center}
+.amen-more{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--leaf);cursor:pointer;text-decoration:underline}
+.amen-overlay{position:fixed;inset:0;background:rgba(14,36,28,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.amen-overlay[hidden]{display:none}
+.amen-modal{background:#fff;max-width:560px;width:100%;max-height:82vh;overflow-y:auto;border-radius:6px;box-shadow:var(--shadow);padding:26px 28px}
+.amen-modal h3{font-family:Fraunces,serif;margin:0 0 4px;font-size:1.4rem}
+.amen-modal .amx{position:absolute;top:0;right:0;background:none;border:0;font-size:22px;line-height:1;padding:14px 16px;cursor:pointer;color:var(--mut)}
+.amen-modal-wrap{position:relative}
+.amen-group h4{margin:20px 0 8px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--leaf)}
+.amen-group:first-of-type h4{margin-top:4px}
+.amen-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+.amen-grid .amen-chip{font-size:13.5px}
 .results{display:grid;gap:0;border-top:1px solid var(--line)}
 .row{display:grid;grid-template-columns:1.4fr 1fr auto;gap:18px;align-items:center;padding:18px 0;border-bottom:1px solid var(--line);animation:rise .55s ease both}
 .row:nth-child(2){animation-delay:.05s}.row:nth-child(3){animation-delay:.1s}.row:nth-child(4){animation-delay:.15s}
 .row h3{margin:0 0 4px;font-size:1.15rem}.row p{margin:0;color:var(--mut);font-size:14px;line-height:1.45}
 .price{text-align:right}.price b{display:block;font-family:Fraunces,serif;font-size:1.55rem;color:var(--green)}.price small{color:var(--mut)}
+.pricetog{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;margin-bottom:6px;font-size:11px}
+.pricetog button{appearance:none;border:0;background:none;padding:4px 10px;border-radius:999px;cursor:pointer;color:var(--mut);font:inherit}
+.pricetog button.on{background:var(--green2);color:#fff}
 .badge{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;margin-top:8px;background:#e4efe8;color:var(--ok)}
 .badge.out{background:#f6e4e4;color:var(--danger)}
+.badge.hurry{background:#fbeede;color:#9a5a16}
 .empty{padding:28px 0;color:var(--mut)}
 .panel{margin-top:28px;padding:22px 0;border-top:1px solid var(--line)}
 .form{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:640px}
@@ -79,6 +97,7 @@ a{color:var(--leaf)}button,input,select{font:inherit}
   .search{grid-template-columns:1fr 1fr;}.search .go{grid-column:1/-1}
   .row{grid-template-columns:1fr;gap:10px}.price{text-align:left}
   .form{grid-template-columns:1fr}.form .span2{grid-column:span 1}
+  .amen-grid{grid-template-columns:1fr}
 }
 </style>
 <link rel="icon" type="image/png" href="/icons/maha-mark-sq.png">
@@ -115,6 +134,7 @@ a{color:var(--leaf)}button,input,select{font:inherit}
   <h2 class="h2" id="resultsTitle">Available rates</h2>
   <p class="sub" id="resultsSub">Rates include service and tax when the hotel publishes them as inclusive. The amount below is what this landing page shows.</p>
   <div class="meta" id="meta" hidden></div>
+  <div class="amenities" id="amenities" hidden></div>
   <div class="results" id="results"><div class="empty">Choose a hotel and dates to see rates.</div></div>
 
   <section class="panel" id="requestPanel" hidden>
@@ -131,6 +151,15 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 
   <div class="notice" id="policy" hidden></div>
 </main>
+
+<div class="amen-overlay" id="amenOverlay" hidden>
+  <div class="amen-modal amen-modal-wrap">
+    <button type="button" class="amx" id="amenClose" aria-label="Close">&times;</button>
+    <h3>Amenities</h3>
+    <p class="sub" style="margin:0 0 4px">Everything this property offers.</p>
+    <div id="amenFull"></div>
+  </div>
+</div>
 
 <footer class="wrap foot">
   <p><strong>Maha Booking</strong> · Maha Hub Group of Companies Limited<br>
@@ -177,6 +206,36 @@ async function loadHotels() {
   if (sel.value && params.get('checkin')) await runSearch();
 }
 
+// same grouping as the hotel's own Direct Booking Engine setup (Hotel Setup > Direct Booking Engine),
+// so a guest sees the amenities organised the same way the property set them up
+const AMEN_GROUPS = [
+  { t: 'Hotel Facilities', items: ['wifi', 'front_desk', 'breakfast', 'restaurant', 'bar', 'coffee_shop', 'poolside_bar', 'rooftop_bar', 'room_service', 'business_center', 'meeting_room', 'executive_floor', 'elevator', 'air_conditioning', 'heating', 'family_rooms', 'non_smoking_rooms', 'smoking_room', 'laundry', 'concierge', 'luggage_storage', 'currency_exchange', 'ev_charging', 'kitchen', 'balcony', 'tour_desk', 'atm', 'bbq', 'accessible_facilities', 'babysitting', 'bicycle_rental', 'casino', 'nightclub', 'pet_friendly', 'airport_shuttle', 'safety_deposit_boxes', 'salon', 'shops', 'valet_parking', 'parking'] },
+  { t: 'Sports and Recreation', items: ['outdoor_pool', 'indoor_pool', 'pool_kids', 'spa', 'fitness', 'sauna', 'steamroom', 'kids_club', 'beachfront', 'garden', 'golf_course', 'jacuzzi', 'massage', 'squash_courts', 'tennis_courts', 'water_sports_motorized', 'water_sports_non_motorized'] }
+];
+const AMEN_ICON = { wifi: '📶', front_desk: '🛎️', breakfast: '🍳', restaurant: '🍽️', bar: '🍸', coffee_shop: '☕', room_service: '🧑‍🍳', business_center: '💼', meeting_room: '🗂️', elevator: '🛗', air_conditioning: '❄️', heating: '🔥', family_rooms: '👨‍👩‍👧', laundry: '🧺', concierge: '🔔', luggage_storage: '🧳', currency_exchange: '💱', ev_charging: '🔌', kitchen: '🍳', balcony: '🌇', tour_desk: '🗺️', atm: '🏧', bbq: '🍢', accessible_facilities: '♿', pet_friendly: '🐾', airport_shuttle: '🚐', parking: '🅿️', valet_parking: '🅿️', outdoor_pool: '🏊', indoor_pool: '🏊', pool_kids: '🏊', spa: '💆', fitness: '🏋️', sauna: '♨️', kids_club: '🧸', beachfront: '🏖️', garden: '🌿', golf_course: '⛳', jacuzzi: '🛁', massage: '💆', tennis_courts: '🎾' };
+const amenLabel = a => a.replace(/_/g, ' ').replace('pool kids', 'pool (kids)').replace('golf course', 'golf course (on site)');
+const amenIcon = a => AMEN_ICON[a] || '✓';
+
+function renderAmenities(list) {
+  const box = $('amenities'), full = $('amenFull');
+  if (!list.length) { box.hidden = true; return; }
+  box.hidden = false;
+  const teaser = list.slice(0, 5);
+  const rest = list.length - teaser.length;
+  box.innerHTML = teaser.map(a => `<span class="amen-chip"><span class="ic">${amenIcon(a)}</span>${amenLabel(a)}</span>`).join('')
+    + (rest > 0 ? `<button type="button" class="amen-more" id="amenMoreBtn">+${rest} more</button>` : '');
+  const set = new Set(list);
+  full.innerHTML = AMEN_GROUPS.map(g => {
+    const have = g.items.filter(a => set.has(a));
+    if (!have.length) return '';
+    return `<div class="amen-group"><h4>${g.t}</h4><div class="amen-grid">${have.map(a => `<span class="amen-chip"><span class="ic">${amenIcon(a)}</span>${amenLabel(a)}</span>`).join('')}</div></div>`;
+  }).join('') || '<p class="sub">No amenities listed yet.</p>';
+  const moreBtn = $('amenMoreBtn');
+  if (moreBtn) moreBtn.onclick = () => { $('amenOverlay').hidden = false; };
+}
+$('amenClose').onclick = () => { $('amenOverlay').hidden = true; };
+$('amenOverlay').onclick = (e) => { if (e.target.id === 'amenOverlay') $('amenOverlay').hidden = true; };
+
 async function hydrateHotel(id) {
   const { ok, j } = await api('/api/hotel/' + encodeURIComponent(id));
   if (!ok) return;
@@ -189,8 +248,8 @@ async function hydrateHotel(id) {
   m.hidden = false;
   m.innerHTML = `<span><strong>${h.country || h.countryCode || ''}</strong></span>
     <span>Currency <strong>${h.cur}</strong></span>
-    <span>Service ${h.svc}% · ${h.taxName || 'Tax'} ${h.vat}%</span>
-    ${(h.amenities || []).map(a => `<span>${a.replace(/_/g, ' ')}</span>`).join('')}`;
+    <span>Service ${h.svc}% · ${h.taxName || 'Tax'} ${h.vat}%</span>`;
+  renderAmenities(h.amenities || []);
 }
 
 async function runSearch() {
@@ -215,23 +274,44 @@ async function runSearch() {
     box.innerHTML = '<div class="empty">No rates for these dates.</div>';
     return;
   }
-  box.innerHTML = j.results.map((r, i) => `
+  box.innerHTML = j.results.map((r, i) => {
+    const low = r.available && r.inventory > 0 && r.inventory <= 3;
+    return `
     <article class="row" data-i="${i}">
       <div>
         <h3>${r.typeName}</h3>
         <p>${r.rateDesc}${r.meal === 'ABF' ? ' · Breakfast included' : ''}${r.refundable ? '' : ' · Non-refundable'}</p>
-        <span class="badge ${r.available ? '' : 'out'}">${r.available ? r.inventory + ' left' : 'Sold out'}</span>
+        <span class="badge ${r.available ? (low ? 'hurry' : '') : 'out'}">${r.available ? (low ? 'Hurry! ' + r.inventory + ' left' : r.inventory + ' left') : 'Sold out'}</span>
       </div>
       <div>
         <p>${r.nights} night(s)</p>
         <p>Before tax ${money(r.amountBeforeTax, r.currency)}</p>
       </div>
       <div class="price">
-        <b>${money(r.amountAfterTax, r.currency)}</b>
-        <small>total incl. tax</small>
+        ${r.nights > 1 ? `<div class="pricetog" data-tog="${i}"><button type="button" class="on" data-mode="total">Whole stay</button><button type="button" data-mode="night">Per night</button></div>` : ''}
+        <b data-price="${i}">${money(r.amountAfterTax, r.currency)}</b>
+        <small data-pricesub="${i}">total incl. tax</small>
         ${r.available ? `<div style="margin-top:10px"><button class="btn" type="button" data-pick="${i}">Select</button></div>` : ''}
       </div>
-    </article>`).join('');
+    </article>`;
+  }).join('');
+  box.querySelectorAll('[data-tog]').forEach(tog => {
+    const i = +tog.dataset.tog, r = j.results[i];
+    const priceEl = box.querySelector(`[data-price="${i}"]`), subEl = box.querySelector(`[data-pricesub="${i}"]`);
+    tog.querySelectorAll('button').forEach(b => {
+      b.onclick = () => {
+        tog.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        if (b.dataset.mode === 'night') {
+          priceEl.textContent = money(r.amountAfterTax / r.nights, r.currency);
+          subEl.textContent = 'per night incl. tax';
+        } else {
+          priceEl.textContent = money(r.amountAfterTax, r.currency);
+          subEl.textContent = 'total incl. tax';
+        }
+      };
+    });
+  });
   box.querySelectorAll('[data-pick]').forEach(btn => {
     btn.onclick = () => {
       selected = j.results[+btn.dataset.pick];
