@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark" id="csMeta">
 <title>maha-hub / solutions</title>
 <meta name="maha-build" content="4579776fc1">
 <link rel="canonical" href="/solutions">
@@ -5345,7 +5346,11 @@ const HOTEL_PACKAGES={
 };
 /* Modern is the only design now - no Classic choice anywhere (skinIsModern() always true). applySkin keeps the
    theme/mode attributes in sync with the signed-in person's own colour and light/dark choice. */
-function applySkin(){try{const root=document.documentElement;root.setAttribute('data-skin','modern');root.setAttribute('data-pal',userTheme());root.setAttribute('data-mode',userMode())}catch(e){}}
+function applySkin(){try{const root=document.documentElement;root.setAttribute('data-skin','modern');root.setAttribute('data-pal',userTheme());const mode=userMode();root.setAttribute('data-mode',mode);const cs=document.getElementById('csMeta');if(cs)cs.setAttribute('content',mode)}catch(e){}}
+/* same trick as the data-skin/data-mode/data-pal attributes, for browsers whose own "force dark site colours"
+   feature checks this meta tag rather than (or as well as) the page's own CSS - always-light screens set it to
+   literally "light" so native inputs can never come out dark there, whatever the browser does */
+function forceLightMeta(){try{const cs=document.getElementById('csMeta');if(cs)cs.setAttribute('content','light')}catch(e){}}
 function applyHotelPackage(h,id){
   shapeHotel(h);
   const pkg=HOTEL_PACKAGES[id];if(!pkg)return;
@@ -8143,7 +8148,9 @@ function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
   if(se&&typeof H!=='undefined'&&H&&H.set&&H.set.name)return 'Maha PMS - '+H.set.name;
   return 'Maha PMS'}
 function setTabIcons(kind){const pre=kind==='hub'?'/brand/maha/pms-icon-':'/brand/maha/icon-';document.querySelectorAll('link[rel="icon"],link[rel="apple-touch-icon"]').forEach(l=>{const m=(l.getAttribute('href')||'').match(/icon-(\d+)\.png/);if(m)l.setAttribute('href',pre+m[1]+'.png')})}
-function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const want=!kind?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
+/* a provider (admin) stays on the console's own address even while operating a hotel's PMS - only a real hotel-staff
+   sign-in gets the /solutions-PMS address. Address bar only; the title and tab icon below still show PMS/the hotel. */
+function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const provHub=kind==='hub'&&typeof DB!=='undefined'&&!!(DB.session&&DB.session.provider);const want=!kind||provHub?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
   const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(!onSplitHost()&&norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=seg==='PMS'?tabTitleFor():seg?('maha-hub / solutions / '+seg):'maha-hub / solutions';try{setTabIcons(kind)}catch(e){}}
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
@@ -8737,6 +8744,7 @@ function showLogin(msg){
   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme - skinIsModern() is
      unconditional now, so drop the attributes directly instead of going through applySkin() */
   try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}
+  forceLightMeta();
   if(/solutions-pms/i.test(location.pathname))document.title='Maha PMS';
   if(!lgTargetSys){const fromPath=sysFromPath();if(fromPath)lgTargetSys=fromPath}
   if(lgTargetSys==='sales'){if(!IS_APP){location.replace(salesUrl());return}lgTargetSys=null}   /* never a sign-in for the hotel Sales */
@@ -15745,6 +15753,7 @@ function showIdleLock(){if(document.getElementById('idleLock')||!DB||!DB.session
      dark-mode rules key off these attributes on <html>, so drop them while locked (same trick as the Select
      Property / Select System pages) and let applySkin() put them back on unlock */
   try{document.documentElement.removeAttribute('data-skin');document.documentElement.removeAttribute('data-mode');document.documentElement.removeAttribute('data-pal')}catch(e){}
+  forceLightMeta();
   const d=document.createElement('div');d.id='idleLock';d.className='idlelock';
   const lu=DB.session.provider?DB.providers.find(x=>x.id===DB.session.userId):(H&&H.users.find(x=>x.id===DB.session.userId)),uname=(lu&&lu.username)||user().name;
   d.innerHTML=`<div class="panel pad"><div class="gstk">${gateStack(DB.session.provider?'provider':'hub')}</div><h2 class="eco-hi">Screen Locked</h2><p class="eco-hisub">${DB.session.provider?'Type your password to go on.':'Your shift stays open — type your password to go on.'}</p><label class="f"><span>Username</span><div class="eco-field"><input id="idleUser" value="${esc(uname)}" disabled></div></label><label class="f"><span>Password</span><div class="eco-field"><input id="idlePw" type="password"></div></label><div class="err" id="idleE"></div><div class="btns"><button class="eco-btn gold" id="idleGo">Unlock</button></div></div>`;
