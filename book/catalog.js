@@ -198,6 +198,7 @@ export function publicHotelFromHub(h, opts = {}) {
     category: g.category || 'hotel',
     amenities: Array.isArray(g.amenities) ? g.amenities.slice() : [],
     cancelPolicy: g.cancelPolicy || '',
+    importantNotice: g.importantNotice || '',
     photoUrl: g.photoUrl || '',
     brand: g.brand || 'Maha Booking',
     bookEnabled: !!(g.enabled || opts.forceEnable),

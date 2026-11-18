@@ -131,11 +131,27 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 </header>
 
 <main class="wrap section">
-  <h2 class="h2" id="resultsTitle">Available rates</h2>
-  <p class="sub" id="resultsSub">Rates include service and tax when the hotel publishes them as inclusive. The amount below is what this landing page shows.</p>
+  <h2 class="h2">Property Information</h2>
   <div class="meta" id="meta" hidden></div>
   <div class="amenities" id="amenities" hidden></div>
-  <div class="results" id="results"><div class="empty">Choose a hotel and dates to see rates.</div></div>
+
+  <section class="panel" id="addrPanel" hidden>
+    <h2 class="h2">Address and Contact</h2>
+    <p class="sub" id="addrText"></p>
+    <iframe id="addrMap" title="Map" width="100%" height="260" style="border:1px solid var(--line);border-radius:4px" loading="lazy"></iframe>
+  </section>
+
+  <section class="panel" id="policyPanel" hidden>
+    <h2 class="h2">Check-In and Check-Out Policies</h2>
+    <div class="notice" id="policy" hidden></div>
+    <div class="notice" id="notice" hidden></div>
+  </section>
+
+  <section class="panel" id="ratesPanel">
+    <h2 class="h2" id="resultsTitle">Available rates</h2>
+    <p class="sub" id="resultsSub">Rates include service and tax when the hotel publishes them as inclusive. The amount below is what this landing page shows.</p>
+    <div class="results" id="results"><div class="empty">Choose a hotel and dates to see rates.</div></div>
+  </section>
 
   <section class="panel" id="requestPanel" hidden>
     <h2 class="h2">Request this stay</h2>
@@ -148,8 +164,6 @@ a{color:var(--leaf)}button,input,select{font:inherit}
     </form>
     <div class="notice" id="requestMsg" hidden></div>
   </section>
-
-  <div class="notice" id="policy" hidden></div>
 </main>
 
 <div class="amen-overlay" id="amenOverlay" hidden>
@@ -242,14 +256,33 @@ async function hydrateHotel(id) {
   const h = j.hotel;
   $('hotelTitle').textContent = h.name;
   $('hotelLede').textContent = `${h.addr || ''} · Check-in ${h.checkIn || '14:00'} · Check-out ${h.checkOut || '12:00'}`.replace(/^ · /, '');
-  $('policy').hidden = !h.cancelPolicy;
-  $('policy').textContent = h.cancelPolicy || '';
   const m = $('meta');
   m.hidden = false;
   m.innerHTML = `<span><strong>${h.country || h.countryCode || ''}</strong></span>
     <span>Currency <strong>${h.cur}</strong></span>
     <span>Service ${h.svc}% · ${h.taxName || 'Tax'} ${h.vat}%</span>`;
   renderAmenities(h.amenities || []);
+
+  const addrOn = !!(h.addr || h.phone || h.email || h.web);
+  $('addrPanel').hidden = !addrOn;
+  if (addrOn) {
+    $('addrText').innerHTML = [h.addr, h.phone ? `<a href="tel:${h.phone}">${h.phone}</a>` : '', h.email ? `<a href="mailto:${h.email}">${h.email}</a>` : '', h.web ? `<a href="${h.web}" target="_blank" rel="noopener">${h.web}</a>` : ''].filter(Boolean).join(' · ');
+    const map = $('addrMap');
+    if (h.lat != null && h.lng != null) {
+      map.hidden = false;
+      const d = 0.01;
+      map.src = `https://www.openstreetmap.org/export/embed.html?bbox=${h.lng - d}%2C${h.lat - d}%2C${h.lng + d}%2C${h.lat + d}&layer=mapnik&marker=${h.lat}%2C${h.lng}`;
+    } else {
+      map.hidden = true;
+    }
+  }
+
+  const policyOn = !!(h.cancelPolicy || h.importantNotice);
+  $('policyPanel').hidden = !policyOn;
+  $('policy').hidden = !h.cancelPolicy;
+  $('policy').innerHTML = h.cancelPolicy ? `<strong>Cancellation policy:</strong> ${h.cancelPolicy}` : '';
+  $('notice').hidden = !h.importantNotice;
+  $('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong> ${h.importantNotice}` : '';
 }
 
 async function runSearch() {

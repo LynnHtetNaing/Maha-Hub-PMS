@@ -4,7 +4,10 @@
    price toggle.
      node tests/sync/bookengine-test.js */
 const fs = require('fs'), path = require('path');
-const src = fs.readFileSync(path.join(__dirname, '..', '..', 'book', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+const root = path.join(__dirname, '..', '..', 'book');
+const src = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+const catalogSrc = fs.readFileSync(path.join(root, 'catalog.js'), 'utf8');
+const serverSrc = fs.readFileSync(path.join(root, 'server.mjs'), 'utf8');
 let fails = 0; const T = (n, ok) => { console.log((ok ? 'PASS ' : 'FAIL ') + n); if (!ok) fails++; };
 
 T('amenities are grouped the same way as the hotel\'s own Direct Booking Engine setup (Hotel Facilities, Sports and Recreation), not a flat list',
@@ -29,5 +32,21 @@ T('a multi-night rate gets a Whole stay / Per night price toggle that recomputes
   src.includes("r.nights > 1 ? `<div class=\"pricetog\" data-tog=\"${i}\">") &&
   src.includes("priceEl.textContent = money(r.amountAfterTax / r.nights, r.currency);") &&
   src.includes("subEl.textContent = 'per night incl. tax';"));
+
+T('the page follows Cloudbeds\' own structure: Property Information, then Amenities, then Address and Contact with an embedded map, then Policies, and only then Available rates - not rates immediately under the hero with everything else buried below',
+  src.indexOf('id="meta"') < src.indexOf('id="amenities"') &&
+  src.indexOf('id="amenities"') < src.indexOf('id="addrPanel"') &&
+  src.indexOf('id="addrPanel"') < src.indexOf('id="policyPanel"') &&
+  src.indexOf('id="policyPanel"') < src.indexOf('id="ratesPanel"'));
+
+T('Address and Contact shows phone / email / website and a live OpenStreetMap pin from the property\'s own lat/lng (set under Backend > Booking Engine > Property Information) - hidden when there is nothing to show',
+  src.includes("const addrOn = !!(h.addr || h.phone || h.email || h.web);") &&
+  src.includes('map.src = `https://www.openstreetmap.org/export/embed.html?bbox=') &&
+  src.includes("map.hidden = true;"));
+
+T('an Important Notice (Backend > Booking Engine > Policies & Notices) shows next to the cancellation policy, both fetched through the catalog and the single-hotel API',
+  catalogSrc.includes("importantNotice: g.importantNotice || '',") &&
+  serverSrc.includes('importantNotice: hotel.importantNotice,') &&
+  src.includes("$('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong> ${h.importantNotice}` : '';"));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
