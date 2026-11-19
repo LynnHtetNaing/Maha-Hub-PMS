@@ -1,4 +1,5 @@
 import { REPLY_CSS, REPLY_FONTS, clientScript } from './reply-page.js';
+import { handleBookingApi } from './booking-api.js';
 /** Maha Hub Worker - serves the static Hub through the Assets binding.
  *
  *  Every system has its own address, and nothing is redirected:
@@ -139,6 +140,9 @@ export default {
     const own = hostDoc(host, env);
     if (own) {
       if (own.reserved) return notPluggedIn(request, env);
+      /* the Booking Engine's own API - real hotel data live from the cloud, never the local demo file
+         book/server.mjs reads; see booking-api.js for why */
+      if (own.doc === SYSTEM_DOC.booking && low.startsWith('/api/')) return handleBookingApi(request, env, url);
       if (bare === '/' || bare.toLowerCase() === '/index.html') return serveDoc(own.doc, request);
       /* a system's sign-in page: the same address, /signin (no redirect) */
       if (low === '/signin') return serveDoc({ file: APP_FILE }, request);
