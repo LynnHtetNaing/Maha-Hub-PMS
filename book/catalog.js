@@ -73,10 +73,33 @@ export function inventoryForType(hotel, typeCode, day) {
     if (rm.ooo && day >= rm.ooo.from && day <= rm.ooo.to) continue;
     count += 1;
   }
+  // Central Allotment: how many of this type the hotel has chosen to release to direct booking,
+  // separate from (and never more than) the PMS's own room count. Unset = release everything.
+  const cap = hotel.directAllot && hotel.directAllot[typeCode];
+  if (cap != null && Number.isFinite(Number(cap))) count = Math.min(count, Number(cap));
   const used = (hotel.occupied || []).filter(o =>
     o.type === typeCode && o.arr <= day && day < o.dep && !['cancelled', 'noshow'].includes(o.status)
   ).length;
   return Math.max(0, count - used);
+}
+
+// The direct channel's own markup over Rack Rate (default 10% if never configured).
+export function directMarkupPct(hotel) {
+  const row = (hotel.channels || []).find(c => c.key === 'direct');
+  return row ? Number(row.value) || 0 : 10;
+}
+
+// A promo code's discount off the channel sell price - never off the Rack Rate itself. Returns 0
+// (no discount) for a missing, inactive, out-of-date or unknown code.
+export function promoDiscount(hotel, code, sellAmount) {
+  if (!code) return 0;
+  const p = (hotel.promotions || []).find(x => x.active && x.code === String(code).toUpperCase());
+  if (!p) return 0;
+  const today = isoDate(new Date());
+  if (p.validFrom && today < p.validFrom) return 0;
+  if (p.validTo && today > p.validTo) return 0;
+  const off = p.kind === 'amt' ? Number(p.value) || 0 : r2(sellAmount * (Number(p.value) || 0) / 100);
+  return Math.min(sellAmount, Math.max(0, off));
 }
 
 export function sellableRates(hotel) {
@@ -85,7 +108,7 @@ export function sellableRates(hotel) {
   );
 }
 
-export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults }) {
+export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults, promoCode }) {
   const nights = datesBetween(checkin, checkout);
   if (!nights.length) return null;
   const rt = (hotel.roomTypes || []).find(t => t.code === type && !t.dummy);
@@ -105,6 +128,12 @@ export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults }) 
   }
   const subtotal = r2(Object.values(nightly).reduce((a, b) => a + b, 0));
   const split = taxSplit(hotel, subtotal);
+  // Rack Rate (split.total) -> Booking Engine sell price (its own channel markup) -> promo discount.
+  // The Rack Rate itself is never touched - turning a promotion off always cleanly restores sell price.
+  const rackAmount = split.total;
+  const sellAmount = r2(rackAmount * (1 + directMarkupPct(hotel) / 100));
+  const discount = promoDiscount(hotel, promoCode, sellAmount);
+  const finalAmount = r2(sellAmount - discount);
   return {
     type: rt.code,
     typeName: rt.name,
@@ -116,7 +145,10 @@ export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults }) 
     nightly,
     currency: hotel.cur,
     amountBeforeTax: split.net + split.svc,
-    amountAfterTax: split.total,
+    rackAmount,
+    amountAfterTax: finalAmount,
+    promoApplied: discount > 0 ? String(promoCode).toUpperCase() : '',
+    promoDiscount: discount,
     tax: split.vat,
     service: split.svc,
     net: split.net,
@@ -140,7 +172,8 @@ export function searchHotel(hotel, q) {
         rateCode: r.code,
         checkin,
         checkout,
-        adults: adults + children
+        adults: adults + children,
+        promoCode: q.promoCode
       });
       if (quote) results.push(quote);
     }
@@ -203,6 +236,10 @@ export function publicHotelFromHub(h, opts = {}) {
     photoUrl: g.photoUrl || '',
     logo: s.logo || '',
     coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : [],
+    channels: Array.isArray(g.channels) && g.channels.length ? g.channels : [{ key: 'direct', label: 'Booking Engine (direct)', kind: 'markup', value: 10 }],
+    promotions: Array.isArray(g.promotions) ? g.promotions.slice() : [],
+    directAllot: (g.directAllot && typeof g.directAllot === 'object') ? g.directAllot : {},
+    guestCountry: (g.guestCountry && typeof g.guestCountry === 'object') ? g.guestCountry : { mode: 'all', list: [] },
     brand: g.brand || 'Maha Booking',
     bookEnabled: !!(g.enabled || opts.forceEnable),
     active: h.active !== false,

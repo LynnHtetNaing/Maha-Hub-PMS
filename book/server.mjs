@@ -299,7 +299,8 @@ const server = http.createServer(async (req, res) => {
         checkin,
         checkout,
         adults: q.adults,
-        children: q.children
+        children: q.children,
+        promoCode: q.promo
       });
       const propId = await propertyIdFor(hotel.id);
       await Promise.all(results.map(r => clampLive(propId, r, checkin, checkout)));
@@ -329,7 +330,8 @@ const server = http.createServer(async (req, res) => {
         rateCode: body.rateCode,
         checkin: body.checkin,
         checkout: body.checkout,
-        adults: Number(body.adults || 2)
+        adults: Number(body.adults || 2),
+        promoCode: body.promo
       });
       if (!quote || !quote.available) {
         send(res, 409, JSON.stringify({ message: 'That room or rate is not available for these dates.' }));
@@ -338,10 +340,20 @@ const server = http.createServer(async (req, res) => {
       const guest = {
         name: String(body.name || '').trim().slice(0, 120),
         email: String(body.email || '').trim().slice(0, 160),
-        phone: String(body.phone || '').trim().slice(0, 60)
+        phone: String(body.phone || '').trim().slice(0, 60),
+        country: String(body.country || '').trim().slice(0, 2).toUpperCase()
       };
       if (!guest.name || !guest.email) {
         send(res, 400, JSON.stringify({ message: 'Name and email are required.' }));
+        return;
+      }
+      const gc = hotel.guestCountry || { mode: 'all', list: [] };
+      if (gc.mode === 'allow' && guest.country && !gc.list.includes(guest.country)) {
+        send(res, 403, JSON.stringify({ message: 'Direct booking is not open to guests from this country. Please contact the hotel directly.' }));
+        return;
+      }
+      if (gc.mode === 'block' && guest.country && gc.list.includes(guest.country)) {
+        send(res, 403, JSON.stringify({ message: 'Direct booking is not open to guests from this country. Please contact the hotel directly.' }));
         return;
       }
       // A real request the hotel's own staff see and confirm in the PMS (Pending Bookings) - never

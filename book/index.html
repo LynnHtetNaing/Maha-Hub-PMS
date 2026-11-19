@@ -57,6 +57,9 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 .btn{appearance:none;border:0;cursor:pointer;background:var(--gold);color:var(--green2);font-weight:700;padding:12px 18px;border-radius:2px;transition:transform .2s ease,background .2s}
 .btn:hover{background:var(--gold2);transform:translateY(-1px)}
 .btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35)}
+.promo-row{margin-top:10px}
+.promo-toggle{appearance:none;background:none;border:0;color:var(--gold2);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:0}
+#promoCode{margin-left:8px;padding:8px 10px;border-radius:2px;border:0;font:inherit;font-size:13px;width:180px}
 .section{padding:42px 0 64px}
 .h2{font-family:Fraunces,serif;font-size:clamp(1.6rem,3vw,2.2rem);margin:0 0 8px}
 .sub{color:var(--mut);margin:0 0 22px;max-width:40rem;line-height:1.5}
@@ -133,6 +136,10 @@ a{color:var(--leaf)}button,input,select{font:inherit}
       </label>
       <label class="go">&nbsp;<button class="btn" type="submit">Show rates</button></label>
     </form>
+    <div class="promo-row">
+      <button type="button" class="promo-toggle" id="promoToggle">+ Add promo code</button>
+      <input type="text" id="promoCode" placeholder="Promo code" maxlength="30" hidden>
+    </div>
   </div>
 </header>
 
@@ -165,7 +172,14 @@ a{color:var(--leaf)}button,input,select{font:inherit}
     <form class="form" id="requestForm">
       <label>Full name<input id="guestName" required autocomplete="name"></label>
       <label>Email<input id="guestEmail" type="email" required autocomplete="email"></label>
-      <label class="span2">Phone<input id="guestPhone" type="tel" autocomplete="tel"></label>
+      <label>Phone<input id="guestPhone" type="tel" autocomplete="tel"></label>
+      <label>Country / nationality
+        <select id="guestCountrySel"><option value="">Prefer not to say</option>
+          <option value="TH">Thailand</option><option value="MM">Myanmar</option><option value="SG">Singapore</option>
+          <option value="MY">Malaysia</option><option value="VN">Vietnam</option><option value="CN">China</option>
+          <option value="JP">Japan</option><option value="KR">South Korea</option><option value="GB">United Kingdom</option>
+          <option value="US">United States</option><option value="AU">Australia</option></select>
+      </label>
       <div class="span2"><button class="btn" type="submit">Send booking request</button></div>
     </form>
     <div class="notice" id="requestMsg" hidden></div>
@@ -318,7 +332,9 @@ async function runSearch() {
   const checkout = $('checkout').value;
   const adults = $('adults').value;
   const children = $('children').value;
+  const promo = $('promoCode').value.trim();
   const qs = new URLSearchParams({ hotel, checkin, checkout, adults, children });
+  if (promo) qs.set('promo', promo);
   history.replaceState(null, '', '?' + qs.toString());
   await hydrateHotel(hotel);
   const { ok, j } = await api('/api/search?' + qs.toString());
@@ -354,6 +370,7 @@ async function runSearch() {
         ${r.nights > 1 ? `<div class="pricetog" data-tog="${i}"><button type="button" class="on" data-mode="total">Whole stay</button><button type="button" data-mode="night">Per night</button></div>` : ''}
         <b data-price="${i}">${money(r.amountAfterTax, r.currency)}</b>
         <small data-pricesub="${i}">total incl. tax</small>
+        ${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">Promo ${r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : ''}
         ${r.available ? `<div style="margin-top:10px"><button class="btn" type="button" data-pick="${i}">Select</button></div>` : ''}
       </div>
     </article>`;
@@ -387,6 +404,8 @@ async function runSearch() {
 
 $('searchForm').onsubmit = (e) => { e.preventDefault(); runSearch(); };
 $('hotel').onchange = () => hydrateHotel($('hotel').value);
+$('promoToggle').onclick = () => { $('promoCode').hidden = false; $('promoCode').focus(); $('promoToggle').hidden = true; };
+if (params.get('promo')) { $('promoCode').hidden = false; $('promoCode').value = params.get('promo'); $('promoToggle').hidden = true; }
 
 $('requestForm').onsubmit = async (e) => {
   e.preventDefault();
@@ -401,7 +420,9 @@ $('requestForm').onsubmit = async (e) => {
     rateCode: selected.rateCode,
     name: $('guestName').value,
     email: $('guestEmail').value,
-    phone: $('guestPhone').value
+    phone: $('guestPhone').value,
+    country: $('guestCountrySel').value,
+    promo: $('promoCode').value.trim()
   };
   const res = await fetch('/api/request', {
     method: 'POST',
