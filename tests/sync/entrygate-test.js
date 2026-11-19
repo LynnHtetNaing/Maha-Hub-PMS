@@ -74,8 +74,8 @@ env.DB.session = { hotel: 'H1' }; api.clearEntryTickets(); api.sysUrl('reach', h
 T('a hotel user (not the Owner) gets no ticket while the systems are not released', Object.keys(store).length === 0);
 api.sysUrl('sales', h1);
 T('a hotel user gets no ticket for the hotel Sales (not built yet)', !store['mahahub.entry.sales']); api.clearEntryTickets();
-T('only the PMS is released', api.RELEASED_SYSTEMS.length === 1 && api.RELEASED_SYSTEMS.includes('hub'));
-T('the PMS opens for a hotel user, nothing else does', api.sysAllowed('hub') && !api.sysAllowed('sales') && !api.sysAllowed('reach') && !api.sysAllowed('connect') && !api.sysAllowed('book'));
+T('the PMS and Maha Booking are released, nothing else yet', api.RELEASED_SYSTEMS.length === 2 && api.RELEASED_SYSTEMS.includes('hub') && api.RELEASED_SYSTEMS.includes('book'));
+T('the PMS and Maha Booking open for a hotel user, nothing else does', api.sysAllowed('hub') && api.sysAllowed('book') && !api.sysAllowed('sales') && !api.sysAllowed('reach') && !api.sysAllowed('connect'));
 env.DB.session = { hotel: 'H1', provider: true };
 T('the Owner (provider) can open the PMS and the systems being built; the hotel Sales is not built, so nobody', ['hub', 'reach', 'connect', 'book'].every(k => api.sysAllowed(k)) && !api.sysAllowed('sales'));
 api.sysUrl('reach', h1);
