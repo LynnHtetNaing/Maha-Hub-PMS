@@ -8056,8 +8056,8 @@ function ecosystemDir(){return appPrefix()+'/ecosystem/'}
    those systems look for it and send everybody else to the sign-in page. */
 /* Release gate: a system that is not yet open for sale and distribution cannot be opened from anywhere (the Main page, the switcher, a typed address,
    an old ticket) except by the Owner, who is any provider account. To release a system, add it to this one list. */
-const CHOOSER_OPEN=['hub','sales'];   /* the two big buttons of the Main page. Maha Sales (for hotels) is shown and clickable: its own address answers with a friendly "not plugged in yet" page until that system exists */
-const RELEASED_SYSTEMS=['hub'];   /* the hotel Sales is not built yet. The company Sales is separate software at crm.maha-hub.com with its own sales team and sign-in: it is not a hotel system and is not part of this page */
+const CHOOSER_OPEN=['hub','book','sales'];   /* the buttons of the Main page a stranger can pick before signing in. Maha Sales (for hotels) is shown and clickable: its own address answers with a friendly "not plugged in yet" page until that system exists */
+const RELEASED_SYSTEMS=['hub','book'];   /* Maha Booking signs in with the very same username and password as every other system - a hotel using only Maha Booking picks it here; a hotel using PMS too reaches it from the system switcher once signed in (see openSystem). The hotel Sales is not built yet. The company Sales is separate software at crm.maha-hub.com with its own sales team and sign-in: it is not a hotel system and is not part of this page */
 function isOwnerSession(){return typeof DB!=='undefined'&&!!(DB&&DB.session&&DB.session.provider)}
 /* The note under a system in Provider › Systems follows the system's state and whether it is released */
 function sysNote(kind,open){const rel=RELEASED_SYSTEMS.includes(kind);return rel?(open?'Open: hotel staff can use it.':'Closed: hidden from hotel staff.'):(open?'Open for this hotel, but not released yet: staff cannot use it until the release.':'Closed. Not released yet.')}
@@ -8129,8 +8129,14 @@ function openSystem(kind,h,same){
   if(!asProv&&row&&!row.hotel){toast(ecoSysLabel(kind)+' is closed for this hotel. The provider opens it under Systems.');return}
   if(!asProv&&row&&!row.user){toast(ecoSysLabel(kind)+' is not open for your account. The provider opens it under Staff & permissions.');return}
   if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
+  /* Maha Booking (staff side): managing rates, promotions, channels and the rest happens right inside this
+     same app (see HOTEL_BE_GROUP / BE.* / beOnly()) - it is never the public guest page a customer books on.
+     A hotel with only Maha Booking open (no PMS) lands here directly; a hotel with PMS too reaches it from
+     the system switcher without leaving the app. Guests still only ever see the real page via its own address
+     or the "Preview booking page (real, live)" button in Hotel Setup. */
+  if(kind==='book'){applySysPath('book');setArea('back');if(!document.querySelector('.topbar'))renderShell();go('prov.be.amenities');return}
   if(kind==='sales'){const url=salesUrl();if(same){location.assign(url);return}openApp(url,'Maha Sales');return}
-  const url=kind==='reach'?reachUrl(h):kind==='connect'?connectStaticUrl(h):kind==='book'?bookUrlFor(h):'';
+  const url=kind==='reach'?reachUrl(h):kind==='connect'?connectStaticUrl(h):'';
   if(!url)return;
   if(same){location.assign(url);return}
   openApp(url,ecoSysLabel(kind));
@@ -8805,6 +8811,8 @@ function showLogin(msg){
   };
   const hint=()=>{
     paintCards();
+    /* Maha Booking (and any future non-PMS system) has no front-desk shift or cash drawer - only Maha PMS does */
+    if(lgTargetSys&&lgTargetSys!=='hub'){$('#lgExtra').hidden=true;$('#lgGo').textContent='Login →';return}
     if(lgProvider){$('#lgExtra').hidden=true;$('#lgGo').textContent='Sign in as provider →';return}
     const pvu=DB.providers.some(p=>p.username===$('#lgUser').value.trim().toLowerCase());
     $('#lgExtra').hidden=pvu;
@@ -8918,7 +8926,9 @@ function doLogin(){
   if(lgTargetSys&&!hotelSystems(h,u).some(x=>x.kind===lgTargetSys&&x.open)){if(MahaAuth.on())MahaAuth.signOut();err.textContent=ecoSysLabel(lgTargetSys)+' is not open for your account.';return}   /* no code, no other system: just not allowed */
   fails=0;H=h;const flexS=ruleOnStrict(h,'flexibleShiftLogin');let s=h.shifts.find(x=>x.userId===u.id&&x.status==='open'&&(!flexS||x.name===lgShift));
   try{localStorage.setItem('maha.shiftless.'+String(u.username||'').toLowerCase(),shiftless(u)?'1':'0')}catch(e){}   /* the next sign-in page already knows whether to show the shift and cash boxes */
-  if(shiftless(u)){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log(u.noShift?'Signed in without a shift':'Signed in');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}
+  /* no system but Maha PMS has a front-desk shift or cash drawer at all - signing into Maha Booking (or any
+     other non-PMS system) never asks for one, whatever this person's own shift setting is */
+  if(shiftless(u)||(lgTargetSys&&lgTargetSys!=='hub')){s={name:'No shift'};DB.session=stampSession({hotel:hc,userId:u.id,noShift:true});log(u.noShift?'Signed in without a shift':'Signed in');try{localStorage.setItem('maha.lastHotel.'+String(u.username||'').toLowerCase(),hc)}catch(e){}writeLiveSession(DB.session);saveDB();enterStaffSystem(h);return}
   if(!s&&lgShift==='Night'&&!nightOkFor(u,h)){err.textContent='The Night shift is only for Front Office and HOD.';return}
   if(!s){const closed=h.shifts.find(x=>x.userId===u.id&&x.name===lgShift&&x.bd===h.set.bd&&x.status==='closed'&&!x.reopenOk);
     if(closed&&ruleOn(h,'blockClosedShiftReopen')){err.textContent=`The ${lgShift} shift for ${fd(h.set.bd)} is already closed. The provider must allow it to be opened again.`;return}
@@ -12201,10 +12211,14 @@ async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r
 function hasBackend(){try{return !!(DB&&DB.session&&H&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}
 function curArea(){const se=DB&&DB.session;return se&&se.area==='back'&&hasBackend()?'back':'front'}
 function setArea(a){if(DB&&DB.session){DB.session.area=a==='back'?'back':'front';try{writeLiveSession(DB.session)}catch(e){}}}
+/* the hotel's own content and pricing for Maha Booking (direct) - everything PROV_HOTEL_BE_GROUP has for the
+   provider, minus nothing: the hotel manages its own rates, promotions and channels day to day (see BE.* /
+   beOnly()); only the on/off switch, Stripe keys and Booking base URL stay provider-only (Hotel profile). */
+const HOTEL_BE_GROUP={t:'Booking Engine',items:PROV_HOTEL_BE_GROUP.items.map(([title,v])=>[title,v,'setup'])};
 function BACKEND_MENU(){
   const f=v=>{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it;return null};
   const g=(t,ids)=>({t,items:ids.map(f).filter(Boolean)});
-  return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),g('People & access',['set.users','set.userlogs']),g('Finance & data',['ac.buy']),g('Billing',['sbill.home','sbill.quotes','sbill.subscriptions','sbill.invoices','sbill.payments','sbill.statements']),g('Help',['help.home']),{t:'Report',report:true}]}
+  return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),HOTEL_BE_GROUP,g('People & access',['set.users','set.userlogs']),g('Finance & data',['ac.buy']),g('Billing',['sbill.home','sbill.quotes','sbill.subscriptions','sbill.invoices','sbill.payments','sbill.statements']),g('Help',['help.home']),{t:'Report',report:true}]}
 /* the admin's own Backend, inside a hotel: nothing shared with the hotel-staff Backend above except People & access -
    Hotel Setup (every section as its own subtitle, not the wizard's own tabs), People & access, and admin's own Billing
    (creating invoices/subscriptions for the hotel, not the hotel's own read-only records) */
@@ -13650,6 +13664,11 @@ const SEC={
 const BE_SECTIONS=[['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['pending','4','Booking Engine Bookings'],['channels','5','Channel Rates'],['promotions','6','Promotions & Discount Codes'],['allotment','7','Central Allotment'],['guestCountry','8','Guest Country Set Up'],['reports','9','Reports'],['emailAlerts','10','Email Alerts'],['theme','11','Booking Theme'],['bookButton','12','Booking Button Code']];
 const THEME_SWATCHES=[['primary','Primary (buttons, headings)','#184d3a'],['accent','Accent (highlights)','#c4a35a'],['bg','Page background','#f3efe6'],['text','Text','#0e241c']];
 const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest departure'],['abandonment','On booking abandonment'],['birthday','On guest birthday']];
+/* every Booking Engine section below (BE.*) is the hotel's own content and pricing - a manager with the
+   'setup' permission saves it themselves, same as Hotel Setup's own Save buttons already let them; a provider
+   can always save it too. Only the Booking Engine's on/off switch, Stripe keys and Booking base URL (Hotel Setup
+   → Hotel profile, SEC.profile) stay provider-only - those are account/platform-level, not this hotel's content. */
+function beOnly(){const u=user();if(u.provider||u.isProv)return true;return need('setup')}
 const BE={
  amenities(box){const g=H.set.google;
   /* grouped the way a real booking engine (1HotelRez) sets amenities up - Hotel Facilities, then Sports and
@@ -13661,7 +13680,7 @@ const BE={
    <div id="g_am">${AMEN_GROUPS.map(gr=>`<h4 class="mt">${esc(gr.t)}</h4><div class="curgrid">${gr.items.map(a=>`<label class="curchk ${(g.amenities||[]).includes(a)?'on':''}"><input type="checkbox" data-am="${a}" ${(g.amenities||[]).includes(a)?'checked':''}> ${esc(a.replace(/_/g,' ').replace('pool kids','pool (kids)').replace('golf course','golf course (on site)'))}</label>`).join('')}</div>`).join('')}</div>
    <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
   $$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));
-  $('#gS',box).onclick=()=>{if(!provOnly())return;g.amenities=$$('[data-am]',box).filter(x=>x.checked).map(x=>x.dataset.am);provLog(`Direct Booking Engine amenities saved for ${H.code}`);saved()}},
+  $('#gS',box).onclick=()=>{if(!beOnly())return;g.amenities=$$('[data-am]',box).filter(x=>x.checked).map(x=>x.dataset.am);provLog(`Direct Booking Engine amenities saved for ${H.code}`);saved()}},
  policies(box){const g=H.set.google;
   const cancelLines=Array.isArray(g.cancelPolicyLines)?g.cancelPolicyLines.slice():(g.cancelPolicy?[g.cancelPolicy]:[]);
   const noticeLines=Array.isArray(g.importantNoticeLines)?g.importantNoticeLines.slice():(g.importantNotice?[g.importantNotice]:[]);
@@ -13682,7 +13701,7 @@ const BE={
    $$('[data-rmline]',box).forEach(b=>b.onclick=()=>{const[id,i]=b.dataset.rmline.split(':');(id==='g_cx'?cancelLines:noticeLines).splice(+i,1);redraw()})};
   bind();
   $('#g_depk',box).onchange=()=>{$('#g_depv',box).disabled=$('#g_depk',box).value==='none'};
-  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\n');
+  $('#gS',box).onclick=()=>{if(!beOnly())return;g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\n');
     g.depositPolicy={kind:$('#g_depk',box).value,value:+$('#g_depv',box).value||0};
     provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
  photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];let managing=null;
@@ -13704,7 +13723,7 @@ const BE={
    $$('[data-rpdel]',box).forEach(b=>b.onclick=()=>{ph.splice(+b.dataset.rpdel,1);t.photos=ph;paintManage()});
    $('#rpAdd',box).onchange=e=>{const files=[...e.target.files];if(!files.length)return;let left=files.length;
     files.forEach(f=>readImg(f,1600,url=>{ph.push({url,name:'Photo '+(ph.length+1),order:ph.length+1,enabled:true});if(!--left){t.photos=ph;paintManage()}}))};
-   $('#rpSave',box).onclick=()=>{if(!provOnly())return;t.photos=ph;provLog(`Room photos saved for ${H.code} ${t.code}`);saveDB();toast('Room photos saved');managing=null;paintMain()}};
+   $('#rpSave',box).onclick=()=>{if(!beOnly())return;t.photos=ph;provLog(`Room photos saved for ${H.code} ${t.code}`);saveDB();toast('Room photos saved');managing=null;paintMain()}};
   const paintMain=()=>{
    box.innerHTML=secHead('3. Photos','The hero on the Booking Engine rotates through the cover photos below. The hotel logo is not set here - it follows Hotel Setup automatically.')+`<div class="panel pad">
     <h3 style="margin-top:0">Hotel logo</h3>
@@ -13719,8 +13738,8 @@ const BE={
     <p class="sub">Click a room type to add, order, enable/disable or delete its photos - no limit on how many.</p>
     <table class="grid"><tr><th>Room type</th><th>Photos</th><th></th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${roomPhotos(t).length}</td><td><button type="button" class="btn sm ghost" data-rpopen="${esc(t.code)}">Manage</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table></div>`;
    $('#goLogo',box).onclick=()=>go('hset.profile');
-   $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
-   if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;const file=e.target.files[0];if(!file)return;
+   $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!beOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
+   if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!beOnly())return;const file=e.target.files[0];if(!file)return;
      readImg(file,1600,url=>{covers.push(url);g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')})};
    $$('[data-rpopen]',box).forEach(b=>b.onclick=()=>{managing=H.roomTypes.find(x=>x.code===b.dataset.rpopen);if(managing)paintManage()})};
   paintMain()},
@@ -13740,7 +13759,7 @@ const BE={
     if(todo.some(r=>r.confirmed_reservation_no))toast(todo.length===1?'1 booking confirmed just now.':todo.filter(r=>r.confirmed_reservation_no).length+' bookings confirmed just now.');
     const statusCell=r=>r.confirmed_reservation_no?('#'+esc(r.confirmed_reservation_no)):r.payment_status==='awaiting'?'<span class="sub">Awaiting guest payment...</span>':'<span class="sub">Pending...</span>';
     listBox.innerHTML=rows.length?`<table class="grid"><tr><th>Received</th><th>Guest</th><th>Room</th><th>Dates</th><th>Pax</th><th class="n">Amount</th><th>Reservation</th><th></th></tr>${rows.map(r=>`<tr><td>${fdt(r.created_at)}</td><td>${esc(r.guest_name)}<br><small>${esc(r.guest_email)}</small></td><td>${esc(r.room_type)} · ${esc(r.rate_code)}</td><td>${fd(r.arr)} – ${fd(r.dep)}</td><td>${r.adults}A${r.children?('+'+r.children+'C'):''}</td><td class="n">${esc(r.currency)} ${m2(r.amount)}</td><td>${statusCell(r)}</td><td class="nowrap">${r.confirmed_reservation_no?'':'<button class="btn sm red" data-pbd="'+r.id+'" data-await="'+(r.payment_status==='awaiting'?'1':'')+'">Cancel</button>'}</td></tr>`).join('')}</table>`:'<p class="sub">No Booking Engine requests yet.</p>';
-    $$('[data-pbd]',listBox).forEach(b=>b.onclick=async()=>{if(!provOnly())return;if(!await dlgConfirm('Cancel this booking request before it is confirmed? The guest is not notified automatically.'))return;b.disabled=true;
+    $$('[data-pbd]',listBox).forEach(b=>b.onclick=async()=>{if(!beOnly())return;if(!await dlgConfirm('Cancel this booking request before it is confirmed? The guest is not notified automatically.'))return;b.disabled=true;
       try{await ctx.call('rpc/'+(b.dataset.await?'maha_be_cancel_hold':'maha_be_decide_request'),{method:'POST',body:JSON.stringify(b.dataset.await?{p_request:b.dataset.pbd}:{p_request:b.dataset.pbd,p_confirm:false,p_reservation_no:null})});provLog(`Maha Booking request cancelled for ${H.code}`);toast('Cancelled');draw()}
       catch(e){toast('Could not cancel: '+e.message);b.disabled=false}});
   };
@@ -13759,11 +13778,11 @@ const BE={
    <div class="btns mt" style="justify-content:flex-start">${avail().length?`<select id="chAdd" style="min-width:220px"><option value="">+ Add a channel...</option>${avail().map(([code,name])=>`<option value="${code}">${esc(name)}</option>`).join('')}</select>`:'<p class="sub">Every PMS channel is already added.</p>'}</div>
    <div class="btns"><button class="btn gold" id="chS">Save</button></div></div>`;
    $$('[data-cv]',box).forEach(inp=>inp.onchange=()=>{g.channels[+inp.dataset.cv].value=Math.max(0,Math.min(99,+inp.value||0))});
-   $$('[data-unlock]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;g.channels[+b.dataset.unlock].locked=false;paint()});
-   $$('[data-lock]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;g.channels[+b.dataset.lock].locked=true;paint()});
-   $$('[data-rmchan]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;g.channels.splice(+b.dataset.rmchan,1);paint()});
+   $$('[data-unlock]',box).forEach(b=>b.onclick=()=>{if(!beOnly())return;g.channels[+b.dataset.unlock].locked=false;paint()});
+   $$('[data-lock]',box).forEach(b=>b.onclick=()=>{if(!beOnly())return;g.channels[+b.dataset.lock].locked=true;paint()});
+   $$('[data-rmchan]',box).forEach(b=>b.onclick=()=>{if(!beOnly())return;g.channels.splice(+b.dataset.rmchan,1);paint()});
    if($('#chAdd',box))$('#chAdd',box).onchange=e=>{const code=e.target.value;if(!code)return;const[,name]=CHANNEL_CATALOG.find(x=>x[0]===code);g.channels.push({key:'chan'+code,label:name,kind:'commission',value:15,locked:false});paint()};
-   $('#chS',box).onclick=()=>{if(!provOnly())return;provLog(`Channel rates saved for ${H.code}`);saved()}};
+   $('#chS',box).onclick=()=>{if(!beOnly())return;provLog(`Channel rates saved for ${H.code}`);saved()}};
   paint()},
  promotions(box){const g=H.set.google,promos=g.promotions||[];
   box.innerHTML=secHead('6. Promotions & Discount Codes','A promotion subtracts from the channel sell price for the stay dates it covers - it never touches the Rack Rate itself, so switching a promotion off always cleanly restores the normal price.')+'<div id="promoBox"></div>';
@@ -13774,7 +13793,7 @@ const BE={
  allotment(box){const g=H.set.google;g.directAllot=g.directAllot||{};
   box.innerHTML=secHead('7. Central Allotment','How many of each room type are released to the Booking Engine (and, later, OTAs) per day - separate from the PMS\'s own total rooms. Leave blank to release the full PMS allotment. This only ever holds rooms BACK; it can never release more than the hotel actually has.')+`<div class="panel pad"><table class="grid"><tr><th>Room type</th><th>PMS allotment</th><th class="n">Released to Direct Booking</th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${t.allot||0}</td><td class="n"><input type="number" min="0" max="${t.allot||0}" data-cap="${esc(t.code)}" value="${g.directAllot[t.code]!=null?g.directAllot[t.code]:''}" placeholder="${t.allot||0}" style="width:90px;text-align:right"></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table>
    <div class="btns"><button class="btn gold" id="alS">Save</button></div></div>`;
-  $('#alS',box).onclick=()=>{if(!provOnly())return;const cap={};let bad='';$$('[data-cap]',box).forEach(inp=>{const code=inp.dataset.cap,t=H.roomTypes.find(x=>x.code===code),v=inp.value.trim();if(v==='')return;const n=Math.max(0,Math.floor(+v||0));if(t&&n>(t.allot||0))bad=code;cap[code]=n});
+  $('#alS',box).onclick=()=>{if(!beOnly())return;const cap={};let bad='';$$('[data-cap]',box).forEach(inp=>{const code=inp.dataset.cap,t=H.roomTypes.find(x=>x.code===code),v=inp.value.trim();if(v==='')return;const n=Math.max(0,Math.floor(+v||0));if(t&&n>(t.allot||0))bad=code;cap[code]=n});
     if(bad){toast(`${bad}: cannot release more than the PMS allotment.`);return}
     g.directAllot=cap;provLog(`Central allotment saved for ${H.code}`);saved()}},
  guestCountry(box){const g=H.set.google,gc=g.guestCountry||{mode:'all',list:[]};let picked=new Set(gc.list||[]);
@@ -13792,7 +13811,7 @@ const BE={
   paintGrid('');paintCount();
   $$('[name="gcMode"]',box).forEach(r=>r.onchange=()=>{$('#gcPick',box).hidden=r.value==='all'});
   $('#gcQ',box).oninput=e=>paintGrid(e.target.value);
-  $('#gcS',box).onclick=()=>{if(!provOnly())return;const mode=$('[name="gcMode"]:checked',box).value;
+  $('#gcS',box).onclick=()=>{if(!beOnly())return;const mode=$('[name="gcMode"]:checked',box).value;
     g.guestCountry={mode,list:mode==='all'?[]:[...picked]};provLog(`Guest country set up saved for ${H.code}`);saved()}},
  reports(box){
   box.innerHTML=secHead('9. Reports','A production report of this hotel\'s own confirmed reservations that came through Maha Booking (Direct) - never OTA data, since Maha has no live channel connection to report on.')+`<div class="panel pad">
@@ -13837,7 +13856,7 @@ const BE={
    $$('[data-eaurl]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.eaurl].url=x.value.trim());
    $$('[data-eabody]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.eabody].body=x.value.trim());
    $$('[data-eanotify]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.eanotify].notify=x.value.trim());
-   $('#eaS',box).onclick=()=>{if(!provOnly())return;provLog(`Email alerts saved for ${H.code}`);saved()}};
+   $('#eaS',box).onclick=()=>{if(!beOnly())return;provLog(`Email alerts saved for ${H.code}`);saved()}};
   paint()},
  theme(box){const g=H.set.google;g.theme=g.theme||{};
   const paint=()=>{
@@ -13859,7 +13878,7 @@ const BE={
    paintPrev();
    $$('[data-thm]',box).forEach(r=>r.onchange=()=>{const k=r.dataset.thm,on=r.value==='cus';const c=$(`[data-thc="${k}"]`,box);c.disabled=!on;if(!on)delete g.theme[k];else g.theme[k]=c.value;paintPrev()});
    $$('[data-thc]',box).forEach(c=>c.oninput=()=>{g.theme[c.dataset.thc]=c.value;paintPrev()});
-   $('#thS',box).onclick=()=>{if(!provOnly())return;provLog(`Booking theme saved for ${H.code}`);saved()}};
+   $('#thS',box).onclick=()=>{if(!beOnly())return;provLog(`Booking theme saved for ${H.code}`);saved()}};
   paint()},
  bookButton(box){const g=H.set.google;
   const base=()=>bookUrlFor(H).replace(/\/\?hotel=.*$/,'');
@@ -13941,8 +13960,10 @@ function googleMockupPreview(h){
     <p class="sub mt"><b>Mockup only - not a live Google listing.</b> Maha is not yet a Google Hotel Ads / Connectivity Partner, so this card does not exist on Google today. It shows roughly how one would look, built from this hotel's own photos, name, amenities and lowest direct rate.</p>`,{w:560});
 }
 BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{
-  if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
-  if(!DB.session.inHotel&&!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
+  if(!DB.session){el.innerHTML='<div class="empty">Sign in first.</div>';return}
+  const prov=!!DB.session.provider;
+  if(!prov&&!can('setup')){el.innerHTML='<div class="empty">The provider can open this for your account under Staff &amp; permissions.</div>';return}
+  if(prov&&!DB.session.inHotel&&!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
   if(!H){el.innerHTML=pageHead(title)+'<div class="empty">Create a property first.</div>';return}
   shapeHotel(H);
   el.innerHTML=pageHead(title)+`<div id="gBody"></div>`;

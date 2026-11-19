@@ -237,15 +237,15 @@ T('Booking Engine > Photos: the hotel logo is never re-uploaded here - it follow
   src.includes('covers.length<8') &&
   src.includes('const roomPhotos=t=>{if(!Array.isArray(t.photos))t.photos=t.photo?[{url:t.photo,name:\'Photo 1\',order:1,enabled:true}]:[];return t.photos};') &&
   src.includes("$$('[data-rpopen]',box).forEach(b=>b.onclick=()=>{managing=H.roomTypes.find(x=>x.code===b.dataset.rpopen);if(managing)paintManage()})") &&
-  src.includes("$('#rpSave',box).onclick=()=>{if(!provOnly())return;t.photos=ph;"));
+  src.includes("$('#rpSave',box).onclick=()=>{if(!beOnly())return;t.photos=ph;"));
 
 T('a room type\'s photo survives the Room types list\'s own Save - the rebuild on save (Object.assign over the existing record) keeps the photo instead of silently dropping it, the same pattern Companies & agents already uses for its logo column',
   src.includes("{k:'photo',h:'Photo',type:'logo',") &&
   src.includes("save:d=>{H.roomTypes=d.map(t=>Object.assign({},H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{},{code:String(t.code).toUpperCase(),name:t.name,base:Math.max(0,+t.base||0),max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));"));
 
-T('provOnly() guards every write on the new Photos subtitle too (cover photo upload/remove)',
-  src.includes("$$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(") &&
-  src.includes("if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;"));
+T('beOnly() (provider, or a hotel manager with setup permission) guards every write on the new Photos subtitle too (cover photo upload/remove)',
+  src.includes("$$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!beOnly())return;covers.splice(") &&
+  src.includes("if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!beOnly())return;"));
 
 T('Booking Engine > Booking Engine Bookings (Phase 3, auto-confirm): every request not yet materialised (confirmed_reservation_no is null) is turned into a real reservation the moment the page opens - no staff click - the same way the PMS always has (confirmBookingRequest - a real guest, a real reservation wrapper, newBooking), then tells the cloud it was decided; a staff Cancel is still offered for anything not yet materialised',
   src.includes(" pending(box){box.innerHTML=secHead('4. Booking Engine Bookings',") &&
@@ -254,7 +254,7 @@ T('Booking Engine > Booking Engine Bookings (Phase 3, auto-confirm): every reque
   src.includes('function confirmBookingRequest(row){') &&
   src.includes("const B=newBooking(H,{guestId:g.id,type:row.room_type,arr:row.arr,dep:row.dep,adults:row.adults,children:row.children,rateCode:row.rate_code,status:'confirmed',market:'FIT',channel:'WEB',source:'DIRECT'});") &&
   src.includes("await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:row.id,p_confirm:true,p_reservation_no:String(nr.no)})});") &&
-  src.includes("if(!provOnly())return;if(!await dlgConfirm('Cancel this booking request before it is confirmed?"));
+  src.includes("if(!beOnly())return;if(!await dlgConfirm('Cancel this booking request before it is confirmed?"));
 
 T('Channel Rates: direct is a markup over Rack, every OTA is a commission grossed up so the hotel always nets the Rack Rate, the direct channel can never be removed, every row is frozen by default (locked!==false) until explicitly unlocked, and a new channel is picked from the PMS\'s own CHANNEL_CATALOG, not typed freely',
   src.includes(" channels(box){const g=H.set.google;if(!Array.isArray(g.channels)||!g.channels.length)g.channels=[{key:'direct',label:'Booking Engine (direct)',kind:'markup',value:10}];") &&
