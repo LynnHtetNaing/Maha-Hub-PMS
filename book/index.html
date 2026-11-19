@@ -449,14 +449,39 @@ $('requestForm').onsubmit = async (e) => {
     body: JSON.stringify(body)
   });
   const j = await res.json();
+  if (j.checkoutUrl) { window.location.href = j.checkoutUrl; return; }
   const msg = $('requestMsg');
   msg.hidden = false;
   msg.textContent = j.message + (j.requestId ? ` Reference ${j.requestId}.` : '');
 };
 
+async function handlePaymentReturn() {
+  const paidReq = params.get('paid_request'), cancelledReq = params.get('cancelled_request'), sessionId = params.get('session_id');
+  if (!paidReq && !cancelledReq) return;
+  const hotel = params.get('hotel');
+  const msg = $('requestMsg');
+  msg.hidden = false;
+  if (cancelledReq) {
+    msg.textContent = 'Payment was cancelled. The room has been released - search again to book.';
+    await fetch('/api/checkout/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hotel, requestId: cancelledReq }) }).catch(() => {});
+    return;
+  }
+  msg.textContent = 'Checking your payment...';
+  try {
+    const res = await fetch('/api/checkout/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hotel, requestId: paidReq, sessionId }) });
+    const j = await res.json();
+    msg.textContent = j.paid
+      ? `Payment received - your booking is confirmed! Reference ${paidReq}. Check your email for the confirmation.`
+      : 'We could not confirm your payment yet. If you completed checkout, please contact the hotel with reference ' + paidReq + '.';
+  } catch {
+    msg.textContent = 'We could not confirm your payment. If you completed checkout, please contact the hotel with reference ' + paidReq + '.';
+  }
+}
+
 loadHotels().catch(err => {
   $('results').innerHTML = `<div class="empty">Could not load Maha Booking: ${err.message}. Start book/server.mjs.</div>`;
 });
+handlePaymentReturn();
 </script>
 </body>
 </html>
