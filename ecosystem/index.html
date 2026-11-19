@@ -4706,13 +4706,13 @@ function seedDB(){
     phone:'+66 (0) 2 000 0000',fax:'+66 (0) 2 000 0001',taxId:'0105500000000',email:'reservation@padaukdemo.com',web:'www.padaukdemo.com',
     cur:'THB',curWord:'BAHT',subWord:'SATANG',svc:10,vat:7,taxName:'VAT',country:'Thailand',nat:'Thai',formCode:'ร.ร.3',bd:today,big:true,
     google:{enabled:true,lat:'13.7367',lng:'100.561',countryCode:'TH',category:'hotel',amenities:['wifi','parking','breakfast','air_conditioning'],
-      cancelPolicy:'Free cancellation until 12:00 the day before arrival. Non-refundable (NRF) rates are not refundable after booking.',photoUrl:'',brand:'Maha Booking',bookBaseUrl:'http://127.0.0.1:8781/book'},
+      cancelPolicy:'Free cancellation until 12:00 the day before arrival. Non-refundable (NRF) rates are not refundable after booking.',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''},
     systems:{reach:true}});
   db.hotels.MHY01=seedHotel({code:'MHY01',name:'Golden Lotus Guesthouse Yangon',legal:'Golden Lotus Hospitality Co., Ltd.',addr:'No. 12, Strand Road, Kyauktada Township, Yangon',
     phone:'+95 9 000 000 000',fax:'',taxId:'MM-000000',email:'stay@goldenlotus.example',web:'',
     cur:'MMK',curWord:'KYATS',subWord:'PYAS',svc:5,vat:5,taxName:'Commercial tax',country:'Myanmar',nat:'Myanmar',formCode:'',bd:today,big:false,
     google:{enabled:true,lat:'16.7742',lng:'96.1609',countryCode:'MM',category:'hotel',amenities:['wifi','air_conditioning'],
-      cancelPolicy:'Free cancellation until 18:00 the day before arrival for refundable rates.',photoUrl:'',brand:'Maha Booking',bookBaseUrl:'http://127.0.0.1:8781/book'},
+      cancelPolicy:'Free cancellation until 18:00 the day before arrival for refundable rates.',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''},
     systems:{reach:false}});
   return db;
 }
@@ -13576,7 +13576,7 @@ const SEC={
      ${fld('Country code (ISO)',`<input id="p_gcc" value="${esc(g.countryCode||'')}" maxlength="2" placeholder="TH" ${d}>`)}
      ${fld('Category',`<input id="p_gcat" value="${esc(g.category||'hotel')}" ${d}>`)}
      ${fld('Area / Location',`<input id="p_garea" list="areaSuggest" value="${esc(g.area||'')}" placeholder="e.g. Sukhumvit, Hua Hin" ${d}><datalist id="areaSuggest">${AREA_SUGGESTIONS.map(a=>`<option value="${esc(a)}">`).join('')}</datalist>`)}
-     ${fld('Booking base URL',`<input id="p_gbase" value="${esc(g.bookBaseUrl||'http://127.0.0.1:8781/book')}" placeholder="https://book.example.com/book" ${d}>`,'span2')}
+     ${fld('Booking base URL (leave blank for the normal address)',`<input id="p_gbase" value="${esc(g.bookBaseUrl||'')}" placeholder="https://booking.maha-hub.com/book" ${d}>`,'span2')}
      ${fld('Brand shown on landing page',`<input id="p_gbr" value="${esc(g.brand||'Maha Booking')}" ${d}>`,'span2')}
     </div>
     <p class="sub">Amenities, cancellation policy and photos are their own subtitles under Booking Engine.</p>
@@ -13592,7 +13592,7 @@ const SEC={
     Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:$('#p_gcat',box).value.trim()||'hotel',area:$('#p_garea',box).value.trim(),bookBaseUrl:$('#p_gbase',box).value.trim(),brand:$('#p_gbr',box).value.trim()||'Maha Booking'});
     if(prov)provLog(`Direct Booking Engine property info saved for ${H.code}`);
     saved()};
-   if($('#pgOpen',box))$('#pgOpen',box).onclick=()=>{const base=($('#p_gbase',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')};
+   if($('#pgOpen',box))$('#pgOpen',box).onclick=()=>{const prev=g.bookBaseUrl;g.bookBaseUrl=$('#p_gbase',box).value.trim();window.open(bookUrlFor(H),'_blank');g.bookBaseUrl=prev};
    if($('#pgMock',box))$('#pgMock',box).onclick=()=>googleMockupPreview(H);
    if(E){$('#pS',box).onclick=()=>{if(prov){if(!provOnly())return}else if(!need('setup'))return;
     Object.assign(s,{name:$('#p_name',box).value.trim()||s.name,legal:$('#p_legal',box).value.trim(),branch:$('#p_branch',box).value.trim(),addr:$('#p_addr',box).value.trim(),taxId:$('#p_taxId',box).value.trim(),phone:$('#p_phone',box).value.trim(),fax:$('#p_fax',box).value.trim(),email:$('#p_email',box).value.trim(),web:$('#p_web',box).value.trim(),country:$('#p_country',box).value.trim(),nat:$('#p_nat',box).value.trim(),checkIn:$('#p_ci',box).value.trim(),checkOut:$('#p_co',box).value.trim(),tz:$('#p_tz',box).value||'Asia/Bangkok',formCode:$('#p_rc',box).value.trim(),building:$('#p_bl',box).value.trim(),bfAdult:r2(+String($('#p_bf',box).value).replace(/,/g,'')),idleMin:Math.max(0,+$('#p_idle',box).value||0)});
@@ -13978,7 +13978,7 @@ const BE={
    $('#thS',box).onclick=()=>{if(!provOnly())return;provLog(`Booking theme saved for ${H.code}`);saved()}};
   paint()},
  bookButton(box){const g=H.set.google;
-  const base=()=>(g.bookBaseUrl||'http://127.0.0.1:8781/book').replace(/\/+$/,'');
+  const base=()=>bookUrlFor(H).replace(/\/\?hotel=.*$/,'');
   const opts=()=>({property:[['','Whole property']],type:[['','Any room type'],...H.roomTypes.filter(t=>!t.dummy).map(t=>[t.code,t.code+' - '+t.name])],rate:[['','Any rate'],...H.rateCodes.filter(r=>r.kind!=='zero'&&r.channelScope!=='b2b').map(r=>[r.code,r.code+' - '+r.desc])],promotion:[['','No promotion'],...(g.promotions||[]).map(p=>[p.code,p.name||p.code])]});
   const paint=()=>{const o=opts();
    box.innerHTML=secHead('12. Booking Button Code','Paste this on your own website - it links straight to the real Booking Engine, scoped to whatever you pick below.')+`<div class="panel pad">
