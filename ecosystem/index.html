@@ -2938,6 +2938,8 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const dates=(a,b)=>{const o=[];for(let d=a;d<b;d=addD(d,1))o.push(d);return o};
 const sum=(a,f=x=>x)=>a.reduce((s,x)=>s+(+f(x)||0),0);
 /* ---- Multi-currency: the provider opens extra currencies for a hotel; a reservation keeps one currency until check-out. Nothing here runs unless the provider ticked an extra currency. ---- */
+/* ISO 3166-1 alpha-2, English short names - used by Guest Country Set Up and anywhere else a country picker is needed */
+const COUNTRY_LIST=[['AF','Afghanistan'],['AL','Albania'],['DZ','Algeria'],['AD','Andorra'],['AO','Angola'],['AG','Antigua and Barbuda'],['AR','Argentina'],['AM','Armenia'],['AU','Australia'],['AT','Austria'],['AZ','Azerbaijan'],['BS','Bahamas'],['BH','Bahrain'],['BD','Bangladesh'],['BB','Barbados'],['BY','Belarus'],['BE','Belgium'],['BZ','Belize'],['BJ','Benin'],['BT','Bhutan'],['BO','Bolivia'],['BA','Bosnia and Herzegovina'],['BW','Botswana'],['BR','Brazil'],['BN','Brunei'],['BG','Bulgaria'],['BF','Burkina Faso'],['BI','Burundi'],['KH','Cambodia'],['CM','Cameroon'],['CA','Canada'],['CV','Cabo Verde'],['CF','Central African Republic'],['TD','Chad'],['CL','Chile'],['CN','China'],['CO','Colombia'],['KM','Comoros'],['CG','Congo'],['CD','Congo (DRC)'],['CR','Costa Rica'],['CI','Côte d\'Ivoire'],['HR','Croatia'],['CU','Cuba'],['CY','Cyprus'],['CZ','Czechia'],['DK','Denmark'],['DJ','Djibouti'],['DM','Dominica'],['DO','Dominican Republic'],['EC','Ecuador'],['EG','Egypt'],['SV','El Salvador'],['GQ','Equatorial Guinea'],['ER','Eritrea'],['EE','Estonia'],['SZ','Eswatini'],['ET','Ethiopia'],['FJ','Fiji'],['FI','Finland'],['FR','France'],['GA','Gabon'],['GM','Gambia'],['GE','Georgia'],['DE','Germany'],['GH','Ghana'],['GR','Greece'],['GD','Grenada'],['GT','Guatemala'],['GN','Guinea'],['GW','Guinea-Bissau'],['GY','Guyana'],['HT','Haiti'],['HN','Honduras'],['HK','Hong Kong'],['HU','Hungary'],['IS','Iceland'],['IN','India'],['ID','Indonesia'],['IR','Iran'],['IQ','Iraq'],['IE','Ireland'],['IL','Israel'],['IT','Italy'],['JM','Jamaica'],['JP','Japan'],['JO','Jordan'],['KZ','Kazakhstan'],['KE','Kenya'],['KI','Kiribati'],['KW','Kuwait'],['KG','Kyrgyzstan'],['LA','Laos'],['LV','Latvia'],['LB','Lebanon'],['LS','Lesotho'],['LR','Liberia'],['LY','Libya'],['LI','Liechtenstein'],['LT','Lithuania'],['LU','Luxembourg'],['MO','Macao'],['MG','Madagascar'],['MW','Malawi'],['MY','Malaysia'],['MV','Maldives'],['ML','Mali'],['MT','Malta'],['MH','Marshall Islands'],['MR','Mauritania'],['MU','Mauritius'],['MX','Mexico'],['FM','Micronesia'],['MD','Moldova'],['MC','Monaco'],['MN','Mongolia'],['ME','Montenegro'],['MA','Morocco'],['MZ','Mozambique'],['MM','Myanmar'],['NA','Namibia'],['NR','Nauru'],['NP','Nepal'],['NL','Netherlands'],['NZ','New Zealand'],['NI','Nicaragua'],['NE','Niger'],['NG','Nigeria'],['KP','North Korea'],['MK','North Macedonia'],['NO','Norway'],['OM','Oman'],['PK','Pakistan'],['PW','Palau'],['PS','Palestine'],['PA','Panama'],['PG','Papua New Guinea'],['PY','Paraguay'],['PE','Peru'],['PH','Philippines'],['PL','Poland'],['PT','Portugal'],['PR','Puerto Rico'],['QA','Qatar'],['RO','Romania'],['RU','Russia'],['RW','Rwanda'],['KN','Saint Kitts and Nevis'],['LC','Saint Lucia'],['VC','Saint Vincent and the Grenadines'],['WS','Samoa'],['SM','San Marino'],['ST','Sao Tome and Principe'],['SA','Saudi Arabia'],['SN','Senegal'],['RS','Serbia'],['SC','Seychelles'],['SL','Sierra Leone'],['SG','Singapore'],['SK','Slovakia'],['SI','Slovenia'],['SB','Solomon Islands'],['SO','Somalia'],['ZA','South Africa'],['KR','South Korea'],['SS','South Sudan'],['ES','Spain'],['LK','Sri Lanka'],['SD','Sudan'],['SR','Suriname'],['SE','Sweden'],['CH','Switzerland'],['SY','Syria'],['TW','Taiwan'],['TJ','Tajikistan'],['TZ','Tanzania'],['TH','Thailand'],['TL','Timor-Leste'],['TG','Togo'],['TO','Tonga'],['TT','Trinidad and Tobago'],['TN','Tunisia'],['TR','Turkey'],['TM','Turkmenistan'],['TV','Tuvalu'],['UG','Uganda'],['UA','Ukraine'],['AE','United Arab Emirates'],['GB','United Kingdom'],['US','United States'],['UY','Uruguay'],['UZ','Uzbekistan'],['VU','Vanuatu'],['VA','Vatican City'],['VE','Venezuela'],['VN','Vietnam'],['YE','Yemen'],['ZM','Zambia'],['ZW','Zimbabwe']];
 const CUR_LIST=[['USD','US Dollar','US DOLLARS','CENTS'],['EUR','Euro','EUROS','CENTS'],['GBP','Pound Sterling','POUNDS STERLING','PENCE'],['JPY','Japanese Yen','YEN','SEN'],['CNY','Chinese Yuan','YUAN','FEN'],
   ['HKD','Hong Kong Dollar','HONG KONG DOLLARS','CENTS'],['TWD','New Taiwan Dollar','NEW TAIWAN DOLLARS','CENTS'],['KRW','South Korean Won','WON','JEON'],['SGD','Singapore Dollar','SINGAPORE DOLLARS','CENTS'],
   ['THB','Thai Baht','BAHT','SATANG'],['MMK','Myanmar Kyat','KYATS','PYAS'],['MYR','Malaysian Ringgit','RINGGIT','SEN'],['VND','Vietnamese Dong','DONG','XU'],['LAK','Lao Kip','KIP','ATT'],
@@ -7820,10 +7822,10 @@ const PROV_MENU=[
  {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
-const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.be.info','prov.be.amenities','prov.be.policies','prov.be.theme','prov.be.photos','prov.be.pending','prov.be.channels','prov.be.promotions','prov.be.allotment','prov.be.guestCountry','prov.be.reports','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
+const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.be.amenities','prov.be.policies','prov.be.photos','prov.be.pending','prov.be.channels','prov.be.promotions','prov.be.allotment','prov.be.guestCountry','prov.be.reports','prov.be.emailAlerts','prov.be.theme','prov.be.bookButton','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems']]},
- {t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]},
+ {t:'Booking Engine',items:[['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Booking Engine Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports'],['Email Alerts','prov.be.emailAlerts'],['Booking Theme','prov.be.theme'],['Booking Button Code','prov.be.bookButton']]},
  {t:'Connections',items:[['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
  {t:'Billing',items:[['Hotel Billing','prov.billing']]},
  {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amendment Records','prov.amend'],['Amendment Log','prov.log'],['User Logs','prov.userlogs']]},
@@ -8269,7 +8271,7 @@ const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.r
  'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.billing':'receipt','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.log':'history',
  /* Hotel Setup, one subtitle per section, and the rest of the Provider group inside a hotel */
  'hset.profile':'building','hset.tax':'wallet','hset.bd':'clock','hset.floors':'layers','hset.types':'list','hset.rooms':'bed','hset.plan':'grid','hset.rates':'tag','hset.charges':'receipt','hset.pay':'card','hset.companies':'users','hset.allot':'hash','hset.docs':'clip','hset.tiref':'filesearch','hset.terms':'book','hset.mailpol':'check','hset.activate':'spark',
- 'prov.google':'search','prov.be.info':'building','prov.be.amenities':'spark','prov.be.policies':'book','prov.be.theme':'sliders','prov.be.photos':'upload','prov.be.pending':'clip','prov.be.channels':'swap','prov.be.promotions':'tag','prov.be.allotment':'hash','prov.be.guestCountry':'search','prov.be.reports':'chart','prov.stripe':'card','prov.amend':'tools'};
+ 'prov.google':'search','prov.be.amenities':'spark','prov.be.policies':'book','prov.be.photos':'upload','prov.be.pending':'clip','prov.be.channels':'swap','prov.be.promotions':'tag','prov.be.allotment':'hash','prov.be.guestCountry':'search','prov.be.reports':'chart','prov.be.emailAlerts':'mail','prov.be.theme':'sliders','prov.be.bookButton':'clip','prov.stripe':'card','prov.amend':'tools'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;
@@ -8296,7 +8298,7 @@ function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
 const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Stripe payments (this hotel)','prov.stripe']]};
-const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]};
+const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Booking Engine Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports'],['Email Alerts','prov.be.emailAlerts'],['Booking Theme','prov.be.theme'],['Booking Button Code','prov.be.bookButton']]};
 const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};
 function modernShellHTML(){
   const n=notifBadgeCount();
@@ -11916,7 +11918,7 @@ VIEWS['set.rooms']=el=>{const prov=!!(user().provider||user().isProv);
 
 /* ---------- Provider console (2.2, 1.6) ---------- */
 function provLog(a,extra){DB.provLog.unshift({at:Date.now(),user:user().name,hotel:H?H.code:'',a,...(extra||{})});try{ALOG.add(H&&DB.session&&DB.session.inHotel?H.code:'',/^Entered hotel|^Left hotel/.test(a)?'Entered a hotel':'Provider console',a)}catch(e){}}
-function provHotelPicker(){if(provWsOn())return '';return `<label class="sub">Hotel <select id="pvH">${Object.values(DB.hotels).map(h=>opt(h.code,h.code+' – '+h.set.name,H.code)).join('')}</select></label>`}
+function provHotelPicker(){if(provWsOn()||(DB.session&&DB.session.inHotel))return '';return `<label class="sub">Hotel <select id="pvH">${Object.values(DB.hotels).map(h=>opt(h.code,h.code+' – '+h.set.name,H.code)).join('')}</select></label>`}
 function bindPicker(el){const s=$('#pvH',el);if(s)s.onchange=()=>{H=DB.hotels[s.value];DB.session.hotel=s.value;saveDB();renderShell();render()}}
 /* ---------- Provider console > Hotel Billing: one page per hotel for everything the hotel sees under Backend > Billing, plus the subscription period and the people's access ---------- */
 const PBILL_PID={};let PB_TAB='overview';
@@ -13461,11 +13463,12 @@ function saved(msg){try{ulSafety(msg)}catch(e){}saveDB();render();toast(msg||'Sa
 function listEditor(box,{cols,rows,blank,validate,save,orderable,note}){let data=JSON.parse(JSON.stringify(rows));
   const paint=()=>{box.querySelector('.le').innerHTML=`<table class="grid le-t"><tr>${orderable?'<th></th>':''}${cols.map(c=>`<th>${esc(c.h)}</th>`).join('')}<th></th></tr>
     ${data.map((r,i)=>`<tr>${orderable?`<td class="nowrap"><button class="btn sm ghost" data-up="${i}" ${i?'':'disabled'} title="Move up">↑</button><button class="btn sm ghost" data-dn="${i}" ${i<data.length-1?'':'disabled'} title="Move down">↓</button></td>`:''}
-      ${cols.map(c=>`<td>${c.type==='logo'?`<div class="row gap" style="align-items:center">${r[c.k]?`<img src="${r[c.k]}" class="chb chblogo" alt="">`:''}<label class="btn sm ghost">${ic('upload',12)}<input type="file" accept="image/*" data-logoup="${i}" data-logok="${c.k}" hidden></label>${r[c.k]?`<button type="button" class="btn sm ghost" data-logox="${i}" data-logok="${c.k}">Remove</button>`:''}</div>`:c.opts?`<select data-i="${i}" data-k="${c.k}" ${c.fix&&r._fix?'disabled':''}>${(typeof c.opts==='function'?c.opts():c.opts).map(o=>opt(o[0],o[1],r[c.k])).join('')}</select>`:c.type==='check'?`<input type="checkbox" data-i="${i}" data-k="${c.k}" ${r[c.k]?'checked':''}>`:`<input data-i="${i}" data-k="${c.k}" value="${esc(r[c.k]??'')}" ${c.type?`type="${c.type}"`:''} ${(c.ro&&r._old)||(c.fix&&r._fix)?'disabled':''} style="${c.w?'width:'+c.w:''}">`}</td>`).join('')}
+      ${cols.map(c=>`<td>${c.type==='action'?`<button type="button" class="btn sm ghost" data-act="${i}" data-k="${c.k}">${esc(typeof c.label==='function'?c.label(r):(c.label||c.h))}</button>`:c.type==='logo'?`<div class="row gap" style="align-items:center">${r[c.k]?`<img src="${r[c.k]}" class="chb chblogo" alt="">`:''}<label class="btn sm ghost">${ic('upload',12)}<input type="file" accept="image/*" data-logoup="${i}" data-logok="${c.k}" hidden></label>${r[c.k]?`<button type="button" class="btn sm ghost" data-logox="${i}" data-logok="${c.k}">Remove</button>`:''}</div>`:c.opts?`<select data-i="${i}" data-k="${c.k}" ${c.fix&&r._fix?'disabled':''}>${(typeof c.opts==='function'?c.opts():c.opts).map(o=>opt(o[0],o[1],r[c.k])).join('')}</select>`:c.type==='check'?`<input type="checkbox" data-i="${i}" data-k="${c.k}" ${r[c.k]?'checked':''}>`:`<input data-i="${i}" data-k="${c.k}" value="${esc(r[c.k]??'')}" ${c.type?`type="${c.type}"`:''} ${(c.ro&&r._old)||(c.fix&&r._fix)?'disabled':''} style="${c.w?'width:'+c.w:''}">`}</td>`).join('')}
       <td><button class="btn sm ghost" data-del="${i}" title="${r._fix?'This is a global channel. It cannot be deleted.':'Delete'}" ${r._fix?'disabled':''}>${r._fix?'&#128274;':'✕'}</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">Nothing here yet. Press Add.</td></tr>`}</table>`;
     $$('[data-i]',box).forEach(inp=>inp.onchange=()=>{const r=data[+inp.dataset.i],c=cols.find(x=>x.k===inp.dataset.k);r[c.k]=c.type==='check'?inp.checked:c.type==='number'?(inp.value===''?'':+inp.value):inp.value.trim()});
     $$('[data-up]',box).forEach(b=>b.onclick=()=>{const i=+b.dataset.up;[data[i-1],data[i]]=[data[i],data[i-1]];paint()});$$('[data-dn]',box).forEach(b=>b.onclick=()=>{const i=+b.dataset.dn;[data[i+1],data[i]]=[data[i],data[i+1]];paint()});
     $$('[data-del]',box).forEach(b=>b.onclick=()=>{data.splice(+b.dataset.del,1);paint()});
+    $$('[data-act]',box).forEach(b=>b.onclick=()=>{const i=+b.dataset.act,k=b.dataset.k,c=cols.find(x=>x.k===k),r=data[i];if(c.onClick)c.onClick(r,()=>paint())});
     /* a logo column saves at once (like the payment-method logos), it does not wait for the main Save button; a brand new,
        not-yet-saved row has no real record to attach the logo to, so it asks for that first */
     $$('[data-logoup]',box).forEach(inp=>inp.onchange=e=>{const i=+inp.dataset.logoup,k=inp.dataset.logok,c=cols.find(x=>x.k===k),r=data[i],file=e.target.files[0];if(!file)return;
@@ -13495,8 +13498,19 @@ function curSetupPanel(box){const s=H.set,main=s.cur,inUse=c=>allBookings().some
     const wasU=!!s.curUsers,nowU=$('#mcU',box).checked;s.curAllow=[...picked];s.curInfo=info;s.curUsers=nowU;
     if(nowU&&!wasU)H.users.forEach(u=>{if(u.role==='Manager'){u.perms=u.perms||[];if(!u.perms.includes('currency'))u.perms.push('currency')}});
     provLog(`Currencies saved for ${H.code}: ${s.curAllow.join(', ')||'main only'}${nowU?' · users may choose':''}`);saved('Currencies saved')}}
+/* Per-room-type amenities (1HotelRez calls these "Room benefits") - separate from the hotel-level
+   Amenities list: these show on each room's own card, not just the hotel's. */
+/* A free-growable area/location tag (not a fixed platform-wide list the way 1HotelRez's catalog
+   is - Maha is single-hotel scoped, so this is just suggestions, not a managed shared table). */
+const AREA_SUGGESTIONS=['Sukhumvit','Silom','Siam','Pratunam','Khao San Road','Chinatown - Hualamphong','Thonglor','Ekkamai','Ari','Victory Monument','Chiang Mai','Hua Hin','Pattaya','Jomtien Beach','Koh Samui','Phuket Town','Patong Beach','Krabi','Koh Phi Phi','Koh Chang','Ha Noi','Ho Chi Minh City','Da Nang','Hoi An','Nha Trang','Phu Quoc','Siem Reap','Phnom Penh','Vientiane','Yangon'];
+const ROOM_BENEFIT_ITEMS=['free_wifi','flat_screen_tv','air_conditioning','private_bathroom','bathtub','shower','hairdryer','safe_box','minibar','kitchen','kitchenette','refrigerator','coffee_maker','electric_kettle','iron','balcony','terrace','sofa','work_desk','sea_view','beachfront_view','city_view','garden_view','mountain_view','pool_view','river_view','lake_view','soundproofing','daily_housekeeping','bathrobe','slippers','free_toiletries','bidet','sitting_area','dining_area','private_pool','private_jacuzzi','connecting_rooms','wheelchair_accessible','non_smoking','smoking_allowed','pets_allowed','pets_not_allowed','extra_bed_available','clothes_rack','wardrobe','wake_up_service','telephone','alarm_clock','soundproofed_windows','tea_coffee_facilities'];
+function roomBenefitsModal(t){const picked=new Set(t.benefits||[]);
+  const m=modal('Room benefits - '+t.code+' '+t.name,`<div class="curgrid" id="rbGrid">${ROOM_BENEFIT_ITEMS.map(a=>`<label class="curchk ${picked.has(a)?'on':''}"><input type="checkbox" data-rb="${a}" ${picked.has(a)?'checked':''}> ${esc(a.replace(/_/g,' '))}</label>`).join('')}</div>
+   <div class="btns mt"><button class="btn gold" id="rbSave" type="button">Save</button></div>`,{w:640});
+  $$('[data-rb]',m).forEach(x=>x.onchange=()=>{if(x.checked)picked.add(x.dataset.rb);else picked.delete(x.dataset.rb);x.closest('label').classList.toggle('on',x.checked)});
+  $('#rbSave',m).onclick=()=>{if(!provOnly())return;t.benefits=[...picked];provLog(`Room benefits saved for ${H.code} ${t.code}`);saveDB();toast('Room benefits saved');closeModal(m)}}
 const SEC={
- profile(box){const s=H.set,prov=!!(user().provider||user().isProv),E=prov||can('setup'),d=E?'':'disabled';
+ profile(box){const s=H.set,g=s.google,prov=!!(user().provider||user().isProv),E=prov||can('setup'),d=E?'':'disabled';
    box.innerHTML=secHead('1. Hotel profile','Printed on the receipt / tax invoice, registration card, reservation confirmation and reports.')+`<div class="panel pad"><div class="form3">
    ${[['name','Hotel name'],['legal','Legal name (on tax invoice)'],['branch','Branch (e.g. Head Office)']].map(([k,l])=>fld(l,`<input id="p_${k}" value="${esc(s[k]||'')}" ${d}>`)).join('')}
    ${fld('Address',`<input id="p_addr" value="${esc(s.addr||'')}" ${d}>`,'span2')}${fld('Tax ID',`<input id="p_taxId" value="${esc(s.taxId||'')}" ${d}>`)}
@@ -13514,9 +13528,32 @@ const SEC={
      ${fld('Auto-lock after (minutes, 0 = off)',`<input id="p_idle" class="n" inputmode="numeric" value="${s.idleMin==null?15:s.idleMin}" ${d}>`)}
      <label class="sub ulfsw" style="grid-column:1/-1;display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="p_ulf" ${s.ulogFile?'checked':''} ${d} style="margin-top:3px"><span><b>Save a user logs file at Close Day</b><br>One Excel file of that day's User Logs goes to this computer's Downloads folder. Off by default: the full history is already kept in the cloud, and the User Logs page has an Excel button for any dates.</span></label>
     </div></div></div>
+   <div class="panel pad mt"><h3>Direct Booking Engine</h3><p class="sub">Feeds Maha Booking's public catalog. Currency, service and tax come from this same hotel setup above.</p>
+    <label class="f row gap"><input type="checkbox" id="p_gen" ${g.enabled?'checked':''} ${d}> Enable direct booking for this hotel (public catalog)</label>
+    <div class="form3 mt">
+     ${fld('Latitude',`<input id="p_glat" value="${esc(g.lat||'')}" placeholder="13.7367" ${d}>`)}
+     ${fld('Longitude',`<input id="p_glng" value="${esc(g.lng||'')}" placeholder="100.561" ${d}>`)}
+     ${fld('Country code (ISO)',`<input id="p_gcc" value="${esc(g.countryCode||'')}" maxlength="2" placeholder="TH" ${d}>`)}
+     ${fld('Category',`<input id="p_gcat" value="${esc(g.category||'hotel')}" ${d}>`)}
+     ${fld('Area / Location',`<input id="p_garea" list="areaSuggest" value="${esc(g.area||'')}" placeholder="e.g. Sukhumvit, Hua Hin" ${d}><datalist id="areaSuggest">${AREA_SUGGESTIONS.map(a=>`<option value="${esc(a)}">`).join('')}</datalist>`)}
+     ${fld('Booking base URL',`<input id="p_gbase" value="${esc(g.bookBaseUrl||'http://127.0.0.1:8781/book')}" placeholder="https://book.example.com/book" ${d}>`,'span2')}
+     ${fld('Brand shown on landing page',`<input id="p_gbr" value="${esc(g.brand||'Maha Booking')}" ${d}>`,'span2')}
+    </div>
+    <p class="sub">Amenities, cancellation policy and photos are their own subtitles under Booking Engine.</p>
+    ${E?`<div class="btns"><button class="btn gold" id="pgS" type="button">Save</button>
+     <button class="btn ghost" id="pgOpen" type="button">Preview booking page (real, live)</button>
+     <button class="btn ghost" id="pgMock" type="button">Preview on Google (mockup)</button></div>`:''}</div>
    ${prov&&MahaAuth.on()?'<div class="mt" id="chBox"></div>':''}
    ${E?'<div class="btns"><button class="btn gold" id="pS">Save</button></div>':''}</div>`;
    if($('#chBox',box))chainBlock($('#chBox',box));
+   if($('#pgS',box))$('#pgS',box).onclick=()=>{if(prov){if(!provOnly())return}else if(!need('setup'))return;
+    const en=$('#p_gen',box).checked,lat=$('#p_glat',box).value.trim(),lng=$('#p_glng',box).value.trim(),cc=$('#p_gcc',box).value.trim().toUpperCase();
+    if(en&&(!lat||!lng||!/^[A-Z]{2}$/.test(cc)||!g.cancelPolicy)){toast('When booking is enabled, latitude, longitude, country code and a cancellation policy (Policies & Notices) are required.');return}
+    Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:$('#p_gcat',box).value.trim()||'hotel',area:$('#p_garea',box).value.trim(),bookBaseUrl:$('#p_gbase',box).value.trim(),brand:$('#p_gbr',box).value.trim()||'Maha Booking'});
+    if(prov)provLog(`Direct Booking Engine property info saved for ${H.code}`);
+    saved()};
+   if($('#pgOpen',box))$('#pgOpen',box).onclick=()=>{const base=($('#p_gbase',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')};
+   if($('#pgMock',box))$('#pgMock',box).onclick=()=>googleMockupPreview(H);
    if(E){$('#pS',box).onclick=()=>{if(prov){if(!provOnly())return}else if(!need('setup'))return;
     Object.assign(s,{name:$('#p_name',box).value.trim()||s.name,legal:$('#p_legal',box).value.trim(),branch:$('#p_branch',box).value.trim(),addr:$('#p_addr',box).value.trim(),taxId:$('#p_taxId',box).value.trim(),phone:$('#p_phone',box).value.trim(),fax:$('#p_fax',box).value.trim(),email:$('#p_email',box).value.trim(),web:$('#p_web',box).value.trim(),country:$('#p_country',box).value.trim(),nat:$('#p_nat',box).value.trim(),checkIn:$('#p_ci',box).value.trim(),checkOut:$('#p_co',box).value.trim(),tz:$('#p_tz',box).value||'Asia/Bangkok',formCode:$('#p_rc',box).value.trim(),building:$('#p_bl',box).value.trim(),bfAdult:r2(+String($('#p_bf',box).value).replace(/,/g,'')),idleMin:Math.max(0,+$('#p_idle',box).value||0)});
     const rb=H.rateCodes.find(r=>r.meal==='ABF');if(rb)rb.bfAdult=s.bfAdult;
@@ -13547,7 +13584,9 @@ const SEC={
  types(box){box.innerHTML=secHead('5. Room types','Short code (shown on the floor plan, reports and forecast), full name, maximum guests and the <b>total rooms</b> of this type (allotment). In section 6 the rooms you list must add up to this total for every room type. Room types have no standard rate: the rate is agreed with the guest and typed on each reservation. The photo shows on this room type\'s card in the Booking Engine.');
    listEditor(box,{orderable:true,rows:H.roomTypes.filter(t=>!t.dummy).map(t=>({...t,_old:true})),cols:[{k:'code',h:'Short code',ro:true,w:'90px'},{k:'name',h:'Name'},{k:'max',h:'Max guests',type:'number',w:'90px'},{k:'allot',h:'Total rooms (allotment)',type:'number',w:'150px'},{k:'photo',h:'Photo',type:'logo',
       onUpload:(r,url)=>{const t=H.roomTypes.find(x=>x.code===r.code);if(!t){toast('Save this row first, then add its photo.');return false}t.photo=url;log('Photo added for room type '+t.code);saveDB();toast('Photo added');return true},
-      onRemove:r=>{const t=H.roomTypes.find(x=>x.code===r.code);if(!t)return;delete t.photo;log('Photo removed for room type '+t.code);saveDB()}}],
+      onRemove:r=>{const t=H.roomTypes.find(x=>x.code===r.code);if(!t)return;delete t.photo;log('Photo removed for room type '+t.code);saveDB()}},
+     {k:'benefits',h:'Benefits',type:'action',label:r=>(r.benefits&&r.benefits.length)?r.benefits.length+' set':'Set benefits',
+      onClick:r=>{const t=H.roomTypes.find(x=>x.code===r.code);if(!t){toast('Save this row first, then set its benefits.');return}roomBenefitsModal(t)}}],
     blank:()=>({code:'',name:'',max:2,allot:0}),
     validate:d=>{if(d.some(t=>!t.code||!t.name))return 'Every room type needs a short code and a name.';if(d.some(t=>!/^[A-Z0-9]{2,8}$/.test(String(t.code).toUpperCase())))return 'Short code: 2 to 8 letters or numbers.';if(new Set(d.map(t=>String(t.code).toUpperCase())).size!==d.length)return 'Short codes must be different.';
       const gone=H.rooms.filter(r=>!r.dummy&&!d.some(t=>String(t.code).toUpperCase()===r.type));return gone.length?`Rooms still use ${[...new Set(gone.map(r=>r.type))].join(', ')}. Change those rooms first.`:''},
@@ -13566,11 +13605,11 @@ const SEC={
      let n=0;for(let x=f;x<=t;x++){const no=String(x);if(H.rooms.some(r=>r.no===no))continue;H.rooms.push({no,type:ty,floor:fl,hk:'clean',ooo:null});n++}
      if(H.floors&&H.floors.length&&!H.floors.some(z=>z.id===fl))H.floors.push({id:fl,name:'Floor '+fl,order:H.floors.length+1});provLog(`Added ${n} rooms to ${H.code}`);saved(`${n} room(s) added`)}},
  plan(box){floorPlanEditor(box)},
- rates(box){box.innerHTML=secHead('8. Rate codes','Rules: % on the base rate, fixed amount on the base rate, or zero (Complimentary is always 0; House use may be 0).');
-   listEditor(box,{rows:H.rateCodes.map(r=>({...r,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'desc',h:'Description'},{k:'kind',h:'Rule',opts:[['pct','% on base'],['amt','+ amount on base'],['zero','Zero rate']]},{k:'v',h:'Value',type:'number',w:'90px'},{k:'meal',h:'Meal',w:'70px'},{k:'bfAdult',h:'Breakfast adult',type:'number',w:'110px'},{k:'bfChild',h:'Breakfast child',type:'number',w:'110px'},{k:'comp',h:'Zero type',opts:[['','—'],['COMP','Complimentary'],['HOUSE','House use']]},{k:'valid',h:'Valid from',type:'date'},{k:'until',h:'Until',type:'date'}],
-    blank:()=>({code:'',desc:'',kind:'pct',v:0,meal:'',comp:'',valid:H.set.bd,until:'2050-12-31'}),
+ rates(box){box.innerHTML=secHead('8. Rate codes','Rules: % on the base rate, fixed amount on the base rate, or zero (Complimentary is always 0; House use may be 0). B2C rate codes are the ones the Booking Engine can sell to a direct guest; B2B stays internal (travel agents, wholesalers) and never shows on the public booking page.');
+   listEditor(box,{rows:H.rateCodes.map(r=>({...r,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'desc',h:'Description'},{k:'kind',h:'Rule',opts:[['pct','% on base'],['amt','+ amount on base'],['zero','Zero rate']]},{k:'v',h:'Value',type:'number',w:'90px'},{k:'channelScope',h:'B2C / B2B',opts:[['b2c','B2C (direct guest)'],['b2b','B2B (agent / wholesale)']],w:'150px'},{k:'meal',h:'Meal',w:'70px'},{k:'bfAdult',h:'Breakfast adult',type:'number',w:'110px'},{k:'bfChild',h:'Breakfast child',type:'number',w:'110px'},{k:'comp',h:'Zero type',opts:[['','—'],['COMP','Complimentary'],['HOUSE','House use']]},{k:'valid',h:'Valid from',type:'date'},{k:'until',h:'Until',type:'date'}],
+    blank:()=>({code:'',desc:'',kind:'pct',v:0,channelScope:'b2c',meal:'',comp:'',valid:H.set.bd,until:'2050-12-31'}),
     validate:d=>{if(d.some(r=>!r.code||!r.desc))return 'Every rate code needs a code and a description.';if(new Set(d.map(r=>String(r.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(r=>r.kind==='zero'&&!r.comp))return 'A zero rate must be Complimentary or House use.';if(d.some(r=>r.kind!=='zero'&&r.comp))return 'Only zero-rate codes can be Complimentary or House use.';if(!d.some(r=>r.kind!=='zero'))return 'Keep at least one paid rate code.';return ''},
-    save:d=>{const prev={};H.rateCodes.forEach(r=>prev[r.code]=r);H.rateCodes=d.map(r=>{const code=String(r.code).toUpperCase(),o=prev[code]||{};return {code,desc:r.desc,kind:r.kind,v:+r.v||0,meal:r.meal||'',comp:r.comp||undefined,valid:r.valid,until:r.until,bfAdult:(r.bfAdult===''||r.bfAdult==null)?o.bfAdult:Math.max(0,+r.bfAdult||0),bfChild:(r.bfChild===''||r.bfChild==null)?(o.bfChild||0):Math.max(0,+r.bfChild||0)}});provLog(`Rate codes saved for ${H.code}`);saved()}})},
+    save:d=>{const prev={};H.rateCodes.forEach(r=>prev[r.code]=r);H.rateCodes=d.map(r=>{const code=String(r.code).toUpperCase(),o=prev[code]||{};return {code,desc:r.desc,kind:r.kind,v:+r.v||0,channelScope:r.channelScope==='b2b'?'b2b':'b2c',meal:r.meal||'',comp:r.comp||undefined,valid:r.valid,until:r.until,bfAdult:(r.bfAdult===''||r.bfAdult==null)?o.bfAdult:Math.max(0,+r.bfAdult||0),bfChild:(r.bfChild===''||r.bfChild==null)?(o.bfChild||0):Math.max(0,+r.bfChild||0)}});provLog(`Rate codes saved for ${H.code}`);saved()}})},
  charges(box){shapeHotel(H);const own=new Set(_extraApplied.map(c=>c.code));const list=TCODES.filter(c=>c.type==='c'&&!c.rel);
    box.innerHTML=secHead('9. Charge codes','Only the provider can open or close VAT for each post, and only for this hotel. Staff see VAT or Non-VAT when they post and cannot change it. A new post uses the button you set. Lines already on a folio keep the tax they were posted with.')+`<div class="panel scroll"><table class="grid"><tr><th>Code</th><th>Description</th><th>Tab</th><th>Where</th><th>VAT</th></tr>${list.map(c=>{const on=chargeVat(c);return `<tr><td>${c.code}</td><td>${esc(c.desc)}</td><td>${esc(c.tab||'')}</td><td>${own.has(c.code)?'This hotel':'Standard'}</td><td><button type="button" class="tog sm ${on?'on':''}" data-vat="${esc(c.code)}">${on?'VAT':'Non-VAT'}</button></td></tr>`}).join('')}</table></div><h3 class="mt">This hotel's own codes</h3><p class="sub">Add a code, save, then set VAT or Non-VAT with the button in the list above. It appears in the New Item Folio tab you choose.</p>`;
    listEditor(box,{rows:(H.extraCodes||[]).map(c=>({...c,_old:true})),cols:[{k:'code',h:'Code',ro:true,w:'80px'},{k:'desc',h:'Description'},{k:'tab',h:'Tab',opts:POST_TABS.map(t=>[t,t])}],
@@ -13684,139 +13723,253 @@ const SEC={
 /* Direct Booking Engine: not one crowded page any more - a real subtitle per job (same pattern as Hotel Setup's
    own hset.* pages), the way 1HotelRez's own Set Up menu splits Property information / Amenities / Policies /
    Theme apart. Every subtitle shares the one H.set.google record; saving one never blanks another's fields. */
-const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings'],['photos','5','Photos'],['pending','6','Pending Bookings'],['channels','7','Channel Rates'],['promotions','8','Promotions & Discount Codes'],['allotment','9','Central Allotment'],['guestCountry','10','Guest Country Set Up'],['reports','11','Reports']];
+const BE_SECTIONS=[['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['pending','4','Booking Engine Bookings'],['channels','5','Channel Rates'],['promotions','6','Promotions & Discount Codes'],['allotment','7','Central Allotment'],['guestCountry','8','Guest Country Set Up'],['reports','9','Reports'],['emailAlerts','10','Email Alerts'],['theme','11','Booking Theme'],['bookButton','12','Booking Button Code']];
+const THEME_SWATCHES=[['primary','Primary (buttons, headings)','#184d3a'],['accent','Accent (highlights)','#c4a35a'],['bg','Page background','#f3efe6'],['text','Text','#0e241c']];
+const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest departure'],['abandonment','On booking abandonment'],['birthday','On guest birthday']];
 const BE={
- info(box){const s=H.set,g=s.google;
-  box.innerHTML=secHead('1. Property Information','What Maha Booking (and, later, Google Hotel List matching) shows about this property. Maha is <b>not</b> a Google Connectivity Partner yet - this does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
-   <label class="f row gap"><input type="checkbox" id="g_en" ${g.enabled?'checked':''}> Enable direct booking for this hotel (public catalog)</label>
-   <div class="form3 mt">
-    ${fld('Latitude',`<input id="g_lat" value="${esc(g.lat||'')}" placeholder="13.7367">`)}
-    ${fld('Longitude',`<input id="g_lng" value="${esc(g.lng||'')}" placeholder="100.561">`)}
-    ${fld('Country code (ISO)',`<input id="g_cc" value="${esc(g.countryCode||'')}" maxlength="2" placeholder="TH">`)}
-    ${fld('Category',`<input id="g_cat" value="${esc(g.category||'hotel')}">`)}
-    ${fld('Booking base URL',`<input id="g_base" value="${esc(g.bookBaseUrl||'http://127.0.0.1:8781/book')}" placeholder="https://book.example.com/book">`,'span2')}
-   </div>
-   <p class="sub">Currency, service and tax come from this hotel's own setup, not from here. Amenities, cancellation policy and branding are their own subtitles.</p>
-   <div class="btns"><button class="btn gold" id="gS">Save</button>
-    <button class="btn ghost" id="gOpen" type="button">Preview booking page (real, live)</button>
-    <button class="btn ghost" id="gMock" type="button">Preview on Google (mockup)</button></div></div>`;
-  $('#gS',box).onclick=()=>{if(!provOnly())return;const en=$('#g_en',box).checked;const lat=$('#g_lat',box).value.trim(),lng=$('#g_lng',box).value.trim(),cc=$('#g_cc',box).value.trim().toUpperCase();
-    if(en&&(!lat||!lng||!/^[A-Z]{2}$/.test(cc)||!g.cancelPolicy)){toast('When booking is enabled, latitude, longitude, country code and a cancellation policy (Policies & Notices) are required.');return}
-    Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:$('#g_cat',box).value.trim()||'hotel',bookBaseUrl:$('#g_base',box).value.trim()});
-    provLog(`Direct Booking Engine property info saved for ${H.code}`);saved()};
-  $('#gOpen',box).onclick=()=>{const base=($('#g_base',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')};
-  $('#gMock',box).onclick=()=>googleMockupPreview(H)},
  amenities(box){const g=H.set.google;
   /* grouped the way a real booking engine (1HotelRez) sets amenities up - Hotel Facilities, then Sports and
      Recreation, each its own heading - not one long alphabetical list */
   const AMEN_GROUPS=[
    {t:'Hotel Facilities',items:['wifi','front_desk','breakfast','restaurant','bar','coffee_shop','poolside_bar','rooftop_bar','room_service','business_center','meeting_room','executive_floor','elevator','air_conditioning','heating','family_rooms','non_smoking_rooms','smoking_room','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kitchen','balcony','tour_desk','atm','bbq','accessible_facilities','babysitting','bicycle_rental','casino','nightclub','pet_friendly','airport_shuttle','safety_deposit_boxes','salon','shops','valet_parking','parking']},
-   {t:'Sports and Recreation',items:['outdoor_pool','indoor_pool','pool_kids','spa','fitness','sauna','steamroom','kids_club','beachfront','garden','golf_course','jacuzzi','massage','squash_courts','tennis_courts','water_sports_motorized','water_sports_non_motorized']}];
-  box.innerHTML=secHead('2. Amenities','Shown to the guest on the Maha Booking page, grouped the same way here as there.')+`<div class="panel pad">
+   {t:'Sports and Recreation',items:['outdoor_pool','indoor_pool','pool_kids','spa','fitness','sauna','steamroom','kids_club','beachfront','private_beach','garden','golf_course','jacuzzi','massage','squash_courts','tennis_courts','water_sports_motorized','water_sports_non_motorized']}];
+  box.innerHTML=secHead('1. Amenities','Shown to the guest on the Maha Booking page, grouped the same way here as there.')+`<div class="panel pad">
    <div id="g_am">${AMEN_GROUPS.map(gr=>`<h4 class="mt">${esc(gr.t)}</h4><div class="curgrid">${gr.items.map(a=>`<label class="curchk ${(g.amenities||[]).includes(a)?'on':''}"><input type="checkbox" data-am="${a}" ${(g.amenities||[]).includes(a)?'checked':''}> ${esc(a.replace(/_/g,' ').replace('pool kids','pool (kids)').replace('golf course','golf course (on site)'))}</label>`).join('')}</div>`).join('')}</div>
    <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
   $$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));
   $('#gS',box).onclick=()=>{if(!provOnly())return;g.amenities=$$('[data-am]',box).filter(x=>x.checked).map(x=>x.dataset.am);provLog(`Direct Booking Engine amenities saved for ${H.code}`);saved()}},
  policies(box){const g=H.set.google;
-  box.innerHTML=secHead('3. Policies & Notices','The cancellation policy is required before direct booking can be switched on (Property Information).')+`<div class="panel pad">
-   ${fld('Cancellation policy (required when booking is enabled)',`<textarea id="g_cx" rows="4">${esc(g.cancelPolicy||'')}</textarea>`,'span2')}
-   ${fld('Important notice (optional - shown to every guest before they book)',`<textarea id="g_notice" rows="3">${esc(g.importantNotice||'')}</textarea>`,'span2')}
-   <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
-  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicy=$('#g_cx',box).value.trim();g.importantNotice=$('#g_notice',box).value.trim();provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
- theme(box){const g=H.set.google;
-  box.innerHTML=secHead('4. Booking Theme & Settings','How the booking page introduces itself to the guest.')+`<div class="panel pad"><div class="form2">
-   ${fld('Brand shown on landing page',`<input id="g_br" value="${esc(g.brand||'Maha Booking')}">`)}
-   ${fld('Public photo URL (optional)',`<input id="g_ph" value="${esc(g.photoUrl||'')}">`)}
-   </div>
-   <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
-  $('#gS',box).onclick=()=>{if(!provOnly())return;g.brand=$('#g_br',box).value.trim()||'Maha Booking';g.photoUrl=$('#g_ph',box).value.trim();provLog(`Direct Booking Engine theme saved for ${H.code}`);saved()}},
- photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];
-  box.innerHTML=secHead('5. Photos','The hero on the Booking Engine rotates through the cover photos below. The hotel logo is not set here - it follows Hotel Setup automatically.')+`<div class="panel pad">
-   <h3 style="margin-top:0">Hotel logo</h3>
-   <p class="sub">Synced automatically from Hotel Setup → Hotel profile - nothing to upload here.</p>
-   ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:'<p class="sub">No logo set yet.</p>'}
-   <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goLogo">Open Hotel profile</button></div>
-   <h3 class="mt">Cover photos (hero, up to 8)</h3>
-   <p class="sub">Big, horizontal photos work best. The Booking Engine hero fades between all of them.</p>
-   <div class="curgrid" id="g_covers">${covers.map((url,i)=>`<div class="curchk" style="flex-direction:column;align-items:stretch;gap:6px"><img src="${url}" alt="" style="width:100%;height:90px;object-fit:cover;border-radius:4px"><button type="button" class="btn sm ghost" data-covx="${i}">Remove</button></div>`).join('')}</div>
-   <div class="btns mt" style="justify-content:flex-start">${covers.length<8?`<label class="btn ghost">${ic('upload',14)} Add cover photo<input id="g_covup" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>`:'<p class="sub">8 cover photos is the most. Remove one to add another.</p>'}</div>
-   <h3 class="mt">Room type photos</h3>
-   <p class="sub">One photo per room type, shown on its rate card. Set under Hotel Setup → Room types.</p>
-   <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goTypes">Open Room types</button></div></div>`;
-  $('#goLogo',box).onclick=()=>go('hset.profile');
-  $('#goTypes',box).onclick=()=>go('hset.types');
-  $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
-  if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;const file=e.target.files[0];if(!file)return;if(file.size>3e6){toast('Choose an image under 3 MB.');return}
-    const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,1600/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-      covers.push(cv.toDataURL('image/jpeg',0.82));g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)}},
- pending(box){box.innerHTML=secHead('6. Pending Bookings','Guests who booked through Maha Booking (Direct), waiting for this hotel to confirm. Confirming creates the real reservation here - nothing is written automatically, and a sold-out room was already refused before it ever reached this list.')+'<div class="panel pad" id="pbBox"><p class="sub">Loading...</p></div>';
+  const cancelLines=Array.isArray(g.cancelPolicyLines)?g.cancelPolicyLines.slice():(g.cancelPolicy?[g.cancelPolicy]:[]);
+  const noticeLines=Array.isArray(g.importantNoticeLines)?g.importantNoticeLines.slice():(g.importantNotice?[g.importantNotice]:[]);
+  const bullets=(id,lines)=>`<ul class="btns" style="display:block;list-style:none;padding:0;margin:4px 0" id="${id}List">${lines.map((t,i)=>`<li style="display:flex;align-items:center;gap:8px;padding:4px 0">• <span style="flex:1">${esc(t)}</span><button type="button" class="btn sm ghost" data-rmline="${id}:${i}">✕</button></li>`).join('')||'<li class="sub">Nothing added yet.</li>'}</ul>
+   <div class="row gap"><input id="${id}In" placeholder="Type a line, then Add" style="flex:1"><button type="button" class="btn ghost" data-addline="${id}">Add</button></div>`;
+  const dep=g.depositPolicy=g.depositPolicy||{kind:'none',value:0};
+  box.innerHTML=secHead('2. Policies & Notices','The cancellation policy is required before direct booking can be switched on (Hotel Setup → Hotel profile). Each line you add shows as its own bullet point on the booking page.')+`<div class="panel pad">
+   <h3 style="margin-top:0">Cancellation policy (required when booking is enabled)</h3>${bullets('g_cx',cancelLines)}
+   <h3 class="mt">Important notice (optional - shown to every guest before they book)</h3>${bullets('g_notice',noticeLines)}
+   <h3 class="mt">Deposit / Payment policy</h3>
+   <p class="sub">Maha does not collect payment yet - this is shown to the guest as a notice, the hotel still collects it separately.</p>
+   <div class="form3"><div class="f"><label>Deposit</label><select id="g_depk">${[['none','No deposit required'],['pct','% of total at booking'],['amt','Fixed amount at booking']].map(o=>opt(o[0],o[1],dep.kind)).join('')}</select></div>
+   ${fld('Value',`<input type="number" id="g_depv" value="${dep.value||0}" ${dep.kind==='none'?'disabled':''}>`)}</div>
+   <div class="btns mt"><button class="btn gold" id="gS">Save</button></div></div>`;
+  const addLine=(id,lines)=>{const inp=$('#'+id+'In',box),v=inp.value.trim();if(!v)return;lines.push(v);inp.value='';redraw()};
+  const redraw=()=>{$('#g_cxList',box).outerHTML=bullets('g_cx',cancelLines).match(/<ul[\s\S]*?<\/ul>/)[0];$('#g_noticeList',box).outerHTML=bullets('g_notice',noticeLines).match(/<ul[\s\S]*?<\/ul>/)[0];bind()};
+  const bind=()=>{$$('[data-addline]',box).forEach(b=>b.onclick=()=>addLine(b.dataset.addline,b.dataset.addline==='g_cx'?cancelLines:noticeLines));
+   $$('[data-rmline]',box).forEach(b=>b.onclick=()=>{const[id,i]=b.dataset.rmline.split(':');(id==='g_cx'?cancelLines:noticeLines).splice(+i,1);redraw()})};
+  bind();
+  $('#g_depk',box).onchange=()=>{$('#g_depv',box).disabled=$('#g_depk',box).value==='none'};
+  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\n');
+    g.depositPolicy={kind:$('#g_depk',box).value,value:+$('#g_depv',box).value||0};
+    provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
+ photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];let managing=null;
+  const readImg=(file,maxpx,cb)=>{if(file.size>3e6){toast('Choose an image under 3 MB.');return}
+   const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,maxpx/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);cb(cv.toDataURL('image/jpeg',0.82))};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)};
+  const roomPhotos=t=>{if(!Array.isArray(t.photos))t.photos=t.photo?[{url:t.photo,name:'Photo 1',order:1,enabled:true}]:[];return t.photos};
+  const paintManage=()=>{const t=managing,ph=roomPhotos(t).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+   box.innerHTML=secHead('Room photos - '+t.code+' '+t.name,'Click + to add a photo. Order controls which shows first on the rate card; disabled photos never show to guests. Click Save when you are done.')+`<div class="panel pad">
+    <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="rpBack">← Back to Photos</button></div>
+    <div class="curgrid mt" id="rpGrid">${ph.map((p,i)=>`<div class="curchk" style="flex-direction:column;align-items:stretch;gap:6px"><img src="${p.url}" alt="" style="width:100%;height:110px;object-fit:cover;border-radius:4px;opacity:${p.enabled===false?0.4:1}">
+      <div class="row gap" style="align-items:center"><label class="sub" style="white-space:nowrap">Order</label><input type="number" min="1" value="${p.order||i+1}" data-rpord="${i}" style="width:60px"></div>
+      <label class="chk"><input type="checkbox" data-rpen="${i}" ${p.enabled===false?'':'checked'}> Enabled</label>
+      <button type="button" class="btn sm ghost" data-rpdel="${i}">Delete</button></div>`).join('')}
+     <label class="curchk" style="align-items:center;justify-content:center;min-height:110px;cursor:pointer;font-size:28px;color:var(--mut)">+<input id="rpAdd" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div>
+    <div class="btns mt"><button class="btn gold" id="rpSave">Save</button></div></div>`;
+   $('#rpBack',box).onclick=()=>{managing=null;paintMain()};
+   $$('[data-rpord]',box).forEach(inp=>inp.onchange=()=>{ph[+inp.dataset.rpord].order=Math.max(1,Math.floor(+inp.value||1))});
+   $$('[data-rpen]',box).forEach(inp=>inp.onchange=()=>{ph[+inp.dataset.rpen].enabled=inp.checked});
+   $$('[data-rpdel]',box).forEach(b=>b.onclick=()=>{ph.splice(+b.dataset.rpdel,1);t.photos=ph;paintManage()});
+   $('#rpAdd',box).onchange=e=>{const files=[...e.target.files];if(!files.length)return;let left=files.length;
+    files.forEach(f=>readImg(f,1600,url=>{ph.push({url,name:'Photo '+(ph.length+1),order:ph.length+1,enabled:true});if(!--left){t.photos=ph;paintManage()}}))};
+   $('#rpSave',box).onclick=()=>{if(!provOnly())return;t.photos=ph;provLog(`Room photos saved for ${H.code} ${t.code}`);saveDB();toast('Room photos saved');managing=null;paintMain()}};
+  const paintMain=()=>{
+   box.innerHTML=secHead('3. Photos','The hero on the Booking Engine rotates through the cover photos below. The hotel logo is not set here - it follows Hotel Setup automatically.')+`<div class="panel pad">
+    <h3 style="margin-top:0">Hotel logo</h3>
+    <p class="sub">Synced automatically from Hotel Setup → Hotel profile - nothing to upload here.</p>
+    ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:'<p class="sub">No logo set yet.</p>'}
+    <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goLogo">Open Hotel profile</button></div>
+    <h3 class="mt">Cover photos (hero)</h3>
+    <p class="sub">Big, horizontal photos work best. The Booking Engine hero fades between all of them.</p>
+    <div class="curgrid" id="g_covers">${covers.map((url,i)=>`<div class="curchk" style="flex-direction:column;align-items:stretch;gap:6px"><img src="${url}" alt="" style="width:100%;height:90px;object-fit:cover;border-radius:4px"><button type="button" class="btn sm ghost" data-covx="${i}">Remove</button></div>`).join('')}</div>
+    <div class="btns mt" style="justify-content:flex-start">${covers.length<8?`<label class="btn ghost">${ic('upload',14)} Add cover photo<input id="g_covup" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>`:'<p class="sub">8 cover photos is the most. Remove one to add another.</p>'}</div>
+    <h3 class="mt">Room type photos</h3>
+    <p class="sub">Click a room type to add, order, enable/disable or delete its photos - no limit on how many.</p>
+    <table class="grid"><tr><th>Room type</th><th>Photos</th><th></th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${roomPhotos(t).length}</td><td><button type="button" class="btn sm ghost" data-rpopen="${esc(t.code)}">Manage</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table></div>`;
+   $('#goLogo',box).onclick=()=>go('hset.profile');
+   $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
+   if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;const file=e.target.files[0];if(!file)return;
+     readImg(file,1600,url=>{covers.push(url);g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')})};
+   $$('[data-rpopen]',box).forEach(b=>b.onclick=()=>{managing=H.roomTypes.find(x=>x.code===b.dataset.rpopen);if(managing)paintManage()})};
+  paintMain()},
+ pending(box){box.innerHTML=secHead('4. Booking Engine Bookings','Guests booking through Maha Booking (Direct) are confirmed instantly - no staff step. The moment this page opens, any request not yet turned into a reservation here is materialised automatically; a sold-out room is refused before it ever reaches this list.')+'<div class="panel pad" id="pbBox"><p class="sub">Loading...</p></div>';
   const listBox=$('#pbBox',box);
   const draw=async()=>{
     let ctx;try{ctx=await provBillCtx(H)}catch(e){listBox.innerHTML='<p class="sub">'+esc(e.message)+'</p>';return}
-    let rows=[];try{rows=await ctx.call('maha_booking_requests?select=*&property_id=eq.'+ctx.pid+'&status=eq.pending&order=created_at.desc')}catch(e){listBox.innerHTML='<div class="err">'+esc(e.message)+'</div>';return}
+    let rows=[];try{rows=await ctx.call('maha_booking_requests?select=*&property_id=eq.'+ctx.pid+'&status=neq.declined&order=created_at.desc&limit=100')}catch(e){listBox.innerHTML='<div class="err">'+esc(e.message)+'</div>';return}
     if(!listBox.isConnected)return;
-    listBox.innerHTML=rows.length?`<table class="grid"><tr><th>Received</th><th>Guest</th><th>Room</th><th>Dates</th><th>Pax</th><th class="n">Amount</th><th></th></tr>${rows.map(r=>`<tr><td>${fdt(r.created_at)}</td><td>${esc(r.guest_name)}<br><small>${esc(r.guest_email)}</small></td><td>${esc(r.room_type)} · ${esc(r.rate_code)}</td><td>${fd(r.arr)} – ${fd(r.dep)}</td><td>${r.adults}A${r.children?('+'+r.children+'C'):''}</td><td class="n">${esc(r.currency)} ${m2(r.amount)}</td><td class="nowrap"><button class="btn sm gold" data-pbc="${r.id}">Confirm</button> <button class="btn sm red" data-pbd="${r.id}">Decline</button></td></tr>`).join('')}</table>`:'<p class="sub">Nothing pending.</p>';
-    $$('[data-pbc]',listBox).forEach(b=>b.onclick=async()=>{const row=rows.find(x=>x.id===b.dataset.pbc);if(!row||!provOnly())return;b.disabled=true;
-      try{const nr=confirmBookingRequest(row);
+    const todo=rows.filter(r=>!r.confirmed_reservation_no);
+    for(const row of todo){try{const nr=confirmBookingRequest(row);
         await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:row.id,p_confirm:true,p_reservation_no:String(nr.no)})});
-        provLog(`Maha Booking request confirmed as reservation ${nr.no} for ${H.code}`);toast('Confirmed as reservation '+nr.no);draw()}
-      catch(e){toast('Could not confirm: '+e.message);b.disabled=false}});
-    $$('[data-pbd]',listBox).forEach(b=>b.onclick=async()=>{if(!provOnly())return;if(!await dlgConfirm('Decline this booking request? The guest is not notified automatically.'))return;b.disabled=true;
-      try{await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:b.dataset.pbd,p_confirm:false,p_reservation_no:null})});provLog(`Maha Booking request declined for ${H.code}`);toast('Declined');draw()}
-      catch(e){toast('Could not decline: '+e.message);b.disabled=false}});
+        row.confirmed_reservation_no=String(nr.no);
+        provLog(`Maha Booking request auto-confirmed as reservation ${nr.no} for ${H.code}`)}
+      catch(e){/* leave it for the next time this page opens, or for a manual Cancel below */}}
+    if(!listBox.isConnected)return;
+    if(todo.some(r=>r.confirmed_reservation_no))toast(todo.length===1?'1 booking confirmed just now.':todo.filter(r=>r.confirmed_reservation_no).length+' bookings confirmed just now.');
+    listBox.innerHTML=rows.length?`<table class="grid"><tr><th>Received</th><th>Guest</th><th>Room</th><th>Dates</th><th>Pax</th><th class="n">Amount</th><th>Reservation</th><th></th></tr>${rows.map(r=>`<tr><td>${fdt(r.created_at)}</td><td>${esc(r.guest_name)}<br><small>${esc(r.guest_email)}</small></td><td>${esc(r.room_type)} · ${esc(r.rate_code)}</td><td>${fd(r.arr)} – ${fd(r.dep)}</td><td>${r.adults}A${r.children?('+'+r.children+'C'):''}</td><td class="n">${esc(r.currency)} ${m2(r.amount)}</td><td>${r.confirmed_reservation_no?('#'+esc(r.confirmed_reservation_no)):'<span class="sub">Pending...</span>'}</td><td class="nowrap">${r.confirmed_reservation_no?'':'<button class="btn sm red" data-pbd="'+r.id+'">Cancel</button>'}</td></tr>`).join('')}</table>`:'<p class="sub">No Booking Engine requests yet.</p>';
+    $$('[data-pbd]',listBox).forEach(b=>b.onclick=async()=>{if(!provOnly())return;if(!await dlgConfirm('Cancel this booking request before it is confirmed? The guest is not notified automatically.'))return;b.disabled=true;
+      try{await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:b.dataset.pbd,p_confirm:false,p_reservation_no:null})});provLog(`Maha Booking request cancelled for ${H.code}`);toast('Cancelled');draw()}
+      catch(e){toast('Could not cancel: '+e.message);b.disabled=false}});
   };
   draw()},
  channels(box){const g=H.set.google;if(!Array.isArray(g.channels)||!g.channels.length)g.channels=[{key:'direct',label:'Booking Engine (direct)',kind:'markup',value:10}];
-  box.innerHTML=secHead('7. Channel Rates','One Rack Rate (your Rate codes) drives every channel. Booking Engine marks it up by a %. Every OTA is grossed up by its own commission %, so the hotel always nets exactly the Rack Rate whichever channel books it. Add a row per OTA.')+'<div id="chRatesBox"></div>';
-  listEditor($('#chRatesBox',box),{rows:g.channels.map(c=>({...c,_old:true,_fix:c.key==='direct'})),cols:[{k:'label',h:'Channel',fix:true},{k:'kind',h:'Type',fix:true,opts:[['markup','Markup over Rack (direct)'],['commission','OTA commission (grossed up)']]},{k:'value',h:'% ',type:'number',w:'90px'}],
-   blank:()=>({key:'ota'+uid(),label:'',kind:'commission',value:15}),
-   validate:d=>{if(d.some(c=>!c.label))return 'Every channel needs a name.';if(d.some(c=>+c.value<0||+c.value>=100))return 'Percent must be from 0 to below 100.';if(!d.some(c=>c.key==='direct'))return 'The direct Booking Engine channel cannot be removed.';return ''},
-   save:d=>{g.channels=d.map(c=>({key:c.key,label:c.label,kind:c.key==='direct'?'markup':c.kind,value:+c.value||0}));provLog(`Channel rates saved for ${H.code}`);saved()}})},
+  const avail=()=>CHANNEL_CATALOG.filter(([code])=>!g.channels.some(c=>c.key==='chan'+code));
+  const paint=()=>{
+   box.innerHTML=secHead('5. Channel Rates','One Rack Rate (your Rate codes) drives every channel. Booking Engine marks it up by a %. Every OTA is grossed up by its own commission %, so the hotel always nets exactly the Rack Rate whichever channel books it. Every row is frozen once set - Unlock it first to change the %, so it can never be bumped by accident.')+`<div class="panel pad"><table class="grid"><tr><th>Channel</th><th>Type</th><th class="n">%</th><th></th></tr>
+   ${g.channels.map((c,i)=>{const isDirect=c.key==='direct',locked=c.locked!==false;return `<tr>
+    <td>${esc(c.label)}</td>
+    <td>${c.kind==='markup'?'Markup over Rack (direct)':'OTA commission (grossed up)'}</td>
+    <td class="n">${locked?`<b>${esc(c.value)}</b>`:`<input type="number" min="0" max="99" value="${esc(c.value)}" data-cv="${i}" style="width:80px;text-align:right">`}</td>
+    <td class="nowrap">${locked?`<button type="button" class="btn sm ghost" data-unlock="${i}">${ic('lock',12)} Unlock</button>`:`<button type="button" class="btn sm gold" data-lock="${i}">Lock</button>`}
+     ${isDirect?'':`<button type="button" class="btn sm ghost" data-rmchan="${i}" ${locked?'disabled':''} title="${locked?'Unlock first':'Remove'}">✕</button>`}</td></tr>`}).join('')}
+   </table>
+   <div class="btns mt" style="justify-content:flex-start">${avail().length?`<select id="chAdd" style="min-width:220px"><option value="">+ Add a channel...</option>${avail().map(([code,name])=>`<option value="${code}">${esc(name)}</option>`).join('')}</select>`:'<p class="sub">Every PMS channel is already added.</p>'}</div>
+   <div class="btns"><button class="btn gold" id="chS">Save</button></div></div>`;
+   $$('[data-cv]',box).forEach(inp=>inp.onchange=()=>{g.channels[+inp.dataset.cv].value=Math.max(0,Math.min(99,+inp.value||0))});
+   $$('[data-unlock]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;g.channels[+b.dataset.unlock].locked=false;paint()});
+   $$('[data-lock]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;g.channels[+b.dataset.lock].locked=true;paint()});
+   $$('[data-rmchan]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;g.channels.splice(+b.dataset.rmchan,1);paint()});
+   if($('#chAdd',box))$('#chAdd',box).onchange=e=>{const code=e.target.value;if(!code)return;const[,name]=CHANNEL_CATALOG.find(x=>x[0]===code);g.channels.push({key:'chan'+code,label:name,kind:'commission',value:15,locked:false});paint()};
+   $('#chS',box).onclick=()=>{if(!provOnly())return;provLog(`Channel rates saved for ${H.code}`);saved()}};
+  paint()},
  promotions(box){const g=H.set.google,promos=g.promotions||[];
-  box.innerHTML=secHead('8. Promotions & Discount Codes','A promotion subtracts from the channel sell price for the stay dates it covers - it never touches the Rack Rate itself, so switching a promotion off always cleanly restores the normal price.')+'<div id="promoBox"></div>';
-  listEditor($('#promoBox',box),{rows:promos.map(p=>({...p,_old:true})),cols:[{k:'code',h:'Promo code',w:'110px'},{k:'kind',h:'Type',opts:[['pct','% off'],['amt','Fixed amount off']]},{k:'value',h:'Value',type:'number',w:'90px'},{k:'validFrom',h:'Valid from',type:'date'},{k:'validTo',h:'Valid until',type:'date'},{k:'active',h:'Active',type:'check'}],
-   blank:()=>({code:'',kind:'pct',value:10,validFrom:H.set.bd,validTo:addD(H.set.bd,30),active:true}),
-   validate:d=>{if(d.some(p=>!p.code))return 'Every promotion needs a code.';if(new Set(d.map(p=>String(p.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(p=>+p.value<=0))return 'Value must be above 0.';if(d.some(p=>p.kind==='pct'&&+p.value>=100))return '% off must be below 100.';if(d.some(p=>p.validTo<p.validFrom))return 'Valid until cannot be before Valid from.';return ''},
-   save:d=>{g.promotions=d.map(p=>({code:String(p.code).toUpperCase(),kind:p.kind,value:+p.value||0,validFrom:p.validFrom,validTo:p.validTo,active:!!p.active}));provLog(`Promotions saved for ${H.code}`);saved()}})},
+  box.innerHTML=secHead('6. Promotions & Discount Codes','A promotion subtracts from the channel sell price for the stay dates it covers - it never touches the Rack Rate itself, so switching a promotion off always cleanly restores the normal price.')+'<div id="promoBox"></div>';
+  listEditor($('#promoBox',box),{rows:promos.map(p=>({...p,_old:true})),cols:[{k:'code',h:'Promo code',w:'110px'},{k:'name',h:'Promotion name'},{k:'kind',h:'Type',opts:[['pct','% off'],['amt','Fixed amount off']]},{k:'value',h:'Value',type:'number',w:'90px'},{k:'validFrom',h:'Valid from',type:'date'},{k:'validTo',h:'Valid until',type:'date'},{k:'active',h:'Active',type:'check'}],
+   blank:()=>({code:'',name:'',kind:'pct',value:10,validFrom:H.set.bd,validTo:addD(H.set.bd,30),active:true}),
+   validate:d=>{if(d.some(p=>!p.code))return 'Every promotion needs a code.';if(d.some(p=>!p.name))return 'Every promotion needs a name - this is what the guest sees.';if(new Set(d.map(p=>String(p.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(p=>+p.value<=0))return 'Value must be above 0.';if(d.some(p=>p.kind==='pct'&&+p.value>=100))return '% off must be below 100.';if(d.some(p=>p.validTo<p.validFrom))return 'Valid until cannot be before Valid from.';return ''},
+   save:d=>{g.promotions=d.map(p=>({code:String(p.code).toUpperCase(),name:p.name.trim(),kind:p.kind,value:+p.value||0,validFrom:p.validFrom,validTo:p.validTo,active:!!p.active}));provLog(`Promotions saved for ${H.code}`);saved()}})},
  allotment(box){const g=H.set.google;g.directAllot=g.directAllot||{};
-  box.innerHTML=secHead('9. Central Allotment','How many of each room type are released to the Booking Engine (and, later, OTAs) per day - separate from the PMS\'s own total rooms. Leave blank to release the full PMS allotment. This only ever holds rooms BACK; it can never release more than the hotel actually has.')+`<div class="panel pad"><table class="grid"><tr><th>Room type</th><th>PMS allotment</th><th class="n">Released to Direct Booking</th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${t.allot||0}</td><td class="n"><input type="number" min="0" max="${t.allot||0}" data-cap="${esc(t.code)}" value="${g.directAllot[t.code]!=null?g.directAllot[t.code]:''}" placeholder="${t.allot||0}" style="width:90px;text-align:right"></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table>
+  box.innerHTML=secHead('7. Central Allotment','How many of each room type are released to the Booking Engine (and, later, OTAs) per day - separate from the PMS\'s own total rooms. Leave blank to release the full PMS allotment. This only ever holds rooms BACK; it can never release more than the hotel actually has.')+`<div class="panel pad"><table class="grid"><tr><th>Room type</th><th>PMS allotment</th><th class="n">Released to Direct Booking</th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${t.allot||0}</td><td class="n"><input type="number" min="0" max="${t.allot||0}" data-cap="${esc(t.code)}" value="${g.directAllot[t.code]!=null?g.directAllot[t.code]:''}" placeholder="${t.allot||0}" style="width:90px;text-align:right"></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table>
    <div class="btns"><button class="btn gold" id="alS">Save</button></div></div>`;
   $('#alS',box).onclick=()=>{if(!provOnly())return;const cap={};let bad='';$$('[data-cap]',box).forEach(inp=>{const code=inp.dataset.cap,t=H.roomTypes.find(x=>x.code===code),v=inp.value.trim();if(v==='')return;const n=Math.max(0,Math.floor(+v||0));if(t&&n>(t.allot||0))bad=code;cap[code]=n});
     if(bad){toast(`${bad}: cannot release more than the PMS allotment.`);return}
     g.directAllot=cap;provLog(`Central allotment saved for ${H.code}`);saved()}},
- guestCountry(box){const g=H.set.google,gc=g.guestCountry||{mode:'all',list:[]};
-  box.innerHTML=secHead('10. Guest Country Set Up','Allow every guest nationality (the usual choice), or restrict direct bookings to / away from specific countries.')+`<div class="panel pad">
+ guestCountry(box){const g=H.set.google,gc=g.guestCountry||{mode:'all',list:[]};let picked=new Set(gc.list||[]);
+  const paintGrid=(q)=>{const qq=(q||'').trim().toLowerCase();
+   $('#gcGrid',box).innerHTML=COUNTRY_LIST.filter(([c,n])=>!qq||n.toLowerCase().includes(qq)||c.toLowerCase()===qq).map(([c,n])=>`<label class="curchk ${picked.has(c)?'on':''}"><input type="checkbox" data-gcc="${c}" ${picked.has(c)?'checked':''}> <b>${c}</b> ${esc(n)}</label>`).join('')||'<p class="sub">No country matches.</p>';
+   $$('[data-gcc]',box).forEach(x=>x.onchange=()=>{if(x.checked)picked.add(x.dataset.gcc);else picked.delete(x.dataset.gcc);x.closest('label').classList.toggle('on',x.checked);paintCount()})};
+  const paintCount=()=>{const el=$('#gcCount',box);if(el)el.textContent=picked.size?`${picked.size} countr${picked.size===1?'y':'ies'} selected`:'No countries selected yet.'};
+  box.innerHTML=secHead('8. Guest Country Set Up','Allow every guest nationality (the usual choice), or restrict direct bookings to / away from specific countries.')+`<div class="panel pad">
    <div class="btns" style="justify-content:flex-start">${[['all','Allow every country'],['allow','Allow only these countries'],['block','Block these countries']].map(([k,l])=>`<label class="f row gap"><input type="radio" name="gcMode" value="${k}" ${gc.mode===k?'checked':''}> ${esc(l)}</label>`).join('')}</div>
-   ${fld('Country codes (ISO, comma separated - e.g. TH, SG, MY)',`<textarea id="gcList" rows="2" ${gc.mode==='all'?'disabled':''}>${esc((gc.list||[]).join(', '))}</textarea>`,'span2')}
+   <div id="gcPick" ${gc.mode==='all'?'hidden':''}>
+    <div class="btns mt" style="justify-content:space-between;align-items:center"><input id="gcQ" placeholder="Search country name or code..." style="max-width:280px" autocomplete="off"><span class="sub" id="gcCount"></span></div>
+    <div class="curgrid mt" id="gcGrid" style="max-height:320px;overflow:auto"></div>
+   </div>
    <div class="btns"><button class="btn gold" id="gcS">Save</button></div></div>`;
-  $$('[name="gcMode"]',box).forEach(r=>r.onchange=()=>{$('#gcList',box).disabled=r.value==='all'});
-  $('#gcS',box).onclick=()=>{if(!provOnly())return;const mode=$('[name="gcMode"]:checked',box).value,list=$('#gcList',box).value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
-    g.guestCountry={mode,list:mode==='all'?[]:list};provLog(`Guest country set up saved for ${H.code}`);saved()}},
+  paintGrid('');paintCount();
+  $$('[name="gcMode"]',box).forEach(r=>r.onchange=()=>{$('#gcPick',box).hidden=r.value==='all'});
+  $('#gcQ',box).oninput=e=>paintGrid(e.target.value);
+  $('#gcS',box).onclick=()=>{if(!provOnly())return;const mode=$('[name="gcMode"]:checked',box).value;
+    g.guestCountry={mode,list:mode==='all'?[]:[...picked]};provLog(`Guest country set up saved for ${H.code}`);saved()}},
  reports(box){
-  box.innerHTML=secHead('11. Reports','Real numbers from this hotel\'s own confirmed reservations that came through Maha Booking (Direct) - never OTA data, since Maha has no live channel connection to report on.')+'<div class="panel pad" id="beRepBox"></div>';
+  box.innerHTML=secHead('9. Reports','A production report of this hotel\'s own confirmed reservations that came through Maha Booking (Direct) - never OTA data, since Maha has no live channel connection to report on.')+`<div class="panel pad">
+   <div class="btns" style="justify-content:flex-start;align-items:center"><label class="sub">From <input type="date" id="rpFrom"></label><label class="sub">To <input type="date" id="rpTo"></label><button class="btn ghost sm" type="button" id="rpGo">Run report</button></div>
+   <div id="beRepBox" class="mt"></div></div>`;
   const rep=$('#beRepBox',box);
-  const direct=allBookingsH(H).filter(b=>b.channel==='WEB'&&b.source==='DIRECT'&&b.status!=='cancelled');
-  const today=H.set.bd,onHand=direct.filter(b=>b.dep>=today),arrToday=direct.filter(b=>b.arr===today),depToday=direct.filter(b=>b.dep===today);
-  const revenue=d=>r2(sum(d,b=>sum(Object.values(b.nightly||{}))));
-  const byMonth={};direct.forEach(b=>{const m=String(b.arr||'').slice(0,7);if(!m)return;byMonth[m]=(byMonth[m]||0)+1});
-  const byNat={};direct.forEach(b=>{const n=b.bkCountry||'—';byNat[n]=(byNat[n]||0)+1});
-  rep.innerHTML=`<div class="g3">
-    <div class="panel pad"><div class="sub">Direct bookings on hand</div><h2 style="margin:4px 0">${onHand.length}</h2></div>
-    <div class="panel pad"><div class="sub">Direct revenue booked</div><h2 style="margin:4px 0">${esc(H.set.cur)} ${m2(revenue(direct))}</h2></div>
-    <div class="panel pad"><div class="sub">Today: arrivals / departures</div><h2 style="margin:4px 0">${arrToday.length} / ${depToday.length}</h2></div></div>
-   <h3 class="mt">Bookings by month (arrival)</h3><table class="grid"><tr><th>Month</th><th class="n">Bookings</th></tr>${Object.keys(byMonth).sort().map(m=>`<tr><td>${esc(m)}</td><td class="n">${byMonth[m]}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No direct bookings yet.</td></tr>'}</table>
-   <h3 class="mt">Nationality</h3><table class="grid"><tr><th>Country</th><th class="n">Bookings</th></tr>${Object.keys(byNat).sort((a,b)=>byNat[b]-byNat[a]).map(n=>`<tr><td>${esc(n)}</td><td class="n">${byNat[n]}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No direct bookings yet.</td></tr>'}</table>
-   <p class="sub mt">B2B / OTA production reports, ARI logs and auto-yield logs are not shown here - those need a real, certified channel-manager connection to each OTA, which Maha does not have yet.</p>`;
- }
+  const run=()=>{
+   const from=$('#rpFrom',box).value,to=$('#rpTo',box).value;
+   const direct=allBookingsH(H).filter(b=>b.channel==='WEB'&&b.source==='DIRECT'&&b.status!=='cancelled');
+   const inRange=direct.filter(b=>(!from||b.arr>=from)&&(!to||b.arr<=to));
+   const today=H.set.bd,onHand=direct.filter(b=>b.dep>=today),arrToday=direct.filter(b=>b.arr===today),depToday=direct.filter(b=>b.dep===today);
+   const revenue=d=>r2(sum(d,b=>sum(Object.values(b.nightly||{}))));
+   const byNat={};inRange.forEach(b=>{const n=b.bkCountry||'—';byNat[n]=(byNat[n]||0)+1});
+   const rows=inRange.slice().sort((a,b)=>a.arr<b.arr?-1:a.arr>b.arr?1:0);
+   rep.innerHTML=`<div class="g3">
+     <div class="panel pad"><div class="sub">Direct bookings on hand</div><h2 style="margin:4px 0">${onHand.length}</h2></div>
+     <div class="panel pad"><div class="sub">Revenue in range</div><h2 style="margin:4px 0">${esc(H.set.cur)} ${m2(revenue(inRange))}</h2></div>
+     <div class="panel pad"><div class="sub">Today: arrivals / departures</div><h2 style="margin:4px 0">${arrToday.length} / ${depToday.length}</h2></div></div>
+    <h3 class="mt">Production report${from||to?' - '+fd(from||'')+' to '+fd(to||''):''}</h3>
+    <table class="grid"><tr><th>RSVN#</th><th>Guest</th><th>Room</th><th>Arrival</th><th>Departure</th><th class="n">Nights</th><th>Country</th><th class="n">Revenue</th><th>Status</th></tr>
+     ${rows.map(b=>{const r=resOf(b),g=G(b.guestId);return `<tr><td>${r.no}</td><td>${esc(gName(g))}</td><td>${esc(b.type||'')}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(b.bkCountry||'—')}</td><td class="n">${m2(sum(Object.values(b.nightly||{})))}</td><td>${stBadge(b)}</td></tr>`}).join('')||'<tr><td colspan="9" class="empty">No direct bookings in this range.</td></tr>'}
+    </table>
+    <h3 class="mt">By nationality</h3><table class="grid"><tr><th>Country</th><th class="n">Bookings</th></tr>${Object.keys(byNat).sort((a,b)=>byNat[b]-byNat[a]).map(n=>`<tr><td>${esc(n)}</td><td class="n">${byNat[n]}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No direct bookings in this range.</td></tr>'}</table>
+    <p class="sub mt">B2B / OTA production reports, ARI logs and auto-yield logs are not shown here - those need a real, certified channel-manager connection to each OTA, which Maha does not have yet.</p>`};
+  $('#rpGo',box).onclick=run;
+  run();
+ },
+ emailAlerts(box){const g=H.set.google;g.emailAlerts=g.emailAlerts||{};
+  const paint=()=>{
+   box.innerHTML=secHead('10. Email Alerts','Lifecycle emails to the guest, each with its own staff notify list. The body is plain text - use a blank line for a paragraph break.')+`<div class="panel pad">
+    ${EMAIL_ALERT_TYPES.map(([k,label])=>{const a=g.emailAlerts[k]=g.emailAlerts[k]||{leadDays:0,body:'',url:'',notify:'',enabled:false};return `
+    <div class="panel pad mt"><label class="f row gap"><input type="checkbox" data-eaen="${k}" ${a.enabled?'checked':''}> <b>${esc(label)}</b></label>
+     <div class="form3 mt">
+      ${fld('Lead time (days before/after)',`<input type="number" data-ealead="${k}" value="${a.leadDays||0}">`)}
+      ${fld('Hotel location page URL (optional)',`<input data-eaurl="${k}" value="${esc(a.url||'')}">`,'span2')}
+      ${fld('Body message',`<textarea rows="3" data-eabody="${k}">${esc(a.body||'')}</textarea>`,'span3')}
+      ${fld('Internal staff emails to notify (comma separated)',`<input data-eanotify="${k}" value="${esc(a.notify||'')}">`,'span3')}
+     </div></div>`}).join('')}
+    <div class="btns mt"><button class="btn gold" id="eaS">Save</button></div></div>`;
+   $$('[data-eaen]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.eaen].enabled=x.checked);
+   $$('[data-ealead]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.ealead].leadDays=Math.floor(+x.value||0));
+   $$('[data-eaurl]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.eaurl].url=x.value.trim());
+   $$('[data-eabody]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.eabody].body=x.value.trim());
+   $$('[data-eanotify]',box).forEach(x=>x.onchange=()=>g.emailAlerts[x.dataset.eanotify].notify=x.value.trim());
+   $('#eaS',box).onclick=()=>{if(!provOnly())return;provLog(`Email alerts saved for ${H.code}`);saved()}};
+  paint()},
+ theme(box){const g=H.set.google;g.theme=g.theme||{};
+  const paint=()=>{
+   box.innerHTML=secHead('11. Booking Theme','Choose colours for the booking page, or leave Default. The preview below updates as you pick.')+`<div class="panel pad">
+    <div class="form2">${THEME_SWATCHES.map(([k,label,def])=>{const v=g.theme[k];return `
+     <div class="f"><label>${esc(label)}</label><div class="row gap" style="align-items:center">
+      <label class="chk"><input type="radio" name="th_${k}_m" data-thm="${k}" value="def" ${v?'':'checked'}> Default</label>
+      <label class="chk"><input type="radio" name="th_${k}_m" data-thm="${k}" value="cus" ${v?'checked':''}> Customize</label>
+      <input type="color" data-thc="${k}" value="${v||def}" ${v?'':'disabled'}></div></div>`}).join('')}</div>
+    <h3 class="mt">Live preview</h3>
+    <div id="thPrev" style="border:1px solid var(--line);border-radius:8px;overflow:hidden"></div>
+    <div class="btns mt"><button class="btn gold" id="thS">Save</button></div></div>`;
+   const paintPrev=()=>{const c=k=>g.theme[k]||THEME_SWATCHES.find(x=>x[0]===k)[2];
+    $('#thPrev',box).innerHTML=`<div style="background:${c('bg')};color:${c('text')};padding:20px;font-family:sans-serif">
+     <h2 style="margin:0 0 10px;color:${c('text')}">${esc(H.set.name||H.code)}</h2>
+     <p style="margin:0 0 14px">Sample room · Non-refundable</p>
+     <button style="background:${c('primary')};color:#fff;border:0;border-radius:6px;padding:10px 18px;font:inherit;cursor:default">Book now</button>
+     <span style="margin-left:10px;color:${c('accent')};font-weight:700">Hurry! 2 left</span></div>`};
+   paintPrev();
+   $$('[data-thm]',box).forEach(r=>r.onchange=()=>{const k=r.dataset.thm,on=r.value==='cus';const c=$(`[data-thc="${k}"]`,box);c.disabled=!on;if(!on)delete g.theme[k];else g.theme[k]=c.value;paintPrev()});
+   $$('[data-thc]',box).forEach(c=>c.oninput=()=>{g.theme[c.dataset.thc]=c.value;paintPrev()});
+   $('#thS',box).onclick=()=>{if(!provOnly())return;provLog(`Booking theme saved for ${H.code}`);saved()}};
+  paint()},
+ bookButton(box){const g=H.set.google;
+  const base=()=>(g.bookBaseUrl||'http://127.0.0.1:8781/book').replace(/\/+$/,'');
+  const opts=()=>({property:[['','Whole property']],type:[['','Any room type'],...H.roomTypes.filter(t=>!t.dummy).map(t=>[t.code,t.code+' - '+t.name])],promotion:[['','No promotion'],...(g.promotions||[]).map(p=>[p.code,p.name||p.code])]});
+  const paint=()=>{const o=opts();
+   box.innerHTML=secHead('12. Booking Button Code','Paste this on your own website - it links straight to the real Booking Engine, scoped to whatever you pick below.')+`<div class="panel pad">
+    <div class="form3">
+     <div class="f"><label>Scope by room type</label><select id="bbType">${o.type.map(x=>opt(x[0],x[1],'')).join('')}</select></div>
+     <div class="f"><label>Scope by promotion</label><select id="bbPromo">${o.promotion.map(x=>opt(x[0],x[1],'')).join('')}</select></div>
+     <div class="f"><label>Button text</label><input id="bbLabel" value="Book Now"></div>
+    </div>
+    <h3 class="mt">Embed code</h3>
+    <textarea id="bbCode" rows="2" readonly style="width:100%;font-family:monospace;font-size:12px"></textarea>
+    <div class="btns mt"><button class="btn ghost" type="button" id="bbCopy">Copy code</button></div></div>`;
+   const build=()=>{const type=$('#bbType',box).value,promo=$('#bbPromo',box).value,label=$('#bbLabel',box).value.trim()||'Book Now';
+    const qs=new URLSearchParams();qs.set('hotel',H.code);if(type)qs.set('type',type);if(promo)qs.set('promo',promo);
+    $('#bbCode',box).value=`<a href="${base()}/?${qs.toString()}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;background:#184d3a;color:#fff;border-radius:4px;text-decoration:none;font-family:sans-serif">${label}</a>`};
+   $$('#bbType,#bbPromo,#bbLabel',box).forEach(el=>el.oninput=build);
+   $('#bbCopy',box).onclick=()=>{$('#bbCode',box).select();try{document.execCommand('copy');toast('Code copied')}catch(e){toast('Select the text and copy it manually')}};
+   build()};
+  paint()}
 };
 /* Turns a pending Maha Booking request into a real reservation - a guest, a reservation wrapper and
    one booking, built the same way every other new reservation in this PMS is built. Never automatic:
    only ever called from the Confirm button above. */
+function mahaBookingEngineCompanyId(h){
+  let c=(h.companies||[]).find(x=>x.code==='MBE');
+  if(!c){c={id:'c'+uid(),code:'MBE',name:'Maha Booking Engine',type:'C',address:'',taxId:'',branch:'',comm:0};h.companies.push(c)}
+  return c.id;
+}
 function confirmBookingRequest(row){
   const parts=String(row.guest_name||'Guest').trim().split(/\s+/),first=parts[0]||'Guest',last=parts.slice(1).join(' ')||'-';
   const g={id:'g'+uid(),profileId:H.set.nextProfile++,title:'',last,first,middle:'',other:'',jobTitle:'',company:'',nationality:'',country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:row.guest_email||'',phone:row.guest_phone||'',address:'',pdpa:false,photo:'',remark:'From Maha Booking (Direct)',doc:emptyDoc(),card:null};
   H.guests.push(g);
-  const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:first+' '+last,reference:'',phone:row.guest_phone||'',fax:'',email:row.guest_email||'',confirmation:'0',companyId:'',bookings:[],notifs:[],createdShift:curShift()?curShift().name:'',createdUser:user().name};
+  const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:first+' '+last,reference:'',phone:row.guest_phone||'',fax:'',email:row.guest_email||'',confirmation:'0',companyId:mahaBookingEngineCompanyId(H),bookings:[],notifs:[],createdShift:curShift()?curShift().name:'',createdUser:user().name};
   stampHotelNumbers(H,nr);
   const B=newBooking(H,{guestId:g.id,type:row.room_type,arr:row.arr,dep:row.dep,adults:row.adults,children:row.children,rateCode:row.rate_code,status:'confirmed',market:'FIT',channel:'WEB',source:'DIRECT'});
   nr.bookings.push(B);
@@ -13847,12 +14000,12 @@ BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{
   if(!DB.session.inHotel&&!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
   if(!H){el.innerHTML=pageHead(title)+'<div class="empty">Create a property first.</div>';return}
   shapeHotel(H);
-  el.innerHTML=pageHead(title,provHotelPicker())+`<div id="gBody"></div>`;
-  bindPicker(el);SEC_BARE=true;BE[k]($('#gBody',el))
+  el.innerHTML=pageHead(title)+`<div id="gBody"></div>`;
+  SEC_BARE=true;BE[k]($('#gBody',el))
 }});
 /* kept as a redirect - every existing go('prov.google') (the activate checklist, Hotels-list shortcuts) lands on
    the first Booking Engine subtitle instead of a page that no longer exists */
-VIEWS['prov.google']=()=>go('prov.be.info');
+VIEWS['prov.google']=()=>go('hset.profile');
 /* All chains with their hotels: create a chain and see who is in it (provider only, cloud) */
 function chainListPanel(el,after){
   if(!el)return;if(!MahaAuth.on()){el.innerHTML='';return}

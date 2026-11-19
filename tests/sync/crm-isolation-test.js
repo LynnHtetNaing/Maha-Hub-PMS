@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path');
 const root = path.resolve(__dirname, '..', '..');
 const rd = f => fs.readFileSync(path.join(root, f), 'utf8');
 const app = rd('ecosystem/index.html'), crm = rd('crm/index.html'), worker = rd('workers/maha-hub-pms/src/index.js');
-const auth = rd('supabase/functions/username-auth/index.ts'), prov = rd('supabase/functions/platform-admin-provision/index.ts'), sql = rd('supabase/migrations/20261105_033_crm_team.sql');
+const auth = rd('supabase/functions/username-auth/index.ts'), prov = rd('supabase/functions/platform-admin-provision/index.ts'), sql = rd('supabase/migrations/20261105033_crm_team.sql');
 let fails = 0; const T = (n, ok, x) => { console.log((ok ? 'PASS ' : 'FAIL ') + n + (x ? ' | ' + x : '')); if (!ok) fails++ };
 T('its own address, crm.maha-hub.com, set in both Worker files', ['wrangler.toml', 'workers/maha-hub-pms/wrangler.toml'].every(f => /CRM_HOST = "crm\.maha-hub\.com"/.test(rd(f))));
 T('its own folder: the Worker serves /crm/ on its own address (and on test copies under /ecosystem/CRM)', /crm: \{ file: '\/crm\/'/.test(worker) && /\['CRM_HOST'/.test(worker));

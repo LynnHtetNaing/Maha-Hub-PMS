@@ -97,6 +97,7 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 .form input{padding:11px 12px;border:1px solid var(--line);background:#fff;border-radius:2px;color:var(--ink)}
 .form .span2{grid-column:span 2}
 .notice{margin-top:18px;padding:14px 16px;background:rgba(24,77,58,.06);border-left:3px solid var(--gold);font-size:13px;line-height:1.5;color:var(--mut)}
+.policybullets{margin:6px 0 0;padding-left:18px}.policybullets li{margin:2px 0}
 .foot{padding:28px 0 40px;border-top:1px solid var(--line);color:var(--mut);font-size:13px}
 .foot strong{color:var(--green)}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -244,7 +245,7 @@ async function loadHotels() {
 // so a guest sees the amenities organised the same way the property set them up
 const AMEN_GROUPS = [
   { t: 'Hotel Facilities', items: ['wifi', 'front_desk', 'breakfast', 'restaurant', 'bar', 'coffee_shop', 'poolside_bar', 'rooftop_bar', 'room_service', 'business_center', 'meeting_room', 'executive_floor', 'elevator', 'air_conditioning', 'heating', 'family_rooms', 'non_smoking_rooms', 'smoking_room', 'laundry', 'concierge', 'luggage_storage', 'currency_exchange', 'ev_charging', 'kitchen', 'balcony', 'tour_desk', 'atm', 'bbq', 'accessible_facilities', 'babysitting', 'bicycle_rental', 'casino', 'nightclub', 'pet_friendly', 'airport_shuttle', 'safety_deposit_boxes', 'salon', 'shops', 'valet_parking', 'parking'] },
-  { t: 'Sports and Recreation', items: ['outdoor_pool', 'indoor_pool', 'pool_kids', 'spa', 'fitness', 'sauna', 'steamroom', 'kids_club', 'beachfront', 'garden', 'golf_course', 'jacuzzi', 'massage', 'squash_courts', 'tennis_courts', 'water_sports_motorized', 'water_sports_non_motorized'] }
+  { t: 'Sports and Recreation', items: ['outdoor_pool', 'indoor_pool', 'pool_kids', 'spa', 'fitness', 'sauna', 'steamroom', 'kids_club', 'beachfront', 'private_beach', 'garden', 'golf_course', 'jacuzzi', 'massage', 'squash_courts', 'tennis_courts', 'water_sports_motorized', 'water_sports_non_motorized'] }
 ];
 const AMEN_ICON = { wifi: '📶', front_desk: '🛎️', breakfast: '🍳', restaurant: '🍽️', bar: '🍸', coffee_shop: '☕', room_service: '🧑‍🍳', business_center: '💼', meeting_room: '🗂️', elevator: '🛗', air_conditioning: '❄️', heating: '🔥', family_rooms: '👨‍👩‍👧', laundry: '🧺', concierge: '🔔', luggage_storage: '🧳', currency_exchange: '💱', ev_charging: '🔌', kitchen: '🍳', balcony: '🌇', tour_desk: '🗺️', atm: '🏧', bbq: '🍢', accessible_facilities: '♿', pet_friendly: '🐾', airport_shuttle: '🚐', parking: '🅿️', valet_parking: '🅿️', outdoor_pool: '🏊', indoor_pool: '🏊', pool_kids: '🏊', spa: '💆', fitness: '🏋️', sauna: '♨️', kids_club: '🧸', beachfront: '🏖️', garden: '🌿', golf_course: '⛳', jacuzzi: '🛁', massage: '💆', tennis_courts: '🎾' };
 const amenLabel = a => a.replace(/_/g, ' ').replace('pool kids', 'pool (kids)').replace('golf course', 'golf course (on site)');
@@ -297,9 +298,14 @@ async function hydrateHotel(id) {
   $('hotelTitle').textContent = h.name;
   $('hotelLede').textContent = `${h.addr || ''} · Check-in ${h.checkIn || '14:00'} · Check-out ${h.checkOut || '12:00'}`.replace(/^ · /, '');
   renderHero(h);
+  const th = h.theme || {};
+  const THEME_VARS = { primary: '--green', accent: '--gold', bg: '--ivory', text: '--ink' };
+  Object.keys(THEME_VARS).forEach(k => {
+    if (th[k]) document.documentElement.style.setProperty(THEME_VARS[k], th[k]);
+  });
   const m = $('meta');
   m.hidden = false;
-  m.innerHTML = `<span><strong>${h.country || h.countryCode || ''}</strong></span>
+  m.innerHTML = `${h.area ? `<span><strong>${h.area}</strong></span>` : ''}<span><strong>${h.country || h.countryCode || ''}</strong></span>
     <span>Currency <strong>${h.cur}</strong></span>
     <span>Service ${h.svc}% · ${h.taxName || 'Tax'} ${h.vat}%</span>`;
   renderAmenities(h.amenities || []);
@@ -321,9 +327,19 @@ async function hydrateHotel(id) {
   const policyOn = !!(h.cancelPolicy || h.importantNotice);
   $('policyPanel').hidden = !policyOn;
   $('policy').hidden = !h.cancelPolicy;
-  $('policy').innerHTML = h.cancelPolicy ? `<strong>Cancellation policy:</strong> ${h.cancelPolicy}` : '';
+  $('policy').innerHTML = h.cancelPolicy ? `<strong>Cancellation policy:</strong>${(h.cancelPolicyLines && h.cancelPolicyLines.length) ? `<ul class="policybullets">${h.cancelPolicyLines.map(t => `<li>${t}</li>`).join('')}</ul>` : ' ' + h.cancelPolicy}` : '';
   $('notice').hidden = !h.importantNotice;
-  $('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong> ${h.importantNotice}` : '';
+  $('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong>${(h.importantNoticeLines && h.importantNoticeLines.length) ? `<ul class="policybullets">${h.importantNoticeLines.map(t => `<li>${t}</li>`).join('')}</ul>` : ' ' + h.importantNotice}` : '';
+  const existingDep = document.getElementById('depositNotice');
+  if (existingDep) existingDep.remove();
+  if (h.depositPolicy) {
+    const dp = h.depositPolicy;
+    const el = document.createElement('div');
+    el.id = 'depositNotice';
+    el.className = 'notice';
+    el.innerHTML = `<strong>Payment:</strong> a deposit of ${dp.kind === 'pct' ? dp.value + '%' : money(dp.value, h.cur)} is required at booking.`;
+    $('policy').after(el);
+  }
 }
 
 async function runSearch() {
@@ -343,6 +359,8 @@ async function runSearch() {
     box.innerHTML = `<div class="empty">${j.message || 'Search failed'}</div>`;
     return;
   }
+  const wantType = params.get('type');
+  if (wantType) j.results = j.results.filter(r => r.type === wantType);
   lastSearch = j;
   selected = null;
   $('requestPanel').hidden = true;
@@ -359,6 +377,7 @@ async function runSearch() {
         <div>
           <h3>${r.typeName}</h3>
           <p>${r.rateDesc}${r.meal === 'ABF' ? ' · Breakfast included' : ''}${r.refundable ? '' : ' · Non-refundable'}</p>
+          ${(r.typeBenefits && r.typeBenefits.length) ? `<p class="roombenefits">${r.typeBenefits.slice(0, 4).map(b => b.replace(/_/g, ' ')).join(' · ')}${r.typeBenefits.length > 4 ? ` · +${r.typeBenefits.length - 4} more` : ''}</p>` : ''}
           <span class="badge ${r.available ? (low ? 'hurry' : '') : 'out'}">${r.available ? (low ? 'Hurry! ' + r.inventory + ' left' : r.inventory + ' left') : 'Sold out'}</span>
         </div>
       </div>
@@ -370,7 +389,7 @@ async function runSearch() {
         ${r.nights > 1 ? `<div class="pricetog" data-tog="${i}"><button type="button" class="on" data-mode="total">Whole stay</button><button type="button" data-mode="night">Per night</button></div>` : ''}
         <b data-price="${i}">${money(r.amountAfterTax, r.currency)}</b>
         <small data-pricesub="${i}">total incl. tax</small>
-        ${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">Promo ${r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : ''}
+        ${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">${r.promoName || r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : ''}
         ${r.available ? `<div style="margin-top:10px"><button class="btn" type="button" data-pick="${i}">Select</button></div>` : ''}
       </div>
     </article>`;

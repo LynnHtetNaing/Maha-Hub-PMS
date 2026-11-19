@@ -39,13 +39,9 @@ const _propIdCache = new Map();
 async function propertyIdFor(code) {
   if (_propIdCache.has(code)) return _propIdCache.get(code);
   try {
-    const r = await fetch(`${SB_URL}/rest/v1/maha_properties?select=id&property_code=eq.${encodeURIComponent(code)}`, {
-      headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}` }
-    });
-    const d = await r.json().catch(() => null);
-    const id = r.ok && Array.isArray(d) && d[0] ? d[0].id : null;
-    _propIdCache.set(code, id);
-    return id;
+    const id = await sbRpc('maha_property_id_for_code', { p_code: code });
+    _propIdCache.set(code, id || null);
+    return id || null;
   } catch { return null; }
 }
 async function sbRpc(fn, args) {
@@ -266,9 +262,15 @@ const server = http.createServer(async (req, res) => {
           checkOut: hotel.checkOut,
           lat: hotel.lat,
           lng: hotel.lng,
+          category: hotel.category,
+          area: hotel.area,
           amenities: hotel.amenities,
           cancelPolicy: hotel.cancelPolicy,
+          cancelPolicyLines: hotel.cancelPolicyLines,
           importantNotice: hotel.importantNotice,
+          importantNoticeLines: hotel.importantNoticeLines,
+          depositPolicy: hotel.depositPolicy,
+          theme: hotel.theme,
           photoUrl: hotel.photoUrl,
           logo: hotel.logo,
           coverPhotos: hotel.coverPhotos,

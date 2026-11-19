@@ -6,6 +6,15 @@
 export const BOOK_VERSION = 'MBE_20261002A';
 export const PARTNER_PLACEHOLDER = 'YOUR_GOOGLE_PARTNER_KEY';
 
+// The enabled photo with the lowest order wins; falls back to the legacy single `photo` string.
+function bestRoomPhoto(t) {
+  if (Array.isArray(t.photos) && t.photos.length) {
+    const on = t.photos.filter(p => p.enabled !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (on.length) return on[0].url || '';
+  }
+  return t.photo || '';
+}
+
 const COUNTRY = {
   Thailand: 'TH', Myanmar: 'MM', Singapore: 'SG', Malaysia: 'MY',
   Vietnam: 'VN', Laos: 'LA', Cambodia: 'KH', Indonesia: 'ID', Philippines: 'PH',
@@ -102,9 +111,20 @@ export function promoDiscount(hotel, code, sellAmount) {
   return Math.min(sellAmount, Math.max(0, off));
 }
 
+// The guest-facing name for a promo code (never the bare code) - falls back to the code itself
+// for a promotion saved before the Promotion name field existed.
+export function promoName(hotel, code) {
+  if (!code) return '';
+  const p = (hotel.promotions || []).find(x => x.code === String(code).toUpperCase());
+  return (p && p.name) || String(code).toUpperCase();
+}
+
+// The public Booking Engine only ever sells B2C rate codes - B2B (travel agent / wholesale) stays
+// internal to the PMS and never shows to a direct guest, same split 1HotelRez keeps between its
+// B2C and B2B rate lists.
 export function sellableRates(hotel) {
   return (hotel.rateCodes || []).filter(r =>
-    r.kind !== 'zero' && r.comp !== 'COMP' && r.comp !== 'HOUSE' && r.code !== 'HU'
+    r.kind !== 'zero' && r.comp !== 'COMP' && r.comp !== 'HOUSE' && r.code !== 'HU' && r.channelScope !== 'b2b'
   );
 }
 
@@ -138,6 +158,7 @@ export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults, pr
     type: rt.code,
     typeName: rt.name,
     typePhoto: rt.photo || '',
+    typeBenefits: Array.isArray(rt.benefits) ? rt.benefits.slice() : [],
     rateCode: rc.code,
     rateDesc: rc.desc || rc.code,
     meal: rc.meal || '',
@@ -148,6 +169,7 @@ export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults, pr
     rackAmount,
     amountAfterTax: finalAmount,
     promoApplied: discount > 0 ? String(promoCode).toUpperCase() : '',
+    promoName: discount > 0 ? promoName(hotel, promoCode) : '',
     promoDiscount: discount,
     tax: split.vat,
     service: split.svc,
@@ -230,9 +252,14 @@ export function publicHotelFromHub(h, opts = {}) {
     lat: g.lat === '' || g.lat == null ? null : Number(g.lat),
     lng: g.lng === '' || g.lng == null ? null : Number(g.lng),
     category: g.category || 'hotel',
+    area: g.area || '',
     amenities: Array.isArray(g.amenities) ? g.amenities.slice() : [],
     cancelPolicy: g.cancelPolicy || '',
+    cancelPolicyLines: Array.isArray(g.cancelPolicyLines) ? g.cancelPolicyLines.slice() : [],
     importantNotice: g.importantNotice || '',
+    importantNoticeLines: Array.isArray(g.importantNoticeLines) ? g.importantNoticeLines.slice() : [],
+    depositPolicy: (g.depositPolicy && g.depositPolicy.kind && g.depositPolicy.kind !== 'none') ? g.depositPolicy : null,
+    theme: (g.theme && typeof g.theme === 'object') ? g.theme : {},
     photoUrl: g.photoUrl || '',
     logo: s.logo || '',
     coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : [],
@@ -248,7 +275,8 @@ export function publicHotelFromHub(h, opts = {}) {
       name: t.name,
       base: Number(t.base || 0),
       max: Number(t.max || 2),
-      photo: t.photo || '',
+      photo: bestRoomPhoto(t),
+      benefits: Array.isArray(t.benefits) ? t.benefits.slice() : [],
       dummy: false
     })),
     rateCodes: (h.rateCodes || []).map(r => ({

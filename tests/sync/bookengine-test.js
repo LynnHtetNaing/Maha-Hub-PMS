@@ -44,10 +44,14 @@ T('Address and Contact shows phone / email / website and a live OpenStreetMap pi
   src.includes('map.src = `https://www.openstreetmap.org/export/embed.html?bbox=') &&
   src.includes("map.hidden = true;"));
 
-T('an Important Notice (Backend > Booking Engine > Policies & Notices) shows next to the cancellation policy, both fetched through the catalog and the single-hotel API',
+T('an Important Notice and a Cancellation policy (Backend > Booking Engine > Policies & Notices) are each built as an Add-button bullet list, not a single textarea, and show as real bullet points on the guest page - both fetched through the catalog and the single-hotel API',
   catalogSrc.includes("importantNotice: g.importantNotice || '',") &&
+  catalogSrc.includes('importantNoticeLines: Array.isArray(g.importantNoticeLines) ? g.importantNoticeLines.slice() : [],') &&
+  catalogSrc.includes('cancelPolicyLines: Array.isArray(g.cancelPolicyLines) ? g.cancelPolicyLines.slice() : [],') &&
   serverSrc.includes('importantNotice: hotel.importantNotice,') &&
-  src.includes("$('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong> ${h.importantNotice}` : '';"));
+  serverSrc.includes('importantNoticeLines: hotel.importantNoticeLines,') &&
+  src.includes('.policybullets{') &&
+  src.includes("(h.importantNoticeLines && h.importantNoticeLines.length) ? `<ul class=\"policybullets\">${h.importantNoticeLines.map(t => `<li>${t}</li>`).join('')}</ul>` : ' ' + h.importantNotice"));
 
 T('the hero shows the hotel logo (synced from Hotel Setup) and fades between up to 8 cover photos every 5 seconds, instead of a single static background',
   src.includes('function renderHero(h) {') &&
@@ -59,10 +63,11 @@ T('the hero shows the hotel logo (synced from Hotel Setup) and fades between up 
 T('each room\'s rate card shows its room type\'s photo (set in PMS Room types) when it has one',
   src.includes('${r.typePhoto ? `<img src="${r.typePhoto}" alt="" style="width:88px;height:66px;object-fit:cover;border-radius:4px;flex:none">` : \'\'}'));
 
-T('the catalog and single-hotel API carry logo, coverPhotos (max 8) and each room type\'s photo through to the guest page',
+T('the catalog and single-hotel API carry logo, coverPhotos (max 8) and each room type\'s photo through to the guest page - picking the lowest-order enabled photo from the new multi-photo list, falling back to the legacy single photo field',
   catalogSrc.includes("logo: s.logo || ''") &&
   catalogSrc.includes('coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : []') &&
-  catalogSrc.includes("photo: t.photo || ''") &&
+  catalogSrc.includes('function bestRoomPhoto(t) {') &&
+  catalogSrc.includes("photo: bestRoomPhoto(t),") &&
   serverSrc.includes('logo: hotel.logo,') &&
   serverSrc.includes('coverPhotos: hotel.coverPhotos,'));
 
@@ -96,7 +101,9 @@ T('the guest page has a Cloudbeds-style "+ Add promo code" toggle (not a 7th fie
   src.includes('<select id="guestCountrySel">') &&
   src.includes("country: \$('guestCountrySel').value,"));
 
-T('a successful promo shows the guest exactly what was taken off, without hiding the Rack Rate math anywhere else on the page',
-  src.includes('${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">Promo ${r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : \'\'}'));
+T('a successful promo shows the guest its real name (not the bare code) and exactly what was taken off, without hiding the Rack Rate math anywhere else on the page',
+  src.includes('${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">${r.promoName || r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : \'\'}') &&
+  catalogSrc.includes('export function promoName(hotel, code) {') &&
+  catalogSrc.includes('promoName: discount > 0 ? promoName(hotel, promoCode) : \'\','));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
