@@ -255,6 +255,7 @@ export function publicHotelFromHub(h, opts = {}) {
     cancelPolicyLines: Array.isArray(g.cancelPolicyLines) ? g.cancelPolicyLines.slice() : [],
     importantNotice: g.importantNotice || '',
     importantNoticeLines: Array.isArray(g.importantNoticeLines) ? g.importantNoticeLines.slice() : [],
+    depositPolicy: (g.depositPolicy && g.depositPolicy.kind && g.depositPolicy.kind !== 'none') ? g.depositPolicy : null,
     photoUrl: g.photoUrl || '',
     logo: s.logo || '',
     coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : [],

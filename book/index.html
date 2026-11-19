@@ -325,6 +325,16 @@ async function hydrateHotel(id) {
   $('policy').innerHTML = h.cancelPolicy ? `<strong>Cancellation policy:</strong>${(h.cancelPolicyLines && h.cancelPolicyLines.length) ? `<ul class="policybullets">${h.cancelPolicyLines.map(t => `<li>${t}</li>`).join('')}</ul>` : ' ' + h.cancelPolicy}` : '';
   $('notice').hidden = !h.importantNotice;
   $('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong>${(h.importantNoticeLines && h.importantNoticeLines.length) ? `<ul class="policybullets">${h.importantNoticeLines.map(t => `<li>${t}</li>`).join('')}</ul>` : ' ' + h.importantNotice}` : '';
+  const existingDep = document.getElementById('depositNotice');
+  if (existingDep) existingDep.remove();
+  if (h.depositPolicy) {
+    const dp = h.depositPolicy;
+    const el = document.createElement('div');
+    el.id = 'depositNotice';
+    el.className = 'notice';
+    el.innerHTML = `<strong>Payment:</strong> a deposit of ${dp.kind === 'pct' ? dp.value + '%' : money(dp.value, h.cur)} is required at booking.`;
+    $('policy').after(el);
+  }
 }
 
 async function runSearch() {

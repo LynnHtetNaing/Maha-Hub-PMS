@@ -13742,16 +13742,24 @@ const BE={
   const noticeLines=Array.isArray(g.importantNoticeLines)?g.importantNoticeLines.slice():(g.importantNotice?[g.importantNotice]:[]);
   const bullets=(id,lines)=>`<ul class="btns" style="display:block;list-style:none;padding:0;margin:4px 0" id="${id}List">${lines.map((t,i)=>`<li style="display:flex;align-items:center;gap:8px;padding:4px 0">• <span style="flex:1">${esc(t)}</span><button type="button" class="btn sm ghost" data-rmline="${id}:${i}">✕</button></li>`).join('')||'<li class="sub">Nothing added yet.</li>'}</ul>
    <div class="row gap"><input id="${id}In" placeholder="Type a line, then Add" style="flex:1"><button type="button" class="btn ghost" data-addline="${id}">Add</button></div>`;
+  const dep=g.depositPolicy=g.depositPolicy||{kind:'none',value:0};
   box.innerHTML=secHead('2. Policies & Notices','The cancellation policy is required before direct booking can be switched on (Hotel Setup → Hotel profile). Each line you add shows as its own bullet point on the booking page.')+`<div class="panel pad">
    <h3 style="margin-top:0">Cancellation policy (required when booking is enabled)</h3>${bullets('g_cx',cancelLines)}
    <h3 class="mt">Important notice (optional - shown to every guest before they book)</h3>${bullets('g_notice',noticeLines)}
+   <h3 class="mt">Deposit / Payment policy</h3>
+   <p class="sub">Maha does not collect payment yet - this is shown to the guest as a notice, the hotel still collects it separately.</p>
+   <div class="form3"><div class="f"><label>Deposit</label><select id="g_depk">${[['none','No deposit required'],['pct','% of total at booking'],['amt','Fixed amount at booking']].map(o=>opt(o[0],o[1],dep.kind)).join('')}</select></div>
+   ${fld('Value',`<input type="number" id="g_depv" value="${dep.value||0}" ${dep.kind==='none'?'disabled':''}>`)}</div>
    <div class="btns mt"><button class="btn gold" id="gS">Save</button></div></div>`;
   const addLine=(id,lines)=>{const inp=$('#'+id+'In',box),v=inp.value.trim();if(!v)return;lines.push(v);inp.value='';redraw()};
   const redraw=()=>{$('#g_cxList',box).outerHTML=bullets('g_cx',cancelLines).match(/<ul[\s\S]*?<\/ul>/)[0];$('#g_noticeList',box).outerHTML=bullets('g_notice',noticeLines).match(/<ul[\s\S]*?<\/ul>/)[0];bind()};
   const bind=()=>{$$('[data-addline]',box).forEach(b=>b.onclick=()=>addLine(b.dataset.addline,b.dataset.addline==='g_cx'?cancelLines:noticeLines));
    $$('[data-rmline]',box).forEach(b=>b.onclick=()=>{const[id,i]=b.dataset.rmline.split(':');(id==='g_cx'?cancelLines:noticeLines).splice(+i,1);redraw()})};
   bind();
-  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\n');provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
+  $('#g_depk',box).onchange=()=>{$('#g_depv',box).disabled=$('#g_depk',box).value==='none'};
+  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\n');
+    g.depositPolicy={kind:$('#g_depk',box).value,value:+$('#g_depv',box).value||0};
+    provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
  photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];let managing=null;
   const readImg=(file,maxpx,cb)=>{if(file.size>3e6){toast('Choose an image under 3 MB.');return}
    const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,maxpx/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);cb(cv.toDataURL('image/jpeg',0.82))};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)};
