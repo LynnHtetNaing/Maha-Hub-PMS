@@ -13812,11 +13812,16 @@ const BE={
 /* Turns a pending Maha Booking request into a real reservation - a guest, a reservation wrapper and
    one booking, built the same way every other new reservation in this PMS is built. Never automatic:
    only ever called from the Confirm button above. */
+function mahaBookingEngineCompanyId(h){
+  let c=(h.companies||[]).find(x=>x.code==='MBE');
+  if(!c){c={id:'c'+uid(),code:'MBE',name:'Maha Booking Engine',type:'C',address:'',taxId:'',branch:'',comm:0};h.companies.push(c)}
+  return c.id;
+}
 function confirmBookingRequest(row){
   const parts=String(row.guest_name||'Guest').trim().split(/\s+/),first=parts[0]||'Guest',last=parts.slice(1).join(' ')||'-';
   const g={id:'g'+uid(),profileId:H.set.nextProfile++,title:'',last,first,middle:'',other:'',jobTitle:'',company:'',nationality:'',country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:row.guest_email||'',phone:row.guest_phone||'',address:'',pdpa:false,photo:'',remark:'From Maha Booking (Direct)',doc:emptyDoc(),card:null};
   H.guests.push(g);
-  const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:first+' '+last,reference:'',phone:row.guest_phone||'',fax:'',email:row.guest_email||'',confirmation:'0',companyId:'',bookings:[],notifs:[],createdShift:curShift()?curShift().name:'',createdUser:user().name};
+  const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:first+' '+last,reference:'',phone:row.guest_phone||'',fax:'',email:row.guest_email||'',confirmation:'0',companyId:mahaBookingEngineCompanyId(H),bookings:[],notifs:[],createdShift:curShift()?curShift().name:'',createdUser:user().name};
   stampHotelNumbers(H,nr);
   const B=newBooking(H,{guestId:g.id,type:row.room_type,arr:row.arr,dep:row.dep,adults:row.adults,children:row.children,rateCode:row.rate_code,status:'confirmed',market:'FIT',channel:'WEB',source:'DIRECT'});
   nr.bookings.push(B);
