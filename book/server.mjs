@@ -270,6 +270,7 @@ const server = http.createServer(async (req, res) => {
           importantNotice: hotel.importantNotice,
           importantNoticeLines: hotel.importantNoticeLines,
           depositPolicy: hotel.depositPolicy,
+          theme: hotel.theme,
           photoUrl: hotel.photoUrl,
           logo: hotel.logo,
           coverPhotos: hotel.coverPhotos,

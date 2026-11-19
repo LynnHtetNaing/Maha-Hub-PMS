@@ -259,6 +259,7 @@ export function publicHotelFromHub(h, opts = {}) {
     importantNotice: g.importantNotice || '',
     importantNoticeLines: Array.isArray(g.importantNoticeLines) ? g.importantNoticeLines.slice() : [],
     depositPolicy: (g.depositPolicy && g.depositPolicy.kind && g.depositPolicy.kind !== 'none') ? g.depositPolicy : null,
+    theme: (g.theme && typeof g.theme === 'object') ? g.theme : {},
     photoUrl: g.photoUrl || '',
     logo: s.logo || '',
     coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : [],
