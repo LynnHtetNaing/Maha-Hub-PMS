@@ -108,6 +108,7 @@ export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults }) 
   return {
     type: rt.code,
     typeName: rt.name,
+    typePhoto: rt.photo || '',
     rateCode: rc.code,
     rateDesc: rc.desc || rc.code,
     meal: rc.meal || '',
@@ -200,6 +201,8 @@ export function publicHotelFromHub(h, opts = {}) {
     cancelPolicy: g.cancelPolicy || '',
     importantNotice: g.importantNotice || '',
     photoUrl: g.photoUrl || '',
+    logo: s.logo || '',
+    coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : [],
     brand: g.brand || 'Maha Booking',
     bookEnabled: !!(g.enabled || opts.forceEnable),
     active: h.active !== false,
@@ -208,6 +211,7 @@ export function publicHotelFromHub(h, opts = {}) {
       name: t.name,
       base: Number(t.base || 0),
       max: Number(t.max || 2),
+      photo: t.photo || '',
       dummy: false
     })),
     rateCodes: (h.rateCodes || []).map(r => ({

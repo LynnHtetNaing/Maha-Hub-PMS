@@ -49,4 +49,21 @@ T('an Important Notice (Backend > Booking Engine > Policies & Notices) shows nex
   serverSrc.includes('importantNotice: hotel.importantNotice,') &&
   src.includes("$('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong> ${h.importantNotice}` : '';"));
 
+T('the hero shows the hotel logo (synced from Hotel Setup) and fades between up to 8 cover photos every 5 seconds, instead of a single static background',
+  src.includes('function renderHero(h) {') &&
+  src.includes("$('heroLogo').hidden = !h.logo;") &&
+  src.includes('const photos = (h.coverPhotos || []).slice(0, 8);') &&
+  src.includes('}, 5000);') &&
+  src.includes('.hero-slides img.on{opacity:1}'));
+
+T('each room\'s rate card shows its room type\'s photo (set in PMS Room types) when it has one',
+  src.includes('${r.typePhoto ? `<img src="${r.typePhoto}" alt="" style="width:88px;height:66px;object-fit:cover;border-radius:4px;flex:none">` : \'\'}'));
+
+T('the catalog and single-hotel API carry logo, coverPhotos (max 8) and each room type\'s photo through to the guest page',
+  catalogSrc.includes("logo: s.logo || ''") &&
+  catalogSrc.includes('coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : []') &&
+  catalogSrc.includes("photo: t.photo || ''") &&
+  serverSrc.includes('logo: hotel.logo,') &&
+  serverSrc.includes('coverPhotos: hotel.coverPhotos,'));
+
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);

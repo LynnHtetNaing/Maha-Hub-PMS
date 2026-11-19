@@ -229,6 +229,8 @@ const server = http.createServer(async (req, res) => {
           cancelPolicy: hotel.cancelPolicy,
           importantNotice: hotel.importantNotice,
           photoUrl: hotel.photoUrl,
+          logo: hotel.logo,
+          coverPhotos: hotel.coverPhotos,
           roomTypes: hotel.roomTypes,
           rateCodes: hotel.rateCodes.filter(r => r.kind !== 'zero' && r.comp !== 'COMP' && r.comp !== 'HOUSE'),
           readiness: readiness(hotel)

@@ -7820,10 +7820,10 @@ const PROV_MENU=[
  {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
-const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.be.info','prov.be.amenities','prov.be.policies','prov.be.theme','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
+const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.be.info','prov.be.amenities','prov.be.policies','prov.be.theme','prov.be.photos','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems']]},
- {t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]},
+ {t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos']]},
  {t:'Connections',items:[['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
  {t:'Billing',items:[['Hotel Billing','prov.billing']]},
  {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amendment Records','prov.amend'],['Amendment Log','prov.log'],['User Logs','prov.userlogs']]},
@@ -8269,7 +8269,7 @@ const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.r
  'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.billing':'receipt','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.log':'history',
  /* Hotel Setup, one subtitle per section, and the rest of the Provider group inside a hotel */
  'hset.profile':'building','hset.tax':'wallet','hset.bd':'clock','hset.floors':'layers','hset.types':'list','hset.rooms':'bed','hset.plan':'grid','hset.rates':'tag','hset.charges':'receipt','hset.pay':'card','hset.companies':'users','hset.allot':'hash','hset.docs':'clip','hset.tiref':'filesearch','hset.terms':'book','hset.mailpol':'check','hset.activate':'spark',
- 'prov.google':'search','prov.be.info':'building','prov.be.amenities':'spark','prov.be.policies':'book','prov.be.theme':'sliders','prov.stripe':'card','prov.amend':'tools'};
+ 'prov.google':'search','prov.be.info':'building','prov.be.amenities':'spark','prov.be.policies':'book','prov.be.theme':'sliders','prov.be.photos':'upload','prov.stripe':'card','prov.amend':'tools'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;
@@ -8296,7 +8296,7 @@ function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
 const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Stripe payments (this hotel)','prov.stripe']]};
-const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]};
+const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos']]};
 const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};
 function modernShellHTML(){
   const n=notifBadgeCount();
@@ -13544,12 +13544,14 @@ const SEC={
    listEditor(box,{orderable:true,rows,cols:[{k:'id',h:'Floor ID (used on rooms)',ro:true,w:'120px'},{k:'name',h:'Display name'}],blank:()=>({id:'',name:''}),
     validate:d=>{if(d.some(f=>!f.id||!f.name))return 'Every floor needs an ID and a name.';if(new Set(d.map(f=>f.id)).size!==d.length)return 'Floor IDs must be different.';const used=new Set(H.rooms.filter(r=>!r.dummy).map(r=>r.floor));const gone=[...used].filter(u=>!d.some(f=>f.id===u));return gone.length?`Rooms still use floor ${gone.join(', ')}. Move those rooms first.`:''},
     save:d=>{H.floors=d.map((f,i)=>({id:String(f.id),name:f.name,order:i+1}));provLog(`Floors saved for ${H.code}`);saved()}})},
- types(box){box.innerHTML=secHead('5. Room types','Short code (shown on the floor plan, reports and forecast), full name, maximum guests and the <b>total rooms</b> of this type (allotment). In section 6 the rooms you list must add up to this total for every room type. Room types have no standard rate: the rate is agreed with the guest and typed on each reservation.');
-   listEditor(box,{orderable:true,rows:H.roomTypes.filter(t=>!t.dummy).map(t=>({...t,_old:true})),cols:[{k:'code',h:'Short code',ro:true,w:'90px'},{k:'name',h:'Name'},{k:'max',h:'Max guests',type:'number',w:'90px'},{k:'allot',h:'Total rooms (allotment)',type:'number',w:'150px'}],
+ types(box){box.innerHTML=secHead('5. Room types','Short code (shown on the floor plan, reports and forecast), full name, maximum guests and the <b>total rooms</b> of this type (allotment). In section 6 the rooms you list must add up to this total for every room type. Room types have no standard rate: the rate is agreed with the guest and typed on each reservation. The photo shows on this room type\'s card in the Booking Engine.');
+   listEditor(box,{orderable:true,rows:H.roomTypes.filter(t=>!t.dummy).map(t=>({...t,_old:true})),cols:[{k:'code',h:'Short code',ro:true,w:'90px'},{k:'name',h:'Name'},{k:'max',h:'Max guests',type:'number',w:'90px'},{k:'allot',h:'Total rooms (allotment)',type:'number',w:'150px'},{k:'photo',h:'Photo',type:'logo',
+      onUpload:(r,url)=>{const t=H.roomTypes.find(x=>x.code===r.code);if(!t){toast('Save this row first, then add its photo.');return false}t.photo=url;log('Photo added for room type '+t.code);saveDB();toast('Photo added');return true},
+      onRemove:r=>{const t=H.roomTypes.find(x=>x.code===r.code);if(!t)return;delete t.photo;log('Photo removed for room type '+t.code);saveDB()}}],
     blank:()=>({code:'',name:'',max:2,allot:0}),
     validate:d=>{if(d.some(t=>!t.code||!t.name))return 'Every room type needs a short code and a name.';if(d.some(t=>!/^[A-Z0-9]{2,8}$/.test(String(t.code).toUpperCase())))return 'Short code: 2 to 8 letters or numbers.';if(new Set(d.map(t=>String(t.code).toUpperCase())).size!==d.length)return 'Short codes must be different.';
       const gone=H.rooms.filter(r=>!r.dummy&&!d.some(t=>String(t.code).toUpperCase()===r.type));return gone.length?`Rooms still use ${[...new Set(gone.map(r=>r.type))].join(', ')}. Change those rooms first.`:''},
-    save:d=>{H.roomTypes=d.map(t=>({code:String(t.code).toUpperCase(),name:t.name,base:+((H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{}).base)||0,max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));ensureDummyBooking(H);provLog(`Room types saved for ${H.code}`);saved()}})},
+    save:d=>{H.roomTypes=d.map(t=>Object.assign({},H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{},{code:String(t.code).toUpperCase(),name:t.name,max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));ensureDummyBooking(H);provLog(`Room types saved for ${H.code}`);saved()}})},
  rooms(box){box.innerHTML=secHead('6. Rooms','Room number, room type and floor. Connecting room and handicap room are shown on the floor plan.')+roomTotalsBanner()+`<div class="panel pad rbulk"><b>Add many rooms at once</b><div class="row gap">${fld('From room no.',`<input id="rb_f" style="width:110px">`)}${fld('To room no.',`<input id="rb_t" style="width:110px">`)}${fld('Room type',`<select id="rb_ty">${H.roomTypes.filter(t=>!t.dummy).map(t=>opt(t.code,t.code)).join('')}</select>`)}${fld('Floor',`<input id="rb_fl" style="width:90px">`)}<button class="btn" id="rb_go">Add range</button></div></div>`;
    const floorsOpt=()=>{const fs=(H.floors&&H.floors.length?H.floors.map(f=>[f.id,f.name]):[...new Set(H.rooms.map(r=>r.floor))].map(f=>[f,'Floor '+f]));return [['','—'],...fs]};
    listEditor(box,{rows:H.rooms.filter(r=>!r.dummy).map(r=>({no:r.no,type:r.type,floor:r.floor,order:r.order==null?'':r.order,connect:r.connect||'',handicap:!!r.handicap,_old:true})),
@@ -13682,7 +13684,7 @@ const SEC={
 /* Direct Booking Engine: not one crowded page any more - a real subtitle per job (same pattern as Hotel Setup's
    own hset.* pages), the way 1HotelRez's own Set Up menu splits Property information / Amenities / Policies /
    Theme apart. Every subtitle shares the one H.set.google record; saving one never blanks another's fields. */
-const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings']];
+const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings'],['photos','5','Photos']];
 const BE={
  info(box){const s=H.set,g=s.google;
   box.innerHTML=secHead('1. Property Information','What Maha Booking (and, later, Google Hotel List matching) shows about this property. Maha is <b>not</b> a Google Connectivity Partner yet - this does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
@@ -13725,7 +13727,26 @@ const BE={
    ${fld('Public photo URL (optional)',`<input id="g_ph" value="${esc(g.photoUrl||'')}">`)}
    </div>
    <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
-  $('#gS',box).onclick=()=>{if(!provOnly())return;g.brand=$('#g_br',box).value.trim()||'Maha Booking';g.photoUrl=$('#g_ph',box).value.trim();provLog(`Direct Booking Engine theme saved for ${H.code}`);saved()}}
+  $('#gS',box).onclick=()=>{if(!provOnly())return;g.brand=$('#g_br',box).value.trim()||'Maha Booking';g.photoUrl=$('#g_ph',box).value.trim();provLog(`Direct Booking Engine theme saved for ${H.code}`);saved()}},
+ photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];
+  box.innerHTML=secHead('5. Photos','The hero on the Booking Engine rotates through the cover photos below. The hotel logo is not set here - it follows Hotel Setup automatically.')+`<div class="panel pad">
+   <h3 style="margin-top:0">Hotel logo</h3>
+   <p class="sub">Synced automatically from Hotel Setup → Hotel profile - nothing to upload here.</p>
+   ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:'<p class="sub">No logo set yet.</p>'}
+   <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goLogo">Open Hotel profile</button></div>
+   <h3 class="mt">Cover photos (hero, up to 8)</h3>
+   <p class="sub">Big, horizontal photos work best. The Booking Engine hero fades between all of them.</p>
+   <div class="curgrid" id="g_covers">${covers.map((url,i)=>`<div class="curchk" style="flex-direction:column;align-items:stretch;gap:6px"><img src="${url}" alt="" style="width:100%;height:90px;object-fit:cover;border-radius:4px"><button type="button" class="btn sm ghost" data-covx="${i}">Remove</button></div>`).join('')}</div>
+   <div class="btns mt" style="justify-content:flex-start">${covers.length<8?`<label class="btn ghost">${ic('upload',14)} Add cover photo<input id="g_covup" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>`:'<p class="sub">8 cover photos is the most. Remove one to add another.</p>'}</div>
+   <h3 class="mt">Room type photos</h3>
+   <p class="sub">One photo per room type, shown on its rate card. Set under Hotel Setup → Room types.</p>
+   <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goTypes">Open Room types</button></div></div>`;
+  $('#goLogo',box).onclick=()=>go('hset.profile');
+  $('#goTypes',box).onclick=()=>go('hset.types');
+  $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
+  if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;const file=e.target.files[0];if(!file)return;if(file.size>3e6){toast('Choose an image under 3 MB.');return}
+    const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,1600/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      covers.push(cv.toDataURL('image/jpeg',0.82));g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)}}
 };
 BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}

@@ -72,10 +72,10 @@ T('Terms & Conditions as a Hotel Setup subtitle page drops the embedded page\'s 
   src.includes("terms(box){VIEWS['prov.terms'](box);if(SEC_BARE){const ph=box.querySelector('.phead');if(ph)ph.remove()}else box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},"));
 
 T('Direct Booking Engine is 4 real subtitles (same pattern as Hotel Setup\'s own hset.* pages), not one page with a "wrap" class pretending to be sections - each one bare, its title already coming from the outer page, reachable from both the provider console (with a hotel picker) and from inside the hotel\'s own Booking Engine sidebar group',
-  src.includes("const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings']];") &&
+  src.includes("const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings'],['photos','5','Photos']];") &&
   src.includes("BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{") &&
   src.includes("bindPicker(el);SEC_BARE=true;BE[k]($('#gBody',el))") &&
-  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]};") &&
+  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos']]};") &&
   src.includes("VIEWS['prov.google']=()=>go('prov.be.info');"));
 
 T('saving one Booking Engine subtitle never blanks another\'s fields - every BE.* section reads and writes the same H.set.google record, just its own slice of it (Object.assign, not a wholesale replace)',
@@ -218,18 +218,32 @@ T('a .scroll panel (Rate codes, Charge codes, Companies & agents, and every othe
   src.includes('html[data-skin="modern"] .panel:has(>table):not(.scroll),html[data-skin="modern"] .panel:has(>.ph):not(.scroll){overflow:hidden}'));
 
 T('Direct booking & Google is renamed Direct Booking Engine everywhere (menus and page titles), and its amenities list covers a lot more of what a property can actually have, not just the original ten',
-  src.includes("{t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]}") &&
+  src.includes("{t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos']]}") &&
   src.includes("box.innerHTML=secHead('1. Property Information',") &&
   src.includes("{k:'google',t:'Direct Booking Engine metadata'") &&
   ['front_desk','bar','room_service','business_center','meeting_room','elevator','non_smoking_rooms','family_rooms','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kids_club','sauna','kitchen','balcony','beachfront','tour_desk','atm','bbq','garden','heating','accessible_facilities'].every(a=>src.includes("'"+a+"'")));
 
 T('the whole-system provider console (not inside any hotel) and a hotel\'s own Backend both reach the same 4 Booking Engine subtitles - a real sidebar group each, not a single crowded page',
-  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme']]};") &&
+  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos']]};") &&
   src.includes("people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_BE_GROUP,PROV_HOTEL_GROUP]}"));
 
 T('Amendment Records and Amendment Log are their own Records group inside a hotel\'s Provider menu, not bundled in with Direct Booking Engine / Stripe payments / Back to provider console; both names are now parallel (Amendment Records, Amendment Log) everywhere, not the old mismatched "Amend records"',
   src.includes("const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};") &&
   src.includes("el.innerHTML=pageHead('Amendment Records',") &&
   (src.match(/\['Amendment Records','prov\.amend'\]/g) || []).length === 2);
+
+T('Booking Engine > Photos: the hotel logo is never re-uploaded here - it follows Hotel Setup\'s own logo automatically; cover photos (up to 8) are the hero\'s rotating gallery; room type photos link out to Room types, where they are actually set',
+  src.includes(" photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];") &&
+  src.includes('Synced automatically from Hotel Setup') &&
+  src.includes('covers.length<8') &&
+  src.includes("$('#goTypes',box).onclick=()=>go('hset.types');"));
+
+T('a room type\'s photo survives the Room types list\'s own Save - the rebuild on save (Object.assign over the existing record) keeps the photo instead of silently dropping it, the same pattern Companies & agents already uses for its logo column',
+  src.includes("{k:'photo',h:'Photo',type:'logo',") &&
+  src.includes("save:d=>{H.roomTypes=d.map(t=>Object.assign({},H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{},{code:String(t.code).toUpperCase(),name:t.name,max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));"));
+
+T('provOnly() guards every write on the new Photos subtitle too (cover photo upload/remove)',
+  src.includes("$$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(") &&
+  src.includes("if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;"));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
