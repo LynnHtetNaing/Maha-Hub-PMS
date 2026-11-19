@@ -241,7 +241,7 @@ T('Booking Engine > Photos: the hotel logo is never re-uploaded here - it follow
 
 T('a room type\'s photo survives the Room types list\'s own Save - the rebuild on save (Object.assign over the existing record) keeps the photo instead of silently dropping it, the same pattern Companies & agents already uses for its logo column',
   src.includes("{k:'photo',h:'Photo',type:'logo',") &&
-  src.includes("save:d=>{H.roomTypes=d.map(t=>Object.assign({},H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{},{code:String(t.code).toUpperCase(),name:t.name,max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));"));
+  src.includes("save:d=>{H.roomTypes=d.map(t=>Object.assign({},H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{},{code:String(t.code).toUpperCase(),name:t.name,base:Math.max(0,+t.base||0),max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));"));
 
 T('provOnly() guards every write on the new Photos subtitle too (cover photo upload/remove)',
   src.includes("$$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(") &&
