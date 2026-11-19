@@ -249,6 +249,7 @@ export function publicHotelFromHub(h, opts = {}) {
     lat: g.lat === '' || g.lat == null ? null : Number(g.lat),
     lng: g.lng === '' || g.lng == null ? null : Number(g.lng),
     category: g.category || 'hotel',
+    area: g.area || '',
     amenities: Array.isArray(g.amenities) ? g.amenities.slice() : [],
     cancelPolicy: g.cancelPolicy || '',
     cancelPolicyLines: Array.isArray(g.cancelPolicyLines) ? g.cancelPolicyLines.slice() : [],

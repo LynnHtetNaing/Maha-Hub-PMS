@@ -262,6 +262,8 @@ const server = http.createServer(async (req, res) => {
           checkOut: hotel.checkOut,
           lat: hotel.lat,
           lng: hotel.lng,
+          category: hotel.category,
+          area: hotel.area,
           amenities: hotel.amenities,
           cancelPolicy: hotel.cancelPolicy,
           cancelPolicyLines: hotel.cancelPolicyLines,

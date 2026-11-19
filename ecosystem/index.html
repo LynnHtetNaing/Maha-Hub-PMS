@@ -13500,6 +13500,9 @@ function curSetupPanel(box){const s=H.set,main=s.cur,inUse=c=>allBookings().some
     provLog(`Currencies saved for ${H.code}: ${s.curAllow.join(', ')||'main only'}${nowU?' · users may choose':''}`);saved('Currencies saved')}}
 /* Per-room-type amenities (1HotelRez calls these "Room benefits") - separate from the hotel-level
    Amenities list: these show on each room's own card, not just the hotel's. */
+/* A free-growable area/location tag (not a fixed platform-wide list the way 1HotelRez's catalog
+   is - Maha is single-hotel scoped, so this is just suggestions, not a managed shared table). */
+const AREA_SUGGESTIONS=['Sukhumvit','Silom','Siam','Pratunam','Khao San Road','Chinatown - Hualamphong','Thonglor','Ekkamai','Ari','Victory Monument','Chiang Mai','Hua Hin','Pattaya','Jomtien Beach','Koh Samui','Phuket Town','Patong Beach','Krabi','Koh Phi Phi','Koh Chang','Ha Noi','Ho Chi Minh City','Da Nang','Hoi An','Nha Trang','Phu Quoc','Siem Reap','Phnom Penh','Vientiane','Yangon'];
 const ROOM_BENEFIT_ITEMS=['free_wifi','flat_screen_tv','air_conditioning','private_bathroom','bathtub','shower','hairdryer','safe_box','minibar','kitchen','kitchenette','refrigerator','coffee_maker','electric_kettle','iron','balcony','terrace','sofa','work_desk','sea_view','beachfront_view','city_view','garden_view','mountain_view','pool_view','river_view','lake_view','soundproofing','daily_housekeeping','bathrobe','slippers','free_toiletries','bidet','sitting_area','dining_area','private_pool','private_jacuzzi','connecting_rooms','wheelchair_accessible','non_smoking','smoking_allowed','pets_allowed','pets_not_allowed','extra_bed_available','clothes_rack','wardrobe','wake_up_service','telephone','alarm_clock','soundproofed_windows','tea_coffee_facilities'];
 function roomBenefitsModal(t){const picked=new Set(t.benefits||[]);
   const m=modal('Room benefits - '+t.code+' '+t.name,`<div class="curgrid" id="rbGrid">${ROOM_BENEFIT_ITEMS.map(a=>`<label class="curchk ${picked.has(a)?'on':''}"><input type="checkbox" data-rb="${a}" ${picked.has(a)?'checked':''}> ${esc(a.replace(/_/g,' '))}</label>`).join('')}</div>
@@ -13532,6 +13535,7 @@ const SEC={
      ${fld('Longitude',`<input id="p_glng" value="${esc(g.lng||'')}" placeholder="100.561" ${d}>`)}
      ${fld('Country code (ISO)',`<input id="p_gcc" value="${esc(g.countryCode||'')}" maxlength="2" placeholder="TH" ${d}>`)}
      ${fld('Category',`<input id="p_gcat" value="${esc(g.category||'hotel')}" ${d}>`)}
+     ${fld('Area / Location',`<input id="p_garea" list="areaSuggest" value="${esc(g.area||'')}" placeholder="e.g. Sukhumvit, Hua Hin" ${d}><datalist id="areaSuggest">${AREA_SUGGESTIONS.map(a=>`<option value="${esc(a)}">`).join('')}</datalist>`)}
      ${fld('Booking base URL',`<input id="p_gbase" value="${esc(g.bookBaseUrl||'http://127.0.0.1:8781/book')}" placeholder="https://book.example.com/book" ${d}>`,'span2')}
      ${fld('Brand shown on landing page',`<input id="p_gbr" value="${esc(g.brand||'Maha Booking')}" ${d}>`,'span2')}
     </div>
@@ -13545,7 +13549,7 @@ const SEC={
    if($('#pgS',box))$('#pgS',box).onclick=()=>{if(prov){if(!provOnly())return}else if(!need('setup'))return;
     const en=$('#p_gen',box).checked,lat=$('#p_glat',box).value.trim(),lng=$('#p_glng',box).value.trim(),cc=$('#p_gcc',box).value.trim().toUpperCase();
     if(en&&(!lat||!lng||!/^[A-Z]{2}$/.test(cc)||!g.cancelPolicy)){toast('When booking is enabled, latitude, longitude, country code and a cancellation policy (Policies & Notices) are required.');return}
-    Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:$('#p_gcat',box).value.trim()||'hotel',bookBaseUrl:$('#p_gbase',box).value.trim(),brand:$('#p_gbr',box).value.trim()||'Maha Booking'});
+    Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:$('#p_gcat',box).value.trim()||'hotel',area:$('#p_garea',box).value.trim(),bookBaseUrl:$('#p_gbase',box).value.trim(),brand:$('#p_gbr',box).value.trim()||'Maha Booking'});
     if(prov)provLog(`Direct Booking Engine property info saved for ${H.code}`);
     saved()};
    if($('#pgOpen',box))$('#pgOpen',box).onclick=()=>{const base=($('#p_gbase',box).value.trim()||'http://127.0.0.1:8781/book').replace(/\/+$/,'');window.open(`${base}/?hotel=${encodeURIComponent(H.code)}`,'_blank')};
