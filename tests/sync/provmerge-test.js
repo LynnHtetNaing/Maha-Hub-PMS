@@ -82,7 +82,7 @@ T('Direct Booking Engine is real subtitles (same pattern as Hotel Setup\'s own h
 T('saving one Booking Engine subtitle never blanks another\'s fields - every BE.* section (and the merged Hotel profile Direct Booking Engine card) reads and writes the same H.set.google record, just its own slice of it (Object.assign, not a wholesale replace)',
   src.includes('Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:') &&
   src.includes('g.amenities=$$(\'[data-am]\',box).filter(x=>x.checked).map(x=>x.dataset.am);') &&
-  src.includes("g.cancelPolicy=$('#g_cx',box).value.trim();g.importantNotice=$('#g_notice',box).value.trim();"));
+  src.includes("g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\\n');"));
 
 T('provOnly() accepts a provider operating inside a hotel too (user().isProv), not just user().provider - otherwise every provider-only Save silently does nothing the moment that provider has actually entered the hotel it is editing (caught testing the new Booking Engine subtitles, but it is the one gate used by all 42 provider-only actions in the app)',
   src.includes('function provOnly(){const u=user();if(!u.provider&&!u.isProv){') );

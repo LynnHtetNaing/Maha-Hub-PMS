@@ -13733,11 +13733,20 @@ const BE={
   $$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));
   $('#gS',box).onclick=()=>{if(!provOnly())return;g.amenities=$$('[data-am]',box).filter(x=>x.checked).map(x=>x.dataset.am);provLog(`Direct Booking Engine amenities saved for ${H.code}`);saved()}},
  policies(box){const g=H.set.google;
-  box.innerHTML=secHead('2. Policies & Notices','The cancellation policy is required before direct booking can be switched on (Hotel Setup → Hotel profile).')+`<div class="panel pad">
-   ${fld('Cancellation policy (required when booking is enabled)',`<textarea id="g_cx" rows="4">${esc(g.cancelPolicy||'')}</textarea>`,'span2')}
-   ${fld('Important notice (optional - shown to every guest before they book)',`<textarea id="g_notice" rows="3">${esc(g.importantNotice||'')}</textarea>`,'span2')}
-   <div class="btns"><button class="btn gold" id="gS">Save</button></div></div>`;
-  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicy=$('#g_cx',box).value.trim();g.importantNotice=$('#g_notice',box).value.trim();provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
+  const cancelLines=Array.isArray(g.cancelPolicyLines)?g.cancelPolicyLines.slice():(g.cancelPolicy?[g.cancelPolicy]:[]);
+  const noticeLines=Array.isArray(g.importantNoticeLines)?g.importantNoticeLines.slice():(g.importantNotice?[g.importantNotice]:[]);
+  const bullets=(id,lines)=>`<ul class="btns" style="display:block;list-style:none;padding:0;margin:4px 0" id="${id}List">${lines.map((t,i)=>`<li style="display:flex;align-items:center;gap:8px;padding:4px 0">• <span style="flex:1">${esc(t)}</span><button type="button" class="btn sm ghost" data-rmline="${id}:${i}">✕</button></li>`).join('')||'<li class="sub">Nothing added yet.</li>'}</ul>
+   <div class="row gap"><input id="${id}In" placeholder="Type a line, then Add" style="flex:1"><button type="button" class="btn ghost" data-addline="${id}">Add</button></div>`;
+  box.innerHTML=secHead('2. Policies & Notices','The cancellation policy is required before direct booking can be switched on (Hotel Setup → Hotel profile). Each line you add shows as its own bullet point on the booking page.')+`<div class="panel pad">
+   <h3 style="margin-top:0">Cancellation policy (required when booking is enabled)</h3>${bullets('g_cx',cancelLines)}
+   <h3 class="mt">Important notice (optional - shown to every guest before they book)</h3>${bullets('g_notice',noticeLines)}
+   <div class="btns mt"><button class="btn gold" id="gS">Save</button></div></div>`;
+  const addLine=(id,lines)=>{const inp=$('#'+id+'In',box),v=inp.value.trim();if(!v)return;lines.push(v);inp.value='';redraw()};
+  const redraw=()=>{$('#g_cxList',box).outerHTML=bullets('g_cx',cancelLines).match(/<ul[\s\S]*?<\/ul>/)[0];$('#g_noticeList',box).outerHTML=bullets('g_notice',noticeLines).match(/<ul[\s\S]*?<\/ul>/)[0];bind()};
+  const bind=()=>{$$('[data-addline]',box).forEach(b=>b.onclick=()=>addLine(b.dataset.addline,b.dataset.addline==='g_cx'?cancelLines:noticeLines));
+   $$('[data-rmline]',box).forEach(b=>b.onclick=()=>{const[id,i]=b.dataset.rmline.split(':');(id==='g_cx'?cancelLines:noticeLines).splice(+i,1);redraw()})};
+  bind();
+  $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\n');provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
  photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];
   box.innerHTML=secHead('3. Photos','The hero on the Booking Engine rotates through the cover photos below. The hotel logo is not set here - it follows Hotel Setup automatically.')+`<div class="panel pad">
    <h3 style="margin-top:0">Hotel logo</h3>

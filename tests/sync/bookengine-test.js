@@ -44,10 +44,14 @@ T('Address and Contact shows phone / email / website and a live OpenStreetMap pi
   src.includes('map.src = `https://www.openstreetmap.org/export/embed.html?bbox=') &&
   src.includes("map.hidden = true;"));
 
-T('an Important Notice (Backend > Booking Engine > Policies & Notices) shows next to the cancellation policy, both fetched through the catalog and the single-hotel API',
+T('an Important Notice and a Cancellation policy (Backend > Booking Engine > Policies & Notices) are each built as an Add-button bullet list, not a single textarea, and show as real bullet points on the guest page - both fetched through the catalog and the single-hotel API',
   catalogSrc.includes("importantNotice: g.importantNotice || '',") &&
+  catalogSrc.includes('importantNoticeLines: Array.isArray(g.importantNoticeLines) ? g.importantNoticeLines.slice() : [],') &&
+  catalogSrc.includes('cancelPolicyLines: Array.isArray(g.cancelPolicyLines) ? g.cancelPolicyLines.slice() : [],') &&
   serverSrc.includes('importantNotice: hotel.importantNotice,') &&
-  src.includes("$('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong> ${h.importantNotice}` : '';"));
+  serverSrc.includes('importantNoticeLines: hotel.importantNoticeLines,') &&
+  src.includes('.policybullets{') &&
+  src.includes("(h.importantNoticeLines && h.importantNoticeLines.length) ? `<ul class=\"policybullets\">${h.importantNoticeLines.map(t => `<li>${t}</li>`).join('')}</ul>` : ' ' + h.importantNotice"));
 
 T('the hero shows the hotel logo (synced from Hotel Setup) and fades between up to 8 cover photos every 5 seconds, instead of a single static background',
   src.includes('function renderHero(h) {') &&
