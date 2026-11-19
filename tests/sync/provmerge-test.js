@@ -250,7 +250,7 @@ T('provOnly() guards every write on the new Photos subtitle too (cover photo upl
 T('Booking Engine > Booking Engine Bookings (Phase 3, auto-confirm): every request not yet materialised (confirmed_reservation_no is null) is turned into a real reservation the moment the page opens - no staff click - the same way the PMS always has (confirmBookingRequest - a real guest, a real reservation wrapper, newBooking), then tells the cloud it was decided; a staff Cancel is still offered for anything not yet materialised',
   src.includes(" pending(box){box.innerHTML=secHead('4. Booking Engine Bookings',") &&
   src.includes("rows=await ctx.call('maha_booking_requests?select=*&property_id=eq.'+ctx.pid+'&status=neq.declined&order=created_at.desc&limit=100')") &&
-  src.includes('const todo=rows.filter(r=>!r.confirmed_reservation_no);') &&
+  src.includes("const todo=rows.filter(r=>!r.confirmed_reservation_no&&r.payment_status!=='awaiting');") &&
   src.includes('function confirmBookingRequest(row){') &&
   src.includes("const B=newBooking(H,{guestId:g.id,type:row.room_type,arr:row.arr,dep:row.dep,adults:row.adults,children:row.children,rateCode:row.rate_code,status:'confirmed',market:'FIT',channel:'WEB',source:'DIRECT'});") &&
   src.includes("await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:row.id,p_confirm:true,p_reservation_no:String(nr.no)})});") &&

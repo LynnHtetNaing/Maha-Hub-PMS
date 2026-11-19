@@ -13806,7 +13806,7 @@ const BE={
     let ctx;try{ctx=await provBillCtx(H)}catch(e){listBox.innerHTML='<p class="sub">'+esc(e.message)+'</p>';return}
     let rows=[];try{rows=await ctx.call('maha_booking_requests?select=*&property_id=eq.'+ctx.pid+'&status=neq.declined&order=created_at.desc&limit=100')}catch(e){listBox.innerHTML='<div class="err">'+esc(e.message)+'</div>';return}
     if(!listBox.isConnected)return;
-    const todo=rows.filter(r=>!r.confirmed_reservation_no);
+    const todo=rows.filter(r=>!r.confirmed_reservation_no&&r.payment_status!=='awaiting');
     for(const row of todo){try{const nr=confirmBookingRequest(row);
         await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:row.id,p_confirm:true,p_reservation_no:String(nr.no)})});
         row.confirmed_reservation_no=String(nr.no);
@@ -13814,9 +13814,10 @@ const BE={
       catch(e){/* leave it for the next time this page opens, or for a manual Cancel below */}}
     if(!listBox.isConnected)return;
     if(todo.some(r=>r.confirmed_reservation_no))toast(todo.length===1?'1 booking confirmed just now.':todo.filter(r=>r.confirmed_reservation_no).length+' bookings confirmed just now.');
-    listBox.innerHTML=rows.length?`<table class="grid"><tr><th>Received</th><th>Guest</th><th>Room</th><th>Dates</th><th>Pax</th><th class="n">Amount</th><th>Reservation</th><th></th></tr>${rows.map(r=>`<tr><td>${fdt(r.created_at)}</td><td>${esc(r.guest_name)}<br><small>${esc(r.guest_email)}</small></td><td>${esc(r.room_type)} · ${esc(r.rate_code)}</td><td>${fd(r.arr)} – ${fd(r.dep)}</td><td>${r.adults}A${r.children?('+'+r.children+'C'):''}</td><td class="n">${esc(r.currency)} ${m2(r.amount)}</td><td>${r.confirmed_reservation_no?('#'+esc(r.confirmed_reservation_no)):'<span class="sub">Pending...</span>'}</td><td class="nowrap">${r.confirmed_reservation_no?'':'<button class="btn sm red" data-pbd="'+r.id+'">Cancel</button>'}</td></tr>`).join('')}</table>`:'<p class="sub">No Booking Engine requests yet.</p>';
+    const statusCell=r=>r.confirmed_reservation_no?('#'+esc(r.confirmed_reservation_no)):r.payment_status==='awaiting'?'<span class="sub">Awaiting guest payment...</span>':'<span class="sub">Pending...</span>';
+    listBox.innerHTML=rows.length?`<table class="grid"><tr><th>Received</th><th>Guest</th><th>Room</th><th>Dates</th><th>Pax</th><th class="n">Amount</th><th>Reservation</th><th></th></tr>${rows.map(r=>`<tr><td>${fdt(r.created_at)}</td><td>${esc(r.guest_name)}<br><small>${esc(r.guest_email)}</small></td><td>${esc(r.room_type)} · ${esc(r.rate_code)}</td><td>${fd(r.arr)} – ${fd(r.dep)}</td><td>${r.adults}A${r.children?('+'+r.children+'C'):''}</td><td class="n">${esc(r.currency)} ${m2(r.amount)}</td><td>${statusCell(r)}</td><td class="nowrap">${r.confirmed_reservation_no?'':'<button class="btn sm red" data-pbd="'+r.id+'" data-await="'+(r.payment_status==='awaiting'?'1':'')+'">Cancel</button>'}</td></tr>`).join('')}</table>`:'<p class="sub">No Booking Engine requests yet.</p>';
     $$('[data-pbd]',listBox).forEach(b=>b.onclick=async()=>{if(!provOnly())return;if(!await dlgConfirm('Cancel this booking request before it is confirmed? The guest is not notified automatically.'))return;b.disabled=true;
-      try{await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:b.dataset.pbd,p_confirm:false,p_reservation_no:null})});provLog(`Maha Booking request cancelled for ${H.code}`);toast('Cancelled');draw()}
+      try{await ctx.call('rpc/'+(b.dataset.await?'maha_be_cancel_hold':'maha_be_decide_request'),{method:'POST',body:JSON.stringify(b.dataset.await?{p_request:b.dataset.pbd}:{p_request:b.dataset.pbd,p_confirm:false,p_reservation_no:null})});provLog(`Maha Booking request cancelled for ${H.code}`);toast('Cancelled');draw()}
       catch(e){toast('Could not cancel: '+e.message);b.disabled=false}});
   };
   draw()},
