@@ -13939,21 +13939,22 @@ const BE={
   paint()},
  bookButton(box){const g=H.set.google;
   const base=()=>(g.bookBaseUrl||'http://127.0.0.1:8781/book').replace(/\/+$/,'');
-  const opts=()=>({property:[['','Whole property']],type:[['','Any room type'],...H.roomTypes.filter(t=>!t.dummy).map(t=>[t.code,t.code+' - '+t.name])],promotion:[['','No promotion'],...(g.promotions||[]).map(p=>[p.code,p.name||p.code])]});
+  const opts=()=>({property:[['','Whole property']],type:[['','Any room type'],...H.roomTypes.filter(t=>!t.dummy).map(t=>[t.code,t.code+' - '+t.name])],rate:[['','Any rate'],...H.rateCodes.filter(r=>r.kind!=='zero'&&r.channelScope!=='b2b').map(r=>[r.code,r.code+' - '+r.desc])],promotion:[['','No promotion'],...(g.promotions||[]).map(p=>[p.code,p.name||p.code])]});
   const paint=()=>{const o=opts();
    box.innerHTML=secHead('12. Booking Button Code','Paste this on your own website - it links straight to the real Booking Engine, scoped to whatever you pick below.')+`<div class="panel pad">
     <div class="form3">
      <div class="f"><label>Scope by room type</label><select id="bbType">${o.type.map(x=>opt(x[0],x[1],'')).join('')}</select></div>
+     <div class="f"><label>Scope by rate</label><select id="bbRate">${o.rate.map(x=>opt(x[0],x[1],'')).join('')}</select></div>
      <div class="f"><label>Scope by promotion</label><select id="bbPromo">${o.promotion.map(x=>opt(x[0],x[1],'')).join('')}</select></div>
      <div class="f"><label>Button text</label><input id="bbLabel" value="Book Now"></div>
     </div>
     <h3 class="mt">Embed code</h3>
     <textarea id="bbCode" rows="2" readonly style="width:100%;font-family:monospace;font-size:12px"></textarea>
     <div class="btns mt"><button class="btn ghost" type="button" id="bbCopy">Copy code</button></div></div>`;
-   const build=()=>{const type=$('#bbType',box).value,promo=$('#bbPromo',box).value,label=$('#bbLabel',box).value.trim()||'Book Now';
-    const qs=new URLSearchParams();qs.set('hotel',H.code);if(type)qs.set('type',type);if(promo)qs.set('promo',promo);
+   const build=()=>{const type=$('#bbType',box).value,rate=$('#bbRate',box).value,promo=$('#bbPromo',box).value,label=$('#bbLabel',box).value.trim()||'Book Now';
+    const qs=new URLSearchParams();qs.set('hotel',H.code);if(type)qs.set('type',type);if(rate)qs.set('rate',rate);if(promo)qs.set('promo',promo);
     $('#bbCode',box).value=`<a href="${base()}/?${qs.toString()}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;background:#184d3a;color:#fff;border-radius:4px;text-decoration:none;font-family:sans-serif">${label}</a>`};
-   $$('#bbType,#bbPromo,#bbLabel',box).forEach(el=>el.oninput=build);
+   $$('#bbType,#bbRate,#bbPromo,#bbLabel',box).forEach(el=>el.oninput=build);
    $('#bbCopy',box).onclick=()=>{$('#bbCode',box).select();try{document.execCommand('copy');toast('Code copied')}catch(e){toast('Select the text and copy it manually')}};
    build()};
   paint()}
