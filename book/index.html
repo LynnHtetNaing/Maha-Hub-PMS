@@ -41,9 +41,13 @@ a{color:var(--leaf)}button,input,select{font:inherit}
     radial-gradient(circle at 70% 20%,rgba(196,163,90,.35),transparent 45%),
     linear-gradient(135deg,var(--green) 0%,var(--green2) 55%,#082018 100%);
 }
-.hero::before{content:"";position:absolute;inset:0;background:
+.hero::before{content:"";position:absolute;inset:0;z-index:1;background:
   repeating-linear-gradient(-18deg,transparent 0 14px,rgba(255,255,255,.03) 14px 15px);pointer-events:none;opacity:.7}
-.hero-inner{position:relative;z-index:1;padding:48px 0 40px;animation:rise .8s ease both}
+.hero-slides{position:absolute;inset:0;z-index:0}
+.hero-slides img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.6s ease}
+.hero-slides img.on{opacity:1}
+.hero-inner{position:relative;z-index:2;padding:48px 0 40px;animation:rise .8s ease both}
+.hero-logo{height:44px;width:44px;object-fit:cover;border-radius:8px;margin-bottom:14px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 .brand{font-family:Fraunces,serif;font-size:clamp(2.4rem,6vw,4.2rem);line-height:1.02;margin:0 0 8px;letter-spacing:-.02em}
 .brand span{display:block;font-size:.38em;font-family:Sora,sans-serif;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
 .lede{max-width:36rem;font-size:1.05rem;line-height:1.55;color:#e7efe9;margin:0 0 22px}
@@ -53,6 +57,9 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 .btn{appearance:none;border:0;cursor:pointer;background:var(--gold);color:var(--green2);font-weight:700;padding:12px 18px;border-radius:2px;transition:transform .2s ease,background .2s}
 .btn:hover{background:var(--gold2);transform:translateY(-1px)}
 .btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35)}
+.promo-row{margin-top:10px}
+.promo-toggle{appearance:none;background:none;border:0;color:var(--gold2);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:0}
+#promoCode{margin-left:8px;padding:8px 10px;border-radius:2px;border:0;font:inherit;font-size:13px;width:180px}
 .section{padding:42px 0 64px}
 .h2{font-family:Fraunces,serif;font-size:clamp(1.6rem,3vw,2.2rem);margin:0 0 8px}
 .sub{color:var(--mut);margin:0 0 22px;max-width:40rem;line-height:1.5}
@@ -106,7 +113,9 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 <body>
 <div class="banner"><b>Foundation build</b> — Maha is not live on Google Hotel Search. Feeds are prepared offline until Google Connectivity Partner approval.</div>
 <header class="hero">
+  <div class="hero-slides" id="heroSlides"></div>
   <div class="wrap hero-inner">
+    <img id="heroLogo" class="hero-logo" alt="" hidden>
     <h1 class="brand"><span id="brandTag">Maha Booking</span><span id="hotelTitle" style="display:block;font-family:Fraunces,serif;font-size:1em;letter-spacing:-.02em;text-transform:none;color:#fff;font-weight:700">Direct stays</span></h1>
     <p class="lede" id="hotelLede">Choose dates. See the inclusive rate the hotel will honor on this page. Book with Maha Booking — Maha Hub Group of Companies Limited.</p>
     <form class="search" id="searchForm">
@@ -127,15 +136,35 @@ a{color:var(--leaf)}button,input,select{font:inherit}
       </label>
       <label class="go">&nbsp;<button class="btn" type="submit">Show rates</button></label>
     </form>
+    <div class="promo-row">
+      <button type="button" class="promo-toggle" id="promoToggle">+ Add promo code</button>
+      <input type="text" id="promoCode" placeholder="Promo code" maxlength="30" hidden>
+    </div>
   </div>
 </header>
 
 <main class="wrap section">
-  <h2 class="h2" id="resultsTitle">Available rates</h2>
-  <p class="sub" id="resultsSub">Rates include service and tax when the hotel publishes them as inclusive. The amount below is what this landing page shows.</p>
+  <h2 class="h2">Property Information</h2>
   <div class="meta" id="meta" hidden></div>
   <div class="amenities" id="amenities" hidden></div>
-  <div class="results" id="results"><div class="empty">Choose a hotel and dates to see rates.</div></div>
+
+  <section class="panel" id="addrPanel" hidden>
+    <h2 class="h2">Address and Contact</h2>
+    <p class="sub" id="addrText"></p>
+    <iframe id="addrMap" title="Map" width="100%" height="260" style="border:1px solid var(--line);border-radius:4px" loading="lazy"></iframe>
+  </section>
+
+  <section class="panel" id="policyPanel" hidden>
+    <h2 class="h2">Check-In and Check-Out Policies</h2>
+    <div class="notice" id="policy" hidden></div>
+    <div class="notice" id="notice" hidden></div>
+  </section>
+
+  <section class="panel" id="ratesPanel">
+    <h2 class="h2" id="resultsTitle">Available rates</h2>
+    <p class="sub" id="resultsSub">Rates include service and tax when the hotel publishes them as inclusive. The amount below is what this landing page shows.</p>
+    <div class="results" id="results"><div class="empty">Choose a hotel and dates to see rates.</div></div>
+  </section>
 
   <section class="panel" id="requestPanel" hidden>
     <h2 class="h2">Request this stay</h2>
@@ -143,13 +172,18 @@ a{color:var(--leaf)}button,input,select{font:inherit}
     <form class="form" id="requestForm">
       <label>Full name<input id="guestName" required autocomplete="name"></label>
       <label>Email<input id="guestEmail" type="email" required autocomplete="email"></label>
-      <label class="span2">Phone<input id="guestPhone" type="tel" autocomplete="tel"></label>
+      <label>Phone<input id="guestPhone" type="tel" autocomplete="tel"></label>
+      <label>Country / nationality
+        <select id="guestCountrySel"><option value="">Prefer not to say</option>
+          <option value="TH">Thailand</option><option value="MM">Myanmar</option><option value="SG">Singapore</option>
+          <option value="MY">Malaysia</option><option value="VN">Vietnam</option><option value="CN">China</option>
+          <option value="JP">Japan</option><option value="KR">South Korea</option><option value="GB">United Kingdom</option>
+          <option value="US">United States</option><option value="AU">Australia</option></select>
+      </label>
       <div class="span2"><button class="btn" type="submit">Send booking request</button></div>
     </form>
     <div class="notice" id="requestMsg" hidden></div>
   </section>
-
-  <div class="notice" id="policy" hidden></div>
 </main>
 
 <div class="amen-overlay" id="amenOverlay" hidden>
@@ -236,20 +270,60 @@ function renderAmenities(list) {
 $('amenClose').onclick = () => { $('amenOverlay').hidden = true; };
 $('amenOverlay').onclick = (e) => { if (e.target.id === 'amenOverlay') $('amenOverlay').hidden = true; };
 
+let _heroTimer = null;
+function renderHero(h) {
+  $('heroLogo').hidden = !h.logo;
+  if (h.logo) $('heroLogo').src = h.logo;
+  clearInterval(_heroTimer);
+  const slides = $('heroSlides');
+  const photos = (h.coverPhotos || []).slice(0, 8);
+  if (!photos.length) { slides.innerHTML = ''; return; }
+  slides.innerHTML = photos.map((url, i) => `<img src="${url}" alt="" class="${i === 0 ? 'on' : ''}">`).join('');
+  if (photos.length > 1) {
+    let i = 0;
+    _heroTimer = setInterval(() => {
+      const imgs = slides.querySelectorAll('img');
+      imgs[i].classList.remove('on');
+      i = (i + 1) % imgs.length;
+      imgs[i].classList.add('on');
+    }, 5000);
+  }
+}
+
 async function hydrateHotel(id) {
   const { ok, j } = await api('/api/hotel/' + encodeURIComponent(id));
   if (!ok) return;
   const h = j.hotel;
   $('hotelTitle').textContent = h.name;
   $('hotelLede').textContent = `${h.addr || ''} · Check-in ${h.checkIn || '14:00'} · Check-out ${h.checkOut || '12:00'}`.replace(/^ · /, '');
-  $('policy').hidden = !h.cancelPolicy;
-  $('policy').textContent = h.cancelPolicy || '';
+  renderHero(h);
   const m = $('meta');
   m.hidden = false;
   m.innerHTML = `<span><strong>${h.country || h.countryCode || ''}</strong></span>
     <span>Currency <strong>${h.cur}</strong></span>
     <span>Service ${h.svc}% · ${h.taxName || 'Tax'} ${h.vat}%</span>`;
   renderAmenities(h.amenities || []);
+
+  const addrOn = !!(h.addr || h.phone || h.email || h.web);
+  $('addrPanel').hidden = !addrOn;
+  if (addrOn) {
+    $('addrText').innerHTML = [h.addr, h.phone ? `<a href="tel:${h.phone}">${h.phone}</a>` : '', h.email ? `<a href="mailto:${h.email}">${h.email}</a>` : '', h.web ? `<a href="${h.web}" target="_blank" rel="noopener">${h.web}</a>` : ''].filter(Boolean).join(' · ');
+    const map = $('addrMap');
+    if (h.lat != null && h.lng != null) {
+      map.hidden = false;
+      const d = 0.01;
+      map.src = `https://www.openstreetmap.org/export/embed.html?bbox=${h.lng - d}%2C${h.lat - d}%2C${h.lng + d}%2C${h.lat + d}&layer=mapnik&marker=${h.lat}%2C${h.lng}`;
+    } else {
+      map.hidden = true;
+    }
+  }
+
+  const policyOn = !!(h.cancelPolicy || h.importantNotice);
+  $('policyPanel').hidden = !policyOn;
+  $('policy').hidden = !h.cancelPolicy;
+  $('policy').innerHTML = h.cancelPolicy ? `<strong>Cancellation policy:</strong> ${h.cancelPolicy}` : '';
+  $('notice').hidden = !h.importantNotice;
+  $('notice').innerHTML = h.importantNotice ? `<strong>Important notice:</strong> ${h.importantNotice}` : '';
 }
 
 async function runSearch() {
@@ -258,7 +332,9 @@ async function runSearch() {
   const checkout = $('checkout').value;
   const adults = $('adults').value;
   const children = $('children').value;
+  const promo = $('promoCode').value.trim();
   const qs = new URLSearchParams({ hotel, checkin, checkout, adults, children });
+  if (promo) qs.set('promo', promo);
   history.replaceState(null, '', '?' + qs.toString());
   await hydrateHotel(hotel);
   const { ok, j } = await api('/api/search?' + qs.toString());
@@ -278,10 +354,13 @@ async function runSearch() {
     const low = r.available && r.inventory > 0 && r.inventory <= 3;
     return `
     <article class="row" data-i="${i}">
-      <div>
-        <h3>${r.typeName}</h3>
-        <p>${r.rateDesc}${r.meal === 'ABF' ? ' · Breakfast included' : ''}${r.refundable ? '' : ' · Non-refundable'}</p>
-        <span class="badge ${r.available ? (low ? 'hurry' : '') : 'out'}">${r.available ? (low ? 'Hurry! ' + r.inventory + ' left' : r.inventory + ' left') : 'Sold out'}</span>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        ${r.typePhoto ? `<img src="${r.typePhoto}" alt="" style="width:88px;height:66px;object-fit:cover;border-radius:4px;flex:none">` : ''}
+        <div>
+          <h3>${r.typeName}</h3>
+          <p>${r.rateDesc}${r.meal === 'ABF' ? ' · Breakfast included' : ''}${r.refundable ? '' : ' · Non-refundable'}</p>
+          <span class="badge ${r.available ? (low ? 'hurry' : '') : 'out'}">${r.available ? (low ? 'Hurry! ' + r.inventory + ' left' : r.inventory + ' left') : 'Sold out'}</span>
+        </div>
       </div>
       <div>
         <p>${r.nights} night(s)</p>
@@ -291,6 +370,7 @@ async function runSearch() {
         ${r.nights > 1 ? `<div class="pricetog" data-tog="${i}"><button type="button" class="on" data-mode="total">Whole stay</button><button type="button" data-mode="night">Per night</button></div>` : ''}
         <b data-price="${i}">${money(r.amountAfterTax, r.currency)}</b>
         <small data-pricesub="${i}">total incl. tax</small>
+        ${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">Promo ${r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : ''}
         ${r.available ? `<div style="margin-top:10px"><button class="btn" type="button" data-pick="${i}">Select</button></div>` : ''}
       </div>
     </article>`;
@@ -324,6 +404,8 @@ async function runSearch() {
 
 $('searchForm').onsubmit = (e) => { e.preventDefault(); runSearch(); };
 $('hotel').onchange = () => hydrateHotel($('hotel').value);
+$('promoToggle').onclick = () => { $('promoCode').hidden = false; $('promoCode').focus(); $('promoToggle').hidden = true; };
+if (params.get('promo')) { $('promoCode').hidden = false; $('promoCode').value = params.get('promo'); $('promoToggle').hidden = true; }
 
 $('requestForm').onsubmit = async (e) => {
   e.preventDefault();
@@ -338,7 +420,9 @@ $('requestForm').onsubmit = async (e) => {
     rateCode: selected.rateCode,
     name: $('guestName').value,
     email: $('guestEmail').value,
-    phone: $('guestPhone').value
+    phone: $('guestPhone').value,
+    country: $('guestCountrySel').value,
+    promo: $('promoCode').value.trim()
   };
   const res = await fetch('/api/request', {
     method: 'POST',

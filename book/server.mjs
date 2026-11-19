@@ -31,6 +31,47 @@ const REQUESTS_PATH = path.join(DATA, 'booking-requests.json');
 const PORT = Number(process.env.MAHA_BOOK_PORT || process.env.PORT || 8781);
 const HOST = process.env.MAHA_BOOK_HOST || '127.0.0.1';
 
+// Phase 1 + 2 (live availability, real requests): the same project the PMS itself talks to. The
+// publishable key is public by design (same one embedded in the PMS client) - never the service key.
+const SB_URL = process.env.MAHA_SUPABASE_URL || 'https://wragaoglvksbbgmfjyzp.supabase.co';
+const SB_ANON = process.env.MAHA_SUPABASE_ANON_KEY || 'sb_publishable_ZBa3rioiS97esdCkJZjuYA_wVArOAnD';
+const _propIdCache = new Map();
+async function propertyIdFor(code) {
+  if (_propIdCache.has(code)) return _propIdCache.get(code);
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/maha_properties?select=id&property_code=eq.${encodeURIComponent(code)}`, {
+      headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}` }
+    });
+    const d = await r.json().catch(() => null);
+    const id = r.ok && Array.isArray(d) && d[0] ? d[0].id : null;
+    _propIdCache.set(code, id);
+    return id;
+  } catch { return null; }
+}
+async function sbRpc(fn, args) {
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args)
+  });
+  const d = await r.json().catch(() => null);
+  if (!r.ok) { const e = new Error((d && (d.message || d.hint)) || `rpc ${fn} failed`); e.status = r.status; e.body = d; throw e; }
+  return d;
+}
+// Clamp a search result's shown availability to what a live read of the hotel's own reservations
+// says, so a stale catalog export can never show a room as bookable when it is really sold out.
+// Any failure (offline demo, property not in the cloud yet) just keeps the catalog's own number -
+// never blocks the whole search over a connectivity hiccup.
+async function clampLive(propId, result, checkin, checkout) {
+  if (!propId || !result.available) return result;
+  try {
+    const live = await sbRpc('maha_be_availability', { p_property: propId, p_room_type: result.type, p_arr: checkin, p_dep: checkout });
+    const n = Number(live);
+    if (Number.isFinite(n) && n < result.inventory) { result.inventory = Math.max(0, n); result.available = n > 0; }
+  } catch { /* keep the catalog's own figure */ }
+  return result;
+}
+
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -227,7 +268,10 @@ const server = http.createServer(async (req, res) => {
           lng: hotel.lng,
           amenities: hotel.amenities,
           cancelPolicy: hotel.cancelPolicy,
+          importantNotice: hotel.importantNotice,
           photoUrl: hotel.photoUrl,
+          logo: hotel.logo,
+          coverPhotos: hotel.coverPhotos,
           roomTypes: hotel.roomTypes,
           rateCodes: hotel.rateCodes.filter(r => r.kind !== 'zero' && r.comp !== 'COMP' && r.comp !== 'HOUSE'),
           readiness: readiness(hotel)
@@ -255,8 +299,11 @@ const server = http.createServer(async (req, res) => {
         checkin,
         checkout,
         adults: q.adults,
-        children: q.children
+        children: q.children,
+        promoCode: q.promo
       });
+      const propId = await propertyIdFor(hotel.id);
+      await Promise.all(results.map(r => clampLive(propId, r, checkin, checkout)));
       send(res, 200, JSON.stringify({
         googleLive: false,
         hotel: hotel.id,
@@ -283,7 +330,8 @@ const server = http.createServer(async (req, res) => {
         rateCode: body.rateCode,
         checkin: body.checkin,
         checkout: body.checkout,
-        adults: Number(body.adults || 2)
+        adults: Number(body.adults || 2),
+        promoCode: body.promo
       });
       if (!quote || !quote.available) {
         send(res, 409, JSON.stringify({ message: 'That room or rate is not available for these dates.' }));
@@ -292,17 +340,46 @@ const server = http.createServer(async (req, res) => {
       const guest = {
         name: String(body.name || '').trim().slice(0, 120),
         email: String(body.email || '').trim().slice(0, 160),
-        phone: String(body.phone || '').trim().slice(0, 60)
+        phone: String(body.phone || '').trim().slice(0, 60),
+        country: String(body.country || '').trim().slice(0, 2).toUpperCase()
       };
       if (!guest.name || !guest.email) {
         send(res, 400, JSON.stringify({ message: 'Name and email are required.' }));
         return;
       }
+      const gc = hotel.guestCountry || { mode: 'all', list: [] };
+      if (gc.mode === 'allow' && guest.country && !gc.list.includes(guest.country)) {
+        send(res, 403, JSON.stringify({ message: 'Direct booking is not open to guests from this country. Please contact the hotel directly.' }));
+        return;
+      }
+      if (gc.mode === 'block' && guest.country && gc.list.includes(guest.country)) {
+        send(res, 403, JSON.stringify({ message: 'Direct booking is not open to guests from this country. Please contact the hotel directly.' }));
+        return;
+      }
+      // A real request the hotel's own staff see and confirm in the PMS (Pending Bookings) - never
+      // an unattended write into live reservations. The RPC re-checks availability itself, live,
+      // so a request can't be accepted into a room that sold out in the minutes since this guest
+      // first searched.
+      let cloudId = null, cloudErr = null;
+      const propId = await propertyIdFor(hotel.id);
+      if (propId) {
+        try {
+          cloudId = await sbRpc('maha_be_submit_request', {
+            p_property: propId, p_room_type: body.type, p_rate_code: body.rateCode,
+            p_arr: body.checkin, p_dep: body.checkout, p_adults: Number(body.adults || 2), p_children: Number(body.children || 0),
+            p_name: guest.name, p_email: guest.email, p_phone: guest.phone || null,
+            p_amount: quote.amountAfterTax, p_currency: quote.currency, p_note: null
+          });
+        } catch (e) {
+          cloudErr = e.message || 'cloud request failed';
+          if (cloudErr === 'sold_out') { send(res, 409, JSON.stringify({ message: 'That room sold out just now. Please search again.' })); return; }
+        }
+      }
       const row = {
-        id: 'req-' + Date.now().toString(36),
+        id: cloudId || ('req-' + Date.now().toString(36)),
         at: new Date().toISOString(),
-        status: 'request',
-        note: 'Request held for hotel confirmation. No payment taken. Not a Google booking.',
+        status: cloudId ? 'sent_to_hotel' : 'request',
+        note: cloudId ? 'Waiting for the hotel to confirm (Pending Bookings in the PMS).' : `Request held locally only${cloudErr ? ' (' + cloudErr + ')' : ''} - not yet reaching the PMS.`,
         hotel: hotel.id,
         hotelName: hotel.name,
         guest,
@@ -321,7 +398,9 @@ const server = http.createServer(async (req, res) => {
         status: row.status,
         amountAfterTax: quote.amountAfterTax,
         currency: quote.currency,
-        message: 'Booking request recorded for the hotel to confirm. Payment is not collected in this version.'
+        message: cloudId
+          ? 'Request sent to the hotel - they will confirm it shortly. Payment is not collected in this version.'
+          : 'Booking request recorded for the hotel to confirm. Payment is not collected in this version.'
       }));
       return;
     }
