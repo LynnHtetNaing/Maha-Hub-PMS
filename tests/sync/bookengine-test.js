@@ -101,7 +101,9 @@ T('the guest page has a Cloudbeds-style "+ Add promo code" toggle (not a 7th fie
   src.includes('<select id="guestCountrySel">') &&
   src.includes("country: \$('guestCountrySel').value,"));
 
-T('a successful promo shows the guest exactly what was taken off, without hiding the Rack Rate math anywhere else on the page',
-  src.includes('${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">Promo ${r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : \'\'}'));
+T('a successful promo shows the guest its real name (not the bare code) and exactly what was taken off, without hiding the Rack Rate math anywhere else on the page',
+  src.includes('${r.promoApplied ? `<div class="badge" style="background:#e4efe8;color:var(--ok);margin-top:6px">${r.promoName || r.promoApplied} applied: -${money(r.promoDiscount, r.currency)}</div>` : \'\'}') &&
+  catalogSrc.includes('export function promoName(hotel, code) {') &&
+  catalogSrc.includes('promoName: discount > 0 ? promoName(hotel, promoCode) : \'\','));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
