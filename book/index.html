@@ -2,16 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>/* Maha entry gate: this system opens only from the signed-in Main page, for the Owner only (solutions.maha-hub.com). */
-(function(){var K='mahahub.entry.book',H12=12*3600*1000;
-try{var hm=/^#mh=([\w-]+)$/.exec(location.hash);if(hm){var hp=JSON.parse(decodeURIComponent(escape(atob(hm[1].replace(/-/g,'+').replace(/_/g,'/')))));history.replaceState(null,'',location.pathname+location.search);if(hp.e)for(var hk in hp.e)if(/^[a-z]+$/.test(hk))localStorage.setItem('mahahub.entry.'+hk,hp.e[hk])}}catch(e){}
-/* on its own address (sales., connect., reach., booking.) a person who is not signed in goes to the sign-in page of the same address; elsewhere to the Main page */
-function addr(l){var m=/^(sales|connect|reach|booking)\.(.+)$/.exec(location.hostname);return m?location.protocol+'//'+l+'.'+m[2]+'/':'/solutions'}
-function ok(){try{var t=JSON.parse(localStorage.getItem(K)||'null');if(!t||!t.at||t.owner!==true||Date.now()-t.at>H12)return false;var q=new URLSearchParams(location.search).get('hotel');return !q||!t.hotel||q===t.hotel}catch(e){return false}}
-function out(){location.replace(/^(sales|connect|reach|booking)\./.test(location.hostname)?'/signin':'/solutions')}
-document.addEventListener('DOMContentLoaded',function(){var a=document.querySelectorAll('a[data-main]');for(var i=0;i<a.length;i++)a[i].href=addr('solutions')+(a[i].getAttribute('data-main')==='systems'?'#systems':'')});
-if(!ok()){document.documentElement.style.display='none';out()}
-setInterval(function(){if(!ok())out()},20000)})();</script>
 <base href="/book/">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Maha Booking</title>
@@ -145,6 +135,12 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 </header>
 
 <main class="wrap section">
+  <section class="panel" id="receiptPanel" hidden>
+    <h2 class="h2">Booking Receipt</h2>
+    <div id="receiptBody"></div>
+    <div class="btns" style="margin-top:14px"><button type="button" class="btn" id="receiptPrint">Print</button></div>
+  </section>
+  <div id="mainContent">
   <h2 class="h2">Property Information</h2>
   <div class="meta" id="meta" hidden></div>
   <div class="amenities" id="amenities" hidden></div>
@@ -169,7 +165,7 @@ a{color:var(--leaf)}button,input,select{font:inherit}
 
   <section class="panel" id="requestPanel" hidden>
     <h2 class="h2">Request this stay</h2>
-    <p class="sub">Sends a booking request to the hotel. Payment is not collected in this version. The hotel confirms outside Google.</p>
+    <p class="sub">Your booking is confirmed instantly - if the hotel asks for a deposit, you'll be taken to a secure payment page next.</p>
     <form class="form" id="requestForm">
       <label>Full name<input id="guestName" required autocomplete="name"></label>
       <label>Email<input id="guestEmail" type="email" required autocomplete="email"></label>
@@ -185,6 +181,7 @@ a{color:var(--leaf)}button,input,select{font:inherit}
     </form>
     <div class="notice" id="requestMsg" hidden></div>
   </section>
+  </div>
 </main>
 
 <div class="amen-overlay" id="amenOverlay" hidden>
@@ -359,8 +356,9 @@ async function runSearch() {
     box.innerHTML = `<div class="empty">${j.message || 'Search failed'}</div>`;
     return;
   }
-  const wantType = params.get('type');
+  const wantType = params.get('type'), wantRate = params.get('rate');
   if (wantType) j.results = j.results.filter(r => r.type === wantType);
+  if (wantRate) j.results = j.results.filter(r => r.rateCode === wantRate);
   lastSearch = j;
   selected = null;
   $('requestPanel').hidden = true;
@@ -477,6 +475,34 @@ async function handlePaymentReturn() {
     msg.textContent = 'We could not confirm your payment. If you completed checkout, please contact the hotel with reference ' + paidReq + '.';
   }
 }
+
+async function showReceipt(requestId) {
+  $('mainContent').hidden = true;
+  $('receiptPanel').hidden = false;
+  const body = $('receiptBody');
+  body.innerHTML = '<p class="sub">Loading your receipt...</p>';
+  try {
+    const res = await fetch('/api/receipt?requestId=' + encodeURIComponent(requestId));
+    const r = await res.json();
+    if (!res.ok) { body.innerHTML = `<p class="sub">${r.message || 'Receipt not found.'}</p>`; return; }
+    body.innerHTML = `
+      <p><b>${r.hotelName}</b></p>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px">
+        <tr><td class="sub" style="padding:6px 0">Guest</td><td style="padding:6px 0">${r.guestName}</td></tr>
+        <tr><td class="sub" style="padding:6px 0">Reservation No.</td><td style="padding:6px 0">${r.reservationNo || 'Pending at the hotel'}</td></tr>
+        <tr><td class="sub" style="padding:6px 0">Room</td><td style="padding:6px 0">${r.roomType} · ${r.rateCode}</td></tr>
+        <tr><td class="sub" style="padding:6px 0">Stay</td><td style="padding:6px 0">${r.arr} – ${r.dep}</td></tr>
+        <tr><td class="sub" style="padding:6px 0">Guests</td><td style="padding:6px 0">${r.adults} adult(s)${r.children ? ', ' + r.children + ' child(ren)' : ''}</td></tr>
+        <tr><td class="sub" style="padding:6px 0">Total</td><td style="padding:6px 0">${money(r.amount, r.currency)}</td></tr>
+        ${r.paid ? `<tr><td class="sub" style="padding:6px 0">Deposit paid</td><td style="padding:6px 0">${money(r.depositAmount, r.depositCurrency)}</td></tr>` : ''}
+      </table>`;
+  } catch {
+    body.innerHTML = '<p class="sub">Could not load the receipt. Please try again.</p>';
+  }
+}
+$('receiptPrint').onclick = () => window.print();
+const receiptId = params.get('receipt');
+if (receiptId) showReceipt(receiptId);
 
 loadHotels().catch(err => {
   $('results').innerHTML = `<div class="empty">Could not load Maha Booking: ${err.message}. Start book/server.mjs.</div>`;

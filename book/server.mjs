@@ -481,6 +481,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (p === '/api/receipt' && req.method === 'GET') {
+      const q = parseQuery(url);
+      try {
+        const receipt = await sbRpc('maha_be_receipt', { p_request: q.requestId });
+        if (!receipt) { send(res, 404, JSON.stringify({ message: 'Receipt not found.' })); return; }
+        send(res, 200, JSON.stringify(receipt));
+      } catch {
+        send(res, 502, JSON.stringify({ message: 'Could not load the receipt.' }));
+      }
+      return;
+    }
+
     if (p === '/feeds/hotel-list.xml' && req.method === 'GET') {
       send(res, 200, hotelListXml(readCatalog()), 'application/xml; charset=utf-8');
       return;

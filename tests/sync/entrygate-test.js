@@ -9,7 +9,7 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 /* 1. the website never links into a system */
 const site = ['index', 'about', 'maha-hub-solutions', 'products', 'pricing', 'security', 'maha-hub-academy', 'contact', 'privacy', 'terms', 'refund', '404'];
 const bad = [];
-site.forEach(p => { for (const m of read(p + '.html').matchAll(/href="([^"]*)"/g)) if (/^\/(ecosystem|reach|connect|sales|book|edc-link)(\/|$)/i.test(m[1]) || /^\/solutions-PMS/i.test(m[1])) bad.push(p + ': ' + m[1]); });
+site.forEach(p => { for (const m of read(p + '.html').matchAll(/href="([^"]*)"/g)) if (/^\/(ecosystem|reach|connect|sales|edc-link)(\/|$)/i.test(m[1]) || /^\/solutions-PMS/i.test(m[1])) bad.push(p + ': ' + m[1]); });
 T('no website page links to a system (only to the Main sign-in page /solutions)', bad.length === 0, bad.join(' ; '));
 T('the Products page has a plain Sign in for the available product (Maha PMS), going to /solutions; products in development have no Sign in', (read('products.html').split('<main')[1].match(/href="\/solutions">Sign in<\/a>/g) || []).length === 1);
 T('the website generator no longer holds system addresses', !/ecosystem\/(Connect|Booking|Reach|Sales)/.test(read('website/build.mjs')));
@@ -33,7 +33,7 @@ function runGate(kind, { ticket, search = '', now = 1e12, fresh = false } = {}) 
   vm.createContext(sandbox); vm.runInContext(m[0].replace(/^<script>|<\/script>$/g, ''), sandbox);
   out.hidden = sandbox.document.documentElement.style.display === 'none'; out.store = store; out.sandbox = sandbox; return out;
 }
-for (const kind of ['reach', 'connect', 'book']) {
+for (const kind of ['reach', 'connect']) {
   const html = read(kind + '/index.html');
   const gateAt = html.indexOf('Maha entry gate'), firstOther = html.search(/<script(?![^>]*>\/\* Maha entry gate)/);
   T(kind + ': the gate is the first thing in the page, before any other script', gateAt > 0 && html.indexOf('<script>/* Maha entry gate') < (html.indexOf('<script', html.indexOf('</script>', gateAt) + 1) === -1 ? Infinity : html.indexOf('<script', html.indexOf('</script>', gateAt) + 1)));
@@ -57,7 +57,7 @@ for (const kind of ['reach', 'connect', 'book']) {
   delete g.store['mahahub.entry.' + kind]; g.intervals.forEach(f => f());
   T(kind + ': after sign-out (ticket removed) an open page is sent away within seconds', g.redirects[0] === '/solutions' && g.intervals.length === 1);
 }
-T('Maha Booking (the engine linked to Google) is gated like the other systems', /Maha entry gate/.test(read('book/index.html')));
+T('Maha Booking (the public guest booking page) is NOT gated like the other systems - a stranger with no Maha Hub sign-in at all must be able to open it directly (clicking the hotel\'s own Book Now link, a promo link, or the Booking Button code), unlike Sales/Connect/Reach which really are internal staff tools', !/Maha entry gate/.test(read('book/index.html')));
 
 /* 3. the Main page leaves and removes the ticket */
 const cut = (a, b) => { const i = app.indexOf(a), j = app.indexOf(b, i); if (i < 0 || j < 0) throw new Error('cut ' + a); return app.slice(i, j) };
