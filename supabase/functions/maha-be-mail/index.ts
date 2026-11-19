@@ -33,7 +33,7 @@ const esc = (s: unknown) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =
 const clip = (s: unknown, n: number) => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim().slice(0, n);
 const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
-function mailHtml(hotelName: string, r: any): string {
+function mailHtml(hotelName: string, r: any, receiptUrl: string): string {
   const FOREST = "#0A3020", GOLD = "#D49A38", INK = "#1f2d36", MUTED = "#5b6a73";
   const paid = r.payment_status === "paid";
   const row = (label: string, value: string) =>
@@ -53,6 +53,7 @@ function mailHtml(hotelName: string, r: any): string {
 <p style="margin:0 0 4px">Dear ${esc(r.guest_name)},</p>
 <p style="margin:0 0 18px">Thank you for booking with <b>${esc(hotelName)}</b>. Your reservation is confirmed${paid ? ", and your deposit payment was received" : ""}.</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 20px;border:1px solid #e3e8e5;border-radius:10px;overflow:hidden">${rows}</table>
+<a href="${esc(receiptUrl)}" target="_blank" style="display:inline-block;padding:12px 24px;border-radius:10px;font-weight:bold;font-size:14px;text-decoration:none;background:${GOLD};color:#1a272f">View Receipt</a>
 <p style="margin:22px 0 0">We look forward to welcoming you.<br>${esc(hotelName)}</p>
 </td></tr>
 <tr><td style="background:#faf5ec;padding:14px 28px;color:#7a7468;font-size:12px">This is an automatic message from Maha Hub on behalf of ${esc(hotelName)}. Please do not reply to it.</td></tr>
@@ -81,9 +82,11 @@ const handle = async (req: Request): Promise<Response> => {
   const FROM = { name: Deno.env.get("PMS_MAIL_FROM_NAME") || "Maha Hub", email: Deno.env.get("PMS_MAIL_FROM") || "noreply@maha-hub.com" };
   const hotelName = clip(prop.name, 120) || "Your hotel";
   const subject = `Booking confirmed - ${hotelName}`;
+  const bookBase = (Deno.env.get("MAHA_BOOK_BASE") || "http://127.0.0.1:8781/book/").replace(/\/+$/, "") + "/";
+  const receiptUrl = bookBase + "?receipt=" + requestId;
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST", headers: { "api-key": BREVO, "content-type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ sender: FROM, to: [{ email: r.guest_email }], subject, htmlContent: mailHtml(hotelName, r), tags: ["booking-engine-confirmation"] }),
+    body: JSON.stringify({ sender: FROM, to: [{ email: r.guest_email }], subject, htmlContent: mailHtml(hotelName, r, receiptUrl), tags: ["booking-engine-confirmation"] }),
   });
   const out = await res.json().catch(() => ({}));
   await admin.from("maha_pms_mail_log").insert({
