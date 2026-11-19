@@ -268,9 +268,11 @@ T('Central Allotment can only ever hold rooms back from direct booking, never re
   src.includes(" allotment(box){const g=H.set.google;g.directAllot=g.directAllot||{};") &&
   src.includes('if(t&&n>(t.allot||0))bad=code;'));
 
-T('Guest Country Set Up defaults to allowing everyone, and the list field is disabled unless a restriction mode is chosen',
-  src.includes(" guestCountry(box){const g=H.set.google,gc=g.guestCountry||{mode:'all',list:[]};") &&
-  src.includes("r.onchange=()=>{\$('#gcList',box).disabled=r.value==='all'}"));
+T('Guest Country Set Up defaults to allowing everyone, offers a real searchable country picker (COUNTRY_LIST) instead of a free-text ISO code textarea, and hides the picker entirely unless a restriction mode is chosen',
+  src.includes(" guestCountry(box){const g=H.set.google,gc=g.guestCountry||{mode:'all',list:[]};let picked=new Set(gc.list||[]);") &&
+  src.includes("const COUNTRY_LIST=[['AF','Afghanistan']") &&
+  src.includes("r.onchange=()=>{\$('#gcPick',box).hidden=r.value==='all'}") &&
+  src.includes("<input id=\"gcQ\" placeholder=\"Search country name or code...\""));
 
 T('two real preview entry points on the merged Hotel profile page: the real, live booking page, and a clearly-watermarked Google mockup built from this hotel\'s own photo/name/amenities/lowest direct rate - never claiming to be a live listing',
   src.includes('<button class="btn ghost" id="pgOpen" type="button">Preview booking page (real, live)</button>') &&
