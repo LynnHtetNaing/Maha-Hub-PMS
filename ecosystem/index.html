@@ -4699,131 +4699,15 @@ function cloudFormHtml(){return `<label class="f"><span>Project URL</span><input
 function mkUser(id,username,name,role,pw){const salt=newSalt();return {id,username,name,role,salt,hash:pwHash(salt,pw),active:true,perms:[...(PRESET[role]||[])],systems:{hub:true,connect:true,book:true,reach:true,sales:false}}}
 
 /* ---------- seed ---------- */
+/* the starting rate codes every new hotel gets - used to be copied from a demo hotel; that hotel no longer exists */
+const DEFAULT_RATE_CODES=()=>[{code:'RO',desc:'Open Rate Room Only',valid:'2024-06-01',until:'2050-07-23',kind:'pct',v:0,meal:''},
+  {code:'RB',desc:'Open Rate Room and Breakfast',valid:'2024-06-01',until:'2050-07-23',kind:'amt',v:300,meal:'ABF'},
+  {code:'NRF',desc:'Non-Refundable Room Only',valid:'2024-06-01',until:'2050-07-23',kind:'pct',v:-10,meal:''},
+  {code:'COMP',desc:'Complimentary',valid:'2024-06-01',until:'2050-07-23',kind:'zero',v:0,meal:'',comp:'COMP'},
+  {code:'HU',desc:'House Use',valid:'2024-06-01',until:'2050-07-23',kind:'zero',v:0,meal:'',comp:'HOUSE'}];
+/* a brand-new device/database starts with no hotels at all - no demo property is ever created */
 function seedDB(){
-  const today=iso(new Date());
-  const db={version:4,hotels:{},providers:[mkUser('p1','mahaadmin','Maha Administrator','Provider','Maha@2026')],provLog:[],session:null};
-  db.hotels.PAD01=seedHotel({code:'PAD01',name:'Padauk Demo Hotel Bangkok',legal:'Padauk Hospitality Demo Co., Ltd.',addr:'88 Sukhumvit Road, Khlong Toei, Bangkok 10110',
-    phone:'+66 (0) 2 000 0000',fax:'+66 (0) 2 000 0001',taxId:'0105500000000',email:'reservation@padaukdemo.com',web:'www.padaukdemo.com',
-    cur:'THB',curWord:'BAHT',subWord:'SATANG',svc:10,vat:7,taxName:'VAT',country:'Thailand',nat:'Thai',formCode:'ร.ร.3',bd:today,big:true,
-    google:{enabled:true,lat:'13.7367',lng:'100.561',countryCode:'TH',category:'hotel',amenities:['wifi','parking','breakfast','air_conditioning'],
-      cancelPolicy:'Free cancellation until 12:00 the day before arrival. Non-refundable (NRF) rates are not refundable after booking.',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''},
-    systems:{reach:true}});
-  db.hotels.MHY01=seedHotel({code:'MHY01',name:'Golden Lotus Guesthouse Yangon',legal:'Golden Lotus Hospitality Co., Ltd.',addr:'No. 12, Strand Road, Kyauktada Township, Yangon',
-    phone:'+95 9 000 000 000',fax:'',taxId:'MM-000000',email:'stay@goldenlotus.example',web:'',
-    cur:'MMK',curWord:'KYATS',subWord:'PYAS',svc:5,vat:5,taxName:'Commercial tax',country:'Myanmar',nat:'Myanmar',formCode:'',bd:today,big:false,
-    google:{enabled:true,lat:'16.7742',lng:'96.1609',countryCode:'MM',category:'hotel',amenities:['wifi','air_conditioning'],
-      cancelPolicy:'Free cancellation until 18:00 the day before arrival for refundable rates.',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''},
-    systems:{reach:false}});
-  return db;
-}
-function seedHotel(o){
-  const bd=o.bd;
-  const h={code:o.code,set:{name:o.name,legal:o.legal,branch:'Head Office',addr:o.addr,phone:o.phone,fax:o.fax,taxId:o.taxId,email:o.email,web:o.web,
-      cur:o.cur,curWord:o.curWord,subWord:o.subWord,svc:o.svc,vat:o.vat,taxName:o.taxName,country:o.country,nat:o.nat,formCode:o.formCode,
-      bd,lockedThrough:addD(bd,-1),checkIn:'14:00',checkOut:'12:00',nextRsv:o.big?9480:1201,nextInternal:o.big?14400:3100,nextInv:o.big?4061:101,nextSys:o.big?38800:5200,nextProfile:o.big?1950:300,building:'Non-Building',
-      terms:null,google:Object.assign({enabled:false,lat:'',lng:'',countryCode:'',category:'hotel',amenities:[],cancelPolicy:'',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''},o.google||{}),
-      systems:Object.assign({reach:false},o.systems||{})},
-    roomTypes:[],rateCodes:[],rooms:[],guests:[],companies:[],reservations:[],shifts:[],logs:[],audits:[],invoices:[],amend:[],
-    cityLedger:[],petty:[],pettyFloat:0,suppliers:[],purchases:[],
-    users:o.big?[mkUser('u1','manager','Duty Manager','Manager','manager123'),mkUser('u2','frontdesk','Front Desk','Front desk','front123'),mkUser('u3','housekeeping','Housekeeping','Housekeeping','hk123')]:[mkUser('u1','lotus.manager','Lotus Manager','Manager','manager123'),mkUser('u2','lotus.front','Lotus Front Desk','Front desk','front123'),mkUser('u3','lotus.hk','Lotus Housekeeping','Housekeeping','hk123')],active:true,activatedAt:Date.now()};
-  if(o.big){
-    h.roomTypes=[{code:'SUPT',name:'Superior Twin',base:1300,max:2},{code:'SUPK',name:'Superior King',base:1300,max:2},{code:'DLXK',name:'Deluxe King',base:1800,max:2},{code:'FAMT',name:'Family Triple',base:2500,max:3},{code:'STE',name:'Suite',base:3900,max:3}];
-    [['201','SUPT'],['202','SUPT'],['203','SUPT'],['204','SUPT'],['205','SUPT'],['206','SUPK'],['207','SUPK'],['208','SUPK'],
-     ['301','SUPK'],['302','SUPK'],['303','SUPK'],['304','SUPK'],['305','DLXK'],['306','DLXK'],['307','DLXK'],['308','FAMT'],
-     ['401','DLXK'],['402','DLXK'],['403','STE'],['404','STE']].forEach(([no,t])=>h.rooms.push({no,type:t,floor:no[0],hk:'clean',ooo:null}));
-  }else{
-    h.roomTypes=[{code:'STD',name:'Standard',base:45000,max:2},{code:'DLX',name:'Deluxe',base:65000,max:2}];
-    [['101','STD'],['102','STD'],['103','STD'],['104','STD'],['201','DLX'],['202','DLX'],['203','DLX'],['204','DLX']].forEach(([no,t])=>h.rooms.push({no,type:t,floor:no[0],hk:'clean',ooo:null}));
-  }
-  const bf=o.big?300:8000;
-  h.rateCodes=[{code:'RO',desc:'Open Rate Room Only',valid:'2024-06-01',until:'2050-07-23',kind:'pct',v:0,meal:''},
-    {code:'RB',desc:'Open Rate Room and Breakfast',valid:'2024-06-01',until:'2050-07-23',kind:'amt',v:bf,meal:'ABF'},
-    {code:'NRF',desc:'Non-Refundable Room Only',valid:'2024-06-01',until:'2050-07-23',kind:'pct',v:-10,meal:''},
-    {code:'COMP',desc:'Complimentary',valid:'2024-06-01',until:'2050-07-23',kind:'zero',v:0,meal:'',comp:'COMP'},
-    {code:'HU',desc:'House Use',valid:'2024-06-01',until:'2050-07-23',kind:'zero',v:0,meal:'',comp:'HOUSE'}];
-  h.companies=o.big?[
-    {id:'c1',code:'AGD',name:'Agoda Company Pte. Ltd.',type:'T',address:'Singapore',taxId:'',branch:'Head Office',comm:15},
-    {id:'c2',code:'BKG',name:'Booking.com',type:'T',address:'Amsterdam',taxId:'',branch:'Head Office',comm:15},
-    {id:'c3',code:'EXP',name:'Expedia (Thailand) Limited',type:'T',address:'Bangkok',taxId:'0105550000000',branch:'Head Office',comm:18},
-    {id:'c4',code:'TRP',name:'Trip.com',type:'T',address:'Shanghai',taxId:'',branch:'Head Office',comm:15},
-    {id:'c5',code:'SLC',name:'Siam Logistics Co., Ltd.',type:'C',address:'99 Rama 9 Road, Bangkok 10310',taxId:'0105560000000',branch:'Head Office',comm:0},
-    {id:'c6',code:'DIR',name:'Direct Reservation',type:'C',address:'',taxId:'',branch:'',comm:0},
-    {id:'c7',code:'WIN',name:'WALK IN',type:'C',address:'',taxId:'',branch:'',comm:0}]:[
-    {id:'c1',code:'AGD',name:'Agoda Company Pte. Ltd.',type:'T',address:'Singapore',taxId:'',branch:'Head Office',comm:15},
-    {id:'c6',code:'DIR',name:'Direct Reservation',type:'C',address:'',taxId:'',branch:'',comm:0},
-    {id:'c7',code:'WIN',name:'WALK IN',type:'C',address:'',taxId:'',branch:'',comm:0}];
-  const GL=o.big?[
-    ['MR.','Rattanakul','Somchai','Thai','Thailand','M','1988-'+bd.slice(5)],['MS.','Kittisak','Nareerat','Thai','Thailand','F','1992-03-14'],['MR.','Tanaka','Hiroshi','Japanese','Japan','M','1979-11-02'],
-    ['MS.','Clarke','Emma','British','United Kingdom','F','1990-07-21'],['MR.','Wei','Liang','Chinese','China','M','1985-01-30'],['MS.','Park','Jiyeon','Korean','Korea','F','1995-09-09'],
-    ['MR.','Aung','Kyaw Zin','Myanmar','Myanmar','M','1987-05-17'],['MR.','Ivanov','Dmitri','Russian','Russia','M','1983-12-12'],['MS.','Srisuk','Pim','Thai','Thailand','F','1998-02-25'],
-    ['MR.','Nguyen','Van Minh','Vietnamese','Vietnam','M','1991-06-06'],['MS.','Rossi','Giulia','Italian','Italy','F','1989-10-10'],['MR.','Chaiyaporn','Anan','Thai','Thailand','M','1975-04-04'],
-    ['MS.','Hoshino','Aiko','Japanese','Japan','F','1993-08-08'],['MR.','Meyer','Lukas','German','Germany','M','1986-03-03'],['MS.','Thiri','Hnin','Myanmar','Myanmar','F','1996-12-01'],
-    ['MR.','Kim','Minjun','Korean','Korea','M','1990-01-15']]:[
-    ['MR.','Aung','Min Thu','Myanmar','Myanmar','M','1985-02-02'],['MS.','Clarke','Olivia','British','United Kingdom','F','1991-04-04'],['MR.','Tan','Wei Jie','Singaporean','Singapore','M','1988-'+bd.slice(5)],['MS.','Myat','Su','Myanmar','Myanmar','F','1994-09-19']];
-  GL.forEach((g,i)=>h.guests.push({id:'g'+i,profileId:h.set.nextProfile++,title:g[0],last:g[1],first:g[2],middle:'',other:'',jobTitle:'',company:'',nationality:g[3],country:g[4],
-    gender:g[5]==='M'?'Male':'Female',birthday:g[6],vip:i===3?'VIP 1':'',occupation:'',socialId:'',email:'',phone:'+00 000 000 '+pad(i),address:'',pdpa:false,photo:'',remark:i===3?'Prefers a quiet room on a high floor.':'',
-    doc:{type:g[3]===o.nat?'ID CARD':'PASSPORT',no:(g[3]===o.nat?'1-0000-00000-'+pad(i)+'-0':'P'+(8200000+i)),place:g[4],ptype:'REG',issued:'2021-01-01',expiry:'2031-01-01',visaType:g[3]===o.nat?'':'TR',visaNo:'',visaPlace:'',visaIssue:'',visaExpiry:'',stayExpiry:''},card:null}));
-  const seedShift=(d,name,uname)=>{let s=h.shifts.find(x=>x.bd===d&&x.name===name);if(!s){s={id:'s'+uid(),userId:'u1',userName:uname||'Duty Manager',name,bd:d,openAt:P(d).getTime()+(name==='Morning'?7:name==='Afternoon'?15:23)*36e5,openCash:0,status:'closed',closeAt:P(d).getTime()+(name==='Night'?30:13)*36e5,expected:0,counted:0,variance:0};h.shifts.push(s)}return s};
-  const rows=o.big?[
-    [0,'201',-2,1,'RO','c1','inhouse',{pay:['915','prepaid']}],[1,'206',-1,2,'RB','c2','inhouse',{pay:['900',1000]}],
-    [2,'305',-3,0,'RO','c3','inhouse',{}],[3,'308',-1,0,'RB','c6','inhouse',{fb:true}],[4,'403',-4,3,'RO','c5','inhouse',{pay:['910',5000]}],
-    [5,'207',-1,1,'RO','c7','inhouse',{pay:['900','full']}],
-    [6,'202',0,1,'RO','c4','confirmed',{}],[7,'302',0,2,'RB','c2','confirmed',{dep:['910',500]}],[8,null,0,3,'RO','c3','confirmed',{type:'DLXK'}],
-    [2,'304',0,2,'RO','c6','confirmed',{copyOf:2}],
-    [9,'203',1,3,'RO','c1','confirmed',{}],[10,'401',2,5,'RB','c2','confirmed',{}],[11,'306',3,4,'RO','c5','tentative',{}],[12,'205',5,8,'NRF','c4','confirmed',{}],[13,'402',6,9,'RO','c3','confirmed',{}],
-    [14,'204',-6,-3,'RO','c1','out',{}],[15,'301',-5,-2,'RB','c2','out',{}],[9,'303',-8,-6,'RO','c4','out',{}],[12,'208',-3,-1,'RO','c7','out',{}],
-    [10,'306',-1,1,'RO','c3','noshow',{nsDate:0}],[13,'307',-3,-2,'RO','c3','noshow',{nsDate:-2}]
-  ]:[
-    [0,'101',-1,2,'RO','c6','inhouse',{pay:['900',50000]}],[1,'201',0,2,'RB','c1','confirmed',{}],[2,'102',-2,0,'RO','c7','inhouse',{}],[3,'202',-4,-2,'RO','c6','out',{}]];
-  const made=[];
-  const ota=c=>['c1','c2','c3','c4'].includes(c);
-  rows.forEach((r,i)=>{
-    const [gi,room,a,d,rc,comp,status,x]=r;
-    const type=room?h.rooms.find(z=>z.no===room).type:x.type;
-    const arr=addD(bd,a),dep=addD(bd,d);
-    const gg=h.guests[gi];
-    const res={id:'r'+uid(),no:h.set.nextRsv++,date:addD(arr,-7),contact:gg.last+', '+gg.first,reference:({c1:'AGD-',c2:'BKG-',c3:'EXP-',c4:'TRP-'}[comp]||'')+(2294515000+i),
-      phone:gg.phone,fax:'',email:'',confirmation:'0',companyId:comp,bookings:[],notifs:[],createdShift:'Morning',createdUser:'Front Desk'};
-    const B=newBooking(h,{guestId:gg.id,type,room,arr,dep,rateCode:rc,status,market:ota(comp)?'OTA':comp==='c5'?'COR':comp==='c7'?'WIN':'FIT',
-      channel:ota(comp)?'OTA':comp==='c7'?'WIN':'EML',source:ota(comp)?'OTA':comp==='c7'?'WALK-IN':'DIRECT',salesMgr:ota(comp)?'OTA':'FOD',adults:type==='FAMT'?3:2});
-    B.cm=ota(comp)&&x.copyOf==null;
-    if(x.copyOf!=null){const src=made[x.copyOf];B.copyOf=src.b.id;B.remark='Extension of RSVN '+src.r.no+' (guest extending stay)'}
-    if(status==='inhouse'||status==='out'){B.checkinDate=arr;B.checkinTime=P(arr).getTime()+15*36e5+i*6e5;B.checkinUser='Front Desk'}
-    if(status==='out'){B.statusDate=dep;B.checkoutTime=P(dep).getTime()+11*36e5}
-    if(status==='noshow')B.statusDate=addD(bd,x.nsDate);
-    res.bookings.push(B);h.reservations.push(res);made.push({r:res,b:B});
-    if(status==='inhouse'||status==='out'){const end=status==='out'?dep:bd;
-      for(let dd=arr;dd<end;dd=addD(dd,1)){const s=seedShift(dd,'Night','Night Audit');addLine(h,B,{folio:1,code:'100',desc:'Room Charge',ref:B.room,amt:billRate(B,dd,h,res),kind:'room',night:dd,bd:dd,shift:s,user:'Night Audit',time:P(dd).getTime()+26*36e5})}}
-    if(x.dep){const s=seedShift(addD(arr,-3),'Morning');postPayment(h,B,x.dep[0],x.dep[1],{bd:addD(arr,-3),shift:s,user:'Front Desk',deposit:true,ref:'Deposit'})}
-    if(x.pay){const s=seedShift(arr,'Afternoon','Front Desk');let amt=x.pay[1];if(amt==='prepaid'||amt==='full')amt=sum(dates(arr,dep),dd=>billRate(B,dd,h,res));postPayment(h,B,x.pay[0],amt,{bd:arr,shift:s,user:'Front Desk',ref:res.reference})}
-    if(x.fb){const d1=addD(bd,-1),s=seedShift(d1,'Afternoon','Front Desk');addLine(h,B,{folio:1,code:'210',desc:'Restaurant',ref:'3',amt:248,kind:'post',bd:d1,shift:s,user:'Front Desk'});addLine(h,B,{folio:1,code:'300',desc:'Minibar',ref:B.room,amt:120,kind:'post',bd:d1,shift:s,user:'Front Desk'})}
-    if(status==='out'){const s=seedShift(dep,'Morning','Front Desk');const due=bal(B);if(due>0)postPayment(h,B,comp==='c7'?'900':'905',due,{bd:dep,shift:s,user:'Front Desk',ref:'C/O'});
-      h.invoices.push({no:h.set.nextInv++,bookingId:B.id,folio:1,bd:dep,at:B.checkoutTime,user:'Front Desk',shift:'Morning',prints:1,billTo:'guest',
-        amount:r2(sum(B.lines.filter(l=>l.folio===1&&l.amt>0&&l.kind!=='payoff'),l=>l.amt))})}
-  });
-  if(o.big){
-    made[1].r.notifs.push({id:uid(),from:'Duty Manager',text:'Guest asked for a quiet room and late check-out at 14:00. Confirm with the duty manager before approving.',at:Date.now()-5*36e5,by:'Duty Manager',sections:['Reservation','Billing / Folio','Check-out'],seen:{},done:null});
-    made[6].r.notifs.push({id:uid(),from:'Front Desk',text:'Airport pick-up booked for 13:30. The driver will call the guest.',at:Date.now()-2*36e5,by:'Front Desk',sections:['Check-in'],seen:{},done:null});
-    made[0].b.flightArr='TG 102';made[0].b.flightArrTime='13:05';made[6].b.eta='15:00';made[6].b.flightArr='FD 3321';made[6].b.flightArrTime='12:40';
-  }
-  h.rooms.forEach(rm=>{if(h.reservations.some(r=>r.bookings.some(b=>b.room===rm.no&&b.status==='inhouse')))rm.hk='dirty'});
-  ['202','302'].forEach(n=>{const rr=h.rooms.find(r=>r.no===n);if(rr)rr.hk='inspected'});
-  {const a1=h.rooms.find(r=>r.no==='305'),a2=h.rooms.find(r=>r.no==='306'),hc=h.rooms.find(r=>r.no==='201');if(a1&&a2){a1.connect='306';a2.connect='305'}if(hc)hc.handicap=true;const d2=h.rooms.find(r=>r.no==='403');if(d2)d2.dnd='yes'}
-  const r303=h.rooms.find(r=>r.no==='303');if(r303){r303.hk='dirty';r303.hkOcc='occ'}
-  const r307=h.rooms.find(r=>r.no==='307');if(r307)r307.ooo={from:addD(bd,-1),to:addD(bd,2),reason:'Air-conditioner repair',kind:'OO'};
-  h.allotments=o.big?[{id:'a1',companyId:'c1',type:'SUPT',rooms:2,from:bd,to:addD(bd,30),cutoff:3},{id:'a2',companyId:'c5',type:'DLXK',rooms:2,from:addD(bd,5),to:addD(bd,20),cutoff:7}]:[];
-  if(o.big){const corp=made.find(x=>x.r.companyId==='c5'&&x.b.status==='inhouse');
-    if(corp){const due=bal(corp.b);if(due>0.004){const sh=seedShift(bd,'Afternoon','Front Desk');postPayment(h,corp.b,'930',r2(Math.min(due,1500)),{bd,shift:sh,user:'Front Desk',ref:'CL-'+corp.r.no})}}
-    h.suppliers=[{id:'sp1',name:'Siam Linen Supply',taxId:'0105551111111',phone:'+66 2 111 1111'}];
-    h.purchases=[{id:'pu1',supplierId:'sp1',bd:addD(bd,-2),due:addD(bd,12),desc:'Bed linen, 40 sets',amt:8600,status:'open',ref:'PO-1044',pays:[]}];
-    h.pettyFloat=5000;
-    h.petty=[{id:'pt1',bd:addD(bd,-1),dir:'out',amt:350,reason:'Taxi for a guest airport run',user:'Front Desk',shift:'Afternoon',at:Date.now()-864e5}];
-  }
-  for(let i=6;i>=1;i--){const d=addD(bd,-i);const ls=allLinesH(h).filter(l=>l.night===d&&l.kind==='room');const sh=h.shifts.filter(s=>s.bd===d);
-    h.audits.push({date:d,at:P(d).getTime()+26*36e5,user:'Night Audit',rooms:ls.length,rev:r2(sum(ls,l=>l.amt)),ns:0,shifts:sh.length,variance:0})}
-  shapeHotel(h);ensureDummyBooking(h);
-  const rb=h.rateCodes.find(r=>r.code==='RB');if(rb)rb.bfAdult=o.big?150:4000;h.set.bfAdult=rb?rb.bfAdult:h.set.bfAdult;
-  return h;
+  return {version:4,hotels:{},providers:[mkUser('p1','mahaadmin','Maha Administrator','Provider','Maha@2026')],provLog:[],session:null};
 }
 function newBooking(h,o){
   const B={id:'b'+uid(),internal:h.set.nextInternal++,guestId:o.guestId,shares:[],type:o.type,room:o.room||null,arr:o.arr,dep:o.dep,adults:o.adults||2,children:o.children||0,
@@ -13370,7 +13254,7 @@ VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
     ${fld('Service charge %',`<input type="number" id="nhS" value="10">`)}${fld('Tax %',`<input type="number" id="nhV" value="7">`)}${fld('Owner username (unique across all hotels)',`<input id="nhU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${fld('Owner password',`<input id="nhP" type="text" value="">`)}</div><div class="err" id="nhE"></div><div class="btns"><button class="btn gold" id="nhS2">Create hotel</button></div>`,{w:620});
     $('#nhS2',m).onclick=()=>{const c=$('#nhC',m).value.trim().toUpperCase(),n=$('#nhN',m).value.trim(),pw=$('#nhP',m).value;if(!/^[A-Z0-9]{3,8}$/.test(c)){$('#nhE',m).textContent='Hotel code: 3 to 8 letters or numbers.';return}if(DB.hotels[c]){$('#nhE',m).textContent='This hotel code is already used.';return}if(!n){$('#nhE',m).textContent='Enter the hotel name.';return}if(pw.length<8){$('#nhE',m).textContent='The owner password needs at least 8 characters.';return}const ou=$('#nhU',m).value.trim().toLowerCase();if(!/^[a-z0-9._-]{3,20}$/.test(ou)){$('#nhE',m).textContent='Owner username: 3 to 20 letters, numbers, dot, dash or underscore.';return}if(usernameTaken(ou)){$('#nhE',m).textContent='This username is already used in another hotel. Usernames must be unique across all hotels.';return}
       const cur=$('#nhCur',m).value,bd=iso(new Date());const h={code:c,set:{name:n,legal:n,branch:'Head Office',addr:'',phone:'',fax:'',taxId:'',email:'',web:'',cur,curWord:{THB:'BAHT',MMK:'KYATS',USD:'DOLLARS'}[cur],subWord:{THB:'SATANG',MMK:'PYAS',USD:'CENTS'}[cur],svc:+$('#nhS',m).value||0,vat:+$('#nhV',m).value||0,taxName:cur==='MMK'?'Commercial tax':'VAT',country:$('#nhCo',m).value.trim(),nat:'',formCode:cur==='THB'?'ร.ร.3':'',bd,lockedThrough:addD(bd,-1),checkIn:'14:00',checkOut:'12:00',nextRsv:1001,nextInternal:1001,nextInv:1,gaplessInvoices:true,nextSys:1,nextProfile:1,building:'Non-Building'},
-        roomTypes:[{code:'STD',name:'Standard',base:cur==='MMK'?45000:1000,max:2}],rateCodes:DB.hotels.PAD01?JSON.parse(JSON.stringify(DB.hotels.PAD01.rateCodes)):[],rooms:[{no:'101',type:'STD',floor:'1',hk:'clean',ooo:null}],guests:[],companies:[{id:'c6',code:'DIR',name:'Direct Reservation',type:'C',address:'',taxId:'',branch:'',comm:0},{id:'c7',code:'WIN',name:'WALK IN',type:'C',address:'',taxId:'',branch:'',comm:0}],reservations:[],shifts:[],logs:[],audits:[],invoices:[],amend:[],users:[mkUser('u1',ou,'Owner','Manager',pw)],active:false};
+        roomTypes:[{code:'STD',name:'Standard',base:cur==='MMK'?45000:1000,max:2}],rateCodes:DEFAULT_RATE_CODES(),rooms:[{no:'101',type:'STD',floor:'1',hk:'clean',ooo:null}],guests:[],companies:[{id:'c6',code:'DIR',name:'Direct Reservation',type:'C',address:'',taxId:'',branch:'',comm:0},{id:'c7',code:'WIN',name:'WALK IN',type:'C',address:'',taxId:'',branch:'',comm:0}],reservations:[],shifts:[],logs:[],audits:[],invoices:[],amend:[],users:[mkUser('u1',ou,'Owner','Manager',pw)],active:false};
       shapeHotel(h);DB.hotels[c]=h;provLog('Created hotel '+c);saveDB();closeModal(m);render();toast(`Hotel ${c} created as Not active. Add its details, then press Activate.`)}};
   $('#phQ',el).oninput=()=>{PHQ=$('#phQ',el).value;paint()};
   $('#phX',el).onclick=()=>{PHQ='';$('#phQ',el).value='';paint()};
@@ -15459,14 +15343,14 @@ VIEWS['set.backup']=el=>{
     <p>The hotel file is kept in this browser (local storage and IndexedDB). A recovery point is saved once each day. Last save: <b>${esc(when)}</b>.</p>
     <div class="btns"><button class="btn gold" id="bkDl">Download backup</button><button class="btn" id="bkEnc">Download encrypted backup</button><label class="btn ghost">Restore from file<input id="bkUp" type="file" accept="application/json,.json,.mhe" hidden></label></div>
     <p class="sub">Download a backup before you clear the browser. An encrypted backup asks for a passphrase and uses AES-GCM. Restoring replaces every hotel on this device and signs you out.</p>
-    ${user().provider||user().isProv?'<div class="btns"><button class="btn red" id="bkReset">Reset to demo hotels</button></div>':''}</div>
+    ${user().provider||user().isProv?'<div class="btns"><button class="btn red" id="bkReset">Erase every hotel on this device</button></div>':''}</div>
    <div class="panel"><div class="ph">Recovery points</div><div id="bkSn" class="pad sub">Loading…</div></div></div>`;
   $('#bkDl',el).onclick=()=>{downloadBackup();toast('Backup downloaded')};
   if($('#bkEnc',el))$('#bkEnc',el).onclick=()=>downloadEncrypted();
   $('#bkUp',el).onchange=async e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=async()=>{let obj;try{obj=JSON.parse(rd.result)}catch(err){toast('That file could not be read.');return}
     if(obj&&obj.k==='AES-GCM'){const pass=await dlgAsk('Passphrase for this encrypted backup:');if(!pass)return;try{obj=await decryptBackup(obj,pass)}catch(err){toast('The passphrase did not open this backup.');return}}
     if(!await dlgConfirm('Replace all hotels on this device with this backup?'))return;applyRestore(obj)};rd.readAsText(f)};
-  if($('#bkReset',el))$('#bkReset',el).onclick=async ()=>{if(!await dlgConfirm('Replace every hotel with the original demo data? Download a backup first if you need the current file.'))return;DB=seedDB();DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('Demo hotels restored')};
+  if($('#bkReset',el))$('#bkReset',el).onclick=async ()=>{if(!await dlgConfirm('Erase every hotel on this device, leaving none? Download a backup first if you need the current data.'))return;DB=seedDB();DB.session=null;H=null;clearLiveSession();saveDB();showLogin();toast('This device now has no hotels')};
   listSnaps().then(sn=>{const box=$('#bkSn');if(!box)return;if(!sn.length){box.textContent='No recovery point yet. One is kept the first time you save on a new day.';return}
     box.innerHTML=`<table class="grid"><tr><th>When</th><th>Business day key</th><th></th></tr>${sn.map(s=>`<tr><td>${esc(fdt(s.at))}</td><td>${esc(s.day||'')}</td><td><button class="btn sm ghost" data-snap="${s.at}">Restore</button></td></tr>`).join('')}</table>`;
     $$('[data-snap]',box).forEach(b=>b.onclick=async ()=>{const s=sn.find(x=>String(x.at)===b.dataset.snap);if(!s)return;if(!await dlgConfirm('Restore this recovery point? Current data on this device will be replaced.'))return;applyRestore(s.db)})}).catch(()=>{const box=$('#bkSn');if(box)box.textContent='Recovery points need IndexedDB, which this browser blocked. Download a file backup instead.'});
