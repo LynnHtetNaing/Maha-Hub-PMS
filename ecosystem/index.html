@@ -13856,20 +13856,30 @@ const BE={
   $('#gcS',box).onclick=()=>{if(!provOnly())return;const mode=$('[name="gcMode"]:checked',box).value;
     g.guestCountry={mode,list:mode==='all'?[]:[...picked]};provLog(`Guest country set up saved for ${H.code}`);saved()}},
  reports(box){
-  box.innerHTML=secHead('9. Reports','Real numbers from this hotel\'s own confirmed reservations that came through Maha Booking (Direct) - never OTA data, since Maha has no live channel connection to report on.')+'<div class="panel pad" id="beRepBox"></div>';
+  box.innerHTML=secHead('9. Reports','A production report of this hotel\'s own confirmed reservations that came through Maha Booking (Direct) - never OTA data, since Maha has no live channel connection to report on.')+`<div class="panel pad">
+   <div class="btns" style="justify-content:flex-start;align-items:center"><label class="sub">From <input type="date" id="rpFrom"></label><label class="sub">To <input type="date" id="rpTo"></label><button class="btn ghost sm" type="button" id="rpGo">Run report</button></div>
+   <div id="beRepBox" class="mt"></div></div>`;
   const rep=$('#beRepBox',box);
-  const direct=allBookingsH(H).filter(b=>b.channel==='WEB'&&b.source==='DIRECT'&&b.status!=='cancelled');
-  const today=H.set.bd,onHand=direct.filter(b=>b.dep>=today),arrToday=direct.filter(b=>b.arr===today),depToday=direct.filter(b=>b.dep===today);
-  const revenue=d=>r2(sum(d,b=>sum(Object.values(b.nightly||{}))));
-  const byMonth={};direct.forEach(b=>{const m=String(b.arr||'').slice(0,7);if(!m)return;byMonth[m]=(byMonth[m]||0)+1});
-  const byNat={};direct.forEach(b=>{const n=b.bkCountry||'—';byNat[n]=(byNat[n]||0)+1});
-  rep.innerHTML=`<div class="g3">
-    <div class="panel pad"><div class="sub">Direct bookings on hand</div><h2 style="margin:4px 0">${onHand.length}</h2></div>
-    <div class="panel pad"><div class="sub">Direct revenue booked</div><h2 style="margin:4px 0">${esc(H.set.cur)} ${m2(revenue(direct))}</h2></div>
-    <div class="panel pad"><div class="sub">Today: arrivals / departures</div><h2 style="margin:4px 0">${arrToday.length} / ${depToday.length}</h2></div></div>
-   <h3 class="mt">Bookings by month (arrival)</h3><table class="grid"><tr><th>Month</th><th class="n">Bookings</th></tr>${Object.keys(byMonth).sort().map(m=>`<tr><td>${esc(m)}</td><td class="n">${byMonth[m]}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No direct bookings yet.</td></tr>'}</table>
-   <h3 class="mt">Nationality</h3><table class="grid"><tr><th>Country</th><th class="n">Bookings</th></tr>${Object.keys(byNat).sort((a,b)=>byNat[b]-byNat[a]).map(n=>`<tr><td>${esc(n)}</td><td class="n">${byNat[n]}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No direct bookings yet.</td></tr>'}</table>
-   <p class="sub mt">B2B / OTA production reports, ARI logs and auto-yield logs are not shown here - those need a real, certified channel-manager connection to each OTA, which Maha does not have yet.</p>`;
+  const run=()=>{
+   const from=$('#rpFrom',box).value,to=$('#rpTo',box).value;
+   const direct=allBookingsH(H).filter(b=>b.channel==='WEB'&&b.source==='DIRECT'&&b.status!=='cancelled');
+   const inRange=direct.filter(b=>(!from||b.arr>=from)&&(!to||b.arr<=to));
+   const today=H.set.bd,onHand=direct.filter(b=>b.dep>=today),arrToday=direct.filter(b=>b.arr===today),depToday=direct.filter(b=>b.dep===today);
+   const revenue=d=>r2(sum(d,b=>sum(Object.values(b.nightly||{}))));
+   const byNat={};inRange.forEach(b=>{const n=b.bkCountry||'—';byNat[n]=(byNat[n]||0)+1});
+   const rows=inRange.slice().sort((a,b)=>a.arr<b.arr?-1:a.arr>b.arr?1:0);
+   rep.innerHTML=`<div class="g3">
+     <div class="panel pad"><div class="sub">Direct bookings on hand</div><h2 style="margin:4px 0">${onHand.length}</h2></div>
+     <div class="panel pad"><div class="sub">Revenue in range</div><h2 style="margin:4px 0">${esc(H.set.cur)} ${m2(revenue(inRange))}</h2></div>
+     <div class="panel pad"><div class="sub">Today: arrivals / departures</div><h2 style="margin:4px 0">${arrToday.length} / ${depToday.length}</h2></div></div>
+    <h3 class="mt">Production report${from||to?' - '+fd(from||'')+' to '+fd(to||''):''}</h3>
+    <table class="grid"><tr><th>RSVN#</th><th>Guest</th><th>Room</th><th>Arrival</th><th>Departure</th><th class="n">Nights</th><th>Country</th><th class="n">Revenue</th><th>Status</th></tr>
+     ${rows.map(b=>{const r=resOf(b),g=G(b.guestId);return `<tr><td>${r.no}</td><td>${esc(gName(g))}</td><td>${esc(b.type||'')}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td class="n">${nights(b)}</td><td>${esc(b.bkCountry||'—')}</td><td class="n">${m2(sum(Object.values(b.nightly||{})))}</td><td>${stBadge(b)}</td></tr>`}).join('')||'<tr><td colspan="9" class="empty">No direct bookings in this range.</td></tr>'}
+    </table>
+    <h3 class="mt">By nationality</h3><table class="grid"><tr><th>Country</th><th class="n">Bookings</th></tr>${Object.keys(byNat).sort((a,b)=>byNat[b]-byNat[a]).map(n=>`<tr><td>${esc(n)}</td><td class="n">${byNat[n]}</td></tr>`).join('')||'<tr><td colspan="2" class="empty">No direct bookings in this range.</td></tr>'}</table>
+    <p class="sub mt">B2B / OTA production reports, ARI logs and auto-yield logs are not shown here - those need a real, certified channel-manager connection to each OTA, which Maha does not have yet.</p>`};
+  $('#rpGo',box).onclick=run;
+  run();
  }
 };
 /* Turns a pending Maha Booking request into a real reservation - a guest, a reservation wrapper and

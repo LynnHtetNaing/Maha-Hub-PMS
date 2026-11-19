@@ -284,9 +284,12 @@ T('two real preview entry points on the merged Hotel profile page: the real, liv
   src.includes('<b>Mockup only - not a live Google listing.</b>') &&
   src.includes('background:#fff;border:1px solid #dadce0;'));
 
-T('Reports (Booking Engine) shows real numbers from this hotel\'s own confirmed direct reservations - bookings on hand, revenue, today\'s arrivals/departures, by month and by nationality - never OTA data, which Maha has no live connection to report on',
+T('Reports (Booking Engine) is a real production report with a date-range filter - a row per confirmed direct reservation (RSVN#, guest, room, dates, nights, country, revenue, status), not just summary tiles - plus bookings on hand, revenue in range, today\'s arrivals/departures and by-nationality, never OTA data which Maha has no live connection to report on',
   src.includes(" reports(box){") &&
+  src.includes('<label class="sub">From <input type="date" id="rpFrom"></label><label class="sub">To <input type="date" id="rpTo"></label>') &&
   src.includes("const direct=allBookingsH(H).filter(b=>b.channel==='WEB'&&b.source==='DIRECT'&&b.status!=='cancelled');") &&
+  src.includes("const inRange=direct.filter(b=>(!from||b.arr>=from)&&(!to||b.arr<=to));") &&
+  src.includes('<h3 class="mt">Production report') &&
   src.includes('B2B / OTA production reports, ARI logs and auto-yield logs are not shown here'));
 
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
