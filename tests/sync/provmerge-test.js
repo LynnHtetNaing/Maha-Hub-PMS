@@ -253,9 +253,12 @@ T('Booking Engine > Pending Bookings: lists real pending requests for this prope
   src.includes("await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:row.id,p_confirm:true,p_reservation_no:String(nr.no)})});") &&
   src.includes("if(!provOnly())return;if(!await dlgConfirm('Decline this booking request?"));
 
-T('Channel Rates: direct is a markup over Rack, every OTA is a commission grossed up so the hotel always nets the Rack Rate, and the direct channel can never be deleted',
+T('Channel Rates: direct is a markup over Rack, every OTA is a commission grossed up so the hotel always nets the Rack Rate, the direct channel can never be removed, every row is frozen by default (locked!==false) until explicitly unlocked, and a new channel is picked from the PMS\'s own CHANNEL_CATALOG, not typed freely',
   src.includes(" channels(box){const g=H.set.google;if(!Array.isArray(g.channels)||!g.channels.length)g.channels=[{key:'direct',label:'Booking Engine (direct)',kind:'markup',value:10}];") &&
-  src.includes("if(!d.some(c=>c.key==='direct'))return 'The direct Booking Engine channel cannot be removed.';"));
+  src.includes("const avail=()=>CHANNEL_CATALOG.filter(([code])=>!g.channels.some(c=>c.key==='chan'+code));") &&
+  src.includes("const isDirect=c.key==='direct',locked=c.locked!==false;") &&
+  src.includes("${isDirect?'':`<button type=\"button\" class=\"btn sm ghost\" data-rmchan=\"${i}\" ${locked?'disabled':''}") &&
+  src.includes("g.channels.push({key:'chan'+code,label:name,kind:'commission',value:15,locked:false});"));
 
 T('Promotions & Discount Codes never touch the Rack Rate - they are dated, active-flagged deltas off the channel sell price',
   src.includes(" promotions(box){const g=H.set.google,promos=g.promotions||[];") &&
