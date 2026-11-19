@@ -71,18 +71,18 @@ T('a Hotel Setup subtitle page (hset.*) shows its section once, under the page\'
 T('Terms & Conditions as a Hotel Setup subtitle page drops the embedded page\'s own duplicate title and hotel picker, keeping just the editor',
   src.includes("terms(box){VIEWS['prov.terms'](box);if(SEC_BARE){const ph=box.querySelector('.phead');if(ph)ph.remove()}else box.insertAdjacentHTML('afterbegin',secHead('15. Terms & Conditions'))},"));
 
-T('Direct Booking Engine is 4 real subtitles (same pattern as Hotel Setup\'s own hset.* pages), not one page with a "wrap" class pretending to be sections - each one bare, its title already coming from the outer page, reachable from both the provider console (with a hotel picker) and from inside the hotel\'s own Booking Engine sidebar group',
-  src.includes("const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings'],['photos','5','Photos'],['pending','6','Pending Bookings'],['channels','7','Channel Rates'],['promotions','8','Promotions & Discount Codes'],['allotment','9','Central Allotment'],['guestCountry','10','Guest Country Set Up'],['reports','11','Reports']];") &&
+T('Direct Booking Engine is real subtitles (same pattern as Hotel Setup\'s own hset.* pages), not one page with a "wrap" class pretending to be sections - each one bare, its title already coming from the outer page, reachable from inside the hotel\'s own Booking Engine sidebar group; Property Information and Booking Theme merged into Hotel Setup\'s own Hotel profile, and no hotel picker shows on any of these pages any more (the provider is already inside this one hotel)',
+  src.includes("const BE_SECTIONS=[['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['pending','4','Pending Bookings'],['channels','5','Channel Rates'],['promotions','6','Promotions & Discount Codes'],['allotment','7','Central Allotment'],['guestCountry','8','Guest Country Set Up'],['reports','9','Reports']];") &&
   src.includes("BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{") &&
-  src.includes("bindPicker(el);SEC_BARE=true;BE[k]($('#gBody',el))") &&
-  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]};") &&
-  src.includes("VIEWS['prov.google']=()=>go('prov.be.info');"));
+  src.includes("el.innerHTML=pageHead(title)+`<div id=\"gBody\"></div>`;\n  SEC_BARE=true;BE[k]($('#gBody',el))") &&
+  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]};") &&
+  src.includes("VIEWS['prov.google']=()=>go('hset.profile');") &&
+  src.includes("function provHotelPicker(){if(provWsOn()||(DB.session&&DB.session.inHotel))return '';"));
 
-T('saving one Booking Engine subtitle never blanks another\'s fields - every BE.* section reads and writes the same H.set.google record, just its own slice of it (Object.assign, not a wholesale replace)',
+T('saving one Booking Engine subtitle never blanks another\'s fields - every BE.* section (and the merged Hotel profile Direct Booking Engine card) reads and writes the same H.set.google record, just its own slice of it (Object.assign, not a wholesale replace)',
   src.includes('Object.assign(g,{enabled:en,lat,lng,countryCode:cc,category:') &&
   src.includes('g.amenities=$$(\'[data-am]\',box).filter(x=>x.checked).map(x=>x.dataset.am);') &&
-  src.includes("g.cancelPolicy=$('#g_cx',box).value.trim();g.importantNotice=$('#g_notice',box).value.trim();") &&
-  src.includes("g.brand=$('#g_br',box).value.trim()||'Maha Booking';g.photoUrl=$('#g_ph',box).value.trim();"));
+  src.includes("g.cancelPolicy=$('#g_cx',box).value.trim();g.importantNotice=$('#g_notice',box).value.trim();"));
 
 T('provOnly() accepts a provider operating inside a hotel too (user().isProv), not just user().provider - otherwise every provider-only Save silently does nothing the moment that provider has actually entered the hotel it is editing (caught testing the new Booking Engine subtitles, but it is the one gate used by all 42 provider-only actions in the app)',
   src.includes('function provOnly(){const u=user();if(!u.provider&&!u.isProv){') );
@@ -192,7 +192,7 @@ T('Booking / Reservation detail panel text is smaller throughout (header and eve
 
 T('Hotel Settings (hotel-staff Backend) and Hotel profile (provider\'s Hotel Setup, section 1 / hset.profile) are the same form - one renderer, not two pages that could drift apart',
   src.includes("VIEWS['set.hotel']=el=>{el.innerHTML=pageHead('Hotel Settings')+'<div id=\"hsBox\"></div>';SEC_BARE=true;SEC.profile($('#hsBox',el))};") &&
-  src.includes(' profile(box){const s=H.set,prov=!!(user().provider||user().isProv),E=prov||can(\'setup\'),d=E?\'\':\'disabled\';') &&
+  src.includes(' profile(box){const s=H.set,g=s.google,prov=!!(user().provider||user().isProv),E=prov||can(\'setup\'),d=E?\'\':\'disabled\';') &&
   src.includes("fld('Check-in time',`<input id=\"p_ci\"") && src.includes("fld('Country',`<input id=\"p_country\"") &&
   src.includes('<h3>Breakfast and auto-lock</h3>') && src.includes('id="chBox"'));
 
@@ -218,13 +218,12 @@ T('a .scroll panel (Rate codes, Charge codes, Companies & agents, and every othe
   src.includes('html[data-skin="modern"] .panel:has(>table):not(.scroll),html[data-skin="modern"] .panel:has(>.ph):not(.scroll){overflow:hidden}'));
 
 T('Direct booking & Google is renamed Direct Booking Engine everywhere (menus and page titles), and its amenities list covers a lot more of what a property can actually have, not just the original ten',
-  src.includes("{t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]}") &&
-  src.includes("box.innerHTML=secHead('1. Property Information',") &&
+  src.includes("{t:'Booking Engine',items:[['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]}") &&
   src.includes("{k:'google',t:'Direct Booking Engine metadata'") &&
   ['front_desk','bar','room_service','business_center','meeting_room','elevator','non_smoking_rooms','family_rooms','laundry','concierge','luggage_storage','currency_exchange','ev_charging','kids_club','sauna','kitchen','balcony','beachfront','tour_desk','atm','bbq','garden','heating','accessible_facilities'].every(a=>src.includes("'"+a+"'")));
 
-T('the whole-system provider console (not inside any hotel) and a hotel\'s own Backend both reach the same 4 Booking Engine subtitles - a real sidebar group each, not a single crowded page',
-  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]};") &&
+T('the hotel\'s own Backend reaches the Booking Engine subtitles as a real sidebar group, not a single crowded page',
+  src.includes("const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports']]};") &&
   src.includes("people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_BE_GROUP,PROV_HOTEL_GROUP]}"));
 
 T('Amendment Records and Amendment Log are their own Records group inside a hotel\'s Provider menu, not bundled in with Direct Booking Engine / Stripe payments / Back to provider console; both names are now parallel (Amendment Records, Amendment Log) everywhere, not the old mismatched "Amend records"',
@@ -247,7 +246,7 @@ T('provOnly() guards every write on the new Photos subtitle too (cover photo upl
   src.includes("if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;"));
 
 T('Booking Engine > Pending Bookings: lists real pending requests for this property (maha_booking_requests), Confirm builds a real reservation the same way the PMS always has (confirmBookingRequest - a real guest, a real reservation wrapper, newBooking) and only then tells the cloud it was decided; Decline needs confirmation first',
-  src.includes(" pending(box){box.innerHTML=secHead('6. Pending Bookings',") &&
+  src.includes(" pending(box){box.innerHTML=secHead('4. Pending Bookings',") &&
   src.includes("rows=await ctx.call('maha_booking_requests?select=*&property_id=eq.'+ctx.pid+'&status=eq.pending&order=created_at.desc')") &&
   src.includes('function confirmBookingRequest(row){') &&
   src.includes("const B=newBooking(H,{guestId:g.id,type:row.room_type,arr:row.arr,dep:row.dep,adults:row.adults,children:row.children,rateCode:row.rate_code,status:'confirmed',market:'FIT',channel:'WEB',source:'DIRECT'});") &&
@@ -270,9 +269,9 @@ T('Guest Country Set Up defaults to allowing everyone, and the list field is dis
   src.includes(" guestCountry(box){const g=H.set.google,gc=g.guestCountry||{mode:'all',list:[]};") &&
   src.includes("r.onchange=()=>{\$('#gcList',box).disabled=r.value==='all'}"));
 
-T('two real preview entry points: the real, live booking page (unchanged "Open" link, relabelled), and a clearly-watermarked Google mockup built from this hotel\'s own photo/name/amenities/lowest direct rate - never claiming to be a live listing',
-  src.includes('<button class="btn ghost" id="gOpen" type="button">Preview booking page (real, live)</button>') &&
-  src.includes('<button class="btn ghost" id="gMock" type="button">Preview on Google (mockup)</button>') &&
+T('two real preview entry points on the merged Hotel profile page: the real, live booking page, and a clearly-watermarked Google mockup built from this hotel\'s own photo/name/amenities/lowest direct rate - never claiming to be a live listing',
+  src.includes('<button class="btn ghost" id="pgOpen" type="button">Preview booking page (real, live)</button>') &&
+  src.includes('<button class="btn ghost" id="pgMock" type="button">Preview on Google (mockup)</button>') &&
   src.includes('function googleMockupPreview(h){') &&
   src.includes('<b>Mockup only - not a live Google listing.</b>') &&
   src.includes('background:#fff;border:1px solid #dadce0;'));
