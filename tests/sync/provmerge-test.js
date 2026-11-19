@@ -231,11 +231,13 @@ T('Amendment Records and Amendment Log are their own Records group inside a hote
   src.includes("el.innerHTML=pageHead('Amendment Records',") &&
   (src.match(/\['Amendment Records','prov\.amend'\]/g) || []).length === 2);
 
-T('Booking Engine > Photos: the hotel logo is never re-uploaded here - it follows Hotel Setup\'s own logo automatically; cover photos (up to 8) are the hero\'s rotating gallery; room type photos link out to Room types, where they are actually set',
-  src.includes(" photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];") &&
+T('Booking Engine > Photos: the hotel logo is never re-uploaded here - it follows Hotel Setup\'s own logo automatically; cover photos (up to 8) are the hero\'s rotating gallery; room type photos are managed right here (no limit, order + enable/disable + delete, a Save button) instead of linking out to Room types',
+  src.includes(" photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];let managing=null;") &&
   src.includes('Synced automatically from Hotel Setup') &&
   src.includes('covers.length<8') &&
-  src.includes("$('#goTypes',box).onclick=()=>go('hset.types');"));
+  src.includes('const roomPhotos=t=>{if(!Array.isArray(t.photos))t.photos=t.photo?[{url:t.photo,name:\'Photo 1\',order:1,enabled:true}]:[];return t.photos};') &&
+  src.includes("$$('[data-rpopen]',box).forEach(b=>b.onclick=()=>{managing=H.roomTypes.find(x=>x.code===b.dataset.rpopen);if(managing)paintManage()})") &&
+  src.includes("$('#rpSave',box).onclick=()=>{if(!provOnly())return;t.photos=ph;"));
 
 T('a room type\'s photo survives the Room types list\'s own Save - the rebuild on save (Object.assign over the existing record) keeps the photo instead of silently dropping it, the same pattern Companies & agents already uses for its logo column',
   src.includes("{k:'photo',h:'Photo',type:'logo',") &&

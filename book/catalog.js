@@ -6,6 +6,15 @@
 export const BOOK_VERSION = 'MBE_20261002A';
 export const PARTNER_PLACEHOLDER = 'YOUR_GOOGLE_PARTNER_KEY';
 
+// The enabled photo with the lowest order wins; falls back to the legacy single `photo` string.
+function bestRoomPhoto(t) {
+  if (Array.isArray(t.photos) && t.photos.length) {
+    const on = t.photos.filter(p => p.enabled !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (on.length) return on[0].url || '';
+  }
+  return t.photo || '';
+}
+
 const COUNTRY = {
   Thailand: 'TH', Myanmar: 'MM', Singapore: 'SG', Malaysia: 'MY',
   Vietnam: 'VN', Laos: 'LA', Cambodia: 'KH', Indonesia: 'ID', Philippines: 'PH',
@@ -251,7 +260,7 @@ export function publicHotelFromHub(h, opts = {}) {
       name: t.name,
       base: Number(t.base || 0),
       max: Number(t.max || 2),
-      photo: t.photo || '',
+      photo: bestRoomPhoto(t),
       benefits: Array.isArray(t.benefits) ? t.benefits.slice() : [],
       dummy: false
     })),

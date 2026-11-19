@@ -13747,25 +13747,45 @@ const BE={
    $$('[data-rmline]',box).forEach(b=>b.onclick=()=>{const[id,i]=b.dataset.rmline.split(':');(id==='g_cx'?cancelLines:noticeLines).splice(+i,1);redraw()})};
   bind();
   $('#gS',box).onclick=()=>{if(!provOnly())return;g.cancelPolicyLines=cancelLines;g.cancelPolicy=cancelLines.join('\n');g.importantNoticeLines=noticeLines;g.importantNotice=noticeLines.join('\n');provLog(`Direct Booking Engine policies saved for ${H.code}`);saved()}},
- photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];
-  box.innerHTML=secHead('3. Photos','The hero on the Booking Engine rotates through the cover photos below. The hotel logo is not set here - it follows Hotel Setup automatically.')+`<div class="panel pad">
-   <h3 style="margin-top:0">Hotel logo</h3>
-   <p class="sub">Synced automatically from Hotel Setup → Hotel profile - nothing to upload here.</p>
-   ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:'<p class="sub">No logo set yet.</p>'}
-   <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goLogo">Open Hotel profile</button></div>
-   <h3 class="mt">Cover photos (hero, up to 8)</h3>
-   <p class="sub">Big, horizontal photos work best. The Booking Engine hero fades between all of them.</p>
-   <div class="curgrid" id="g_covers">${covers.map((url,i)=>`<div class="curchk" style="flex-direction:column;align-items:stretch;gap:6px"><img src="${url}" alt="" style="width:100%;height:90px;object-fit:cover;border-radius:4px"><button type="button" class="btn sm ghost" data-covx="${i}">Remove</button></div>`).join('')}</div>
-   <div class="btns mt" style="justify-content:flex-start">${covers.length<8?`<label class="btn ghost">${ic('upload',14)} Add cover photo<input id="g_covup" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>`:'<p class="sub">8 cover photos is the most. Remove one to add another.</p>'}</div>
-   <h3 class="mt">Room type photos</h3>
-   <p class="sub">One photo per room type, shown on its rate card. Set under Hotel Setup → Room types.</p>
-   <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goTypes">Open Room types</button></div></div>`;
-  $('#goLogo',box).onclick=()=>go('hset.profile');
-  $('#goTypes',box).onclick=()=>go('hset.types');
-  $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
-  if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;const file=e.target.files[0];if(!file)return;if(file.size>3e6){toast('Choose an image under 3 MB.');return}
-    const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,1600/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-      covers.push(cv.toDataURL('image/jpeg',0.82));g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)}},
+ photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];let managing=null;
+  const readImg=(file,maxpx,cb)=>{if(file.size>3e6){toast('Choose an image under 3 MB.');return}
+   const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,maxpx/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);cb(cv.toDataURL('image/jpeg',0.82))};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)};
+  const roomPhotos=t=>{if(!Array.isArray(t.photos))t.photos=t.photo?[{url:t.photo,name:'Photo 1',order:1,enabled:true}]:[];return t.photos};
+  const paintManage=()=>{const t=managing,ph=roomPhotos(t).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+   box.innerHTML=secHead('Room photos - '+t.code+' '+t.name,'Click + to add a photo. Order controls which shows first on the rate card; disabled photos never show to guests. Click Save when you are done.')+`<div class="panel pad">
+    <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="rpBack">← Back to Photos</button></div>
+    <div class="curgrid mt" id="rpGrid">${ph.map((p,i)=>`<div class="curchk" style="flex-direction:column;align-items:stretch;gap:6px"><img src="${p.url}" alt="" style="width:100%;height:110px;object-fit:cover;border-radius:4px;opacity:${p.enabled===false?0.4:1}">
+      <div class="row gap" style="align-items:center"><label class="sub" style="white-space:nowrap">Order</label><input type="number" min="1" value="${p.order||i+1}" data-rpord="${i}" style="width:60px"></div>
+      <label class="chk"><input type="checkbox" data-rpen="${i}" ${p.enabled===false?'':'checked'}> Enabled</label>
+      <button type="button" class="btn sm ghost" data-rpdel="${i}">Delete</button></div>`).join('')}
+     <label class="curchk" style="align-items:center;justify-content:center;min-height:110px;cursor:pointer;font-size:28px;color:var(--mut)">+<input id="rpAdd" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div>
+    <div class="btns mt"><button class="btn gold" id="rpSave">Save</button></div></div>`;
+   $('#rpBack',box).onclick=()=>{managing=null;paintMain()};
+   $$('[data-rpord]',box).forEach(inp=>inp.onchange=()=>{ph[+inp.dataset.rpord].order=Math.max(1,Math.floor(+inp.value||1))});
+   $$('[data-rpen]',box).forEach(inp=>inp.onchange=()=>{ph[+inp.dataset.rpen].enabled=inp.checked});
+   $$('[data-rpdel]',box).forEach(b=>b.onclick=()=>{ph.splice(+b.dataset.rpdel,1);t.photos=ph;paintManage()});
+   $('#rpAdd',box).onchange=e=>{const files=[...e.target.files];if(!files.length)return;let left=files.length;
+    files.forEach(f=>readImg(f,1600,url=>{ph.push({url,name:'Photo '+(ph.length+1),order:ph.length+1,enabled:true});if(!--left){t.photos=ph;paintManage()}}))};
+   $('#rpSave',box).onclick=()=>{if(!provOnly())return;t.photos=ph;provLog(`Room photos saved for ${H.code} ${t.code}`);saveDB();toast('Room photos saved');managing=null;paintMain()}};
+  const paintMain=()=>{
+   box.innerHTML=secHead('3. Photos','The hero on the Booking Engine rotates through the cover photos below. The hotel logo is not set here - it follows Hotel Setup automatically.')+`<div class="panel pad">
+    <h3 style="margin-top:0">Hotel logo</h3>
+    <p class="sub">Synced automatically from Hotel Setup → Hotel profile - nothing to upload here.</p>
+    ${s.logo?`<img class="logoprev" src="${s.logo}" alt="Hotel logo">`:'<p class="sub">No logo set yet.</p>'}
+    <div class="btns" style="justify-content:flex-start"><button class="btn ghost" type="button" id="goLogo">Open Hotel profile</button></div>
+    <h3 class="mt">Cover photos (hero)</h3>
+    <p class="sub">Big, horizontal photos work best. The Booking Engine hero fades between all of them.</p>
+    <div class="curgrid" id="g_covers">${covers.map((url,i)=>`<div class="curchk" style="flex-direction:column;align-items:stretch;gap:6px"><img src="${url}" alt="" style="width:100%;height:90px;object-fit:cover;border-radius:4px"><button type="button" class="btn sm ghost" data-covx="${i}">Remove</button></div>`).join('')}</div>
+    <div class="btns mt" style="justify-content:flex-start">${covers.length<8?`<label class="btn ghost">${ic('upload',14)} Add cover photo<input id="g_covup" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>`:'<p class="sub">8 cover photos is the most. Remove one to add another.</p>'}</div>
+    <h3 class="mt">Room type photos</h3>
+    <p class="sub">Click a room type to add, order, enable/disable or delete its photos - no limit on how many.</p>
+    <table class="grid"><tr><th>Room type</th><th>Photos</th><th></th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${roomPhotos(t).length}</td><td><button type="button" class="btn sm ghost" data-rpopen="${esc(t.code)}">Manage</button></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table></div>`;
+   $('#goLogo',box).onclick=()=>go('hset.profile');
+   $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
+   if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;const file=e.target.files[0];if(!file)return;
+     readImg(file,1600,url=>{covers.push(url);g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')})};
+   $$('[data-rpopen]',box).forEach(b=>b.onclick=()=>{managing=H.roomTypes.find(x=>x.code===b.dataset.rpopen);if(managing)paintManage()})};
+  paintMain()},
  pending(box){box.innerHTML=secHead('4. Booking Engine Bookings','Guests booking through Maha Booking (Direct) are confirmed instantly - no staff step. The moment this page opens, any request not yet turned into a reservation here is materialised automatically; a sold-out room is refused before it ever reaches this list.')+'<div class="panel pad" id="pbBox"><p class="sub">Loading...</p></div>';
   const listBox=$('#pbBox',box);
   const draw=async()=>{

@@ -63,10 +63,11 @@ T('the hero shows the hotel logo (synced from Hotel Setup) and fades between up 
 T('each room\'s rate card shows its room type\'s photo (set in PMS Room types) when it has one',
   src.includes('${r.typePhoto ? `<img src="${r.typePhoto}" alt="" style="width:88px;height:66px;object-fit:cover;border-radius:4px;flex:none">` : \'\'}'));
 
-T('the catalog and single-hotel API carry logo, coverPhotos (max 8) and each room type\'s photo through to the guest page',
+T('the catalog and single-hotel API carry logo, coverPhotos (max 8) and each room type\'s photo through to the guest page - picking the lowest-order enabled photo from the new multi-photo list, falling back to the legacy single photo field',
   catalogSrc.includes("logo: s.logo || ''") &&
   catalogSrc.includes('coverPhotos: Array.isArray(g.coverPhotos) ? g.coverPhotos.slice(0, 8) : []') &&
-  catalogSrc.includes("photo: t.photo || ''") &&
+  catalogSrc.includes('function bestRoomPhoto(t) {') &&
+  catalogSrc.includes("photo: bestRoomPhoto(t),") &&
   serverSrc.includes('logo: hotel.logo,') &&
   serverSrc.includes('coverPhotos: hotel.coverPhotos,'));
 
