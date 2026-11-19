@@ -55,6 +55,16 @@ async function sbRpc(fn, args) {
   if (!r.ok) { const e = new Error((d && (d.message || d.hint)) || `rpc ${fn} failed`); e.status = r.status; e.body = d; throw e; }
   return d;
 }
+async function sbFunc(name, args) {
+  const r = await fetch(`${SB_URL}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: { apikey: SB_ANON, Authorization: `Bearer ${SB_ANON}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args)
+  });
+  const d = await r.json().catch(() => null);
+  if (!r.ok) { const e = new Error((d && d.error) || `${name} failed`); e.status = r.status; e.body = d; throw e; }
+  return d;
+}
 // Clamp a search result's shown availability to what a live read of the hotel's own reservations
 // says, so a stale catalog export can never show a room as bookable when it is really sold out.
 // Any failure (offline demo, property not in the cloud yet) just keeps the catalog's own number -
@@ -371,16 +381,42 @@ const server = http.createServer(async (req, res) => {
       // an unattended write into live reservations. The RPC re-checks availability itself, live,
       // so a request can't be accepted into a room that sold out in the minutes since this guest
       // first searched.
-      let cloudId = null, cloudErr = null;
+      let cloudId = null, cloudErr = null, checkoutUrl = null;
       const propId = await propertyIdFor(hotel.id);
       if (propId) {
         try {
-          cloudId = await sbRpc('maha_be_submit_request', {
-            p_property: propId, p_room_type: body.type, p_rate_code: body.rateCode,
-            p_arr: body.checkin, p_dep: body.checkout, p_adults: Number(body.adults || 2), p_children: Number(body.children || 0),
-            p_name: guest.name, p_email: guest.email, p_phone: guest.phone || null,
-            p_amount: quote.amountAfterTax, p_currency: quote.currency, p_note: null
-          });
+          let depositDue = 0, stripeReady = false;
+          try {
+            [depositDue, stripeReady] = await Promise.all([
+              sbRpc('maha_be_deposit_due', { p_property: propId, p_amount: quote.amountAfterTax, p_currency: quote.currency }),
+              sbRpc('maha_be_stripe_ready', { p_property: propId })
+            ]);
+          } catch { depositDue = { due: 0 }; stripeReady = false; }
+          const dueAmount = Number(depositDue && depositDue.due) || 0;
+
+          if (dueAmount > 0 && stripeReady) {
+            cloudId = await sbRpc('maha_be_submit_request_hold', {
+              p_property: propId, p_room_type: body.type, p_rate_code: body.rateCode,
+              p_arr: body.checkin, p_dep: body.checkout, p_adults: Number(body.adults || 2), p_children: Number(body.children || 0),
+              p_name: guest.name, p_email: guest.email, p_phone: guest.phone || null,
+              p_amount: quote.amountAfterTax, p_currency: quote.currency, p_note: null, p_deposit_amount: dueAmount
+            });
+            const origin = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+            const checkout = await sbFunc('maha-be-checkout', {
+              action: 'create', property_code: hotel.id, request_id: cloudId,
+              success_url: `${origin}/book/?hotel=${encodeURIComponent(hotel.id)}&paid_request=${cloudId}`,
+              cancel_url: `${origin}/book/?hotel=${encodeURIComponent(hotel.id)}&cancelled_request=${cloudId}`
+            });
+            checkoutUrl = checkout.url;
+          } else {
+            cloudId = await sbRpc('maha_be_submit_request', {
+              p_property: propId, p_room_type: body.type, p_rate_code: body.rateCode,
+              p_arr: body.checkin, p_dep: body.checkout, p_adults: Number(body.adults || 2), p_children: Number(body.children || 0),
+              p_name: guest.name, p_email: guest.email, p_phone: guest.phone || null,
+              p_amount: quote.amountAfterTax, p_currency: quote.currency, p_note: null
+            });
+            sbFunc('maha-be-mail', { property_code: hotel.id, request_id: cloudId, kind: 'confirmation' }).catch(() => {});
+          }
         } catch (e) {
           cloudErr = e.message || 'cloud request failed';
           if (cloudErr === 'sold_out') { send(res, 409, JSON.stringify({ message: 'That room sold out just now. Please search again.' })); return; }
@@ -389,8 +425,8 @@ const server = http.createServer(async (req, res) => {
       const row = {
         id: cloudId || ('req-' + Date.now().toString(36)),
         at: new Date().toISOString(),
-        status: cloudId ? 'sent_to_hotel' : 'request',
-        note: cloudId ? 'Waiting for the hotel to confirm (Pending Bookings in the PMS).' : `Request held locally only${cloudErr ? ' (' + cloudErr + ')' : ''} - not yet reaching the PMS.`,
+        status: checkoutUrl ? 'awaiting_payment' : (cloudId ? 'sent_to_hotel' : 'request'),
+        note: checkoutUrl ? 'Waiting for the guest to pay.' : cloudId ? 'Confirmed - a confirmation email was sent.' : `Request held locally only${cloudErr ? ' (' + cloudErr + ')' : ''} - not yet reaching the PMS.`,
         hotel: hotel.id,
         hotelName: hotel.name,
         guest,
@@ -407,12 +443,41 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         requestId: row.id,
         status: row.status,
+        checkoutUrl,
         amountAfterTax: quote.amountAfterTax,
         currency: quote.currency,
-        message: cloudId
-          ? 'Request sent to the hotel - they will confirm it shortly. Payment is not collected in this version.'
+        message: checkoutUrl
+          ? 'Redirecting you to pay your deposit securely.'
+          : cloudId
+          ? 'Your booking is confirmed - check your email for the confirmation.'
           : 'Booking request recorded for the hotel to confirm. Payment is not collected in this version.'
       }));
+      return;
+    }
+
+    if (p === '/api/checkout/verify' && req.method === 'POST') {
+      const body = await readBody(req);
+      const { hotel } = await resolveHotel(body.hotel);
+      if (!hotel) { send(res, 404, JSON.stringify({ message: 'Hotel not found.' })); return; }
+      try {
+        const out = await sbFunc('maha-be-checkout', { action: 'verify', property_code: hotel.id, request_id: body.requestId, session_id: body.sessionId });
+        if (out.confirmed) sbFunc('maha-be-mail', { property_code: hotel.id, request_id: body.requestId, kind: 'confirmation' }).catch(() => {});
+        send(res, 200, JSON.stringify(out));
+      } catch (e) {
+        send(res, 502, JSON.stringify({ message: 'Could not verify payment. Please try again.' }));
+      }
+      return;
+    }
+
+    if (p === '/api/checkout/cancel' && req.method === 'POST') {
+      const body = await readBody(req);
+      const { hotel } = await resolveHotel(body.hotel);
+      if (!hotel) { send(res, 404, JSON.stringify({ message: 'Hotel not found.' })); return; }
+      try {
+        const propId = await propertyIdFor(hotel.id);
+        if (propId) await sbRpc('maha_be_cancel_hold', { p_request: body.requestId });
+      } catch { /* best effort - the hold also expires naturally if it's never paid */ }
+      send(res, 200, JSON.stringify({ ok: true }));
       return;
     }
 
