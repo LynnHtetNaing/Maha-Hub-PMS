@@ -119,9 +119,12 @@ export function promoName(hotel, code) {
   return (p && p.name) || String(code).toUpperCase();
 }
 
+// The public Booking Engine only ever sells B2C rate codes - B2B (travel agent / wholesale) stays
+// internal to the PMS and never shows to a direct guest, same split 1HotelRez keeps between its
+// B2C and B2B rate lists.
 export function sellableRates(hotel) {
   return (hotel.rateCodes || []).filter(r =>
-    r.kind !== 'zero' && r.comp !== 'COMP' && r.comp !== 'HOUSE' && r.code !== 'HU'
+    r.kind !== 'zero' && r.comp !== 'COMP' && r.comp !== 'HOUSE' && r.code !== 'HU' && r.channelScope !== 'b2b'
   );
 }
 
