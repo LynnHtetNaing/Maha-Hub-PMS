@@ -138,6 +138,7 @@ export function quoteStay(hotel, { type, rateCode, checkin, checkout, adults, pr
     type: rt.code,
     typeName: rt.name,
     typePhoto: rt.photo || '',
+    typeBenefits: Array.isArray(rt.benefits) ? rt.benefits.slice() : [],
     rateCode: rc.code,
     rateDesc: rc.desc || rc.code,
     meal: rc.meal || '',
@@ -249,6 +250,7 @@ export function publicHotelFromHub(h, opts = {}) {
       base: Number(t.base || 0),
       max: Number(t.max || 2),
       photo: t.photo || '',
+      benefits: Array.isArray(t.benefits) ? t.benefits.slice() : [],
       dummy: false
     })),
     rateCodes: (h.rateCodes || []).map(r => ({
