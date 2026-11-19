@@ -7820,10 +7820,10 @@ const PROV_MENU=[
  {t:'Whole system',items:[['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
-const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.be.info','prov.be.amenities','prov.be.policies','prov.be.theme','prov.be.photos','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
+const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.systems','prov.google','prov.be.info','prov.be.amenities','prov.be.policies','prov.be.theme','prov.be.photos','prov.be.pending','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions'],['Systems','prov.systems']]},
- {t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos']]},
+ {t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending']]},
  {t:'Connections',items:[['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
  {t:'Billing',items:[['Hotel Billing','prov.billing']]},
  {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amendment Records','prov.amend'],['Amendment Log','prov.log'],['User Logs','prov.userlogs']]},
@@ -8269,7 +8269,7 @@ const MV_ICON={'profile.guests':'user','profile.companies':'building','profile.r
  'set.hotel':'building','set.features':'sliders','set.users':'users','set.codes':'hash','set.rooms':'bed','ac.buy':'cart','set.backup':'db','prov.billing':'receipt','sbill.home':'dash','sbill.quotes':'clip','sbill.subscriptions':'layers','sbill.invoices':'receipt','sbill.payments':'card','sbill.statements':'book','prov.exit':'login','prov.log':'history',
  /* Hotel Setup, one subtitle per section, and the rest of the Provider group inside a hotel */
  'hset.profile':'building','hset.tax':'wallet','hset.bd':'clock','hset.floors':'layers','hset.types':'list','hset.rooms':'bed','hset.plan':'grid','hset.rates':'tag','hset.charges':'receipt','hset.pay':'card','hset.companies':'users','hset.allot':'hash','hset.docs':'clip','hset.tiref':'filesearch','hset.terms':'book','hset.mailpol':'check','hset.activate':'spark',
- 'prov.google':'search','prov.be.info':'building','prov.be.amenities':'spark','prov.be.policies':'book','prov.be.theme':'sliders','prov.be.photos':'upload','prov.stripe':'card','prov.amend':'tools'};
+ 'prov.google':'search','prov.be.info':'building','prov.be.amenities':'spark','prov.be.policies':'book','prov.be.theme':'sliders','prov.be.photos':'upload','prov.be.pending':'clip','prov.stripe':'card','prov.amend':'tools'};
 function modernTitleIcon(plain){
   if(plain==='billing / folio')return 'receipt';
   for(const m of MENU)for(const it of (m.items||[]))if(String(it[0]).toLowerCase()===plain)return MV_ICON[it[1]]||null;
@@ -8296,7 +8296,7 @@ function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
 const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Stripe payments (this hotel)','prov.stripe']]};
-const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos']]};
+const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Property Information','prov.be.info'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Booking Theme & Settings','prov.be.theme'],['Photos','prov.be.photos'],['Pending Bookings','prov.be.pending']]};
 const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};
 function modernShellHTML(){
   const n=notifBadgeCount();
@@ -13684,7 +13684,7 @@ const SEC={
 /* Direct Booking Engine: not one crowded page any more - a real subtitle per job (same pattern as Hotel Setup's
    own hset.* pages), the way 1HotelRez's own Set Up menu splits Property information / Amenities / Policies /
    Theme apart. Every subtitle shares the one H.set.google record; saving one never blanks another's fields. */
-const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings'],['photos','5','Photos']];
+const BE_SECTIONS=[['info','1','Property Information'],['amenities','2','Amenities'],['policies','3','Policies & Notices'],['theme','4','Booking Theme & Settings'],['photos','5','Photos'],['pending','6','Pending Bookings']];
 const BE={
  info(box){const s=H.set,g=s.google;
   box.innerHTML=secHead('1. Property Information','What Maha Booking (and, later, Google Hotel List matching) shows about this property. Maha is <b>not</b> a Google Connectivity Partner yet - this does not put the hotel live on Google Search or Maps.')+`<div class="panel pad">
@@ -13746,8 +13746,40 @@ const BE={
   $$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(+b.dataset.covx,1);g.coverPhotos=covers;provLog(`Cover photo removed for ${H.code}`);saved()});
   if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;const file=e.target.files[0];if(!file)return;if(file.size>3e6){toast('Choose an image under 3 MB.');return}
     const rd=new FileReader();rd.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas'),sc=Math.min(1,1600/Math.max(img.width,img.height));cv.width=Math.max(1,Math.round(img.width*sc));cv.height=Math.max(1,Math.round(img.height*sc));cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-      covers.push(cv.toDataURL('image/jpeg',0.82));g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)}}
+      covers.push(cv.toDataURL('image/jpeg',0.82));g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')};img.onerror=()=>toast('This image could not be read.');img.src=rd.result};rd.readAsDataURL(file)}},
+ pending(box){box.innerHTML=secHead('6. Pending Bookings','Guests who booked through Maha Booking (Direct), waiting for this hotel to confirm. Confirming creates the real reservation here - nothing is written automatically, and a sold-out room was already refused before it ever reached this list.')+'<div class="panel pad" id="pbBox"><p class="sub">Loading...</p></div>';
+  const listBox=$('#pbBox',box);
+  const draw=async()=>{
+    let ctx;try{ctx=await provBillCtx(H)}catch(e){listBox.innerHTML='<p class="sub">'+esc(e.message)+'</p>';return}
+    let rows=[];try{rows=await ctx.call('maha_booking_requests?select=*&property_id=eq.'+ctx.pid+'&status=eq.pending&order=created_at.desc')}catch(e){listBox.innerHTML='<div class="err">'+esc(e.message)+'</div>';return}
+    if(!listBox.isConnected)return;
+    listBox.innerHTML=rows.length?`<table class="grid"><tr><th>Received</th><th>Guest</th><th>Room</th><th>Dates</th><th>Pax</th><th class="n">Amount</th><th></th></tr>${rows.map(r=>`<tr><td>${fdt(r.created_at)}</td><td>${esc(r.guest_name)}<br><small>${esc(r.guest_email)}</small></td><td>${esc(r.room_type)} · ${esc(r.rate_code)}</td><td>${fd(r.arr)} – ${fd(r.dep)}</td><td>${r.adults}A${r.children?('+'+r.children+'C'):''}</td><td class="n">${esc(r.currency)} ${m2(r.amount)}</td><td class="nowrap"><button class="btn sm gold" data-pbc="${r.id}">Confirm</button> <button class="btn sm red" data-pbd="${r.id}">Decline</button></td></tr>`).join('')}</table>`:'<p class="sub">Nothing pending.</p>';
+    $$('[data-pbc]',listBox).forEach(b=>b.onclick=async()=>{const row=rows.find(x=>x.id===b.dataset.pbc);if(!row||!provOnly())return;b.disabled=true;
+      try{const nr=confirmBookingRequest(row);
+        await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:row.id,p_confirm:true,p_reservation_no:String(nr.no)})});
+        provLog(`Maha Booking request confirmed as reservation ${nr.no} for ${H.code}`);toast('Confirmed as reservation '+nr.no);draw()}
+      catch(e){toast('Could not confirm: '+e.message);b.disabled=false}});
+    $$('[data-pbd]',listBox).forEach(b=>b.onclick=async()=>{if(!provOnly())return;if(!await dlgConfirm('Decline this booking request? The guest is not notified automatically.'))return;b.disabled=true;
+      try{await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:b.dataset.pbd,p_confirm:false,p_reservation_no:null})});provLog(`Maha Booking request declined for ${H.code}`);toast('Declined');draw()}
+      catch(e){toast('Could not decline: '+e.message);b.disabled=false}});
+  };
+  draw()}
 };
+/* Turns a pending Maha Booking request into a real reservation - a guest, a reservation wrapper and
+   one booking, built the same way every other new reservation in this PMS is built. Never automatic:
+   only ever called from the Confirm button above. */
+function confirmBookingRequest(row){
+  const parts=String(row.guest_name||'Guest').trim().split(/\s+/),first=parts[0]||'Guest',last=parts.slice(1).join(' ')||'-';
+  const g={id:'g'+uid(),profileId:H.set.nextProfile++,title:'',last,first,middle:'',other:'',jobTitle:'',company:'',nationality:'',country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:row.guest_email||'',phone:row.guest_phone||'',address:'',pdpa:false,photo:'',remark:'From Maha Booking (Direct)',doc:emptyDoc(),card:null};
+  H.guests.push(g);
+  const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:first+' '+last,reference:'',phone:row.guest_phone||'',fax:'',email:row.guest_email||'',confirmation:'0',companyId:'',bookings:[],notifs:[],createdShift:curShift()?curShift().name:'',createdUser:user().name};
+  stampHotelNumbers(H,nr);
+  const B=newBooking(H,{guestId:g.id,type:row.room_type,arr:row.arr,dep:row.dep,adults:row.adults,children:row.children,rateCode:row.rate_code,status:'confirmed',market:'FIT',channel:'WEB',source:'DIRECT'});
+  nr.bookings.push(B);
+  H.reservations.push(nr);
+  log('Confirmed Maha Booking request as reservation '+nr.no,B.id);saveDB();
+  return nr;
+}
 BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{
   if(!(DB.session&&DB.session.provider)){el.innerHTML='<div class="empty">The provider opens this page.</div>';return}
   if(!DB.session.inHotel&&!H){const first=Object.values(DB.hotels)[0];if(first){H=first;DB.session.hotel=first.code}}
