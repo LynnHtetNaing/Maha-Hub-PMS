@@ -126,7 +126,7 @@ table.grid tr.click{cursor:pointer}@media (hover:hover){table.grid tr.click:hove
 .empty{padding:18px;text-align:center;color:var(--mut)}
 .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:700}.pill.g{background:#d4f3dc;color:#146c2e}.pill.r{background:#fde0dd;color:#a3231a}.pill.b{background:#dbeafc;color:#1b5ea6}.pill.k{background:#3d4a52;color:#fff}.pill.y{background:#fff0c2;color:#7a5800}
 .btn{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:4px;padding:var(--btn-pad);cursor:pointer;font-weight:600}@media (hover:hover){.btn:hover{background:var(--accent-hover)}}.btn.gold{background:#0e8a82;border-color:#0a6f69;color:#fff}@media (hover:hover){.btn.gold:hover{background:#0a6f69;color:#fff}}
-.btn.ghost{background:#fff;color:var(--accent);border-color:#9cc3b4}@media (hover:hover){.btn.ghost:hover{background:#eef5f1}}.btn.red{background:#d64541;border-color:#b73733}.btn.sm{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 16px;min-height:32px;font-size:13px;line-height:1.2;border-radius:8px;white-space:nowrap}.btn.wide{width:100%;padding:10px}.btn.on{background:var(--gold);border-color:var(--gold3);color:#1e1606}.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:#fff;color:var(--accent);border-color:#9cc3b4}@media (hover:hover){.btn.ghost:hover{background:#eef5f1}}.btn.red{background:#d64541;border-color:#b73733}.btn.sm{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 16px;min-height:32px;font-size:13px;line-height:1.2;border-radius:8px;white-space:nowrap}.btn.wide{width:100%;padding:10px}.btn.on{background:var(--gold);border-color:var(--gold3);color:#1e1606}.btn:disabled{opacity:.45;cursor:not-allowed}.lockEditBtn{float:right;margin:0 0 8px 8px;padding:5px 12px;min-height:0;font-size:12px}
 .linkbtn{background:none;border:0;color:var(--green);text-decoration:underline;cursor:pointer;padding:6px 0}
 .f{display:flex;flex-direction:column;gap:3px;font-size:var(--fs-sm)}.f>span{color:#44535d;font-weight:600;font-size:var(--fs-sm)}.f input,.f select,.f textarea{width:100%}
 .form1{display:grid;gap:10px}.form2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.form4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.span2{grid-column:span 2}.span3{grid-column:span 3}
@@ -13883,6 +13883,25 @@ const BE={
    build()};
   paint()}
 };
+/* Every Hotel Setup / Booking Engine setup section (SEC.*) already filled in locks itself the moment it is drawn,
+   so a provider or manager cannot change a saved value by an accidental click - a small Edit button unlocks it.
+   A section that is still empty (first-time setup) is never locked. Wrapping every SEC.* method here, once, means
+   no individual section had to be rewritten: whichever page calls it (Hotel Setup, Provider console, Backend), it locks.
+   The lock only lasts until that section is next redrawn (closing it, saving it, or switching hotel/page) - Save
+   itself always re-locks, which is the point: nothing stays open to accidental changes once you move on. */
+Object.keys(SEC).forEach(k=>{const orig=SEC[k];SEC[k]=function(box){const r=orig.apply(this,arguments);try{lockFilledSection(box)}catch(e){}return r}});
+function lockFilledSection(box){
+  if(!box||!box.querySelector)return;
+  const fields=$$('input,select,textarea',box).filter(f=>!f.disabled&&f.type!=='hidden'&&!f.readOnly);
+  if(!fields.length)return;
+  const filled=fields.some(f=>f.type==='checkbox'||f.type==='radio'?f.checked:String(f.value||'').trim());
+  if(!filled)return;
+  fields.forEach(f=>{f.disabled=true;f.classList.add('wasLocked')});
+  const btn=document.createElement('button');
+  btn.type='button';btn.className='btn sm ghost lockEditBtn';btn.textContent='✎ Edit';btn.title='Unlock this section to change it';
+  btn.onclick=()=>{fields.forEach(f=>{f.disabled=false;f.classList.remove('wasLocked')});btn.remove()};
+  box.insertBefore(btn,box.firstChild);
+}
 /* Turns a pending Maha Booking request into a real reservation - a guest, a reservation wrapper and
    one booking, built the same way every other new reservation in this PMS is built. Never automatic:
    only ever called from the Confirm button above. */
