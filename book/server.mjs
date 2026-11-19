@@ -12,7 +12,8 @@ import {
   quoteStay,
   readiness,
   isoDate,
-  addDays
+  addDays,
+  publicHotelFromHub
 } from './catalog.js';
 import {
   hotelListXml,
@@ -58,6 +59,27 @@ async function sbRpc(fn, args) {
 // says, so a stale catalog export can never show a room as bookable when it is really sold out.
 // Any failure (offline demo, property not in the cloud yet) just keeps the catalog's own number -
 // never blocks the whole search over a connectivity hiccup.
+// The real hotel, live from the cloud - everything built in the PMS admin (amenities, policies,
+// deposit policy, channels, promotions, theme, room benefits/photos) syncs there automatically the
+// same way every other PMS record does (H.set.* under collection '$set', roomTypes/rateCodes/rooms/
+// reservations each under their own collection); book/server.mjs never had a way to read any of it
+// before. Falls back to the local static demo catalog (book/data/catalog.json) only for a code that
+// is not a real cloud property, e.g. PAD01/MHY01 used for offline demos.
+async function resolveHotel(code) {
+  const propId = await propertyIdFor(code);
+  if (propId) {
+    try {
+      const liveH = await sbRpc('maha_be_hotel_public', { p_property: propId });
+      if (liveH && liveH.set) {
+        const hotel = publicHotelFromHub({ code, set: liveH.set, roomTypes: liveH.roomTypes, rateCodes: liveH.rateCodes, rooms: liveH.rooms, reservations: liveH.reservations });
+        return { hotel, propId };
+      }
+    } catch { /* fall through to the static demo catalog */ }
+  }
+  const cat = readCatalog();
+  const hotel = (cat.hotels || []).find(h => h.id === code) || null;
+  return { hotel, propId: null };
+}
 async function clampLive(propId, result, checkin, checkout) {
   if (!propId || !result.available) return result;
   try {
@@ -155,15 +177,6 @@ function safeFile(urlPath) {
   return full;
 }
 
-function hotelOr404(cat, id, res) {
-  const hotel = (cat.hotels || []).find(h => h.id === id);
-  if (!hotel) {
-    send(res, 404, JSON.stringify({ message: 'Hotel not found in the public catalog.' }));
-    return null;
-  }
-  return hotel;
-}
-
 function parseQuery(url) {
   const q = {};
   url.searchParams.forEach((v, k) => { q[k] = v; });
@@ -236,9 +249,8 @@ const server = http.createServer(async (req, res) => {
 
     if (p.startsWith('/api/hotel/') && req.method === 'GET') {
       const id = decodeURIComponent(p.slice('/api/hotel/'.length).split('/')[0]);
-      const cat = readCatalog();
-      const hotel = hotelOr404(cat, id, res);
-      if (!hotel) return;
+      const { hotel } = await resolveHotel(id);
+      if (!hotel) { send(res, 404, JSON.stringify({ message: 'Hotel not found in the public catalog.' })); return; }
       if (!hotel.bookEnabled || hotel.active === false) {
         send(res, 403, JSON.stringify({ message: 'This hotel is not open for direct booking.' }));
         return;
@@ -284,9 +296,8 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/search' && req.method === 'GET') {
       const q = parseQuery(url);
-      const cat = readCatalog();
-      const hotel = hotelOr404(cat, q.hotel, res);
-      if (!hotel) return;
+      const { hotel, propId } = await resolveHotel(q.hotel);
+      if (!hotel) { send(res, 404, JSON.stringify({ message: 'Hotel not found in the public catalog.' })); return; }
       if (!hotel.bookEnabled || hotel.active === false) {
         send(res, 403, JSON.stringify({ message: 'This hotel is not open for direct booking.' }));
         return;
@@ -304,7 +315,6 @@ const server = http.createServer(async (req, res) => {
         children: q.children,
         promoCode: q.promo
       });
-      const propId = await propertyIdFor(hotel.id);
       await Promise.all(results.map(r => clampLive(propId, r, checkin, checkout)));
       send(res, 200, JSON.stringify({
         googleLive: false,
@@ -321,8 +331,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/request' && req.method === 'POST') {
       const body = await readBody(req);
-      const cat = readCatalog();
-      const hotel = (cat.hotels || []).find(h => h.id === body.hotel);
+      const { hotel } = await resolveHotel(body.hotel);
       if (!hotel || !hotel.bookEnabled) {
         send(res, 404, JSON.stringify({ message: 'Hotel not available for booking requests.' }));
         return;
