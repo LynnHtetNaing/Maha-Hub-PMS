@@ -13,6 +13,7 @@ const checks=[
   [!src.includes('Build and test the apps (provider only)'),'Provider-only Build and test section is removed from Systems'],
   [src.includes("function pmsOn(h)")&&src.includes("h.set.bookingOnly===true)h.set.systems.pms=false"),'Booking-only properties keep PMS closed'],
   [src.includes("productMode==='booking_only'")&&src.includes("h.set.google.enabled=false"),'Provider can create a Booking-only property without opening an empty public engine'],
+  [src.includes("Set the Booking Engine Title before opening Maha Booking"),'Booking-only properties cannot be published before their Booking Engine Title is set'],
   [src.includes("['profile','0','Booking Engine Title']")&&src.includes("id=\"beTitle\""),'Booking Engine Title is configurable in the provider console'],
   [src.includes("['Room Types','hset.types']")&&src.includes("['Rooms & Inventory','hset.rooms']")&&src.includes("['Rates & Rate Plans','hset.rates']"),'Standalone Booking setup exposes room types, inventory and rates without requiring PMS access']
 ];
