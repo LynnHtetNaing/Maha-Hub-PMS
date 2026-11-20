@@ -181,7 +181,9 @@ declare
 begin
   select property_id into v_property
   from public.maha_booking_requests
-  where id = p_request and status = 'pending' and payment_status = 'awaiting'\n    and stripe_session_id = p_session_id;
+  where id = p_request and status = 'pending' and payment_status = 'awaiting'
+    and stripe_session_id = p_session_id
+  for update;
   if v_property is null then raise exception 'not_awaiting'; end if;
 
   select coalesce(pms_enabled, true) into v_pms_enabled
