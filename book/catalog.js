@@ -78,9 +78,14 @@ export function taxSplit(hotel, amt) {
 export function inventoryForType(hotel, typeCode, day) {
   const rooms = (hotel.rooms || []).filter(r => !r.dummy && r.type === typeCode);
   let count = 0;
-  for (const rm of rooms) {
-    if (rm.ooo && day >= rm.ooo.from && day <= rm.ooo.to) continue;
-    count += 1;
+  if (hotel.bookingOnly) {
+    const type = (hotel.roomTypes || []).find(t => t.code === typeCode);
+    count = Math.max(0, Math.floor(Number(type && type.allot) || 0));
+  } else {
+    for (const rm of rooms) {
+      if (rm.ooo && day >= rm.ooo.from && day <= rm.ooo.to) continue;
+      count += 1;
+    }
   }
   // Central Allotment: how many of this type the hotel has chosen to release to direct booking,
   // separate from (and never more than) the PMS's own room count. Unset = release everything.
@@ -269,12 +274,14 @@ export function publicHotelFromHub(h, opts = {}) {
     guestCountry: (g.guestCountry && typeof g.guestCountry === 'object') ? g.guestCountry : { mode: 'all', list: [] },
     brand: g.brand || 'Maha Booking',
     bookEnabled: !!(g.enabled || opts.forceEnable),
+    bookingOnly: !!s.bookingOnly,
     active: h.active !== false,
     roomTypes: (h.roomTypes || []).filter(t => !t.dummy).map(t => ({
       code: t.code,
       name: t.name,
       base: Number(t.base || 0),
       max: Number(t.max || 2),
+      allot: Number(t.allot || 0),
       photo: bestRoomPhoto(t),
       benefits: Array.isArray(t.benefits) ? t.benefits.slice() : [],
       dummy: false
@@ -285,7 +292,8 @@ export function publicHotelFromHub(h, opts = {}) {
       kind: r.kind || 'pct',
       v: Number(r.v || 0),
       meal: r.meal || '',
-      comp: r.comp || ''
+      comp: r.comp || '',
+      channelScope: r.channelScope || 'b2c'
     })),
     rooms: (h.rooms || []).filter(r => !r.dummy).map(r => ({
       no: r.no,
