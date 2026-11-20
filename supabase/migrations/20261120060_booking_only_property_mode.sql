@@ -8,6 +8,25 @@ begin;
 alter table public.maha_properties
   add column if not exists product_mode text not null default 'pms';
 
+-- Only the trusted provisioning function may change a property's product mode.
+create or replace function public.maha_guard_property_product_mode()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  if current_user not in ('postgres', 'service_role') and new.product_mode is distinct from old.product_mode then
+    raise exception 'property-product-mode-managed-by-provider' using errcode = '42501';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists maha_guard_property_product_mode on public.maha_properties;
+create trigger maha_guard_property_product_mode
+before update of product_mode on public.maha_properties
+for each row execute function public.maha_guard_property_product_mode();
+
 do $$
 begin
   if not exists (
