@@ -13,14 +13,14 @@ create or replace function public.maha_guard_property_product_mode()
 returns trigger
 language plpgsql
 set search_path = ''
-as $
+as $guard$
 begin
   if current_user not in ('postgres', 'service_role') and new.product_mode is distinct from old.product_mode then
     raise exception 'property-product-mode-managed-by-provider' using errcode = '42501';
   end if;
   return new;
 end;
-$;
+$guard$;
 
 drop trigger if exists maha_guard_property_product_mode on public.maha_properties;
 create trigger maha_guard_property_product_mode
