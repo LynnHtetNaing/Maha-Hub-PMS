@@ -67,7 +67,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE = /^[A-Z0-9_-]{2,24}$/;
 const RESET_REDIRECT = "https://solutions.maha-hub.com/reset-password.html";
 // With AUTH_SYSTEM_REDIRECTS=on the set-password link opens on the system it is for (the email hook then shows that system's own look).
-const SYSTEM_RESET: Record<string, string> = { pms: "https://pms.maha-hub.com/reset-password.html", console: "https://console.maha-hub.com/reset-password.html", crm: "https://crm.maha-hub.com/reset-password.html" };
+const SYSTEM_RESET: Record<string, string> = { pms: "https://pms.maha-hub.com/reset-password.html", book: "https://booking.maha-hub.com/reset-password.html", console: "https://console.maha-hub.com/reset-password.html", crm: "https://crm.maha-hub.com/reset-password.html" };
 const resetRedirect = (system: string) => (Deno.env.get("AUTH_SYSTEM_REDIRECTS") === "on" && SYSTEM_RESET[system]) || RESET_REDIRECT;
 
 // Reads one claim from a JWT. The token was already verified by Supabase Auth (getUser) before this is used.
@@ -142,6 +142,7 @@ const handle = async (req: Request): Promise<Response> => {
 
   const str = (k: string) => (typeof body[k] === "string" ? (body[k] as string).trim() : "");
   const action = typeof body.action === "string" ? body.action : "create_hotel";
+  const productMode = str("product_mode") === "booking_only" ? "booking_only" : "pms";
   const username = str("username");
   const email = str("email").toLowerCase();
   const role = body.role === "property_admin" ? "property_admin" : "staff";
@@ -290,7 +291,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (await usernameTaken(username)) return respond({ error: "username_taken" }, 409);
 
     const result = await createAccountThen(async (userId) => {
-      const r = await admin.rpc("maha_provision_hotel", {
+      const r = await admin.rpc("maha_provision_hotel_v2", {
         p_org_id: requestedOrgId || null,
         p_org_name: requestedOrgId ? null : organizationName,
         p_owner: ownerId,
@@ -300,6 +301,7 @@ const handle = async (req: Request): Promise<Response> => {
         p_username: username,
         p_email: email,
         p_role: role,
+        p_product_mode: productMode,
       });
       return { data: r.data, error: r.error };
     });
@@ -307,7 +309,7 @@ const handle = async (req: Request): Promise<Response> => {
     const ids = result.data as { organization_id: string; property_id: string };
     return respond({
       ok: true, organization_id: ids.organization_id, property_id: ids.property_id, username, role,
-      invitation_sent: await sendSetPasswordEmail(email, "pms", result.userId),
+      invitation_sent: await sendSetPasswordEmail(email, productMode === "booking_only" ? "book" : "pms", result.userId),
       invitation_error: mailError || undefined,
     }, 201);
   }
@@ -318,7 +320,7 @@ const handle = async (req: Request): Promise<Response> => {
     if (!CODE.test(propertyCode) || !USERNAME.test(username) || !EMAIL.test(email) || email.length > 254) {
       return respond({ error: "invalid_fields" }, 400);
     }
-    const { data: property } = await admin.from("maha_properties").select("id,organization_id")
+    const { data: property } = await admin.from("maha_properties").select("id,organization_id,product_mode")
       .eq("property_code", propertyCode).maybeSingle();
     if (!property) return respond({ error: "property_not_found" }, 404);
     const { data: org } = await admin.from("maha_organizations").select("owner_user_id")
@@ -334,7 +336,7 @@ const handle = async (req: Request): Promise<Response> => {
       return { data: r.data, error: r.error };
     });
     if (!result.ok) return result.response;
-    const sent = await sendSetPasswordEmail(email, "pms", result.userId);
+    const sent = await sendSetPasswordEmail(email, property.product_mode === "booking_only" ? "book" : "pms", result.userId);
     return respond({ ok: true, property_id: property.id, username, role, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
   }
 
@@ -345,7 +347,17 @@ const handle = async (req: Request): Promise<Response> => {
     if (action === "reset_password") {
       const { data, error } = await admin.rpc("maha_owned_staff", { p_owner: ownerId, p_username: username });
       if (error || !data) return respond({ error: "staff_not_found" }, 404);
-      const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email, "pms", (data as { user_id: string }).user_id);
+      const resetCode = str("property_code").toUpperCase();
+      let resetSystem = "pms";
+      if (CODE.test(resetCode)) {
+        const { data: resetProperty } = await admin.from("maha_properties").select("id,organization_id,product_mode").eq("property_code", resetCode).maybeSingle();
+        if (resetProperty) {
+          const { data: resetOrg } = await admin.from("maha_organizations").select("owner_user_id").eq("id", resetProperty.organization_id).maybeSingle();
+          const { data: member } = await admin.from("maha_memberships").select("id").eq("property_id", resetProperty.id).eq("user_id", (data as { user_id: string }).user_id).eq("active", true).maybeSingle();
+          if (resetOrg?.owner_user_id === ownerId && member) resetSystem = resetProperty.product_mode === "booking_only" ? "book" : "pms";
+        }
+      }
+      const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email, resetSystem, (data as { user_id: string }).user_id);
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
 
