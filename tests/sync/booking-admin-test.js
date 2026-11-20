@@ -10,7 +10,7 @@ let fails=0;const T=(name,ok)=>{console.log((ok?'PASS ':'FAIL ')+name);if(!ok)fa
 T('new properties can be created as Booking Engine only',app.includes('Maha Booking Engine only (no PMS)')&&app.includes("productMode==='booking_only'"));
 T('Booking-only product mode is provisioned transactionally by the trusted server',edge.includes('maha_provision_hotel_v2')&&edge.includes('p_product_mode: productMode')&&migration.includes('insert into public.maha_properties(organization_id, name, property_code, product_mode)'));
 T('Booking-only properties keep PMS access off but retain a Booking login',app.includes('h.set.systems.pms=false')&&app.includes('{hub:false,book:true}'));
-T('new and additional Booking-only users receive Booking reset links',edge.includes('product_mode === "booking_only" ? "book" : "pms"')&&edge.includes('book: "https://booking.maha-hub.com/reset-password.html"'));
+T('new and additional Booking-only users receive Booking reset links',edge.includes('resetSystemForProperty')&&edge.includes('systems.pms === false && booking.enabled === true')&&edge.includes('book: "https://booking.maha-hub.com/reset-password.html"'));
 T('Booking Engine Title is included in the public hotel catalog',catalog.includes('bookingTitle: g.title || s.name || h.code'));
 T('guest-facing page displays the configured Booking Engine Title',page.includes("h.bookingTitle || h.name"));
 T('Booking-only provisioning function is not executable by browser roles',migration.includes('revoke all on function public.maha_provision_hotel_v2')&&migration.includes('to service_role'));
