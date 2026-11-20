@@ -4487,7 +4487,9 @@ const ProvAdmin={
   async createHotel(o){
     const d=await this.call({action:'create_hotel',organization_name:o.name,property_name:o.name,property_code:o.code,username:o.user,email:o.email,role:'property_admin',chain_code:o.chain||undefined});
     const h=emptyHotel({code:o.code,name:o.name,cur:o.cur,bd:o.bd,tz:o.tz});
-    h.users.push(mkUser('u'+uid(),o.user,'Owner','Manager',randomSecret()));shapeHotel(h);DB.hotels[o.code]=h;
+    h.users.push(mkUser('u'+uid(),o.user,'Owner','Manager',randomSecret()));
+    if(o.bookingOnly){h.active=true;h.set.bookingOnly=true;h.set.google={enabled:false};h.set.systems={hub:false,connect:false,reach:false,sales:false};h.users[0].systems=Object.assign({},h.users[0].systems||{},{hub:false,book:true})}
+    shapeHotel(h);DB.hotels[o.code]=h;
     await ProvSync.adopt(o.code,d.property_id);
     return d;
   }
@@ -13720,7 +13722,7 @@ const SEC={
 /* Direct Booking Engine: not one crowded page any more - a real subtitle per job (same pattern as Hotel Setup's
    own hset.* pages), the way 1HotelRez's own Set Up menu splits Property information / Amenities / Policies /
    Theme apart. Every subtitle shares the one H.set.google record; saving one never blanks another's fields. */
-const BE_SECTIONS=[['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['pending','4','Booking Engine Bookings'],['channels','5','Channel Rates'],['promotions','6','Promotions & Discount Codes'],['allotment','7','Central Allotment'],['guestCountry','8','Guest Country Set Up'],['reports','9','Reports'],['emailAlerts','10','Email Alerts'],['theme','11','Booking Theme'],['bookButton','12','Booking Button Code']];
+const BE_SECTIONS=[['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['inventory','4','Room Types & Rates'],['pending','5','Booking Engine Bookings'],['channels','6','Channel Rates'],['promotions','7','Promotions & Discount Codes'],['allotment','8','Central Allotment'],['guestCountry','9','Guest Country Set Up'],['reports','10','Reports'],['emailAlerts','11','Email Alerts'],['theme','12','Booking Theme'],['bookButton','13','Booking Button Code']];
 const THEME_SWATCHES=[['primary','Primary (buttons, headings)','#184d3a'],['accent','Accent (highlights)','#c4a35a'],['bg','Page background','#f3efe6'],['text','Text','#0e241c']];
 const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest departure'],['abandonment','On booking abandonment'],['birthday','On guest birthday']];
 /* every Booking Engine section below (BE.*) is the hotel's own content and pricing - a manager with the
@@ -13797,7 +13799,7 @@ const BE={
    <h3 style="margin-top:0">Cancellation policy (required when booking is enabled)</h3>${bullets('g_cx',cancelLines)}
    <h3 class="mt">Important notice (optional - shown to every guest before they book)</h3>${bullets('g_notice',noticeLines)}
    <h3 class="mt">Deposit / Payment policy</h3>
-   <p class="sub">Maha does not collect payment yet - this is shown to the guest as a notice, the hotel still collects it separately.</p>
+   <p class="sub">If guest Stripe payment keys are configured, the deposit is charged securely during booking. Without Stripe, the policy is shown to the guest and the hotel collects the deposit separately.</p>
    <div class="form3"><div class="f"><label>Deposit</label><select id="g_depk" ${d}>${[['none','No deposit required'],['pct','% of total at booking'],['amt','Fixed amount at booking']].map(o=>opt(o[0],o[1],dep.kind)).join('')}</select></div>
    ${fld('Value',`<input type="number" id="g_depv" value="${dep.value||0}" ${dep.kind==='none'||!prov?'disabled':''}>`)}</div>
    ${prov?'<div class="btns mt"><button class="btn gold" id="gS">Save</button></div>':''}</div>`;
@@ -13849,13 +13851,13 @@ const BE={
      readImg(file,1600,url=>{covers.push(url);g.coverPhotos=covers;provLog(`Cover photo added for ${H.code}`);saved('Cover photo added')})};
    $$('[data-rpopen]',box).forEach(b=>b.onclick=()=>{managing=H.roomTypes.find(x=>x.code===b.dataset.rpopen);if(managing)paintManage()})};
   paintMain()},
- pending(box){box.innerHTML=secHead('4. Booking Engine Bookings','Guests booking through Maha Booking (Direct) are confirmed instantly - no staff step. The moment this page opens, any request not yet turned into a reservation here is materialised automatically; a sold-out room is refused before it ever reaches this list.')+'<div class="panel pad" id="pbBox"><p class="sub">Loading...</p></div>';
+ pending(box){box.innerHTML=secHead('5. Booking Engine Bookings',H.set.bookingOnly?'Guest bookings are confirmed by Maha Booking and stored independently of PMS reservations. Review requests and cancel when required.':'Guests booking through Maha Booking (Direct) are confirmed instantly - no staff step. Any request not yet turned into a PMS reservation is materialised automatically; a sold-out room is refused before it reaches this list.')+'<div class="panel pad" id="pbBox"><p class="sub">Loading...</p></div>';
   const listBox=$('#pbBox',box);
   const draw=async()=>{
     let ctx;try{ctx=await provBillCtx(H)}catch(e){listBox.innerHTML='<p class="sub">'+esc(e.message)+'</p>';return}
     let rows=[];try{rows=await ctx.call('maha_booking_requests?select=*&property_id=eq.'+ctx.pid+'&status=neq.declined&order=created_at.desc&limit=100')}catch(e){listBox.innerHTML='<div class="err">'+esc(e.message)+'</div>';return}
     if(!listBox.isConnected)return;
-    const todo=rows.filter(r=>!r.confirmed_reservation_no&&r.payment_status!=='awaiting');
+    const todo=H.set.bookingOnly?[]:rows.filter(r=>!r.confirmed_reservation_no&&r.payment_status!=='awaiting');
     for(const row of todo){try{const nr=confirmBookingRequest(row);
         await ctx.call('rpc/maha_be_decide_request',{method:'POST',body:JSON.stringify({p_request:row.id,p_confirm:true,p_reservation_no:String(nr.no)})});
         row.confirmed_reservation_no=String(nr.no);
@@ -13863,7 +13865,7 @@ const BE={
       catch(e){/* leave it for the next time this page opens, or for a manual Cancel below */}}
     if(!listBox.isConnected)return;
     if(todo.some(r=>r.confirmed_reservation_no))toast(todo.length===1?'1 booking confirmed just now.':todo.filter(r=>r.confirmed_reservation_no).length+' bookings confirmed just now.');
-    const statusCell=r=>r.confirmed_reservation_no?('#'+esc(r.confirmed_reservation_no)):r.payment_status==='awaiting'?'<span class="sub">Awaiting guest payment...</span>':'<span class="sub">Pending...</span>';
+    const statusCell=r=>r.confirmed_reservation_no?('#'+esc(r.confirmed_reservation_no)):(H.set.bookingOnly&&r.status==='confirmed'?'Confirmed · Booking Engine':r.payment_status==='awaiting'?'<span class="sub">Awaiting guest payment...</span>':'<span class="sub">Pending...</span>');
     listBox.innerHTML=rows.length?`<table class="grid"><tr><th>Received</th><th>Guest</th><th>Room</th><th>Dates</th><th>Pax</th><th class="n">Amount</th><th>Reservation</th><th></th></tr>${rows.map(r=>`<tr><td>${fdt(r.created_at)}</td><td>${esc(r.guest_name)}<br><small>${esc(r.guest_email)}</small></td><td>${esc(r.room_type)} · ${esc(r.rate_code)}</td><td>${fd(r.arr)} – ${fd(r.dep)}</td><td>${r.adults}A${r.children?('+'+r.children+'C'):''}</td><td class="n">${esc(r.currency)} ${m2(r.amount)}</td><td>${statusCell(r)}</td><td class="nowrap">${r.confirmed_reservation_no?'':'<button class="btn sm red" data-pbd="'+r.id+'" data-await="'+(r.payment_status==='awaiting'?'1':'')+'">Cancel</button>'}</td></tr>`).join('')}</table>`:'<p class="sub">No Booking Engine requests yet.</p>';
     $$('[data-pbd]',listBox).forEach(b=>b.onclick=async()=>{if(!beOnly())return;if(!await dlgConfirm('Cancel this booking request before it is confirmed? The guest is not notified automatically.'))return;b.disabled=true;
       try{await ctx.call('rpc/'+(b.dataset.await?'maha_be_cancel_hold':'maha_be_decide_request'),{method:'POST',body:JSON.stringify(b.dataset.await?{p_request:b.dataset.pbd}:{p_request:b.dataset.pbd,p_confirm:false,p_reservation_no:null})});provLog(`Maha Booking request cancelled for ${H.code}`);toast('Cancelled');draw()}
@@ -13873,7 +13875,7 @@ const BE={
  channels(box){const g=H.set.google;if(!Array.isArray(g.channels)||!g.channels.length)g.channels=[{key:'direct',label:'Booking Engine (direct)',kind:'markup',value:10}];
   const avail=()=>CHANNEL_CATALOG.filter(([code])=>!g.channels.some(c=>c.key==='chan'+code));
   const paint=()=>{
-   box.innerHTML=secHead('5. Channel Rates','One Rack Rate (your Rate codes) drives every channel. Booking Engine marks it up by a %. Every OTA is grossed up by its own commission %, so the hotel always nets exactly the Rack Rate whichever channel books it. Every row is frozen once set - Unlock it first to change the %, so it can never be bumped by accident.')+`<div class="panel pad"><table class="grid"><tr><th>Channel</th><th>Type</th><th class="n">%</th><th></th></tr>
+   box.innerHTML=secHead('6. Channel Rates','One Rack Rate (your Rate codes) drives every channel. Booking Engine marks it up by a %. Every OTA is grossed up by its own commission %, so the hotel always nets exactly the Rack Rate whichever channel books it. Every row is frozen once set - Unlock it first to change the %, so it can never be bumped by accident.')+`<div class="panel pad"><table class="grid"><tr><th>Channel</th><th>Type</th><th class="n">%</th><th></th></tr>
    ${g.channels.map((c,i)=>{const isDirect=c.key==='direct',locked=c.locked!==false;return `<tr>
     <td>${esc(c.label)}</td>
     <td>${c.kind==='markup'?'Markup over Rack (direct)':'OTA commission (grossed up)'}</td>
@@ -13891,13 +13893,13 @@ const BE={
    $('#chS',box).onclick=()=>{if(!beOnly())return;provLog(`Channel rates saved for ${H.code}`);saved()}};
   paint()},
  promotions(box){const g=H.set.google,promos=g.promotions||[];
-  box.innerHTML=secHead('6. Promotions & Discount Codes','A promotion subtracts from the channel sell price for the stay dates it covers - it never touches the Rack Rate itself, so switching a promotion off always cleanly restores the normal price.')+'<div id="promoBox"></div>';
+  box.innerHTML=secHead('7. Promotions & Discount Codes','A promotion subtracts from the channel sell price for the stay dates it covers - it never touches the Rack Rate itself, so switching a promotion off always cleanly restores the normal price.')+'<div id="promoBox"></div>';
   listEditor($('#promoBox',box),{rows:promos.map(p=>({...p,_old:true})),cols:[{k:'code',h:'Promo code',w:'110px'},{k:'name',h:'Promotion name'},{k:'kind',h:'Type',opts:[['pct','% off'],['amt','Fixed amount off']]},{k:'value',h:'Value',type:'number',w:'90px'},{k:'validFrom',h:'Valid from',type:'date'},{k:'validTo',h:'Valid until',type:'date'},{k:'active',h:'Active',type:'check'}],
    blank:()=>({code:'',name:'',kind:'pct',value:10,validFrom:H.set.bd,validTo:addD(H.set.bd,30),active:true}),
    validate:d=>{if(d.some(p=>!p.code))return 'Every promotion needs a code.';if(d.some(p=>!p.name))return 'Every promotion needs a name - this is what the guest sees.';if(new Set(d.map(p=>String(p.code).toUpperCase())).size!==d.length)return 'Codes must be different.';if(d.some(p=>+p.value<=0))return 'Value must be above 0.';if(d.some(p=>p.kind==='pct'&&+p.value>=100))return '% off must be below 100.';if(d.some(p=>p.validTo<p.validFrom))return 'Valid until cannot be before Valid from.';return ''},
    save:d=>{g.promotions=d.map(p=>({code:String(p.code).toUpperCase(),name:p.name.trim(),kind:p.kind,value:+p.value||0,validFrom:p.validFrom,validTo:p.validTo,active:!!p.active}));provLog(`Promotions saved for ${H.code}`);saved()},canHotel:true})},
  allotment(box){const g=H.set.google,prov=!!(user().provider||user().isProv),d=prov?'':'disabled';g.directAllot=g.directAllot||{};
-  box.innerHTML=secHead('7. Central Allotment','How many of each room type are released to the Booking Engine (and, later, OTAs) per day - separate from the PMS\'s own total rooms. Leave blank to release the full PMS allotment. This only ever holds rooms BACK; it can never release more than the hotel actually has.')+(prov?'':'<p class="sub"><b>View only.</b> Ask Maha Hub to change this.</p>')+`<div class="panel pad"><table class="grid"><tr><th>Room type</th><th>PMS allotment</th><th class="n">Released to Direct Booking</th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${t.allot||0}</td><td class="n"><input type="number" min="0" max="${t.allot||0}" data-cap="${esc(t.code)}" value="${g.directAllot[t.code]!=null?g.directAllot[t.code]:''}" placeholder="${t.allot||0}" style="width:90px;text-align:right" ${d}></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table>
+  box.innerHTML=secHead('8. Central Allotment','How many of each room type are released to direct booking. For PMS-connected hotels this is capped by PMS room totals; standalone engines use the inventory entered in Room Types & Rates.')+(prov?'':'<p class="sub"><b>View only.</b> Ask Maha Hub to change this.</p>')+`<div class="panel pad"><table class="grid"><tr><th>Room type</th><th>Hotel inventory</th><th class="n">Released to Direct Booking</th></tr>${H.roomTypes.filter(t=>!t.dummy).map(t=>`<tr><td>${esc(t.code)} - ${esc(t.name)}</td><td>${t.allot||0}</td><td class="n"><input type="number" min="0" max="${t.allot||0}" data-cap="${esc(t.code)}" value="${g.directAllot[t.code]!=null?g.directAllot[t.code]:''}" placeholder="${t.allot||0}" style="width:90px;text-align:right" ${d}></td></tr>`).join('')||'<tr><td colspan="3" class="empty">Add room types first (Hotel Setup).</td></tr>'}</table>
    ${prov?'<div class="btns"><button class="btn gold" id="alS">Save</button></div>':''}</div>`;
   if($('#alS',box))$('#alS',box).onclick=()=>{if(!provOnly())return;const cap={};let bad='';$$('[data-cap]',box).forEach(inp=>{const code=inp.dataset.cap,t=H.roomTypes.find(x=>x.code===code),v=inp.value.trim();if(v==='')return;const n=Math.max(0,Math.floor(+v||0));if(t&&n>(t.allot||0))bad=code;cap[code]=n});
     if(bad){toast(`${bad}: cannot release more than the PMS allotment.`);return}
@@ -13907,7 +13909,7 @@ const BE={
    $('#gcGrid',box).innerHTML=COUNTRY_LIST.filter(([c,n])=>!qq||n.toLowerCase().includes(qq)||c.toLowerCase()===qq).map(([c,n])=>`<label class="curchk ${picked.has(c)?'on':''}"><input type="checkbox" data-gcc="${c}" ${picked.has(c)?'checked':''}> <b>${c}</b> ${esc(n)}</label>`).join('')||'<p class="sub">No country matches.</p>';
    $$('[data-gcc]',box).forEach(x=>x.onchange=()=>{if(x.checked)picked.add(x.dataset.gcc);else picked.delete(x.dataset.gcc);x.closest('label').classList.toggle('on',x.checked);paintCount()})};
   const paintCount=()=>{const el=$('#gcCount',box);if(el)el.textContent=picked.size?`${picked.size} countr${picked.size===1?'y':'ies'} selected`:'No countries selected yet.'};
-  box.innerHTML=secHead('8. Guest Country Set Up','Allow every guest nationality (the usual choice), or restrict direct bookings to / away from specific countries.')+`<div class="panel pad">
+  box.innerHTML=secHead('9. Guest Country Set Up','Allow every guest nationality (the usual choice), or restrict direct bookings to / away from specific countries.')+`<div class="panel pad">
    <div class="btns" style="justify-content:flex-start">${[['all','Allow every country'],['allow','Allow only these countries'],['block','Block these countries']].map(([k,l])=>`<label class="f row gap"><input type="radio" name="gcMode" value="${k}" ${gc.mode===k?'checked':''}> ${esc(l)}</label>`).join('')}</div>
    <div id="gcPick" ${gc.mode==='all'?'hidden':''}>
     <div class="btns mt" style="justify-content:space-between;align-items:center"><input id="gcQ" placeholder="Search country name or code..." style="max-width:280px" autocomplete="off"><span class="sub" id="gcCount"></span></div>
@@ -13920,7 +13922,7 @@ const BE={
   $('#gcS',box).onclick=()=>{if(!provOnly())return;const mode=$('[name="gcMode"]:checked',box).value;
     g.guestCountry={mode,list:mode==='all'?[]:[...picked]};provLog(`Guest country set up saved for ${H.code}`);saved()}},
  reports(box){
-  box.innerHTML=secHead('9. Reports','A production report of this hotel\'s own confirmed reservations that came through Maha Booking (Direct) - never OTA data, since Maha has no live channel connection to report on.')+`<div class="panel pad">
+  box.innerHTML=secHead('10. Reports','A production report of this hotel\'s own confirmed reservations that came through Maha Booking (Direct) - never OTA data, since Maha has no live channel connection to report on.')+`<div class="panel pad">
    <div class="btns" style="justify-content:flex-start;align-items:center"><label class="sub">From <input type="date" id="rpFrom"></label><label class="sub">To <input type="date" id="rpTo"></label><button class="btn ghost sm" type="button" id="rpGo">Run report</button></div>
    <div id="beRepBox" class="mt"></div></div>`;
   const rep=$('#beRepBox',box);
@@ -13947,7 +13949,7 @@ const BE={
  },
  emailAlerts(box){const g=H.set.google,prov=!!(user().provider||user().isProv),d=prov?'':'disabled';g.emailAlerts=g.emailAlerts||{};
   const paint=()=>{
-   box.innerHTML=secHead('10. Email Alerts','Lifecycle emails to the guest, each with its own staff notify list. The body is plain text - use a blank line for a paragraph break.')+(prov?'':'<p class="sub"><b>View only.</b> Ask Maha Hub to change this.</p>')+`<div class="panel pad">
+   box.innerHTML=secHead('11. Email Alerts','Lifecycle emails to the guest, each with its own staff notify list. The body is plain text - use a blank line for a paragraph break.')+(prov?'':'<p class="sub"><b>View only.</b> Ask Maha Hub to change this.</p>')+`<div class="panel pad">
     ${EMAIL_ALERT_TYPES.map(([k,label])=>{const a=g.emailAlerts[k]=g.emailAlerts[k]||{leadDays:0,body:'',url:'',notify:'',enabled:false};return `
     <div class="panel pad mt"><label class="f row gap"><input type="checkbox" data-eaen="${k}" ${a.enabled?'checked':''} ${d}> <b>${esc(label)}</b></label>
      <div class="form3 mt">
@@ -13966,7 +13968,7 @@ const BE={
   paint()},
  theme(box){const g=H.set.google,prov=!!(user().provider||user().isProv),d=prov?'':'disabled';g.theme=g.theme||{};
   const paint=()=>{
-   box.innerHTML=secHead('11. Booking Theme','Choose colours for the booking page, or leave Default. The preview below updates as you pick.')+(prov?'':'<p class="sub"><b>View only.</b> Ask Maha Hub to change this.</p>')+`<div class="panel pad">
+   box.innerHTML=secHead('12. Booking Theme','Choose colours for the booking page, or leave Default. The preview below updates as you pick.')+(prov?'':'<p class="sub"><b>View only.</b> Ask Maha Hub to change this.</p>')+`<div class="panel pad">
     <div class="form2">${THEME_SWATCHES.map(([k,label,def])=>{const v=g.theme[k];return `
      <div class="f"><label>${esc(label)}</label><div class="row gap" style="align-items:center">
       <label class="chk"><input type="radio" name="th_${k}_m" data-thm="${k}" value="def" ${v?'':'checked'} ${d}> Default</label>
@@ -13990,7 +13992,7 @@ const BE={
   const base=()=>bookUrlFor(H).replace(/\/\?hotel=.*$/,'');
   const opts=()=>({property:[['','Whole property']],type:[['','Any room type'],...H.roomTypes.filter(t=>!t.dummy).map(t=>[t.code,t.code+' - '+t.name])],rate:[['','Any rate'],...H.rateCodes.filter(r=>r.kind!=='zero'&&r.channelScope!=='b2b').map(r=>[r.code,r.code+' - '+r.desc])],promotion:[['','No promotion'],...(g.promotions||[]).map(p=>[p.code,p.name||p.code])]});
   const paint=()=>{const o=opts();
-   box.innerHTML=secHead('12. Booking Button Code','Paste this on your own website - it links straight to the real Booking Engine, scoped to whatever you pick below.')+`<div class="panel pad">
+   box.innerHTML=secHead('13. Booking Button Code','Paste this on your own website - it links straight to the real Booking Engine, scoped to whatever you pick below.')+`<div class="panel pad">
     <div class="form3">
      <div class="f"><label>Scope by room type</label><select id="bbType">${o.type.map(x=>opt(x[0],x[1],'')).join('')}</select></div>
      <div class="f"><label>Scope by rate</label><select id="bbRate">${o.rate.map(x=>opt(x[0],x[1],'')).join('')}</select></div>
