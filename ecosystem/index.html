@@ -13101,7 +13101,7 @@ const payEnabled=c=>!c.hidden&&!LEGACY_PAY.includes(c.refFor||c.code)&&!(H&&H.se
 function provOnly(){const u=user();if(!u.provider&&!u.isProv){toast('Provider only.');return false}return true}
 function enterHotel(code){if(!provOnly())return;if(DB.hotels[code]&&DB.hotels[code].bookingOnly){toast('This property has a standalone Booking Engine, not a Maha PMS workspace.');return}openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('front');provLog(`Entered hotel ${code} (front office)`);saveDB();applySysPath('hub');renderShell();go(firstHotelView());toast(`You are in ${H.set.name}. Use the switch icon to move between systems.`)}
 /* same as enterHotel, but straight into Backend: every admin function (the hotel's own, merged with the provider's own extras) in one place */
-function enterHotelBackend(code){if(!provOnly())return;openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('back');provLog(`Entered hotel ${code} (Backend)`);saveDB();applySysPath('hub');renderShell();go(firstBackendView());toast(`You are in ${H.set.name} · Backend. Use the switch icon to move between systems.`)}
+function enterHotelBackend(code){if(!provOnly())return;if(DB.hotels[code]&&DB.hotels[code].bookingOnly){toast('This property has a standalone Booking Engine, not a Maha PMS workspace.');return}openHotel(code);DB.session.inHotel=true;DB.session.at=Date.now();setArea('back');provLog(`Entered hotel ${code} (Backend)`);saveDB();applySysPath('hub');renderShell();go(firstBackendView());toast(`You are in ${H.set.name} · Backend. Use the switch icon to move between systems.`)}
 VIEWS['prov.exit']=el=>{if(DB.session.inHotel)provLog(`Left hotel ${H?H.code:''}`);DB.session.inHotel=false;saveDB();renderShell();if(pmsAddr()){pmsHotelLand(user().username||'')}else go('prov.home')};
 function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes();saveDB()}
 
@@ -13142,7 +13142,7 @@ VIEWS['prov.systems']=el=>{
   const bindRows=()=>{
     $$('[data-users]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.users];if(!h)return;openHotel(h.code);go('prov.perms')});
     $$('[data-booksetup]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.booksetup];if(!h)return;openHotel(h.code);go('prov.be.profile')});
-    $$('[data-enter]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.enter];if(!h||h.bookingOnly)return;openHotel(h.code);go('prov.home')});
+    $('[data-enter]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.enter];if(!h||h.bookingOnly)return;enterHotel(h.code)});
     $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);const nv=!reachOn(h);h.set.systems.reach=nv;provLog((nv?'Opened':'Closed')+' Maha Reach for '+h.code);saveDB();render();toast('Maha Reach '+(nv?'opened':'closed')+' for '+h.code+'.')});
     $$('[data-connect]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.connect];if(!h)return;shapeHotel(h);const nv=!connectOn(h);h.set.systems.connect=nv;provLog((nv?'Opened':'Closed')+' Maha Connect for '+h.code);saveDB();render();toast('Maha Connect '+(nv?'opened':'closed')+' for '+h.code+'.')});
     $$('[data-saleshotel]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.saleshotel];if(!h)return;shapeHotel(h);const nv=!salesOn(h);h.set.systems.sales=nv;provLog((nv?'Opened':'Closed')+' Maha Sales for '+h.code);saveDB();render();toast('Maha Sales '+(nv?'opened':'closed')+' for '+h.code+'.')});
