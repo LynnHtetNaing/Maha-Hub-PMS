@@ -166,7 +166,7 @@ T('Direct Booking Engine amenities actually wrap onto new lines instead of overf
   src.includes("$$('[data-am]',box).forEach(x=>x.onchange=()=>x.closest('label').classList.toggle('on',x.checked));"));
 
 T('amenities are grouped into named subtitles the way a real booking engine (1HotelRez) sets them up - Hotel Facilities, then Sports and Recreation - not one long alphabetical list, on Amenities\' own BE subtitle page',
-  src.includes(" amenities(box){const g=H.set.google;") &&
+  src.includes(" amenities(box){const g=H.set.google,prov=!!(user().provider||user().isProv),d=prov?'':'disabled';") &&
   src.includes("{t:'Hotel Facilities',items:[") &&
   src.includes("{t:'Sports and Recreation',items:[") &&
   src.includes("'parking']},") &&
@@ -232,20 +232,20 @@ T('Amendment Records and Amendment Log are their own Records group inside a hote
   (src.match(/\['Amendment Records','prov\.amend'\]/g) || []).length === 2);
 
 T('Booking Engine > Photos: the hotel logo is never re-uploaded here - it follows Hotel Setup\'s own logo automatically; cover photos (up to 8) are the hero\'s rotating gallery; room type photos are managed right here (no limit, order + enable/disable + delete, a Save button) instead of linking out to Room types',
-  src.includes(" photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[];let managing=null;") &&
+  src.includes(" photos(box){const g=H.set.google,s=H.set,covers=g.coverPhotos||[],prov=!!(user().provider||user().isProv);let managing=null;") &&
   src.includes('Synced automatically from Hotel Setup') &&
   src.includes('covers.length<8') &&
   src.includes('const roomPhotos=t=>{if(!Array.isArray(t.photos))t.photos=t.photo?[{url:t.photo,name:\'Photo 1\',order:1,enabled:true}]:[];return t.photos};') &&
   src.includes("$$('[data-rpopen]',box).forEach(b=>b.onclick=()=>{managing=H.roomTypes.find(x=>x.code===b.dataset.rpopen);if(managing)paintManage()})") &&
-  src.includes("$('#rpSave',box).onclick=()=>{if(!beOnly())return;t.photos=ph;"));
+  src.includes("$('#rpSave',box).onclick=()=>{if(!provOnly())return;t.photos=ph;"));
 
 T('a room type\'s photo survives the Room types list\'s own Save - the rebuild on save (Object.assign over the existing record) keeps the photo instead of silently dropping it, the same pattern Companies & agents already uses for its logo column',
   src.includes("{k:'photo',h:'Photo',type:'logo',") &&
   src.includes("save:d=>{H.roomTypes=d.map(t=>Object.assign({},H.roomTypes.find(o=>o.code===String(t.code).toUpperCase())||{},{code:String(t.code).toUpperCase(),name:t.name,base:Math.max(0,+t.base||0),max:+t.max||2,allot:Math.max(0,Math.floor(+t.allot||0))}));"));
 
-T('beOnly() (provider, or a hotel manager with setup permission) guards every write on the new Photos subtitle too (cover photo upload/remove)',
-  src.includes("$$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!beOnly())return;covers.splice(") &&
-  src.includes("if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!beOnly())return;"));
+T('Amenities, Photos, Policies, Central Allotment, Email Alerts and Booking Theme are view only for a hotel manager - the provider still has every control in full (provOnly() guards every write, not beOnly())',
+  src.includes("$$('[data-covx]',box).forEach(b=>b.onclick=()=>{if(!provOnly())return;covers.splice(") &&
+  src.includes("if($('#g_covup',box))$('#g_covup',box).onchange=e=>{if(!provOnly())return;"));
 
 T('Booking Engine > Booking Engine Bookings (Phase 3, auto-confirm): every request not yet materialised (confirmed_reservation_no is null) is turned into a real reservation the moment the page opens - no staff click - the same way the PMS always has (confirmBookingRequest - a real guest, a real reservation wrapper, newBooking), then tells the cloud it was decided; a staff Cancel is still offered for anything not yet materialised',
   src.includes(" pending(box){box.innerHTML=secHead('4. Booking Engine Bookings',") &&
@@ -268,7 +268,7 @@ T('Promotions & Discount Codes never touch the Rack Rate - they are dated, activ
   src.includes("it never touches the Rack Rate itself, so switching a promotion off always cleanly restores the normal price"));
 
 T('Central Allotment can only ever hold rooms back from direct booking, never release more than the PMS\'s own room count for that type',
-  src.includes(" allotment(box){const g=H.set.google;g.directAllot=g.directAllot||{};") &&
+  src.includes(" allotment(box){const g=H.set.google,prov=!!(user().provider||user().isProv),d=prov?'':'disabled';g.directAllot=g.directAllot||{};") &&
   src.includes('if(t&&n>(t.allot||0))bad=code;'));
 
 T('Guest Country Set Up defaults to allowing everyone, offers a real searchable country picker (COUNTRY_LIST) instead of a free-text ISO code textarea, and hides the picker entirely unless a restriction mode is chosen',
