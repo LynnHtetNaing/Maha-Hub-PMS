@@ -2941,6 +2941,11 @@ html[data-skin="modern"][data-mode=dark] .hst.off{background:#e11d4833;color:#fb
 }
 </style>
 
+
+<style id="maha-booking-login-visibility">
+/* Ensure the Booking login never displays PMS-only shift or opening-cash controls. */
+#lgExtra[hidden]{display:none!important}
+</style>
 </head><body><script>try{var h=location.hostname,p=location.pathname.toLowerCase(),n='Maha PMS';if(h.indexOf('console.')===0)n='Maha Provider';else if(h.indexOf('solutions.')===0||p==='/solutions'||p==='/solutions/')n='Maha Solutions';var d=false;try{d=localStorage.getItem('maha.pref.mode')==='dark'}catch(e){}if(window.MahaLoader)MahaLoader.show({name:n,dark:d,msg:''})}catch(e){}</script><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="/brand/maha/pms-icon-96.png";
 const ICON_BAR="/brand/maha/gate-small.png";
@@ -5450,10 +5455,10 @@ function findStaff(un){for(const h of Object.values(DB.hotels)){const u=h.users.
 function usernameTaken(un){return !!findStaff(un.toLowerCase())||DB.providers.some(p=>p.username===un.toLowerCase())}
 const LOGO=()=>`<img src="${ICON_BAR}" class="tblogo" alt="Maha">`;
 const lgTileSrc=(kind)=>kind==='book'?'/brand/pms/icon-512.png':'/brand/maha/gate-small.png';
-const gateStack=(kind)=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b'+(kind==='provider'?' class="gtx-prov"':'')+'>'+(kind==='provider'?'MAHA PROVIDER':'MAHA PMS')+'</b><small>'+(kind==='provider'?'PROVIDER CONSOLE':'HOTEL MANAGEMENT SOFTWARE')+'</small></span>';
+const gateStack=(kind)=>'<span class="gplq"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="gtx"><b'+(kind==='provider'?' class="gtx-prov"':'')+'>'+(kind==='provider'?'MAHA PROVIDER':kind==='book'?'MAHA BOOKING':'MAHA PMS')+'</b><small>'+(kind==='provider'?'PROVIDER CONSOLE':kind==='book'?'HOTEL BOOKING ENGINE':'HOTEL MANAGEMENT SOFTWARE')+'</small></span>';
 /* the sign-in logo: the Maha PMS stack for the hotel system, the same stack (Maha Provider) for the provider console */
-const stackKind=()=>(typeof lgTargetSys!=='undefined'&&lgTargetSys==='hub')?'hub':(typeof lgProvider!=='undefined'&&lgProvider)?'provider':'';
-const LOGO_TILE=()=>{const kind=stackKind();return kind?`<div id="lgTile" class="eco-tile gstk" data-kind="${kind}" role="img" aria-label="${kind==='provider'?'Maha Provider':'Maha PMS'}">${gateStack(kind)}</div>`:`<img id="lgTile" src="${lgTileSrc(typeof lgTargetSys!=='undefined'?lgTargetSys:null)}" class="eco-lockup eco-tile" alt="Maha Solutions">`};
+const stackKind=()=>(typeof lgTargetSys!=='undefined'&&lgTargetSys==='hub')?'hub':(typeof lgTargetSys!=='undefined'&&lgTargetSys==='book')?'book':(typeof lgProvider!=='undefined'&&lgProvider)?'provider':'';
+const LOGO_TILE=()=>{const kind=stackKind();return kind?`<div id="lgTile" class="eco-tile gstk" data-kind="${kind}" role="img" aria-label="${kind==='provider'?'Maha Provider':kind==='book'?'Maha Booking':'Maha PMS'}">${gateStack(kind)}</div>`:`<img id="lgTile" src="${lgTileSrc(typeof lgTargetSys!=='undefined'?lgTargetSys:null)}" class="eco-lockup eco-tile" alt="Maha Solutions">`};
 const LOGO_FULL=()=>`<div class="eco-lockup gfull" role="img" aria-label="Maha Solutions"><img src="/brand/maha/gate-gold.png" alt=""><b>MAHA SOLUTIONS</b></div>`;
 const ECO_SOON=[
   {name:'Maha HR',blurb:'Team, attendance and payroll.'},
@@ -8834,7 +8839,9 @@ function showLogin(msg){
     lgPickAnim=b.dataset.sys;lgTargetSys=b.dataset.sys;applySysPath(lgTargetSys);syncSelect();
   };
   const paint=()=>{
-    $('#lgExtra').hidden=false;
+    /* Booking has no front-desk shift or cash drawer. Keep these fields hidden even during the initial paint. */
+    const isBookingLogin=lgTargetSys==='book'||(location.hostname||'').toLowerCase().startsWith('booking.');
+    $('#lgExtra').hidden=isBookingLogin;
     const demo=(lgProvider||MahaAuth.on())?[]:[['','manager','manager123','Manager'],['','frontdesk','front123','Front desk'],['wide','housekeeping','hk123','Other department (Housekeeping)']];
     const demoBox=$('#lgDemo');demoBox.hidden=!demo.length;
     demoBox.innerHTML=demo.length?'Demo (tap to fill):<div class="demob">'+demo.map(d=>`<button type="button" class="btn ghost sm ${d[0]||''}" data-demo="${d.join('|')}">${d[3]}</button>`).join('')+'</div>':'';
