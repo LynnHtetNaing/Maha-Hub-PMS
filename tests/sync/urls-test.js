@@ -24,9 +24,10 @@ T('Booking staff login refreshes at the private /solutions-Booking route', e.his
 T('/solutions-Booking is recognized as the Booking staff login on refresh', env('/solutions-Booking').sysFromPath() === 'book');
 const workerSrc = fs.readFileSync('workers/maha-hub-pms/src/index.js', 'utf8');
 const routeCode = workerSrc.slice(workerSrc.indexOf('function route(pathname)'), workerSrc.indexOf('/* which system'));
-const routeFn = new Function('APP_FILE','SYSTEM_DOC','cleanPath', routeCode + ';return route;')('/ecosystem/', {booking:{file:'/book/index.html'}}, p => p.replace(/\\/index\\.html?$/i,'').replace(/\\.html?$/i,'').replace(/\\/+$/,'') || '/');
+const routeFn = new Function('APP_FILE','SYSTEM_DOC','cleanPath', routeCode + ';return route;')('/ecosystem/', {booking:{file:'/book/index.html'}}, p => p.replace(/\/+$/,'') || '/');
 T('private Booking sign-in path serves the Maha app shell, not the public guest page', routeFn('/solutions-Booking').doc.file === '/ecosystem/');
 T('public /ecosystem/Booking path remains the guest-facing booking page', routeFn('/ecosystem/Booking').doc.file === '/book/index.html');
+T('Booking login force-hides the PMS shift and opening-cash controls', src.includes('.eco-shell.is-booking-login #lgExtra{display:none!important}') && src.includes("const hide=lgTargetSys==='book'"));
 T('entering the PMS gives www.maha-hub.com/solutions-PMS', e.sysUrl('hub', { code: 'PAD01' }) === 'https://maha-hub.com/solutions-PMS?hotel=PAD01' && e.sysUrl('hub') === 'https://maha-hub.com/solutions-PMS');
 T('Reach, Connect, Booking and Sales still go to /ecosystem/<System>/', e.sysUrl('reach') === 'https://maha-hub.com/ecosystem/Reach/' && e.sysUrl('book', { code: 'X' }) === 'https://maha-hub.com/ecosystem/Booking/?hotel=X');
 e = env('/ecosystem/'); e.applySysPath('hub');
