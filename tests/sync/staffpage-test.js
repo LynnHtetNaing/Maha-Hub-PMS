@@ -68,8 +68,8 @@ console.log('staff page ok');
  console.log('systems page toggles ok');}
 {const s8=fs.readFileSync(process.argv[2],'utf8');
  const v=s8.indexOf("VIEWS['prov.systems']=el=>{"),e=s8.indexOf("VIEWS['prov.rules']=el=>{",v);const b8=s8.slice(v,e);
- if(!b8.includes("const hotelCard=h=>{")||!b8.includes("class=\"usys\""))fail('Systems page: one card per hotel with the system boxes');
- if(!b8.includes("RELEASED_SYSTEMS.includes(k)"))fail('Systems page: unreleased systems are grey and cannot be pressed');
- for(const a of ['data-connect','data-book','data-reach','data-saleshotel','data-enter','data-pub','data-booksetup','cxSaveHost','bkSaveHost'])if(!b8.includes(a))fail('Systems page lost: '+a);
- if(!b8.includes('Build and test the apps (provider only)'))fail('build and test section');
+ if(!b8.includes("const row=h=>")||!b8.includes('class="sysmatrix"'))fail('Systems page: matrix of properties and system columns');
+ if(!b8.includes("RELEASED_SYSTEMS.includes(k)")&&!b8.includes("if(!released[k])"))fail('Systems page: unreleased systems are grey and cannot be pressed');
+ for(const a of ['data-connect','data-book','data-reach','data-saleshotel','data-enter','data-users','data-booksetup','sysNewBE'])if(!b8.includes(a))fail('Systems page lost: '+a);
+ if(b8.includes('Build and test the apps (provider only)'))fail('Build and test section must be removed');
  console.log('systems page ok');}
