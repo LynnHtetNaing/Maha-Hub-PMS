@@ -15,8 +15,12 @@ language plpgsql
 set search_path = ''
 as $guard$
 begin
-  if current_user not in ('postgres', 'service_role') and new.product_mode is distinct from old.product_mode then
-    raise exception 'property-product-mode-managed-by-provider' using errcode = '42501';
+  if current_user not in ('postgres', 'service_role') then
+    if tg_op = 'INSERT' and new.product_mode <> 'pms' then
+      raise exception 'property-product-mode-managed-by-provider' using errcode = '42501';
+    elsif tg_op = 'UPDATE' and new.product_mode is distinct from old.product_mode then
+      raise exception 'property-product-mode-managed-by-provider' using errcode = '42501';
+    end if;
   end if;
   return new;
 end;
@@ -24,7 +28,7 @@ $guard$;
 
 drop trigger if exists maha_guard_property_product_mode on public.maha_properties;
 create trigger maha_guard_property_product_mode
-before update of product_mode on public.maha_properties
+before insert or update of product_mode on public.maha_properties
 for each row execute function public.maha_guard_property_product_mode();
 
 do $$
