@@ -13138,11 +13138,21 @@ VIEWS['prov.systems']=el=>{
       <tbody id="smRows">${hotels.map(h=>'<tr data-hotel-row="'+esc(h.code)+'"><td><b>'+esc(h.set.name||h.code)+'</b><div class="sub">'+esc(h.code)+' · '+(h.set.pmsEnabled===false?'Booking-only':'PMS-linked')+'</div></td>'+columns.map(c=>'<td style="text-align:center">'+cell(h,c[0])+'</td>').join('')+'<td><div class="row gap" style="flex-wrap:wrap"><button class="btn sm ghost" data-manage-users="'+esc(h.code)+'">Manage users ('+(h.users||[]).length+')</button>'+(h.set.pmsEnabled===false?'':'<button class="btn sm ghost" data-enter-pms="'+esc(h.code)+'">Enter PMS</button>')+'</div></td></tr>').join('')||'<tr><td colspan="12" class="empty">No active properties yet. Create a hotel or a Booking-only property to get started.</td></tr>'}</tbody>
      </table>
     </div>
+    <div class="panel pad mt">
+     <b>System server addresses</b>
+     <p class="sub" style="margin:4px 0 10px">Set the service addresses used by the provider console for Maha Connect and Maha Booking.</p>
+     <div class="cols2" style="gap:10px">
+      <label class="field"><span>Maha Connect server</span><div class="row gap"><input id="cxHost" value="\${esc(connectHost())}" style="min-width:180px;flex:1"><button class="btn sm ghost" id="cxSaveHost" type="button">Save</button></div></label>
+      <label class="field"><span>Maha Booking server</span><div class="row gap"><input id="bkHost" value="\${esc(bookHost())}" style="min-width:180px;flex:1"><button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></div></label>
+     </div>
+    </div>
     <div class="usleg mt"><span><i style="background:#1f9d6b"></i>On for this hotel</span><span><i style="background:#d64545"></i>Off for this hotel</span><span><i style="background:#c3ccd2"></i>Coming soon / not included</span></div>
    </div>`;
   const q=$('#smQ',el),rows=$$('[data-hotel-row]',el);
   const filter=()=>{const v=(q.value||'').trim().toLowerCase();let n=0;rows.forEach(r=>{const show=!v||r.textContent.toLowerCase().includes(v);r.hidden=!show;if(show)n++});$('#smCount',el).textContent=n+' of '+hotels.length+' active properties'};
   q.oninput=filter;
+  $('#cxSaveHost',el).onclick=()=>{const v=(($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782');localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
+  $('#bkSaveHost',el).onclick=()=>{const v=(($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781');localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
   $('#openBookingConsole',el).onclick=()=>go('prov.be.console');
   $$('[data-sys-toggle]',el).forEach(b=>b.onclick=()=>{
     const h=DB.hotels[b.dataset.code];if(!h)return;shapeHotel(h);
