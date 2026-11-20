@@ -5380,7 +5380,7 @@ function viewKeys(v){if(!v||v==='set.features')return [];if(v==='reports')return
   (typeof MENU!=='undefined'?MENU:[]).forEach(m=>{(m.items||[]).forEach(x=>{if(x[1]===v&&x[3])keys.push(x[3])})});return keys}
 function viewAllowed(v){const keys=viewKeys(v);if(!keys.length)return true;return keys.some(k=>feat(k))}
 let ENTRY_QUIET=null;   /* the page opened by itself on entry: the left menu marks no title until the person chooses one */
-function firstHotelView(){const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];const v=prefer.find(v=>viewAllowed(v))||'set.features';ENTRY_QUIET={v,pending:true};try{MSB_OPEN={}}catch(e){}setTimeout(()=>{try{showImportantAnnouncements()}catch(e){}},1500);return v}
+function firstHotelView(){if(H&&H.set&&H.set.pmsEnabled===false){ENTRY_QUIET={v:'prov.be.bookings',pending:true};return 'prov.be.bookings'}const prefer=(can('res.edit')||can('checkin'))?['fo.status','fo.arrivals','fo.inhouse','res.list','bill.folio','cd.shift','rm.hkstatus','set.features']:['rm.hkstatus','fo.status','set.features'];const v=prefer.find(v=>viewAllowed(v))||'set.features';ENTRY_QUIET={v,pending:true};try{MSB_OPEN={}}catch(e){}setTimeout(()=>{try{showImportantAnnouncements()}catch(e){}},1500);return v}
 function menuFeature(v){const keys=viewKeys(v);return keys[0]||''}
 function planEditorHtml(editable){const plan=(H.set&&H.set.plan)||detectPlan(H.set&&H.set.features);const plans=[['essential','Essential'],['front','Front Office'],['full','Full PMS'],['custom','Custom']];
   const pkg=H.set&&H.set.package;
@@ -7826,6 +7826,7 @@ const MENU=[
  {t:'Help',items:[['Help','help.home','','fn.help.home']]},
  {t:'Report',report:true},
  {t:'Setup',items:[['Hotel Settings','set.hotel','setup','fn.set.hotel'],['Overview','sbill.home','setup'],['Quotes','sbill.quotes','setup'],['Subscriptions','sbill.subscriptions','setup'],['Invoices','sbill.invoices','setup'],['Payments Made','sbill.payments','setup'],['Statements','sbill.statements','setup'],['Functions','set.features','setup'],['Staff & Permissions','set.users','','fn.set.users'],['User Logs','set.userlogs','userlogs'],['Transaction Codes','set.codes','','fn.set.codes'],['Rooms & Room Types','set.rooms','','fn.set.rooms'],['Purchasing & AP','ac.buy','setup','fn.ac.buy']]}];
+const BOOKING_ONLY_MENU=[{t:'Booking Engine',items:[['Booking Engine Bookings','prov.be.bookings','setup'],['Room Types & Inventory','prov.be.inventory','setup'],['Rate Plans','prov.be.rates','setup'],['Booking Engine Profile','prov.be.profile','setup']]},{t:'Help',items:[['Help','help.home','','fn.help.home']]}];
 /* Provider console, two levels. Level 1 (this menu): the whole system, no hotel picked. Level 2 (PROV_WS_MENU): a hotel's own workspace, shown whenever the page is one of PROV_WS_VIEWS. */
 const PROV_MENU=[
  {t:'Hotels List',flat:'prov.home'},
@@ -8336,7 +8337,7 @@ function modernShellHTML(){
 function modernNavInit(){
   const nav=$('#msbnav');if(!nav)return;
   chainBtnSync();
-  const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;const src=areaMenu(raw).map(m=>provWsOn()&&H.set.pmsEnabled===false&&m.items?{...m,items:m.items.filter(x=>!['prov.setup','prov.functions','prov.enter'].includes(x[1]))}:m);
+  const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):(H&&H.set&&H.set.pmsEnabled===false?BOOKING_ONLY_MENU:MENU);const src=areaMenu(raw).map(m=>provWsOn()&&H.set.pmsEnabled===false&&m.items?{...m,items:m.items.filter(x=>!['prov.setup','prov.functions','prov.enter'].includes(x[1]))}:m);
   const groups=[];
   src.forEach(m=>{if(m.report){if(can('reports')&&feat('reports'))groups.push({t:'Report',report:true,items:[]});return}
     if(m.flat){groups.push({t:m.t,flat:m.flat});return}
@@ -8600,7 +8601,7 @@ function renderShell(){
   if($('#tbProfM'))$('#tbProfM').onclick=e=>{e.stopPropagation();openAccountMenu($('#tbProfM'))};
   const tick=()=>{const c=$('#rtClock');if(c){const n=new Date();c.textContent=fd(iso(n));c.title='System date · '+VERSION}};tick();clearInterval(window._rtc);window._rtc=setInterval(tick,20000);
   const providerConsole=!!(DB.session.provider&&!DB.session.inHotel);
-  const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;
+  const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):(H&&H.set&&H.set.pmsEnabled===false?BOOKING_ONLY_MENU:MENU);
   const hide=providerConsole?[]:['Tax','Help','AI','Setup'];
   const menu=areaMenu(raw).map(m=>providerConsole&&provWsOn()&&H.set.pmsEnabled===false&&m.items?{...m,items:m.items.filter(x=>!['prov.setup','prov.functions','prov.enter'].includes(x[1]))}:m).filter(m=>!hide.includes(m.t));
   const nav=$('#menubar');
@@ -12300,7 +12301,7 @@ function loadingHide(){if(window.MahaLoader&&MahaLoader.isShowing())return MahaL
 async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r;try{r=await fn()}finally{if(!window.MahaLoader)await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));await loadingHide()}return r}
 /* ---- who sees what ---- */
 /* a provider operating a hotel (inHotel) gets the same Backend an owner/manager gets, plus their own extra group below - never while outside a hotel */
-function hasBackend(){try{return !!(DB&&DB.session&&H&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}
+function hasBackend(){try{return !!(DB&&DB.session&&H&&H.set.pmsEnabled!==false&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}
 function curArea(){const se=DB&&DB.session;return se&&se.area==='back'&&hasBackend()?'back':'front'}
 function setArea(a){if(DB&&DB.session){DB.session.area=a==='back'?'back':'front';try{writeLiveSession(DB.session)}catch(e){}}}
 /* the hotel's own Booking Engine access, agreed section by section with the provider - the provider always has
@@ -14119,7 +14120,7 @@ BE_SECTIONS.forEach(([k,num,title])=>{VIEWS['prov.be.'+k]=el=>{
 // Booking-only property administration. These pages use the same tenant cloud records and the
 // existing public Booking catalog, but never create or require a PMS user/session.
 VIEWS['prov.be.profile']=el=>{
-  if(!(DB.session&&DB.session.provider)||!H){el.innerHTML=pageHead('Booking Engine Profile')+'<div class="empty">Select a property first.</div>';return}
+  if(!DB.session||!H||(!DB.session.provider&&!(H.set.pmsEnabled===false&&can('setup')))){el.innerHTML=pageHead('Booking Engine Profile')+'<div class="empty">This page is available to the provider or a Booking Engine manager.</div>';return}
   shapeHotel(H);const s=H.set,g=s.google;
   el.innerHTML=pageHead('Booking Engine Profile')+`<div class="panel pad">
    <p class="sub">${s.pmsEnabled===false?'Standalone Booking Engine property · no Maha PMS account is required.':'PMS-linked property · property identity and contact fields are shared with PMS.'}</p>
@@ -14156,7 +14157,7 @@ VIEWS['prov.be.profile']=el=>{
   $('#beProfilePreview',el).onclick=()=>window.open(bookUrlFor(H),'_blank','noopener');
 };
 VIEWS['prov.be.inventory']=el=>{
-  if(!(DB.session&&DB.session.provider)||!H){el.innerHTML=pageHead('Room Types & Inventory')+'<div class="empty">Select a property first.</div>';return}
+  if(!DB.session||!H||(!DB.session.provider&&!(H.set.pmsEnabled===false&&can('setup')))){el.innerHTML=pageHead('Room Types & Inventory')+'<div class="empty">This page is available to the provider or a Booking Engine manager.</div>';return}
   shapeHotel(H);H.roomTypes=Array.isArray(H.roomTypes)?H.roomTypes:[];H.rooms=Array.isArray(H.rooms)?H.rooms:[];
   const standalone=H.set.pmsEnabled===false;
   const syncInventory=(code,qty)=>{
@@ -14190,7 +14191,7 @@ VIEWS['prov.be.inventory']=el=>{
   paint();
 };
 VIEWS['prov.be.rates']=el=>{
-  if(!(DB.session&&DB.session.provider)||!H){el.innerHTML=pageHead('Rate Plans')+'<div class="empty">Select a property first.</div>';return}
+  if(!DB.session||!H||(!DB.session.provider&&!(H.set.pmsEnabled===false&&can('setup')))){el.innerHTML=pageHead('Rate Plans')+'<div class="empty">This page is available to the provider or a Booking Engine manager.</div>';return}
   shapeHotel(H);const standalone=H.set.pmsEnabled===false;
   el.innerHTML=pageHead('Rate Plans')+`<div class="panel pad"><p class="sub">${standalone?'Set the direct-booking rates available to guests. Room types supply the rack rate; each rate plan adjusts that rate.':'Rates are managed in PMS and synchronized to Booking Engine.'}</p><div id="beRateEditor"></div></div>`;
   if(!standalone){$('#beRateEditor',el).innerHTML='<div class="sub">Open Hotel Setup → Rate Codes in Maha PMS to manage the rates for this property.</div>';return}
@@ -14228,7 +14229,7 @@ async function standaloneBookingReports(box){
   $('#sbrRun',box).onclick=run;run();
 }
 VIEWS['prov.be.bookings']=el=>{
-  if(!(DB.session&&DB.session.provider)||!H){el.innerHTML=pageHead('Booking Engine Bookings')+'<div class="empty">Select a property first.</div>';return}
+  if(!DB.session||!H||(!DB.session.provider&&!(H.set.pmsEnabled===false&&can('setup')))){el.innerHTML=pageHead('Booking Engine Bookings')+'<div class="empty">This page is available to the provider or a Booking Engine manager.</div>';return}
   shapeHotel(H);
   if(H.set.pmsEnabled!==false){go('prov.be.pending');return}
   el.innerHTML=pageHead('Booking Engine Bookings')+'<div id="beStandaloneBookingsPage"></div>';
