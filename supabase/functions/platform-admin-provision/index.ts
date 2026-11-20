@@ -239,6 +239,18 @@ const handle = async (req: Request): Promise<Response> => {
     const { data } = await admin.from("maha_login_identities").select("auth_email").eq("user_id", userId).maybeSingle();
     return (data as { auth_email?: string | null } | null)?.auth_email || to;
   };
+  // A hotel can become Booking-only later by closing PMS and opening Booking in the provider matrix.
+  // Use the live hotel settings as well as the original provisioning mode when choosing reset links.
+  const resetSystemForProperty = async (propertyId: string, productMode: string | null): Promise<string> => {
+    if (productMode === "booking_only") return "book";
+    const { data: rows } = await admin.from("maha_records").select("rec_key,data")
+      .eq("property_id", propertyId).eq("collection", "$set").in("rec_key", ["systems", "google"]);
+    const settings: Record<string, any> = {};
+    for (const row of rows || []) settings[row.rec_key] = (row.data as { v?: unknown } | null)?.v ?? {};
+    const systems = settings.systems || {};
+    const booking = settings.google || {};
+    return systems.pms === false && booking.enabled === true ? "book" : "pms";
+  };
   const createAccountThen = async (
     runDb: (userId: string) => Promise<{ data: unknown; error: { code?: string } | null }>,
   ) => {
@@ -336,7 +348,7 @@ const handle = async (req: Request): Promise<Response> => {
       return { data: r.data, error: r.error };
     });
     if (!result.ok) return result.response;
-    const sent = await sendSetPasswordEmail(email, property.product_mode === "booking_only" ? "book" : "pms", result.userId);
+    const sent = await sendSetPasswordEmail(email, await resetSystemForProperty(property.id, property.product_mode), result.userId);
     return respond({ ok: true, property_id: property.id, username, role, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
   }
 
@@ -354,7 +366,7 @@ const handle = async (req: Request): Promise<Response> => {
         if (resetProperty) {
           const { data: resetOrg } = await admin.from("maha_organizations").select("owner_user_id").eq("id", resetProperty.organization_id).maybeSingle();
           const { data: member } = await admin.from("maha_memberships").select("id").eq("property_id", resetProperty.id).eq("user_id", (data as { user_id: string }).user_id).eq("active", true).maybeSingle();
-          if (resetOrg?.owner_user_id === ownerId && member) resetSystem = resetProperty.product_mode === "booking_only" ? "book" : "pms";
+          if (resetOrg?.owner_user_id === ownerId && member) resetSystem = await resetSystemForProperty(resetProperty.id, resetProperty.product_mode);
         }
       }
       const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email, resetSystem, (data as { user_id: string }).user_id);
