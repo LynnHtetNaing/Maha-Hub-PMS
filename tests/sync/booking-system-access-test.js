@@ -8,7 +8,7 @@ const checks=[
   [src.includes("VIEWS['prov.systems']=el=>{"),'Provider Systems screen exists'],
   [src.includes("['Systems','prov.systems']"),'Provider console exposes Systems navigation'],
   [src.includes("data-book")&&src.includes("h.set.google.enabled=nv;"),'Maha Booking can be opened and closed per hotel'],
-  [src.includes("data-sys-toggle=\\\"'+k+'\\\"")&&src.includes("k==='connect'?connectOn(h)")&&src.includes("else if(k==='connect')h.set.systems.connect=nv;"),'Maha Connect can be opened and closed per hotel'],
+  [src.includes("data-sys-toggle=\"'+k+'\"")&&src.includes("k==='connect'?connectOn(h)")&&src.includes("else if(k==='connect')h.set.systems.connect=nv;"),'Maha Connect can be opened and closed per hotel'],
   [src.includes("data-reach")&&src.includes("h.set.systems.reach=nv;"),'Maha Reach can be opened and closed per hotel'],
   [src.includes("data-saleshotel")&&src.includes("h.set.systems.sales=nv;"),'Maha Sales state remains separately controlled'],
   [src.includes('saveDB();render();toast('),'System changes are saved and the Systems page refreshes']
