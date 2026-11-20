@@ -154,7 +154,7 @@ const handle = async (req: Request): Promise<Response> => {
       const err = typeof b.error === "string" ? b.error : "";
       const property = str("property_code").toUpperCase() || null;
       const target = action === "rename_username" ? `${username}>${str("new_username")}`
-        : ["create_hotel", "delete_hotel", "restore_hotel", "purge_hotel", "set_invoice_format"].includes(action) ? property
+        : ["create_hotel", "create_booking_engine", "delete_hotel", "restore_hotel", "purge_hotel", "set_invoice_format"].includes(action) ? property
         : ["create_chain", "rename_chain", "set_invoice_scope"].includes(action) ? str("chain_code").toUpperCase()
         : action === "move_hotel" ? property
         : action === "set_access" ? `${username}@${property ?? ""}`
@@ -162,6 +162,7 @@ const handle = async (req: Request): Promise<Response> => {
       let event = "";
       let detail = ok ? "" : err;
       if (action === "create_hotel") event = ok ? "hotel_created" : "hotel_create_failed";
+      else if (action === "create_booking_engine") event = ok ? "booking_engine_created" : "booking_engine_create_failed";
       else if (action === "add_staff") event = ok ? "staff_added" : "staff_add_failed";
       else if (action === "set_active") event = ok ? (b.active ? "staff_enabled" : "staff_disabled") : "staff_status_failed";
       else if (action === "reset_password") event = ok ? "password_reset_sent" : "password_reset_failed";
@@ -310,6 +311,36 @@ const handle = async (req: Request): Promise<Response> => {
       invitation_sent: await sendSetPasswordEmail(email, "pms", result.userId),
       invitation_error: mailError || undefined,
     }, 201);
+  }
+
+  // ---------------------------------------------------------------- create_booking_engine (no PMS account or staff login)
+  if (action === "create_booking_engine") {
+    const requestedOrgId = str("organization_id");
+    const organizationName = str("organization_name");
+    const propertyName = str("property_name");
+    const propertyCode = str("property_code").toUpperCase();
+    if ((requestedOrgId && !UUID.test(requestedOrgId)) ||
+        (!requestedOrgId && (organizationName.length < 2 || organizationName.length > 160)) ||
+        propertyName.length < 2 || propertyName.length > 160 ||
+        !CODE.test(propertyCode)) {
+      return respond({ error: "invalid_fields" }, 400);
+    }
+    const { data: codeTaken } = await admin.from("maha_properties").select("id").eq("property_code", propertyCode).maybeSingle();
+    if (codeTaken) return respond({ error: "property_code_taken" }, 409);
+    const { data, error } = await admin.rpc("maha_provision_booking_only", {
+      p_org_id: requestedOrgId || null,
+      p_org_name: requestedOrgId ? null : organizationName,
+      p_owner: ownerId,
+      p_property_name: propertyName,
+      p_property_code: propertyCode,
+    });
+    if (error || !data) {
+      const denied = error?.code === "42501";
+      const duplicate = error?.code === "23505";
+      return respond({ error: denied ? "forbidden" : duplicate ? "property_code_taken" : "provisioning_failed" }, denied ? 403 : duplicate ? 409 : 400);
+    }
+    return respond({ ok: true, organization_id: (data as { organization_id: string }).organization_id,
+      property_id: (data as { property_id: string }).property_id, property_code: propertyCode, product_mode: "booking_only" }, 201);
   }
 
   // ---------------------------------------------------------------- add_staff
