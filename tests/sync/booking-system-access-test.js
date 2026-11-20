@@ -3,7 +3,7 @@ const src=fs.readFileSync(process.argv[2],'utf8');
 const fail=m=>{console.error('FAIL',m);process.exit(1)};
 const checks=[
   [src.includes("requested==='book'&&(!onSplitHost()||hostRole()==='main')"),'Booking login selection survives refresh on the Solutions host'],
-  [src.includes("if(hostRole()==='main'){const u=new URL(location.href);if(kind==='book')u.searchParams.set('system','book')"),'Booking selection is written to the Solutions URL'],
+  [src.includes("if(typeof hostRole==='function'&&hostRole()==='main'){const u=new URL(location.href);if(kind==='book')u.searchParams.set('system','book')"),'Booking selection is written to the Solutions URL'],
   [src.includes("if(lgTargetSys==='book'||(location.hostname||'').toLowerCase().startsWith('booking.')){$('#lgExtra').hidden=true"),'Booking sign-in hides PMS shift and opening cash controls'],
   [src.includes("VIEWS['prov.systems']=el=>{"),'Provider Systems screen exists'],
   [src.includes("['Systems','prov.systems']"),'Provider console exposes Systems navigation'],
