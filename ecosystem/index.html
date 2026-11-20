@@ -13729,6 +13729,53 @@ const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest d
    → Hotel profile, SEC.profile) stay provider-only - those are account/platform-level, not this hotel's content. */
 function beOnly(){const u=user();if(u.provider||u.isProv)return true;return need('setup')}
 const BE={
+ inventory(box){
+  const standalone=!!(H.set&&H.set.bookingOnly);
+  if(!standalone){
+    const types=(H.roomTypes||[]).filter(t=>!t.dummy),rates=(H.rateCodes||[]).filter(r=>r.kind!=='zero'&&r.comp!=='COMP'&&r.comp!=='HOUSE');
+    box.innerHTML='<p class="sub">This hotel is connected to Maha PMS. Room types, room totals, Rack Rates and occupancy sync from its PMS setup; edit them under Hotel Setup → Room types / Rate codes. Booking Engine channel markup, central allotment and promotions remain configurable in the Booking Engine sections.</p>'+
+      '<div class="panel pad"><h3>Room types from Maha PMS</h3><table class="grid"><tr><th>Code</th><th>Room type</th><th class="n">Rack rate</th><th class="n">Total rooms</th><th class="n">Max guests</th></tr>'+
+      (types.map(t=>'<tr><td>'+esc(t.code)+'</td><td>'+esc(t.name)+'</td><td class="n">'+esc(H.set.cur)+' '+m2(t.base)+'</td><td class="n">'+(+t.allot||0)+'</td><td class="n">'+(+t.max||2)+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">No room types are configured in Maha PMS yet.</td></tr>')+
+      '</table><h3 class="mt">Sellable rate codes from Maha PMS</h3><table class="grid"><tr><th>Code</th><th>Description</th><th>Adjustment</th><th>Scope</th></tr>'+
+      (rates.map(r=>'<tr><td>'+esc(r.code)+'</td><td>'+esc(r.desc||r.code)+'</td><td>'+esc(r.kind==='amt'?'Amount '+r.v:r.v+'%')+'</td><td>'+esc(r.channelScope||'B2C')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No sellable rate codes are configured.</td></tr>')+
+      '</table></div>';
+    return;
+  }
+  let types=JSON.parse(JSON.stringify(H.roomTypes||[])).filter(t=>!t.dummy);
+  let rates=JSON.parse(JSON.stringify(H.rateCodes||[]));
+  if(!rates.length)rates=[{code:'BAR',desc:'Best Available Rate',kind:'pct',v:0,meal:'',channelScope:'b2c'}];
+  const paint=()=>{
+    box.innerHTML='<p class="sub">Standalone Booking Engine setup. These room types, nightly rates, guest limits and inventory are maintained here — no Maha PMS room or rate data is required.</p>'+
+    '<div class="panel pad"><div class="row gap" style="justify-content:space-between"><h3 style="margin:0">Room types & inventory</h3><button class="btn sm ghost" type="button" data-addrt>+ Add room type</button></div>'+
+    '<div class="scroll mt"><table class="grid"><tr><th>Code</th><th>Room type name</th><th class="n">Rack rate / night</th><th class="n">Rooms available</th><th class="n">Max guests</th><th>Photo URL</th><th></th></tr>'+
+    (types.map((t,i)=>'<tr><td><input data-rt="code" data-i="'+i+'" value="'+esc(t.code||'')+'" style="width:82px"></td><td><input data-rt="name" data-i="'+i+'" value="'+esc(t.name||'')+'" style="min-width:130px"></td><td><input type="number" min="0" step="0.01" data-rt="base" data-i="'+i+'" value="'+esc(t.base==null?'':t.base)+'" style="width:105px;text-align:right"></td><td><input type="number" min="0" step="1" data-rt="allot" data-i="'+i+'" value="'+esc(t.allot==null?'':t.allot)+'" style="width:85px;text-align:right"></td><td><input type="number" min="1" step="1" data-rt="max" data-i="'+i+'" value="'+esc(t.max||2)+'" style="width:70px;text-align:right"></td><td><input data-rt="photo" data-i="'+i+'" value="'+esc(t.photo||'')+'" placeholder="https://..." style="min-width:150px"></td><td><button class="btn sm red" type="button" data-rtrm="'+i+'">Remove</button></td></tr>').join('')||'<tr><td colspan="7" class="empty">Add your first room type.</td></tr>')+
+    '</table></div><h3 class="mt">Rate codes</h3><div class="row gap" style="justify-content:flex-end"><button class="btn sm ghost" type="button" data-addrc>+ Add rate code</button></div>'+
+    '<div class="scroll mt"><table class="grid"><tr><th>Code</th><th>Description</th><th>Rate calculation</th><th class="n">Value</th><th>Meal</th><th>Guest channel</th><th></th></tr>'+
+    (rates.map((r,i)=>'<tr><td><input data-rc="code" data-i="'+i+'" value="'+esc(r.code||'')+'" style="width:78px"></td><td><input data-rc="desc" data-i="'+i+'" value="'+esc(r.desc||'')+'" style="min-width:140px"></td><td><select data-rc="kind" data-i="'+i+'">'+[['pct','% adjustment'],['amt','Fixed amount'],['zero','No charge']].map(x=>'<option value="'+x[0]+'" '+(r.kind===x[0]?'selected':'')+'>'+x[1]+'</option>').join('')+'</select></td><td><input type="number" step="0.01" data-rc="v" data-i="'+i+'" value="'+esc(r.v==null?0:r.v)+'" style="width:85px;text-align:right"></td><td><input data-rc="meal" data-i="'+i+'" value="'+esc(r.meal||'')+'" style="width:70px"></td><td><select data-rc="scope" data-i="'+i+'"><option value="b2c" '+(r.channelScope!=='b2b'?'selected':'')+'>B2C</option><option value="b2b" '+(r.channelScope==='b2b'?'selected':'')+'>B2B / internal</option></select></td><td><button class="btn sm red" type="button" data-rcrm="'+i+'">Remove</button></td></tr>').join('')||'<tr><td colspan="7" class="empty">Add a sellable rate code.</td></tr>')+
+    '</table></div><p class="sub mt">Only B2C rates appear to direct guests. B2B rates stay internal. Inventory is the number of rooms released to the Booking Engine before reservations are deducted.</p>'+
+    '<div class="btns"><button class="btn gold" type="button" data-saveinv>Save room types & rates</button></div><div class="err" id="beInvErr"></div></div>';
+    $('[data-addrt]',box).forEach(b=>b.onclick=()=>{types.push({code:'',name:'',base:0,allot:1,max:2,photo:'',benefits:[]});paint()});
+    $('[data-rtrm]',box).forEach(b=>b.onclick=()=>{types.splice(+b.dataset.rtrm,1);paint()});
+    $('[data-addrc]',box).forEach(b=>b.onclick=()=>{rates.push({code:'',desc:'',kind:'pct',v:0,meal:'',channelScope:'b2c'});paint()});
+    $('[data-rcrm]',box).forEach(b=>b.onclick=()=>{rates.splice(+b.dataset.rcrm,1);paint()});
+    $('[data-saveinv]',box).onclick=()=>{
+      const val=(kind,i)=>{const x=$('[data-rt="'+kind+'"][data-i="'+i+'"]',box);return x?x.value.trim():''};
+      const rVal=(kind,i)=>{const x=$('[data-rc="'+kind+'"][data-i="'+i+'"]',box);return x?x.value.trim():''};
+      const nextTypes=types.map((t,i)=>Object.assign({},t,{code:val('code',i).toUpperCase(),name:val('name',i),base:+val('base',i),allot:Math.max(0,Math.floor(+val('allot',i)||0)),max:Math.max(1,Math.floor(+val('max',i)||1)),photo:val('photo',i)}));
+      const nextRates=rates.map((r,i)=>Object.assign({},r,{code:rVal('code',i).toUpperCase(),desc:rVal('desc',i),kind:rVal('kind',i),v:+rVal('v',i)||0,meal:rVal('meal',i),channelScope:rVal('scope',i)}));
+      const err=$('#beInvErr',box);
+      if(!nextTypes.length||nextTypes.some(t=>!t.code||!t.name||!(t.base>0)||!(t.allot>0)||!(t.max>0))){err.textContent='Each room type needs a unique code, name, positive nightly rate, room inventory and guest limit.';return}
+      if(new Set(nextTypes.map(t=>t.code)).size!==nextTypes.length){err.textContent='Room type codes must be unique.';return}
+      if(!nextRates.some(r=>r.code&&r.desc&&r.kind!=='zero'&&r.channelScope!=='b2b')){err.textContent='Add at least one sellable B2C rate code.';return}
+      if(nextRates.some(r=>!r.code||!r.desc)||new Set(nextRates.map(r=>r.code)).size!==nextRates.length){err.textContent='Every rate needs a unique code and description.';return}
+      H.roomTypes=nextTypes;H.rateCodes=nextRates;H.rooms=[];
+      H.set.google.directAllot=Object.fromEntries(Object.entries(H.set.google.directAllot||{}).filter(([k])=>nextTypes.some(t=>t.code===k)));
+      if(!Array.isArray(H.set.google.channels)||!H.set.google.channels.length)H.set.google.channels=[{key:'direct',label:'Booking Engine (direct)',kind:'markup',value:10}];
+      provLog('Standalone Booking Engine room types and rates saved for '+H.code);saved('Room types and rates saved.');
+    };
+  };
+  paint();
+ },
  amenities(box){const g=H.set.google,prov=!!(user().provider||user().isProv),d=prov?'':'disabled';
   /* grouped the way a real booking engine (1HotelRez) sets amenities up - Hotel Facilities, then Sports and
      Recreation, each its own heading - not one long alphabetical list */
