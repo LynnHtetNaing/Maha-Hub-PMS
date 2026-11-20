@@ -3548,7 +3548,8 @@ function shapeHotel(h){
     enabled:false,lat:'',lng:'',countryCode:'',category:'hotel',amenities:[],cancelPolicy:'',photoUrl:'',brand:'Maha Booking',bookBaseUrl:''
   },h.set.google||{});
   if(!Array.isArray(h.set.google.amenities))h.set.google.amenities=[];
-  h.set.systems=Object.assign({reach:false,connect:false,sales:false},h.set.systems||{});
+  h.set.systems=Object.assign({pms:true,reach:false,connect:false,sales:false},h.set.systems||{});
+  if(h.set.bookingOnly===true)h.set.systems.pms=false;
   /* a system that is not released starts Closed for every hotel; the provider opens it for a hotel when it is released */
   if(!h.set._sysClosedMig){h.set._sysClosedMig=1;if(h.set.package!=='fullpkg')h.set.systems.sales=false}
   if(!h.set._sysClosedMig2){h.set._sysClosedMig2=1;['reach','connect','sales'].forEach(k=>{if(!RELEASED_SYSTEMS.includes(k))h.set.systems[k]=false})}
@@ -4484,9 +4485,12 @@ const ProvAdmin={
     return d;
   },
   async createHotel(o){
-    const d=await this.call({action:'create_hotel',organization_name:o.name,property_name:o.name,property_code:o.code,username:o.user,email:o.email,role:'property_admin',chain_code:o.chain||undefined});
+    const productMode=o.productMode==='booking_only'?'booking_only':'pms';
+    const d=await this.call({action:'create_hotel',product_mode:productMode,organization_name:o.name,property_name:o.name,property_code:o.code,username:o.user,email:o.email,role:'property_admin',chain_code:o.chain||undefined});
     const h=emptyHotel({code:o.code,name:o.name,cur:o.cur,bd:o.bd,tz:o.tz});
-    h.users.push(mkUser('u'+uid(),o.user,'Owner','Manager',randomSecret()));shapeHotel(h);DB.hotels[o.code]=h;
+    h.users.push(mkUser('u'+uid(),o.user,'Owner','Manager',randomSecret()));shapeHotel(h);
+    if(productMode==='booking_only'){h.active=true;h.set.bookingOnly=true;h.set.systems.pms=false;h.set.google.enabled=false;h.users[0].systems=Object.assign({},h.users[0].systems||{},{hub:false,book:true})}
+    DB.hotels[o.code]=h;
     await ProvSync.adopt(o.code,d.property_id);
     return d;
   }
@@ -7822,10 +7826,10 @@ const PROV_MENU=[
  {t:'Whole system',items:[['Systems','prov.systems'],['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
-const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.google','prov.be.amenities','prov.be.policies','prov.be.photos','prov.be.pending','prov.be.channels','prov.be.promotions','prov.be.allotment','prov.be.guestCountry','prov.be.reports','prov.be.emailAlerts','prov.be.theme','prov.be.bookButton','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
+const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.google','prov.be.profile','hset.profile','hset.tax','hset.bd','hset.types','hset.rooms','hset.rates','prov.be.amenities','prov.be.policies','prov.be.photos','prov.be.pending','prov.be.channels','prov.be.promotions','prov.be.allotment','prov.be.guestCountry','prov.be.reports','prov.be.emailAlerts','prov.be.theme','prov.be.bookButton','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions']]},
- {t:'Booking Engine',items:[['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Booking Engine Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports'],['Email Alerts','prov.be.emailAlerts'],['Booking Theme','prov.be.theme'],['Booking Button Code','prov.be.bookButton']]},
+ {t:'Booking Engine',items:[['Booking Engine Title','prov.be.profile'],['Property Profile','hset.profile'],['Currency & Taxes','hset.tax'],['Check-in & Check-out','hset.bd'],['Room Types','hset.types'],['Rooms & Inventory','hset.rooms'],['Rates & Rate Plans','hset.rates'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Booking Engine Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports'],['Email Alerts','prov.be.emailAlerts'],['Booking Theme','prov.be.theme'],['Booking Button Code','prov.be.bookButton']]},
  {t:'Connections',items:[['Distribution (Google Hotels)','prov.distribution'],['Stripe payments (this hotel)','prov.stripe']]},
  {t:'Billing',items:[['Hotel Billing','prov.billing']]},
  {t:'Records',items:[['Approvals inbox','prov.approvals'],['Amendment Records','prov.amend'],['Amendment Log','prov.log'],['User Logs','prov.userlogs']]},
@@ -7913,6 +7917,7 @@ const sameArg=(a,b)=>JSON.stringify(a===undefined?null:a)===JSON.stringify(b===u
 function reachOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.reach)}
 function connectOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.connect)}
 function bookOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.google&&h.set.google.enabled)}
+function pmsOn(h){shapeHotel(h);return !(h&&h.set&&h.set.systems&&h.set.systems.pms===false)}
 function salesOn(h){shapeHotel(h);return !!(h&&h.set&&h.set.systems&&h.set.systems.sales===true)}
 function userHasSystem(u,kind){if(!u||u.provider||u.isProv)return true;const s=u.systems;if(!s||!Object.prototype.hasOwnProperty.call(s,kind))return true;return s[kind]!==false}
 /* ---- Access term and cancelled users (Provider Console) ----
@@ -8186,7 +8191,7 @@ function connectSnapshot(h){
 }
 function hotelSystems(h,u){
   const rows=[
-    ['hub','Maha PMS','Manage your property, front desk, billing and reports.','pms',true],
+    ['hub','Maha PMS','Manage your property, front desk, billing and reports.','pms',pmsOn(h)],
     ['connect','Maha Connect','Distribute your inventory across global channels.','connect',connectOn(h)],
     ['book','Maha Booking','Let guests book directly on your website.','book',bookOn(h)],
     ['reach','Maha Reach','Boost your brand with marketing & guest engagement.','reach',reachOn(h)],
@@ -12596,7 +12601,7 @@ function permBind(root){
   $$('[data-term]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.term);if(u)accessModal(u,()=>R())});
   $$('[data-cancel]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.cancel);if(!u)return;if(u.owner||u.protected){toast('The owner account is protected.');return}cancelUserModal(u,()=>R())});
   $$('[data-pre]',root).forEach(s=>s.onchange=()=>{if(!s.value)return;const u=H.users.find(x=>x.id===s.dataset.pre);u.perms=[...PRESET[s.value]];u.role=s.value;provLog(`Applied preset ${s.value} to ${u.username}`);saveDB();R()});
-  $$('[data-rs]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rs);if(!u)return;const rsLbl=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spin"></span> Sending...';ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{b.disabled=false;b.innerHTML=rsLbl;if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Set-password link sent again to '+u.username);saveDB();toast('A new set-password link was sent to '+u.username+'. Use the newest email only.')},err=>{b.disabled=false;b.innerHTML=rsLbl;toast(ProvAdmin.msg(err))})});
+  $$('[data-rs]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.rs);if(!u)return;const rsLbl=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spin"></span> Sending...';ProvAdmin.call({action:'reset_password',username:u.username,property_code:H.code}).then(d=>{b.disabled=false;b.innerHTML=rsLbl;if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Set-password link sent again to '+u.username);saveDB();toast('A new set-password link was sent to '+u.username+'. Use the newest email only.')},err=>{b.disabled=false;b.innerHTML=rsLbl;toast(ProvAdmin.msg(err))})});
   $$('[data-rp]',root).forEach(b=>b.onclick=async ()=>{const u=H.users.find(x=>x.id===b.dataset.rp);if(MahaAuth.on()){const rpLbl=b.innerHTML;b.disabled=true;b.innerHTML='<span class="spin"></span> Sending...';ProvAdmin.call({action:'reset_password',username:u.username}).then(d=>{b.disabled=false;b.innerHTML=rpLbl;if(d&&d.invitation_sent===false){toast(mailWhy(d.invitation_error));return}provLog('Password reset email sent to '+u.username);saveDB();toast('Password reset email sent.')},err=>{b.disabled=false;b.innerHTML=rpLbl;toast(ProvAdmin.msg(err))});return}const pw=await dlgAsk(`New password for ${u.username} (at least 8 characters):`);if(!pw)return;if(pw.length<8){toast('At least 8 characters.');return}u.salt=newSalt();u.hash=pwHash(u.salt,pw);provLog('Reset password for '+u.username);saveDB();toast('Password changed')});
   $$('[data-act]',root).forEach(b=>b.onclick=()=>{const u=H.users.find(x=>x.id===b.dataset.act);if(u.owner||u.protected){toast('The owner account is protected and stays active.');return}const nowActive=u.active===false,apply=()=>{u.active=nowActive;if(nowActive&&u.cancelled){accessNote(u,'User reinstated',user().name);delete u.cancelled}if(nowActive&&accessWhy(u)==='ended')setTimeout(()=>toast('Their access term has ended. Set a new Access term so they can sign in.'),400);provLog(`${u.active?'Activated':'Deactivated'} ${u.username}`);saveDB();R()};if(MahaAuth.on()){ProvAdmin.call({action:'set_active',username:u.username,active:nowActive}).then(apply,err=>toast(ProvAdmin.msg(err)))}else apply()});
 }
@@ -13104,86 +13109,71 @@ function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes
 VIEWS['sys.pick']=el=>{el.innerHTML='';go(firstHotelView());setTimeout(openSystemsSwitcher,0)};
 VIEWS['prov.systems']=el=>{
   if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
-  const hotels=provHotels();hotels.forEach(shapeHotel);
-  const cHost=connectHost(),bHost=bookHost(),first=hotels[0];
-  const reachPreview=reachUrl(first),connectPreview=connectUrlFor(first),bookPreview=bookUrlFor(first);
-  const sysTile=(cls,name,line,attrs,tag)=>'<'+tag+' '+(tag==='button'?'type="button" ':'')+'class="usy '+cls+'" '+attrs+'><b>'+esc(name)+'</b><small>'+esc(line)+'</small></'+tag+'>';
-  const hotelCard=h=>{
-    const tiles=[sysTile('open','Maha PMS','Always open','','div')];
-    [['connect','Maha Connect','data-connect',connectOn],['book','Maha Booking','data-book',bookOn],['reach','Maha Reach','data-reach',reachOn],['sales','Maha Sales','data-saleshotel',salesOn]].forEach(([k,name,att,on])=>{
-      if(!RELEASED_SYSTEMS.includes(k))tiles.push(sysTile('soon',name,'Coming soon','','div'));
-      else{const o=on(h);tiles.push(sysTile(o?'open':'shut',name,o?'Open':'Closed',att+'="'+h.code+'" title="'+(o?'Press to close for this hotel':'Press to open for this hotel')+'"','button'))}
+  const hotels=Object.values(DB.hotels||{}).filter(h=>h&&h.code&&h.active!==false).sort((a,b)=>String(a.code).localeCompare(String(b.code)));
+  hotels.forEach(shapeHotel);
+  const systems=[
+    {k:'hub',name:'Maha PMS',released:true,on:pmsOn},
+    {k:'book',name:'Maha Booking',released:true,on:bookOn},
+    {k:'connect',name:'Maha Connect',released:RELEASED_SYSTEMS.includes('connect'),on:connectOn},
+    {k:'reach',name:'Maha Reach',released:RELEASED_SYSTEMS.includes('reach'),on:reachOn},
+    {k:'sales',name:'Maha Sales',released:RELEASED_SYSTEMS.includes('sales'),on:salesOn},
+    {k:'hr',name:'Maha HR',released:false},
+    {k:'account',name:'Maha Account',released:false},
+    {k:'manage',name:'Maha Manage',released:false},
+    {k:'pos',name:'Maha POS',released:false},
+    {k:'stock',name:'Maha Stock',released:false}
+  ];
+  el.innerHTML=pageHead('Systems')+`<style>
+    .sysmatrix-wrap{overflow:auto;border-radius:14px}
+    .sysmatrix{width:100%;min-width:1180px;border-collapse:separate;border-spacing:0}
+    .sysmatrix th,.sysmatrix td{text-align:center;vertical-align:middle;padding:12px 9px;white-space:nowrap}
+    .sysmatrix th:first-child,.sysmatrix td:first-child{position:sticky;left:0;text-align:left;z-index:2;background:var(--m-card,#fff);min-width:190px}
+    .sysmatrix th:last-child,.sysmatrix td:last-child{position:sticky;right:0;z-index:2;background:var(--m-card,#fff);min-width:210px}
+    .sysmatrix .sysname{font-weight:800}.sysmatrix .syscode{font-size:11px;opacity:.65;margin-top:3px}
+    .sysmatrix-toggle{display:inline-flex;align-items:center;gap:7px;cursor:pointer;justify-content:center}
+    .sysmatrix-toggle input{position:absolute;opacity:0;width:1px;height:1px}
+    .sysmatrix-track{width:42px;height:23px;border-radius:20px;background:#d4dce0;position:relative;display:inline-block;transition:background .15s}
+    .sysmatrix-track:after{content:'';position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0003;transition:transform .15s}
+    .sysmatrix-toggle input:checked+.sysmatrix-track{background:#15966f}
+    .sysmatrix-toggle input:checked+.sysmatrix-track:after{transform:translateX(19px)}
+    .sysmatrix-toggle input:focus-visible+.sysmatrix-track{outline:3px solid #75b8e8;outline-offset:2px}
+    .sysmatrix .soon{font-size:11px;color:var(--m-muted,#77838a);background:#edf0f2;border-radius:20px;padding:5px 8px}
+    .sysmatrix .sysactions{display:flex;gap:5px;justify-content:flex-end}
+    .sysmatrix .sysactions .btn{padding:5px 8px;font-size:11px}
+    @media(max-width:760px){.sysmatrix th:first-child,.sysmatrix td:first-child{min-width:155px}.sysmatrix th:last-child,.sysmatrix td:last-child{min-width:185px}}
+  </style>
+  <div class="udet syspage">
+    <p class="sub">All active hotels are listed here, regardless of which Maha system they use. Switch each released system on or off for a hotel. User access is managed separately in User Details &amp; Permission.</p>
+    <div class="ubar"><input id="sysQ" type="search" placeholder="Search hotel name or code" style="min-width:240px"><span class="sub" id="sysCount">${hotels.length} active hotels</span></div>
+    <div class="panel sysmatrix-wrap"><table class="grid sysmatrix">
+      <thead><tr><th>Hotel</th>${systems.map(x=>'<th>'+esc(x.name)+'</th>').join('')}<th>Management</th></tr></thead>
+      <tbody id="sysMatrixRows"></tbody>
+    </table></div>
+    <p class="sub mt">Green means open for the hotel. Grey systems marked Coming soon cannot be enabled yet. A person must also have that system open in User Details &amp; Permission.</p>
+  </div>`;
+  const paint=()=>{
+    const q=($('#sysQ',el).value||'').trim().toLowerCase();
+    const rows=hotels.filter(h=>(String(h.code)+' '+String(h.set.name||'')).toLowerCase().includes(q));
+    $('#sysCount',el).textContent=rows.length+' of '+hotels.length+' active hotels';
+    $('#sysMatrixRows',el).innerHTML=rows.length?rows.map(h=>'<tr><td><div class="sysname">'+esc(h.set.name||h.code)+'</div><div class="syscode">'+esc(h.code)+'</div></td>'+
+      systems.map(x=>'<td>'+(x.released?'<label class="sysmatrix-toggle" title="'+(x.on(h)?'Close':'Open')+' '+esc(x.name)+' for '+esc(h.code)+'"><input type="checkbox" data-sysmatrix="'+x.k+'" data-hotel="'+esc(h.code)+'" '+(x.on(h)?'checked':'')+' aria-label="'+esc(x.name)+' for '+esc(h.code)+'"><span class="sysmatrix-track"></span></label><div class="syscode">'+(x.on(h)?'On':'Off')+'</div>':'<span class="soon">Coming soon</span>')+'</td>').join('')+
+      '<td><div class="sysactions"><button type="button" class="btn sm ghost" data-sysusers="'+esc(h.code)+'">Manage users</button><button type="button" class="btn sm gold" data-sysbook="'+esc(h.code)+'">Booking setup</button>'+(pmsOn(h)?'<button type="button" class="btn sm ghost" data-syspms="'+esc(h.code)+'">Enter PMS</button>':'')+'</div></td></tr>').join(''):'<tr><td colspan="'+(systems.length+2)+'" class="empty">No active hotels match your search.</td></tr>';
+    $$('[data-sysmatrix]',el).forEach(input=>input.onchange=()=>{
+      const h=DB.hotels[input.dataset.hotel];if(!h)return;shapeHotel(h);
+      const kind=input.dataset.sysmatrix,on=input.checked;
+      if(kind==='hub')h.set.systems.pms=on;
+      else if(kind==='book')h.set.google.enabled=on;
+      else if(kind==='connect')h.set.systems.connect=on;
+      else if(kind==='reach')h.set.systems.reach=on;
+      else if(kind==='sales')h.set.systems.sales=on;
+      provLog((on?'Opened ':'Closed ')+systems.find(x=>x.k===kind).name+' for '+h.code);
+      saveDB();render();toast(systems.find(x=>x.k===kind).name+' '+(on?'opened':'closed')+' for '+h.code+'.');
     });
-    ECO_SOON.forEach(x=>tiles.push(sysTile('soon',x.name,'Coming soon','','div')));
-    return '<div class="panel pad syscard"><div class="row gap" style="justify-content:space-between;align-items:center;flex-wrap:wrap"><div><b style="font-size:16px">'+esc(h.code)+'</b> <span class="sub">'+esc(h.set.name)+'</span></div><button class="btn sm gold" data-enter="'+h.code+'" type="button">Enter PMS</button></div>'+
-      '<div class="usys">'+tiles.join('')+'</div>'+
-      '<div class="sysact"><span class="sub">Provider tools:</span> <a class="btn sm ghost" href="'+esc(sysUrl('sales',h))+'" target="_blank" rel="noopener">Open Sales app</a><a class="btn sm ghost" href="'+esc(reachUrl(h))+'" target="_blank" rel="noopener">Open Reach app</a><a class="btn sm ghost" href="'+esc(connectUrlFor(h))+'" target="_blank" rel="noopener">Open Connect app</a><button class="btn sm ghost" data-pub="'+h.code+'" type="button" title="Publish hotel snapshot into Connect">Publish to Connect</button><a class="btn sm ghost" href="'+esc(bookUrlFor(h))+'" target="_blank" rel="noopener">Open Booking app</a><button class="btn sm ghost" data-booksetup="'+h.code+'" type="button">Booking setup</button></div></div>'};
-  el.innerHTML=pageHead('Systems')+`<div class="udet syspage">
-   <p class="sub">Press a box to open or close a system for a hotel. A person can use it only when it is also open for their account, in User Details &amp; Permission. A system that is not released stays locked for everyone.</p>
-   <div class="usleg"><span><i style="background:#1f9d6b"></i>Open for this hotel</span><span><i style="background:#d64545"></i>Closed for this hotel</span><span><i style="background:#c3ccd2"></i>Not released yet (Coming soon)</span></div>
-   ${hotels.map(hotelCard).join('')}
-   <details class="panel pad mt" id="sysTools"><summary style="cursor:pointer;font-weight:800">Build and test the apps (provider only) <span class="sub" style="font-weight:400">· does not change any hotel</span></summary>
-   <div class="panel pad">
-     <h3 style="margin:0 0 6px">Open apps for setup</h3>
-     <p class="sub">Provider can open these <b>anytime</b> to build and review — before linking a hotel or publishing. Hotel Open/Close only controls whether hotel staff may use that product.</p>
-     <div class="cols3 mt" style="gap:10px">
-       <div class="panel pad" style="background:#f7faf8">
-         <b>Maha Reach</b><div class="sub">Guest engagement · works from this Hub host</div>
-         <div class="btns mt"><a class="btn gold" href="${esc(reachPreview)}" target="_blank" rel="noopener">Open Reach</a></div>
-         <p class="sub mt" style="word-break:break-all">${esc(reachUrl())}</p>
-       </div>
-       <div class="panel pad" style="background:#f5f8fb">
-         <b>Maha Connect</b><div class="sub">Channel manager foundation · needs Connect server</div>
-         <div class="btns mt">
-           <a class="btn gold" href="${esc(connectPreview)}" target="_blank" rel="noopener">Open Connect</a>
-           <a class="btn ghost" href="${esc(connectStaticUrl(first))}" target="_blank" rel="noopener">Static UI</a>
-         </div>
-         <p class="sub mt">Server: <input id="cxHost" value="${esc(cHost)}" style="min-width:180px"> <button class="btn sm ghost" id="cxSaveHost" type="button">Save</button></p>
-       </div>
-       <div class="panel pad" style="background:#faf7f0">
-         <b>Maha Booking</b><div class="sub">Direct booking engine · needs Booking server</div>
-         <div class="btns mt">
-           <a class="btn gold" href="${esc(bookPreview)}" target="_blank" rel="noopener">Open Booking</a>
-           <a class="btn ghost" href="${esc(hubBaseUrl()+'book/'+(first?'?hotel='+encodeURIComponent(first.code):''))}" target="_blank" rel="noopener">Static UI</a>
-         </div>
-         <p class="sub mt">Server: <input id="bkHost" value="${esc(bHost)}" style="min-width:180px"> <button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></p>
-       </div>
-     </div>
-     <p class="sub mt"><button class="btn sm ghost" id="cxStripe" type="button">Stripe payments (this hotel) →</button>
-       · <button class="btn sm ghost" id="cxRules" type="button">System rules →</button>
-       · <button class="btn sm ghost" id="cxDist" type="button">Distribution / Google →</button></p>
-   </div>
-   </details></div>`;
-  $('#cxSaveHost',el).onclick=()=>{const v=($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782';localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
-  $('#bkSaveHost',el).onclick=()=>{const v=($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781';localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
-  if($('#cxStripe',el))$('#cxStripe',el).onclick=()=>go('prov.stripe');
-  if($('#cxRules',el))$('#cxRules',el).onclick=()=>go('prov.rules');
-  if($('#cxDist',el))$('#cxDist',el).onclick=()=>go('prov.distribution');
-  $$('[data-reach]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.reach];if(!h)return;shapeHotel(h);if(!reachOn(h)&&!RELEASED_SYSTEMS.includes('reach')){toast('Maha Reach is not released yet.');return}h.set.package='';const nv=!reachOn(h);h.set.systems.reach=nv;   /* work out the new value first: reachOn() rebuilds h.set.systems, so assigning into the old object was lost */
-    provLog(`${h.set.systems.reach?'Opened':'Closed'} Maha Reach for ${h.code}`);saveDB();render();toast(h.set.systems.reach?`Maha Reach is open for ${h.code}. Credits apply inside Reach.`:`Maha Reach is closed for ${h.code}.`)});
-  $$('[data-connect]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.connect];if(!h)return;shapeHotel(h);if(!connectOn(h)&&!RELEASED_SYSTEMS.includes('connect')){toast('Maha Connect is not released yet.');return}h.set.package='';const nv=!connectOn(h);h.set.systems.connect=nv;
-    provLog(`${h.set.systems.connect?'Opened':'Closed'} Maha Connect for ${h.code}`);saveDB();render();toast(h.set.systems.connect?`Maha Connect is open for ${h.code}. Foundation only — not live on OTAs.`:`Maha Connect is closed for ${h.code}.`)});
-  $$('[data-saleshotel]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.saleshotel];if(!h)return;shapeHotel(h);if(!salesOn(h)&&!RELEASED_SYSTEMS.includes('sales')){toast('Maha Sales is not released yet.');return}h.set.package='';const nv=!salesOn(h);h.set.systems.sales=nv;
-    provLog(`${h.set.systems.sales?'Opened':'Closed'} Maha Sales for ${h.code}`);saveDB();render();toast(h.set.systems.sales?`Maha Sales is open for ${h.code}.`:`Maha Sales is closed for ${h.code}.`)});
-  $$('[data-book]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.book];if(!h)return;shapeHotel(h);if(!bookOn(h)&&!RELEASED_SYSTEMS.includes('book')){toast('Maha Booking is not released yet.');return}h.set.package='';const nv=!bookOn(h);h.set.google.enabled=nv;
-    provLog(`${h.set.google.enabled?'Enabled':'Disabled'} Maha Booking for ${h.code}`);saveDB();render();toast(h.set.google.enabled?`Maha Booking enabled for ${h.code}.`:`Maha Booking disabled for ${h.code}.`)});
-  $$('[data-pub]',el).forEach(b=>b.onclick=async()=>{
-    const h=DB.hotels[b.dataset.pub];if(!h)return;
-    if(!connectOn(h)){if(!await dlgConfirm('Connect is Closed for '+h.code+'. Publish anyway for setup?'))return;shapeHotel(h);h.set.systems.connect=true;saveDB()}
-    const host=(($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||connectHost());
-    localStorage.setItem('maha.connectHost',host);
-    b.disabled=true;toast('Publishing snapshot to Maha Connect…');
-    try{
-      const r=await fetch(host+'/api/hub/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hotel:connectSnapshot(h)})});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(j.message||j.error||r.statusText);
-      provLog(`Published ${h.code} to Maha Connect (${j.roomTypes||0} room types)`);
-      toast(`Published ${h.code} to Connect · ${j.roomTypes||0} room types · ${j.inventoryDays||0} inventory days.`);
-      render();
-    }catch(e){toast('Publish failed: '+(e.message||e)+'. Check the Connect server address on the Systems page.')}
-    finally{b.disabled=false}
-  });
-  $$('[data-booksetup]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.booksetup);go('prov.google')});
+    $$('[data-sysusers]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sysusers);PP.tab='people';go('prov.perms')});
+    $$('[data-sysbook]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sysbook);go('prov.be.profile')});
+    $$('[data-syspms]',el).forEach(b=>b.onclick=()=>enterHotel(b.dataset.syspms));
+  };
+  $('#sysQ',el).oninput=paint;paint();
 };
 VIEWS['prov.rules']=el=>{
   if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('System rules')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
@@ -13212,7 +13202,7 @@ function publicHotelFromHub(h){
   const occupied=[];(h.reservations||[]).forEach(r=>(r.bookings||[]).forEach(b=>{
     if(b.masterDummy||b.groupMaster||(b.room&&String(b.room).startsWith('D')))return;
     occupied.push({type:b.type,arr:b.arr,dep:b.dep,status:b.status})}));
-  return {id:h.code,name:s.name||h.code,legal:s.legal||'',addr:s.addr||'',phone:s.phone||'',email:s.email||'',web:s.web||'',
+  return {id:h.code,name:s.name||h.code,bookingTitle:g.title||s.name||h.code,legal:s.legal||'',addr:s.addr||'',phone:s.phone||'',email:s.email||'',web:s.web||'',
     cur:s.cur||'THB',svc:+s.svc||0,vat:+s.vat||0,taxName:s.taxName||'Tax',country:s.country||'',
     countryCode:(g.countryCode||GOOGLE_CC[s.country]||'TH').toUpperCase().slice(0,2),
     checkIn:s.checkIn||'14:00',checkOut:s.checkOut||'12:00',
@@ -13397,7 +13387,7 @@ VIEWS['prov.functions']=el=>{
   bindPicker(el);bindPlanEditor($('#fnBox',el));
 };
 function newPropertyForm(){if(!provOnly())return;
-  const m=modal('Create new property',`<div class="form2">${fld('Hotel code (unique, e.g. BKK02)',`<input id="npC" autocapitalize="characters" autofocus>`)}${fld('Hotel name',`<input id="npN">`)}
+  const m=modal('Create new property',`<div class="form2">${fld('Products',`<select id="npMode"><option value="pms">Maha PMS + Booking Engine</option><option value="booking_only">Maha Booking Engine only (no PMS)</option></select>`)}${fld('Hotel code (unique, e.g. BKK02)',`<input id="npC" autocapitalize="characters" autofocus>`)}${fld('Hotel name',`<input id="npN">`)}
    ${fld('Currency',`<select id="npCur">${Object.keys(CUR_WORDS).map(c=>opt(c,c+(CUR_WORDS[c][2]?' – '+CUR_WORDS[c][2]:''),'THB')).join('')}</select>`)}${fld('First business date',`<input type="date" id="npBd" value="${todayZ()}">`)}${fld('Time zone',`<select id="npTz">${tzOptions('Asia/Bangkok')}</select>`)}${MahaAuth.on()?fld('Chain / Group (optional)',`<select id="npCh"><option value="">None (stand-alone hotel)</option></select>`):''}
    ${fld('Owner / manager username (unique across all hotels)',`<input id="npU" autocapitalize="none" placeholder="e.g. bkk02.manager">`)}${MahaAuth.on()?fld('Owner / manager email (a set-password link is emailed)',`<input id="npP" type="email" autocapitalize="none">`):fld('Temporary password (8+ characters)',`<input id="npP">`)}</div>
    <div class="sub">The property starts empty. You then fill in its setup title by title and activate it when everything is ready.</div><div class="err" id="npE"></div><div class="btns"><button class="btn gold" id="npS">Create property</button></div>`,{w:640});
@@ -13407,7 +13397,7 @@ function newPropertyForm(){if(!provOnly())return;
     if(!n){e.textContent='Enter the hotel name.';return}if(!/^[a-z0-9._-]{3,20}$/.test(u)){e.textContent='Username: 3 to 20 letters, numbers, dot, dash or underscore.';return}
     if(usernameTaken(u)){e.textContent='This username is already used in another hotel.';return}if(MahaAuth.on()){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)){e.textContent='Enter a valid email address for the owner / manager.';return}
       e.textContent='Creating the hotel and its login...';
-      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value,chain:($('#npCh',m)&&$('#npCh',m).value)||''}).then(d=>{openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');if(d&&d.invitation_sent===false){toast(c+' created, but the email could not be sent now. Use Reset password on the owner login in a few minutes.');return}toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
+      ProvAdmin.createHotel({code:c,name:n,user:u,email:p.trim().toLowerCase(),cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value,chain:($('#npCh',m)&&$('#npCh',m).value)||'',productMode:$('#npMode',m).value}).then(d=>{const bookingOnly=$('#npMode',m).value==='booking_only';openHotel(c);provLog(`Created ${bookingOnly?'Booking-only property':'property'} ${c} (${n})`);closeModal(m);if(bookingOnly){go('prov.be.profile');if(d&&d.invitation_sent===false){toast(c+' created for Maha Booking, but the email could not be sent now. Use Reset password on the owner login.');return}toast(`${c} created for Maha Booking only. Set its Booking Engine Title, property profile, rooms and rates, then open Maha Booking in Systems.`);return}SET_SEC='profile';go('prov.setup');if(d&&d.invitation_sent===false){toast(c+' created, but the email could not be sent now. Use Reset password on the owner login in a few minutes.');return}toast(`${c} created. A set-password email was sent to the owner / manager.`)},err=>{e.textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){e.textContent='The password needs at least 8 characters.';return}
     const h=emptyHotel({code:c,name:n,cur:$('#npCur',m).value,bd:$('#npBd',m).value,tz:$('#npTz',m).value});h.users.push(mkUser('u'+uid(),u,'Owner','Manager',p));shapeHotel(h);DB.hotels[c]=h;
     openHotel(c);provLog(`Created property ${c} (${n})`);closeModal(m);SET_SEC='profile';go('prov.setup');toast(`${c} created. Fill in property setup title by title. Access and other systems are under Setup.`)}}
@@ -13748,7 +13738,7 @@ const SEC={
 /* Direct Booking Engine: not one crowded page any more - a real subtitle per job (same pattern as Hotel Setup's
    own hset.* pages), the way 1HotelRez's own Set Up menu splits Property information / Amenities / Policies /
    Theme apart. Every subtitle shares the one H.set.google record; saving one never blanks another's fields. */
-const BE_SECTIONS=[['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['pending','4','Booking Engine Bookings'],['channels','5','Channel Rates'],['promotions','6','Promotions & Discount Codes'],['allotment','7','Central Allotment'],['guestCountry','8','Guest Country Set Up'],['reports','9','Reports'],['emailAlerts','10','Email Alerts'],['theme','11','Booking Theme'],['bookButton','12','Booking Button Code']];
+const BE_SECTIONS=[['profile','0','Booking Engine Title'],['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['pending','4','Booking Engine Bookings'],['channels','5','Channel Rates'],['promotions','6','Promotions & Discount Codes'],['allotment','7','Central Allotment'],['guestCountry','8','Guest Country Set Up'],['reports','9','Reports'],['emailAlerts','10','Email Alerts'],['theme','11','Booking Theme'],['bookButton','12','Booking Button Code']];
 const THEME_SWATCHES=[['primary','Primary (buttons, headings)','#184d3a'],['accent','Accent (highlights)','#c4a35a'],['bg','Page background','#f3efe6'],['text','Text','#0e241c']];
 const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest departure'],['abandonment','On booking abandonment'],['birthday','On guest birthday']];
 /* every Booking Engine section below (BE.*) is the hotel's own content and pricing - a manager with the
@@ -13757,6 +13747,7 @@ const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest d
    → Hotel profile, SEC.profile) stay provider-only - those are account/platform-level, not this hotel's content. */
 function beOnly(){const u=user();if(u.provider||u.isProv)return true;return need('setup')}
 const BE={
+ profile(box){const g=H.set.google;box.innerHTML='<div class="panel pad"><h3 style="margin-top:0">Booking Engine Title</h3><p class="sub">This title is displayed on the guest-facing Maha Booking page. It is separate from the hotel legal name and can be configured without enabling Maha PMS.</p>'+fld('Booking Engine Title',`<input id="beTitle" maxlength="100" value="${esc(g.title||H.set.name||'')}">`)+'<div class="err" id="beTitleErr"></div><div class="btns"><button type="button" class="btn gold" id="beTitleSave">Save title</button></div></div>';$('#beTitleSave',box).onclick=()=>{const v=$('#beTitle',box).value.trim();if(!v){$('#beTitleErr',box).textContent='Enter a Booking Engine Title.';return}g.title=v;provLog('Booking Engine title saved for '+H.code);saved('Booking Engine Title saved.')};},
  amenities(box){const g=H.set.google,prov=!!(user().provider||user().isProv),d=prov?'':'disabled';
   /* grouped the way a real booking engine (1HotelRez) sets amenities up - Hotel Facilities, then Sports and
      Recreation, each its own heading - not one long alphabetical list */
