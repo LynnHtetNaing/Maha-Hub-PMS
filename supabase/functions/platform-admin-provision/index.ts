@@ -242,14 +242,15 @@ const handle = async (req: Request): Promise<Response> => {
   // A hotel can become Booking-only later by closing PMS and opening Booking in the provider matrix.
   // Use the live hotel settings as well as the original provisioning mode when choosing reset links.
   const resetSystemForProperty = async (propertyId: string, productMode: string | null): Promise<string> => {
-    if (productMode === "booking_only") return "book";
     const { data: rows } = await admin.from("maha_records").select("rec_key,data")
       .eq("property_id", propertyId).eq("collection", "$set").in("rec_key", ["systems", "google"]);
     const settings: Record<string, any> = {};
     for (const row of rows || []) settings[row.rec_key] = (row.data as { v?: unknown } | null)?.v ?? {};
     const systems = settings.systems || {};
     const booking = settings.google || {};
-    return systems.pms === false && booking.enabled === true ? "book" : "pms";
+    if (systems.pms === true) return "pms";
+    if (systems.pms === false && booking.enabled === true) return "book";
+    return productMode === "booking_only" ? "book" : "pms";
   };
   const createAccountThen = async (
     runDb: (userId: string) => Promise<{ data: unknown; error: { code?: string } | null }>,
