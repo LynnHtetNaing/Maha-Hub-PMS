@@ -7842,7 +7842,7 @@ const PROV_WS_MENU=[
  {t:'Hotels',items:[['Open PMS','prov.enter'],['All hotels','prov.home']]}];
 function provWsOn(){const se=typeof DB!=='undefined'&&DB&&DB.session;return !!(se&&se.provider&&!se.inHotel&&typeof H!=='undefined'&&H&&PROV_WS_VIEWS.includes(VIEW))}
 function provHotels(){return provWsOn()&&H?[H]:Object.values(DB.hotels)}
-function provWsBar(el){const h=H,bar=document.createElement('div');bar.className='wsbar';bar.innerHTML=`<b>${esc(h.code)}</b> &middot; ${esc(h.set.name)} <span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span><span class="sp"></span><button type="button" class="btn sm gold" id="wsPms">Open PMS</button><button type="button" class="btn sm ghost" id="wsAll">All hotels</button>`;el.insertBefore(bar,el.firstChild);$('#wsPms',bar).onclick=()=>enterHotel(h.code);$('#wsAll',bar).onclick=()=>go('prov.home')}
+function provWsBar(el){const h=H,bar=document.createElement('div');bar.className='wsbar';bar.innerHTML=`<b>${esc(h.code)}</b> &middot; ${esc(h.set.name)} <span class="pst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span><span class="sp"></span><button type="button" class="btn sm gold" id="wsPms">${h.set.pmsEnabled===false?'Booking Engine':'Open PMS'}</button><button type="button" class="btn sm ghost" id="wsAll">All hotels</button>`;el.insertBefore(bar,el.firstChild);$('#wsPms',bar).onclick=()=>h.set.pmsEnabled===false?go('prov.be.profile'):enterHotel(h.code);$('#wsAll',bar).onclick=()=>go('prov.home')}
 /* ---- Our own drop-down list: used on every select instead of the browser list. Keyboard still works on the closed select. ---- */
 const MahaSel=(()=>{let pop=null,cur=null;
   function close(){if(pop){pop.remove();pop=null;cur=null;document.removeEventListener('keydown',onKey,true)}}
@@ -8336,7 +8336,7 @@ function modernShellHTML(){
 function modernNavInit(){
   const nav=$('#msbnav');if(!nav)return;
   chainBtnSync();
-  const src=areaMenu(DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU);
+  const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;const src=areaMenu(raw).map(m=>provWsOn()&&H.set.pmsEnabled===false&&m.items?{...m,items:m.items.filter(x=>!['prov.setup','prov.functions','prov.enter'].includes(x[1]))}:m);
   const groups=[];
   src.forEach(m=>{if(m.report){if(can('reports')&&feat('reports'))groups.push({t:'Report',report:true,items:[]});return}
     if(m.flat){groups.push({t:m.t,flat:m.flat});return}
@@ -8602,7 +8602,7 @@ function renderShell(){
   const providerConsole=!!(DB.session.provider&&!DB.session.inHotel);
   const raw=DB.session.provider?(DB.session.inHotel?MENU:(provWsOn()?PROV_WS_MENU:PROV_MENU)):MENU;
   const hide=providerConsole?[]:['Tax','Help','AI','Setup'];
-  const menu=areaMenu(raw).filter(m=>!hide.includes(m.t));
+  const menu=areaMenu(raw).map(m=>providerConsole&&provWsOn()&&H.set.pmsEnabled===false&&m.items?{...m,items:m.items.filter(x=>!['prov.setup','prov.functions','prov.enter'].includes(x[1]))}:m).filter(m=>!hide.includes(m.t));
   const nav=$('#menubar');
   nav.innerHTML=`<button class="mtoggle" id="mtoggle" aria-label="Menu">☰</button><div class="mitems" id="mitems">`+menu.map((m,i)=>{
     if(m.report)return can('reports')&&feat('reports')?`<button class="mtop" data-report="1">Report <span class="car" aria-hidden="true">▾</span></button>`:'';
@@ -12654,7 +12654,7 @@ function usersPage(el,prov){
   $('#pvU',el).onclick=()=>{const m=modal('Add staff – '+H.code,`<div class="form2">${fld('Full name',`<input id="auN" autofocus>`)}${fld('Username',`<input id="auU" autocapitalize="none">`)}${fld('Position (type any title)',`<input id="auPos" list="posList" placeholder="e.g. Revenue Manager">`)}${fld('Permission preset',`<select id="auR">${Object.keys(PRESET).map(k=>opt(k)).join('')}</select>`)}${MahaAuth.on()?fld('Email (a set-password link is emailed)',`<input id="auP" type="email" autocapitalize="none">`):fld('Password',`<input id="auP">`)}</div><div class="err" id="auE"></div><div class="btns"><button class="btn gold" id="auS">Add staff</button></div>`,{w:560});
     $('#auS',m).onclick=()=>{const n=$('#auN',m).value.trim(),u=$('#auU',m).value.trim().toLowerCase(),p=$('#auP',m).value;if(!n||!/^[a-z0-9._-]{3,20}$/.test(u)){$('#auE',m).textContent='Enter a name and a username of 3–20 letters or numbers.';return}if(usernameTaken(u)){$('#auE',m).textContent='This username is already used. Usernames must be unique across all hotels.';return}if(MahaAuth.on()){const em=p.trim().toLowerCase(),hh=H;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){$('#auE',m).textContent='Enter a valid email address for this person.';return}
       $('#auE',m).textContent='';const auBtn=$('#auS',m),auLbl=auBtn.innerHTML;auBtn.disabled=true;auBtn.innerHTML='<span class="spin"></span> Creating the login...';
-      ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff',system:hh.set.pmsEnabled===false?'book':'pms'}).then(d=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast(d&&d.invitation_sent===false?'Login created, but the email could not be sent now. Use Reset password in a few minutes.':'Login created. A set-password email was sent.')},err=>{auBtn.disabled=false;auBtn.innerHTML=auLbl;$('#auE',m).textContent=ProvAdmin.msg(err)});return}
+      ProvAdmin.call({action:'add_staff',property_code:hh.code,username:u,email:em,role:'staff',system:hh.set.pmsEnabled===false?'book':'pms'}).then(d=>{const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,randomSecret());nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;if(hh.set.pmsEnabled===false)nu.systems.hub=false;hh.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render();toast(d&&d.invitation_sent===false?'Login created, but the email could not be sent now. Use Reset password in a few minutes.':'Login created. A set-password email was sent.')},err=>{auBtn.disabled=false;auBtn.innerHTML=auLbl;$('#auE',m).textContent=ProvAdmin.msg(err)});return}
     if(p.length<8){$('#auE',m).textContent='The password needs at least 8 characters.';return}
       const nu=mkUser('u'+uid(),u,n,$('#auR',m).value,p);nu.position=$('#auPos',m).value.trim()||$('#auR',m).value;H.users.push(nu);provLog(`Added staff ${u} (${nu.position})`);saveDB();closeModal(m);render()}};
   }
