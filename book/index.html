@@ -227,7 +227,7 @@ async function loadHotels() {
   const { ok, j } = await api('/api/catalog');
   if (!ok) throw new Error(j.message || 'Catalog failed');
   const sel = $('hotel');
-  sel.innerHTML = (j.hotels || []).map(h => `<option value="${h.id}">${h.name}</option>`).join('') || '<option value="">No hotels published</option>';
+  sel.innerHTML = (j.hotels || []) .map(h => `<option value="${h.id}">${h.bookingTitle || h.name}</option>`).join('') || '<option value="">No hotels published</option>';
   const want = params.get('hotel');
   if (want && [...sel.options].some(o => o.value === want)) sel.value = want;
   $('checkin').value = params.get('checkin') || today();
@@ -292,7 +292,8 @@ async function hydrateHotel(id) {
   const { ok, j } = await api('/api/hotel/' + encodeURIComponent(id));
   if (!ok) return;
   const h = j.hotel;
-  $('hotelTitle').textContent = h.name;
+  $('hotelTitle').textContent = h.bookingTitle || h.name;
+  document.title = (h.bookingTitle || h.name) + ' | Maha Booking';
   $('hotelLede').textContent = `${h.addr || ''} · Check-in ${h.checkIn || '14:00'} · Check-out ${h.checkOut || '12:00'}`.replace(/^ · /, '');
   renderHero(h);
   const th = h.theme || {};
