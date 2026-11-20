@@ -7825,7 +7825,7 @@ const PROV_MENU=[
  {t:'Whole system',items:[['Systems','prov.systems'],['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
-const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.google','prov.be.amenities','prov.be.policies','prov.be.photos','prov.be.pending','prov.be.channels','prov.be.promotions','prov.be.allotment','prov.be.guestCountry','prov.be.reports','prov.be.emailAlerts','prov.be.theme','prov.be.bookButton','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
+const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.google','prov.be.profile','prov.be.inventory','prov.be.amenities','prov.be.policies','prov.be.photos','prov.be.pending','prov.be.channels','prov.be.promotions','prov.be.allotment','prov.be.guestCountry','prov.be.reports','prov.be.emailAlerts','prov.be.theme','prov.be.bookButton','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
 const PROV_WS_MENU=[
  {t:'Hotel',items:[['Hotel Setup','prov.setup'],['Staff & permissions','prov.perms'],['Functions & plan','prov.functions']]},
  {t:'Booking Engine',items:[['Room Types & Rates','prov.be.inventory'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Booking Engine Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports'],['Email Alerts','prov.be.emailAlerts'],['Booking Theme','prov.be.theme'],['Booking Button Code','prov.be.bookButton']]},
@@ -8207,6 +8207,7 @@ function openSystem(kind,h,same){
   if(row&&!row.released){toast(ecoSysLabel(kind)+' is not released yet.');return}
   if(!asProv&&row&&!row.hotel){toast(ecoSysLabel(kind)+' is closed for this hotel. The provider opens it under Systems.');return}
   if(!asProv&&row&&!row.user){toast(ecoSysLabel(kind)+' is not open for your account. The provider opens it under Staff & permissions.');return}
+  if(kind==='hub'&&h&&h.set&&h.set.bookingOnly){toast('This property uses Maha Booking only.');return}
   if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
   /* Maha Booking (staff side): managing rates, promotions, channels and the rest happens right inside this
      same app (see HOTEL_BE_GROUP / BE.* / beOnly()) - it is never the public guest page a customer books on.
@@ -8307,7 +8308,7 @@ function themeMenuHtml(){if(!skinIsModern())return '';const cur=userTheme();
 function msbSlim(){try{return localStorage.getItem('maha.msb')==='slim'}catch(e){return false}}
 let MSB_OPEN={};
 const PROV_HOTEL_GROUP={t:'Provider',items:[['Back to provider console','prov.exit'],['Stripe payments (this hotel)','prov.stripe']]};
-const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Booking Engine Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports'],['Email Alerts','prov.be.emailAlerts'],['Booking Theme','prov.be.theme'],['Booking Button Code','prov.be.bookButton']]};
+const PROV_HOTEL_BE_GROUP={t:'Booking Engine',items:[['Booking Engine Profile','prov.be.profile'],['Room Types & Rates','prov.be.inventory'],['Amenities','prov.be.amenities'],['Policies & Notices','prov.be.policies'],['Photos','prov.be.photos'],['Booking Engine Bookings','prov.be.pending'],['Channel Rates','prov.be.channels'],['Promotions & Discount Codes','prov.be.promotions'],['Central Allotment','prov.be.allotment'],['Guest Country Set Up','prov.be.guestCountry'],['Reports','prov.be.reports'],['Email Alerts','prov.be.emailAlerts'],['Booking Theme','prov.be.theme'],['Booking Button Code','prov.be.bookButton']]};
 const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.amend'],['Amendment Log','prov.log']]};
 function modernShellHTML(){
   const n=notifBadgeCount();
@@ -12300,18 +12301,20 @@ function setArea(a){if(DB&&DB.session){DB.session.area=a==='back'?'back':'front'
    every section in full (PROV_HOTEL_BE_GROUP, ADMIN_BACKEND_MENU). A hotel manager (needs 'setup') gets one of
    three levels per section: manage (can save it), view (sees it, every control is disabled, no Save button),
    or it is left out of this list entirely (not even reachable by its view key - see BE_SECTIONS.forEach below). */
-const BE_HOTEL_MANAGE=['channels','promotions','pending','bookButton','reports'];   /* reports has no Save of its own anyway - it is read-only for everyone */
+const BE_HOTEL_MANAGE=['profile','inventory','channels','promotions','pending','bookButton','reports'];   /* reports has no Save of its own anyway - it is read-only for everyone */
 const BE_HOTEL_HIDDEN=['guestCountry'];
 const HOTEL_BE_GROUP={t:'Booking Engine',items:PROV_HOTEL_BE_GROUP.items.filter(([,v])=>!BE_HOTEL_HIDDEN.includes(v.split('.').pop())).map(([title,v])=>[title,v,'setup'])};
 function BACKEND_MENU(){
   const f=v=>{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it;return null};
   const g=(t,ids)=>({t,items:ids.map(f).filter(Boolean)});
+  if(H&&H.set&&H.set.bookingOnly)return [HOTEL_BE_GROUP,g('People & access',['set.users','set.userlogs']),g('Help',['help.home'])];
   return [g('Property set-up',['set.hotel','set.rooms','set.codes']),g('Rates & profiles',['profile.rates','res.rate','profile.companies']),HOTEL_BE_GROUP,g('People & access',['set.users','set.userlogs']),g('Finance & data',['ac.buy']),g('Billing',['sbill.home','sbill.quotes','sbill.subscriptions','sbill.invoices','sbill.payments','sbill.statements']),g('Help',['help.home']),{t:'Report',report:true}]}
 /* the admin's own Backend, inside a hotel: nothing shared with the hotel-staff Backend above except People & access -
    Hotel Setup (every section as its own subtitle, not the wizard's own tabs), People & access, and admin's own Billing
    (creating invoices/subscriptions for the hotel, not the hotel's own read-only records) */
 function ADMIN_BACKEND_MENU(){
   const people=BACKEND_MENU().find(g=>g.t==='People & access');
+  if(H&&H.set&&H.set.bookingOnly)return [people,PROV_HOTEL_BE_GROUP,{t:'Connections',items:[['Stripe payments (this hotel)','prov.stripe']]},{t:'Billing',items:[['Hotel Billing','prov.billing']]}];
   /* Room totals is just a check against the Rooms list right above it, not a separate subtitle to go find - the merged
      hset.rooms page (just above) covers both, with its own subtitle for each. */
   return [{t:'Hotel Setup',items:SET_SECTIONS.filter(([k])=>k!=='allot').map(([k,num,title])=>[title,'hset.'+k])},
@@ -12321,12 +12324,12 @@ function areaMenu(src){
   if(se&&se.provider){
     let pm=true;try{provMasterLoad();pm=provMaster()}catch(e){}
     const base=pm?src:src.map(g=>g.items?Object.assign({},g,{items:g.items.filter(it=>!MASTER_VIEWS.includes(it[1]))}):g);
-    if(!se.inHotel)return base;
+    if(!se.inHotel){if(provWsOn()&&H&&H.set&&H.set.bookingOnly)return base.map(g=>g.t==='Hotel'?{t:'Hotel',items:[['Staff & permissions','prov.perms']]}:g);return base}
     /* inside a hotel: the same Frontend / Backend split a manager gets - admin-only items (the provider's own Backend, see ADMIN_BACKEND_MENU) live in Backend only */
     return curArea()==='back'?ADMIN_BACKEND_MENU():base.filter(m=>m.t!=='Setup')}
   if(!se)return src;
   return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
-function firstBackendView(){if(DB.session&&DB.session.provider)return 'hset.profile';for(const g of BACKEND_MENU())for(const it of (g.items||[]))if(viewAllowed(it[1]))return it[1];return 'set.hotel'}
+function firstBackendView(){if(DB.session&&DB.session.provider)return H&&H.set&&H.set.bookingOnly?'prov.be.profile':'hset.profile';for(const g of BACKEND_MENU())for(const it of (g.items||[]))if(viewAllowed(it[1]))return it[1];return 'set.hotel'}
 function areaSwitchHtml(){if(!hasBackend())return '';ensureFlowCss();const a=curArea();return `<div class="areasw" id="areaSw" role="group" aria-label="Frontend or Backend"><button type="button" data-area="front" class="${a==='front'?'on':''}">Frontend</button><button type="button" data-area="back" class="${a==='back'?'on':''}">Backend</button></div>`}
 async function switchAreaTo(a){if(!hasBackend()||a===curArea())return;NAVSTACK.length=0;
   await withLoading(a==='back'?'Opening Backend':'Opening Frontend',1600,async()=>{setArea(a);renderShell();go(a==='back'?firstBackendView():firstHotelView())})}
@@ -13722,7 +13725,7 @@ const SEC={
 /* Direct Booking Engine: not one crowded page any more - a real subtitle per job (same pattern as Hotel Setup's
    own hset.* pages), the way 1HotelRez's own Set Up menu splits Property information / Amenities / Policies /
    Theme apart. Every subtitle shares the one H.set.google record; saving one never blanks another's fields. */
-const BE_SECTIONS=[['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['inventory','4','Room Types & Rates'],['pending','5','Booking Engine Bookings'],['channels','6','Channel Rates'],['promotions','7','Promotions & Discount Codes'],['allotment','8','Central Allotment'],['guestCountry','9','Guest Country Set Up'],['reports','10','Reports'],['emailAlerts','11','Email Alerts'],['theme','12','Booking Theme'],['bookButton','13','Booking Button Code']];
+const BE_SECTIONS=[['profile','0','Booking Engine Profile'],['amenities','1','Amenities'],['policies','2','Policies & Notices'],['photos','3','Photos'],['inventory','4','Room Types & Rates'],['pending','5','Booking Engine Bookings'],['channels','6','Channel Rates'],['promotions','7','Promotions & Discount Codes'],['allotment','8','Central Allotment'],['guestCountry','9','Guest Country Set Up'],['reports','10','Reports'],['emailAlerts','11','Email Alerts'],['theme','12','Booking Theme'],['bookButton','13','Booking Button Code']];
 const THEME_SWATCHES=[['primary','Primary (buttons, headings)','#184d3a'],['accent','Accent (highlights)','#c4a35a'],['bg','Page background','#f3efe6'],['text','Text','#0e241c']];
 const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest departure'],['abandonment','On booking abandonment'],['birthday','On guest birthday']];
 /* every Booking Engine section below (BE.*) is the hotel's own content and pricing - a manager with the
@@ -13731,6 +13734,48 @@ const EMAIL_ALERT_TYPES=[['arrival','On guest arrival'],['departure','On guest d
    → Hotel profile, SEC.profile) stay provider-only - those are account/platform-level, not this hotel's content. */
 function beOnly(){const u=user();if(u.provider||u.isProv)return true;return need('setup')}
 const BE={
+ profile(box){
+  const standalone=!!(H.set&&H.set.bookingOnly),s=H.set,g=s.google||(s.google={});
+  if(!standalone){
+    box.innerHTML='<p class="sub">This hotel uses Maha PMS. Its property profile and contact details are synced from Hotel Setup. The Booking Engine reads the same name, address, phone, email, currency, tax and check-in/out settings.</p>'+
+      '<div class="panel pad"><h3>'+esc(s.name||H.code)+'</h3><p>'+esc(s.addr||'Address not set')+'</p><p>'+esc(s.phone||'Phone not set')+' · '+esc(s.email||'Email not set')+'</p><p>'+esc(s.country||'')+' · '+esc(s.cur||'THB')+' · Check-in '+esc(s.checkIn||'14:00')+' / Check-out '+esc(s.checkOut||'12:00')+'</p><p class="sub">Booking Engine brand: '+esc(g.brand||s.name||H.code)+'</p></div>';
+    return;
+  }
+  box.innerHTML='<p class="sub">Set the public property identity and guest-facing details for this standalone Booking Engine. These details are independent of Maha PMS.</p>'+
+   '<div class="panel pad"><div class="form2">'+
+   '<label>Booking Engine / property title<input id="bePName" value="'+esc(s.name||'')+'"></label>'+
+   '<label>Legal / registered name<input id="bePLegal" value="'+esc(s.legal||'')+'"></label>'+
+   '<label>Booking Engine brand label<input id="bePBrand" value="'+esc(g.brand||'Maha Booking')+'"></label>'+
+   '<label>Country<input id="bePCountry" value="'+esc(s.country||'')+'"></label>'+
+   '<label>Full address<input id="bePAddr" value="'+esc(s.addr||'')+'"></label>'+
+   '<label>Phone<input id="bePPhone" value="'+esc(s.phone||'')+'"></label>'+
+   '<label>Contact email<input type="email" id="bePEmail" value="'+esc(s.email||'')+'"></label>'+
+   '<label>Website<input id="bePWeb" value="'+esc(s.web||'')+'"></label>'+
+   '<label>Currency<select id="bePCur">'+Object.keys(CUR_WORDS).map(c=>opt(c,c+(CUR_WORDS[c][2]?' – '+CUR_WORDS[c][2]:''),s.cur||'THB')).join('')+'</select></label>'+
+   '<label>Service charge %<input type="number" min="0" max="100" step="0.01" id="bePSvc" value="'+esc(s.svc||0)+'"></label>'+
+   '<label>Tax / VAT %<input type="number" min="0" max="100" step="0.01" id="bePVat" value="'+esc(s.vat||0)+'"></label>'+
+   '<label>Tax label<input id="bePTax" value="'+esc(s.taxName||'VAT')+'"></label>'+
+   '<label>Check-in time<input type="time" id="bePIn" value="'+esc(s.checkIn||'14:00')+'"></label>'+
+   '<label>Check-out time<input type="time" id="bePOut" value="'+esc(s.checkOut||'12:00')+'"></label>'+
+   '<label>Country code (2 letters)<input id="bePCountryCode" maxlength="2" value="'+esc(g.countryCode||'')+'" placeholder="TH"></label>'+
+   '<label>Latitude<input type="number" step="any" id="bePLat" value="'+esc(g.lat||'')+'"></label>'+
+   '<label>Longitude<input type="number" step="any" id="bePLng" value="'+esc(g.lng||'')+'"></label>'+
+   '<label>Property category<input id="bePCat" value="'+esc(g.category||'hotel')+'"></label>'+
+   '<label>Area / locality<input id="bePArea" value="'+esc(g.area||'')+'"></label>'+
+   '</div><div class="btns"><button class="btn gold" type="button" id="bePSave">Save Booking Engine profile</button></div><div class="err" id="bePError"></div></div>';
+  $('#bePSave',box).onclick=()=>{
+   const countryCode=$('#bePCountryCode',box).value.trim().toUpperCase();
+   const lat=$('#bePLat',box).value.trim(),lng=$('#bePLng',box).value.trim(),err=$('#bePError',box);
+   if(!$('#bePName',box).value.trim()||!$('#bePAddr',box).value.trim()||!$('#bePPhone',box).value.trim()||!$('#bePEmail',box).value.trim()){err.textContent='Enter the property title, address, phone and contact email.';return}
+   if(countryCode&&!/^[A-Z]{2}$/.test(countryCode)){err.textContent='Country code must be two letters, for example TH or MM.';return}
+   if((lat&&!Number.isFinite(Number(lat)))||(lng&&!Number.isFinite(Number(lng)))){err.textContent='Latitude and longitude must be valid numbers.';return}
+   s.name=$('#bePName',box).value.trim();s.legal=$('#bePLegal',box).value.trim()||s.name;s.addr=$('#bePAddr',box).value.trim();s.phone=$('#bePPhone',box).value.trim();s.email=$('#bePEmail',box).value.trim();s.web=$('#bePWeb',box).value.trim();
+   s.country=$('#bePCountry',box).value.trim();s.cur=$('#bePCur',box).value;const words=CUR_WORDS[s.cur]||[s.cur,'',''];s.curWord=words[0];s.subWord=words[1];
+   s.svc=Math.max(0,Number($('#bePSvc',box).value)||0);s.vat=Math.max(0,Number($('#bePVat',box).value)||0);s.taxName=$('#bePTax',box).value.trim()||'Tax';s.checkIn=$('#bePIn',box).value||'14:00';s.checkOut=$('#bePOut',box).value||'12:00';
+   g.brand=$('#bePBrand',box).value.trim()||s.name;g.countryCode=countryCode;g.lat=lat;g.lng=lng;g.category=$('#bePCat',box).value.trim()||'hotel';g.area=$('#bePArea',box).value.trim();
+   provLog('Standalone Booking Engine profile saved for '+H.code);saved('Booking Engine profile saved.');
+  };
+ },
  inventory(box){
   const standalone=!!(H.set&&H.set.bookingOnly);
   if(!standalone){
