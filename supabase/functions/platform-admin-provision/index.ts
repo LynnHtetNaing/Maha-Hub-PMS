@@ -67,7 +67,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE = /^[A-Z0-9_-]{2,24}$/;
 const RESET_REDIRECT = "https://solutions.maha-hub.com/reset-password.html";
 // With AUTH_SYSTEM_REDIRECTS=on the set-password link opens on the system it is for (the email hook then shows that system's own look).
-const SYSTEM_RESET: Record<string, string> = { pms: "https://pms.maha-hub.com/reset-password.html", console: "https://console.maha-hub.com/reset-password.html", crm: "https://crm.maha-hub.com/reset-password.html" };
+const SYSTEM_RESET: Record<string, string> = { pms: "https://pms.maha-hub.com/reset-password.html", book: "https://solutions.maha-hub.com/reset-password.html?system=book", console: "https://console.maha-hub.com/reset-password.html", crm: "https://crm.maha-hub.com/reset-password.html" };
 const resetRedirect = (system: string) => (Deno.env.get("AUTH_SYSTEM_REDIRECTS") === "on" && SYSTEM_RESET[system]) || RESET_REDIRECT;
 
 // Reads one claim from a JWT. The token was already verified by Supabase Auth (getUser) before this is used.
@@ -154,7 +154,7 @@ const handle = async (req: Request): Promise<Response> => {
       const err = typeof b.error === "string" ? b.error : "";
       const property = str("property_code").toUpperCase() || null;
       const target = action === "rename_username" ? `${username}>${str("new_username")}`
-        : ["create_hotel", "delete_hotel", "restore_hotel", "purge_hotel", "set_invoice_format"].includes(action) ? property
+        : ["create_hotel", "create_booking_property", "delete_hotel", "restore_hotel", "purge_hotel", "set_invoice_format"].includes(action) ? property
         : ["create_chain", "rename_chain", "set_invoice_scope"].includes(action) ? str("chain_code").toUpperCase()
         : action === "move_hotel" ? property
         : action === "set_access" ? `${username}@${property ?? ""}`
@@ -162,6 +162,7 @@ const handle = async (req: Request): Promise<Response> => {
       let event = "";
       let detail = ok ? "" : err;
       if (action === "create_hotel") event = ok ? "hotel_created" : "hotel_create_failed";
+      else if (action === "create_booking_property") event = ok ? "booking_property_created" : "booking_property_create_failed";
       else if (action === "add_staff") event = ok ? "staff_added" : "staff_add_failed";
       else if (action === "set_active") event = ok ? (b.active ? "staff_enabled" : "staff_disabled") : "staff_status_failed";
       else if (action === "reset_password") event = ok ? "password_reset_sent" : "password_reset_failed";
@@ -266,6 +267,31 @@ const handle = async (req: Request): Promise<Response> => {
     return { ok: true as const, userId, data };
   };
 
+  // ------------------------------------------------------ create_booking_property
+  // Booking-only properties have a tenant identity and cloud records, but no PMS user or membership.
+  if (action === "create_booking_property") {
+    const organizationName = str("organization_name");
+    const propertyName = str("property_name");
+    const propertyCode = str("property_code").toUpperCase();
+    if (organizationName.length < 2 || organizationName.length > 160 ||
+        propertyName.length < 2 || propertyName.length > 160 || !CODE.test(propertyCode)) {
+      return respond({ error: "invalid_fields" }, 400);
+    }
+    const { data: codeTaken } = await admin.from("maha_properties").select("id")
+      .eq("property_code", propertyCode).maybeSingle();
+    if (codeTaken) return respond({ error: "property_code_taken" }, 409);
+    const { data, error } = await admin.rpc("maha_provision_booking_property", {
+      p_org_id: null, p_org_name: organizationName, p_owner: ownerId,
+      p_property_name: propertyName, p_property_code: propertyCode,
+    });
+    if (error || !data) {
+      const duplicate = error?.code === "23505";
+      return respond({ error: duplicate ? "property_code_taken" : error?.code === "42501" ? "forbidden" : "provisioning_failed" }, duplicate ? 409 : error?.code === "42501" ? 403 : 400);
+    }
+    const ids = data as { organization_id: string; property_id: string };
+    return respond({ ok: true, organization_id: ids.organization_id, property_id: ids.property_id, pms_enabled: false }, 201);
+  }
+
   // ---------------------------------------------------------------- create_hotel
   if (action === "create_hotel") {
     let requestedOrgId = str("organization_id");
@@ -334,8 +360,9 @@ const handle = async (req: Request): Promise<Response> => {
       return { data: r.data, error: r.error };
     });
     if (!result.ok) return result.response;
-    const sent = await sendSetPasswordEmail(email, "pms", result.userId);
-    return respond({ ok: true, property_id: property.id, username, role, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
+    const targetSystem = str("system") === "book" ? "book" : "pms";
+    const sent = await sendSetPasswordEmail(email, targetSystem, result.userId);
+    return respond({ ok: true, property_id: property.id, username, role, system: targetSystem, invitation_sent: sent, invitation_error: mailError || undefined }, 201);
   }
 
   // ---------------------------------------------------------------- staff look-ups (all owner-scoped)
@@ -345,7 +372,8 @@ const handle = async (req: Request): Promise<Response> => {
     if (action === "reset_password") {
       const { data, error } = await admin.rpc("maha_owned_staff", { p_owner: ownerId, p_username: username });
       if (error || !data) return respond({ error: "staff_not_found" }, 404);
-      const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email, "pms", (data as { user_id: string }).user_id);
+      const targetSystem = str("system") === "book" ? "book" : "pms";
+      const sent = await sendSetPasswordEmail((data as { recovery_email: string }).recovery_email, targetSystem, (data as { user_id: string }).user_id);
       return respond({ ok: true, invitation_sent: sent, invitation_error: mailError || undefined });
     }
 
