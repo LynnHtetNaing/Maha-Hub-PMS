@@ -13987,6 +13987,20 @@ const BE={
      }catch(e){rep.innerHTML='<div class="err">'+esc(e.message)+'</div>'}})();
     return;
    }
+   if(H.set.bookingOnly){
+    rep.innerHTML='<p class="sub">Loading Booking Engine requests...</p>';
+    (async()=>{try{
+      const ctx=await provBillCtx(H);
+      const all=await ctx.call('maha_booking_requests?select=id,created_at,status,room_type,rate_code,arr,dep,adults,children,guest_name,guest_email,amount,currency,payment_status&property_id=eq.'+ctx.pid+'&status=neq.declined&order=created_at.desc&limit=1000');
+      const rows=(all||[]).filter(r=>(!from||r.arr>=from)&&(!to||r.arr<=to));
+      const nights=r=>Math.max(1,Math.round((new Date(r.dep+'T12:00:00')-new Date(r.arr+'T12:00:00'))/86400000));
+      const revenue=rows.reduce((n,r)=>n+(Number(r.amount)||0),0);
+      rep.innerHTML='<div class="g3"><div class="panel pad"><div class="sub">Bookings in range</div><h2 style="margin:4px 0">'+rows.length+'</h2></div><div class="panel pad"><div class="sub">Booking value</div><h2 style="margin:4px 0">'+esc(H.set.cur)+' '+m2(revenue)+'</h2></div><div class="panel pad"><div class="sub">Confirmed</div><h2 style="margin:4px 0">'+rows.filter(r=>r.status==='confirmed').length+'</h2></div></div>'+
+       '<h3 class="mt">Booking Engine production</h3><table class="grid"><tr><th>Received</th><th>Guest</th><th>Room / Rate</th><th>Arrival</th><th>Departure</th><th class="n">Nights</th><th class="n">Amount</th><th>Status / payment</th></tr>'+
+       (rows.map(r=>'<tr><td>'+fdt(r.created_at)+'</td><td>'+esc(r.guest_name)+'<div class="sub">'+esc(r.guest_email)+'</div></td><td>'+esc(r.room_type)+' / '+esc(r.rate_code)+'</td><td>'+fd(r.arr)+'</td><td>'+fd(r.dep)+'</td><td class="n">'+nights(r)+'</td><td class="n">'+esc(r.currency)+' '+m2(r.amount)+'</td><td>'+esc(r.status)+' / '+esc(r.payment_status||'none')+'</td></tr>').join('')||'<tr><td colspan="8" class="empty">No direct bookings in this range.</td></tr>')+'</table>';
+     }catch(e){rep.innerHTML='<div class="err">'+esc(e.message)+'</div>'}})();
+    return;
+   }
    const direct=allBookingsH(H).filter(b=>b.channel==='WEB'&&b.source==='DIRECT'&&b.status!=='cancelled');
    const inRange=direct.filter(b=>(!from||b.arr>=from)&&(!to||b.arr<=to));
    const today=H.set.bd,onHand=direct.filter(b=>b.dep>=today),arrToday=direct.filter(b=>b.arr===today),depToday=direct.filter(b=>b.dep===today);
