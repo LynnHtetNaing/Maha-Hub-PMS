@@ -11,6 +11,6 @@ const checks=[
   [src.includes("data-connect")&&src.includes("h.set.systems.connect=nv;"),'Maha Connect can be opened and closed per hotel'],
   [src.includes("data-reach")&&src.includes("h.set.systems.reach=nv;"),'Maha Reach can be opened and closed per hotel'],
   [src.includes("data-saleshotel")&&src.includes("h.set.systems.sales=nv;"),'Maha Sales state remains separately controlled'],
-  [src.includes("saveDB();go('prov.systems')"),'System changes are saved and the page refreshes']
+  [src.includes('saveDB();render();toast('),'System changes are saved and the Systems page refreshes']
 ];
 for(const [ok,name] of checks){if(!ok)fail(name);console.log('PASS',name)}
