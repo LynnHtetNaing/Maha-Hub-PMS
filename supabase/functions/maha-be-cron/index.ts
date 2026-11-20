@@ -83,7 +83,7 @@ const handle = async (_req: Request): Promise<Response> => {
     const anyOn = ["arrival", "departure", "abandonment"].some((k) => ea[k] && ea[k].enabled);
     if (!anyOn) continue;
     const propertyId = row.property_id;
-    const { data: prop } = await admin.from("maha_properties").select("property_code,name").eq("id", propertyId).maybeSingle();
+    const { data: prop } = await admin.from("maha_properties").select("property_code,name,product_mode").eq("id", propertyId).maybeSingle();
     if (!prop) continue;
     const { data: bdRow } = await admin.from("maha_records").select("data").eq("property_id", propertyId).eq("collection", "$set").eq("rec_key", "bd").maybeSingle();
     const today = isoDate(new Date());
@@ -92,29 +92,53 @@ const handle = async (_req: Request): Promise<Response> => {
 
     if (ea.arrival && ea.arrival.enabled) {
       const target = addDays(businessDate, Number(ea.arrival.leadDays) || 0);
-      const { data: resRows } = await admin.from("maha_records").select("rec_key,data").eq("property_id", propertyId).eq("collection", "reservations").eq("deleted", false).limit(2000);
-      for (const r of resRows || []) {
-        const nr = r.data || {};
-        for (const b of nr.bookings || []) {
-          if (b.arr !== target || !["confirmed", "inhouse"].includes(b.status) || !nr.email) continue;
-          const { error: dupe } = await admin.from("maha_be_alert_sent").insert({ property_id: propertyId, reservation_no: String(nr.no || r.rec_key), booking_id: b.id, alert_type: "arrival" });
+      if (prop.product_mode === "booking_only") {
+        const { data: requests } = await admin.from("maha_booking_requests").select("id,guest_name,guest_email,arr,payment_status")
+          .eq("property_id", propertyId).eq("status", "confirmed").eq("arr", target).limit(200);
+        for (const r of requests || []) {
+          if (!r.guest_email || r.payment_status === "awaiting") continue;
+          const { error: dupe } = await admin.from("maha_be_alert_sent").insert({ property_id: propertyId, reservation_no: String(r.id), booking_id: "request", alert_type: "arrival" });
           if (dupe) continue;
-          const body = `We look forward to welcoming you to <b>${esc(hotelName)}</b> on ${esc(b.arr)}.${ea.arrival.body ? "<br><br>" + esc(ea.arrival.body).replace(/\n/g, "<br>") : ""}`;
-          if (await sendMail(admin, BREVO, propertyId, hotelName, nr.email, `Looking forward to your stay at ${hotelName}`, simpleMail(hotelName, `Dear ${esc(nr.contact || "Guest")},`, body), "arrival")) mailed++;
+          const body = "We look forward to welcoming you to <b>" + esc(hotelName) + "</b> on " + esc(r.arr) + "." + (ea.arrival.body ? "<br><br>" + esc(ea.arrival.body).replace(/\n/g, "<br>") : "");
+          if (await sendMail(admin, BREVO, propertyId, hotelName, r.guest_email, "Looking forward to your stay at " + hotelName, simpleMail(hotelName, "Dear " + esc(r.guest_name || "Guest") + ",", body), "arrival")) mailed++;
+        }
+      } else {
+        const { data: resRows } = await admin.from("maha_records").select("rec_key,data").eq("property_id", propertyId).eq("collection", "reservations").eq("deleted", false).limit(2000);
+        for (const r of resRows || []) {
+          const nr = r.data || {};
+          for (const b of nr.bookings || []) {
+            if (b.arr !== target || !["confirmed", "inhouse"].includes(b.status) || !nr.email) continue;
+            const { error: dupe } = await admin.from("maha_be_alert_sent").insert({ property_id: propertyId, reservation_no: String(nr.no || r.rec_key), booking_id: b.id, alert_type: "arrival" });
+            if (dupe) continue;
+            const body = "We look forward to welcoming you to <b>" + esc(hotelName) + "</b> on " + esc(b.arr) + "." + (ea.arrival.body ? "<br><br>" + esc(ea.arrival.body).replace(/\n/g, "<br>") : "");
+            if (await sendMail(admin, BREVO, propertyId, hotelName, nr.email, "Looking forward to your stay at " + hotelName, simpleMail(hotelName, "Dear " + esc(nr.contact || "Guest") + ",", body), "arrival")) mailed++;
+          }
         }
       }
     }
     if (ea.departure && ea.departure.enabled) {
       const target = addDays(businessDate, -(Number(ea.departure.leadDays) || 0));
-      const { data: resRows } = await admin.from("maha_records").select("rec_key,data").eq("property_id", propertyId).eq("collection", "reservations").eq("deleted", false).limit(2000);
-      for (const r of resRows || []) {
-        const nr = r.data || {};
-        for (const b of nr.bookings || []) {
-          if (b.dep !== target || !["checkedout", "departed"].includes(b.status) || !nr.email) continue;
-          const { error: dupe } = await admin.from("maha_be_alert_sent").insert({ property_id: propertyId, reservation_no: String(nr.no || r.rec_key), booking_id: b.id, alert_type: "departure" });
+      if (prop.product_mode === "booking_only") {
+        const { data: requests } = await admin.from("maha_booking_requests").select("id,guest_name,guest_email,dep,payment_status")
+          .eq("property_id", propertyId).eq("status", "confirmed").eq("dep", target).limit(200);
+        for (const r of requests || []) {
+          if (!r.guest_email || r.payment_status === "awaiting") continue;
+          const { error: dupe } = await admin.from("maha_be_alert_sent").insert({ property_id: propertyId, reservation_no: String(r.id), booking_id: "request", alert_type: "departure" });
           if (dupe) continue;
-          const body = `Thank you for staying with <b>${esc(hotelName)}</b>. We hope you enjoyed your visit - we would love to hear your feedback.${ea.departure.body ? "<br><br>" + esc(ea.departure.body).replace(/\n/g, "<br>") : ""}`;
-          if (await sendMail(admin, BREVO, propertyId, hotelName, nr.email, `Thank you for staying with ${hotelName}`, simpleMail(hotelName, `Dear ${esc(nr.contact || "Guest")},`, body), "departure")) mailed++;
+          const body = "Thank you for staying with <b>" + esc(hotelName) + "</b>. We hope you enjoyed your visit - we would love to hear your feedback." + (ea.departure.body ? "<br><br>" + esc(ea.departure.body).replace(/\n/g, "<br>") : "");
+          if (await sendMail(admin, BREVO, propertyId, hotelName, r.guest_email, "Thank you for staying with " + hotelName, simpleMail(hotelName, "Dear " + esc(r.guest_name || "Guest") + ",", body), "departure")) mailed++;
+        }
+      } else {
+        const { data: resRows } = await admin.from("maha_records").select("rec_key,data").eq("property_id", propertyId).eq("collection", "reservations").eq("deleted", false).limit(2000);
+        for (const r of resRows || []) {
+          const nr = r.data || {};
+          for (const b of nr.bookings || []) {
+            if (b.dep !== target || !["checkedout", "departed"].includes(b.status) || !nr.email) continue;
+            const { error: dupe } = await admin.from("maha_be_alert_sent").insert({ property_id: propertyId, reservation_no: String(nr.no || r.rec_key), booking_id: b.id, alert_type: "departure" });
+            if (dupe) continue;
+            const body = "Thank you for staying with <b>" + esc(hotelName) + "</b>. We hope you enjoyed your visit - we would love to hear your feedback." + (ea.departure.body ? "<br><br>" + esc(ea.departure.body).replace(/\n/g, "<br>") : "");
+            if (await sendMail(admin, BREVO, propertyId, hotelName, nr.email, "Thank you for staying with " + hotelName, simpleMail(hotelName, "Dear " + esc(nr.contact || "Guest") + ",", body), "departure")) mailed++;
+          }
         }
       }
     }
