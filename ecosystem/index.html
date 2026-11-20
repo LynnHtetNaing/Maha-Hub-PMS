@@ -2943,8 +2943,9 @@ html[data-skin="modern"][data-mode=dark] .hst.off{background:#e11d4833;color:#fb
 
 
 <style id="maha-booking-login-visibility">
-/* Ensure the Booking login never displays PMS-only shift or opening-cash controls. */
-#lgExtra[hidden]{display:none!important}
+/* Booking staff login never displays PMS-only shift or opening-cash controls. */
+#lgExtra[hidden],
+.eco-shell.is-booking-login #lgExtra{display:none!important}
 </style>
 
 <style id="maha-solutions-login-viewport-inset">
@@ -8153,7 +8154,7 @@ function tabTitleFor(){const se=typeof DB!=='undefined'&&DB&&DB.session;
 function setTabIcons(kind){const pre=kind==='hub'?'/brand/maha/pms-icon-':'/brand/maha/icon-';document.querySelectorAll('link[rel="icon"],link[rel="apple-touch-icon"]').forEach(l=>{const m=(l.getAttribute('href')||'').match(/icon-(\d+)\.png/);if(m)l.setAttribute('href',pre+m[1]+'.png')})}
 /* a provider (admin) stays on the console's own address even while operating a hotel's PMS - only a real hotel-staff
    sign-in gets the /solutions-PMS address. Address bar only; the title and tab icon below still show PMS/the hotel. */
-function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const provHub=kind==='hub'&&typeof DB!=='undefined'&&!!(DB.session&&DB.session.provider);const want=!kind||provHub?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':pre+'/ecosystem/'+seg+'/';
+function applySysPath(kind){const seg=kind?sysSegment(kind):'';const pre=appPrefix().replace(location.origin,'');const provHub=kind==='hub'&&typeof DB!=='undefined'&&!!(DB.session&&DB.session.provider);let want=!kind||provHub?pre+'/solutions':kind==='hub'?pre+'/solutions-PMS':kind==='book'?pre+'/solutions-Booking':pre+'/ecosystem/'+seg+'/';
   const norm=p=>p.replace(/\.html?$/i,'').replace(/\/index$/i,'').replace(/\/+$/,'')||'/';if(!onSplitHost()&&norm(location.pathname)!==norm(want))history.replaceState(null,'',want);document.title=seg==='PMS'?tabTitleFor():seg?('maha-hub / solutions / '+seg):'maha-hub / solutions';try{setTabIcons(kind)}catch(e){}}
 function edcB64url(str){
   try{return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}catch(e){return ''}
@@ -8765,7 +8766,7 @@ function showLogin(msg){
   if(lgTargetSys&&!hotelSystems(preview,null).some(s=>s.kind===lgTargetSys&&CHOOSER_OPEN.includes(s.kind)))lgTargetSys=null;
   try{applySysPath(lgTargetSys||null)}catch(e){}
   const lgOpen=!!(lgTargetSys||lgProvider), lgChosen=!!lgTargetSys;
-  document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${(!lgOpen&&lgDark())?' eco-dk':''}">
+  document.getElementById('app').innerHTML=`<div class="eco-shell${hostRole()==='console'?' eco-console':''}${lgOpen?' is-signin':''}${lgChosen?' is-chosen':''}${lgTargetSys==='book'?' is-booking-login':''}${(!lgOpen&&lgDark())?' eco-dk':''}">
   <section class="eco-hero" style="--eco-photo:url('${ECO_HERO}')" aria-label="Maha Hub ecosystem">
     <div class="eco-hero-bg" aria-hidden="true"></div>
     <div class="eco-leaves" aria-hidden="true"></div>
@@ -8812,7 +8813,19 @@ function showLogin(msg){
     </div>
   </aside></div>`;
   try{const rem=localStorage.getItem('maha.rememberUser');if(rem&&$('#lgRemember')){$('#lgRemember').checked=true;$('#lgUser').value=rem;const rp=localStorage.getItem('maha.rememberProp');if(rp&&$('#lgProp'))$('#lgProp').value=rp}}catch(e){}
-  const setShift=v=>{lgShift=v;$$('[data-shift]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.shift===v?'true':'false'));try{hint()}catch(e){}};
+  const setShift=v=>{lgShift=v;$('[data-shift]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.shift===v?'true':'false'));try{hint()}catch(e){}};
+  const syncBookingLoginFields=()=>{
+    const hide=lgTargetSys==='book';
+    const extra=$('#lgExtra');
+    if(extra){
+      extra.hidden=hide;
+      extra.setAttribute('aria-hidden',hide?'true':'false');
+      if(hide)extra.style.setProperty('display','none','important');
+      else extra.style.removeProperty('display');
+    }
+    const shell=document.querySelector('.eco-shell');
+    if(shell)shell.classList.toggle('is-booking-login',hide);
+  };
   $$('[data-shift]').forEach(b=>b.onclick=()=>setShift(b.dataset.shift));setShift(lgShift||suggestShift());
   let panelWasOpen=lgOpen;
   const applyPick=()=>{
@@ -8821,7 +8834,7 @@ function showLogin(msg){
     {const tl=$('#lgTile');if(tl){const kindNow=stackKind(),hubNow=!!kindNow,isDiv=tl.tagName==='DIV';if(hubNow===isDiv&&(!hubNow||tl.dataset.kind===kindNow)){/* same kind: nothing to change */}else{const w=document.createElement('div');w.innerHTML=LOGO_TILE();const nn=w.firstElementChild;if(nn)tl.replaceWith(nn)}if(!hubNow){const t2=$('#lgTile');if(t2&&t2.tagName==='IMG'){t2.src=lgTileSrc(lgTargetSys);t2.alt='Maha Solutions'}}}}
     const open=!!(lgTargetSys||lgProvider);
     const shell=document.querySelector('.eco-shell');
-    if(shell){shell.classList.toggle('is-signin',open);shell.classList.toggle('is-chosen',picked)}
+    if(shell){shell.classList.toggle('is-signin',open);shell.classList.toggle('is-chosen',picked)}syncBookingLoginFields();
     const panel=document.querySelector('.eco-login');
     if(panel)panel.hidden=!open;
     if(open&&!panelWasOpen){const f=$('#lgUser');f&&f.focus({preventScroll:true})}
@@ -8867,9 +8880,8 @@ function showLogin(msg){
     lgPickAnim=b.dataset.sys;lgTargetSys=b.dataset.sys;applySysPath(lgTargetSys);syncSelect();
   };
   const paint=()=>{
-    /* Booking has no front-desk shift or cash drawer. Keep these fields hidden even during the initial paint. */
-    const isBookingLogin=lgTargetSys==='book'||(location.hostname||'').toLowerCase().startsWith('booking.');
-    $('#lgExtra').hidden=isBookingLogin;
+    /* Booking has no front-desk shift or cash drawer. Enforce this independently of PMS hint logic. */
+    syncBookingLoginFields();
     const demo=(lgProvider||MahaAuth.on())?[]:[['','manager','manager123','Manager'],['','frontdesk','front123','Front desk'],['wide','housekeeping','hk123','Other department (Housekeeping)']];
     const demoBox=$('#lgDemo');demoBox.hidden=!demo.length;
     demoBox.innerHTML=demo.length?'Demo (tap to fill):<div class="demob">'+demo.map(d=>`<button type="button" class="btn ghost sm ${d[0]||''}" data-demo="${d.join('|')}">${d[3]}</button>`).join('')+'</div>':'';
@@ -8893,7 +8905,7 @@ function showLogin(msg){
   const hint=()=>{
     paintCards();
     /* Maha Booking (and any future non-PMS system) has no front-desk shift or cash drawer - only Maha PMS does */
-    if(lgTargetSys==='book'||(location.hostname||'').toLowerCase().startsWith('booking.')){$('#lgExtra').hidden=true;$('#lgGo').textContent='Login →';return}
+    if(lgTargetSys==='book'){syncBookingLoginFields();$('#lgGo').textContent='Login →';return}
   if(lgTargetSys&&lgTargetSys!=='hub'){$('#lgExtra').hidden=true;$('#lgGo').textContent='Login →';return}
     if(lgProvider){$('#lgExtra').hidden=true;$('#lgGo').textContent='Sign in as provider →';return}
     const pvu=DB.providers.some(p=>p.username===$('#lgUser').value.trim().toLowerCase());
