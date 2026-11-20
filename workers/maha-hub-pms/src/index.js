@@ -44,6 +44,8 @@ function route(pathname) {
   const path = cleanPath(pathname);
   const low = path.toLowerCase();
   if (low === '/solutions') return { doc: { file: APP_FILE } };
+  /* Private hotel-user Booking sign-in. Do not route this path to the public guest booking page. */
+  if (low === '/solutions-booking') return { doc: { file: APP_FILE } };
   let m = low.match(/^\/solutions-(pms|reach|connect|booking)$/);
   if (m) return { doc: SYSTEM_DOC[m[1]] };
   if (low === '/ecosystem') return { to: '/solutions' };
