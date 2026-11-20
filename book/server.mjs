@@ -217,7 +217,9 @@ const server = http.createServer(async (req, res) => {
         .filter(h => h.bookEnabled && h.active !== false)
         .map(h => ({
           id: h.id,
-          name: h.name,
+          name: h.bookingTitle || h.name,
+          propertyName: h.name,
+          bookingTitle: h.bookingTitle || h.name,
           addr: h.addr,
           country: h.country,
           countryCode: h.countryCode,

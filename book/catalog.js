@@ -236,6 +236,8 @@ export function publicHotelFromHub(h, opts = {}) {
   return {
     id: h.code,
     name: s.name || h.code,
+    bookingTitle: g.title || s.name || h.code,
+    description: g.description || '',
     legal: s.legal || '',
     addr: s.addr || '',
     phone: s.phone || '',
