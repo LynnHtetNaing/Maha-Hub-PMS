@@ -1,5 +1,6 @@
 const fs=require('fs');
 const src=fs.readFileSync(process.argv[2],'utf8');
+const catalog=fs.readFileSync(process.argv[3],'utf8');
 const fail=m=>{console.error('FAIL',m);process.exit(1)};
 const checks=[
  [src.includes("const hotels=all.filter(h=>h.active!==false)"),'Systems matrix includes every active property'],
@@ -10,7 +11,7 @@ const checks=[
  [src.includes('h.bookingOnly=true')&&src.includes('ProvSync.adopt(code,d.property_id)'),'Standalone Booking Engine uses the existing tenant record sync without a PMS login'],
  [src.includes('SEC.types($('#gTypes',el))')&&src.includes('SEC.rooms($('#gRooms',el))')&&src.includes('SEC.rates($('#gRates',el))'),'Standalone setup includes room types, rooms and rate plans'],
  [src.includes("id=\"p_gtitle\"")&&src.includes("title:$('#p_gtitle',box).value.trim()"),'Booking Engine Title is saved with the hotel booking profile'],
- [src.includes('engineTitle: g.title || s.name || h.code'),'Public catalog exposes the configured Booking Engine Title'],
+ [catalog.includes('engineTitle: g.title || s.name || h.code'),'Public catalog exposes the configured Booking Engine Title'],
  [src.includes("if(H.bookingOnly){rep.innerHTML='<p class=\"sub\">Loading standalone Booking Engine requests"),'Standalone Booking Engine reports read booking requests without PMS reservations'],
  [src.includes("if(kind==='hub'&&h&&h.bookingOnly)"),'Booking-only properties cannot be opened as Maha PMS'],
  [!src.includes('Build and test the apps (provider only)'),'Provider-only Build and test section is removed']
