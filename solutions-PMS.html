@@ -8207,7 +8207,7 @@ VIEWS['prov.home']=el=>{
   $('[data-prov-systems]',el).forEach(b=>b.onclick=()=>{const h=DB.hotels[b.dataset.provSystems];if(!h)return;H=h;go('prov.systems')});
 };
 VIEWS['prov.systems']=el=>{
-  const hotels=provHotels().filter(h=>h&&h.code);
+  const hotels=Object.values(DB.hotels||{}).filter(h=>h&&h.code).sort((a,b)=>String(a.code).localeCompare(String(b.code)));
   const hotelCard=h=>{
     shapeHotel(h);
     const hotelOn={connect:connectOn(h),book:bookOn(h),reach:reachOn(h),sales:salesOn(h)};
@@ -8224,7 +8224,7 @@ VIEWS['prov.systems']=el=>{
     }).join('');
     return '<article class="card panel pad" data-hotel-card="'+esc(h.code)+'"><div class="btns" style="justify-content:space-between"><div><b>'+esc(h.set.name||h.code)+'</b><div class="sub">'+esc(h.code)+'</div></div><button type="button" class="btn sm ghost" data-enter="'+esc(h.code)+'">Open PMS</button></div>'+
       '<div class="usys"><div><b>Maha PMS</b><div class="sub">Hotel management system</div><small>Core system</small></div><span class="pill">Always available</span></div>'+controls+
-      '<div class="btns" style="margin-top:12px"><button type="button" class="btn sm ghost" data-pub="'+esc(h.code)+'">Preview public booking page</button><button type="button" class="btn sm ghost" data-booksetup="'+esc(h.code)+'">Booking Engine settings</button></div></article>';
+      '<div class="btns" style="margin-top:12px"><button type="button" class="btn sm ghost" data-pub="'+esc(h.code)+'">Preview public booking page</button></div></article>';
   };
   el.innerHTML=pageHead('Systems','Open or close each released system separately for each hotel. A closed system is unavailable to that hotel’s staff; hotel data and user accounts remain unchanged.')+
     '<div class="panel pad"><div class="grid g2">'+hotels.map(hotelCard).join('')+'</div></div>';
@@ -8234,7 +8234,7 @@ VIEWS['prov.systems']=el=>{
     else if(kind==='reach'){const nv=!reachOn(h);h.set.systems.reach=nv;}
     else if(kind==='sales'){const nv=!salesOn(h);h.set.systems.sales=nv;}
     else return;
-    provLog((kind==='book'?'Maha Booking':kind==='connect'?'Maha Connect':kind==='reach'?'Maha Reach':'Maha Sales')+' '+(kind==='book'?bookOn(h):kind==='connect'?connectOn(h):kind==='reach'?reachOn(h):salesOn(h)?'opened':'closed')+' for '+h.code);
+    const isOpen=kind==='book'?bookOn(h):kind==='connect'?connectOn(h):kind==='reach'?reachOn(h):salesOn(h);\n    provLog((kind==='book'?'Maha Booking':kind==='connect'?'Maha Connect':kind==='reach'?'Maha Reach':'Maha Sales')+' '+(isOpen?'opened':'closed')+' for '+h.code);
     saveDB();go('prov.systems');
   };
   $('[data-connect]',el).forEach(b=>b.onclick=()=>toggle('connect',b.dataset.connect));
