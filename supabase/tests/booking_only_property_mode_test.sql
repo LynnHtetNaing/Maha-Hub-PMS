@@ -55,13 +55,14 @@ begin
     raise exception 'Invalid provisioning left a property behind';
   end if;
 end
-$;
+$$;
 
--- A tenant owner can update ordinary property details, but cannot change the provider-owned product mode.
-do $
+-- A tenant owner cannot change the provider-owned product mode through the table API.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000901', true);
+do $$
 declare rejected boolean := false;
 begin
-  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000901', true);
   begin
     update public.maha_properties set product_mode = 'pms' where property_code = 'BKO01';
   exception when insufficient_privilege then
@@ -69,6 +70,7 @@ begin
   end;
   if not rejected then raise exception 'tenant was able to change the provider-owned product mode'; end if;
 end
-$;
+$$;
+reset role;
 
 rollback;
