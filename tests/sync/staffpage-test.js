@@ -70,6 +70,8 @@ console.log('staff page ok');
  const v=s8.indexOf("VIEWS['prov.systems']=el=>{"),e=s8.indexOf("VIEWS['prov.rules']=el=>{",v);const b8=s8.slice(v,e);
  if(!b8.includes("const hotelCard=h=>{")||!b8.includes("class=\"usys\""))fail('Systems page: one card per hotel with the system boxes');
  if(!b8.includes("RELEASED_SYSTEMS.includes(k)"))fail('Systems page: unreleased systems are grey and cannot be pressed');
- for(const a of ['data-connect','data-book','data-reach','data-saleshotel','data-enter','data-pub','data-booksetup','cxSaveHost','bkSaveHost'])if(!b8.includes(a))fail('Systems page lost: '+a);
- if(!b8.includes('Build and test the apps (provider only)'))fail('build and test section');
+ for(const a of ['data-connect','data-book','data-reach','data-saleshotel','data-enter','data-pub','data-booksetup','data-manageusers','data-be-open'])if(!b8.includes(a))fail('Systems page lost: '+a);
+ if(b8.includes('Build and test the apps (provider only)'))fail('provider-only build/test section should be removed');
+ if(!b8.includes('h.active!==false'))fail('Systems page should show every active hotel');
+ if(!b8.includes('Manage users & permissions'))fail('Systems page should link to user management');
  console.log('systems page ok');}
