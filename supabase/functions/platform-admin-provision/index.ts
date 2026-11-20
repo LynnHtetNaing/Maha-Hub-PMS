@@ -68,7 +68,7 @@ const CODE = /^[A-Z0-9_-]{2,24}$/;
 const RESET_REDIRECT = "https://solutions.maha-hub.com/reset-password.html";
 // With AUTH_SYSTEM_REDIRECTS=on the set-password link opens on the system it is for (the email hook then shows that system's own look).
 const SYSTEM_RESET: Record<string, string> = { pms: "https://pms.maha-hub.com/reset-password.html", book: "https://booking.maha-hub.com/reset-password.html", console: "https://console.maha-hub.com/reset-password.html", crm: "https://crm.maha-hub.com/reset-password.html" };
-const resetRedirect = (system: string) => (Deno.env.get("AUTH_SYSTEM_REDIRECTS") === "on" && SYSTEM_RESET[system]) || RESET_REDIRECT;
+const resetRedirect = (system: string) => (system === "book" ? SYSTEM_RESET.book : (Deno.env.get("AUTH_SYSTEM_REDIRECTS") === "on" && SYSTEM_RESET[system])) || RESET_REDIRECT;
 
 // Reads one claim from a JWT. The token was already verified by Supabase Auth (getUser) before this is used.
 function jwtClaim(token: string, name: string): string {
