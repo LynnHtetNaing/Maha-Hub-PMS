@@ -3558,7 +3558,9 @@ function shapeHotel(h){
   /* a system that is not released starts Closed for every hotel; the provider opens it for a hotel when it is released */
   if(!h.set._sysClosedMig){h.set._sysClosedMig=1;if(h.set.package!=='fullpkg')h.set.systems.sales=false}
   if(!h.set._sysClosedMig2){h.set._sysClosedMig2=1;['reach','connect','sales'].forEach(k=>{if(!RELEASED_SYSTEMS.includes(k))h.set.systems[k]=false})}
-  (h.users||[]).forEach(u=>{u.systems=Object.assign({hub:hubOn(h),connect:true,book:true,reach:true,sales:false},u.systems||{});if(!hubOn(h))u.systems.hub=false});
+  /* hubOn(h) calls shapeHotel(h) itself (same as bookOn/connectOn/etc.), so it must never be called from inside
+     shapeHotel - that would recurse forever. The raw flag is exactly what hubOn() reads anyway. */
+  (h.users||[]).forEach(u=>{const hubIsOn=h.set.pmsEnabled!==false;u.systems=Object.assign({hub:hubIsOn,connect:true,book:true,reach:true,sales:false},u.systems||{});if(!hubIsOn)u.systems.hub=false});
   /* Maha Sales is released but starts Closed for every person; the provider opens it for each person */
   if(!h.set._salesUserMig){h.set._salesUserMig=1;(h.users||[]).forEach(u=>{u.systems.sales=false})}
   h.set.rules=Object.assign({},DEFAULT_RULES,h.set.rules||{});
