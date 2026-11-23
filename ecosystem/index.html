@@ -13917,14 +13917,16 @@ const BE={
    build()};
   paint()}
 };
-/* Every Hotel Setup / Booking Engine setup section (SEC.*) already filled in locks itself the moment it is drawn,
-   so a provider or manager cannot change a saved value by an accidental click - a small Edit button unlocks it.
-   A section that is still empty (first-time setup) is never locked. Wrapping every SEC.* method here, once, means
-   no individual section had to be rewritten: whichever page calls it (Hotel Setup, Provider console, Backend), it locks.
-   The lock only lasts until that section is next redrawn (closing it, saving it, or switching hotel/page) - Save
-   itself always re-locks, which is the point: nothing stays open to accidental changes once you move on. */
+/* Every Hotel Setup section (SEC.*) a hotel MANAGER already filled in locks itself the moment it is drawn,
+   so they cannot change a saved value by an accidental click - a small Edit button unlocks it. The provider
+   (admin) is never locked here - Hotel Setup stays directly editable for them, same as before this existed.
+   A section that is still empty (first-time setup) is never locked either way. Wrapping every SEC.* method
+   here, once, means no individual section had to be rewritten: whichever page calls it (Hotel Setup, Provider
+   console, Backend), it locks for a manager. The lock only lasts until that section is next redrawn (closing
+   it, saving it, or switching hotel/page) - Save itself always re-locks, which is the point for a manager. */
 Object.keys(SEC).forEach(k=>{const orig=SEC[k];SEC[k]=function(box){const r=orig.apply(this,arguments);try{lockFilledSection(box)}catch(e){}return r}});
 function lockFilledSection(box){
+  if(!!(user().provider||user().isProv))return;
   if(!box||!box.querySelector)return;
   const fields=$$('input,select,textarea',box).filter(f=>!f.disabled&&f.type!=='hidden'&&!f.readOnly);
   if(!fields.length)return;
