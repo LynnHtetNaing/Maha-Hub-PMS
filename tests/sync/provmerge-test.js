@@ -55,7 +55,7 @@ T('Direct Booking Engine has no hotel-staff equivalent, so it is a genuinely new
   !src.includes("if(DB.session.inHotel){el.innerHTML=pageHead('Direct Booking Engine')"));
 T('This hotel\'s own Stripe keys (guest/OTA card payments) are reachable from the Provider menu while inside the hotel too, since they are set up one hotel at a time', src.includes("['Stripe payments (this hotel)','prov.stripe']"));
 T('prov.systems and prov.distribution are genuinely whole-platform (one table across every hotel at once), so they correctly stay provider-console-only, left alone',
-  src.includes("if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems')+'<div class=\"empty\">Open this from the provider console (leave the hotel first).</div>';return}") &&
+  src.includes("if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems & Access')+'<div class=\"empty\">Open this from the provider console (leave the hotel first).</div>';return}") &&
   src.includes("if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Distribution')+'<div class=\"empty\">Open this from the provider console (leave the hotel first).</div>';return}"));
 
 T('each Hotel Setup subtitle page has its own icon in the title (not the same folder icon for every one)',

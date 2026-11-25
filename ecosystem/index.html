@@ -7837,7 +7837,7 @@ const BOOKING_ONLY_MENU=[{t:'Booking Engine',items:[['Booking Engine Bookings','
 /* Provider console, two levels. Level 1 (this menu): the whole system, no hotel picked. Level 2 (PROV_WS_MENU): a hotel's own workspace, shown whenever the page is one of PROV_WS_VIEWS. */
 const PROV_MENU=[
  {t:'Hotels List',flat:'prov.home'},
- {t:'Whole system',items:[['Systems','prov.systems'],['Booking Engine','prov.be.console'],['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
+ {t:'Whole system',items:[['Systems & Access','prov.systems'],['Booking Engine','prov.be.console'],['Chains / Groups','prov.chains'],['Code catalog (all hotels)','prov.catalog'],['System rules','prov.rules'],['Security Center','prov.security'],['Backup & migration','prov.backup'],['Maha Pay — Billing','prov.mahapay']]},
  {t:'Team & records',items:[['Admin team','prov.team'],['CRM team','prov.crmteam'],['CRM','prov.crm'],['Announcements','prov.announce'],['Admin logs','prov.adminlogs'],['Recycle bin','prov.recycle']]},
  {t:'Account',items:[[MahaAuth.on()?'My profile':'My account & security','prov.account']]}];
 const PROV_WS_VIEWS=['prov.setup','prov.perms','prov.functions','prov.google','prov.be.profile','prov.be.inventory','prov.be.rates','prov.be.bookings','prov.be.amenities','prov.be.policies','prov.be.photos','prov.be.pending','prov.be.channels','prov.be.promotions','prov.be.allotment','prov.be.guestCountry','prov.be.reports','prov.be.emailAlerts','prov.be.theme','prov.be.bookButton','prov.distribution','prov.stripe','prov.billing','prov.approvals','prov.amend','prov.log','prov.userlogs','prov.terms'];
@@ -13139,119 +13139,91 @@ function openHotel(code){H=DB.hotels[code];DB.session.hotel=code;applyHotelCodes
 
 /* ---------- Systems: Reach/Connect open-close + in-app switcher ---------- */
 VIEWS['sys.pick']=el=>{el.innerHTML='';go(firstHotelView());setTimeout(openSystemsSwitcher,0)};
+const SYSMX={q:'',open:null};
+const SYS_COLS=[['hub','Maha PMS','Front desk, billing, reports.'],['book','Maha Booking','Guests book directly.'],['connect','Maha Connect','Global channel distribution.'],['reach','Maha Reach','Marketing & guest engagement.'],['sales','Maha Sales','Leads and quotations.'],['hr','Maha HR','Staff records and scheduling.'],['account','Maha Account','Company accounting.'],['manage','Maha Manage','Group-level oversight.'],['pos','Maha POS','Point of sale.'],['stock','Maha Stock','Inventory and purchasing.']];
+function sysState(h,k){return k==='hub'?hubOn(h):k==='book'?bookOn(h):k==='connect'?connectOn(h):k==='reach'?reachOn(h):k==='sales'?salesOn(h):false}
+function toggleHotelSystem(h,k){
+  shapeHotel(h);const nv=!sysState(h,k);
+  if(k==='hub')h.set.pmsEnabled=nv;
+  else if(k==='book')h.set.google.enabled=nv;
+  else if(k==='connect')h.set.systems.connect=nv;
+  else if(k==='reach')h.set.systems.reach=nv;
+  else if(k==='sales')h.set.systems.sales=nv;
+  provLog((nv?'Opened ':'Closed ')+ecoSysLabel(k)+' for '+h.code);
+  saveDB();render();toast((nv?'Opened ':'Closed ')+ecoSysLabel(k)+' for '+h.code+'.');
+}
+/* One page for every hotel's systems and every staff member's own access to them - no navigating to a separate
+   page per hotel, no separate "Manage users" detour for a system toggle. Click a hotel row to expand its systems
+   and staff table in place; click again to collapse. Only released systems (RELEASED_SYSTEMS) show a toggle -
+   the rest stay out of sight until they are real, instead of listing "Coming soon" columns forever. Reuses the
+   exact same toggle logic this page always had (sysState()/toggleHotelSystem()), plus permBind()'s own [data-su]
+   handler for a single person's access, so nothing about how a toggle behaves or what it checks has changed. */
 VIEWS['prov.systems']=el=>{
-  if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
+  if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Systems & Access')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
   const hotels=Object.values(DB.hotels||{}).filter(h=>h&&h.set&&h.active!==false).sort((a,b)=>String(a.set.name||a.code).localeCompare(String(b.set.name||b.code)));
   hotels.forEach(shapeHotel);
-  const columns=[['hub','Maha PMS'],['book','Maha Booking'],['connect','Maha Connect'],['reach','Maha Reach'],['sales','Maha Sales'],['hr','Maha HR'],['account','Maha Account'],['manage','Maha Manage'],['pos','Maha POS'],['stock','Maha Stock']];
-  const state=(h,k)=>k==='hub'?hubOn(h):k==='book'?bookOn(h):k==='connect'?connectOn(h):k==='reach'?reachOn(h):k==='sales'?salesOn(h):false;
-  const cell=(h,k)=>{
-    if(k==='hub')return !hubOn(h)?'<span class="smx-na">Not included</span>':'<span class="smx-always">Always on</span>';
-    if(!RELEASED_SYSTEMS.includes(k))return '<span class="smx-soon">Coming soon</span>';
-    const on=state(h,k);
-    return '<button type="button" class="smx-toggle '+(on?'on':'off')+'" data-sys-toggle="'+k+'" data-code="'+esc(h.code)+'" aria-pressed="'+(on?'true':'false')+'"><i></i><span>'+(on?'ON':'OFF')+'</span></button>';
+  const released=SYS_COLS.filter(c=>RELEASED_SYSTEMS.includes(c[0]));
+  const soon=SYS_COLS.filter(c=>!RELEASED_SYSTEMS.includes(c[0])).map(c=>c[1]).join(', ');
+  const rowCell=(h,k)=>{const on=sysState(h,k);return `<span style="font-size:12px;font-weight:600;color:${on?'#16724e':'#8a8f8a'}">${on?'Open':'Closed'}</span>`};
+  const panelHtml=h=>{
+    const users=(h.users||[]).filter(u=>!u.provider&&!u.isProv&&!u.deleted&&!u.cancelled);
+    const userCell=(u,k)=>{
+      const hotelOn=sysState(h,k);
+      if(!hotelOn)return `<span class="sub" title="Closed for this hotel">—</span>`;
+      const on=userHasSystem(u,k);
+      return `<button type="button" class="btn sm ${on?'':'ghost'}" data-su="${u.id}" data-sk="${k}" data-su-code="${esc(h.code)}">${on?'Open':'Locked'}</button>`;
+    };
+    return `<div style="padding:18px 22px 24px 44px;background:var(--panel2,#fbfcfb);border-top:1px solid var(--line,#eef1ee)">
+      <h3 class="mt0">Systems for this hotel</h3>
+      <div class="sysgrid">${released.map(c=>{const on=sysState(h,c[0]);return `<div class="syscard ${on?'on':'off'}">
+         <div class="row gap" style="align-items:flex-start;justify-content:space-between">
+          <div><b>${c[1]}</b><div class="sub" style="margin-top:2px">${esc(c[2])}</div></div>
+          <button type="button" class="smx-toggle ${on?'on':'off'}" data-sys-toggle="${c[0]}" data-code="${esc(h.code)}" aria-pressed="${on?'true':'false'}"><i></i><span>${on?'ON':'OFF'}</span></button>
+         </div>
+         <span class="sub" style="font-weight:600;color:${on?'#16724e':'#8a8f8a'}">${on?'Open: staff can use it':'Closed: hidden from staff'}</span>
+        </div>`}).join('')}</div>
+      ${soon?`<p class="sub mt">${esc(soon)} aren't released yet — they'll appear here when they are.</p>`:''}
+      <h3 class="mt">Staff access</h3>
+      <div class="scroll mt" style="overflow-x:auto">
+       <table class="grid"><tr><th>Staff</th>${released.map(c=>'<th style="text-align:center;min-width:94px">'+c[1]+'</th>').join('')}</tr>
+       ${users.map(u=>`<tr><td><b>${esc(u.name)}</b><div class="sub">${esc(u.position||u.role||'')} · ${esc(u.username)}</div></td>${released.map(c=>'<td style="text-align:center">'+userCell(u,c[0])+'</td>').join('')}</tr>`).join('')||'<tr><td colspan="'+(released.length+1)+'" class="empty">No staff yet.</td></tr>'}
+       </table>
+      </div>
+     </div>`;
   };
-  el.innerHTML=pageHead('Systems')+`<style>.smx-toggle{border:0;border-radius:18px;padding:4px 10px;min-width:72px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:11px;cursor:pointer}.smx-toggle i{width:8px;height:8px;border-radius:50%;background:#fff}.smx-toggle.on{background:#15966b;color:#fff}.smx-toggle.off{background:#f4dfe0;color:#9c3035}.smx-always,.smx-na,.smx-soon{display:inline-block;border-radius:12px;padding:5px 9px;font-size:11px;font-weight:700}.smx-always{background:#e1f4ea;color:#16724e}.smx-na,.smx-soon{background:#e7ecef;color:#71808a}.sysmatrix th{text-align:center;white-space:nowrap}.sysmatrix th:first-child{text-align:left}</style>
+  el.innerHTML=pageHead('Systems & Access')+`<style>.smx-toggle{border:0;border-radius:18px;padding:4px 10px;min-width:72px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:11px;cursor:pointer}.smx-toggle i{width:8px;height:8px;border-radius:50%;background:#fff}.smx-toggle.on{background:#15966b;color:#fff}.smx-toggle.off{background:#f4dfe0;color:#9c3035}
+    .sysgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px}
+    .syscard{border:1px solid var(--line,#e3e7e4);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+    .syscard.on{background:rgba(21,150,107,.07);border-color:rgba(21,150,107,.35)}.syscard.off{background:var(--panel2,#fbfbfa)}
+    #smRows .sysrow{cursor:pointer}#smRows .sysrow:hover{background:var(--hover,rgba(0,0,0,.025))}
+    .sysrow .chev{transition:transform .15s;display:inline-block}.sysrow.open .chev{transform:rotate(90deg)}
+    .mt0{margin-top:0}</style>
    <div class="panel pad">
     <div class="row gap" style="align-items:center;justify-content:space-between;flex-wrap:wrap">
-     <div><b>Hotel system access</b><p class="sub" style="margin:4px 0 0">All active properties appear here, including properties that use Booking Engine without Maha PMS. A hotel system must be open before an individual user can access it.</p></div>
+     <div><b>Hotel systems &amp; staff access</b><p class="sub" style="margin:4px 0 0">Click a hotel to see and change its systems and who on its team can use each one. A system must be open for the hotel before it can be opened for any one person.</p></div>
      <button class="btn gold" id="openBookingConsole" type="button">Booking Engine Admin →</button>
     </div>
-    <div class="phsrch mt"><input id="smQ" placeholder="Search hotel name or code" autocomplete="off" style="max-width:360px"><span class="sub" id="smCount">${hotels.length} active properties</span></div>
+    <div class="phsrch mt"><input id="smQ" value="${esc(SYSMX.q)}" placeholder="Search hotel name or code" autocomplete="off" style="max-width:360px"><span class="sub" id="smCount">${hotels.length} active properties</span></div>
     <div class="scroll mt" style="overflow-x:auto">
-     <table class="grid sysmatrix" style="min-width:1120px">
-      <thead><tr><th style="min-width:220px">Hotel / Property</th>${columns.map(c=>'<th style="text-align:center;min-width:94px">'+c[1]+'</th>').join('')}<th style="min-width:150px">Users</th></tr></thead>
-      <tbody id="smRows">${hotels.map(h=>'<tr data-hotel-row="'+esc(h.code)+'"><td><b>'+esc(h.set.name||h.code)+'</b><div class="sub">'+esc(h.code)+' · '+(!hubOn(h)?'Booking-only':'PMS-linked')+'</div></td>'+columns.map(c=>'<td style="text-align:center">'+cell(h,c[0])+'</td>').join('')+'<td><div class="row gap" style="flex-wrap:wrap"><button class="btn sm gold" data-sysacc2="'+esc(h.code)+'">Systems &amp; access</button> <button class="btn sm ghost" data-manage-users="'+esc(h.code)+'">Manage users ('+(h.users||[]).length+')</button>'+(!hubOn(h)?'':'<button class="btn sm ghost" data-enter-pms="'+esc(h.code)+'">Enter PMS</button>')+'</div></td></tr>').join('')||'<tr><td colspan="12" class="empty">No active properties yet. Create a hotel or a Booking-only property to get started.</td></tr>'}</tbody>
+     <table class="grid sysmatrix" style="min-width:760px">
+      <thead><tr><th style="min-width:220px">Hotel / Property</th>${released.map(c=>'<th style="text-align:center;min-width:94px">'+c[1]+'</th>').join('')}<th style="min-width:70px">Staff</th><th style="min-width:150px"></th></tr></thead>
+      <tbody id="smRows">${hotels.map(h=>{const open=SYSMX.open===h.code;return `<tr class="sysrow${open?' open':''}" data-hotel-row="${esc(h.code)}" data-toggle-code="${esc(h.code)}"><td><svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px;opacity:.6"><polyline points="9 6 15 12 9 18"></polyline></svg><b>${esc(h.set.name||h.code)}</b><div class="sub" style="margin-left:18px">${esc(h.code)} · ${!hubOn(h)?'Booking-only':'PMS-linked'}</div></td>${released.map(c=>'<td style="text-align:center">'+rowCell(h,c[0])+'</td>').join('')}<td style="text-align:center">${(h.users||[]).length}</td><td><div class="row gap" style="flex-wrap:wrap"><button class="btn sm ghost" data-manage-users="${esc(h.code)}">Manage users</button>${!hubOn(h)?'':`<button class="btn sm ghost" data-enter-pms="${esc(h.code)}">Enter PMS</button>`}</div></td></tr>`+(open?`<tr class="sysrow-panel" data-panel-code="${esc(h.code)}"><td colspan="${released.length+3}" style="padding:0">${panelHtml(h)}</td></tr>`:'')}).join('')||`<tr><td colspan="${released.length+3}" class="empty">No active properties yet. Create a hotel or a Booking-only property to get started.</td></tr>`}</tbody>
      </table>
     </div>
-    <div class="panel pad mt">
-     <b>System server addresses</b>
-     <p class="sub" style="margin:4px 0 10px">Set the service addresses used by the provider console for Maha Connect and Maha Booking.</p>
-     <div class="cols2" style="gap:10px">
-      <label class="field"><span>Maha Connect server</span><div class="row gap"><input id="cxHost" value="${esc(connectHost())}" style="min-width:180px;flex:1"><button class="btn sm ghost" id="cxSaveHost" type="button">Save</button></div></label>
-      <label class="field"><span>Maha Booking server</span><div class="row gap"><input id="bkHost" value="${esc(bookHost())}" style="min-width:180px;flex:1"><button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></div></label>
-     </div>
-    </div>
-    <div class="usleg mt"><span><i style="background:#1f9d6b"></i>On for this hotel</span><span><i style="background:#d64545"></i>Off for this hotel</span><span><i style="background:#c3ccd2"></i>Coming soon / not included</span></div>
    </div>`;
   const q=$('#smQ',el),rows=$$('[data-hotel-row]',el);
-  const filter=()=>{const v=(q.value||'').trim().toLowerCase();let n=0;rows.forEach(r=>{const show=!v||r.textContent.toLowerCase().includes(v);r.hidden=!show;if(show)n++});$('#smCount',el).textContent=n+' of '+hotels.length+' active properties'};
+  const filter=()=>{const v=(q.value||'').trim().toLowerCase();SYSMX.q=q.value;let n=0;rows.forEach(r=>{const show=!v||r.textContent.toLowerCase().includes(v);r.hidden=!show;if(show)n++;const panel=el.querySelector('[data-panel-code="'+r.dataset.toggleCode+'"]');if(panel)panel.hidden=!show});$('#smCount',el).textContent=n+' of '+hotels.length+' active properties'};
   q.oninput=filter;
-  $('#cxSaveHost',el).onclick=()=>{const v=(($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782');localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
-  $('#bkSaveHost',el).onclick=()=>{const v=(($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781');localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
   $('#openBookingConsole',el).onclick=()=>go('prov.be.console');
-  $$('[data-sys-toggle]',el).forEach(b=>b.onclick=()=>{
-    const h=DB.hotels[b.dataset.code];if(!h)return;shapeHotel(h);
-    const k=b.dataset.sysToggle,nv=!state(h,k);
-    if(k==='book')h.set.google.enabled=nv;
-    else if(k==='connect')h.set.systems.connect=nv;
-    else if(k==='reach')h.set.systems.reach=nv;
-    else if(k==='sales')h.set.systems.sales=nv;
-    provLog((nv?'Opened ':'Closed ')+(k==='book'?'Maha Booking':k==='connect'?'Maha Connect':k==='reach'?'Maha Reach':'Maha Sales')+' for '+h.code);
-    saveDB();render();toast((nv?'Opened ':'Closed ')+(k==='book'?'Maha Booking':k==='connect'?'Maha Connect':k==='reach'?'Maha Reach':'Maha Sales')+' for '+h.code+'.');
-  });
-  $$('[data-manage-users]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.manageUsers);DB.session.hotel=b.dataset.manageUsers;go('prov.perms')});
-  $$('[data-sysacc2]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sysacc2);DB.session.hotel=b.dataset.sysacc2;go('prov.sysaccess')});
-  $$('[data-enter-pms]',el).forEach(b=>b.onclick=()=>enterHotelBackend(b.dataset.enterPms));
-};
-/* One page, per hotel: every system this hotel can have, on or off, and every staff member's own access to each
-   one - both in one place, reached by a single click from the Hotels list's Action menu. Before this, opening
-   or closing a system for the whole hotel lived on the separate Systems page, and opening or closing it for one
-   person meant entering the hotel, going to Backend > People & access, opening that person, then finding the
-   system tile inside their own permissions popup - five steps for a two-second change. Reuses the exact same
-   toggle logic as both of those older screens (state()/cell() from Systems, permBind()'s own [data-su] handler
-   from the person popup), so nothing about how a toggle behaves or what it checks has changed - only how many
-   clicks it takes to reach one. */
-VIEWS['prov.sysaccess']=el=>{
-  if(!(DB.session&&DB.session.provider)||DB.session.inHotel||!H){el.innerHTML=pageHead('Systems & Access')+'<div class="empty">Open this for a hotel from the Hotels list (Action &rarr; Systems &amp; access).</div>';return}
-  const h=H;shapeHotel(h);
-  const columns=[['hub','Maha PMS'],['book','Maha Booking'],['connect','Maha Connect'],['reach','Maha Reach'],['sales','Maha Sales']];
-  const state=k=>k==='hub'?hubOn(h):k==='book'?bookOn(h):k==='connect'?connectOn(h):k==='reach'?reachOn(h):k==='sales'?salesOn(h):false;
-  const hotelCell=k=>{
-    if(k==='hub')return `<span class="${hubOn(h)?'smx-always':'smx-na'}">${hubOn(h)?'Always on':'Not included'}</span>`;
-    if(!RELEASED_SYSTEMS.includes(k))return '<span class="smx-soon">Coming soon</span>';
-    const on=state(k);
-    return `<button type="button" class="smx-toggle ${on?'on':'off'}" data-sys-toggle="${k}" aria-pressed="${on?'true':'false'}"><i></i><span>${on?'ON':'OFF'}</span></button>`;
-  };
-  const users=(h.users||[]).filter(u=>!u.provider&&!u.isProv&&!u.deleted&&!u.cancelled);
-  const userCell=(u,k)=>{
-    const hotelOn=state(k);
-    if(!RELEASED_SYSTEMS.includes(k))return '<span class="sub">—</span>';
-    if(!hotelOn)return `<span class="sub" title="Closed for this hotel">—</span>`;
-    const on=userHasSystem(u,k);
-    return `<button type="button" class="btn sm ${on?'':'ghost'}" data-su="${u.id}" data-sk="${k}">${on?'Open':'Locked'}</button>`;
-  };
-  el.innerHTML=pageHead('Systems &amp; Access')+`<style>.smx-toggle{border:0;border-radius:18px;padding:4px 10px;min-width:72px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:11px;cursor:pointer}.smx-toggle i{width:8px;height:8px;border-radius:50%;background:#fff}.smx-toggle.on{background:#15966b;color:#fff}.smx-toggle.off{background:#f4dfe0;color:#9c3035}.smx-always,.smx-na,.smx-soon{display:inline-block;border-radius:12px;padding:5px 9px;font-size:11px;font-weight:700}.smx-always{background:#e1f4ea;color:#16724e}.smx-na,.smx-soon{background:#e7ecef;color:#71808a}</style>
-   <div class="panel pad">
-    <div class="row gap" style="align-items:center;justify-content:space-between;flex-wrap:wrap">
-     <div><b>${esc(h.set.name||h.code)}</b> <span class="sub">${esc(h.code)} · ${hubOn(h)?'PMS-linked':'Booking-only'}</span>
-      <p class="sub" style="margin:4px 0 0">A system must be open for the hotel before it can be opened for any one person.</p></div>
-     <button class="btn sm ghost" type="button" id="saBack">&lsaquo; All hotels</button>
-    </div>
-    <h3 class="mt">Systems for this hotel</h3>
-    <div class="scroll mt" style="overflow-x:auto">
-     <table class="grid"><tr>${columns.map(c=>'<th style="text-align:center;min-width:110px">'+c[1]+'</th>').join('')}</tr>
-     <tr>${columns.map(c=>'<td style="text-align:center">'+hotelCell(c[0])+'</td>').join('')}</tr></table>
-    </div>
-    <div class="usleg mt"><span><i style="background:#1f9d6b"></i>On for this hotel</span><span><i style="background:#d64545"></i>Off for this hotel</span><span><i style="background:#c3ccd2"></i>Coming soon / not included</span></div>
-    <h3 class="mt">Staff access</h3>
-    <div class="scroll mt" style="overflow-x:auto">
-     <table class="grid"><tr><th>Staff</th>${columns.map(c=>'<th style="text-align:center;min-width:94px">'+c[1]+'</th>').join('')}</tr>
-     ${users.map(u=>`<tr><td><b>${esc(u.name)}</b><div class="sub">${esc(u.position||u.role||'')} · ${esc(u.username)}</div></td>${columns.map(c=>'<td style="text-align:center">'+userCell(u,c[0])+'</td>').join('')}</tr>`).join('')||'<tr><td colspan="'+(columns.length+1)+'" class="empty">No staff yet.</td></tr>'}
-     </table>
-    </div>
-   </div>`;
-  $('#saBack',el).onclick=()=>go('prov.systems');
-  $$('[data-sys-toggle]',el).forEach(b=>b.onclick=()=>{
-    shapeHotel(h);const k=b.dataset.sysToggle,nv=!state(k);
-    if(k==='book')h.set.google.enabled=nv;
-    else if(k==='connect')h.set.systems.connect=nv;
-    else if(k==='reach')h.set.systems.reach=nv;
-    else if(k==='sales')h.set.systems.sales=nv;
-    provLog((nv?'Opened ':'Closed ')+ecoSysLabel(k)+' for '+h.code);
-    saveDB();render();toast((nv?'Opened ':'Closed ')+ecoSysLabel(k)+' for '+h.code+'.');
-  });
-  permBind(el);
+  $$('[data-hotel-row]',el).forEach(tr=>tr.onclick=e=>{if(e.target.closest('button,input,select,label,a'))return;SYSMX.open=SYSMX.open===tr.dataset.toggleCode?null:tr.dataset.toggleCode;render()});
+  $$('[data-sys-toggle]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();const h=DB.hotels[b.dataset.code];if(h)toggleHotelSystem(h,b.dataset.sysToggle)});
+  $$('[data-manage-users]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();openHotel(b.dataset.manageUsers);DB.session.hotel=b.dataset.manageUsers;go('prov.perms')});
+  $$('[data-enter-pms]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();enterHotelBackend(b.dataset.enterPms)});
+  $$('[data-su]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();const h=DB.hotels[b.dataset.suCode];if(!h)return;const u=(h.users||[]).find(x=>x.id===b.dataset.su);if(!u)return;
+    shapeHotel(h);const k=b.dataset.sk,on=userHasSystem(u,k);u.systems[k]=!on;
+    if(!on&&!sysState(h,k)){u.systems[k]=false;toast(ecoSysLabel(k)+' is closed for this hotel. Open it first, then open it for the person.');return}
+    h.amend=h.amend||[];h.amend.unshift({at:Date.now(),user:user().name,what:`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`,reason:'System access'});
+    provLog(`${on?'Locked':'Opened'} ${ecoSysLabel(k)} for ${u.username}`);saveDB();render()});
 };
 VIEWS['prov.be.console']=el=>{
   if(!(DB.session&&DB.session.provider)||DB.session.inHotel){el.innerHTML=pageHead('Booking Engine')+'<div class="empty">Open this from the provider console (leave the hotel first).</div>';return}
@@ -13267,9 +13239,19 @@ VIEWS['prov.be.console']=el=>{
     <div class="panel scroll mt"><table class="grid"><tr><th>Property</th><th>Booking Engine Title</th><th>Connection</th><th>Status</th><th></th></tr>
      ${all.map(h=>'<tr><td><b>'+esc(h.set.name||h.code)+'</b><div class="sub">'+esc(h.code)+'</div></td><td>'+esc(h.set.google.title||h.set.name||h.code)+'</td><td>'+(!hubOn(h)?'<span class="pill">Standalone · no PMS</span>':'<span class="pill g">PMS-linked</span>')+'</td><td>'+(bookOn(h)?'<span class="pill g">Open</span>':'<span class="pill r">Closed</span>')+'</td><td class="nowrap"><button class="btn sm gold" data-be-config="'+esc(h.code)+'">Configure</button> <button class="btn sm ghost" data-be-users="'+esc(h.code)+'">Users</button></td></tr>').join('')||'<tr><td colspan="5" class="empty">No active properties yet. Create your first Booking Engine.</td></tr>'}
     </table></div>
+    <div class="panel pad mt">
+     <b>System server addresses</b>
+     <p class="sub" style="margin:4px 0 10px">Set the service addresses used by the provider console for Maha Connect and Maha Booking.</p>
+     <div class="cols2" style="gap:10px">
+      <label class="field"><span>Maha Connect server</span><div class="row gap"><input id="cxHost" value="${esc(connectHost())}" style="min-width:180px;flex:1"><button class="btn sm ghost" id="cxSaveHost" type="button">Save</button></div></label>
+      <label class="field"><span>Maha Booking server</span><div class="row gap"><input id="bkHost" value="${esc(bookHost())}" style="min-width:180px;flex:1"><button class="btn sm ghost" id="bkSaveHost" type="button">Save</button></div></label>
+     </div>
+    </div>
    </div>`;
   const search=$('#beConsoleQ',el);
   if(search)search.oninput=()=>{$$('tbody tr',el).forEach(r=>r.hidden=!!search.value&&!r.textContent.toLowerCase().includes(search.value.toLowerCase()))};
+  $('#cxSaveHost',el).onclick=()=>{const v=(($('#cxHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8782');localStorage.setItem('maha.connectHost',v);toast('Connect server saved.');};
+  $('#bkSaveHost',el).onclick=()=>{const v=(($('#bkHost',el).value||'').trim().replace(/\/+$/,'')||'http://127.0.0.1:8781');localStorage.setItem('maha.bookHost',v);toast('Booking server saved.');};
   $$('[data-be-config]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.beConfig);DB.session.hotel=b.dataset.beConfig;go('prov.be.profile')});
   $$('[data-be-users]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.beUsers);DB.session.hotel=b.dataset.beUsers;go('prov.perms')});
   $('#newBookingProperty',el).onclick=()=>{
@@ -13414,7 +13396,7 @@ VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
    <p class="sub">Each hotel's data is kept apart. Staff sign in with only their username and password; the system opens the hotel their account belongs to. A new hotel stays Not active until you activate it, and its staff cannot sign in before that.</p>`;
   const paint=()=>{const q=PHQ.trim().toLowerCase(),rows=hs.filter(h=>!q||(h.set.name+' '+h.code).toLowerCase().includes(q));
     $('#phRows',el).innerHTML=rows.length?rows.map((h,i)=>`<tr class="${h===H?'on':''}"><td>${i+1}</td><td><b>${h.code}</b></td><td>${esc(h.set.name)}</td><td data-chain="${h.code}">${MahaAuth.on()?'':'-'}</td><td><span class="hst ${h.active!==false?'on':'off'}">${h.active!==false?'Active':'Not active'}</span></td><td>${h.set.subUntil?(()=>{const n=diff(iso(new Date()),h.set.subUntil);return fd(h.set.subUntil)+` <span class="sub" ${n<=7?'style="color:#b3261e"':''}>(${n<0?'ended':n+' d'})</span>`})():'<span class="sub">Not set</span>'}</td><td>${h.set.cur}</td><td>${fd(h.set.bd)}</td><td>${fd(h.set.lockedThrough)}</td><td class="n">${h.rooms.length}</td><td class="n">${h.users.length}</td>
-      <td class="nowrap"><button class="btn sm gold" data-open="${h.code}">Open hotel</button> <button type="button" class="btn sm ghost" data-pvact="${h.code}" aria-haspopup="menu">Action ▾</button><span class="pvacts" hidden><button class="btn sm ghost" data-sysacc="${h.code}">Systems &amp; access</button> <button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-sub="${h.code}">Subscription</button> <button class="btn sm ghost" data-bill="${h.code}">Billing</button> <button class="btn sm ghost" data-uacc="${h.code}">Users' access</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</span></td></tr>`).join(''):'<tr><td colspan="12" class="empty">No property matches.</td></tr>';
+      <td class="nowrap"><button class="btn sm gold" data-open="${h.code}">Open hotel</button> <button type="button" class="btn sm ghost" data-pvact="${h.code}" aria-haspopup="menu">Action ▾</button><span class="pvacts" hidden><button class="btn sm ${h.active!==false?'ghost':'gold'}" data-act="${h.code}">${h.active!==false?'Deactivate':'Activate'}</button> <button class="btn sm ghost" data-sub="${h.code}">Subscription</button> <button class="btn sm ghost" data-bill="${h.code}">Billing</button> <button class="btn sm ghost" data-uacc="${h.code}">Users' access</button> <button class="btn sm ghost" data-unlock="${h.code}">Unlock last closed day</button>${MahaAuth.on()?` <button class="btn sm red" data-del="${h.code}">Delete...</button>`:''}</span></td></tr>`).join(''):'<tr><td colspan="12" class="empty">No property matches.</td></tr>';
     $$('[data-open]',el).forEach(b=>b.onclick=async()=>{const h=DB.hotels[b.dataset.open];if(!h)return;openHotel(h.code);if(!hubOn(h)){DB.session.hotel=h.code;go('prov.be.profile');return}
       const ck=propertyChecks(h);
       if(ck.length&&!ck.every(c=>c.ok)){SET_SEC='profile';go('prov.setup');return}   /* not set up yet: straight to the Backend wizard, one step at a time */
@@ -13433,7 +13415,6 @@ VIEWS['prov.home']=el=>{const hs=Object.values(DB.hotels);
     /* Billing records of a hotel (quotes, invoices, payments, subscriptions): kept in the cloud, the hotel reads them on the Billing page */
     $$('[data-bill]',el).forEach(b=>b.onclick=()=>billingAdmin(DB.hotels[b.dataset.bill]));
     $$('[data-uacc]',el).forEach(b=>b.onclick=()=>userAccessAdmin(DB.hotels[b.dataset.uacc]));
-    $$('[data-sysacc]',el).forEach(b=>b.onclick=()=>{openHotel(b.dataset.sysacc);DB.session.hotel=b.dataset.sysacc;go('prov.sysaccess')});
     $$('[data-act]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.act];const on=h.active!==false;if(on&&h.shifts.some(x=>x.status==='open')&&!await dlgConfirm('Staff shifts are still open at '+h.code+'. Deactivate anyway? They will be signed out.'))return;if(!on&&(!h.set.legal||!h.rooms.length)){toast('Complete the hotel details and rooms before activating.');return}h.active=!on;if(h.active)h.activatedAt=Date.now();provLog((h.active?'Activated':'Deactivated')+' hotel '+h.code);saveDB();render();toast(h.active?h.code+' is active. Its staff can now sign in.':h.code+' is not active.')});
     $$('[data-unlock]',el).forEach(b=>b.onclick=async ()=>{const h=DB.hotels[b.dataset.unlock];const why=await dlgAsk(`Unlock ${fd(h.set.lockedThrough)} for ${h.code}? The business date stays ${fd(h.set.bd)}. Reason:`);if(!why||!why.trim())return;
       const old=h.set.lockedThrough;h.set.lockedThrough=addD(old,-1);H=h;h.amend.unshift({at:Date.now(),user:user().name,what:`Unlocked closed day ${fd(old)}`,before:old,after:h.set.lockedThrough,reason:why.trim()});provLog(`Unlocked ${fd(old)}`,{reason:why.trim()});saveDB();render();toast('Day unlocked. Staff can change it until the next Close Day.')});
