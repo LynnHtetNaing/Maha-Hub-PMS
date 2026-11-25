@@ -10320,29 +10320,28 @@ function shareGuestScreen(box,r,B,gid,o){
 function reservationScreen(box,r,B,o={}){
   if(o.shareGid&&(B.shares||[]).includes(o.shareGid)){shareGuestScreen(box,r,B,o.shareGid,o);return}
   const g=G(B.guestId),mode=editMode(B),canEd=can('res.edit')&&!user().provider,E=k=>{ // can this field be edited?
-    if(!canEd)return false;if(mode==='full')return true;if(mode==='restricted')return ['dep','rate'].includes(k);return false};
+    if(!canEd)return false;if(mode==='full')return true;if(mode==='restricted')return ['dep','rate','roomType','room','rateCode'].includes(k);return false};
   const GE=can('profile')&&!user().provider; // guest data stays editable after Close Day (1.4)
   const dis=k=>E(k)?'':'disabled',gdis=GE?'':'disabled';
   const co=CO(r.companyId);const depAmt=r2(sum(paymentsIn(B.lines),x=>x.amt));
   const upcoming=dates(B.arr,B.dep).filter(d=>d>=H.set.bd);const dr=B.nightly[upcoming[0]||B.arr]||0;
   const rc=H.rateCodes.find(x=>x.code===B.rateCode)||{};
   const RB={};
-  const RICON={aSave:'device-floppy',aProf:'user-circle',aRate:'adjustments',aNotif:'bell',aCopy:'copy',aAdd:'plus',aShare:'users',aDep:'cash',aRef:'arrow-back-up',aFol:'folder',aCI:'login',aCan:'x',aNS:'user-x',aRecall:'refresh',aReinst:'refresh',aBack:'arrow-left',aLog:'history',aMail:'mail',aMove:'arrows-exchange'};
-  const RLAB={aSave:'Save',aProf:'Guest profile',aRate:'Rate setup',aNotif:'Notices',aCopy:'Copy to new reservation',aAdd:'Add another room',aShare:'Add sharing guest',aDep:'Deposit',aRef:'Refund',aFol:'Open folio',aCI:'Check in',aCan:'Cancel',aNS:'Mark no-show',aRecall:'Recall no-show',aReinst:'Reinstate',aBack:'Check back in',aLog:'User logs',aMail:'Mail',aMove:'Move room'};
+  const RICON={aSave:'device-floppy',aProf:'user-circle',aRate:'adjustments',aNotif:'bell',aCopy:'copy',aAdd:'plus',aShare:'users',aDep:'cash',aRef:'arrow-back-up',aFol:'folder',aCI:'login',aCan:'x',aNS:'user-x',aRecall:'refresh',aReinst:'refresh',aBack:'arrow-left',aLog:'history',aMail:'mail'};
+  const RLAB={aSave:'Save',aProf:'Guest profile',aRate:'Rate setup',aNotif:'Notices',aCopy:'Copy to new reservation',aAdd:'Add another room',aShare:'Add sharing guest',aDep:'Deposit',aRef:'Refund',aFol:'Open folio',aCI:'Check in',aCan:'Cancel',aNS:'Mark no-show',aRecall:'Recall no-show',aReinst:'Reinstate',aBack:'Check back in',aLog:'User logs',aMail:'Mail'};
   const RCLS={aCI:' acc',aFol:' acc',aRef:' acc',aCan:' dng'};
   const tbR=(id,icon,title,dis)=>{RB[id]={title,dis};return ''};
   if(['confirmed','tentative'].includes(B.status)){tbR('aCI','bed','Check in',!can('checkin'));tbR('aCan','x','Cancel booking',!can('res.cancel'));if(B.arr<=H.set.bd)tbR('aNS','log','Mark no-show',!can('res.cancel'))}
   if(B.status==='noshow'&&B.statusDate===H.set.bd&&B.dep>H.set.bd)tbR('aRecall','x','Recall no-show',false);
   if(B.status==='cancelled'&&!closedBooking(B)&&B.dep>H.set.bd)tbR('aReinst','x','Reinstate',false);
   if(canCheckBack(B))tbR('aBack','left','Check back in (Auto)',false);
-  if(B.status==='inhouse')tbR('aMove','arrows-exchange','Move to another room, from today onward. Nights already closed stay exactly as they were.',!canEd);
   const RTB=()=>{void `${tbR('aSave','save','Save changes',!(canEd||GE))}${tbR('aMail','mail','Send the booking confirmation by mail',!can('print'))}${tbR('aProf','idc','Guest profile')}${tbR('aRate','cal','Advance rate setup')}${tbR('aNotif','bell','Notifications')}${tbR('aLog','log','User logs of this reservation: who created it and what was changed')}${tbR('aCopy','copy','Copy to new reservation (extension)',!can('res.create'))}${tbR('aAdd','plus','Add another room to this reservation',!can('res.create')||mode!=='full')}
      ${B.status==='inhouse'?tbR('aShare','user','Add a guest sharing this room (guests staying with the main guest)',!(can('profile')||can('res.edit')||can('checkin'))):''}${(['confirmed','tentative'].includes(B.status)||resDeps(B).length)?tbR('aDep','dollar',resDeps(B).length?(['confirmed','tentative'].includes(B.status)?'Reservation deposits (see, add, correct, refund)':'Reservation deposits (see, print, correct, refund)'):'Reservation Deposit',!can('pay')&&!resDeps(B).length):''}${['confirmed','tentative','cancelled','noshow'].includes(B.status)&&psPaid(B)>0.004?tbR('aRef','pay','Payment / Refund. Give money back, for example when the guest cancels',false):''}${['inhouse','out'].includes(B.status)?tbR('aFol','folder','Open folio'):''}`;
    const bt=(id,menu)=>{const x=RB[id];if(!x)return '';return `<button type="button" class="${menu?'fmi':'fbtn'}${menu?'':(RCLS[id]||'')}" id="${id}" title="${esc(x.title)}" aria-label="${esc(x.title)}" ${x.dis?'disabled':''}>${tbi(RICON[id]||'plus',menu?17:18)}<span>${esc(RLAB[id]||x.title)}</span></button>`};
-   const main=['aSave','aCI','aCan','aRef','aReinst','aRecall','aFol','aMail','aShare','aDep','aProf','aRate'].map(k=>bt(k,false)).join(''),more=['aNotif','aLog','aCopy','aAdd','aNS','aBack','aMove'].map(k=>bt(k,true)).join('');
+   const main=['aSave','aCI','aCan','aRef','aReinst','aRecall','aFol','aMail','aShare','aDep','aProf','aRate'].map(k=>bt(k,false)).join(''),more=['aNotif','aLog','aCopy','aAdd','aNS','aBack'].map(k=>bt(k,true)).join('');
    return `<div class="toolbar rtbn">${main}<span class="fmore"><button type="button" class="fbtn" id="rMoreB" aria-haspopup="menu" aria-expanded="false"><span>More</span>${tbi('chevron-down',16)}</button><div class="fmm" id="rMoreM" role="menu" hidden>${more}</div></span>${user().isProv?'<button class="btn sm red" id="aPDel">Provider: delete booking</button>':''}<span class="fsp"></span>${stBadge(B)}</div>`};
   const lockNote=mode==='closed'?`<div class="lockbar">This booking was closed by Close Day on ${fd(B.statusDate)}. Billing, dates and rates are final; only the provider can amend it. Guest details can still be edited.</div>`:
-    mode==='restricted'?`<div class="lockbar">The first night is closed. Only the departure date and the rates of today and upcoming nights can be changed here; use Move room (under More) to change the room or room type. Guest details can still be edited.</div>`:
+    mode==='restricted'?`<div class="lockbar">The first night is closed. The departure date, the room, the room type and the rates of today and upcoming nights can still be changed here, effective from today - earlier nights stay exactly as Close Day recorded them. Guest details can still be edited.</div>`:
     B.status==='noshow'?`<div class="lockbar">No-show recorded for business date ${fd(B.statusDate)}. It can be recalled only on that business date.</div>`:'';
   box.innerHTML=`<div class="rscreen ${o.compact?'compact':''}">
    ${RTB()}
@@ -10357,12 +10356,12 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Arrival',`<input type="date" id="bArr" value="${B.arr}" ${dis('arr')}>`)}${fld('Departure',`<input type="date" id="bDep" value="${B.dep}" ${dis('dep')}>`)}
        ${fld('Room nights',`<input value="${nights(B)}" disabled id="bNts">`)}${fld('# of room',`<input value="1" disabled>`)}
        ${fld('Adult# / Child#',`<div class="two"><input type="number" id="bAd" min="1" value="${B.adults}" ${dis('b')}><input type="number" id="bCh" min="0" value="${B.children}" ${dis('b')}></div>`)}
-       ${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="bAbA" min="0" value="${abfPax(B).a}" ${dis('b')}><input type="number" id="bAbC" min="0" value="${abfPax(B).c}" ${dis('b')}></div>`)}${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
-       ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
+       ${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="bAbA" min="0" value="${abfPax(B).a}" ${dis('b')}><input type="number" id="bAbC" min="0" value="${abfPax(B).c}" ${dis('b')}></div>`)}${fld('Room type',`<select id="bTypeRm" ${dis('roomType')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
+       ${fld('Rate code',`<select id="bRc" ${dis('rateCode')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
        ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
        ${fld('<span class="blue">Total rate'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
-       ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Do not move is on. Turn it off below before this room can change.</span>`:''}`)}
-       ${fld('Do not move',`<div class="dnmcell"><button type="button" class="dnmsw dnmflat" id="bDnm" role="switch" aria-pressed="${!!B.roomBlock}" aria-label="Do not move" ${(!E('b')||!B.room&&!B.roomBlock)?'disabled':''} title="${B.room||B.roomBlock?'Do not move: keep this guest in this room':'Assign a room first'}"><span class="dnmtr"><i></i></span></button><button type="button" class="dnmsign" id="bDnmSign" ${B.roomBlock?'':'hidden'} title="Do not move: ${B.roomBlock?esc(B.roomBlock.reason||''):''}" aria-label="Do not move reason">${ic('warn',17)}</button></div>`)}
+       ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('room')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Do not move is on. Turn it off below before this room can change.</span>`:''}`)}
+       ${fld('Do not move',`<div class="dnmcell"><button type="button" class="dnmsw dnmflat" id="bDnm" role="switch" aria-pressed="${!!B.roomBlock}" aria-label="Do not move" ${(!E('room')||!B.room&&!B.roomBlock)?'disabled':''} title="${B.room||B.roomBlock?'Do not move: keep this guest in this room':'Assign a room first'}"><span class="dnmtr"><i></i></span></button><button type="button" class="dnmsign" id="bDnmSign" ${B.roomBlock?'':'hidden'} title="Do not move: ${B.roomBlock?esc(B.roomBlock.reason||''):''}" aria-label="Do not move reason">${ic('warn',17)}</button></div>`)}
      </div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
     </div>
@@ -10425,9 +10424,8 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
     if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'No-show recalled');log('Recalled no-show RSVN '+r.no);reopen();toast('No-show recalled. The guest is expected today.')};
   if(q('#aReinst'))q('#aReinst').onclick=()=>{if(!need('res.cancel'))return;if(B.room&&!roomFree(B.room,B.arr,B.dep,B.id))B.room=null;B.status='confirmed';B.statusDate=H.set.bd;histB(B,'Reinstated');log('Reinstated RSVN '+r.no);reopen()};
   if(q('#aBack'))q('#aBack').onclick=()=>{if(checkBackIn(B))reopen()};
-  if(q('#aMove'))q('#aMove').onclick=()=>{if(!need('res.edit'))return;moveRoomModal(B,reopen)};
   if(q('#aMail'))q('#aMail').onclick=e=>bkpMail(B,e.currentTarget);
-  if(q('#bDnm')){const sync=()=>{const on=!!B.roomBlock;q('#bDnm').setAttribute('aria-pressed',on);q('#bDnmSign').hidden=!on;q('#bDnmSign').title=on?'Do not move: '+(B.roomBlock.reason||''):'';q('#bRoom').disabled=on||!E('b')};q('#bDnm').onclick=()=>dnmToggle(B,sync);q('#bDnmSign').onclick=()=>dnmInfo(B,sync)}
+  if(q('#bDnm')){const sync=()=>{const on=!!B.roomBlock;q('#bDnm').setAttribute('aria-pressed',on);q('#bDnmSign').hidden=!on;q('#bDnmSign').title=on?'Do not move: '+(B.roomBlock.reason||''):'';q('#bRoom').disabled=on||!E('room')};q('#bDnm').onclick=()=>dnmToggle(B,sync);q('#bDnmSign').onclick=()=>dnmInfo(B,sync)}
   q('#bTypeRm').onchange=()=>{if(B.roomBlock){q('#bTypeRm').value=B.type;toast(`Do not move is on for room ${B.room}: ${B.roomBlock.reason}. Turn Do not move off first.`);return}const t=q('#bTypeRm').value;q('#bRoom').innerHTML='<option value="">Assign later</option>'+H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>`<option value="${x.no}" ${!roomFree(x.no,q('#bArr').value,q('#bDep').value,B.id)?'disabled':''}>${x.no}</option>`).join('')};
   q('#bRc').onchange=()=>{const k=rateKindOf(q('#bRc').value),rcz=H.rateCodes.find(x=>x.code===q('#bRc').value);if(rcz&&rcz.kind==='zero')q('#bRate').value=0;else if(!(+q('#bRate').value>0))q('#bRate').value='';q('#bRate').disabled=k==='comp'||!(E('rate')&&can('rate'));cmUpd()};
   const cmUpd=()=>{const rt=+q('#bRate').value||0,live=q('#rCo')&&q('#rCo').value!==(r.companyId||'')?CO(q('#rCo').value):resComm(H,r),cb=commBoxes(rt,live);q('#bCmL').textContent=cb.cLabel;q('#bCm').value=cb.cVal;q('#bNtL').textContent=cb.nLabel;q('#bNt').value=cb.nVal;q('#bCm').title=q('#bNt').title=cb.tip;
@@ -10447,8 +10445,9 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
       if(mode==='restricted'&&dep<H.set.bd){err.textContent='Departure cannot be before the business date.';return}
       if(mode==='full'&&arr<H.set.bd&&arr!==B.arr){err.textContent='Arrival cannot be before the business date.';return}
       if(mode==='full'&&Math.max(1,+q('#bAd').value||1)+Math.max(0,+q('#bCh').value||0)<guestsInRoom(B).length){err.textContent='Adult# + Child# cannot be less than the '+guestsInRoom(B).length+' guests in this room. Remove a sharing guest first.';return}
-      const type=mode==='full'?q('#bTypeRm').value:B.type,room=mode==='full'?(q('#bRoom').value||null):B.room;
+      const type=mode==='full'||mode==='restricted'?q('#bTypeRm').value:B.type,room=mode==='full'||mode==='restricted'?(q('#bRoom').value||null):B.room;
       if(B.roomBlock&&((room||null)!==(B.room||null)||type!==B.type)){err.textContent=`Do not move is on for room ${B.roomBlock.room||B.room}: ${B.roomBlock.reason}. Turn Do not move off first.`;return}
+      if(room&&!H.rooms.some(x=>x.no===room&&!x.dummy&&x.type===type)){err.textContent=`Room ${room} does not belong to room type ${type}. Choose a room of the selected type.`;return}
       if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){err.textContent=`Room ${room} is not free for these dates. Choose another room or dates.`;return}
       if(mode==='full'){const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
         const setIf=(k,v)=>{if(String(B[k])!==String(v)){B[k]=v;ch.push(k)}};
@@ -10469,48 +10468,25 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
         const prev=B.bill||{name:'',addr:'',tax:'',branch:''};if(['name','addr','tax','branch'].some(k=>(prev[k]||'')!==bill[k])){B.bill=bill;ch.push('billing address')}
         if(arr!==B.arr){B.arr=arr;ch.push('arrival')}
         if(typeCh||rcCh){const fb=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(!isLocked(d))B.nightly[d]=rco&&rco.kind==='zero'?0:(B.nightly[d]>0?B.nightly[d]:fb)})}
-      }else if(q('#bConfDep').checked!==B.confirmDep){B.confirmDep=q('#bConfDep').checked;ch.push('confirmDep')}
+      }else{
+        if(q('#bConfDep').checked!==B.confirmDep){B.confirmDep=q('#bConfDep').checked;ch.push('confirmDep')}
+        const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd),typeCh=type!==B.type,roomCh=room!==B.room,rcCh=rcd!==B.rateCode,oldRoom=B.room,oldType=B.type;
+        if(roomCh||typeCh){
+          B.type=type;B.room=room;ch.push(roomCh&&typeCh?'room and room type':roomCh?'room':'room type');
+          const or=RM(oldRoom),nr=RM(room);
+          if(or&&or.no!==room){or.hk='dirty';or.hkOcc='vac';or.hkNote='Vacant dirty after room move'}
+          if(nr){nr.hkOcc='occ'}
+          histB(B,`Moved room: ${oldRoom||'(unassigned)'} (${oldType}) → ${room||'(unassigned)'} (${type}), effective ${fd(H.set.bd)}`);
+        }
+        if(rcCh){B.rateCode=rcd;ch.push('rate code');if(rco)B.comp=rco.comp||''}
+        if(typeCh||rcCh){const fb=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(!isLocked(d)&&d>=H.set.bd)B.nightly[d]=rco&&rco.kind==='zero'?0:(B.nightly[d]>0?B.nightly[d]:fb)})}
+      }
       if(dep!==B.dep){const old=B.dep;if(B.status==='inhouse'&&dep>old)B.extended=true;const fbx=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(B.nightly[d]===undefined)B.nightly[d]=fbx});Object.keys(B.nightly).forEach(d=>{if(d>=dep||d<B.arr)delete B.nightly[d]});B.dep=dep;ch.push('departure '+fd(old)+' → '+fd(dep))}
       const nr=+q('#bRate').value;if(!q('#bRate').disabled&&!isNaN(nr)){const re_=rateError(nr,rateKindOf(B.rateCode));if(re_){err.textContent=re_;return}const cur_=B.nightly[dates(B.arr,B.dep).find(d=>d>=H.set.bd&&!isLocked(d))];if(can('rate')&&cur_!==undefined&&nr!==cur_){
         dates(B.arr,B.dep).filter(d=>d>=H.set.bd&&!isLocked(d)).forEach(d=>B.nightly[d]=nr);ch.push('daily rate '+m2(cur_)+' → '+m2(nr))}}
     }
     if(!ch.length){toast('Nothing changed.');return}
     histB(B,'Changed: '+ch.join(', '));log(`Amended RSVN ${r.no}: ${ch.join(', ')}`,B.id);reopen();toast('Reservation saved')};
-}
-/* Moves an in-house guest to another room (same or a different room type), effective from today's business date
-   through the rest of the stay. Nights already closed by Close Day are never touched - rates, folio lines and the
-   room they were charged under stay exactly as recorded. The move itself is kept as one dated line in the
-   reservation's own history (histB -> resLogs / "User logs"), so anyone can see when and why it changed. */
-function moveRoomModal(B,reopen){
-  if(B.roomBlock){toast(`Do not move is on for room ${B.room}: ${B.roomBlock.reason}. Turn Do not move off first.`);return}
-  const r=resOf(B),curType=B.type,curRoom=B.room||'';
-  const typeOpts=H.roomTypes.filter(t=>!t.dummy||t.code===curType).map(t=>opt(t.code,t.code+' – '+t.name,curType)).join('');
-  const m=modal('Move room',`<p class="sub">RSVN ${r.no} moves to the new room from today (${fd(H.set.bd)}) through the rest of the stay. Nights already closed by Close Day keep exactly what was recorded for them.</p>
-    <div class="form2">${fld('Room type',`<select id="mrType">${typeOpts}</select>`)}${fld('New room',`<select id="mrRoom"></select>`)}</div>
-    ${fld('Reason (kept in the reservation&rsquo;s log)',`<input id="mrWhy" autocomplete="off">`,'span2')}
-    <div class="err" id="mrErr"></div>
-    <div class="btns end mt"><button type="button" class="btn ghost" data-x>Cancel</button><button type="button" class="btn gold" data-s>Move room</button></div>`,{w:460});
-  const fillRooms=()=>{
-    const t=$('#mrType',m).value;
-    $('#mrRoom',m).innerHTML=H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>{
-      const isCur=x.no===curRoom&&t===curType;
-      const free=isCur||roomFree(x.no,H.set.bd,B.dep,B.id);
-      return `<option value="${esc(x.no)}" ${isCur?'selected':''} ${free?'':'disabled'}>${esc(x.no)}${isCur?' (current)':''}${free?'':' (taken)'}</option>`;
-    }).join('')||'<option value="">No free room of this type</option>';
-  };
-  $('#mrType',m).onchange=fillRooms;fillRooms();
-  $('[data-x]',m).onclick=()=>closeModal(m);
-  $('[data-s]',m).onclick=()=>{
-    const newType=$('#mrType',m).value,newRoom=$('#mrRoom',m).value;
-    if(!newRoom){$('#mrErr',m).textContent='Choose a room.';return}
-    if(newRoom===curRoom&&newType===curType){$('#mrErr',m).textContent='Choose a different room or room type.';return}
-    if(!roomFree(newRoom,H.set.bd,B.dep,B.id)){$('#mrErr',m).textContent=`Room ${newRoom} is not free for the rest of this stay.`;return}
-    const why=($('#mrWhy',m).value||'').trim(),oldRoom=curRoom,oldType=curType;
-    B.room=newRoom;B.type=newType;
-    histB(B,`Moved room: ${oldRoom||'(unassigned)'} (${oldType}) → ${newRoom} (${newType}) from ${fd(H.set.bd)}${why?'; '+why:''}`);
-    log(`Moved RSVN ${r.no} from room ${oldRoom||'(unassigned)'} to ${newRoom}`,B.id);
-    saveDB();closeModal(m);reopen();toast('Room moved. Earlier nights keep their original room.');
-  };
 }
 function copyReservation(B){const r=resOf(B);const start=B.status==='inhouse'||B.status==='out'?(B.dep>H.set.bd?B.dep:H.set.bd):B.dep;
   const nr={id:'r'+uid(),no:H.set.nextRsv++,date:H.set.bd,contact:r.contact,reference:r.reference,phone:r.phone,fax:r.fax,email:r.email,confirmation:'0',companyId:r.companyId,bookings:[],notifs:[],createdShift:curShift().name,createdUser:user().name};stampHotelNumbers(H,nr);
