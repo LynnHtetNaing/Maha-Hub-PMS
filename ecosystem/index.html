@@ -10320,7 +10320,7 @@ function shareGuestScreen(box,r,B,gid,o){
 function reservationScreen(box,r,B,o={}){
   if(o.shareGid&&(B.shares||[]).includes(o.shareGid)){shareGuestScreen(box,r,B,o.shareGid,o);return}
   const g=G(B.guestId),mode=editMode(B),canEd=can('res.edit')&&!user().provider,E=k=>{ // can this field be edited?
-    if(!canEd)return false;if(mode==='full')return true;if(mode==='restricted')return ['dep','rate'].includes(k);return false};
+    if(!canEd)return false;if(mode==='full')return true;if(mode==='restricted')return ['dep','rate','roomType','room','rateCode'].includes(k);return false};
   const GE=can('profile')&&!user().provider; // guest data stays editable after Close Day (1.4)
   const dis=k=>E(k)?'':'disabled',gdis=GE?'':'disabled';
   const co=CO(r.companyId);const depAmt=r2(sum(paymentsIn(B.lines),x=>x.amt));
@@ -10357,12 +10357,12 @@ function reservationScreen(box,r,B,o={}){
        ${fld('Arrival',`<input type="date" id="bArr" value="${B.arr}" ${dis('arr')}>`)}${fld('Departure',`<input type="date" id="bDep" value="${B.dep}" ${dis('dep')}>`)}
        ${fld('Room nights',`<input value="${nights(B)}" disabled id="bNts">`)}${fld('# of room',`<input value="1" disabled>`)}
        ${fld('Adult# / Child#',`<div class="two"><input type="number" id="bAd" min="1" value="${B.adults}" ${dis('b')}><input type="number" id="bCh" min="0" value="${B.children}" ${dis('b')}></div>`)}
-       ${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="bAbA" min="0" value="${abfPax(B).a}" ${dis('b')}><input type="number" id="bAbC" min="0" value="${abfPax(B).c}" ${dis('b')}></div>`)}${fld('Room type',`<select id="bTypeRm" ${dis('b')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
-       ${fld('Rate code',`<select id="bRc" ${dis('b')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
+       ${fld('Breakfast pax: adult / child',`<div class="two"><input type="number" id="bAbA" min="0" value="${abfPax(B).a}" ${dis('b')}><input type="number" id="bAbC" min="0" value="${abfPax(B).c}" ${dis('b')}></div>`)}${fld('Room type',`<select id="bTypeRm" ${dis('roomType')}>${H.roomTypes.filter(t=>!t.dummy||t.code===B.type).map(t=>opt(t.code,t.code+' – '+t.name,B.type)).join('')}</select>`)}
+       ${fld('Rate code',`<select id="bRc" ${dis('rateCode')}>${H.rateCodes.map(x=>opt(x.code,x.code+' – '+x.desc,B.rateCode)).join('')}</select>`)}
        ${fld('<span id="bCmL">Commission per night</span>',`<input id="bCm" disabled class="n">`)}${fld('<span id="bNtL">Net rate per night</span>',`<input id="bNt" disabled class="n">`)}${fld('<span class="blue">Rate per night'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input type="number" id="bRate" value="${dr}" step="1" min="0" ${E('rate')&&can('rate')&&rateKindOf(B.rateCode)!=='comp'?'':'disabled'} class="n">`)}
        ${fld('<span class="blue">Total rate'+(bForeign(B)?' ('+bCur(B)+')':'')+'</span>',`<input id="bTot" disabled class="n">`)}${fld('<span id="bTcL">Total commission</span>',`<input id="bTc" disabled class="n">`)}${fld('<span id="bTnL">Total net rate</span>',`<input id="bTn" disabled class="n">`)}
-       ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('b')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Do not move is on. Turn it off below before this room can change.</span>`:''}`)}
-       ${fld('Do not move',`<div class="dnmcell"><button type="button" class="dnmsw dnmflat" id="bDnm" role="switch" aria-pressed="${!!B.roomBlock}" aria-label="Do not move" ${(!E('b')||!B.room&&!B.roomBlock)?'disabled':''} title="${B.room||B.roomBlock?'Do not move: keep this guest in this room':'Assign a room first'}"><span class="dnmtr"><i></i></span></button><button type="button" class="dnmsign" id="bDnmSign" ${B.roomBlock?'':'hidden'} title="Do not move: ${B.roomBlock?esc(B.roomBlock.reason||''):''}" aria-label="Do not move reason">${ic('warn',17)}</button></div>`)}
+       ${fld('Room',`<select id="bRoom" ${B.roomBlock||!E('room')?'disabled':''}><option value="">Assign later</option>${H.rooms.filter(x=>!x.dummy&&(x.type===B.type||x.no===B.room)).map(x=>`<option value="${x.no}" ${x.no===B.room?'selected':''} ${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?'disabled':''}>${x.no}${x.no!==B.room&&!roomFree(x.no,B.arr,B.dep,B.id)?' (taken)':''} – ${HKL[x.hk]||''}</option>`).join('')}</select>${B.roomBlock?`<span class="sub">Do not move is on. Turn it off below before this room can change.</span>`:''}`)}
+       ${fld('Do not move',`<div class="dnmcell"><button type="button" class="dnmsw dnmflat" id="bDnm" role="switch" aria-pressed="${!!B.roomBlock}" aria-label="Do not move" ${(!E('room')||!B.room&&!B.roomBlock)?'disabled':''} title="${B.room||B.roomBlock?'Do not move: keep this guest in this room':'Assign a room first'}"><span class="dnmtr"><i></i></span></button><button type="button" class="dnmsign" id="bDnmSign" ${B.roomBlock?'':'hidden'} title="Do not move: ${B.roomBlock?esc(B.roomBlock.reason||''):''}" aria-label="Do not move reason">${ic('warn',17)}</button></div>`)}
      </div></div>
      <div class="pn"><div class="pnh orange">Meal</div><div class="pnb kv2">${fld('Meal type',`<input id="bMeal" value="${esc(B.meal||rc.meal||'')}" ${dis('b')}>`)}${fld('Meal pax#',`<div class="two"><input value="${B.meal?B.adults:0}" disabled><input value="${B.meal?B.children:0}" disabled></div>`)}</div></div>
     </div>
@@ -10427,7 +10427,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
   if(q('#aBack'))q('#aBack').onclick=()=>{if(checkBackIn(B))reopen()};
   if(q('#aMove'))q('#aMove').onclick=()=>{if(!need('res.edit'))return;moveRoomModal(B,reopen)};
   if(q('#aMail'))q('#aMail').onclick=e=>bkpMail(B,e.currentTarget);
-  if(q('#bDnm')){const sync=()=>{const on=!!B.roomBlock;q('#bDnm').setAttribute('aria-pressed',on);q('#bDnmSign').hidden=!on;q('#bDnmSign').title=on?'Do not move: '+(B.roomBlock.reason||''):'';q('#bRoom').disabled=on||!E('b')};q('#bDnm').onclick=()=>dnmToggle(B,sync);q('#bDnmSign').onclick=()=>dnmInfo(B,sync)}
+  if(q('#bDnm')){const sync=()=>{const on=!!B.roomBlock;q('#bDnm').setAttribute('aria-pressed',on);q('#bDnmSign').hidden=!on;q('#bDnmSign').title=on?'Do not move: '+(B.roomBlock.reason||''):'';q('#bRoom').disabled=on||!E('room')};q('#bDnm').onclick=()=>dnmToggle(B,sync);q('#bDnmSign').onclick=()=>dnmInfo(B,sync)}
   q('#bTypeRm').onchange=()=>{if(B.roomBlock){q('#bTypeRm').value=B.type;toast(`Do not move is on for room ${B.room}: ${B.roomBlock.reason}. Turn Do not move off first.`);return}const t=q('#bTypeRm').value;q('#bRoom').innerHTML='<option value="">Assign later</option>'+H.rooms.filter(x=>x.type===t&&!x.dummy).map(x=>`<option value="${x.no}" ${!roomFree(x.no,q('#bArr').value,q('#bDep').value,B.id)?'disabled':''}>${x.no}</option>`).join('')};
   q('#bRc').onchange=()=>{const k=rateKindOf(q('#bRc').value),rcz=H.rateCodes.find(x=>x.code===q('#bRc').value);if(rcz&&rcz.kind==='zero')q('#bRate').value=0;else if(!(+q('#bRate').value>0))q('#bRate').value='';q('#bRate').disabled=k==='comp'||!(E('rate')&&can('rate'));cmUpd()};
   const cmUpd=()=>{const rt=+q('#bRate').value||0,live=q('#rCo')&&q('#rCo').value!==(r.companyId||'')?CO(q('#rCo').value):resComm(H,r),cb=commBoxes(rt,live);q('#bCmL').textContent=cb.cLabel;q('#bCm').value=cb.cVal;q('#bNtL').textContent=cb.nLabel;q('#bNt').value=cb.nVal;q('#bCm').title=q('#bNt').title=cb.tip;
@@ -10447,8 +10447,9 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
       if(mode==='restricted'&&dep<H.set.bd){err.textContent='Departure cannot be before the business date.';return}
       if(mode==='full'&&arr<H.set.bd&&arr!==B.arr){err.textContent='Arrival cannot be before the business date.';return}
       if(mode==='full'&&Math.max(1,+q('#bAd').value||1)+Math.max(0,+q('#bCh').value||0)<guestsInRoom(B).length){err.textContent='Adult# + Child# cannot be less than the '+guestsInRoom(B).length+' guests in this room. Remove a sharing guest first.';return}
-      const type=mode==='full'?q('#bTypeRm').value:B.type,room=mode==='full'?(q('#bRoom').value||null):B.room;
+      const type=mode==='full'||mode==='restricted'?q('#bTypeRm').value:B.type,room=mode==='full'||mode==='restricted'?(q('#bRoom').value||null):B.room;
       if(B.roomBlock&&((room||null)!==(B.room||null)||type!==B.type)){err.textContent=`Do not move is on for room ${B.roomBlock.room||B.room}: ${B.roomBlock.reason}. Turn Do not move off first.`;return}
+      if(room&&(!H.rooms.some(x=>x.no===room&&!x.dummy&&x.type===type))){err.textContent=`Room ${room} does not belong to room type ${type}. Choose a room of the selected type.`;return}
       if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){err.textContent=`Room ${room} is not free for these dates. Choose another room or dates.`;return}
       if(mode==='full'){const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
         const setIf=(k,v)=>{if(String(B[k])!==String(v)){B[k]=v;ch.push(k)}};
@@ -10469,7 +10470,11 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
         const prev=B.bill||{name:'',addr:'',tax:'',branch:''};if(['name','addr','tax','branch'].some(k=>(prev[k]||'')!==bill[k])){B.bill=bill;ch.push('billing address')}
         if(arr!==B.arr){B.arr=arr;ch.push('arrival')}
         if(typeCh||rcCh){const fb=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(!isLocked(d))B.nightly[d]=rco&&rco.kind==='zero'?0:(B.nightly[d]>0?B.nightly[d]:fb)})}
-      }else if(q('#bConfDep').checked!==B.confirmDep){B.confirmDep=q('#bConfDep').checked;ch.push('confirmDep')}
+      }else{
+        const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd),typeCh=type!==B.type,roomCh=room!==B.room,rcCh=rcd!==B.rateCode;
+        if(typeCh){B.type=type;ch.push('room type')}if(roomCh){B.room=room;ch.push('room')}if(rcCh){B.rateCode=rcd;ch.push('rate code')}
+        if(typeCh||rcCh){const fb=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(!isLocked(d)&&d>=H.set.bd)B.nightly[d]=rco&&rco.kind==='zero'?0:(B.nightly[d]>0?B.nightly[d]:fb)})}
+      }
       if(dep!==B.dep){const old=B.dep;if(B.status==='inhouse'&&dep>old)B.extended=true;const fbx=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(B.nightly[d]===undefined)B.nightly[d]=fbx});Object.keys(B.nightly).forEach(d=>{if(d>=dep||d<B.arr)delete B.nightly[d]});B.dep=dep;ch.push('departure '+fd(old)+' → '+fd(dep))}
       const nr=+q('#bRate').value;if(!q('#bRate').disabled&&!isNaN(nr)){const re_=rateError(nr,rateKindOf(B.rateCode));if(re_){err.textContent=re_;return}const cur_=B.nightly[dates(B.arr,B.dep).find(d=>d>=H.set.bd&&!isLocked(d))];if(can('rate')&&cur_!==undefined&&nr!==cur_){
         dates(B.arr,B.dep).filter(d=>d>=H.set.bd&&!isLocked(d)).forEach(d=>B.nightly[d]=nr);ch.push('daily rate '+m2(cur_)+' → '+m2(nr))}}
