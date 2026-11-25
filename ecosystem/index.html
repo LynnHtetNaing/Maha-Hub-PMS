@@ -3653,6 +3653,77 @@ const MAHA_AUTH_CONFIG={
 function loginStore(){try{return keepLoginOnDevice()?localStorage:sessionStorage}catch(e){return sessionStorage}}
 function dropLogin(k){try{sessionStorage.removeItem(k)}catch(e){}try{localStorage.removeItem(k)}catch(e){}}
 const SBAUTHKEY='mahahub.sbauth';
+/* ---- One shared "type a code" card: Authenticator setup, Authenticator recheck, an emailed device code,
+   and anything new later. The digit boxes are never built here - MahaOtp.attach() (maha-otp.js) owns them and
+   every bit of their typing/success/error motion, untouched. Only the card around them lives here. ---- */
+const MFA2_LOCKUP={
+  provider:{name:'MAHA PROVIDER',tag:'PROVIDER CONSOLE'},
+  book:{name:'MAHA BOOKING',tag:'HOTEL BOOKING ENGINE'},
+  hub:{name:'MAHA PMS',tag:'HOTEL MANAGEMENT SOFTWARE'}
+};
+const MFA2_CSS=`
+.mfa2-wrap{position:fixed;inset:0;z-index:100000;display:flex;align-items:safe center;justify-content:center;padding:28px;overflow:auto;background:rgba(10,48,32,.45);font-family:Inter,"Noto Sans","Noto Sans Thai","Noto Sans Myanmar",system-ui,sans-serif}
+.mfa2-card{width:440px;max-width:100%;background:#eceff0;border-radius:24px;box-shadow:0 30px 60px -18px rgba(8,40,30,.45);padding:26px 30px 28px;position:relative;color:#1f2d26}
+.mfa2-x{position:absolute;top:18px;right:18px;width:32px;height:32px;border-radius:50%;background:#dfe5e2;border:0;display:grid;place-items:center;cursor:pointer;color:#556470;transition:background .15s,color .15s;font-size:15px}
+.mfa2-x:hover{background:#fbe3e1;color:#B4432F}
+.mfa2-lockup{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-right:36px}
+.mfa2-lockup .ic{flex:none;width:52px;height:52px;border-radius:14px;background:linear-gradient(160deg,#154a42,#0b2c27);display:grid;place-items:center;box-shadow:0 8px 18px -8px rgba(8,40,34,.6)}
+.mfa2-lockup .ic img{width:30px;height:auto;display:block}
+.mfa2-lockup .txt{display:flex;flex-direction:column;min-width:0}
+.mfa2-lockup b{font:800 17px/1.1 Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.1em;color:#0f5a44;white-space:nowrap}
+.mfa2-lockup small{display:block;margin-top:4px;font:600 10px/1.2 "Jost",Inter,"Noto Sans",system-ui,sans-serif;letter-spacing:.22em;color:#5d7a6c;white-space:nowrap}
+.mfa2-badge{display:inline-flex;align-items:center;gap:7px;border:1px solid #cfe6da;background:#f3faf6;color:#0f5a44;font-size:11px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:5px 12px 5px 10px;text-transform:uppercase;margin-bottom:14px}
+.mfa2-badge i{width:7px;height:7px;border-radius:50%;background:#15966b;display:inline-block;animation:mfa2Pulse 1.6s ease-in-out infinite}
+@keyframes mfa2Pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.mfa2-card h2{margin:0 0 6px;font-size:22px;font-weight:800;color:#132b22;text-align:left}
+.mfa2-sub{margin:0 0 16px;font-size:13.5px;color:#6b776f;line-height:1.5;text-align:left}
+.mfa2-lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;color:#6b776f;text-transform:uppercase;margin:0 0 8px}
+.mfa2-card .mo-wrap{margin:0 0 6px}
+.mfa2-err{min-height:18px;margin:4px 0 14px;font-size:12.5px;color:#B4432F}
+.mfa2-go{width:100%;border:0;border-radius:14px;background:#0A3020;color:#fff;font:700 16px Inter,"Noto Sans",system-ui,sans-serif;padding:14px;cursor:pointer}
+.mfa2-go:hover{background:#184D3A}
+.mfa2-go[disabled]{background:#dfe5e2;color:#9aa6ae;cursor:default}
+.mfa2-foot{margin-top:14px;font-size:12.5px;color:#9aa39d;text-align:left}
+.mfa2-qr{display:flex;justify-content:center;margin:4px 0 14px}
+.mfa2-qr img{width:168px;height:168px;background:#fff;border-radius:14px;padding:10px;box-shadow:0 1px 6px rgba(0,0,0,.12)}
+.mfa2-key{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #c7d0cb;border-radius:12px;padding:8px 10px;margin:0 0 16px}
+.mfa2-key code{flex:1;font:600 12px/1.4 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;color:#132b22}
+.mfa2-key button{border:1px solid #c7d0cb;background:#fff;border-radius:8px;padding:6px 12px;font:600 12.5px Inter,"Noto Sans",system-ui,sans-serif;color:#0f5a44;cursor:pointer}
+html[data-mode=dark] .mfa2-lockup b{color:#d4b15a}html[data-mode=dark] .mfa2-lockup small{color:#9fb8ac}
+`;
+function mfa2Open(opts){
+  if(!document.getElementById('mfa2Style')){const st=document.createElement('style');st.id='mfa2Style';st.textContent=MFA2_CSS;document.head.appendChild(st)}
+  const lk=MFA2_LOCKUP[opts.logoKind]||MFA2_LOCKUP.hub;
+  const el=document.createElement('div');el.className='mfa2-wrap';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');
+  el.innerHTML=`<div class="mfa2-card">
+    <button type="button" class="mfa2-x" aria-label="Close">✕</button>
+    <div class="mfa2-lockup"><span class="ic"><img src="/brand/maha/gate-gold.png" alt=""></span><span class="txt"><b>${esc(lk.name)}</b><small>${esc(lk.tag)}</small></span></div>
+    <span class="mfa2-badge"><i></i>${esc(opts.badge||'')}</span>
+    <h2>${esc(opts.title||'')}</h2>
+    <p class="mfa2-sub">${esc(opts.intro||'')}</p>
+    ${opts.qr?`<div class="mfa2-qr"><img alt="QR code" src="${esc(opts.qr.qr)}"></div><div class="mfa2-key"><code>${esc(opts.qr.secret)}</code><button type="button" id="mfa2Cp">Copy</button></div>`:''}
+    <label class="mfa2-lbl">6-digit code</label>
+    <input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" autofocus>
+    <div class="mfa2-err" id="mfaErr"></div>
+    <button type="button" class="mfa2-go" id="mfaGo">${esc(opts.goLabel||'Continue')}</button>
+    <div class="mfa2-foot" id="mfa2Foot"></div>
+  </div>`;
+  document.body.appendChild(el);
+  const w={el,onClose:null};
+  let cdTimer=0;
+  if(opts.countdown){
+    const foot=el.querySelector('#mfa2Foot');
+    const tick=()=>{const left=30-(Math.floor(Date.now()/1000)%30);foot.textContent='Code will expire in '+left+'s'};
+    tick();cdTimer=setInterval(tick,1000);
+  }
+  const cp=el.querySelector('#mfa2Cp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(opts.qr.secret);cp.textContent='Copied'}catch(e){}};
+  w.close=()=>{if(cdTimer)clearInterval(cdTimer);try{el.remove()}catch(e){}};
+  el.querySelector('.mfa2-x').onclick=()=>{w.close();w.onClose&&w.onClose()};
+  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();w.close();w.onClose&&w.onClose()}};
+  document.addEventListener('keydown',onKey,true);
+  const origClose=w.close;w.close=()=>{document.removeEventListener('keydown',onKey,true);origClose()};
+  return w;
+}
 const MahaAuth={
   on(){
     if(MAHA_AUTH_CONFIG.enabled)return true;
@@ -3883,15 +3954,28 @@ const MahaAuth={
     if(!res.ok){const e=new Error((d&&(d.msg||d.message||d.error_description))||('HTTP '+res.status));e.status=res.status;e.code=d&&(d.error_code||d.code);throw e}
     return d;
   },
-  /* Asks for the 6-digit code. Returns the code, or null if the person closes the box. Replaced in tests. */
+  /* Asks for the 6-digit code. Returns the code, or null if the person closes the box. Replaced in tests.
+     One shared card design for every "type a code" moment (Authenticator setup, Authenticator recheck, an
+     emailed device code, whatever comes later) - see mfa2Html()/MFA2_CSS below. The digit boxes themselves are
+     untouched: MahaOtp.attach() still owns all of their typing/success/error motion, exactly as before - only
+     the card around them changed. */
   askCode(kind,info,again,check){
     return new Promise(resolve=>{
       const enrol=kind==='enrol';
-      const body=(enrol?`<p class="sub">Scan this QR code with an authenticator app (Google Authenticator, Microsoft Authenticator or Authy). If you cannot scan it, type the key below into the app instead.</p><div style="text-align:center;margin:10px 0"><img alt="QR code" src="${info.qr}" style="width:200px;height:200px;background:#fff"></div><p class="sub" style="word-break:break-all"><b>Key:</b> ${esc(info.secret)}</p><p class="sub">Then type the 6-digit code the app shows.</p>`:`<p class="sub">Type the 6-digit code from your authenticator app.</p>`)
-        +`<div class="form2">${fld('6-digit code',`<input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" autofocus>`)}</div><div class="err" id="mfaErr">${again?'That code was not accepted. Use the newest code from the app.':''}</div><div class="btns"><button class="btn gold" id="mfaGo">${enrol?'Turn on and continue':'Continue'}</button></div>`;
-      const m=modal(enrol?'Set up two-step sign-in':'Two-step sign-in',body,{w:480});
-      let done=false;const finish=v=>{if(done)return;done=true;try{closeModal(m)}catch(e){}resolve(v)};
+      const w=mfa2Open({
+        kind:enrol?'enrol':'verify',
+        logoKind:'provider',
+        title:enrol?'Set up two-step sign-in':'Enter your code',
+        badge:enrol?'First-time setup':'Two-step sign-in',
+        intro:enrol?'Your account needs an authenticator app. You do this once.':'Open your authenticator app and type the 6-digit code it shows. This browser is then trusted for 14 days.',
+        qr:enrol?info:null,
+        goLabel:enrol?'Turn on and continue':'Continue',
+        countdown:!enrol
+      });
+      const m=w.el;
+      let done=false;const finish=v=>{if(done)return;done=true;try{w.close()}catch(e){}resolve(v)};
       const mfaOtp=window.MahaOtp?window.MahaOtp.attach($('#mfaCode',m),{onComplete:()=>$('#mfaGo',m).click()}):null;
+      if(again)$('#mfaErr',m).textContent='That code was not accepted. Use the newest code from the app.';
       $('#mfaGo',m).onclick=()=>{const v=($('#mfaCode',m).value||'').replace(/\s+/g,'');if(!/^\d{6}$/.test(v)){$('#mfaErr',m).textContent='Enter the 6 digits.';return}
         if(!check){finish(v);return}
         const go=$('#mfaGo',m);go.disabled=true;mfaOtp&&mfaOtp.busy(true);
@@ -3899,7 +3983,7 @@ const MahaAuth={
           if(r&&r.ok){(mfaOtp?mfaOtp.win():Promise.resolve()).then(()=>finish(r.value!==undefined?r.value:v));return}
           if(mfaOtp)mfaOtp.error((r&&r.msg)||'That code was not accepted. Use the newest code from the app.');else $('#mfaErr',m).textContent=(r&&r.msg)||'That code was not accepted.'})};
       $('#mfaCode',m).onkeydown=e=>{if(e.key==='Enter')$('#mfaGo',m).onclick()};
-      m._wrap._onclose=()=>finish(null);
+      w.onClose=()=>finish(null);
     });
   },
   /* the same Authenticator step in the Maha pop-up of CRM and Billing (QR code the first time, then the 6 digits); it also makes this browser trusted for 14 days */
