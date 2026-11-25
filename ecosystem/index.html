@@ -9044,7 +9044,9 @@ function doLogin(){
     if(!avail){
       if(IS_APP){toast('Maha PMS is not open for your account. Ask the provider to open it.');signOut(true);return}
       const fallback=list.find(x=>x.open);
-      if(!fallback){toast('No system is open for your account.');signOut(true);return}
+      /* Same in-place message as picking a closed system shows on the sign-in form itself (see the
+         lgTargetSys check above) - never a toast-and-kick back to the system chooser, for any system. */
+      if(!fallback){if(MahaAuth.on())MahaAuth.signOut();err.textContent=ecoSysLabel(sys)+' is not open for your account.';return}
       toast(ecoSysLabel(sys)+' is closed for your account. Opening '+fallback.name+'.');
       sys=fallback.kind;avail=fallback;
     }
@@ -13177,7 +13179,7 @@ VIEWS['prov.systems']=el=>{
   hotels.forEach(shapeHotel);
   const released=SYS_COLS.filter(c=>RELEASED_SYSTEMS.includes(c[0]));
   const soon=SYS_COLS.filter(c=>!RELEASED_SYSTEMS.includes(c[0])).map(c=>c[1]).join(', ');
-  const rowCell=(h,k)=>{const on=sysState(h,k);return `<span style="font-size:12px;font-weight:600;color:${on?'#16724e':'#8a8f8a'}">${on?'Open':'Closed'}</span>`};
+  const rowCell=(h,k)=>{const on=sysState(h,k);return `<span class="sysst ${on?'on':'off'}">${on?'Open':'Closed'}</span>`};
   const panelHtml=h=>{
     const users=(h.users||[]).filter(u=>!u.provider&&!u.isProv&&!u.deleted&&!u.cancelled);
     const userCell=(u,k)=>{
@@ -13186,14 +13188,14 @@ VIEWS['prov.systems']=el=>{
       const on=userHasSystem(u,k);
       return `<button type="button" class="btn sm ${on?'':'ghost'}" data-su="${u.id}" data-sk="${k}" data-su-code="${esc(h.code)}">${on?'Open':'Locked'}</button>`;
     };
-    return `<div style="padding:18px 22px 24px 44px;background:var(--panel2,#fbfcfb);border-top:1px solid var(--line,#eef1ee)">
+    return `<div class="syspanel" style="padding:18px 22px 24px 44px;border-top:1px solid var(--line)">
       <h3 class="mt0">Systems for this hotel</h3>
       <div class="sysgrid">${released.map(c=>{const on=sysState(h,c[0]);return `<div class="syscard ${on?'on':'off'}">
          <div class="row gap" style="align-items:flex-start;justify-content:space-between">
           <div><b>${c[1]}</b><div class="sub" style="margin-top:2px">${esc(c[2])}</div></div>
           <button type="button" class="smx-toggle ${on?'on':'off'}" data-sys-toggle="${c[0]}" data-code="${esc(h.code)}" aria-pressed="${on?'true':'false'}"><i></i><span>${on?'ON':'OFF'}</span></button>
          </div>
-         <span class="sub" style="font-weight:600;color:${on?'#16724e':'#8a8f8a'}">${on?'Open: staff can use it':'Closed: hidden from staff'}</span>
+         <span class="sysst ${on?'on':'off'}" style="font-weight:600">${on?'Open: staff can use it':'Closed: hidden from staff'}</span>
         </div>`}).join('')}</div>
       ${soon?`<p class="sub mt">${esc(soon)} aren't released yet — they'll appear here when they are.</p>`:''}
       <h3 class="mt">Staff access</h3>
@@ -13206,15 +13208,19 @@ VIEWS['prov.systems']=el=>{
   };
   el.innerHTML=pageHead('Systems & Access')+`<style>.smx-toggle{border:0;border-radius:18px;padding:4px 10px;min-width:72px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:11px;cursor:pointer}.smx-toggle i{width:8px;height:8px;border-radius:50%;background:#fff}.smx-toggle.on{background:#15966b;color:#fff}.smx-toggle.off{background:#f4dfe0;color:#9c3035}
     .sysgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px}
-    .syscard{border:1px solid var(--line,#e3e7e4);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
-    .syscard.on{background:rgba(21,150,107,.07);border-color:rgba(21,150,107,.35)}.syscard.off{background:var(--panel2,#fbfbfa)}
-    #smRows .sysrow{cursor:pointer}#smRows .sysrow:hover{background:var(--hover,rgba(0,0,0,.025))}
+    .syspanel{background:var(--m-soft,var(--bg));color:var(--ink)}
+    .syscard{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;color:var(--ink)}
+    .syscard.on{background:color-mix(in srgb,#15966b 10%,var(--card));border-color:color-mix(in srgb,#15966b 35%,var(--line))}
+    .syscard.off{background:var(--card)}
+    .sysst.on{color:#146c2e}.sysst.off{color:var(--mut)}
+    html[data-skin="modern"][data-mode=dark] .sysst.on{color:#4ade80}
+    html[data-skin="modern"][data-mode=dark] .smx-toggle.off{background:color-mix(in srgb,#e11d48 20%,var(--card));color:#fb7185}
+    #smRows .sysrow{cursor:pointer}#smRows .sysrow:hover{background:var(--m-soft,rgba(0,0,0,.025))}
     .sysrow .chev{transition:transform .15s;display:inline-block}.sysrow.open .chev{transform:rotate(90deg)}
     .mt0{margin-top:0}</style>
    <div class="panel pad">
     <div class="row gap" style="align-items:center;justify-content:space-between;flex-wrap:wrap">
      <div><b>Hotel systems &amp; staff access</b><p class="sub" style="margin:4px 0 0">Click a hotel to see and change its systems and who on its team can use each one. A system must be open for the hotel before it can be opened for any one person.</p></div>
-     <button class="btn gold" id="openBookingConsole" type="button">Booking Engine Admin →</button>
     </div>
     <div class="phsrch mt"><input id="smQ" value="${esc(SYSMX.q)}" placeholder="Search hotel name or code" autocomplete="off" style="max-width:360px"><span class="sub" id="smCount">${hotels.length} active properties</span></div>
     <div class="scroll mt" style="overflow-x:auto">
@@ -13227,7 +13233,6 @@ VIEWS['prov.systems']=el=>{
   const q=$('#smQ',el),rows=$$('[data-hotel-row]',el);
   const filter=()=>{const v=(q.value||'').trim().toLowerCase();SYSMX.q=q.value;let n=0;rows.forEach(r=>{const show=!v||r.textContent.toLowerCase().includes(v);r.hidden=!show;if(show)n++;const panel=el.querySelector('[data-panel-code="'+r.dataset.toggleCode+'"]');if(panel)panel.hidden=!show});$('#smCount',el).textContent=n+' of '+hotels.length+' active properties'};
   q.oninput=filter;
-  $('#openBookingConsole',el).onclick=()=>go('prov.be.console');
   $$('[data-hotel-row]',el).forEach(tr=>tr.onclick=e=>{if(e.target.closest('button,input,select,label,a'))return;SYSMX.open=SYSMX.open===tr.dataset.toggleCode?null:tr.dataset.toggleCode;render()});
   $$('[data-sys-toggle]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();const h=DB.hotels[b.dataset.code];if(h)toggleHotelSystem(h,b.dataset.sysToggle)});
   $$('[data-manage-users]',el).forEach(b=>b.onclick=e=>{e.stopPropagation();openHotel(b.dataset.manageUsers);DB.session.hotel=b.dataset.manageUsers;go('prov.perms')});
