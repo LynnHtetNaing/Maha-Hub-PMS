@@ -8220,7 +8220,7 @@ function connectSnapshot(h){
 }
 function hotelSystems(h,u){
   const rows=[
-    ['hub','Maha PMS','Manage your property, front desk, billing and reports.','pms',true],
+    ['hub','Maha PMS','Manage your property, front desk, billing and reports.','pms',hubOn(h)],
     ['connect','Maha Connect','Distribute your inventory across global channels.','connect',connectOn(h)],
     ['book','Maha Booking','Let guests book directly on your website.','book',bookOn(h)],
     ['reach','Maha Reach','Boost your brand with marketing & guest engagement.','reach',reachOn(h)],
@@ -8251,11 +8251,15 @@ function openSystem(kind,h,same){
   if(same){location.assign(url);return}
   openApp(url,ecoSysLabel(kind));
 }
+/* A system shows as a real clickable box only once the hotel itself has it open (whether or not this one
+   person does) - exactly like Maha PMS already does. A system the hotel hasn't opened is never a box here at
+   all: it drops down to the same plain "unavailable" tile unreleased systems (Reach, HR, ...) already use -
+   see ecoSoonCards. */
 function ecoAvailableCards(h, interactive, selected, u){
   const pre=!u&&interactive;   /* before anyone is named: only the released systems, both open to pick */
-  return hotelSystems(h,u).filter(s=>!pre||CHOOSER_OPEN.includes(s.kind)).map((s,i)=>{
+  return hotelSystems(h,u).filter(s=>pre?CHOOSER_OPEN.includes(s.kind):(s.released&&s.hotel)).map((s,i)=>{
     const locked=pre?false:!s.open;
-    const why=pre?'':!s.released?' · Not released yet':!s.hotel?' · Ask Maha Hub to open':!s.user?' · Not open for this account':'';
+    const why=pre?'':!s.user?' · Not open for this account':'';
     const sel=!!selected&&selected===s.kind&&!locked;
     const dis=interactive?(locked?'disabled':''):'disabled';
     return `<button type="button" class="eco-card${locked?' is-locked':''}${sel?' is-selected':''}" data-sys="${s.kind}" ${dis} aria-pressed="${sel?'true':'false'}" style="animation-delay:${0.18+i*0.06}s">
@@ -8265,9 +8269,14 @@ function ecoAvailableCards(h, interactive, selected, u){
   </button>`;
   }).join('');
 }
-function ecoSoonCards(h){
-  const more=h?hotelSystems(h,null).filter(s=>!CHOOSER_OPEN.includes(s.kind)).map(s=>({name:s.name,blurb:s.blurb})):[];
-  return more.concat(ECO_SOON).map(s=>`<div class="eco-mini" title="${esc(s.name+' — '+s.blurb)}"><span class="eco-badge">🔒 Coming soon</span><b>${esc(s.name)}</b><span class="eco-mini-copy">${esc(s.blurb)}</span></div>`).join('');
+function ecoSoonCards(h,u){
+  const pre=!u;
+  const all=h?hotelSystems(h,u):[];
+  const notReleased=all.filter(s=>!CHOOSER_OPEN.includes(s.kind)).map(s=>({name:s.name,blurb:s.blurb,label:'🔒 Coming soon'}));
+  /* released, but this hotel hasn't opened it (only meaningful once a real person and hotel are known) */
+  const hotelClosed=pre?[]:all.filter(s=>CHOOSER_OPEN.includes(s.kind)&&s.released&&!s.hotel).map(s=>({name:s.name,blurb:s.blurb,label:'🔒 Not available here'}));
+  return notReleased.concat(hotelClosed).concat(ECO_SOON.map(s=>({name:s.name,blurb:s.blurb,label:'🔒 Coming soon'})))
+    .map(s=>`<div class="eco-mini" title="${esc(s.name+' — '+s.blurb)}"><span class="eco-badge">${s.label}</span><b>${esc(s.name)}</b><span class="eco-mini-copy">${esc(s.blurb)}</span></div>`).join('');
 }
 
 
@@ -8820,7 +8829,7 @@ function showLogin(msg){
       <div class="eco-sec" id="lgAvailLabel"${lgChosen?' hidden':''}>Available now</div>
       <div class="eco-now" id="lgCards">${ecoAvailableCards(preview,true,lgTargetSys,null)}</div>
       <div id="lgSoon"${lgChosen?' hidden':''}><div class="eco-sec">Upcoming services</div>
-      <div class="eco-soon">${ecoSoonCards(preview)}</div></div>
+      <div class="eco-soon" id="lgSoonBox">${ecoSoonCards(preview)}</div></div>
       <div class="eco-foot" id="lgFoot">More than software — a partner in your growth.</div>
     </div>
     </div>
@@ -8935,6 +8944,8 @@ function showLogin(msg){
     if(lgTargetSys&&!IS_APP&&!none&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&(u?s.open:s.released)))lgTargetSys=null;
     const cardsHtml=ecoAvailableCards(h,true,lgTargetSys,u);
     if(box.dataset.sig!==cardsHtml){box.innerHTML=cardsHtml;box.dataset.sig=cardsHtml;$$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b))}   /* rebuilt only when the cards really change: no flashing */
+    const soonBox=$('#lgSoonBox');
+    if(soonBox){const soonHtml=ecoSoonCards(h,u);if(soonBox.dataset.sig!==soonHtml){soonBox.innerHTML=soonHtml;soonBox.dataset.sig=soonHtml}}
     let nm=$('#lgNoSys');if(!nm){nm=document.createElement('p');nm.id='lgNoSys';nm.className='eco-nosys';const er=$('#lgErr');if(er&&er.parentNode)er.parentNode.insertBefore(nm,er)}
     nm.hidden=!none;nm.textContent=none?'No system is open for this account yet. Ask the provider to open one in User Details & Permission.':'';
     applyPick();
