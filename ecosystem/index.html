@@ -2173,10 +2173,11 @@ html[data-skin="modern"] .tbtn{background:var(--m-card);border-color:color-mix(i
    pages stay white with black text, like paper. */
 html[data-skin="modern"] .rptop{background:#0D2A24;border-bottom:1px solid #ffffff22;box-shadow:none;color:#fff}
 html[data-skin="modern"] .rptitle{font:700 13px "Cinzel",Georgia,serif;letter-spacing:.14em}
-html[data-skin="modern"] .rpl{background:var(--m-card);border-right:1px solid var(--m-line);padding:8px 0}
+html[data-skin="modern"] .rpl{background:var(--m-bg);border-right:1px solid var(--m-line);padding:8px 0}
 html[data-skin="modern"] .rgh{display:flex;align-items:center;gap:8px;width:calc(100% - 16px);margin:6px 8px 2px;padding:9px 12px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-card);color:var(--m-ink);font:700 13px Inter,"Noto Sans",sans-serif;cursor:pointer;box-shadow:0 1px 6px #12204414;text-align:left}
 html[data-skin="modern"] .rgl{padding:2px 8px 6px}
 html[data-skin="modern"] .ritem{display:flex;align-items:center;width:100%;margin:2px 0;padding:7px 10px;border:0;border-radius:10px;background:none;color:var(--m-ink);font:500 13px Inter,"Noto Sans",system-ui,sans-serif;text-align:left;cursor:pointer}
+html[data-skin="modern"] .ritem[hidden],.ritem[hidden],.rgrp[hidden]{display:none!important}
 html[data-skin="modern"] .ritem b{color:var(--a1);margin-right:4px;flex:none}
 html[data-skin="modern"] .ritem .rin{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (hover:hover){html[data-skin="modern"] .ritem:hover{background:color-mix(in srgb,var(--a1) 14%,var(--m-card))}}
@@ -2188,11 +2189,11 @@ html[data-skin="modern"] .rptool input,html[data-skin="modern"] .rptool select{b
 html[data-skin="modern"] .rpview{background:var(--m-bg)}
 html[data-skin="modern"] .rpempty{background:var(--m-card);border-radius:20px;box-shadow:0 10px 30px #12204422;color:var(--m-ink);border:1px solid var(--m-line)}
 html[data-skin="modern"] .rpage{box-shadow:0 8px 26px #0005}
-html[data-skin="modern"][data-mode=dark] .rp:not([data-rpmode="light"]) .rpl,html[data-skin="modern"] .rp[data-rpmode="dark"] .rpl{background:color-mix(in srgb,var(--a1) 8%,#0a1626)!important}
+html[data-skin="modern"][data-mode=dark] .rp:not([data-rpmode="light"]) .rpl,html[data-skin="modern"] .rp[data-rpmode="dark"] .rpl{background:#070F1B!important}
 html[data-skin="modern"][data-mode=dark] .rp:not([data-rpmode="light"]) .rgh,html[data-skin="modern"] .rp[data-rpmode="dark"] .rgh{box-shadow:none!important;border-color:#ffffff1c!important}
 html[data-skin="modern"][data-mode=dark] .rp:not([data-rpmode="light"]) .rptool,html[data-skin="modern"] .rp[data-rpmode="dark"] .rptool{background:color-mix(in srgb,var(--a1) 14%,#0a1626)!important}
 html[data-skin="modern"][data-mode=dark] .rp:not([data-rpmode="light"]) .rpview,html[data-skin="modern"] .rp[data-rpmode="dark"] .rpview{background:#070F1B!important}
-html[data-skin="modern"] .rp[data-rpmode="light"] .rpl{background:var(--m-card)!important}
+html[data-skin="modern"] .rp[data-rpmode="light"] .rpl{background:#ECF6F1!important}
 html[data-skin="modern"] .rp[data-rpmode="light"] .rgh{box-shadow:0 1px 6px #12204414!important;border-color:var(--m-line)!important}
 html[data-skin="modern"] .rp[data-rpmode="light"] .rptool{background:color-mix(in srgb,var(--a1) 9%,var(--m-card))!important}
 /* Hotel Status (Modern): hero occupancy ring, vivid status tiles, clean cards */
@@ -15586,9 +15587,10 @@ const rpSetMode=m=>{try{m?localStorage.setItem(RP_MODE_KEY,m):localStorage.remov
 const rpEffMode=()=>rpMode()||userMode();
 function applyRpMode(root){const rp=$('.rp',root),m=rpMode();if(!rp)return;if(m)rp.setAttribute('data-rpmode',m);else rp.removeAttribute('data-rpmode');
   const b=$('#rpMode',root);if(b){const eff=rpEffMode();b.innerHTML=`<span class="ic">${eff==='dark'?'☀':'☾'}</span><span class="tx">${eff==='dark'?'Light':'Dark'}</span>`;b.title=b.ariaLabel='Switch Reports to '+(eff==='dark'?'Light':'Dark')+' (Reports only, the rest of PMS is not affected)';b.setAttribute('aria-label',b.title)}}
-function rpFilterReports(root,q){q=(q||'').trim().toLowerCase();
+const rpNorm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function rpFilterReports(root,q){q=rpNorm(q);
   $$('.rgrp',root).forEach(grp=>{const h=$('.rgh',grp),l=$('.rgl',grp);let any=false;
-    $$('.ritem',grp).forEach(it=>{const m=!q||(it.dataset.rsrch||'').includes(q);it.hidden=!m;if(m)any=true});
+    $$('.ritem',grp).forEach(it=>{const m=!q||rpNorm(it.dataset.rsrch).includes(q);it.hidden=!m;if(m)any=true});
     if(q){grp.hidden=!any;if(any){l.hidden=false;h.setAttribute('aria-expanded','true')}}
     else{grp.hidden=false;l.hidden=!RP.open[h.dataset.rg];h.setAttribute('aria-expanded',!!RP.open[h.dataset.rg])}})}
 function defaultRange(def){const bd=H.set.bd,lt=H.set.lockedThrough;switch(def.mode){case 'today':case 'future':return {from:bd,to:bd};case 'past':return {from:lt,to:lt};case 'pastOne':return {from:lt,to:lt};case 'upTo':return {from:bd,to:bd};case 'futureRange':return {from:bd,to:addD(bd,13)};default:return {from:monthStart(lt),to:lt}}}
