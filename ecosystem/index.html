@@ -9032,15 +9032,15 @@ function showLogin(msg){
     const name=($('#lgUser')&&$('#lgUser').value||'').trim().toLowerCase();
     const f=!lgProvider&&name?findStaff(name):null;
     const h=f?f.h:ecoPreviewHotel();shapeHotel(h);
-    const u=f?f.u:null;
-    const none=!!u&&!hotelSystems(h,u).some(s=>s.open);   /* nothing is open for this person: keep the sign-in box and explain, do not fall back to the system list */
-    if(lgTargetSys&&!IS_APP&&!none&&!hotelSystems(h,u).some(s=>s.kind===lgTargetSys&&(u?s.open:s.released)))lgTargetSys=null;
-    const cardsHtml=ecoAvailableCards(h,true,lgTargetSys,u);
+    /* Typing a username only previews which hotel/branding it belongs to - it never locks a system box or bumps
+       the person out of the one they picked. Whether THIS account may use it is checked once, at Login (doLogin /
+       staffEnter), which shows the "not open for your account" message in place, never by resetting lgTargetSys
+       here. Passing u=null keeps every released, hotel-open system a normal clickable box while typing. */
+    const cardsHtml=ecoAvailableCards(h,true,lgTargetSys,null);
     if(box.dataset.sig!==cardsHtml){box.innerHTML=cardsHtml;box.dataset.sig=cardsHtml;$$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b))}   /* rebuilt only when the cards really change: no flashing */
     const soonBox=$('#lgSoonBox');
-    if(soonBox){const soonHtml=ecoSoonCards(h,u);if(soonBox.dataset.sig!==soonHtml){soonBox.innerHTML=soonHtml;soonBox.dataset.sig=soonHtml}}
-    let nm=$('#lgNoSys');if(!nm){nm=document.createElement('p');nm.id='lgNoSys';nm.className='eco-nosys';const er=$('#lgErr');if(er&&er.parentNode)er.parentNode.insertBefore(nm,er)}
-    nm.hidden=!none;nm.textContent=none?'No system is open for this account yet. Ask the provider to open one in User Details & Permission.':'';
+    if(soonBox){const soonHtml=ecoSoonCards(h,null);if(soonBox.dataset.sig!==soonHtml){soonBox.innerHTML=soonHtml;soonBox.dataset.sig=soonHtml}}
+    let nm=$('#lgNoSys');if(nm)nm.hidden=true;
     applyPick();
   };
   const hint=()=>{
