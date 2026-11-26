@@ -9495,10 +9495,19 @@ function bkpRefNo(B,d){const r=d.r,hotelNo=(r.confirmation&&r.confirmation!=='0'
 function bkpBoxes(mp){return (mp.boxes&&mp.boxes.length?mp.boxes:(mp.terms?[{title:'Terms and Conditions',text:mp.terms}]:[])).map(x=>({title:x.title||'',text:x.text||''}))}
 function bkpMailData(B){
   const d=bkpData(B),s=H.set,mp=s.mailPol||{},N=d.nts.length,cur=bCur(B),refNo=bkpRefNo(B,d);
+  /* The booking confirmation (print or mail) goes to the guest, so it shows what the guest actually pays - same
+     rule as the folio/invoice: a Net-basis agent's typed rate is the hotel's net take, never shown to the guest.
+     Gross it up here too, with no commission or net figure anywhere on this document either. Staff's own
+     in-app Booking details panel (hsResDetail, same bkpData()) is unaffected - it keeps showing the real rate. */
+  const comm=resComm(H,d.r);
+  const grossUp=commPct(comm)>0&&commBasis(comm)==='net';
+  const rate=grossUp?commCalc(d.rate,comm).gross:d.rate;
+  const roomTotal=grossUp?commTotals(d.nts.map(x=>(B.nightly||{})[x]||0),comm).gross:d.roomTotal;
+  const balance=grossUp?r2(roomTotal-d.paid):d.balance;
   return {hotel:{name:s.name||'',address:s.addr||'',phone:s.phone||'',email:s.email||''},guest:{name:bkpNice(gName(d.g))},
     booking:{no:refNo,confirmation:refNo,arrLabel:bkpLong(B.arr),depLabel:bkpLong(B.dep),checkin:B.eta||'14:00',checkout:B.etd||'12:00',nights:N+' night'+(N===1?'':'s'),
       roomType:RT(B.type).name||B.type,ratePlan:(d.rc.desc||B.rateCode)+' ('+B.rateCode+')',pax:B.adults+' adult'+(B.adults===1?'':'s')+(B.children?' + '+B.children+' child'+(B.children===1?'':'ren'):''),channel:d.ch?d.ch.name:'Direct'},
-    money:{cur,payStatus:d.pay,rate:m2(d.rate),roomTotal:m2(d.roomTotal),paid:m2(d.paid),balance:m2(d.balance)},
+    money:{cur,payStatus:d.pay,rate:m2(rate),roomTotal:m2(roomTotal),paid:m2(d.paid),balance:m2(balance)},
     boxes:bkpBoxes(mp),request:d.notes};
 }
 async function bkpSendMail(B,to,subject){
