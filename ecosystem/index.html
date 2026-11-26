@@ -9495,10 +9495,19 @@ function bkpRefNo(B,d){const r=d.r,hotelNo=(r.confirmation&&r.confirmation!=='0'
 function bkpBoxes(mp){return (mp.boxes&&mp.boxes.length?mp.boxes:(mp.terms?[{title:'Terms and Conditions',text:mp.terms}]:[])).map(x=>({title:x.title||'',text:x.text||''}))}
 function bkpMailData(B){
   const d=bkpData(B),s=H.set,mp=s.mailPol||{},N=d.nts.length,cur=bCur(B),refNo=bkpRefNo(B,d);
+  /* The booking confirmation (print or mail) goes to the guest, so it shows what the guest actually pays - same
+     rule as the folio/invoice: a Net-basis agent's typed rate is the hotel's net take, never shown to the guest.
+     Gross it up here too, with no commission or net figure anywhere on this document either. Staff's own
+     in-app Booking details panel (hsResDetail, same bkpData()) is unaffected - it keeps showing the real rate. */
+  const comm=resComm(H,d.r);
+  const grossUp=commPct(comm)>0&&commBasis(comm)==='net';
+  const rate=grossUp?commCalc(d.rate,comm).gross:d.rate;
+  const roomTotal=grossUp?commTotals(d.nts.map(x=>(B.nightly||{})[x]||0),comm).gross:d.roomTotal;
+  const balance=grossUp?r2(roomTotal-d.paid):d.balance;
   return {hotel:{name:s.name||'',address:s.addr||'',phone:s.phone||'',email:s.email||''},guest:{name:bkpNice(gName(d.g))},
     booking:{no:refNo,confirmation:refNo,arrLabel:bkpLong(B.arr),depLabel:bkpLong(B.dep),checkin:B.eta||'14:00',checkout:B.etd||'12:00',nights:N+' night'+(N===1?'':'s'),
       roomType:RT(B.type).name||B.type,ratePlan:(d.rc.desc||B.rateCode)+' ('+B.rateCode+')',pax:B.adults+' adult'+(B.adults===1?'':'s')+(B.children?' + '+B.children+' child'+(B.children===1?'':'ren'):''),channel:d.ch?d.ch.name:'Direct'},
-    money:{cur,payStatus:d.pay,rate:m2(d.rate),roomTotal:m2(d.roomTotal),paid:m2(d.paid),balance:m2(d.balance)},
+    money:{cur,payStatus:d.pay,rate:m2(rate),roomTotal:m2(roomTotal),paid:m2(d.paid),balance:m2(balance)},
     boxes:bkpBoxes(mp),request:d.notes};
 }
 async function bkpSendMail(B,to,subject){
@@ -11627,12 +11636,24 @@ function printReceipt(B,line,billTo,other,copies){const spec=receiptSpec(B,line)
   if(gaplessOn(H)&&!invoiceExists(H,B,spec.key)){reserveInvoice(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio).then(()=>printReceipt(B,line,billTo,other,copies),e=>toast(gaplessMsg(e)));return}
   spec.inv=taxInvoiceFor(B,spec.key,r2((spec.base||0)+(spec.nonvat||0)),billTo,spec.folio);
   openMoneyDoc(B,spec,(spec.deposit?'Reservation deposit':'Receipt / Tax invoice')+' '+invRef(spec.inv))}
+/* A "Net" agent/company (the OTA already took its commission before sending the net rate to the hotel) still
+   collected the full gross amount from the guest - so the guest's own copy of the folio/invoice must show that
+   gross amount, never the lower net figure the hotel actually posted and keeps. It must also never show the
+   commission or the net rate anywhere: a guest invoice that revealed the hotel's commission/net split would look
+   like any other OTA booking's invoice should NOT, which hotels' OTA contracts do not allow. So this only ever
+   changes the printed number for a room-charge line - one plain rate, same look as a direct guest's invoice.
+   Payments, other charges, and the hotel's own internal reports (reservation screen, AC_17) are untouched. */
+function guestInvoiceAmt(B,l){
+  if(l.kind!=='room')return l.amt;
+  const c=resComm(H,resOf(B));if(!(commPct(c)>0)||commBasis(c)!=='net')return l.amt;
+  return commCalc(l.amt,c).gross;
+}
 function printGuestFolio(B,f,billTo,style,other,copies,only){const ls=(only?[only]:B.lines.filter(l=>l.folio===f)).slice().sort((a,b)=>a.time-b.time);if(!ls.length){toast('This folio has no lines to print.');return}const fol=only?only.folio:f;const payKind=k=>['pay','payrec','payoff','corrpay'].includes(k);
   const folioExtra=l=>ruleOn(H,'guestFolioHidesRemark')?false:(payKind(l.kind)&&!(l.kind==='pay'&&(l.adv||l.deposit))); /* default: the guest folio prints no remark and no card details */
-  let rows=ls.map(l=>({bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt:l.amt,fx:l.fc?{fc:l.fc,fa:l.fa,fr:l.fr}:null,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}));
-  if(style==='summary'&&!only){const by={};ls.forEach(l=>{const k=l.code+'|'+l.desc.replace(/^Correct - /,'');by[k]=by[k]||{bd:l.orgDate||l.bd,desc:l.desc.replace(/^Correct - /,''),ref:'',amt:0,card:null,remark:''};by[k].amt=r2(by[k].amt+l.amt);if(folioExtra(l)&&l.card)by[k].card=l.card;if(folioExtra(l)&&l.remark)by[k].remark=l.remark});rows=Object.values(by).filter(x=>Math.abs(x.amt)>0.004)}
-  const ch=ls.filter(isCharge),base=r2(sum(ch.filter(l=>l.vat),l=>l.amt)),nonvat=r2(sum(ch.filter(l=>!l.vat),l=>l.amt));
-  openMoneyDoc(B,{guest:true,deposit:false,paid:false,folio:fol,rows,balance:r2(sum(ls,l=>l.amt)),base,nonvat,billTo,other,copies:copies||'both'},only?'Guest folio':'Guest folio '+B.internal+' · folio '+f)}
+  let rows=ls.map(l=>{const amt=guestInvoiceAmt(B,l),fx=l.fc?{fc:l.fc,fa:amt!==l.amt&&l.amt?r2(l.fa*amt/l.amt):l.fa,fr:l.fr}:null;return {bd:l.orgDate||l.bd,desc:l.desc,ref:l.ref,amt,fx,remark:folioExtra(l)?(l.remark||''):'',card:folioExtra(l)&&l.card?l.card:null}});
+  if(style==='summary'&&!only){const by={};ls.forEach(l=>{const k=l.code+'|'+l.desc.replace(/^Correct - /,'');by[k]=by[k]||{bd:l.orgDate||l.bd,desc:l.desc.replace(/^Correct - /,''),ref:'',amt:0,card:null,remark:''};by[k].amt=r2(by[k].amt+guestInvoiceAmt(B,l));if(folioExtra(l)&&l.card)by[k].card=l.card;if(folioExtra(l)&&l.remark)by[k].remark=l.remark});rows=Object.values(by).filter(x=>Math.abs(x.amt)>0.004)}
+  const ch=ls.filter(isCharge),base=r2(sum(ch.filter(l=>l.vat),l=>guestInvoiceAmt(B,l))),nonvat=r2(sum(ch.filter(l=>!l.vat),l=>guestInvoiceAmt(B,l)));
+  openMoneyDoc(B,{guest:true,deposit:false,paid:false,folio:fol,rows,balance:r2(sum(ls,l=>guestInvoiceAmt(B,l))),base,nonvat,billTo,other,copies:copies||'both'},only?'Guest folio':'Guest folio '+B.internal+' · folio '+f)}
 const DEP_PRINT_MSG='The receipt / tax invoice of a reservation deposit is printed from the reservation. Open the reservation, click Deposit and then Print deposit invoice.';
 const depSelected=B=>{const l=folSel&&B.lines.find(x=>x.id===folSel);return !!(l&&l.deposit&&['pay','payrec'].includes(l.kind))};
 function invoiceChooser(B){if(!need('print'))return;if(depSelected(B)){dlgAlert(DEP_PRINT_MSG);return}const fs=[1,2,3,4].filter(f=>B.lines.some(l=>l.folio===f));if(!fs.length){toast('This folio has no lines to print.');return}
