@@ -9887,12 +9887,12 @@ function assignArrival(id){
   q('#axNo').onclick=()=>closeModal(m);
   q('#axGo').onclick=()=>{const err=q('#axE');err.textContent='';
     const lock=was&&S.dnm,room=lock?(B.room||''):S.room,tc=!lock&&S.type!==B.type;
-    if(!room){dlgWarn('No room is selected.\n\nChoose a room from the list before saving.','No room selected');return}
-    if(S.dnm&&!was&&!S.why.trim()){dlgWarn('Give a reason to turn Do not move on.\n\nType why this guest must stay in this exact room (for example, a VIP request or a maintenance issue elsewhere).','Reason required');return}
-    if(tc&&!S.tWhy.trim()){dlgWarn('Give a reason for the room type change.\n\nType why the room type is changing before saving.','Reason required');return}
-    if(tc&&S.charge&&!(+S.amt>0)){dlgWarn('Type the amount to charge.\n\nEnter how much to charge for this room type change, or turn the charge option off.','Amount required');return}
-    if(tc&&S.charge&&!canPost){dlgWarn('You do not have permission to post charges.\n\nAsk your provider or manager to open Post charge for your account, or save this room type change without charging.','Permission needed');return}
-    if(room!==B.room&&!roomFree(room,B.arr,B.dep,B.id)){dlgWarn(`Room ${room} is not free for these dates.\n\nAnother reservation already holds this room for some or all of this guest's stay (${fd(B.arr)} – ${fd(B.dep)}). Choose a different room, or change the dates first.`,'Room not available');return}
+    if(!room){dlgWarn('No room is selected.\n\nChoose a room from the list before saving.');return}
+    if(S.dnm&&!was&&!S.why.trim()){dlgWarn('Give a reason to turn Do not move on.\n\nType why this guest must stay in this exact room (for example, a VIP request or a maintenance issue elsewhere).');return}
+    if(tc&&!S.tWhy.trim()){dlgWarn('Give a reason for the room type change.\n\nType why the room type is changing before saving.');return}
+    if(tc&&S.charge&&!(+S.amt>0)){dlgWarn('Type the amount to charge.\n\nEnter how much to charge for this room type change, or turn the charge option off.');return}
+    if(tc&&S.charge&&!canPost){dlgWarn('You do not have permission to post charges.\n\nAsk your provider or manager to open Post charge for your account, or save this room type change without charging.');return}
+    if(room!==B.room&&!roomFree(room,B.arr,B.dep,B.id)){dlgWarn(`Room ${room} is not free for these dates.\n\nAnother reservation already holds this room for some or all of this guest's stay (${fd(B.arr)} – ${fd(B.dep)}). Choose a different room, or change the dates first.`);return}
     const done=[];
     if(was&&!S.dnm){const why=B.roomBlock.reason||'';B.roomBlock=null;histB(B,`Do not move turned off; room ${B.room} can change`);log(`Do not move OFF, room ${B.room} RSVN ${rsvn}${why?': '+why:''}`,B.id);done.push('Do not move is off')}
     if(tc){const old=B.type;B.type=S.type;histB(B,`Room type ${old} → ${S.type}: ${S.tWhy.trim()}`);log(`Room type changed ${old} → ${S.type} RSVN ${rsvn}: ${S.tWhy.trim()}`,B.id);done.push('room type '+S.type)}
@@ -10451,14 +10451,14 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
       if(can('docs')&&q('#gPass').value.trim()!==g.doc.no){g.doc.no=q('#gPass').value.trim();ch.push('passport')}}
     if(canEd&&mode!=='closed'){
       const arr=mode==='full'?q('#bArr').value:B.arr,dep=q('#bDep').value;
-      if(!arr||!dep||dep<=arr){dlgWarn('Departure must be after arrival.\n\nCheck the Arrival and Departure dates - the departure date has to be at least one night after arrival.','Dates do not work');return}
-      if(mode==='restricted'&&dep<H.set.bd){dlgWarn(`Departure cannot be before the business date (${fdWide(H.set.bd)}).\n\nThe first night of this stay is already closed by Close Day, so the departure can only move to today or later.`,'Date not allowed');return}
-      if(mode==='full'&&arr<H.set.bd&&arr!==B.arr){dlgWarn(`Arrival cannot be before the business date (${fdWide(H.set.bd)}).\n\nChoose an arrival date on or after today's business date.`,'Date not allowed');return}
-      if(mode==='full'&&Math.max(1,+q('#bAd').value||1)+Math.max(0,+q('#bCh').value||0)<guestsInRoom(B).length){dlgWarn(`Adult# + Child# cannot be less than the ${guestsInRoom(B).length} guests already in this room.\n\nRemove a sharing guest first (Reservation detail > sharing guests), then lower the pax count, or raise Adult# / Child# to match.`,'Too few guests allowed');return}
+      if(!arr||!dep||dep<=arr){dlgWarn('Departure must be after arrival.\n\nCheck the Arrival and Departure dates - the departure date has to be at least one night after arrival.');return}
+      if(mode==='restricted'&&dep<H.set.bd){dlgWarn(`Departure cannot be before the business date (${fdWide(H.set.bd)}).\n\nThe first night of this stay is already closed by Close Day, so the departure can only move to today or later.`);return}
+      if(mode==='full'&&arr<H.set.bd&&arr!==B.arr){dlgWarn(`Arrival cannot be before the business date (${fdWide(H.set.bd)}).\n\nChoose an arrival date on or after today's business date.`);return}
+      if(mode==='full'&&Math.max(1,+q('#bAd').value||1)+Math.max(0,+q('#bCh').value||0)<guestsInRoom(B).length){dlgWarn(`Adult# + Child# cannot be less than the ${guestsInRoom(B).length} guests already in this room.\n\nRemove a sharing guest first (Reservation detail > sharing guests), then lower the pax count, or raise Adult# / Child# to match.`);return}
       const type=mode==='full'||mode==='restricted'?q('#bTypeRm').value:B.type,room=mode==='full'||mode==='restricted'?(q('#bRoom').value||null):B.room;
-      if(B.roomBlock&&((room||null)!==(B.room||null)||type!==B.type)){dlgWarn(`Do not move is on for room ${B.roomBlock.room||B.room}: ${B.roomBlock.reason}.\n\nTurn Do not move off first (below), then the room or room type can change.`,'Do not move is on');return}
-      if(room&&!H.rooms.some(x=>x.no===room&&!x.dummy&&x.type===type)){dlgWarn(`Room ${room} does not belong to room type ${type}.\n\nChoose a room that is actually a ${type}, or change the room type to match the room.`,'Room / type mismatch');return}
-      if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){dlgWarn(`Room ${room} is not free for these dates.\n\nAnother reservation already holds this room for some or all of this stay (${fd(arr)} – ${fd(dep)}). Choose another room, or change the dates.`,'Room not available');return}
+      if(B.roomBlock&&((room||null)!==(B.room||null)||type!==B.type)){dlgWarn(`Do not move is on for room ${B.roomBlock.room||B.room}: ${B.roomBlock.reason}.\n\nTurn Do not move off first (below), then the room or room type can change.`);return}
+      if(room&&!H.rooms.some(x=>x.no===room&&!x.dummy&&x.type===type)){dlgWarn(`Room ${room} does not belong to room type ${type}.\n\nChoose a room that is actually a ${type}, or change the room type to match the room.`);return}
+      if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){dlgWarn(`Room ${room} is not free for these dates.\n\nAnother reservation already holds this room for some or all of this stay (${fd(arr)} – ${fd(dep)}). Choose another room, or change the dates.`);return}
       if(mode==='full'){const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
         const setIf=(k,v)=>{if(String(B[k])!==String(v)){B[k]=v;ch.push(k)}};
         setIf('bkType',q('#bType').value);setIf('adults',Math.max(1,+q('#bAd').value||1));setIf('children',Math.max(0,+q('#bCh').value||0));
@@ -10492,7 +10492,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
         if(typeCh||rcCh){const fb=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(!isLocked(d)&&d>=H.set.bd)B.nightly[d]=rco&&rco.kind==='zero'?0:(B.nightly[d]>0?B.nightly[d]:fb)})}
       }
       if(dep!==B.dep){const old=B.dep;if(B.status==='inhouse'&&dep>old)B.extended=true;const fbx=nightRate(H,B);dates(B.arr,dep).forEach(d=>{if(B.nightly[d]===undefined)B.nightly[d]=fbx});Object.keys(B.nightly).forEach(d=>{if(d>=dep||d<B.arr)delete B.nightly[d]});B.dep=dep;ch.push('departure '+fd(old)+' → '+fd(dep))}
-      const nr=+q('#bRate').value;if(!q('#bRate').disabled&&!isNaN(nr)){const re_=rateError(nr,rateKindOf(B.rateCode));if(re_){dlgWarn(re_,'Rate not allowed');return}const cur_=B.nightly[dates(B.arr,B.dep).find(d=>d>=H.set.bd&&!isLocked(d))];if(can('rate')&&cur_!==undefined&&nr!==cur_){
+      const nr=+q('#bRate').value;if(!q('#bRate').disabled&&!isNaN(nr)){const re_=rateError(nr,rateKindOf(B.rateCode));if(re_){dlgWarn(re_);return}const cur_=B.nightly[dates(B.arr,B.dep).find(d=>d>=H.set.bd&&!isLocked(d))];if(can('rate')&&cur_!==undefined&&nr!==cur_){
         dates(B.arr,B.dep).filter(d=>d>=H.set.bd&&!isLocked(d)).forEach(d=>B.nightly[d]=nr);ch.push('daily rate '+m2(cur_)+' → '+m2(nr))}}
     }
     if(!ch.length){toast('Nothing changed.');return}
@@ -11208,10 +11208,10 @@ function addSharer(B,after){
     <div class="btns end"><button class="btn red" id="shX">Close</button><button class="btn gold" id="shOk">Add guest</button></div>`,{w:760});
   $('#shX',m).onclick=()=>closeModal(m);
   $('#shOk',m).onclick=()=>{const last=$('#shL',m).value.trim(),first=$('#shF',m).value.trim(),no=$('#shD',m).value.trim(),err=$('#shErr',m);
-    if(!last){dlgWarn('The guest last name is required.\n\nType the last name before adding this sharing guest.','Last name required');return}
+    if(!last){dlgWarn('The guest last name is required.\n\nType the last name before adding this sharing guest.');return}
     if(guestsInRoom(B).length>=paxOfBooking(B)){closeModal(m);dlgAlert('The maximum pax limit has been reached.','Maximum pax limit');return}
     let g=no?H.guests.find(x=>x.doc&&String(x.doc.no).trim().toLowerCase()===no.toLowerCase()&&String(x.last).trim().toLowerCase()===last.toLowerCase()&&String(x.first||'').trim().toLowerCase()===first.toLowerCase()):null;
-    if(g&&guestsInRoom(B).includes(g.id)){dlgWarn(`${gName(g)} is already sharing this room.\n\nThere is no need to add the same guest twice.`,'Already in the room');return}
+    if(g&&guestsInRoom(B).includes(g.id)){dlgWarn(`${gName(g)} is already sharing this room.\n\nThere is no need to add the same guest twice.`);return}
     if(!g){g={id:'g'+uid(),profileId:H.set.nextProfile++,title:$('#shT',m).value,last,first,middle:'',other:'',jobTitle:'',company:'',nationality:natResolve($('#shN',m).value),country:'',gender:'',birthday:'',vip:'',occupation:'',socialId:'',email:$('#shE',m).value.trim(),phone:$('#shP',m).value.trim(),address:'',pdpa:false,photo:'',remark:'',doc:Object.assign(emptyDoc(),{type:$('#shDT',m).value,no}),card:null};H.guests.push(g)}
     B.shares.push(g.id);B.hist=B.hist||[];B.hist.push({at:Date.now(),user:user().name,shift:curShift()?curShift().name:'',a:'Added sharing guest '+gName(g)});
     log('Added sharing guest '+gName(g)+' RSVN '+resOf(B).no,B.id);saveDB();closeModal(m);after&&after()}}
