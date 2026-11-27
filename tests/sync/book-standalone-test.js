@@ -30,8 +30,12 @@ T('and setting it does nothing for a provider', DB.session.standalone === 'book'
 /* the wiring */
 T('the menu of the area is the Booking Engine menu in standalone', /function areaMenu\(src\)\{\s*if\(isBookStandalone\(\)\)return BOOK_STANDALONE_MENU\(\);/.test(src));
 T('no Frontend / Backend switch in standalone', src.includes("function areaSwitchHtml(){if(isBookStandalone())return '';"));
-T('opening Maha Booking sets standalone, opening the PMS clears it', src.includes("if(kind==='book'){setStandalone(true);applySysPath('book');setArea('back');renderShell();go('prov.be.amenities');return}") && src.includes("if(kind==='hub'){setStandalone(false);applySysPath('hub');renderShell();go(firstHotelView());return}"));
+T('opening Maha Booking sets standalone, opening the PMS clears it', src.includes("if(kind==='book'){setStandalone(true);NAVSTACK.length=0;applySysPath('book');setArea('back');renderShell();go('prov.be.amenities');return}") && src.includes("if(kind==='hub'){setStandalone(false);applySysPath('hub');renderShell();go(firstHotelView());return}"));
 T('the sidebar says Maha Booking', src.includes("${isBookStandalone()?'Maha Booking':'Maha PMS'}"));
 T('a reload stays in the Booking Engine (start-up checks standalone before the PMS)', (() => { const f = cut('const finish=()=>{', 'const doneBoot'); return f.includes('isBookStandalone()') && f.indexOf('isBookStandalone()') < f.indexOf("applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub')"); })());
+T('no Back button anywhere in the Booking Engine on its own', src.includes("function backBtnHtml(){if(isBookStandalone())return '';"));
+T('a PMS page can never open inside the Booking Engine on its own (it falls back to Amenities)', src.includes("if(isBookStandalone()&&!/^(prov") && src.includes("v='prov.be.amenities';arg=undefined}"));
+T('switching system always shows the loading screen named after the destination ("Switching to Maha PMS")', src.includes("async function switchSystemTo(kind,fn){const dest=ecoSysLabel(kind);await withLoading(SWITCH_WORD+' to '+dest,1600,async()=>{try{await fn()}catch(e){}},dest)}") && src.includes("function loadingShow(msg,name){if(window.MahaLoader){MahaLoader.show({name:name||loadName()") && src.includes('async function withLoading(msg,ms,fn,name){loadingShow(msg,name);'));
+T('both system switchers (the arrow and the list) go through the loading screen, and the PMS choice clears the Booking-only mode', src.includes("switchSystemTo(kind,()=>{if(kind==='hub'&&inProv){enterHotel(H.code);return}openSystem(kind,H)})") && src.includes('switchSystemTo(kind,()=>openSystem(kind,H));'));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED');
 process.exit(fails ? 1 : 0);
