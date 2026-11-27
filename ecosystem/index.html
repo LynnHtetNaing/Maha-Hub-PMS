@@ -1410,7 +1410,7 @@ html[data-mode=dark] .st-cancelled,html[data-mode=dark] .st-noshow{background:rg
 /* Reservation status badge: rounded rectangle, full word. Light = solid colour, Dark = soft shade */
 .stb{--c:#475569;--d:#94a3b8;display:inline-flex;align-items:center;justify-content:center;min-width:92px;height:26px;padding:0 10px;border-radius:7px;font-size:12px;font-weight:800;line-height:1;white-space:nowrap;background:var(--c);color:#fff;border:1px solid var(--c);letter-spacing:.01em}
 .stb.c{min-width:36px;padding:0 6px;font-size:11.5px}
-.stb-conf{--c:#2563eb;--d:#60a5fa}.stb-di{--c:#0891b2;--d:#22d3ee}.stb-ten{--c:#a16207;--d:#facc15}.stb-ci{--c:#0d9488;--d:#2dd4bf}.stb-ih{--c:#15803d;--d:#4ade80}.stb-do{--c:#c2410c;--d:#fb923c}.stb-co{--c:#475569;--d:#94a3b8}.stb-cx{--c:#be185d;--d:#f472b6}.stb-ns{--c:#6d28d9;--d:#a78bfa}
+.stb-conf{--c:#2563eb;--d:#60a5fa}.stb-di{--c:#0891b2;--d:#22d3ee}.stb-ten{--c:#a16207;--d:#facc15}.stb-ci{--c:#0d9488;--d:#2dd4bf}.stb-ih{--c:#15803d;--d:#4ade80}.stb-do{--c:#c2410c;--d:#fb923c}.stb-co{--c:#475569;--d:#94a3b8}.stb-cx{--c:#be185d;--d:#f472b6}.stb-ns{--c:#6d28d9;--d:#a78bfa}.stb-od{--c:#b91c1c;--d:#f87171}
 .stb-di,.stb-do{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 28%,transparent)}
 html[data-mode=dark] .stb{background:color-mix(in srgb,var(--d) 15%,transparent);color:var(--d);border-color:color-mix(in srgb,var(--d) 35%,transparent)}
 html[data-mode=dark] .stb-di,html[data-mode=dark] .stb-do{background:color-mix(in srgb,var(--d) 24%,transparent);border-color:color-mix(in srgb,var(--d) 60%,transparent);box-shadow:none}
@@ -9834,7 +9834,8 @@ function sideSearch(host,cfg){const st=cfg.st,f=SIDE_FILTERS.find(x=>x[0]===st.b
 let arrSort='arr';
 const ARR_SORT=[['arr','Arrival'],['room','Room'],['guest','Guest name'],['rsvn','RSVN#'],['type','Room type'],['co','Company'],['vip','VIP']];
 const DEP_SORT=[['dep','Departure'],['room','Room'],['guest','Guest name'],['rsvn','RSVN#'],['type','Room type'],['co','Company'],['vip','VIP']];
-let depSort='dep';
+let depSort='dep',depStat='due';
+const DEP_STAT=[['due','Due Out'],['out','Checked Out'],['all','All']];
 function sortArrivals(list){return sortByKey(list,arrSort,'arr')}
 function sortDepartures(list){return sortByKey(list,depSort,'dep')}
 function sortByKey(list,sel,def){
@@ -9956,13 +9957,17 @@ VIEWS['fo.arrivals2']=(el,id)=>{
 /* ---------- Departures: same pattern ---------- */
 VIEWS['fo.departures']=(el,arg)=>{
   if(!DEP_SORT.some(x=>x[0]===depSort))depSort='dep';
-  const sp=dateSpan(arg);const list=sortDepartures(departuresIn(sp.from,sp.to).filter(b=>b.status==='inhouse'&&b.dep<=H.set.bd));
-  el.innerHTML=pageHead('Departures',`<label class="ufl">From date ${ufDate('dpF',sp.from)}</label><label class="ufl">To date ${ufDate('dpT',sp.to)}</label><label class="ufl">Sort by <select id="dpS">${DEP_SORT.map(([k,l])=>`<option value="${k}" ${depSort===k?'selected':''}>${l}</option>`).join('')}</select></label><button type="button" class="btn gold" id="dpGo">${ic('search',16)} Search</button>`,'under')+
-  `<p class="sub">This page shows only guests who are due out and still in house. Checked-out guests are in Billing / Folio Inquiry and Reservations List. Click a reservation to open it.</p><div class="panel scroll"><table class="grid cpct">
+  if(!DEP_STAT.some(x=>x[0]===depStat))depStat='due';
+  const sp=dateSpan(arg);const bd0=H.set.bd;
+  const inSpan=allBookings().filter(b=>!skipOcc(b)&&b.dep>=sp.from&&b.dep<=sp.to);
+  const list=sortDepartures(inSpan.filter(b=>{const due=b.status==='inhouse'&&b.dep<=bd0,out=b.status==='out';return depStat==='due'?due:depStat==='out'?out:(due||out)}));
+  const depBadge=b=>(b.status==='inhouse'&&b.dep<bd0)?`<span class="stb stb-od" title="Overdue">Overdue</span>`:stBadge(b);
+  el.innerHTML=pageHead('Departures',`<label class="ufl">From date ${ufDate('dpF',sp.from)}</label><label class="ufl">To date ${ufDate('dpT',sp.to)}</label><label class="ufl">Status <select id="dpSt">${DEP_STAT.map(([k,l])=>`<option value="${k}" ${depStat===k?'selected':''}>${l}</option>`).join('')}</select></label><label class="ufl">Sort by <select id="dpS">${DEP_SORT.map(([k,l])=>`<option value="${k}" ${depSort===k?'selected':''}>${l}</option>`).join('')}</select></label><button type="button" class="btn gold" id="dpGo">${ic('search',16)} Search</button>`,'under')+
+  `<div class="panel scroll"><table class="grid cpct">
   <tr><th></th><th>RSVN#</th><th>Room</th><th>Type</th><th>Guest name</th><th>PAX</th><th>Arrival</th><th>Departure</th><th>Company / Travel agent</th><th>Rate code</th><th class="n">Balance</th><th>Status</th></tr>
-  ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr class="click" data-open="${b.id}"><td class="nowrap">${stIcons(b,'')}</td><td>${r.no}</td><td><b>${esc(b.room||'—')}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${stBadge(b)}</td></tr>`}).join('')||`<tr><td colspan="12" class="empty">${sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\'s departures are checked out.<br><span class="sub">Checked-out guests are now in <b>Billing / Folio Inquiry</b> and <b>Reservations List</b>.</span>':'No departures in this period.'}</td></tr>`}</table></div>`;
+  ${list.map(b=>{const r=resOf(b),g=G(b.guestId),bb=bal(b);return `<tr class="click" data-open="${b.id}"><td class="nowrap">${stIcons(b,'')}</td><td>${r.no}</td><td><b>${esc(b.room||'—')}</b></td><td>${b.type}</td><td>${esc(gName(g))}${b.copyOf?' (Copy)':''}</td><td>${pax(b)}</td><td>${fd(b.arr)}</td><td>${fd(b.dep)}</td><td>${esc(coTag(CO(r.companyId)))}</td><td>${b.rateCode}</td><td class="n ${bb>0?'bad':''}">${m2(bb)}</td><td class="nowrap">${depBadge(b)}</td></tr>`}).join('')||`<tr><td colspan="12" class="empty">${depStat==='due'&&sp.from===H.set.bd&&sp.to===H.set.bd?'All of today\'s departures are checked out.':'No departures in this period.'}</td></tr>`}</table></div>`;
   const pick=()=>{const spn=readPair(el,'dpF','dpT');if(!spn){toast('Enter From date and To date as dd/mm/yyyy.');return}go.stay=true;go('fo.departures',spn)};
-  $('#dpGo',el).onclick=()=>{depSort=$('#dpS',el).value;pick()};bindDatePick(el);
+  $('#dpGo',el).onclick=()=>{depSort=$('#dpS',el).value;depStat=$('#dpSt',el).value;pick()};bindDatePick(el);
   bindSide(el,'',()=>render());
   $$('[data-open]',el).forEach(t=>t.onclick=e=>{if(e.target.closest('button'))return;const B=bookingById(t.dataset.open);if(B)hsResDetail(B)});
 };
