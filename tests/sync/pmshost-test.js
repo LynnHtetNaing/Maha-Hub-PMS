@@ -17,6 +17,9 @@ r=await call('https://crm.maha-hub.com/signin',ON);T('Company Sales address: /si
 r=await call('https://pms.maha-hub.com/brand/maha/pms-icon-192.png',ON);T('pictures and files still load',(await r.text())==='asset:/brand/maha/pms-icon-192.png');
 for(const [h,p] of [['pms.maha-hub.com','/solutions'],['pms.maha-hub.com','/solutions-PMS'],['solutions.maha-hub.com','/ecosystem/Sales/'],['crm.maha-hub.com','/solutions']]){
   r=await call('https://'+h+p,ON);T('old paths are not served on '+h+p+' (404, not a redirect)',r.status===404);}
+for(const [h,p] of [['pms.maha-hub.com','/crm/'],['pms.maha-hub.com','/crm/index.html'],['pms.maha-hub.com','/reach/'],['pms.maha-hub.com','/book/'],['solutions.maha-hub.com','/crm/'],['console.maha-hub.com','/crm/'],['crm.maha-hub.com','/reach/'],['crm.maha-hub.com','/book/other']]){
+  r=await call('https://'+h+p,ON);T("another system's folder is a 404 page on "+h+p,r.status===404&&(await r.text())==='asset:/__maha-not-found__');}
+r=await call('https://crm.maha-hub.com/crm/vendor/grapes.min.js',ON);T('the CRM address still loads its own folder files',r.status===200);
 r=await call('https://sales.maha-hub.com/',ON);T('the hotel Sales address is reserved: a friendly 404 page (the explorer), never the website, never the company Sales',r.status===404&&(await r.text())==='asset:/errors/unplugged'&&r.headers.get('content-type').startsWith('text/html'));
 r=await call('https://sales.maha-hub.com/crm/index.html',ON);T('and no file of the company Sales is served there',r.status===404);
 r=await call('https://connect.maha-hub.com/',ON);T('an address that is switched off (empty setting) is just the website files',(await r.text())==='asset:/');

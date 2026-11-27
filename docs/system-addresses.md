@@ -17,3 +17,5 @@ Rollback: remove the setting values (empty = off) in both wrangler.toml files an
 
 
 Maha Sales (crm) is separate software: own address, own folder (/crm), own people (maha_crm_members, added by the Master admin under Sales team in the Provider console), own table (maha_sales_records). The sign-in service refuses anyone who is not on the team right after the password, with no code. Nothing is handed over from another address.
+
+Another system's folder is never served on a system address: pms.maha-hub.com/crm/, crm.maha-hub.com/reach/ and so on answer the Maha 404 page (a real 404). A system opens only its own folder.

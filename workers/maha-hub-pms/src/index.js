@@ -89,6 +89,14 @@ async function notPluggedIn(request, env) {
   return new Response(request.method === 'HEAD' ? null : res.body, { status: 404, headers });
 }
 
+/* the Maha 404 page (the animated jungle-man) with a real 404 status: asking the assets for a file that does not exist gives 404.html */
+async function mahaNotFound(request, env) {
+  const u = new URL(request.url);
+  const res = await env.ASSETS.fetch(new Request(new URL('/__maha-not-found__', u), { method: 'GET' }));
+  const headers = new Headers({ 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' });
+  return new Response(request.method === 'HEAD' ? null : res.body, { status: 404, headers });
+}
+
 /* a quotation or MSA a hotel opens from the CRM email: crm.maha-hub.com/d/<token>. The token is long and random; the document is read from the database by that token only. */
 async function sharedDoc(env, token) {
   const base = String(env.SUPABASE_URL || '').replace(/\/+$/, ''), key = env.SUPABASE_ANON_KEY || '';
@@ -149,9 +157,11 @@ export default {
       /* a system's sign-in page: the same address, /signin (no redirect) */
       if (low === '/signin') return serveDoc({ file: APP_FILE }, request);
       /* the old paths are not served on a system address */
-      if (low === '/solutions' || /^\/solutions-/.test(low) || /^\/ecosystem(\/|$)/.test(low)) {
-        return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
-      }
+      if (low === '/solutions' || /^\/solutions-/.test(low) || /^\/ecosystem(\/|$)/.test(low)) return mahaNotFound(request, env);
+      /* another system's folder is never served here: pms.maha-hub.com/crm/ , crm.maha-hub.com/reach/ ... are a 404.
+         A system may open its own folder only (the CRM address needs /crm/ for its files). */
+      const folder = /^\/(crm|reach|connect|book)(\/|$)/.exec(low);
+      if (folder && ('/' + folder[1] + '/') !== (own.doc.base || '')) return mahaNotFound(request, env);
       return env.ASSETS.fetch(request);
     }
 
