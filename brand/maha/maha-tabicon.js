@@ -46,8 +46,14 @@
     cx.globalAlpha = 1;
     try { link.setAttribute('href', cv.toDataURL('image/png')); } catch (e) {}
   }
+  function rest() { running = false; endAt = 0; link.setAttribute('href', orig); }   /* the normal Maha icon, no animation */
+  /* A tab in the background is never left on a frozen frame of the circle (Chrome slows a hidden page's timers, and the address bar and the tab list
+     show whatever icon the page last set): the moment the tab is hidden, the Maha icon is put back. */
+  document.addEventListener('visibilitychange', function () { adopt(); if (document.hidden) rest(); });
+  window.addEventListener('pagehide', function () { adopt(); rest(); });
   function tick() {
     adopt(); loadTile();
+    if (document.hidden) { if (running || endAt) rest(); return; }
     if (busy()) { if (!running) { running = true; t0 = Date.now(); } endAt = 0; draw(0); return; }
     if (!running) return;
     if (!endAt) endAt = Date.now();
