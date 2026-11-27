@@ -11,7 +11,7 @@
   if (window.MahaTabIcon) return;
   try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
   var head = document.head || document.getElementsByTagName('head')[0]; if (!head) return;
-  var S = 64, N = 10, FRAMES = 90, PERIOD = 1600, COLOR = '#14b88a', RADIUS = 21.5, DOT = 5.4, MIN_MS = 1500, FADE_MS = 360;
+  var S = 64, N = 10, FRAMES = 90, PERIOD = 1600, COLOR = '#14b88a', RADIUS = 21.5, DOT = 5.4, MIN_MS = 1500, FADE_MS = 360, HOLD_MS = 350;
   var DEFAULT_ICON = '/icons/maha-mark-sq.png', ICON_V = 'v=2';
   var raf = window.requestAnimationFrame ? function (f) { return window.requestAnimationFrame(f); } : function (f) { return setTimeout(f, 16); };
   var cv = document.createElement('canvas'); cv.width = cv.height = S;
@@ -23,6 +23,9 @@
 
   /* one icon link of our own, made at once; the page's own icon links are taken over (their address is kept for the end) */
   var link = document.createElement('link'); link.rel = 'icon'; link.type = 'image/png'; link.id = 'mahaTabIcon'; head.appendChild(link);
+  /* The Maha logo is the FIRST icon the browser sees for the page (Chrome saves the icon it sees first in its history and address-bar list, so that
+     saved picture is always the logo, never a frame of the circle). The circle starts a moment later and the logo is put back at the end. */
+  shown = real(); link.setAttribute('href', shown);
   function adopt() {
     var all = document.querySelectorAll('link[rel~="icon"]');
     for (var i = 0; i < all.length; i++) { var l = all[i]; if (l === link) continue; var h = l.getAttribute('href'); if (h && h.indexOf('data:') !== 0) orig = h; if (l.parentNode) l.parentNode.removeChild(l); }
@@ -63,6 +66,7 @@
     if (++n % 8 === 1) { adopt(); loadTile(); }
     if (document.hidden) { if (running || endAt) rest(); return; }
     if (busy()) {
+      if (Date.now() - START < HOLD_MS) return;   /* the logo is still showing, as the first icon */
       if (!running) { running = true; t0 = Date.now(); }
       endAt = 0;
       var u = circleFrame(Math.floor((((Date.now() - t0) % PERIOD) / PERIOD) * FRAMES) % FRAMES);
