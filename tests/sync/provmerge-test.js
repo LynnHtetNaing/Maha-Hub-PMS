@@ -137,7 +137,7 @@ T('Chain / Group box (Hotel profile and the Chains/Groups page) is a plain drop-
 
 T('Hotels List is one flat sidebar entry, not a group with a single nested subtitle - no title/subtitle double layer; it still highlights when open and still works in the hidden classic menubar build (no crash on a group with no items array)',
   src.includes("if(m.flat){groups.push({t:m.t,flat:m.flat});return}") &&
-  src.includes(':g.flat\n    ?`<div class="mg"><button type="button" class="mgb" data-go="${esc(g.flat)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||\'folder\')}<span>${esc(g.t)}</span></button></div>`') &&
+  src.includes(':g.flat\n    ?`<div class="mg"><button type="button" class="mgb" data-go="${esc(g.flat)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||MV_ICON[g.flat]||\'folder\')}<span>${esc(g.t)}</span></button></div>`') &&
   src.includes("if(m.flat)return `<button class=\"mtop\" data-go=\"${esc(m.flat)}\">${esc(m.t)}</button>`;") &&
   src.includes("$$('.mg>.mgb[data-go]',nav).forEach(b=>{const on=b.dataset.go===VIEW") &&
   src.includes('.mgb.on{background:linear-gradient(90deg,var(--a1),color-mix(in srgb,var(--a1) 65%,var(--a2)));color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--a1) 45%,transparent)}'));

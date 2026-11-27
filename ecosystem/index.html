@@ -8359,13 +8359,13 @@ function openSystem(kind,h,same){
   if(row&&!row.released){toast(ecoSysLabel(kind)+' is not released yet.');return}
   if(!asProv&&row&&!row.hotel){toast(ecoSysLabel(kind)+' is closed for this hotel. The provider opens it under Systems.');return}
   if(!asProv&&row&&!row.user){toast(ecoSysLabel(kind)+' is not open for your account. The provider opens it under Staff & permissions.');return}
-  if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}
+  if(kind==='hub'){setStandalone(false);applySysPath('hub');renderShell();go(firstHotelView());return}
   /* Maha Booking (staff side): managing rates, promotions, channels and the rest happens right inside this
      same app (see HOTEL_BE_GROUP / BE.* / beOnly()) - it is never the public guest page a customer books on.
      A hotel with only Maha Booking open (no PMS) lands here directly; a hotel with PMS too reaches it from
      the system switcher without leaving the app. Guests still only ever see the real page via its own address
      or the "Preview booking page (real, live)" button in Hotel Setup. */
-  if(kind==='book'){applySysPath('book');setArea('back');if(!document.querySelector('.topbar'))renderShell();go('prov.be.amenities');return}
+  if(kind==='book'){setStandalone(true);applySysPath('book');setArea('back');renderShell();go('prov.be.amenities');return}
   if(kind==='sales'){const url=salesUrl();if(same){location.assign(url);return}openApp(url,'Maha Sales');return}
   const url=kind==='reach'?reachUrl(h):kind==='connect'?connectStaticUrl(h):'';
   if(!url)return;
@@ -8473,7 +8473,7 @@ const PROV_HOTEL_RECORDS_GROUP={t:'Records',items:[['Amendment Records','prov.am
 function modernShellHTML(){
   const n=notifBadgeCount();
   return `<div class="mshell${msbSlim()?' slim':''}" id="mshell">
-  <aside class="msb" id="msb"><div class="msb-top"><img class="msb-gate" src="/brand/maha/gate-gold.png" alt=""><span class="msb-brand">Maha PMS</span><button type="button" class="msb-tog" id="msbTog" title="Collapse or expand the menu" aria-label="Collapse or expand the menu">${mIc(msbSlim()?'right':'left')}</button></div>
+  <aside class="msb" id="msb"><div class="msb-top"><img class="msb-gate" src="/brand/maha/gate-gold.png" alt=""><span class="msb-brand">${isBookStandalone()?'Maha Booking':'Maha PMS'}</span><button type="button" class="msb-tog" id="msbTog" title="Collapse or expand the menu" aria-label="Collapse or expand the menu">${mIc(msbSlim()?'right':'left')}</button></div>
   <div class="msb-prop"><small>${H?'Current property':'Provider console'}</small><b>${H?esc(H.set.name):'Maha Hub'}</b>${H?'<button type="button" class="msb-chain" id="msbChain" hidden>Your Chain Hotels</button>':''}</div><nav class="msbnav" id="msbnav" aria-label="Main"></nav>
   <button type="button" class="msb-me" id="tbProf" title="${user().provider?'Account':'My profile'}" aria-label="Account menu"><span class="tbav">${avatarInner(20)}</span><span class="msb-mt"><b>${esc(user().name)}</b><small>${curShift()?esc(curShift().name)+' · ':''}<span id="rtClock"></span></small></span></button></aside>
   <div class="msb-back" id="msbBack"></div>
@@ -8498,7 +8498,7 @@ function modernNavInit(){
   nav.innerHTML=groups.map((g,i)=>g.report
     ?`<div class="mg"><button type="button" class="mgb" data-report="1" title="Report">${mIc(MG_ICON.Report)}<span>Report</span></button></div>`
     :g.flat
-    ?`<div class="mg"><button type="button" class="mgb" data-go="${esc(g.flat)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||'folder')}<span>${esc(g.t)}</span></button></div>`
+    ?`<div class="mg"><button type="button" class="mgb" data-go="${esc(g.flat)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||MV_ICON[g.flat]||'folder')}<span>${esc(g.t)}</span></button></div>`
     :`<div class="mg${MSB_OPEN[g.t]?' open':''}" data-gt="${esc(g.t)}"><button type="button" class="mgb" data-g="${esc(g.t)}" title="${esc(g.t)}">${mIc(MG_ICON[g.t]||'folder')}<span>${esc(g.t)}</span>${mIc('chev','car')}</button><div class="mgi">${g.items.map(x=>`<button type="button" class="mit" data-go="${x[1]}" data-t="${esc(x[0])}">${mIc(MV_ICON[x[1]]||'folder')}<span>${esc(x[0])}</span></button>`).join('')}</div></div>`).join('');
   nav.onclick=e=>{const g=e.target.closest('[data-g]'),it=e.target.closest('[data-go]'),rp=e.target.closest('[data-report]');
     if(g){const sh=$('#mshell');if(sh&&sh.classList.contains('slim')){sh.classList.remove('slim');try{localStorage.setItem('maha.msb','wide')}catch(x){}const tg=$('#msbTog');if(tg)tg.innerHTML=mIc('left')}
@@ -8520,7 +8520,7 @@ function msbMark(){
   /* a flat, single-link group (e.g. Hotels List) has no .mit inside it to mark - the .mgb itself is the page link */
   $$('.mg>.mgb[data-go]',nav).forEach(b=>{const on=b.dataset.go===VIEW,quiet=!!(ENTRY_QUIET&&ENTRY_QUIET.v===VIEW);b.classList.toggle('on',on&&!quiet)});
   const h=$('#view h1'),h1=h?h.textContent.replace(/\s+/g,' ').trim():'';
-  const c=$('#mcrumb');if(c)c.innerHTML='Workspace'+(grp?' / '+esc(grp):'')+(title||h1?' / <b>'+esc(title||h1)+'</b>':'')}
+  const c=$('#mcrumb');if(c)c.innerHTML=(isBookStandalone()?'Booking Engine':'Workspace')+(grp?' / '+esc(grp):'')+(title||h1?' / <b>'+esc(title||h1)+'</b>':'')}
 function shellHTML(){
   if(skinIsModern())return modernShellHTML();
   const providerConsole=!!(DB.session&&DB.session.provider&&!DB.session.inHotel);
@@ -12549,7 +12549,13 @@ function ADMIN_BACKEND_MENU(){
      hset.rooms page (just above) covers both, with its own subtitle for each. */
   return [{t:'Hotel Setup',items:SET_SECTIONS.filter(([k])=>k!=='allot').map(([k,num,title])=>[title,'hset.'+k])},
     people,{t:'Billing',items:[['Hotel Billing','prov.billing']]},PROV_HOTEL_RECORDS_GROUP,PROV_HOTEL_BE_GROUP,PROV_HOTEL_GROUP]}
+/* Booking Engine on its own: someone who signed in through the Booking Engine's own sign-in (or opened Maha Booking) lands in the Booking Engine alone,
+   whether or not the hotel also uses the PMS. Every Booking Engine page is a title of its own in the menu; no Frontend / Backend, no PMS menus. */
+function isBookStandalone(){try{return !!(DB&&DB.session&&!DB.session.provider&&DB.session.standalone==='book')}catch(e){return false}}
+function setStandalone(on){try{if(DB&&DB.session&&!DB.session.provider){if(on)DB.session.standalone='book';else delete DB.session.standalone;writeLiveSession(DB.session)}}catch(e){}}
+function BOOK_STANDALONE_MENU(){return HOTEL_BE_GROUP.items.filter(([,,p])=>!p||can(p)).map(([t,v])=>({t,flat:v}))}
 function areaMenu(src){
+  if(isBookStandalone())return BOOK_STANDALONE_MENU();
   const se=DB&&DB.session;
   if(se&&se.provider){
     let pm=true;try{provMasterLoad();pm=provMaster()}catch(e){}
@@ -12561,7 +12567,7 @@ function areaMenu(src){
   if(H&&H.set&&!hubOn(H))return BOOKING_ONLY_MENU;
   return curArea()==='back'?BACKEND_MENU():src.filter(m=>m.t!=='Setup')}
 function firstBackendView(){if(DB.session&&DB.session.provider)return 'hset.profile';for(const g of BACKEND_MENU())for(const it of (g.items||[]))if(viewAllowed(it[1]))return it[1];return 'set.hotel'}
-function areaSwitchHtml(){if(!hasBackend()||(H&&H.set&&!hubOn(H)))return '';ensureFlowCss();const a=curArea();return `<div class="areasw" id="areaSw" role="group" aria-label="Frontend or Backend"><button type="button" data-area="front" class="${a==='front'?'on':''}">Frontend</button><button type="button" data-area="back" class="${a==='back'?'on':''}">Backend</button></div>`}
+function areaSwitchHtml(){if(isBookStandalone())return '';if(!hasBackend()||(H&&H.set&&!hubOn(H)))return '';ensureFlowCss();const a=curArea();return `<div class="areasw" id="areaSw" role="group" aria-label="Frontend or Backend"><button type="button" data-area="front" class="${a==='front'?'on':''}">Frontend</button><button type="button" data-area="back" class="${a==='back'?'on':''}">Backend</button></div>`}
 async function switchAreaTo(a){if(!hasBackend()||(H&&H.set&&!hubOn(H))||a===curArea())return;NAVSTACK.length=0;
   await withLoading(a==='back'?'Opening Backend':'Opening Frontend',1600,async()=>{setArea(a);renderShell();go(a==='back'?firstBackendView():firstHotelView())})}
 /* ---- the two pages ---- */
@@ -16677,6 +16683,11 @@ window.addEventListener('DOMContentLoaded',()=>{
        if(pend&&!DB.session.provider){
          if(pend.block){if(subStopped(H)){SUB_BLOCK=true;subBlockScreen(H);return}clearPending()}   /* extended in the meantime: open as before */
          else if(pend.who){SEL_ON=true;afterLoginRoute(H,pend.who,pend.shift||'No shift');return}}}   /* SEL_ON: nothing draws the system behind the loading screen while the choosing page is being made */
+      /* signed in through the Booking Engine's own sign-in: a reload stays in the Booking Engine on its own */
+      if(!DB.session.provider&&(isBookStandalone()||(pathSys==='book'&&sysAllowed('book')))){
+        setStandalone(true);applySysPath('book');setArea('back');renderShell();
+        {const r=routeStart('prov.be.amenities'),ok=HOTEL_BE_GROUP.items.some(i=>i[1]===r.v);go(ok?r.v:'prov.be.amenities',ok?r.arg:undefined)}
+        return}
       if(pathSys&&pathSys!=='hub'&&sysAllowed(pathSys)&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
       applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub');
       renderShell();
