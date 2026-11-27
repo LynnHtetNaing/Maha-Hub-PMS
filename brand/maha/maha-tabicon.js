@@ -9,7 +9,10 @@
   try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
   var head = document.head || document.getElementsByTagName('head')[0]; if (!head) return;
   var S = 64, N = 8, PERIOD = 1500, COLOR = '#14b88a', RADIUS = 21, DOT = 6.2, MIN_MS = 1500, FADE_MS = 320, TICK = 40;
-  var DEFAULT_ICON = '/icons/maha-mark-sq.png';
+  var DEFAULT_ICON = '/icons/maha-mark-sq.png', ICON_V = 'v=2';
+  /* Chrome keeps one saved icon per page address in its history (the address-bar list shows it). The real icon is always put back under a new version
+     mark, so Chrome has to fetch it again and replace any saved frame of the loading circle. */
+  var real = function () { return orig + (orig.indexOf('?') < 0 ? '?' : '&') + ICON_V; };
   var cv = document.createElement('canvas'); cv.width = cv.height = S;
   var cx = cv.getContext('2d'); if (!cx) return;
   var START = Date.now(), t0 = START, orig = DEFAULT_ICON, tile = null, tileSrc = '', running = true, endAt = 0, timer = 0;
@@ -46,7 +49,7 @@
     cx.globalAlpha = 1;
     try { link.setAttribute('href', cv.toDataURL('image/png')); } catch (e) {}
   }
-  function rest() { running = false; endAt = 0; link.setAttribute('href', orig); }   /* the normal Maha icon, no animation */
+  function rest() { running = false; endAt = 0; link.setAttribute('href', real()); }   /* the normal Maha icon, no animation */
   /* A tab in the background is never left on a frozen frame of the circle (Chrome slows a hidden page's timers, and the address bar and the tab list
      show whatever icon the page last set): the moment the tab is hidden, the Maha icon is put back. */
   document.addEventListener('visibilitychange', function () { adopt(); if (document.hidden) rest(); });
@@ -58,10 +61,10 @@
     if (!running) return;
     if (!endAt) endAt = Date.now();
     var f = Math.min(1, (Date.now() - endAt) / FADE_MS);
-    if (f >= 1 || !tile) { running = false; endAt = 0; link.setAttribute('href', orig); return; }   /* the circle has melted into the Maha icon */
+    if (f >= 1 || !tile) { running = false; endAt = 0; link.setAttribute('href', real()); return; }   /* the circle has melted into the Maha icon */
     draw(f);
   }
   timer = setInterval(tick, TICK);
   tick();
-  window.MahaTabIcon = { stop: function () { clearInterval(timer); running = false; link.setAttribute('href', orig); } };
+  window.MahaTabIcon = { stop: function () { clearInterval(timer); running = false; link.setAttribute('href', real()); } };
 })();
