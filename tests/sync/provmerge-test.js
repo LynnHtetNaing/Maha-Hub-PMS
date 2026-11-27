@@ -172,9 +172,10 @@ T('amenities are grouped into named subtitles the way a real booking engine (1Ho
   src.includes("'parking']},") &&
   ['coffee_shop','executive_floor','nightclub','safety_deposit_boxes','salon','shops','valet_parking','babysitting','bicycle_rental','casino','smoking_room','golf_course','jacuzzi','squash_courts','steamroom','tennis_courts','water_sports_motorized','water_sports_non_motorized','outdoor_pool','indoor_pool','pool_kids'].every(a=>src.includes("'"+a+"'")));
 
-T('The sign-in form (is-signin) never goes dark, whatever the stored Light/Dark preference - the Light/Dark switch inside the login box itself is also hidden there, since it would have nothing to do',
+T('The sign-in form (is-signin) always opens in Light (the stored preference is never used; the page before a system keeps its own tab-only choice). Its Light/Dark button is there for the hotel systems and hidden only for the Provider console',
   src.includes("${(!lgOpen&&lgDark())?' eco-dk':''}") &&
-  src.includes('<button type="button" class="eco-mode" id="lgMode2" aria-label="Switch Light and Dark" hidden></button>'));
+  src.includes("function preMode(){try{return sessionStorage.getItem('maha.pre.mode')==='dark'?'dark':'light'}") &&
+  src.includes("id=\"lgMode2\" aria-label=\"Switch Light and Dark\"${(hostRole()==='console'||lgProvider)?' hidden':''}>"));
 
 T('Hotels (prov.home) is the provider\'s main landing page, so it never shows a Back button, whatever the nav stack happens to hold',
   src.includes("el.innerHTML=pageHead('Hotels','',undefined,true)+`"));
