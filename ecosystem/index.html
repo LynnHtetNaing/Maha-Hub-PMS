@@ -9171,7 +9171,7 @@ function doLogin(){
     if(!want){if(MahaAuth.on())MahaAuth.signOut();err.textContent='Enter your Property ID.';return}
     if(want!==String(hc).toUpperCase()){if(MahaAuth.on())MahaAuth.signOut();fails++;if(fails>=5){lockUntil=Date.now()+60000;fails=0}err.textContent='Username, password or Property ID is not correct.';return}}
   const enterStaffSystem=(h)=>{
-    if(subStopped(h)){SUB_BLOCK=true;subBlockScreen(h);return}   /* an ended subscription: signed in, but only the Subscription ended page; no automatic sign-out */
+    if(subStopped(h)){setPending({block:true});SUB_BLOCK=true;subBlockScreen(h);return}   /* an ended subscription: signed in, but only the Subscription ended page; no automatic sign-out */
     const who=u.username,shift=s.name;
     const list=hotelSystems(h,u);
     let sys=lgTargetSys||'hub';
@@ -9208,8 +9208,15 @@ function doLogin(){
     s={id:'s'+uid(),userId:u.id,userName:u.username,role:u.role,name:lgShift,bd:h.set.bd,openAt:Date.now(),openCash:0,grp:grp.key||undefined,status:'open',dept:u.position||u.role};h.shifts.push(s);DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Opened ${s.name} shift`)}
   else{DB.session=stampSession({hotel:hc,userId:u.id,shiftId:s.id});log(`Signed in, continued ${s.name} shift`)}
   writeLiveSession(DB.session);saveDB();enterStaffSystem(h)}}
+/* "Still choosing": after sign-in, the pages before the system (property, subscription notice, Frontend / Backend) must stay if the page is reloaded.
+   This tab-only marker is set when sign-in succeeds and removed the moment the system opens or the person signs out. */
+const PEND_KEY='maha.pending.entry';
+function setPending(v){try{sessionStorage.setItem(PEND_KEY,JSON.stringify(v))}catch(e){}}
+function clearPending(){try{sessionStorage.removeItem(PEND_KEY)}catch(e){}}
+function getPending(){try{return JSON.parse(sessionStorage.getItem(PEND_KEY)||'null')}catch(e){return null}}
 async function signOut(silent,msg){
   if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!curShift().noShift&&!await dlgConfirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
+  clearPending();
   if(DB.session){if(DB.session.provider){DB.provLog.unshift({at:Date.now(),user:user().name,a:'Provider signed out'});try{ALOG.add('','Sign in / out','Signed out');ALOG.send()}catch(e){}}else log('Signed out')}
   if(MahaAuth.on())MahaAuth.signOut();
   clearEntryTickets();DB.session=null;H=null;lgTargetSys=null;clearLiveSession();saveDB();closeAllModals();applySysPath(null);routeClear();showLogin(msg||(silent?'Your shift is closed. Sign in to open a new shift.':''))}
@@ -12603,10 +12610,11 @@ async function chooseAreaAndEnter(props,welcome){
     setArea(a);break}}finally{SEL_ON=false}
   await withLoading(curArea()==='back'?'Opening Backend':'Opening Frontend',1800,async()=>{
     /* the system keeps its own saved Light/Dark; the pre-system pages' button never changes it */
-    applySysPath('hub');renderShell();{const r=routeStart(curArea()==='back'?firstBackendView():firstHotelView());go(r.v,r.arg)}});
+    clearPending();applySysPath('hub');renderShell();{const r=routeStart(curArea()==='back'?firstBackendView():firstHotelView());go(r.v,r.arg)}});
   if(welcome)toast(welcome)}
 async function afterLoginRoute(h,who,shift){
   const welcome=shift==='No shift'?`Welcome ${who}. ${fd(h.set.bd)}.`:`Welcome ${who}. ${shift} shift, ${fd(h.set.bd)}.`;
+  setPending({who,shift});
   try{
     let props=[],nextP;
     /* the next screen (property choice, a subscription notice, or Select System) is started here, while the loading overlay still covers it,
@@ -12616,7 +12624,7 @@ async function afterLoginRoute(h,who,shift){
       nextP=props.length>1?openPropertyChoice(props,h.code,false).then(()=>chooseAreaAndEnter(props,welcome)):chooseAreaAndEnter(props,welcome);
     });
     await nextP;
-  }catch(e){SEL_ON=false;loadingHide();applySysPath('hub');renderShell();go(firstHotelView());toast(welcome)}}
+  }catch(e){SEL_ON=false;clearPending();loadingHide();applySysPath('hub');renderShell();go(firstHotelView());toast(welcome)}}
 async function changePropertyFlow(){
   if(!MahaAuth.on()||!DB.session||DB.session.provider)return;
   let props=[];await withLoading('Loading your properties',1400,async()=>{try{props=await loadPropertyList()}catch(e){props=[]}});
@@ -16664,6 +16672,11 @@ window.addEventListener('DOMContentLoaded',()=>{
       applyLiveSession();resumeSync();
       const pathSys=sysFromPath();
       if(DB.session&&H&&(DB.session.provider||curShift())){
+      /* reloaded while still choosing (subscription notice, property, Frontend / Backend): come back to those pages, not straight into the system */
+      {const pend=getPending();
+       if(pend&&!DB.session.provider){
+         if(pend.block){if(subStopped(H)){SUB_BLOCK=true;subBlockScreen(H);return}clearPending()}   /* extended in the meantime: open as before */
+         else if(pend.who){afterLoginRoute(H,pend.who,pend.shift||'No shift');return}}}
       if(pathSys&&pathSys!=='hub'&&sysAllowed(pathSys)&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
       applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub');
       renderShell();
