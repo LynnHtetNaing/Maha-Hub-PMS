@@ -5133,6 +5133,12 @@ function houseAccount(b){return !!(b&&(b.masterDummy||(b.room&&dummyRoomNo(b.roo
 function softHeld(rm,arr,dep){return !!(rm&&rm.softHold&&overlaps(arr,dep,rm.softHold.from,addD(rm.softHold.to,1)))}
 function roomFree(no,arr,dep,exceptId){const rm=RM(no);if(!rm||rm.dummy)return false;if(rm.ooo&&overlaps(arr,dep,rm.ooo.from,addD(rm.ooo.to,1)))return false;if(softHeld(rm,arr,dep))return false;
   return !allBookings().some(b=>b.id!==exceptId&&b.room===no&&['confirmed','tentative','inhouse'].includes(b.status)&&overlaps(arr,dep,b.arr,b.dep))}
+/* The booking that is actually blocking a room for these dates (for a clear warning message - who's in there, not just "not free"). */
+function roomConflict(no,arr,dep,exceptId){return allBookings().find(b=>b.id!==exceptId&&b.room===no&&['confirmed','tentative','inhouse'].includes(b.status)&&overlaps(arr,dep,b.arr,b.dep))}
+function roomNotFreeMsg(no,arr,dep,exceptId){const c=roomConflict(no,arr,dep,exceptId);
+  if(!c)return `Room ${no} is not free for these dates.\n\nChoose another room, or change the dates.`;
+  const g=G(c.guestId),st=c.status==='inhouse'?'Occupied':'Reserved';
+  return `Room ${no} is not free for these dates.\n\n${st} by ${gName(g)} (${c.type}), ${fd(c.arr)} → ${fd(c.dep)}. Choose a different room, or change the dates.`}
 function occOn(d){return allBookings().filter(b=>!skipOcc(b)&&['inhouse','confirmed','out','tentative'].includes(b.status)&&b.arr<=d&&d<b.dep&&!(b.status==='out'&&b.statusDate<=d))}
 function inHouseOn(d){if(d>=H.set.bd)return allBookings().filter(b=>b.status==='inhouse'&&!skipOcc(b));
   return allBookings().filter(b=>!skipOcc(b)&&['inhouse','out'].includes(b.status)&&b.checkinDate&&b.checkinDate<=d&&d<(b.status==='out'?b.statusDate:b.dep))}
@@ -9901,7 +9907,7 @@ function assignArrival(id){
     if(tc&&!S.tWhy.trim()){dlgWarn('Give a reason for the room type change.\n\nType why the room type is changing before saving.');return}
     if(tc&&S.charge&&!(+S.amt>0)){dlgWarn('Type the amount to charge.\n\nEnter how much to charge for this room type change, or turn the charge option off.');return}
     if(tc&&S.charge&&!canPost){dlgWarn('You do not have permission to post charges.\n\nAsk your provider or manager to open Post charge for your account, or save this room type change without charging.');return}
-    if(room!==B.room&&!roomFree(room,B.arr,B.dep,B.id)){dlgWarn(`Room ${room} is not free for these dates.\n\nAnother reservation already holds this room for some or all of this guest's stay (${fd(B.arr)} – ${fd(B.dep)}). Choose a different room, or change the dates first.`);return}
+    if(room!==B.room&&!roomFree(room,B.arr,B.dep,B.id)){dlgWarn(roomNotFreeMsg(room,B.arr,B.dep,B.id));return}
     const done=[];
     if(was&&!S.dnm){const why=B.roomBlock.reason||'';B.roomBlock=null;histB(B,`Do not move turned off; room ${B.room} can change`);log(`Do not move OFF, room ${B.room} RSVN ${rsvn}${why?': '+why:''}`,B.id);done.push('Do not move is off')}
     if(tc){const old=B.type;B.type=S.type;histB(B,`Room type ${old} → ${S.type}: ${S.tWhy.trim()}`);log(`Room type changed ${old} → ${S.type} RSVN ${rsvn}: ${S.tWhy.trim()}`,B.id);done.push('room type '+S.type)}
@@ -10467,7 +10473,7 @@ Reason (kept in the amendment log):`);if(!why||!why.trim())return;
       const type=mode==='full'||mode==='restricted'?q('#bTypeRm').value:B.type,room=mode==='full'||mode==='restricted'?(q('#bRoom').value||null):B.room;
       if(B.roomBlock&&((room||null)!==(B.room||null)||type!==B.type)){dlgWarn(`Do not move is on for room ${B.roomBlock.room||B.room}: ${B.roomBlock.reason}.\n\nTurn Do not move off first (below), then the room or room type can change.`);return}
       if(room&&!H.rooms.some(x=>x.no===room&&!x.dummy&&x.type===type)){dlgWarn(`Room ${room} does not belong to room type ${type}.\n\nChoose a room that is actually a ${type}, or change the room type to match the room.`);return}
-      if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){dlgWarn(`Room ${room} is not free for these dates.\n\nAnother reservation already holds this room for some or all of this stay (${fd(arr)} – ${fd(dep)}). Choose another room, or change the dates.`);return}
+      if(room&&(arr!==B.arr||dep!==B.dep||room!==B.room)&&!roomFree(room,arr<H.set.bd?H.set.bd:arr,dep,B.id)){dlgWarn(roomNotFreeMsg(room,arr<H.set.bd?H.set.bd:arr,dep,B.id));return}
       if(mode==='full'){const rcd=q('#bRc').value,rco=H.rateCodes.find(x=>x.code===rcd);
         const setIf=(k,v)=>{if(String(B[k])!==String(v)){B[k]=v;ch.push(k)}};
         setIf('bkType',q('#bType').value);setIf('adults',Math.max(1,+q('#bAd').value||1));setIf('children',Math.max(0,+q('#bCh').value||0));
