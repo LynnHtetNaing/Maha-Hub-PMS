@@ -9211,9 +9211,9 @@ function doLogin(){
 /* "Still choosing": after sign-in, the pages before the system (property, subscription notice, Frontend / Backend) must stay if the page is reloaded.
    This tab-only marker is set when sign-in succeeds and removed the moment the system opens or the person signs out. */
 const PEND_KEY='maha.pending.entry';
-function setPending(v){try{sessionStorage.setItem(PEND_KEY,JSON.stringify(v))}catch(e){}}
-function clearPending(){try{sessionStorage.removeItem(PEND_KEY)}catch(e){}}
-function getPending(){try{return JSON.parse(sessionStorage.getItem(PEND_KEY)||'null')}catch(e){return null}}
+function setPending(v){try{loginStore().setItem(PEND_KEY,JSON.stringify(v))}catch(e){}}   /* kept exactly where the sign-in itself is kept */
+function clearPending(){dropLogin(PEND_KEY)}
+function getPending(){try{return JSON.parse(loginStore().getItem(PEND_KEY)||'null')}catch(e){return null}}
 async function signOut(silent,msg){
   if(!silent&&DB.session&&!DB.session.provider&&curShift()&&!curShift().noShift&&!await dlgConfirm('Sign out? Your shift stays open until you close it in My Shift & Cashier.'))return;
   clearPending();
@@ -12624,7 +12624,7 @@ async function afterLoginRoute(h,who,shift){
       nextP=props.length>1?openPropertyChoice(props,h.code,false).then(()=>chooseAreaAndEnter(props,welcome)):chooseAreaAndEnter(props,welcome);
     });
     await nextP;
-  }catch(e){SEL_ON=false;clearPending();loadingHide();applySysPath('hub');renderShell();go(firstHotelView());toast(welcome)}}
+  }catch(e){try{console.error('Sign-in pages failed',e)}catch(_){}SEL_ON=false;clearPending();loadingHide();applySysPath('hub');renderShell();go(firstHotelView());toast(welcome)}}
 async function changePropertyFlow(){
   if(!MahaAuth.on()||!DB.session||DB.session.provider)return;
   let props=[];await withLoading('Loading your properties',1400,async()=>{try{props=await loadPropertyList()}catch(e){props=[]}});
@@ -16676,7 +16676,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       {const pend=getPending();
        if(pend&&!DB.session.provider){
          if(pend.block){if(subStopped(H)){SUB_BLOCK=true;subBlockScreen(H);return}clearPending()}   /* extended in the meantime: open as before */
-         else if(pend.who){afterLoginRoute(H,pend.who,pend.shift||'No shift');return}}}
+         else if(pend.who){SEL_ON=true;afterLoginRoute(H,pend.who,pend.shift||'No shift');return}}}   /* SEL_ON: nothing draws the system behind the loading screen while the choosing page is being made */
       if(pathSys&&pathSys!=='hub'&&sysAllowed(pathSys)&&!(DB.session.provider&&!DB.session.inHotel)){location.replace(pathSys==='book'?bookUrlFor(H):sysUrl(pathSys,H));return}
       applySysPath(DB.session.provider&&!DB.session.inHotel?null:'hub');
       renderShell();
