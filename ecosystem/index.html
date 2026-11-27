@@ -3010,7 +3010,7 @@ html:not(.is-app) .eco-shell .eco-login .eco-login-inner{
 }
 </style>
 
-</head><body><script>try{var h=location.hostname,p=location.pathname.toLowerCase(),n='Maha PMS';if(h.indexOf('console.')===0)n='Maha Provider';else if(h.indexOf('solutions.')===0||p==='/solutions'||p==='/solutions/')n='Maha Solutions';var d=false;try{d=localStorage.getItem('maha.pref.mode')==='dark'}catch(e){}if(window.MahaLoader)MahaLoader.show({name:n,dark:d,msg:''})}catch(e){}</script><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
+</head><body><script>try{var h=location.hostname,p=location.pathname.toLowerCase(),n='Maha PMS';if(h.indexOf('console.')===0)n='Maha Provider';else if(h.indexOf('solutions.')===0||p==='/solutions'||p==='/solutions/')n='Maha Solutions';var sw=null,m='';try{sw=JSON.parse(sessionStorage.getItem('maha.switching')||'null');sessionStorage.removeItem('maha.switching')}catch(e){}if(sw&&sw.name&&sw.at&&Date.now()-sw.at<30000){n=sw.name;m=sw.msg||''}else if(p.indexOf('/solutions-booking')===0)n='Maha Booking';var d=false;try{d=localStorage.getItem('maha.pref.mode')==='dark'}catch(e){}if(window.MahaLoader)MahaLoader.show({name:n,dark:d,msg:m})}catch(e){}</script><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="/brand/maha/pms-icon-96.png";
 const ICON_BAR="/brand/maha/gate-gold.png";
 const ECO_HERO="/brand/login-hero-bg.jpg";
@@ -8365,7 +8365,7 @@ function openSystem(kind,h,same){
      A hotel with only Maha Booking open (no PMS) lands here directly; a hotel with PMS too reaches it from
      the system switcher without leaving the app. Guests still only ever see the real page via its own address
      or the "Preview booking page (real, live)" button in Hotel Setup. */
-  if(kind==='book'){setStandalone(true);applySysPath('book');setArea('back');renderShell();go('prov.be.amenities');return}
+  if(kind==='book'){setStandalone(true);NAVSTACK.length=0;applySysPath('book');setArea('back');renderShell();go('prov.be.amenities');return}
   if(kind==='sales'){const url=salesUrl();if(same){location.assign(url);return}openApp(url,'Maha Sales');return}
   const url=kind==='reach'?reachUrl(h):kind==='connect'?connectStaticUrl(h):'';
   if(!url)return;
@@ -8586,8 +8586,30 @@ function openSystemsArrow(btn){
     const sub=!s.hotel&&asProv?'Closed for hotel staff — you can still open it':here?'You are here':s.blurb;
     return `<button type="button" data-sys="${s.kind}"><b>${esc(s.name)}</b><span class="sub">${esc(sub)}</span></button>`;
   }).join(''));
-  $$('[data-sys]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const kind=b.dataset.sys;if(kind==='hub'){if(inProv){enterHotel(H.code);return}if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());return}openSystem(kind,H)});
+  $$('[data-sys]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const kind=b.dataset.sys;
+    switchSystemTo(kind,()=>{if(kind==='hub'&&inProv){enterHotel(H.code);return}openSystem(kind,H)})});
 }
+/* Moving from one system to another always shows the Maha loading screen, named after the system being opened ("Switching to Maha PMS"), so the new
+   system is drawn fresh behind it. */
+const SWITCH_WORD='Switching';
+async function switchSystemTo(kind,fn){
+  const dest=ecoSysLabel(kind),msg=SWITCH_WORD+' to '+dest;
+  /* PMS <-> Booking Engine for hotel staff: a clean start. The page is loaded again for the system being opened, so nothing of the system being left
+     (its pages, windows, timers, filters) is still alive, and the choice is kept: a refresh stays in the system that was switched to. */
+  if((kind==='hub'||kind==='book')&&DB.session&&!DB.session.provider){
+    if((kind==='book')===isBookStandalone()){toast('You are already in '+dest+'.');return}
+    loadingShow(msg,dest);
+    try{sessionStorage.setItem('maha.switching',JSON.stringify({name:dest,msg,at:Date.now()}))}catch(e){}
+    try{closeAllModals()}catch(e){}
+    NAVSTACK.length=0;try{routeClear()}catch(e){}
+    setStandalone(kind==='book');clearPending();
+    try{setArea(kind==='book'?'back':'front')}catch(e){}
+    try{applySysPath(kind)}catch(e){}
+    try{saveDB()}catch(e){}
+    await sleepMs(1200);
+    if(kind==='hub'&&onSplitHost()&&hostRole()!=='hub'){location.assign(sysUrl('hub',H));return}   /* the PMS has its own address: the sign-in goes with the person */
+    location.reload();return}
+  await withLoading(msg,1600,async()=>{try{await fn()}catch(e){}},dest)}
 function openHelpMenu(btn){
   const p=tbPop(btn,`<button type="button" data-act="help">Help</button>`);
   $$('[data-act]',p).forEach(b=>b.onclick=()=>{p.hidden=true;go('help.home')});
@@ -8852,6 +8874,7 @@ function routeStart(defView){const r=routeOf();if(r&&DB&&DB.session&&!VIEWS[r.v]
 window.addEventListener('popstate',()=>{try{if(!DB||!DB.session||!(H||DB.session.provider))return;const r=routeOf();if(!r||!routeAllowed(r.v))return;
   ROUTE_SILENT=true;try{go(r.v,r.arg)}finally{ROUTE_SILENT=false}}catch(e){ROUTE_SILENT=false}});
 function go(v,arg){try{window.MahaLoader&&MahaLoader.pageOpen()}catch(e){}const providerConsole=DB.session&&DB.session.provider&&!DB.session.inHotel;
+  if(isBookStandalone()&&!/^(prov.be.|help.|sys.pick)/.test(String(v))){v='prov.be.amenities';arg=undefined}   /* the Booking Engine on its own never shows a PMS page */
   {const wasBack=go.isBack,stay=go.stay;go.isBack=false;go.stay=false;
    if(wasBack){}
    else if(stay&&VIEW===v){}   /* the same page with another filter: nothing is added to the Back trail */
@@ -8869,7 +8892,7 @@ function go(v,arg){try{window.MahaLoader&&MahaLoader.pageOpen()}catch(e){}const 
   VIEW=v;VARG=arg===undefined?null:arg;routePush(v,arg);closeMenus();render()}
 function navLabel(v){try{for(const m of MENU)for(const it of (m.items||[]))if(it[1]===v)return it[0];for(const m of PROV_MENU)for(const it of (m.items||[]))if(it[1]===v)return it[0]}catch(e){}return ''}
 function navBackInfo(){for(let i=NAVSTACK.length-1;i>=0;i--){const t=NAVSTACK[i];if(t.v!==VIEW||!sameArg(t.a,VARG))return t}return null}
-function backBtnHtml(){const i=navBackInfo();return i?`<button type="button" class="btn ghost sm pgback" data-pgback title="${navLabel(i.v)?'Back to '+esc(navLabel(i.v)):'Back'}" aria-label="${navLabel(i.v)?'Back to '+esc(navLabel(i.v)):'Back'}">${ic('left',16)}Back</button>`:''}
+function backBtnHtml(){if(isBookStandalone())return '';const i=navBackInfo();return i?`<button type="button" class="btn ghost sm pgback" data-pgback title="${navLabel(i.v)?'Back to '+esc(navLabel(i.v)):'Back'}" aria-label="${navLabel(i.v)?'Back to '+esc(navLabel(i.v)):'Back'}">${ic('left',16)}Back</button>`:''}
 function goBack(){let t;while((t=NAVSTACK.pop())){if(t.v===VIEW&&sameArg(t.a,VARG))continue;const prov=DB.session&&DB.session.provider&&!DB.session.inHotel;if(prov?/^prov\./.test(t.v):viewAllowed(t.v)){try{if(DB.session&&!DB.session.provider)setArea(areaOfView(t.v))}catch(e){}go.isBack=true;try{go(t.v,t.a)}finally{go.isBack=false}return}}}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pgback]');if(b){e.preventDefault();goBack()}});
 /* Opening the same page again (after a click such as Open or Lock) keeps the place where the person was working. A different page starts at the top. */
@@ -9136,8 +9159,7 @@ function openSystemsSwitcher(){
   m.id='sysSwitchModal';
   $$('[data-sys]',m).forEach(b=>b.onclick=()=>{
     const kind=b.dataset.sys;closeModal(m);
-    if(kind==='hub'){applySysPath('hub');if(!document.querySelector('.topbar'))renderShell();go(firstHotelView());toast('Maha PMS');return}
-    openSystem(kind,H);
+    switchSystemTo(kind,()=>openSystem(kind,H));
   });
 }
 function showEcosystemPick(){openSystemsSwitcher()}
@@ -12508,7 +12530,7 @@ function ensureFlowCss(){if(document.getElementById('flowCss'))return;const s=do
 const loadDark=()=>{try{return selPrefs().mode==='dark'}catch(e){return false}},loadName=()=>{try{return DB&&DB.session&&DB.session.provider?'Maha Provider':'Maha PMS'}catch(e){return 'Maha PMS'}};
 /* the loading screen is the shared Maha loader (brand/maha/maha-loader.js): first opening of the session, then the quick one; the old screen below stays as the fallback if that file is missing */
 try{window.MahaLoader&&MahaLoader.config({dark:()=>loadDark()})}catch(e){}
-function loadingShow(msg){if(window.MahaLoader){MahaLoader.show({name:loadName(),dark:loadDark(),msg:msg||''});return}ensureFlowCss();let o=document.getElementById('mhLoad');if(!o){o=document.createElement('div');o.id='mhLoad';document.body.appendChild(o)}
+function loadingShow(msg,name){if(window.MahaLoader){MahaLoader.show({name:name||loadName(),dark:loadDark(),msg:msg||''});return}ensureFlowCss();let o=document.getElementById('mhLoad');if(!o){o=document.createElement('div');o.id='mhLoad';document.body.appendChild(o)}
   o.classList.remove('out');o.innerHTML=`<div class="mh-boot" role="status" aria-live="polite"><canvas class="mh-grid" aria-hidden="true"></canvas><div class="mh-core"><div class="mh-orb"><i></i><i></i><i></i><b></b><img src="/brand/maha/gate-small.png" alt="" width="58" height="54"></div><div class="mh-name">Maha PMS</div><div class="mh-bar"><i></i></div><div class="mh-msg">${esc(msg||'Preparing your hotel')}<span>_</span></div></div></div>`;try{loadingGrid(o)}catch(e){}return o}
 /* Loading screen grid: the same fine lines as before (44px squares, 3.5%). A ring of light spreads from the centre and lights only the lines of each square, at most 20% strength: gold near the centre, green further out. With reduced motion only the fixed lines are drawn. */
 let _ldgTok=0;
@@ -12523,7 +12545,7 @@ function loadingGrid(o){const cv=o.querySelector('.mh-grid');if(!cv)return;const
   addEventListener('resize',()=>{if(tok===_ldgTok&&cv.isConnected)size()});requestAnimationFrame(frame)}
 
 function loadingHide(){if(window.MahaLoader&&MahaLoader.isShowing())return MahaLoader.hide();const o=document.getElementById('mhLoad');if(!o)return;o.classList.add('out');setTimeout(()=>{if(o.classList.contains('out'))o.remove()},450)}
-async function withLoading(msg,ms,fn){loadingShow(msg);const t0=Date.now();let r;try{r=await fn()}finally{if(!window.MahaLoader)await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));await loadingHide()}return r}
+async function withLoading(msg,ms,fn,name){loadingShow(msg,name);const t0=Date.now();let r;try{r=await fn()}finally{if(!window.MahaLoader)await sleepMs(Math.max(0,(ms||1800)-(Date.now()-t0)));await loadingHide()}return r}
 /* ---- who sees what ---- */
 /* a provider operating a hotel (inHotel) gets the same Backend an owner/manager gets, plus their own extra group below - never while outside a hotel */
 function hasBackend(){try{return !!(DB&&DB.session&&H&&can('setup')&&(!DB.session.provider||DB.session.inHotel))}catch(e){return false}}
