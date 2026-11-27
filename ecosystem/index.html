@@ -8902,7 +8902,11 @@ function ecoPreviewHotel(){
   const code=codes[0];
   return code?DB.hotels[code]:{code:'',set:{name:'Maha Hub',systems:{}},roomTypes:[],rateCodes:[],rooms:[]};
 }
-function lgDark(){try{return !IS_APP&&localStorage.getItem('maha.pref.mode')==='dark'}catch(e){return false}}
+/* The pages before a system opens (Sign in, Warning, Select System, Select Property) are always Light when first seen.
+   Their Light/Dark button only lasts for this browser tab and never touches the mode a person uses inside a system. */
+function preMode(){try{return sessionStorage.getItem('maha.pre.mode')==='dark'?'dark':'light'}catch(e){return 'light'}}
+function setPreMode(m){try{sessionStorage.setItem('maha.pre.mode',m)}catch(e){}}
+function lgDark(){return !IS_APP&&preMode()==='dark'}
 function showLogin(msg){
   /* no one is signed in: the sign-in page keeps its own light look, never the Dark theme - skinIsModern() is
      unconditional now, so drop the attributes directly instead of going through applySkin() */
@@ -9077,7 +9081,7 @@ function showLogin(msg){
     const night=!!(u&&nightOkFor(u,h));$$('[data-shift]').forEach(b=>{if(b.dataset.shift==='Night'){b.disabled=!night;b.title=night?'Night shift, 22:00 to 06:00':'Night shift is for Front Office and HOD'}});if(!night&&lgShift==='Night')setShift('Afternoon');
   };
   $$('#lgCards [data-sys]').forEach(b=>b.onclick=()=>pickSys(b));
-  {const mbs=$$('.eco-mode'),sh=document.querySelector('.eco-shell');const lab=()=>mbs.forEach(b=>{b.innerHTML=lgDark()?'☀ Light':'☾ Dark'});lab();mbs.forEach(b=>{if(IS_APP)b.hidden=true;b.onclick=()=>{try{localStorage.setItem('maha.pref.mode',lgDark()?'light':'dark')}catch(e){}sh.classList.toggle('eco-dk',lgDark());lab()}})}
+  {const mbs=$$('.eco-mode'),sh=document.querySelector('.eco-shell');const lab=()=>mbs.forEach(b=>{b.innerHTML=lgDark()?'☀ Light':'☾ Dark'});lab();mbs.forEach(b=>{if(IS_APP)b.hidden=true;b.onclick=()=>{setPreMode(lgDark()?'light':'dark');sh.classList.toggle('eco-dk',lgDark());lab()}})}
   $('#lgAllSys').onclick=()=>{if(IS_APP){appWelcomeShow();return}if(onSplitHost()&&hostRole()!=='main'){location.assign(mainUrl());return}lgTargetSys=null;lgPickAnim=null;applySysPath(null);syncSelect()};
   if(IS_APP){['#lgAllSys','#lgBack'].forEach(q=>{const b=$(q);if(b)b.textContent='‹ Back'})}
   $('#lgBack').onclick=()=>$('#lgAllSys').click();
@@ -12544,11 +12548,11 @@ async function switchAreaTo(a){if(!hasBackend()||(H&&H.set&&!hubOn(H))||a===curA
 /* ---- the two pages ---- */
 /* While Select Property / Select System is on screen, a background redraw (for example the cloud copy arriving after sign-in) must not replace it */
 let SEL_ON=false;
-function selPrefs(){let mode='light',pal='emerald';try{mode=localStorage.getItem('maha.pref.mode')==='dark'?'dark':'light';pal=localStorage.getItem('maha.pref.pal')||'emerald'}catch(e){}return {mode,pal}}
+function selPrefs(){let mode='light',pal='emerald';try{mode=preMode();pal=localStorage.getItem('maha.pref.pal')||'emerald'}catch(e){}return {mode,pal}}
 function selShell(inner){SEL_ON=true;ensureFlowCss();const p=selPrefs(),u=user();
   document.documentElement.removeAttribute('data-skin');
   document.getElementById('app').innerHTML=`<div class="selpg ${p.mode==='dark'?'dark':''}" data-pal="${esc(p.pal)}"><header class="sp-top"><div class="sp-logo"><img src="${ICON}" alt="">Maha PMS</div><div class="sp-right"><span>${esc(u.name||'')}</span><button type="button" class="sp-pill" id="spMode">${spModeHtml(p.mode==='dark')}</button><button type="button" class="sp-pill" id="spOut">${ic('out',15)}<span>Sign out</span></button></div></header><main class="sp-body">${inner}</main></div>`;
-  $('#spMode').onclick=()=>{try{localStorage.setItem('maha.pref.mode',p.mode==='dark'?'light':'dark')}catch(e){}const el=document.querySelector('.selpg');if(el){el.classList.toggle('dark');$('#spMode').innerHTML=spModeHtml(el.classList.contains('dark'))}};
+  $('#spMode').onclick=()=>{const el=document.querySelector('.selpg');if(el){el.classList.toggle('dark');setPreMode(el.classList.contains('dark')?'dark':'light');$('#spMode').innerHTML=spModeHtml(el.classList.contains('dark'))}};
   $('#spOut').onclick=()=>{SEL_ON=false;signOut(true)}}
 async function loadPropertyList(){
   const t=await MahaAuth.fresh();if(!t)throw new Error('auth');const props=await MahaAuth.properties(t);let rows=null;
@@ -12586,7 +12590,7 @@ async function chooseAreaAndEnter(props,welcome){
     if(a==='change'){await openPropertyChoice(props,H.code,false);setArea('front');continue}
     setArea(a);break}}finally{SEL_ON=false}
   await withLoading(curArea()==='back'?'Opening Backend':'Opening Frontend',1800,async()=>{
-    try{setUserMode(selPrefs().mode,true)}catch(e){}
+    /* the system keeps its own saved Light/Dark; the pre-system pages' button never changes it */
     applySysPath('hub');renderShell();{const r=routeStart(curArea()==='back'?firstBackendView():firstHotelView());go(r.v,r.arg)}});
   if(welcome)toast(welcome)}
 async function afterLoginRoute(h,who,shift){
