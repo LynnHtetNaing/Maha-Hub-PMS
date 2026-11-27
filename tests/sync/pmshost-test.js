@@ -27,6 +27,8 @@ r=await call('https://maha-hub.com/solutions',ON);T('the website address keeps t
 r=await call('https://maha-hub.com/',ON);T('the website address / is a file, no redirect',r.status===200);
 for(const f of ['wrangler.toml','workers/maha-hub-pms/wrangler.toml']){const w=fs.readFileSync(f,'utf8');
   T(f+': the addresses are set and PMS_REDIRECT is gone',/MAIN_HOST = "solutions\.maha-hub\.com"/.test(w)&&/PMS_HOST = "pms\.maha-hub\.com"/.test(w)&&/CRM_HOST = "crm\.maha-hub\.com"/.test(w)&&/CONSOLE_HOST = "console\.maha-hub\.com"/.test(w)&&!/PMS_REDIRECT/.test(w));}
+for(const f of ['wrangler.toml','workers/maha-hub-pms/wrangler.toml']){const list=(fs.readFileSync(f,'utf8').split(/\r?\n/).find(l=>l.startsWith('run_worker_first'))||'');
+  T(f+': the worker is asked first for every other system folder (without it Cloudflare serves /crm/ on the PMS address straight from the files, and the 404 rule never runs)',['/crm','/crm/*','/reach','/reach/*','/connect','/connect/*','/book'].every(p=>list.includes('"'+p+'"')));}
 /* app */
 const cut=(a,b)=>{const i=src.indexOf(a),j=src.indexOf(b,i);if(i<0||j<0)throw new Error('code not found: '+a);return src.slice(i,j)};
 const code=cut('const SYS_HOSTS=','function edcPack'),sg=cut('function sysSegment','\n');
