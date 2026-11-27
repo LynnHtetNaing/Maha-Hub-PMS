@@ -3010,7 +3010,7 @@ html:not(.is-app) .eco-shell .eco-login .eco-login-inner{
 }
 </style>
 
-</head><body><script>try{var h=location.hostname,p=location.pathname.toLowerCase(),n='Maha PMS';if(h.indexOf('console.')===0)n='Maha Provider';else if(h.indexOf('solutions.')===0||p==='/solutions'||p==='/solutions/')n='Maha Solutions';var d=false;try{d=localStorage.getItem('maha.pref.mode')==='dark'}catch(e){}if(window.MahaLoader)MahaLoader.show({name:n,dark:d,msg:''})}catch(e){}</script><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
+</head><body><script>try{var h=location.hostname,p=location.pathname.toLowerCase(),n='Maha PMS';if(h.indexOf('console.')===0)n='Maha Provider';else if(h.indexOf('solutions.')===0||p==='/solutions'||p==='/solutions/')n='Maha Solutions';var sw=null,m='';try{sw=JSON.parse(sessionStorage.getItem('maha.switching')||'null');sessionStorage.removeItem('maha.switching')}catch(e){}if(sw&&sw.name&&sw.at&&Date.now()-sw.at<30000){n=sw.name;m=sw.msg||''}else if(p.indexOf('/solutions-booking')===0)n='Maha Booking';var d=false;try{d=localStorage.getItem('maha.pref.mode')==='dark'}catch(e){}if(window.MahaLoader)MahaLoader.show({name:n,dark:d,msg:m})}catch(e){}</script><div id="app"></div><div id="toast" role="status" aria-live="polite"></div><div id="print"></div>
 <script>const ICON="/brand/maha/pms-icon-96.png";
 const ICON_BAR="/brand/maha/gate-gold.png";
 const ECO_HERO="/brand/login-hero-bg.jpg";
@@ -8592,7 +8592,24 @@ function openSystemsArrow(btn){
 /* Moving from one system to another always shows the Maha loading screen, named after the system being opened ("Switching to Maha PMS"), so the new
    system is drawn fresh behind it. */
 const SWITCH_WORD='Switching';
-async function switchSystemTo(kind,fn){const dest=ecoSysLabel(kind);await withLoading(SWITCH_WORD+' to '+dest,1600,async()=>{try{await fn()}catch(e){}},dest)}
+async function switchSystemTo(kind,fn){
+  const dest=ecoSysLabel(kind),msg=SWITCH_WORD+' to '+dest;
+  /* PMS <-> Booking Engine for hotel staff: a clean start. The page is loaded again for the system being opened, so nothing of the system being left
+     (its pages, windows, timers, filters) is still alive, and the choice is kept: a refresh stays in the system that was switched to. */
+  if((kind==='hub'||kind==='book')&&DB.session&&!DB.session.provider){
+    if((kind==='book')===isBookStandalone()){toast('You are already in '+dest+'.');return}
+    loadingShow(msg,dest);
+    try{sessionStorage.setItem('maha.switching',JSON.stringify({name:dest,msg,at:Date.now()}))}catch(e){}
+    try{closeAllModals()}catch(e){}
+    NAVSTACK.length=0;try{routeClear()}catch(e){}
+    setStandalone(kind==='book');clearPending();
+    try{setArea(kind==='book'?'back':'front')}catch(e){}
+    try{applySysPath(kind)}catch(e){}
+    try{saveDB()}catch(e){}
+    await sleepMs(1200);
+    if(kind==='hub'&&onSplitHost()&&hostRole()!=='hub'){location.assign(sysUrl('hub',H));return}   /* the PMS has its own address: the sign-in goes with the person */
+    location.reload();return}
+  await withLoading(msg,1600,async()=>{try{await fn()}catch(e){}},dest)}
 function openHelpMenu(btn){
   const p=tbPop(btn,`<button type="button" data-act="help">Help</button>`);
   $$('[data-act]',p).forEach(b=>b.onclick=()=>{p.hidden=true;go('help.home')});
