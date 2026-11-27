@@ -146,6 +146,8 @@ table.grid tr.click{cursor:pointer}@media (hover:hover){table.grid tr.click:hove
 #cnote .cn{display:inline-flex;align-items:center;gap:10px;font-size:21px;font-weight:700;letter-spacing:.2px;opacity:0;transform:translateY(8px);transition:opacity .22s,transform .22s;max-width:92vw;text-align:center}
 #cnote .cn.show{opacity:1;transform:none}
 #cnote .cn.saved{color:#137a56;text-shadow:0 0 6px #fff,0 0 12px #fff,0 0 20px rgba(255,255,255,.95)}
+#cnote .cn.warn{color:#b42318;text-shadow:0 0 6px #fff,0 0 12px #fff,0 0 20px rgba(255,255,255,.95)}
+#cnote .cn.info{color:#1d5a85;text-shadow:0 0 6px #fff,0 0 12px #fff,0 0 20px rgba(255,255,255,.95)}
 #cnote .cn.welcome{background:#1d2a33;color:#fff;padding:11px 22px;border-radius:6px;font-size:17px;font-weight:600}
 @media (max-width:700px){#cnote .cn{font-size:17px}#cnote .cn svg{width:20px;height:20px}}
 /* login */
@@ -2572,6 +2574,10 @@ html[data-skin="modern"][data-mode=dark] .mdrop{background:var(--m-card);border-
 /* save notice: small shaded box at the bottom of the screen */
 html[data-skin="modern"] #cnote{top:auto;bottom:26px}
 html[data-skin="modern"] #cnote .cn.saved{font-size:13px;font-weight:600;letter-spacing:0;padding:9px 16px;border-radius:10px;background:#E7F4EC;border:1px solid #BFE0CC;color:#1f6b49;text-shadow:none;box-shadow:0 6px 18px #0a27231f}
+html[data-skin="modern"] #cnote .cn.warn{font-size:13px;font-weight:600;letter-spacing:0;padding:9px 16px;border-radius:10px;background:#FDECEA;border:1px solid #F3C2BF;color:#9b1c1c;text-shadow:none;box-shadow:0 6px 18px #0a27231f}
+html[data-skin="modern"] #cnote .cn.info{font-size:13px;font-weight:600;letter-spacing:0;padding:9px 16px;border-radius:10px;background:#E8F1F8;border:1px solid #C3D8E8;color:#1d5a85;text-shadow:none;box-shadow:0 6px 18px #0a27231f}
+html[data-skin="modern"][data-mode=dark] #cnote .cn.warn{background:#3a1417;border-color:#7a2a2a;color:#ffb4ad}
+html[data-skin="modern"][data-mode=dark] #cnote .cn.info{background:#12283a;border-color:#2b4b66;color:#9fd0f0}
 html[data-skin="modern"] #cnote .cn svg{width:16px;height:16px}
 /* narrower screens: icon rail; phones: menu opens over the page */
 @media (max-width:980px){html[data-skin="modern"] .mshell{grid-template-columns:76px minmax(0,1fr)}html[data-skin="modern"] .msb-brand,html[data-skin="modern"] .msb-prop,html[data-skin="modern"] .mgb span,html[data-skin="modern"] .mgb .car,html[data-skin="modern"] .mgi{display:none!important}html[data-skin="modern"] .mgb{justify-content:center}html[data-skin="modern"] .msb-top{flex-direction:column;padding:12px 0 8px}html[data-skin="modern"] .msb-tog{display:none}html[data-skin="modern"] .mshell>.topbar{height:56px}}
@@ -5539,12 +5545,18 @@ function histB(B,what){const s=curShift();B.hist.push({at:Date.now(),bd:H.set.bd
 /* ---------- toast / modals ---------- */
 /* ---- The centre note: "... was saved successfully." shows in the middle of the screen for 1.5 seconds, with no box. The Welcome message after sign-in uses the same place. ---- */
 const CN_MS=1500;
-function centerNote(text,kind){
+function centerNote(text,kind,ms){
   let w=document.getElementById('cnote');if(!w){w=document.createElement('div');w.id='cnote';w.setAttribute('role','status');w.setAttribute('aria-live','polite');document.body.appendChild(w)}
-  const chk='<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>';
-  w.innerHTML='<div class="cn '+(kind||'saved')+'">'+(kind==='welcome'?'':chk)+'<span>'+esc(text)+'</span></div>';
+  const svg=p=>'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';
+  const chk=svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>'),warn=svg('<path d="M12 3.5l9 16H3z"/><path d="M12 10v4.5M12 17.3v.2"/>'),info=svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.8v.2"/>');
+  const ico=kind==='welcome'?'':kind==='warn'?warn:kind==='info'?info:chk,T=ms||CN_MS;
+  w.innerHTML='<div class="cn '+(kind||'saved')+'">'+ico+'<span>'+esc(text)+'</span></div>';
   const n=w.firstChild;clearTimeout(w._a);clearTimeout(w._b);requestAnimationFrame(()=>n.classList.add('show'));
-  w._a=setTimeout(()=>n.classList.remove('show'),CN_MS-250);w._b=setTimeout(()=>{if(w.firstChild===n)w.innerHTML=''},CN_MS+100)}
+  w._a=setTimeout(()=>n.classList.remove('show'),T-250);w._b=setTimeout(()=>{if(w.firstChild===n)w.innerHTML=''},T+100)}
+/* every message in the system uses this same centre note, with the same words as before: green tick (done), red triangle (a problem), blue "i" (information) */
+const msgKind=m=>/could not|couldn'?t|cannot|can'?t|failed|error|not allowed|not available|not found|not free|no permission|do not have|don'?t have|must |required|invalid|denied|unable|already|expired|is closed|not sent|not saved|wrong|enter |please |select |choose |only /i.test(m)?'warn'
+  :/\b(sent|created|added|deleted|removed|updated|copied|approved|restored|posted|completed|assigned|moved|applied|cancell?ed|voided|checked.?in|checked.?out|confirmed|transferred|merged|split|reset|opened|closed|done|ready|downloaded|exported|imported|started|finished|paid|refunded|printed)\b/i.test(m)?'saved':'info';
+const msgMs=m=>Math.max(1500,Math.min(6500,1100+String(m).length*45));
 function savedViewLabel(){try{if(VIEW==='prov.setup'){const x=SET_SECTIONS.find(z=>z[0]===SET_SEC);if(x)return x[2]}
   for(const m of MENU.concat(typeof PROV_MENU!=='undefined'?PROV_MENU:[]))for(const it of (m.items||[]))if(it[1]===VIEW)return it[0]}catch(e){}return 'Your changes'}
 function savedTextOf(m,btn){const s0=String(m||'').trim();let base='';
@@ -5555,7 +5567,7 @@ const isSavedMsg=m=>/\bsaved\b/i.test(m)&&!/pause|snapshot|another device|could 
 window._svClick=null;
 document.addEventListener('click',e=>{const b=e.target&&e.target.closest?e.target.closest('button'):null;if(b&&/^\s*Save\b/i.test(b.textContent||''))window._svClick={t:Date.now(),label:b.textContent}},true);
 function svNoteCheck(){const c=window._svClick;if(c&&Date.now()-c.t<5000){window._svClick=null;centerNote(savedTextOf('',c.label),'saved')}}
-function toast(m){if(isSavedMsg(m)){window._svClick=null;centerNote(savedTextOf(m),'saved');return}const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800)}
+function toast(m){if(isSavedMsg(m)){window._svClick=null;centerNote(savedTextOf(m),'saved');return}centerNote(String(m==null?'':m),msgKind(String(m)),msgMs(m))}
 let MODALS=[];
 function modal(title,html,o={}){
   const wrap=document.createElement('div');wrap.className='mwrap';wrap.style.zIndex=60+MODALS.length*2;
