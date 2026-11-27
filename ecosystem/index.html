@@ -12466,6 +12466,7 @@ html[data-skin="modern"] .areasw button{background:none!important;box-shadow:non
 .selpg .sp-top .sp-logo,.selpg .sp-right>span{display:none}
 .selpg .sp-pill{background:transparent;border:1px solid currentColor;color:var(--ink);opacity:.75;padding:6px 14px;font:600 12.5px Inter,"Noto Sans",sans-serif}
 @media (hover:hover){.selpg .sp-pill:hover{opacity:1}}
+.selpg .sp-pill:has(svg){display:inline-flex;align-items:center;gap:6px}.selpg .sp-pill svg{width:15px;height:15px;flex:none}
 .selpg{display:flex;flex-direction:column;padding:64px 0 28px}
 .selpg .sp-body{width:min(1040px,100% - 28px);max-width:1040px;margin:auto;padding:28px 32px;background:#eceff0;border-radius:26px;box-shadow:0 40px 60px -18px rgba(8,40,30,.38),0 14px 26px rgba(8,40,30,.16)}
 .selpg.dark .sp-body{background:#22262a;box-shadow:0 40px 60px -18px rgba(0,0,0,.8),0 14px 26px rgba(0,0,0,.5)}
@@ -12479,6 +12480,7 @@ html[data-skin="modern"] .areasw button{background:none!important;box-shadow:non
 @media (max-width:700px){.selpg.sp-expbg .sp-body>.sp-exp{margin:0 16px}}
 @media (max-width:700px){.selpg .sp-body{padding:18px 16px;border-radius:20px}}
 `;
+const spModeHtml=d=>mIc(d?'sun':'moon')+'<span>'+(d?'Light mode':'Dark mode')+'</span>';
 function ensureFlowCss(){if(document.getElementById('flowCss'))return;const s=document.createElement('style');s.id='flowCss';s.textContent=FLOW_CSS;document.head.appendChild(s)}
 const loadDark=()=>{try{return selPrefs().mode==='dark'}catch(e){return false}},loadName=()=>{try{return DB&&DB.session&&DB.session.provider?'Maha Provider':'Maha PMS'}catch(e){return 'Maha PMS'}};
 /* the loading screen is the shared Maha loader (brand/maha/maha-loader.js): first opening of the session, then the quick one; the old screen below stays as the fallback if that file is missing */
@@ -12545,8 +12547,8 @@ let SEL_ON=false;
 function selPrefs(){let mode='light',pal='emerald';try{mode=localStorage.getItem('maha.pref.mode')==='dark'?'dark':'light';pal=localStorage.getItem('maha.pref.pal')||'emerald'}catch(e){}return {mode,pal}}
 function selShell(inner){SEL_ON=true;ensureFlowCss();const p=selPrefs(),u=user();
   document.documentElement.removeAttribute('data-skin');
-  document.getElementById('app').innerHTML=`<div class="selpg ${p.mode==='dark'?'dark':''}" data-pal="${esc(p.pal)}"><header class="sp-top"><div class="sp-logo"><img src="${ICON}" alt="">Maha PMS</div><div class="sp-right"><span>${esc(u.name||'')}</span><button type="button" class="sp-pill" id="spMode">${p.mode==='dark'?'Light mode':'Dark mode'}</button><button type="button" class="sp-pill" id="spOut">Sign out</button></div></header><main class="sp-body">${inner}</main></div>`;
-  $('#spMode').onclick=()=>{try{localStorage.setItem('maha.pref.mode',p.mode==='dark'?'light':'dark')}catch(e){}const el=document.querySelector('.selpg');if(el){el.classList.toggle('dark');$('#spMode').textContent=el.classList.contains('dark')?'Light mode':'Dark mode'}};
+  document.getElementById('app').innerHTML=`<div class="selpg ${p.mode==='dark'?'dark':''}" data-pal="${esc(p.pal)}"><header class="sp-top"><div class="sp-logo"><img src="${ICON}" alt="">Maha PMS</div><div class="sp-right"><span>${esc(u.name||'')}</span><button type="button" class="sp-pill" id="spMode">${spModeHtml(p.mode==='dark')}</button><button type="button" class="sp-pill" id="spOut">${ic('out',15)}<span>Sign out</span></button></div></header><main class="sp-body">${inner}</main></div>`;
+  $('#spMode').onclick=()=>{try{localStorage.setItem('maha.pref.mode',p.mode==='dark'?'light':'dark')}catch(e){}const el=document.querySelector('.selpg');if(el){el.classList.toggle('dark');$('#spMode').innerHTML=spModeHtml(el.classList.contains('dark'))}};
   $('#spOut').onclick=()=>{SEL_ON=false;signOut(true)}}
 async function loadPropertyList(){
   const t=await MahaAuth.fresh();if(!t)throw new Error('auth');const props=await MahaAuth.properties(t);let rows=null;
