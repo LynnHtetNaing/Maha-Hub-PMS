@@ -49,5 +49,6 @@ T('current system: the provider console is no system of the list, a provider ins
 T('the systems pop-up marks the open system by that one rule, with the icon of each system and no note under it', src.includes("const here=s.kind===currentSystemKind();") && src.includes('<span class=\"sico\" data-k=\"${s.kind}\" aria-hidden=\"true\">${ecoCardSvg(s.tone||s.kind)}</span><b>${esc(s.name)}</b>') && !src.includes("'You are here'"));
 T('the older systems list uses the same rule for the current workspace', src.includes("s.kind===currentSystemKind()?' · Current workspace'"));
 T('the open system carries a map pin (not a tick)', src.includes("ic('pin',17)") && !src.includes('class="ck" aria-hidden="true">✓'));
+T('the loading screen of a reload is named after the open system (Maha Booking when signed in to the Booking Engine), from the first moment', src.includes("sessionStorage.getItem('mahahub.sess')||localStorage.getItem('mahahub.sess')") && src.includes('"standalone":"book"') && src.includes("isBookStandalone()?'Maha Booking':'Maha PMS'"));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED');
 process.exit(fails ? 1 : 0);
