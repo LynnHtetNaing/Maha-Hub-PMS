@@ -48,5 +48,6 @@ T('current system: a system opened on its own is that system (Booking Engine, an
 T('current system: the provider console is no system of the list, a provider inside a hotel is in the PMS', cur({provider:true})==='' && cur({provider:true,inHotel:true})==='hub');
 T('the systems pop-up marks the open system by that one rule, with the icon of each system and no note under it', src.includes("const here=s.kind===currentSystemKind();") && src.includes('<span class=\"sico\" data-k=\"${s.kind}\" aria-hidden=\"true\">${ecoCardSvg(s.tone||s.kind)}</span><b>${esc(s.name)}</b>') && !src.includes("'You are here'"));
 T('the older systems list uses the same rule for the current workspace', src.includes("s.kind===currentSystemKind()?' · Current workspace'"));
+T('the open system carries a map pin (not a tick)', src.includes("ic('pin',17)") && !src.includes('class="ck" aria-hidden="true">✓'));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED');
 process.exit(fails ? 1 : 0);
