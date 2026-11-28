@@ -97,6 +97,7 @@ h1{font-size:var(--fs-h1);margin:0}h2{margin:0 0 6px;font-size:var(--fs-h2)}h3{f
 @container titles (max-width:670px){.mtop{font-size:10.5px}.mitems{gap:2px}}
 .mdrop{position:absolute;left:0;top:100%;background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 20px rgba(20,40,50,.14);min-width:260px;max-height:min(70vh,560px);overflow:auto;padding:4px 0;border-radius:0 0 6px 6px;z-index:80}.mdrop button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;padding:9px 14px;cursor:pointer;color:#22323c;font-size:14px;font-weight:600;line-height:1.35;height:auto}@media (hover:hover){.mdrop button:hover{background:#eef5f1;color:var(--green)}}.mdrop .thic{color:var(--green)}
 .tbpop{position:fixed;z-index:90;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 28px rgba(16,32,40,.2);min-width:230px;padding:6px;display:flex;flex-direction:column}.tbpop[hidden]{display:none!important}
+.tbpop button.sysrow{display:flex;align-items:center;gap:12px;width:100%;min-width:200px}.tbpop button.sysrow .sico{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#1f6d58,#134536)}.tbpop button.sysrow .sico svg{width:18px;height:18px}.tbpop button.sysrow.here{background:#e6f3ec}.tbpop button.sysrow .ck{margin-left:auto;color:#0a8f6a;font-weight:800}html[data-mode=dark] .tbpop button.sysrow.here{background:rgba(52,211,153,.14)}html[data-mode=dark] .tbpop button.sysrow .ck{color:#6ee7b7}
 .tbpop button{background:none;border:0;text-align:left;padding:10px 12px;border-radius:6px;cursor:pointer;font-weight:600;color:#223;font-size:14px}@media (hover:hover){.tbpop button:hover{background:#eef5f1;color:var(--green)}}.tbpop button .sub{display:block;font-weight:500;font-size:12px}
 .mwrap.mcenter{align-items:center;justify-content:center;padding:4vh 3vw}
 .modal.ncenter{width:min(980px,92vw)!important;min-height:52vh;max-height:88vh}
@@ -8582,9 +8583,8 @@ function openSystemsArrow(btn){
   const list=hotelSystems(H,asProv?null:user()).filter(s=>asProv||s.open);
   if(!list.length){toast('No system is open for this hotel.');return}
   const p=tbPop(btn,list.map(s=>{
-    const here=s.kind==='hub'&&!inProv;
-    const sub=!s.hotel&&asProv?'Closed for hotel staff — you can still open it':here?'You are here':s.blurb;
-    return `<button type="button" data-sys="${s.kind}"><b>${esc(s.name)}</b><span class="sub">${esc(sub)}</span></button>`;
+    const here=s.kind===currentSystemKind();
+    return `<button type="button" class="sysrow${here?' here':''}" data-sys="${s.kind}"${here?' aria-current="true"':''}${!s.hotel&&asProv?' title="Closed for hotel staff - you can still open it"':''}><span class="sico" data-k="${s.kind}" aria-hidden="true">${ecoCardSvg(s.tone||s.kind)}</span><b>${esc(s.name)}</b>${here?'<span class="ck" aria-hidden="true">✓</span>':''}</button>`;
   }).join(''));
   $$('[data-sys]',p).forEach(b=>b.onclick=()=>{p.hidden=true;const kind=b.dataset.sys;
     switchSystemTo(kind,()=>{if(kind==='hub'&&inProv){enterHotel(H.code);return}openSystem(kind,H)})});
@@ -9150,7 +9150,7 @@ function openSystemsSwitcher(){
     const locked=!s.open;
     const why=!s.released?' · Not released yet':!s.hotel?' · Ask Maha Hub to open for this hotel':!s.user?' · Not open for your account':'';
     return `<button type="button" class="btn ${locked?'ghost':'gold'}" data-sys="${s.kind}" ${locked?'disabled':''} style="justify-content:flex-start;text-align:left;width:100%;margin:0 0 8px">
-      <span style="flex:1"><b>${esc(s.name)}</b><div class="sub">${esc(s.blurb)}${why}${!why&&s.kind==='hub'?' · Current workspace':''}</div></span>
+      <span style="flex:1"><b>${esc(s.name)}</b><div class="sub">${esc(s.blurb)}${why}${!why&&s.kind===currentSystemKind()?' · Current workspace':''}</div></span>
       <span>${locked?'Closed':(s.kind==='hub'?'Open PMS':'Open')}</span></button>`;
   }).join('');
   const m=modal('Switch Maha system',`<p class="sub">You stay signed in. A system opens only when it is open for <b>${esc(H.code)}</b> and open for your account.</p>
@@ -12575,6 +12575,9 @@ function ADMIN_BACKEND_MENU(){
    whether or not the hotel also uses the PMS. Every Booking Engine page is a title of its own in the menu; no Frontend / Backend, no PMS menus. */
 function isBookStandalone(){try{return !!(DB&&DB.session&&!DB.session.provider&&DB.session.standalone==='book')}catch(e){return false}}
 function setStandalone(on){try{if(DB&&DB.session&&!DB.session.provider){if(on)DB.session.standalone='book';else delete DB.session.standalone;writeLiveSession(DB.session)}}catch(e){}}
+/* Which system the person is in right now. A system opened on its own is kept in session.standalone (Booking Engine today, every later system the same way);
+   otherwise a hotel person is in the PMS. The provider console is no system of the list. */
+function currentSystemKind(){const se=DB&&DB.session;if(!se)return '';if(se.provider&&!se.inHotel)return '';return se.standalone||'hub'}
 function BOOK_STANDALONE_MENU(){return HOTEL_BE_GROUP.items.filter(([,,p])=>!p||can(p)).map(([t,v])=>({t,flat:v}))}
 function areaMenu(src){
   if(isBookStandalone())return BOOK_STANDALONE_MENU();

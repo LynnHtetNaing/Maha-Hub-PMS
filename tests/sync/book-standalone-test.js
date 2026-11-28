@@ -39,5 +39,14 @@ T('switching PMS <-> Booking Engine shows the loading screen named after the des
 T('the loading screen of the new page carries the same name and words (nothing flashes in between)', src.includes("sessionStorage.getItem('maha.switching')") && src.includes('n=sw.name;m=sw.msg||'));
 T('a switch to the PMS from another address goes to the PMS address with the sign-in', src.includes("if(kind==='hub'&&onSplitHost()&&hostRole()!=='hub'){location.assign(sysUrl('hub',H));return}"));
 T('both system switchers (the arrow and the list) go through the loading screen, and the PMS choice clears the Booking-only mode', src.includes("switchSystemTo(kind,()=>{if(kind==='hub'&&inProv){enterHotel(H.code);return}openSystem(kind,H)})") && src.includes('switchSystemTo(kind,()=>openSystem(kind,H));'));
+/* which system is open: one rule for every system, today and later */
+const ck=cut('function currentSystemKind()','function BOOK_STANDALONE_MENU()');
+const cur=(se)=>new Function('DB',ck+';return currentSystemKind()')({session:se});
+T('current system: nobody signed in is none', new Function('DB',ck+';return currentSystemKind()')({session:null})==='');
+T('current system: a hotel person in the PMS is hub', cur({userId:'u'})==='hub');
+T('current system: a system opened on its own is that system (Booking Engine, and any later one the same way)', cur({userId:'u',standalone:'book'})==='book' && cur({userId:'u',standalone:'reach'})==='reach');
+T('current system: the provider console is no system of the list, a provider inside a hotel is in the PMS', cur({provider:true})==='' && cur({provider:true,inHotel:true})==='hub');
+T('the systems pop-up marks the open system by that one rule, with the icon of each system and no note under it', src.includes("const here=s.kind===currentSystemKind();") && src.includes('<span class=\"sico\" data-k=\"${s.kind}\" aria-hidden=\"true\">${ecoCardSvg(s.tone||s.kind)}</span><b>${esc(s.name)}</b>') && !src.includes("'You are here'"));
+T('the older systems list uses the same rule for the current workspace', src.includes("s.kind===currentSystemKind()?' · Current workspace'"));
 console.log(fails ? fails + ' FAILED' : 'ALL PASSED');
 process.exit(fails ? 1 : 0);
